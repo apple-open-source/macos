@@ -305,6 +305,7 @@ static void print_entry(id k, id v, int ind)
             NSString* ckdeviceIDError = pop(global, @"ckdeviceIDError", NSString);
             NSString* lockStateTracker = pop(global,@"lockstatetracker", NSString);
             NSString* retry = pop(global,@"cloudkitRetryAfter", NSString);
+            NSDate *lastCKKSPush = pop(global, @"lastCKKSPush", NSDate);
 
             printf("================================================================================\n\n");
             printf("Global state:\n\n");
@@ -313,6 +314,7 @@ static void print_entry(id k, id v, int ind)
             printf("CK DeviceID:          %s\n", [[ckdeviceID description] UTF8String]);
             printf("CK DeviceID Error:    %s\n", [[ckdeviceIDError description] UTF8String]);
             printf("Lock state:           %s\n", [[lockStateTracker description] UTF8String]);
+            printf("Last CKKS push:       %s\n", [[lastCKKSPush description] UTF8String]);
 
             printf("\n");
         }

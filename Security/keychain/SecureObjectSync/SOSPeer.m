@@ -44,7 +44,7 @@
 #include "keychain/SecureObjectSync/SOSBackupEvent.h"
 #include <Security/SecItemBackup.h>
 
-#include <securityd/SOSCloudCircleServer.h>
+#include "keychain/securityd/SOSCloudCircleServer.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -53,7 +53,7 @@
 #include <AssertMacros.h>
 
 // Backup Peer Support
-#include <securityd/SecKeybagSupport.h>
+#include "keychain/securityd/SecKeybagSupport.h"
 #include <notify.h>
 
 

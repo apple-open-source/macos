@@ -34,7 +34,7 @@
 #include <sqlite3.h>
 
 #include "Security_regressions.h"
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 
 /* TODO: This test needs to be updated. It was originally created to test upgrades from DB prior to the introduction of versionning, circa 2008.
    We don't support upgrading from that old of keychain, but this test should be upgraded to test upgrades from v5 to v6 keychain, or more current

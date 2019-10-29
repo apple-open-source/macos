@@ -427,14 +427,6 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
 
 __thread bool __hasAccountQueue = false;
 
-+ (void)performWhileHoldingAccountQueue:(void (^)(void))action
-{
-    bool hadAccountQueue = __hasAccountQueue;
-    __hasAccountQueue = true;
-    action();
-    __hasAccountQueue = hadAccountQueue;
-}
-
 + (void)performOnQuietAccountQueue:(void (^)(void))action
 {
     SOSAccount* account = (__bridge SOSAccount*)GetSharedAccountRef();

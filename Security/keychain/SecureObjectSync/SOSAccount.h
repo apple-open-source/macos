@@ -248,7 +248,7 @@ CFStringRef SOSInterestListCopyDescription(CFArrayRef interests);
 SOSPeerInfoRef SOSAccountCopyApplication(SOSAccount*  account, CFErrorRef*);
 CFDataRef SOSAccountCopyCircleJoiningBlob(SOSAccount*  account, SOSPeerInfoRef applicant, CFErrorRef *error);
 bool SOSAccountJoinWithCircleJoiningBlob(SOSAccount*  account, CFDataRef joiningBlob, PiggyBackProtocolVersion version, CFErrorRef *error);
-CFDataRef SOSAccountCopyInitialSyncData(SOSAccount* account, CFErrorRef *error);
+CFDataRef SOSAccountCopyInitialSyncData(SOSAccount* account, SOSInitialSyncFlags flags, CFErrorRef *error);
     
 //
 // MARK: Initial-Sync
@@ -288,7 +288,7 @@ bool SOSAccountSendToPeerIsPending(SOSAccountTransaction* txn, SOSPeerInfoRef pe
 void SOSAccountResetOTRNegotiationCoder(SOSAccount* account, CFStringRef peerid);
 void SOSAccountTimerFiredSendNextMessage(SOSAccountTransaction* txn, NSString* peerid, NSString* accessGroup);
 
-NSMutableArray* SOSAccountGetAllTLKs(void);
+NSArray<NSDictionary *>* SOSAccountGetAllTLKs(void);
 CF_RETURNS_RETAINED CFMutableArrayRef SOSAccountCopyiCloudIdentities(SOSAccount* account);
 
 __END_DECLS

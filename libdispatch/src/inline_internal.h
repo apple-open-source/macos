@@ -1118,9 +1118,6 @@ _dq_state_should_override(uint64_t dq_state)
 	if (_dq_state_is_enqueued_on_target(dq_state)) {
 		return true;
 	}
-	if (_dq_state_is_base_wlh(dq_state)) {
-		return false;
-	}
 	return _dq_state_drain_locked(dq_state);
 }
 

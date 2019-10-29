@@ -232,6 +232,7 @@
 
         if(!fakezone) {
             // This is an error: the zone doesn't exist
+            ckksnotice("fakeck", subscription.zoneID, "failing subscription for missing zone");
             self.subscriptionError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
                                                                       code:CKErrorPartialFailure
                                                                   userInfo:@{
@@ -243,6 +244,7 @@
                                                                                                       }];
 
         } else if(fakezone.subscriptionError) {
+            ckksnotice("fakeck", subscription.zoneID, "failing subscription with injected error %@", fakezone.subscriptionError);
             // Not the best way to do this, but it's an error
             // Needs fixing if you want to support multiple zone failures
             self.subscriptionError = fakezone.subscriptionError;
@@ -250,6 +252,7 @@
             // 'clear' the error
             fakezone.subscriptionError = nil;
         } else {
+            ckksnotice("fakeck", subscription.zoneID, "Successfully subscribed to zone");
             if(!self.subscriptionsSaved) {
                 self.subscriptionsSaved = [[NSMutableArray alloc] init];
             }
@@ -258,6 +261,7 @@
     }
 
     for(NSString* subscriptionID in self.subscriptionIDsToDelete) {
+        secnotice("fakeck", "Successfully deleted subscription: %@", subscriptionID);
         if(!self.subscriptionIDsDeleted) {
             self.subscriptionIDsDeleted = [[NSMutableArray alloc] init];
         }
@@ -352,7 +356,7 @@
             return;
         }
 
-        // Not precisely correct in the case of multiple zone fetches. However, we don't currently do that, so it'll work for now.
+        // Not precisely correct in the case of multiple zone fetches.
         NSError* mockError = [zone popFetchChangesError];
         if(mockError) {
             self.fetchRecordZoneChangesCompletionBlock(mockError);
@@ -678,6 +682,10 @@
     dispatch_assert_queue(self.queue);
 
     CKRecord* record = [item CKRecordWithZoneID: zoneID];
+
+    secnotice("fake-cloudkit", "adding item to zone(%@): %@", zoneID.zoneName, item);
+    secnotice("fake-cloudkit", "new record: %@", record);
+
     [self _onqueueAddToZone: record];
 
     // Save off the etag

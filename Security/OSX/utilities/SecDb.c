@@ -408,7 +408,9 @@ static bool SecDbDidCreateFirstConnection(SecDbConnectionRef dbconn, bool didCre
 
 void SecDbCorrupt(SecDbConnectionRef dbconn, CFErrorRef error)
 {
-    os_log_fault(secLogObjForScope("SecEmergency"), "SecDBCorrupt: %@", error);
+    if (__security_simulatecrash_enabled()) {
+        os_log_fault(secLogObjForScope("SecEmergency"), "SecDBCorrupt: %@", error);
+    }
     dbconn->isCorrupted = true;
     CFRetainAssign(dbconn->corruptionError, error);
 }

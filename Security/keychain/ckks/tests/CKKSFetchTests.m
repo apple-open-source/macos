@@ -11,8 +11,10 @@
 #import "keychain/ckks/tests/CloudKitKeychainSyncingTestsBase.h"
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSKeychainView.h"
+#import "keychain/ckks/CKKSZoneStateEntry.h"
 
 #import "keychain/ckks/tests/MockCloudKit.h"
+#import "keychain/ot/ObjCImprovements.h"
 
 @interface CloudKitKeychainFetchTests : CloudKitKeychainSyncingTestsBase
 @end
@@ -187,6 +189,187 @@
     [self findGenericPassword: @"account2" expecting:errSecSuccess];
     [self findGenericPassword: @"account3" expecting:errSecSuccess];
 }
+
+- (void)testMoreComingWithFullFailure {
+    WEAKIFY(self);
+    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    FakeCKZone* ckzone = self.zones[self.keychainZoneID];
+
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"account0"]];
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"account1"]];
+    CKServerChangeToken* ck1 = ckzone.currentChangeToken;
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D02" withAccount:@"account2"]];
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D03" withAccount:@"account3"]];
+
+    // The fetch fails with partial results
+    ckzone.limitFetchTo = ck1;
+    ckzone.limitFetchError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:4]}];
+
+    self.silentFetchesAllowed = false;
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
+        return YES;
+    } runBeforeFinished:^{
+        STRONGIFY(self);
+        // We want to fail with a full network failure error, but we explicitly don't want to set network reachability:
+        // CKKS won't send the fetch in that case. So...
+        [self.keychainZone failNextFetchWith:[NSError errorWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:NULL]];
+        [self expectCKFetch];
+    }];
+
+    // Trigger a notification (with hilariously fake data)
+    [self.keychainView notifyZoneChange:nil];
+
+    // Wait for both fetches....
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Potential race here: we need to start this expectation before CKKS issues the fetch. With a 4s delay, this should be safe.
+
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
+        // Assert that the fetch is happening with the change token we paused at before
+        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
+        if(changeToken && [changeToken isEqual:ck1]) {
+            return YES;
+        } else {
+            return NO;
+        }
+    } runBeforeFinished:^{}];
+
+    [self.reachabilityTracker setNetworkReachability:true];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+
+    [self findGenericPassword: @"account0" expecting:errSecSuccess];
+    [self findGenericPassword: @"account1" expecting:errSecSuccess];
+    [self findGenericPassword: @"account2" expecting:errSecSuccess];
+    [self findGenericPassword: @"account3" expecting:errSecSuccess];
+}
+
+- (void)testFetchOnRestartWithMoreComing {
+    [self putFakeKeyHierarchyInCloudKit: self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    FakeCKZone* ckzone = self.zones[self.keychainZoneID];
+
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"account0"]];
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"account1"]];
+    CKServerChangeToken* ck1 = ckzone.currentChangeToken;
+
+    // Allow CKKS to fetch fully, then fake on-disk that it received MoreComing.
+    // (It's very hard to tear down the retry logic in-process)
+    self.silentFetchesAllowed = false;
+    [self expectCKFetch];
+
+    // Trigger a notification (with hilariously fake data)
+    [self.keychainView notifyZoneChange:nil];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    [self findGenericPassword: @"account0" expecting:errSecSuccess];
+    [self findGenericPassword: @"account1" expecting:errSecSuccess];
+
+    // Now, edit the on-disk CKSE
+    [self.keychainView halt];
+
+    [self.keychainView dispatchSync: ^bool {
+        NSError* error = nil;
+        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
+
+        XCTAssertNil(error, "no error pulling ckse from database");
+        XCTAssertNotNil(ckse, "received a ckse");
+
+        ckse.moreRecordsInCloudKit = YES;
+        [ckse saveToDatabase: &error];
+        XCTAssertNil(error, "no error saving to database");
+        return true;
+    }];
+
+    // CKKS should, upon restart, kick off a fetch starting from the previous checkpoint
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D02" withAccount:@"account2"]];
+    [self.keychainZone addToZone: [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D03" withAccount:@"account3"]];
+
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
+        // Assert that the fetch is happening with the change token we paused at before
+        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
+        if(changeToken && [changeToken isEqual:ck1]) {
+            return YES;
+        } else {
+            return NO;
+        }
+    } runBeforeFinished:^{}];
+
+    self.keychainView = [self.injectedManager restartZone:self.keychainZoneID.zoneName];
+    [self.keychainView beginCloudKitOperation];
+    [self beginSOSTrustedViewOperation:self.keychainView];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+
+    [self findGenericPassword: @"account0" expecting:errSecSuccess];
+    [self findGenericPassword: @"account1" expecting:errSecSuccess];
+    [self findGenericPassword: @"account2" expecting:errSecSuccess];
+    [self findGenericPassword: @"account3" expecting:errSecSuccess];
+}
+
+- (void)testMoreComingAsFirstFetch {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+
+    FakeCKZone* ckzone = self.zones[self.keychainZoneID];
+
+    [self.keychainZone addToZone: [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"account0"]];
+    [self.keychainZone addToZone: [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"account1"]];
+    CKServerChangeToken* ck1 = ckzone.currentChangeToken;
+    [self.keychainZone addToZone: [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D02" withAccount:@"account2"]];
+    [self.keychainZone addToZone: [self createFakeRecord:self.keychainZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D03" withAccount:@"account3"]];
+
+    ckzone.limitFetchTo = ck1;
+
+    self.silentFetchesAllowed = false;
+    [self expectCKFetch];
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
+        // Assert that the fetch is happening with the change token we paused at before
+        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
+        if(changeToken && [changeToken isEqual:ck1]) {
+            return YES;
+        } else {
+            return NO;
+        }
+    } runBeforeFinished:^{}];
+
+    [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self findGenericPassword:@"account0" expecting:errSecSuccess];
+    [self findGenericPassword:@"account1" expecting:errSecSuccess];
+    [self findGenericPassword:@"account2" expecting:errSecSuccess];
+    [self findGenericPassword:@"account3" expecting:errSecSuccess];
+}
+
 
 @end
 

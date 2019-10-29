@@ -14,6 +14,8 @@
 
 - (NSString*)createKeychainDirectoryWithSubPath:(NSString*)subpath;
 
+- (void)addAccessGroup:(NSString *)accessGroup;
+
 @end
 
 #endif /* mockaksxcbase_h */

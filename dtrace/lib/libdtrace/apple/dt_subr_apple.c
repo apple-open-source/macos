@@ -5,6 +5,21 @@
 #include <string.h>
 
 #include <sys/sysctl.h>
+#include <os/assumes.h>
+
+#if TARGET_OS_IPHONE && (TARGET_OS_SIMULATOR || !TARGET_OS_IOS)
+#define TARGET_SUPPORTS_NATIVE_SYSTEM 0
+#include <crt_externs.h>
+#include <pthread.h>
+#include <spawn.h>
+#include <signal.h>
+
+#define	_PATH_BSHELL	"/bin/sh"
+#define environ (*_NSGetEnviron())
+#else
+#define TARGET_SUPPORTS_NATIVE_SYSTEM 1
+#endif /* TARGET_OS_IPHONE && (TARGET_OS_SIMULATOR || !TARGET_OS_IOS) */
+
 
 static int
 dt_pid_from_process_name(const char* name)
@@ -137,3 +152,89 @@ dt_kernel_lp64(void)
 	return 0;
 
 }
+
+int 
+dt_system(const char *command)
+{
+#if TARGET_SUPPORTS_NATIVE_SYSTEM
+	return (system(command));
+#else
+	static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	int rval;
+	pid_t pid, savedpid;
+	struct sigaction ign, intact, quitact;
+	sigset_t newsigblock, oldsigblock, defaultsig;
+	posix_spawnattr_t attr;
+	short flags = POSIX_SPAWN_SETSIGMASK;
+	const char *argv[] = {"sh", "-c", command, NULL};
+	if (!command) {
+		return (0);
+	}
+
+	rval = posix_spawnattr_init(&attr);
+	if (rval != 0) {
+		return (rval);
+	}
+	(void)sigemptyset(&defaultsig);
+
+	/*
+	 * Enforce mutual exclusion since we're messing with the signal handlers
+	 * (and libc does it).
+	 */
+	rval = pthread_mutex_lock(&mutex);
+	if (rval != 0) {
+		(void)posix_spawnattr_destroy(&attr);
+		return (rval);
+	}
+	/*
+	 * Ignore SIGINT and SIGQUIT, block SIGCHLD. Remember to save
+	 * existing signal dispositions.
+	 */
+	ign.sa_handler = SIG_IGN;
+	(void)sigemptyset(&ign.sa_mask);
+	ign.sa_flags = 0;
+	(void)sigaction(SIGINT, &ign, &intact);
+	if (intact.sa_handler != SIG_IGN) {
+		sigaddset(&defaultsig, SIGINT);
+		flags |= POSIX_SPAWN_SETSIGDEF;
+	}
+	(void)sigaction(SIGQUIT, &ign, &quitact);
+	if (quitact.sa_handler != SIG_IGN) {
+		sigaddset(&defaultsig, SIGQUIT);
+		flags |= POSIX_SPAWN_SETSIGDEF;
+	}
+	(void)sigemptyset(&newsigblock);
+	(void)sigaddset(&newsigblock, SIGCHLD);
+	(void)sigprocmask(SIG_BLOCK, &newsigblock, &oldsigblock);
+	(void)posix_spawnattr_setsigmask(&attr, &oldsigblock);
+	if (flags & POSIX_SPAWN_SETSIGDEF) {
+		(void)posix_spawnattr_setsigdefault(&attr, &defaultsig);
+	}
+	(void)posix_spawnattr_setflags(&attr, flags);
+
+	rval = posix_spawn(&pid, _PATH_BSHELL, NULL, &attr,
+				(char *const *)argv, environ);
+	(void)posix_spawnattr_destroy(&attr);
+	if (rval == 0) {
+		savedpid = pid;
+		do {
+			pid = wait4(savedpid, &rval, 0, (struct rusage *)0);
+		} while (pid == -1 && errno == EINTR);
+		if (pid == -1){
+			rval = -1;
+		}
+	} else if (rval == ENOMEM || rval == EAGAIN) { /* as if fork failed */
+		rval = -1;
+	} else {
+		rval = W_EXITCODE(127, 0); /* couldn't exec shell */
+	}
+
+	(void)sigaction(SIGINT, &intact, NULL);
+	(void)sigaction(SIGQUIT,  &quitact, NULL);
+	(void)sigprocmask(SIG_SETMASK, &oldsigblock, NULL);
+	rval = pthread_mutex_unlock(&mutex);
+	os_assert(rval == 0);
+	return (rval);
+#endif /* TARGET_SUPPORTS_NATIVE_SYSTEM */
+}
+

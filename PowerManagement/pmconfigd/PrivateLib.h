@@ -137,7 +137,7 @@
 #define CFDictionaryGetDoubleValue(dict, key, val) { \
     CFNumberRef n;   \
     if (CFDictionaryGetValueIfPresent((dict), (key), (const void **)&n)) { \
-        if (n) {    \
+        if (isA_CFNumber(n)) {    \
             CFNumberGetValue((n), kCFNumberDoubleType, &(val)); \
         } \
     } \

@@ -29,8 +29,8 @@
 #import "CKKSKeychainView.h"
 
 #include <utilities/SecDb.h>
-#include <securityd/SecDbItem.h>
-#include <securityd/SecItemSchema.h>
+#include "keychain/securityd/SecDbItem.h"
+#include "keychain/securityd/SecItemSchema.h"
 
 #if OCTAGON
 
@@ -46,6 +46,7 @@
                    zoneCreated:(bool)ckzonecreated
                 zoneSubscribed:(bool)ckzonesubscribed
                    changeToken:(NSData*)changetoken
+         moreRecordsInCloudKit:(BOOL)moreRecords
                      lastFetch:(NSDate*)lastFetch
                      lastFixup:(CKKSFixup)lastFixup
             encodedRateLimiter:(NSData*)encodedRateLimiter
@@ -55,6 +56,7 @@
         _ckzonecreated = ckzonecreated;
         _ckzonesubscribed = ckzonesubscribed;
         _encodedChangeToken = changetoken;
+        _moreRecordsInCloudKit = moreRecords;
         _lastFetchTime = lastFetch;
         _lastFixup = lastFixup;
 
@@ -74,6 +76,7 @@
             self.ckzonecreated == obj.ckzonecreated &&
             self.ckzonesubscribed == obj.ckzonesubscribed &&
             ((self.encodedChangeToken == nil && obj.encodedChangeToken == nil) || [self.encodedChangeToken isEqual: obj.encodedChangeToken]) &&
+            self.moreRecordsInCloudKit == obj.moreRecordsInCloudKit &&
             ((self.lastFetchTime == nil && obj.lastFetchTime == nil) || [self.lastFetchTime isEqualToDate: obj.lastFetchTime]) &&
             ((self.rateLimiter == nil && obj.rateLimiter == nil) || [self.rateLimiter isEqual: obj.rateLimiter]) &&
             self.lastFixup == obj.lastFixup &&
@@ -93,6 +96,7 @@
                                              zoneCreated:false
                                           zoneSubscribed:false
                                              changeToken:nil
+                                   moreRecordsInCloudKit:NO
                                                lastFetch:nil
                                                lastFixup:CKKSCurrentFixupNumber
                                       encodedRateLimiter:nil];
@@ -147,7 +151,7 @@
 }
 
 + (NSArray<NSString*>*) sqlColumns {
-    return @[@"ckzone", @"ckzonecreated", @"ckzonesubscribed", @"changetoken", @"lastfetch", @"ratelimiter", @"lastFixup"];
+    return @[@"ckzone", @"ckzonecreated", @"ckzonesubscribed", @"changetoken", @"lastfetch", @"ratelimiter", @"lastFixup", @"morecoming"];
 }
 
 - (NSDictionary<NSString*,NSString*>*) whereClauseToFindSelf {
@@ -164,6 +168,7 @@
          @"lastfetch": CKKSNilToNSNull(self.lastFetchTime ? [dateFormat stringFromDate: self.lastFetchTime] : nil),
          @"ratelimiter": CKKSNilToNSNull([self.encodedRateLimiter base64EncodedStringWithOptions:0]),
              @"lastFixup": [NSNumber numberWithLong:self.lastFixup],
+             @"morecoming": [NSNumber numberWithBool:self.moreRecordsInCloudKit],
              };
 }
 
@@ -172,6 +177,7 @@
                                           zoneCreated:row[@"ckzonecreated"].asBOOL
                                        zoneSubscribed:row[@"ckzonesubscribed"].asBOOL
                                           changeToken:row[@"changetoken"].asBase64DecodedData
+                                moreRecordsInCloudKit:row[@"morecoming"].asBOOL
                                             lastFetch:row[@"lastfetch"].asISO8601Date
                                             lastFixup:(CKKSFixup)row[@"lastFixup"].asNSInteger
                                    encodedRateLimiter:row[@"ratelimiter"].asBase64DecodedData

@@ -69,9 +69,9 @@
     return (__bridge_transfer NSData*) result;
 }
 
--(NSData*) circleGetInitialSyncViews: (NSError**) error{
+-(NSData*) circleGetInitialSyncViews:(SOSInitialSyncFlags)flags error:(NSError**) error{
     CFErrorRef failure = NULL;
-    CFDataRef result = SOSCCCopyInitialSyncData(&failure);
+    CFDataRef result = SOSCCCopyInitialSyncData(flags, &failure);
     if (failure != NULL && error != nil) {
         *error = (__bridge_transfer NSError*) failure;
     }

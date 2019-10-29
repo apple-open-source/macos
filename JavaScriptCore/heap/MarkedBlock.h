@@ -145,7 +145,7 @@ public:
         void finishSweepKnowingHeapCellType(FreeList*, const DestroyFunc&);
         
         void unsweepWithNoNewlyAllocated();
-
+        
         void shrink();
             
         void visitWeakSet(SlotVisitor&);

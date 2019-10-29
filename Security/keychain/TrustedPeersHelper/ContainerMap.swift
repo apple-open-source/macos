@@ -32,6 +32,50 @@ import Foundation
 
 let CuttlefishPushTopicBundleIdentifier = "com.apple.security.cuttlefish"
 
+struct CKInternalErrorMatcher {
+    let code: Int
+    let internalCode: Int
+}
+
+// Match a CKError/CKInternalError
+func ~= (pattern: CKInternalErrorMatcher, value: Error?) -> Bool {
+    guard let value = value else {
+        return false
+    }
+    let error = value as NSError
+    guard let underlyingError = error.userInfo[NSUnderlyingErrorKey] as? NSError else {
+        return false
+    }
+    return error.domain == CKErrorDomain && error.code == pattern.code &&
+           underlyingError.domain == CKInternalErrorDomain && underlyingError.code == pattern.internalCode
+}
+
+struct CKErrorMatcher {
+    let code: Int
+}
+
+// Match a CKError
+func ~= (pattern: CKErrorMatcher, value: Error?) -> Bool {
+    guard let value = value else {
+        return false
+    }
+    let error = value as NSError
+    return error.domain == CKErrorDomain && error.code == pattern.code
+}
+
+struct NSURLErrorMatcher {
+    let code: Int
+}
+
+// Match an NSURLError
+func ~= (pattern: NSURLErrorMatcher, value: Error?) -> Bool {
+    guard let value = value else {
+        return false
+    }
+    let error = value as NSError
+    return error.domain == NSURLErrorDomain && error.code == pattern.code
+}
+
 public class RetryingInvocable: CloudKitCode.Invocable {
     private let underlyingInvocable: CloudKitCode.Invocable
 
@@ -39,13 +83,17 @@ public class RetryingInvocable: CloudKitCode.Invocable {
         self.underlyingInvocable = retry
     }
 
-    private func retryableError(error: Error?) -> Bool {
+   public class func retryableError(error: Error?) -> Bool {
         switch error {
-        case let error as NSError where error.domain == NSURLErrorDomain && error.code == NSURLErrorTimedOut:
+        case NSURLErrorMatcher(code: NSURLErrorTimedOut):
             return true
-        case let error as NSError where error.domain == CKErrorDomain && error.code == CKError.networkFailure.rawValue:
+        case CKErrorMatcher(code: CKError.networkFailure.rawValue):
+            return true
+        case CKInternalErrorMatcher(code: CKError.serverRejectedRequest.rawValue, internalCode: CKInternalErrorCode.errorInternalServerInternalError.rawValue):
             return true
         case CuttlefishErrorMatcher(code: CuttlefishErrorCode.retryableServerFailure):
+            return true
+        case CuttlefishErrorMatcher(code: CuttlefishErrorCode.transactionalFailure):
             return true
         default:
             return false
@@ -54,7 +102,7 @@ public class RetryingInvocable: CloudKitCode.Invocable {
 
     public func invoke<RequestType, ResponseType>(function: String,
                                                   request: RequestType,
-                                                  completion: @escaping (ResponseType?, Error?) -> Void) where RequestType : Message, ResponseType : Message {
+                                                  completion: @escaping (ResponseType?, Error?) -> Void) where RequestType: Message, ResponseType: Message {
         let now = Date()
         let deadline = Date(timeInterval: 30, since: now)
         let delay = TimeInterval(5)
@@ -62,7 +110,7 @@ public class RetryingInvocable: CloudKitCode.Invocable {
         self.invokeRetry(function: function,
                          request: request,
                          deadline: deadline,
-                         delay: delay,
+                         minimumDelay: delay,
                          completion: completion)
     }
 
@@ -70,14 +118,20 @@ public class RetryingInvocable: CloudKitCode.Invocable {
         function: String,
         request: RequestType,
         deadline: Date,
-        delay: TimeInterval,
+        minimumDelay: TimeInterval,
         completion: @escaping (ResponseType?, Error?) -> Void) {
 
         self.underlyingInvocable.invoke(function: function,
                                         request: request) { (response: ResponseType?, error: Error?) in
-            if self.retryableError(error: error) {
+            if let error = error, RetryingInvocable.retryableError(error: error) {
                 let now = Date()
+
+                // Check cuttlefish and CKError retry afters.
+                let cuttlefishDelay = CuttlefishRetryAfter(error: error)
+                let ckDelay = CKRetryAfterSecondsForError(error)
+                let delay = max(minimumDelay, cuttlefishDelay, ckDelay)
                 let cutoff = Date(timeInterval: delay, since: now)
+
                 guard cutoff.compare(deadline) == ComparisonResult.orderedDescending else {
                     Thread.sleep(forTimeInterval: delay)
                     os_log("%{public}@ error: %{public}@ (retrying, now=%{public}@, deadline=%{public}@)", log: tplogDebug,
@@ -88,7 +142,7 @@ public class RetryingInvocable: CloudKitCode.Invocable {
                     self.invokeRetry(function: function,
                                      request: request,
                                      deadline: deadline,
-                                     delay: delay,
+                                     minimumDelay: minimumDelay,
                                      completion: completion)
                     return
                 }

@@ -1019,10 +1019,6 @@ MSDOS_Create (UVFSFileNode dirNode, const char *name, const UVFSFileAttributes *
         MSDOS_LOG(LEVEL_ERROR, "MSDOS_Create: Create new dir entry for the file ended with error [%d].\n",iError);
         goto free_allocated_clusters;
     }
-
-    MultiReadSingleWrite_LockWrite( &psParentRecord->sRecordData.psFSRecord->sDirEntryAccessLock );
-    DIROPS_UpdateDirLastModifiedTime( psParentRecord );
-    MultiReadSingleWrite_FreeWrite( &psParentRecord->sRecordData.psFSRecord->sDirEntryAccessLock );
     
     // Lookup for the new file
     iError = DIROPS_LookupInternal (dirNode, name, outNode, true);
@@ -1130,10 +1126,6 @@ MSDOS_SymLink (UVFSFileNode dirNode, const char *name, const char *contents, con
         MSDOS_LOG(LEVEL_ERROR, "MSDOS_SymLink: Create new dir entry for the link ended with error [%d].\n", iError);
         goto free_allocated_clusters;
     }
-
-    MultiReadSingleWrite_LockWrite( &psParentRecord->sRecordData.psFSRecord->sDirEntryAccessLock );
-    DIROPS_UpdateDirLastModifiedTime( psParentRecord );
-    MultiReadSingleWrite_FreeWrite( &psParentRecord->sRecordData.psFSRecord->sDirEntryAccessLock );
     
     // Lookup for the new file
     iError = DIROPS_LookupInternal( dirNode, name, outNode, true );
@@ -1564,14 +1556,6 @@ MSDOS_Rename (UVFSFileNode fromDirNode, UVFSFileNode fromNode, const char *fromN
         MSDOS_LOG(LEVEL_ERROR, "MSDOS_Rename: unable to remove old file / directory entry (DIROPS_MarkNodeDirEntriesAsDeleted returned %d).\n",iError);
         goto exit;
     }
-
-    MultiReadSingleWrite_LockWrite( &psFSRecord->sDirEntryAccessLock );
-    DIROPS_UpdateDirLastModifiedTime( psFromParentRecord );
-    if ( psFromParentRecord != psToParentRecord )
-    {
-        DIROPS_UpdateDirLastModifiedTime( psToParentRecord );
-    }
-    MultiReadSingleWrite_FreeWrite( &psFSRecord->sDirEntryAccessLock );
     
 exit:
     // Release all nodes locks

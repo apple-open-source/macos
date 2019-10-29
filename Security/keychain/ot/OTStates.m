@@ -99,12 +99,15 @@ OctagonState* const OctagonStateTPHTrustCheck = (OctagonState*) @"tph_trust_chec
 OctagonState* const OctagonStateCuttlefishTrustCheck = (OctagonState*) @"cuttlefish_trust_check";
 OctagonState* const OctagonStatePostRepairCFU = (OctagonState*) @"post_repair_cfu";
 OctagonState* const OctagonStateSecurityTrustCheck = (OctagonState*) @"security_trust_check";
+OctagonState* const OctagonStateHealthCheckReset = (OctagonState*) @"health_check_reset";
 /* signout */
 OctagonState* const OctagonStateNoAccountDoReset = (OctagonState*) @"no_account_do_reset";
 
 OctagonState* const OctagonStateWaitForUnlock = (OctagonState*) @"wait_for_unlock";
 
 OctagonState* const OctagonStateAssistCKKSTLKUpload = (OctagonState*) @"assist_ckks_tlk_upload";
+OctagonState* const OctagonStateAssistCKKSTLKUploadCKKSReset = (OctagonState*) @"assist_ckks_tlk_upload_ckks_reset";
+OctagonState* const OctagonStateAssistCKKSTLKUploadAfterCKKSReset = (OctagonState*) @"assist_ckks_tlk_upload_after_ckks_reset";
 
 /* escrow */
 OctagonState* const OctagonStateEscrowTriggerUpdate = (OctagonState*) @"escrow-trigger-update";
@@ -175,6 +178,9 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonStateMap(void) {
                 OctagonStateInitiatorJoinCKKSReset:             @47U,
                 OctagonStateInitiatorJoinAfterCKKSReset:        @48U,
                 OctagonStateHSA2HealthCheck:                    @49U,
+                OctagonStateHealthCheckReset:                   @50U,
+                OctagonStateAssistCKKSTLKUploadCKKSReset:       @51U,
+                OctagonStateAssistCKKSTLKUploadAfterCKKSReset:  @52U,
             };
     });
     return map;
@@ -190,7 +196,6 @@ NSDictionary<NSNumber*, OctagonState*>* OctagonStateInverseMap(void) {
     return backwardMap;
 }
 
-// This mistakenly includes OctagonStateWaitForHSA2, which should not be considered an "In Account" state.
 NSSet<OctagonState*>* OctagonInAccountStates(void)
 {
     static NSSet<OctagonState*>* s = nil;
@@ -206,6 +211,7 @@ NSSet<OctagonState*>* OctagonInAccountStates(void)
         [sourceStates removeObject:OctagonStateDetermineiCloudAccountState];
         [sourceStates removeObject:OctagonStateWaitingForCloudKitAccount];
         [sourceStates removeObject:OctagonStateCloudKitNewlyAvailable];
+        [sourceStates removeObject:OctagonStateWaitForHSA2];
 
         s = sourceStates;
     });
@@ -231,6 +237,7 @@ NSSet<OctagonState *>* OctagonHealthSourceStates(void)
 }
 
 // Flags
+OctagonFlag* const OctagonFlagIDMSLevelChanged = (OctagonFlag*) @"idms_level";
 OctagonFlag* const OctagonFlagEgoPeerPreapproved = (OctagonFlag*) @"preapproved";
 OctagonFlag* const OctagonFlagCKKSRequestsTLKUpload  = (OctagonFlag*) @"tlk_upload_needed";
 OctagonFlag* const OctagonFlagCuttlefishNotification = (OctagonFlag*) @"recd_push";
@@ -239,6 +246,6 @@ OctagonFlag* const OctagonFlagAttemptSOSUpgrade = (OctagonFlag*)@"attempt_sos_up
 OctagonFlag* const OctagonFlagFetchAuthKitMachineIDList = (OctagonFlag*)@"attempt_machine_id_list";
 OctagonFlag* const OctagonFlagUnlocked = (OctagonFlag*)@"unlocked";
 OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals = (OctagonFlag*)@"attempt_sos_update_preapprovals";
-OctagonFlag* const OctagonFlagPerformHealthCheck = (OctagonFlag*)@"perform_health_check";
+OctagonFlag* const OctagonFlagAttemptSOSConsistency = (OctagonFlag*)@"attempt_sos_consistency";
 OctagonFlag* const OctagonFlagEscrowRequestInformCloudServicesOperation = (OctagonFlag*)@"escrowrequest_inform_cloudservices";
 #endif // OCTAGON

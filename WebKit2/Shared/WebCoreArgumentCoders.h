@@ -50,6 +50,10 @@
 #include <WebCore/CurlProxySettings.h>
 #endif
 
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/WebCoreArgumentCodersAdditions.h>
+#endif
+
 #if PLATFORM(COCOA)
 namespace WTF {
 class MachSendRight;
@@ -691,6 +695,11 @@ template<> struct ArgumentCoder<WebCore::ShippingContactUpdate> {
 template<> struct ArgumentCoder<WebCore::ShippingMethodUpdate> {
     static void encode(Encoder&, const WebCore::ShippingMethodUpdate&);
     static Optional<WebCore::ShippingMethodUpdate> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<WebCore::PaymentSessionError> {
+    static void encode(Encoder&, const WebCore::PaymentSessionError&);
+    static Optional<WebCore::PaymentSessionError> decode(Decoder&);
 };
 
 #endif

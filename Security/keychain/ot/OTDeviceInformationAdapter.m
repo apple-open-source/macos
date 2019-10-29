@@ -1,4 +1,6 @@
-#import "OTDeviceInformationAdapter.h"
+#import "keychain/ot/OTDeviceInformationAdapter.h"
+#import "keychain/ot/OTConstants.h"
+#import "keychain/ckks/CKKSListenerCollection.h"
 #import "keychain/ckks/CKKS.h"
 
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -12,7 +14,21 @@
 #include <MobileGestalt.h>
 #endif
 
+static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, void *context);
+
+@interface OTDeviceInformationActualAdapter ()
+@property CKKSListenerCollection<id<OTDeviceInformationNameUpdateListener>>* deviceNameUpdateListeners;
+@property (assign) SCDynamicStoreRef store;
+@end
+
 @implementation OTDeviceInformationActualAdapter
+
+- (void)dealloc {
+    if (self.store) {
+        CFRelease(self.store);
+        self.store = NULL;
+    }
+}
 
 - (NSString*)modelID
 {
@@ -57,6 +73,18 @@
     }
 }
 
+- (void)registerForDeviceNameUpdates:(id<OTDeviceInformationNameUpdateListener>)listener
+{
+    // Octagon only uses the device name on internal releases.
+    // Therefore, if this is not an internal release, don't bother registering clients--they don't need the update.
+    if (SecIsInternalRelease()) {
+        @synchronized (self) {
+            [self setupDeviceNameListener];
+            [self.deviceNameUpdateListeners registerListener:listener];
+        }
+    }
+}
+
 - (NSString*)osVersion
 {
     return SecCKKSHostOSVersion();
@@ -97,5 +125,38 @@
 
 #endif
 
+
+- (void)setupDeviceNameListener {
+    if (self.deviceNameUpdateListeners == nil) {
+        self.deviceNameUpdateListeners = [[CKKSListenerCollection alloc] initWithName:@"OTDeviceInformationActualAdapter"];
+
+        CFStringRef computerKey = SCDynamicStoreKeyCreateComputerName(NULL);
+        if (computerKey == NULL) {
+            return;
+        }
+        NSArray *keys = @[ (__bridge NSString *)computerKey];
+        CFRelease(computerKey);
+
+        SCDynamicStoreContext context = { .info = (void *)(__bridge CFTypeRef)self };
+        self.store = SCDynamicStoreCreate(NULL, CFSTR("OTDeviceInformationActualAdapter"), updateDeviceNameChanges, &context);
+        if (self.store == NULL) {
+            return;
+        }
+
+        SCDynamicStoreSetNotificationKeys(self.store, (__bridge CFArrayRef)keys, NULL);
+        SCDynamicStoreSetDispatchQueue(self.store, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
+    }
+}
+
 @end
+
+static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, void *info)
+{
+    secnotice("octagon", "Notified that the device name has changed");
+    OTDeviceInformationActualAdapter *adapter = (__bridge id)info;
+
+    [adapter.deviceNameUpdateListeners iterateListeners:^void(id<OTDeviceInformationNameUpdateListener> object){
+        [object deviceNameUpdated];
+    }];
+}
 

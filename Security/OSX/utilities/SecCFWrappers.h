@@ -902,6 +902,9 @@ static inline CFMutableSetRef CFSetCreateIntersection(CFAllocatorRef allocator, 
 
 static inline CFSetRef CFSetCreateCopyOfArrayForCFTypes(CFArrayRef array) {
     CFIndex count = CFArrayGetCount(array);
+    if (SIZE_MAX/sizeof(const void *) < (size_t)count) {
+        return NULL;
+    }
     const void **values = (const void **)malloc(sizeof(const void *) * count);
     CFArrayGetValues(array, CFRangeMake(0, count), values);
     CFSetRef set = CFSetCreate(CFGetAllocator(array), values, count, &kCFTypeSetCallBacks);

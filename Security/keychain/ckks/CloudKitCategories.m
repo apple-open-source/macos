@@ -54,30 +54,43 @@
     return false;
 }
 
-- (BOOL)isCuttlefishError:(CuttlefishErrorCode)cuttlefishError
+- (BOOL)isCuttlefishError:(CuttlefishErrorCode)cuttlefishErrorCode
 {
     NSError *error = self;
-    NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
 
-    // This funny code is becase CodeOperation was not wrapping underlying errors with CKError, and then they fixed that in <rdar://problem/51905322>
-    // if you find this code, it probably time to always check for CKErrorDomain/CKErrorServerRejectedRequest
-    if ([error.domain isEqualToString:CKErrorDomain] && error.code == CKErrorServerRejectedRequest && underlyingError) {
-        error = underlyingError;
-    }
-
-    if([error.domain isEqualToString:CKInternalErrorDomain] && error.code == CKErrorInternalPluginError) {
+    if ([error.domain isEqualToString:CKErrorDomain] && error.code == CKErrorServerRejectedRequest) {
         NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
-        if(underlyingError &&
-           [underlyingError.domain isEqualToString:CuttlefishErrorDomain] &&
-           underlyingError.code == cuttlefishError) {
-            return YES;
+
+        if([underlyingError.domain isEqualToString:CKInternalErrorDomain] && underlyingError.code == CKErrorInternalPluginError) {
+            NSError* cuttlefishError = underlyingError.userInfo[NSUnderlyingErrorKey];
+
+            if([cuttlefishError.domain isEqualToString:CuttlefishErrorDomain] && cuttlefishError.code == cuttlefishErrorCode) {
+                return YES;
+            }
         }
     }
     return NO;
 }
 
+- (NSTimeInterval)cuttlefishRetryAfter {
+    NSError *error = self;
 
+    if ([error.domain isEqualToString:CKErrorDomain] && error.code == CKErrorServerRejectedRequest) {
+        NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
 
+        if([underlyingError.domain isEqualToString:CKInternalErrorDomain] && underlyingError.code == CKErrorInternalPluginError) {
+            NSError* cuttlefishError = underlyingError.userInfo[NSUnderlyingErrorKey];
+
+            if([cuttlefishError.domain isEqualToString:CuttlefishErrorDomain]) {
+                NSNumber* val = cuttlefishError.userInfo[CuttlefishErrorRetryAfterKey];
+                if (val) {
+                    return (NSTimeInterval)val.doubleValue;
+                }
+            }
+        }
+    }
+    return 0;
+}
 
 @end
 

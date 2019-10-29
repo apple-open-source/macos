@@ -303,13 +303,12 @@ void SimpleDateFormat::NSOverride::free() {
 // to modify it so that it doesn't use thousands separators, doesn't always
 // show the decimal point, and recognizes integers only when parsing
 static void fixNumberFormatForDates(NumberFormat &nf) {
-    nf.setGroupingUsed(FALSE);
-    DecimalFormat* decfmt = dynamic_cast<DecimalFormat*>(&nf);
-    if (decfmt != NULL) {
-        decfmt->setDecimalSeparatorAlwaysShown(FALSE);
-    }
-    nf.setParseIntegerOnly(TRUE);
-    nf.setMinimumFractionDigits(0); // To prevent "Jan 1.00, 1997.00"
+    // Use new group setter equivalent to
+    //    setGroupingUsed(FALSE);
+    //    setDecimalSeparatorAlwaysShown(FALSE);
+    //    setParseIntegerOnly(TRUE);
+    //    setMinimumFractionDigits(0); // To prevent "Jan 1.00, 1997.00"
+    nf.setDateSettings(); // Apple rdar://50064762
 }
 
 static const SharedNumberFormat *createSharedNumberFormat(

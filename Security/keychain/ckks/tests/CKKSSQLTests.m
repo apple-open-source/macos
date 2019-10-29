@@ -35,7 +35,7 @@
 #import "keychain/ckks/CKKSDeviceStateEntry.h"
 #import "keychain/ckks/CKKSRateLimiter.h"
 
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 
 @interface CloudKitKeychainSQLTests : CloudKitMockXCTest
 @end
@@ -226,6 +226,7 @@
                                                              zoneCreated:true
                                                           zoneSubscribed:true
                                                              changeToken:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
+                                                   moreRecordsInCloudKit:YES
                                                                lastFetch:[NSDate date]
                                                                lastFixup:CKKSCurrentFixupNumber
                                                       encodedRateLimiter:nil];
@@ -235,6 +236,7 @@
                                                                   zoneCreated:true
                                                                zoneSubscribed:true
                                                                   changeToken:[@"nonsense" dataUsingEncoding:NSUTF8StringEncoding]
+                                                        moreRecordsInCloudKit:YES
                                                                     lastFetch:zse.lastFetchTime
                                                                     lastFixup:CKKSCurrentFixupNumber
                                                            encodedRateLimiter:zse.encodedRateLimiter];
@@ -243,6 +245,7 @@
                                                                       zoneCreated:true
                                                                    zoneSubscribed:true
                                                                       changeToken:[@"allnonsense" dataUsingEncoding:NSUTF8StringEncoding]
+                                                            moreRecordsInCloudKit:NO
                                                                         lastFetch:zse.lastFetchTime
                                                                         lastFixup:CKKSCurrentFixupNumber
                                                                encodedRateLimiter:zse.encodedRateLimiter];

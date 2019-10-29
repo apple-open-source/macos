@@ -1359,7 +1359,18 @@ static void GSSCred_peer_event_handler(struct peer *peer, xpc_object_t event)
 	    CFRelease(bundle);
 	}
     }
-
+    
+    //the bundle id above should be used along with PID for impersonation.  The code below is to prevent a client from assigning only the pid and have it be accepted.  This can happen because NE can use the PID by itself for Per App VPN in some cases.
+    pid_t pid = (int)xpc_dictionary_get_int64(event, "impersonate_pid");
+    if (pid) {
+	pid_t currentPid = getpid();
+	if (currentPid && pid != currentPid) {
+	    if (!haveBooleanEntitlement(peer, "com.apple.private.accounts.bundleidspoofing")) {
+	    	xpc_connection_cancel(peer->peer);
+		return;
+	    }
+	}
+    }
 
     const char *cmd = xpc_dictionary_get_string(event, "command");
     if (cmd == NULL) {

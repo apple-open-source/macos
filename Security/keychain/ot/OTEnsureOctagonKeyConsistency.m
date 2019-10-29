@@ -39,7 +39,7 @@
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/ObjCImprovements.h"
-#import <securityd/SOSCloudCircleServer.h>
+#import "keychain/securityd/SOSCloudCircleServer.h"
 
 @interface OTEnsureOctagonKeyConsistency ()
 @property OTOperationDependencies* deps;
@@ -64,7 +64,7 @@
 
 - (void)groupStart
 {
-    secnotice("octagon-sos", "Beginning ensuring Octagon keys are the same between ");
+    secnotice("octagon-sos", "Beginning ensuring Octagon keys are set properly in SOS");
 
     self.finishOp = [[NSOperation alloc] init];
     [self dependOnBeforeGroupFinished:self.finishOp];
@@ -99,7 +99,7 @@
 
     NSError* fetchSelfPeersError = nil;
     CKKSSelves *selfPeers = [octagonAdapter fetchSelfPeers:&fetchSelfPeersError];
-    if(fetchSelfPeersError) {
+    if((!selfPeers) || fetchSelfPeersError) {
         secnotice("octagon", "failed to retrieve self peers: %@", fetchSelfPeersError);
         self.error = fetchSelfPeersError;
         [self runBeforeGroupFinished:self.finishOp];

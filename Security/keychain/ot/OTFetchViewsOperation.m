@@ -59,47 +59,37 @@
     if ([self.ckm useCKKSViewsFromPolicy]) {
         WEAKIFY(self);
         
-        NSXPCConnection<TrustedPeersHelperProtocol>* proxy = [self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+        [self.deps.cuttlefishXPCWrapper fetchPolicyWithContainer:self.deps.containerName context:self.deps.contextID reply:^(TPPolicy* _Nullable policy, NSError* _Nullable error) {
                 STRONGIFY(self);
-                secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventFetchViews withAttributes:nil];
-                self.error = error;
-                [self runBeforeGroupFinished:self.finishedOp];
-            }];
-        if (proxy) {
-            [proxy fetchPolicyWithContainer:self.deps.containerName context:self.deps.contextID reply:^(TPPolicy* _Nullable policy, NSError* _Nullable error) {
-                    STRONGIFY(self);
-                    if (error) {
-                        secerror("octagon: failed to retrieve policy: %@", error);
-                        [[CKKSAnalytics logger] logResultForEvent:OctagonEventFetchViews hardFailure:true result:error];
-                        self.error = error;
-                        [self runBeforeGroupFinished:self.finishedOp];
-                    } else {
-                        if (policy == nil) {
-                            secerror("octagon: no policy returned");
-                        }
-                        self.policy = policy;
-                        WEAKIFY(self);
-                        NSArray<NSString*>* sosViews = [sosViewList allObjects];
-                        [proxy getViewsWithContainer:self.deps.containerName context:self.deps.contextID inViews:sosViews reply:^(NSArray<NSString*>* _Nullable outViews, NSError* _Nullable error) {
-                                STRONGIFY(self);
-                                if (error) {
-                                    secerror("octagon: failed to retrieve list of views: %@", error);
-                                    [[CKKSAnalytics logger] logResultForEvent:OctagonEventFetchViews hardFailure:true result:error];
-                                    self.error = error;
-                                    [self runBeforeGroupFinished:self.finishedOp];
-                                } else {
-                                    if (outViews == nil) {
-                                        secerror("octagon: bad results from getviews");
-                                    } else {
-                                        self.viewList = [NSSet setWithArray:outViews];
-                                    }
-                                    [self complete];
-                                }
-                            }];
+                if (error) {
+                    secerror("octagon: failed to retrieve policy: %@", error);
+                    [[CKKSAnalytics logger] logResultForEvent:OctagonEventFetchViews hardFailure:true result:error];
+                    self.error = error;
+                    [self runBeforeGroupFinished:self.finishedOp];
+                } else {
+                    if (policy == nil) {
+                        secerror("octagon: no policy returned");
                     }
-                }];
-        }
+                    self.policy = policy;
+                    NSArray<NSString*>* sosViews = [sosViewList allObjects];
+                    [self.deps.cuttlefishXPCWrapper getViewsWithContainer:self.deps.containerName context:self.deps.contextID inViews:sosViews reply:^(NSArray<NSString*>* _Nullable outViews, NSError* _Nullable error) {
+                            STRONGIFY(self);
+                            if (error) {
+                                secerror("octagon: failed to retrieve list of views: %@", error);
+                                [[CKKSAnalytics logger] logResultForEvent:OctagonEventFetchViews hardFailure:true result:error];
+                                self.error = error;
+                                [self runBeforeGroupFinished:self.finishedOp];
+                            } else {
+                                if (outViews == nil) {
+                                    secerror("octagon: bad results from getviews");
+                                } else {
+                                    self.viewList = [NSSet setWithArray:outViews];
+                                }
+                                [self complete];
+                            }
+                        }];
+                }
+            }];
     } else {
         [self complete];
     }

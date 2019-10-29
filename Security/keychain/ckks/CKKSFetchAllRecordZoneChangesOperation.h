@@ -47,6 +47,15 @@ extern CKKSFetchBecause* const CKKSFetchBecauseResync;
 /* Clients that register to use fetches */
 @interface CKKSCloudKitFetchRequest : NSObject
 @property bool participateInFetch;
+
+// If true, you will receive YES in the resync parameter to your callback.
+// You may also receive YES to your callback if a resync has been triggered for you.
+// It does nothing else. Use as you see fit.
+// Note: you will receive exactly one callback with moreComing=0 and resync=1 for each
+// resync fetch. You may then receive further callbacks with resync=0 during the same fetch,
+// if other clients keep needing fetches.
+@property BOOL resync;
+
 @property (nullable) CKServerChangeToken* changeToken;
 @end
 
@@ -60,8 +69,9 @@ extern CKKSFetchBecause* const CKKSFetchBecauseResync;
 
 - (void)changesFetched:(NSArray<CKRecord*>*)changedRecords
       deletedRecordIDs:(NSArray<CKKSCloudKitDeletion*>*)deleted
-        oldChangeToken:(CKServerChangeToken* _Nullable)oldChangeToken
-        newChangeToken:(CKServerChangeToken*)changeToken;
+        newChangeToken:(CKServerChangeToken*)changeToken
+            moreComing:(BOOL)moreComing
+                resync:(BOOL)resync;
 @end
 
 // I don't understand why recordType isn't part of record ID, but deletions come in as both things
@@ -80,7 +90,6 @@ extern CKKSFetchBecause* const CKKSFetchBecauseResync;
 //  Fetching everything currently in CloudKit and comparing to local copy
 @property bool resync;
 
-@property NSDictionary<CKRecordZoneID*, id<CKKSChangeFetcherClient>>* clientMap;
 @property (nullable) NSMutableArray<CKRecordZoneID*>* fetchedZoneIDs;
 
 @property NSSet<CKKSFetchBecause*>* fetchReasons;

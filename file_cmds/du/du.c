@@ -93,8 +93,6 @@ __FBSDID("$FreeBSD: src/usr.bin/du/du.c,v 1.38 2005/04/09 14:31:40 stefanf Exp $
 #define	TERA_SI_SZ (TERA_SZ(1000ULL))
 #define	PETA_SI_SZ (PETA_SZ(1000ULL))
 
-#define TWO_TB  (2LL * 1024LL * 1024LL * 1024LL * 1024LL)
-
 unsigned long long vals_si [] = {1, KILO_SI_SZ, MEGA_SI_SZ, GIGA_SI_SZ, TERA_SI_SZ, PETA_SI_SZ};
 unsigned long long vals_base2[] = {1, KILO_2_SZ, MEGA_2_SZ, GIGA_2_SZ, TERA_2_SZ, PETA_2_SZ};
 unsigned long long *valp;
@@ -280,11 +278,7 @@ main(int argc, char *argv[])
 
 				ftsparnum = (off_t *)&p->fts_parent->fts_number;
 				ftsnum = (off_t *)&p->fts_number;
-				if (p->fts_statp->st_size < TWO_TB) {
-				    ftsparnum[0] += ftsnum[0] += p->fts_statp->st_blocks;
-				} else {
-				    ftsparnum[0] += ftsnum[0] += howmany(p->fts_statp->st_size, 512LL);
-				}
+				ftsparnum[0] += ftsnum[0] += p->fts_statp->st_blocks;
 
 				if (p->fts_level <= depth) {
 					if (hflag) {
@@ -325,33 +319,18 @@ main(int argc, char *argv[])
 
 				if (listall || p->fts_level == 0) {
 					if (hflag) {
-					    if (p->fts_statp->st_size < TWO_TB) {
 						(void) prthumanval(howmany(p->fts_statp->st_blocks,
 							blocksize));
-					    } else {
-						(void) prthumanval(howmany(howmany(p->fts_statp->st_size, 512LL),
-							blocksize));
-					    }
 						(void) printf("\t%s\n", p->fts_path);
 					} else {
-					    if (p->fts_statp->st_size < TWO_TB) {
 						(void) printf("%jd\t%s\n",
 							(intmax_t)howmany(p->fts_statp->st_blocks, blocksize),
 							p->fts_path);
-					    } else {
-						(void) printf("%jd\t%s\n",
-							(intmax_t)howmany(howmany(p->fts_statp->st_size, 512LL), blocksize),
-							p->fts_path);
-					    }
 					}
 				}
 
 				ftsparnum = (off_t *)&p->fts_parent->fts_number;
-				if (p->fts_statp->st_size < TWO_TB) {
-				    ftsparnum[0] += p->fts_statp->st_blocks;
-				} else {
-				    ftsparnum[0] += p->fts_statp->st_size / 512LL;
-				}
+				ftsparnum[0] += p->fts_statp->st_blocks;
 		}
 		savednumber = ((off_t *)&p->fts_parent->fts_number)[0];
 	}

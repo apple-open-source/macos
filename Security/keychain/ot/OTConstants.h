@@ -61,6 +61,19 @@ void OctagonRecoveryKeySetIsEnabled(BOOL value);
 BOOL OctagonAuthoritativeTrustIsEnabled(void);
 void OctagonAuthoritativeTrustSetIsEnabled(BOOL value);
 
+BOOL OctagonIsSOSFeatureEnabled(void);
+void OctagonSetSOSFeatureEnabled(BOOL value);
+
+typedef NS_ENUM(NSInteger, CuttlefishResetReason) {
+    CuttlefishResetReasonUnknown = 0,
+    CuttlefishResetReasonUserInitiatedReset = 1,
+    CuttlefishResetReasonHealthCheck = 2,
+    CuttlefishResetReasonNoBottleDuringEscrowRecovery = 3,
+    CuttlefishResetReasonLegacyJoinCircle = 4,
+    CuttlefishResetReasonRecoveryKey = 5,
+    CuttlefishResetReasonTestGenerated = 6,
+};
+
 #endif // __OBJC__
 
 #endif /* OTConstants_h */

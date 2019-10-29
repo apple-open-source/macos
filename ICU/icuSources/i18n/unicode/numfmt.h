@@ -1045,6 +1045,16 @@ public:
      */
     virtual void setRoundingMode(ERoundingMode roundingMode);
 
+    /**
+     * Group-set several settings used for numbers in date formats.
+     * Equivalent to:
+     *    setGroupingUsed(FALSE);
+     *    setParseIntegerOnly(TRUE);
+     *    setMinimumFractionDigits(0);
+     * @internal
+     */
+    virtual void setDateSettings(void);
+
 public:
 
     /**

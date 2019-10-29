@@ -24,7 +24,7 @@
 
 #include <TargetConditionals.h>
 
-#include "securityd/SecKeybagSupport.h"
+#include "keychain/securityd/SecKeybagSupport.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecBase.h>

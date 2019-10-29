@@ -31,7 +31,7 @@
 #include <Security/SecTrustSettings.h>
 #include <Security/SecTrustSettingsPriv.h>
 #include <Security/SecFramework.h>
-#include <securityd/OTATrustUtilities.h>
+#include "trust/trustd/OTATrustUtilities.h"
 
 #if !TARGET_OS_BRIDGE
 #import <OCMock/OCMock.h>
@@ -1739,9 +1739,9 @@ errOut:
     CFReleaseNull(trust);
 }
 
-// test apple subCA after date without CT passes
+// test apple subCA after date without CT fails
 - (void) testAppleSubCAException {
-    SecCertificateRef geoTrustRoot = NULL, appleISTCA8G1 = NULL, livability = NULL;
+    SecCertificateRef geoTrustRoot = NULL, appleISTCA8G1 = NULL, deprecatedSSLServer = NULL;
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("bbasile-test.scv.apple.com"));
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:576000000.0]; // April 3, 2019 at 9:00:00 AM PDT
@@ -1751,16 +1751,48 @@ errOut:
                    errOut, fail("failed to create geotrust root"));
     require_action(appleISTCA8G1 = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"AppleISTCA8G1"],
                    errOut, fail("failed to create apple IST CA"));
-    require_action(livability = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"deprecatedSSLServer"],
+    require_action(deprecatedSSLServer = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"deprecatedSSLServer"],
                    errOut, fail("failed to create deprecated SSL Server cert"));
 
-    certs = @[ (__bridge id)livability, (__bridge id)appleISTCA8G1 ];
+    certs = @[ (__bridge id)deprecatedSSLServer, (__bridge id)appleISTCA8G1 ];
     enforcement_anchors = @[ (__bridge id)geoTrustRoot ];
     require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
     require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
     require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforcement_anchors), errOut, fail("failed to set anchors"));
     require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
-    ok(SecTrustEvaluateWithError(trust, NULL), "apple public post-flag-date non-CT cert failed");
+#if !TARGET_OS_BRIDGE
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "apple public post-flag-date non-CT cert passed");
+#endif
+
+errOut:
+    CFReleaseNull(geoTrustRoot);
+    CFReleaseNull(appleISTCA8G1);
+    CFReleaseNull(deprecatedSSLServer);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+}
+
+- (void) testBasejumper {
+    SecCertificateRef baltimoreRoot = NULL, appleISTCA2 = NULL, deprecatedSSLServer = NULL;
+    SecTrustRef trust = NULL;
+    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("basejumper.apple.com"));
+    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:576000000.0]; // April 3, 2019 at 9:00:00 AM PDT
+    NSArray *certs = nil, *enforcement_anchors = nil;
+
+    require_action(baltimoreRoot = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"BaltimoreCyberTrustRoot"],
+                   errOut, fail("failed to create geotrust root"));
+    require_action(appleISTCA2 = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"AppleISTCA2_Baltimore"],
+                   errOut, fail("failed to create apple IST CA"));
+    require_action(deprecatedSSLServer = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"basejumper"],
+                   errOut, fail("failed to create deprecated SSL Server cert"));
+
+    certs = @[ (__bridge id)deprecatedSSLServer, (__bridge id)appleISTCA2 ];
+    enforcement_anchors = @[ (__bridge id)baltimoreRoot ];
+    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
+    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforcement_anchors), errOut, fail("failed to set anchors"));
+    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    XCTAssert(SecTrustEvaluateWithError(trust, NULL), "non-CT basejumper cert failed");
 
 #if !TARGET_OS_BRIDGE
     // bridgeOS doesn't ever enforce CT
@@ -1768,7 +1800,7 @@ errOut:
     CFPreferencesSetAppValue(CFSTR("DisableCTAllowlist"), kCFBooleanTrue, CFSTR("com.apple.security"));
     CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
     SecTrustSetNeedsEvaluation(trust);
-    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "apple public post-flag-date non-CT cert succeeded with allowlist disabled");
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "non-CT basejumper succeeded with allowlist disabled");
     CFPreferencesSetAppValue(CFSTR("DisableCTAllowlist"), kCFBooleanFalse, CFSTR("com.apple.security"));
     CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
 
@@ -1776,20 +1808,20 @@ errOut:
     CFPreferencesSetAppValue(CFSTR("DisableCTAllowlistApple"), kCFBooleanTrue, CFSTR("com.apple.security"));
     CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
     SecTrustSetNeedsEvaluation(trust);
-    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "apple public post-flag-date non-CT cert succeeded with Apple allowlist disabled");
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "non-CT basejumper succeeded with Apple allowlist disabled");
     CFPreferencesSetAppValue(CFSTR("DisableCTAllowlistApple"), kCFBooleanFalse, CFSTR("com.apple.security"));
     CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
 #endif // !TARGET_OS_BRIDGE
 
 errOut:
-    CFReleaseNull(geoTrustRoot);
-    CFReleaseNull(appleISTCA8G1);
-    CFReleaseNull(livability);
+    CFReleaseNull(baltimoreRoot);
+    CFReleaseNull(appleISTCA2);
+    CFReleaseNull(deprecatedSSLServer);
     CFReleaseNull(policy);
     CFReleaseNull(trust);
 }
 
-// test google subCA after date without CT passes
+// test google subCA after date without CT fails
 - (void) testGoogleSubCAException {
     SecCertificateRef globalSignRoot = NULL, googleIAG3 = NULL, google = NULL;
     SecTrustRef trust = NULL;
@@ -1810,26 +1842,9 @@ errOut:
     require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
     require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforcement_anchors), errOut, fail("failed to set anchors"));
     require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
-    ok(SecTrustEvaluateWithError(trust, NULL), "google public post-flag-date non-CT cert failed");
-
 #if !TARGET_OS_BRIDGE
-    // bridgeOS doesn't ever enforce CT
-    // Test with generic CT allowlist disable
-    CFPreferencesSetAppValue(CFSTR("DisableCTAllowlist"), kCFBooleanTrue, CFSTR("com.apple.security"));
-    CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
-    SecTrustSetNeedsEvaluation(trust);
-    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "google public post-flag-date non-CT cert succeeded with allowlist disabled");
-    CFPreferencesSetAppValue(CFSTR("DisableCTAllowlist"), kCFBooleanFalse, CFSTR("com.apple.security"));
-    CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
-
-    // Test with Google allowlist disable
-    CFPreferencesSetAppValue(CFSTR("DisableCTAllowlistGoogle"), kCFBooleanTrue, CFSTR("com.apple.security"));
-    CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
-    SecTrustSetNeedsEvaluation(trust);
-    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "google public post-flag-date non-CT cert succeeded with Goole allowlist disabled");
-    CFPreferencesSetAppValue(CFSTR("DisableCTAllowlistGoogle"), kCFBooleanFalse, CFSTR("com.apple.security"));
-    CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
-#endif // !TARGET_OS_BRIDGE
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "google public post-flag-date non-CT cert passed");
+#endif
 
 errOut:
     CFReleaseNull(globalSignRoot);
@@ -1838,4 +1853,45 @@ errOut:
     CFReleaseNull(policy);
     CFReleaseNull(trust);
 }
+
+// If pinning is disabled, pinned hostnames should continue to be exempt from CT
+- (void) testSystemwidePinningDisable {
+    SecCertificateRef baltimoreRoot = NULL, appleISTCA2 = NULL, pinnedNonCT = NULL;
+    SecTrustRef trust = NULL;
+    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("iphonesubmissions.apple.com"));
+    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:580000000.0]; // May 19, 2019 at 4:06:40 PM PDT
+    NSArray *certs = nil, *enforcement_anchors = nil;
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.apple.security"];
+
+    require_action(baltimoreRoot = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"BaltimoreCyberTrustRoot"],
+                   errOut, fail("failed to create geotrust root"));
+    require_action(appleISTCA2 = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"AppleISTCA2_Baltimore"],
+                   errOut, fail("failed to create apple IST CA"));
+    require_action(pinnedNonCT = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"iphonesubmissions"],
+                   errOut, fail("failed to create deprecated SSL Server cert"));
+
+    certs = @[ (__bridge id)pinnedNonCT, (__bridge id)appleISTCA2 ];
+    enforcement_anchors = @[ (__bridge id)baltimoreRoot ];
+    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
+    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforcement_anchors), errOut, fail("failed to set anchors"));
+    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+    XCTAssert(SecTrustEvaluateWithError(trust, NULL), "pinned non-CT cert failed");
+
+    // Test with pinning disabled
+    [defaults setBool:YES forKey:@"AppleServerAuthenticationNoPinning"];
+    [defaults synchronize];
+    SecTrustSetNeedsEvaluation(trust);
+    XCTAssert(SecTrustEvaluateWithError(trust, NULL), "pinned non-CT failed with pinning disabled");
+    [defaults setBool:NO forKey:@"AppleServerAuthenticationNoPinning"];
+    [defaults synchronize];
+
+errOut:
+    CFReleaseNull(baltimoreRoot);
+    CFReleaseNull(appleISTCA2);
+    CFReleaseNull(pinnedNonCT);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+}
+
 @end

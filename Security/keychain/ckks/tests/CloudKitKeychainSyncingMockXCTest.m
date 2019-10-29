@@ -28,8 +28,8 @@
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 #import "keychain/ckks/tests/CloudKitKeychainSyncingMockXCTest.h"
 
-#import <securityd/SecItemServer.h>
-#import <securityd/SecItemDb.h>
+#import "keychain/securityd/SecItemServer.h"
+#import "keychain/securityd/SecItemDb.h"
 
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSKeychainView.h"
@@ -145,16 +145,21 @@
 }
 
 - (void)tearDown {
-    [self.mockCKKSKeychainBackedKey stopMocking];
-    self.mockCKKSKeychainBackedKey = nil;
-
     // Make sure the key state machine won't be poked after teardown
     for(CKKSKeychainView* view in self.ckksViews) {
         [view.pokeKeyStateMachineScheduler cancel];
     }
+    [self.ckksViews removeAllObjects];
 
     [super tearDown];
     self.keys = nil;
+
+    [self.mockCKKSKeychainBackedKey stopMocking];
+    self.mockCKKSKeychainBackedKey = nil;
+
+    [((id)self.accountMetaDataStore) stopMocking];
+
+    self.remoteSOSOnlyPeer = nil;
 }
 
 - (void)startCKKSSubsystem
@@ -357,6 +362,9 @@
 - (void)putFakeKeyHierarchyInCloudKit: (CKRecordZoneID*)zoneID {
     ZoneKeys* zonekeys = [self createFakeKeyHierarchy: zoneID oldTLK:nil];
     XCTAssertNotNil(zonekeys, "failed to create fake key hierarchy for zoneID=%@", zoneID);
+    XCTAssertNil(zonekeys.error, "should have no error creating a zonekeys");
+
+    secnotice("fake-cloudkit", "new fake hierarchy: %@", zonekeys);
 
     FakeCKZone* zone = self.zones[zoneID];
     XCTAssertNotNil(zone, "failed to find zone %@", zoneID);

@@ -96,34 +96,29 @@
 
     secnotice("octagon", "vouching with %d keysets", (int)viewKeySets.count);
 
-    [[self.operationDependencies.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
-
-    }] vouchWithContainer:self.deviceInfo.containerName
-                context:self.deviceInfo.contextID
-                 peerID:self.peerID
-          permanentInfo:self.permanentInfo
-       permanentInfoSig:self.permanentInfoSig
-             stableInfo:self.stableInfo
-          stableInfoSig:self.stableInfoSig
-               ckksKeys:viewKeySets
-                  reply:^(NSData * _Nullable voucher,
-                          NSData * _Nullable voucherSig,
-                          NSError * _Nullable error)
-     {
-         if(error){
-             secerror("octagon: Error preparing voucher: %@", error);
-             self.error = error;
-         }else{
-             self.voucher = voucher;
-             self.voucherSig = voucherSig;
-             self.nextState = self.intendedState;
-         }
-         [self runBeforeGroupFinished:self.finishedOp];
-     }];
+    [self.operationDependencies.cuttlefishXPCWrapper vouchWithContainer:self.deviceInfo.containerName
+                                                                context:self.deviceInfo.contextID
+                                                                 peerID:self.peerID
+                                                          permanentInfo:self.permanentInfo
+                                                       permanentInfoSig:self.permanentInfoSig
+                                                             stableInfo:self.stableInfo
+                                                          stableInfoSig:self.stableInfoSig
+                                                               ckksKeys:viewKeySets
+                                                                  reply:^(NSData * _Nullable voucher,
+                                                                          NSData * _Nullable voucherSig,
+                                                                          NSError * _Nullable error)
+         {
+             STRONGIFY(self);
+             if(error){
+                 secerror("octagon: Error preparing voucher: %@", error);
+                 self.error = error;
+             }else{
+                 self.voucher = voucher;
+                 self.voucherSig = voucherSig;
+                 self.nextState = self.intendedState;
+             }
+             [self runBeforeGroupFinished:self.finishedOp];
+         }];
 }
 
 @end

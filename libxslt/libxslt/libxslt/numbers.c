@@ -847,7 +847,8 @@ XSLT_NUMBER_FORMAT_END:
 static int
 xsltFormatNumberPreSuffix(xsltDecimalFormatPtr self, xmlChar **format, xsltFormatNumberInfoPtr info)
 {
-    int	count=0;	/* will hold total length of prefix/suffix */
+    /* will hold total length of prefix/suffix without quote characters */
+    int	count=0;
     int len;
 
     while (1) {
@@ -945,7 +946,6 @@ xsltFormatNumberConversion(xsltDecimalFormatPtr self,
     xmlBufferPtr buffer;
     xmlChar *the_format, *prefix = NULL, *suffix = NULL;
     xmlChar *nprefix, *nsuffix = NULL;
-    xmlChar pchar;
     int	    prefix_length, suffix_length = 0, nprefix_length, nsuffix_length;
     double  scale;
     int	    j, len;
@@ -1270,14 +1270,13 @@ OUTPUT_NUMBER:
 	xmlBufferAdd(buffer, self->minusSign, xmlUTF8Strsize(self->minusSign, 1));
 
     /* Put the prefix into the buffer */
-    for (j = 0; j < prefix_length; j++) {
-	if ((pchar = *prefix++) == SYMBOL_QUOTE) {
-	    len = xmlUTF8Strsize(prefix, 1);
-	    xmlBufferAdd(buffer, prefix, len);
-	    prefix += len;
-	    j += len - 1;	/* length of symbol less length of quote */
-	} else
-	    xmlBufferAdd(buffer, &pchar, 1);
+    for (j = 0; j < prefix_length; ) {
+	if (*prefix == SYMBOL_QUOTE)
+            prefix++;
+        len = xmlUTF8Strsize(prefix, 1);
+        xmlBufferAdd(buffer, prefix, len);
+        prefix += len;
+        j += len;
     }
 
     /* Next do the integer part of the number */
@@ -1336,14 +1335,13 @@ OUTPUT_NUMBER:
 	}
     }
     /* Put the suffix into the buffer */
-    for (j = 0; j < suffix_length; j++) {
-	if ((pchar = *suffix++) == SYMBOL_QUOTE) {
-            len = xmlUTF8Strsize(suffix, 1);
-	    xmlBufferAdd(buffer, suffix, len);
-	    suffix += len;
-	    j += len - 1;	/* length of symbol less length of escape */
-	} else
-	    xmlBufferAdd(buffer, &pchar, 1);
+    for (j = 0; j < suffix_length; ) {
+	if (*suffix == SYMBOL_QUOTE)
+            suffix++;
+        len = xmlUTF8Strsize(suffix, 1);
+        xmlBufferAdd(buffer, suffix, len);
+        suffix += len;
+        j += len;
     }
 
     *result = xmlStrdup(xmlBufferContent(buffer));

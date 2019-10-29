@@ -148,6 +148,7 @@ void __security_stackshotreport(CFStringRef reason, uint32_t code);
 /* For testing only, turns off/on simulated crashes, when turning on, returns number of
    simulated crashes which were not reported since last turned off. */
 int __security_simulatecrash_enable(bool enable);
+bool __security_simulatecrash_enabled(void);
 
 /* Logging control functions */
 

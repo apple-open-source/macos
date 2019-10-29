@@ -132,6 +132,8 @@
 
 - (void)setUp
 {
+    __security_simulatecrash_enable(true);
+
     [super setUp];
     
     self.lockState = LockStateUnlocked;

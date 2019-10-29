@@ -6,20 +6,20 @@
 ;;;
 (version 1)
 
-(allow (with report) default)
-(allow (with report) file-map-executable process-info* nvram*)
-(allow (with report) dynamic-code-generation)
-
+(deny default)
+(deny file-map-executable process-info* nvram*)
+(deny dynamic-code-generation)
 (deny mach-priv-host-port)
 
 (import "system.sb")
 (import "com.apple.corefoundation.sb")
 (corefoundation)
 
-(allow file-read-metadata)
-;; We inspect all the binaries
-(allow file-read*
-       (subpath "/"))
+;; We inspect all the binaries,
+;; resolve symlinks, realpath(3), and equivalents,
+;; read preference files in-process
+(allow file-read*)
+
 (allow file-write* 
        (subpath "/private/var/db/mds"))
 (allow file-ioctl (literal "/dev/auditsessions"))

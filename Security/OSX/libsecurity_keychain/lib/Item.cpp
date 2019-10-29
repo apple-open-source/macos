@@ -1526,7 +1526,7 @@ ItemImpl::getAttributesAndData(SecKeychainAttributeInfo *info, SecItemClass *ite
             theList->count = 0;
             theList->attr = NULL;
         } else {
-            SecKeychainAttribute *attr=reinterpret_cast<SecKeychainAttribute *>(malloc(sizeof(SecKeychainAttribute)*attrCount));
+            SecKeychainAttribute *attr=reinterpret_cast<SecKeychainAttribute *>(calloc(attrCount, sizeof(SecKeychainAttribute)));
             theList->count=attrCount;
             theList->attr=attr;
 

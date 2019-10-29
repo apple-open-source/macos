@@ -41,6 +41,7 @@
 #import "keychain/ckks/CKKSKeychainBackedKey.h"
 #import "keychain/ckks/CKKSPeer.h"
 #import "keychain/ckks/CKKSTLKShare.h"
+#import "keychain/ckks/CloudKitCategories.h"
 
 #import <Security/SecItemPriv.h>
 #include <Security/SecKey.h>

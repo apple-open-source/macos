@@ -31,17 +31,29 @@
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/ObjCImprovements.h"
 
+@interface OTEpochOperation ()
+@property NSString* containerName;
+@property NSString* contextID;
+@property CuttlefishXPCWrapper* cuttlefishXPCWrapper;
+@end
+
 @implementation OTEpochOperation
 @synthesize intendedState = _intendedState;
+@synthesize nextState = _nextState;
 
-- (instancetype)initForCuttlefishContext:(OTCuttlefishContext*)context
-                           intendedState:(OctagonState*)intendedState
-                              errorState:(OctagonState*)errorState
+- (instancetype)init:(NSString*)containerName
+           contextID:(NSString*)contextID
+       intendedState:(OctagonState*)intendedState
+          errorState:(OctagonState*)errorState
+cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
 {
     if((self = [super init])) {
         _intendedState = intendedState;
         _nextState = errorState;
-        self.cuttlefishContext = context;
+
+        _containerName = containerName;
+        _contextID = contextID;
+        _cuttlefishXPCWrapper = cuttlefishXPCWrapper;
     }
     return self;
 }
@@ -53,30 +65,20 @@
     NSOperation* finishOp = [[NSOperation alloc] init];
     [self dependOnBeforeGroupFinished:finishOp];
 
-    OTCuttlefishContext* strongCuttlefishContext = self.cuttlefishContext;
-
     WEAKIFY(self);
-
-    [[strongCuttlefishContext.cuttlefishXPCConnection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-        self.error = error;
-        [self runBeforeGroupFinished:finishOp];
-
-    }]  fetchEgoEpochWithContainer:strongCuttlefishContext.containerName
-     context:strongCuttlefishContext.contextID
-     reply:^(uint64_t epoch, NSError* _Nullable error) {
-         STRONGIFY(self);
-         if(error) {
-             secerror("octagon: Error getting epoch: %@", error);
-             self.error = error;
-         } else {
-             self.epoch = epoch;
-             self.nextState = self.intendedState;
-         }
-         [self runBeforeGroupFinished:finishOp];
-
-     }];
+    [self.cuttlefishXPCWrapper fetchEgoEpochWithContainer:self.containerName
+                                                  context:self.contextID
+                                                    reply:^(uint64_t epoch, NSError* _Nullable error) {
+            STRONGIFY(self);
+            if(error) {
+                secerror("octagon: Error getting epoch: %@", error);
+                self.error = error;
+            } else {
+                self.epoch = epoch;
+                self.nextState = self.intendedState;
+            }
+            [self runBeforeGroupFinished:finishOp];
+        }];
 }
 
 @end

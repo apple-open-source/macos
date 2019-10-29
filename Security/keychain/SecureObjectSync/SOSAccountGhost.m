@@ -18,6 +18,8 @@
 #include "keychain/SecureObjectSync/SOSPeerInfoPriv.h"
 #include "keychain/SecureObjectSync/SOSAuthKitHelpers.h"
 #import "Analytics/Clients/SOSAnalytics.h"
+#include "utilities/SecTrace.h"
+
 
 #define DETECT_IOS_ONLY 1
 
@@ -290,9 +292,10 @@ bool SOSAccountGhostBustCircle(SOSAccount *account, SOSAuthKitHelpers *akh, SOSA
     __block bool result = false;
     CFErrorRef localError = NULL;
     __block NSUInteger nbusted = 9999;
-    __block NSMutableDictionary *attributes =[NSMutableDictionary new];
+    NSMutableDictionary *attributes =[NSMutableDictionary new];
+    int circleSize = SOSCircleCountPeers(account.trust.trustedCircle);
 
-    if ([akh isUseful] && [account isInCircle:nil] && SOSCircleCountPeers(account.trust.trustedCircle) > mincount) {
+    if ([akh isUseful] && [account isInCircle:nil] && circleSize > mincount) {
         if(options & SOSGhostBustiCloudIdentities) {
             secnotice("ghostBust", "Callout to cleanup icloud identities");
             result = SOSGhostBustiCloudIdentityPrivateKeys(account);
@@ -306,7 +309,8 @@ bool SOSAccountGhostBustCircle(SOSAccount *account, SOSAuthKitHelpers *akh, SOSA
                     nbusted += thinBusted;
                     attributes[@"byAge"] = @(thinBusted);
                 }
-                attributes[@"total"] = @(nbusted);
+                attributes[@"total"] = @(SecBucket1Significant(nbusted));
+                attributes[@"startCircleSize"] = @(SecBucket1Significant(circleSize));
                 result = nbusted > 0;
                 if(result) {
                     SOSAccountRestartPrivateCredentialTimer(account);
@@ -318,7 +322,7 @@ bool SOSAccountGhostBustCircle(SOSAccount *account, SOSAuthKitHelpers *akh, SOSA
                 }
                 return result;
             }];
-        secnotice("circleOps", "Ghostbusting %@ (%@)", result ? CFSTR("Performed") : CFSTR("Not Performed"), localError);
+            secnotice("circleOps", "Ghostbusting %@ (%@)", result ? CFSTR("Performed") : CFSTR("Not Performed"), localError);
         }
     } else {
         secnotice("circleOps", "Ghostbusting skipped");

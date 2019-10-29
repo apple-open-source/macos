@@ -71,6 +71,7 @@ struct krb5_init_creds_context_data {
     char *kdc_hostname;
     char *sitename;
     krb5_uuid delegated_uuid;
+    pid_t delegated_pid;
     char *delegated_signing_identity;
 
     int used_pa_types;
@@ -2910,25 +2911,49 @@ krb5_init_creds_set_source_app(krb5_context context,
 			       krb5_uuid uuid,
 			       const char *signingIdentity)
 {
+    return krb5_init_creds_set_source_process(context, ctx, uuid, 0, signingIdentity);
+}
+
+/**
+ * Set source app process information to be used for this context
+ *
+ * @param context a Kerberos 5 context.
+ * @param ctx a krb5_init_creds_context context.
+ * @param uuid uuid of delegated app
+ * @param pid pid_t of delegated app
+ *
+ * @return 0 for success, or an Kerberos 5 error code, see krb5_get_error_message().
+ * @ingroup krb5_credential
+ */
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_init_creds_set_source_process(krb5_context context,
+			       krb5_init_creds_context ctx,
+			       krb5_uuid uuid,
+			       pid_t pid,
+			       const char *signingIdentity)
+{
     ctx->runflags.delegated_uuid = 1;
     memcpy(ctx->delegated_uuid, uuid, sizeof(krb5_uuid));
-
+    if (pid) {
+	ctx->delegated_pid = pid;
+    }
+    
     if (ctx->delegated_signing_identity) {
 	free(ctx->delegated_signing_identity);
 	ctx->delegated_signing_identity = NULL;
     }
     if (signingIdentity)
 	ctx->delegated_signing_identity = strdup(signingIdentity);
-	
-    _krb5_debugx(context, 5, "krb5_init_creds_set_source_app: %s "
+    
+    _krb5_debugx(context, 5, "krb5_init_creds_set_source_app: %s %d"
 		 "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-		 signingIdentity,
+		 signingIdentity, pid,
 		 uuid[0],uuid[1],uuid[2],uuid[3],uuid[4],uuid[5],uuid[6],uuid[7],
 		 uuid[8],uuid[9],uuid[10],uuid[11],uuid[12],uuid[13],uuid[14],uuid[15]);
-
+    
     return 0;
 }
-
 
     
 /**
@@ -4132,7 +4157,7 @@ krb5_init_creds_get(krb5_context context, krb5_init_creds_context ctx)
     if (ctx->sitename)
 	krb5_sendto_set_sitename(context, stctx, ctx->sitename);
     if (ctx->runflags.delegated_uuid)
-	krb5_sendto_set_delegated_app(context, stctx, ctx->delegated_uuid, ctx->delegated_signing_identity);
+	krb5_sendto_set_delegated_app(context, stctx, ctx->delegated_uuid, ctx->delegated_pid, ctx->delegated_signing_identity);
 
     while (1) {
 	krb5_realm realm = NULL;

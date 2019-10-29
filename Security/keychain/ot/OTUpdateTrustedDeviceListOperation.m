@@ -111,38 +111,29 @@
 - (void)afterAuthKitFetch:(NSSet<NSString *>*)allowedMachineIDs
 {
     WEAKIFY(self);
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon-sos: Can't talk with TrustedPeersHelper: %@", error);
-        if (self.logForUpgrade) {
-            [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradeSetAllowList hardFailure:true result:error];
-        }
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+    [self.deps.cuttlefishXPCWrapper setAllowedMachineIDsWithContainer:self.deps.containerName
+                                                              context:self.deps.contextID
+                                                    allowedMachineIDs:allowedMachineIDs
+                                                                reply:^(BOOL listDifferences, NSError * _Nullable error) {
+            STRONGIFY(self);
 
-    }] setAllowedMachineIDsWithContainer:self.deps.containerName
-                                 context:self.deps.contextID
-                       allowedMachineIDs:allowedMachineIDs
-                                  reply:^(BOOL listDifferences, NSError * _Nullable error) {
-         STRONGIFY(self);
+            if (self.logForUpgrade) {
+                [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradeSetAllowList hardFailure:true result:error];
+            }
+            if(error) {
+                secnotice("octagon-authkit", "Unable to save machineID allow-list: %@", error);
+                self.error = error;
+            } else {
+                secnotice("octagon-authkit", "Successfully saved machineID allow-list (%@ change)", listDifferences ? @"some" : @"no");
+                if(listDifferences) {
+                    self.nextState = self.stateIfListUpdates;
+                } else {
+                    self.nextState = self.intendedState;
+                }
+            }
 
-         if (self.logForUpgrade) {
-             [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradeSetAllowList hardFailure:true result:error];
-         }
-         if(error) {
-             secnotice("octagon-authkit", "Unable to save machineID allow-list: %@", error);
-             self.error = error;
-         } else {
-             secnotice("octagon-authkit", "Successfully saved machineID allow-list (%@ change)", listDifferences ? @"some" : @"no");
-             if(listDifferences) {
-                 self.nextState = self.stateIfListUpdates;
-             } else {
-                 self.nextState = self.intendedState;
-             }
-         }
-
-         [self runBeforeGroupFinished:self.finishedOp];
-     }];
+            [self runBeforeGroupFinished:self.finishedOp];
+        }];
 }
 
 @end

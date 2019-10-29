@@ -65,6 +65,7 @@ enum {
     kIOPMAssertionMIGDoRelease                      = -1
 };
 
+
 /*
  * XPC based messaging keys
  */

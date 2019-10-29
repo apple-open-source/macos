@@ -58,11 +58,16 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithConnection:(NSXPCConnection*)connection sync:(bool)sync;
 
 - (void)restore:(NSString *)contextID dsid:(NSString *)dsid secret:(NSData*)secret escrowRecordID:(NSString*)escrowRecordID
-          reply:(void (^)(NSData* signingKeyData, NSData* encryptionKeyData, NSError* _Nullable error))reply;
-- (void)encryptionKey:(void (^)(NSData* result, NSError* _Nullable error))reply;
-- (void)signingKey:(void (^)(NSData* result, NSError* _Nullable error))reply;
-- (void)listOfRecords:(void (^)(NSArray* list, NSError* _Nullable error))reply;
-- (void)reset:(void (^)(BOOL result, NSError* _Nullable error))reply;
+          reply:(void (^)(NSData* signingKeyData, NSData* encryptionKeyData, NSError* _Nullable error))reply
+    API_DEPRECATED("Use OTClique API", macos(10.14, 10.15.1), ios(4, 17.2));
+- (void)encryptionKey:(void (^)(NSData* result, NSError* _Nullable error))reply
+    API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
+- (void)signingKey:(void (^)(NSData* result, NSError* _Nullable error))reply
+    API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
+- (void)listOfRecords:(void (^)(NSArray* list, NSError* _Nullable error))reply
+    API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
+- (void)reset:(void (^)(BOOL result, NSError* _Nullable error))reply
+    API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
 
 - (void)signIn:(NSString*)dsid container:(NSString* _Nullable)container context:(NSString*)contextID reply:(void (^)(NSError * _Nullable error))reply;
 - (void)signOut:(NSString* _Nullable)container context:(NSString*)contextID reply:(void (^)(NSError * _Nullable error))reply;
@@ -72,7 +77,8 @@ NS_ASSUME_NONNULL_BEGIN
                          ForEncryptionKey:(SFECKeyPair* _Nonnull)encryptionKey
                                 ForPeerID:(NSString*)peerID
                                     reply:(void (^)(BOOL result,
-                                                    NSError* _Nullable error))reply;
+                                                    NSError* _Nullable error))reply
+    API_DEPRECATED("No longer needed", macos(10.14, 10.15.1), ios(4, 17.2));
 
 - (void)rpcEpochWithConfiguration:(OTJoiningConfiguration*)config
                             reply:(void (^)(uint64_t epoch,
@@ -155,12 +161,13 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)resetAndEstablish:(NSString* _Nullable)container
                   context:(NSString*)context
                   altDSID:(NSString*)altDSID
+              resetReason:(CuttlefishResetReason)resetReason
                     reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)establish:(NSString* _Nullable)container
-                  context:(NSString*)context
-                  altDSID:(NSString*)altDSID
-                    reply:(void (^)(NSError* _Nullable error))reply;
+          context:(NSString*)context
+          altDSID:(NSString*)altDSID
+            reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)leaveClique:(NSString* _Nullable)container
             context:(NSString*)context

@@ -33,6 +33,7 @@
                            action:(SOSModifyPeersInCircleBlock)block;
 -(bool) handleUpdateCircle:(SOSCircleRef) prospective_circle transport:(SOSCircleStorageTransport*)circleTransport update:(bool) writeUpdate err:(CFErrorRef*)error;
 -(bool) joinCircle:(SOSAccountTransaction*) aTxn userKey:(SecKeyRef)user_key useCloudPeer:(bool)use_cloud_peer err:(CFErrorRef*) error;
+-(bool) fixICloudIdentities:(SOSAccount *) account circle: (SOSCircleRef) circle;
 
 @end
 

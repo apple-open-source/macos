@@ -164,6 +164,8 @@ static void SecDbTestCorruptionHandler(void)
 }
 
 - (void)testCorruptionHandler {
+    __security_simulatecrash_enable(false);
+
     SecDbCorruptionExitHandler = SecDbTestCorruptionHandler;
     sema = dispatch_semaphore_create(0);
 
@@ -204,6 +206,8 @@ static void SecDbTestCorruptionHandler(void)
 }
 
 - (void)testRecoverFromCorruption {
+    __security_simulatecrash_enable(false);
+
     // Setup does a reset, but that doesn't create the db yet so let's sneak in first
     __block struct stat before = {};
     WithPathInKeychainDirectory(CFSTR("keychain-2.db"), ^(const char *filename) {

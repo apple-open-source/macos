@@ -149,6 +149,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
                         status:(TPPeerStatus)peerStatus
                  memberChanges:(BOOL)memberChanges
              unknownMachineIDs:(BOOL)unknownMachineIDs
+                     osVersion:(NSString *)osVersion
 {
     if((self = [super init])) {
         _peerID = peerID;
@@ -156,18 +157,20 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         _peerStatus = peerStatus;
         _memberChanges = memberChanges;
         _unknownMachineIDsPresent = unknownMachineIDs;
+        _osVersion = osVersion;
     }
     return self;
 }
 
 - (NSString*)description
 {
-    return [NSString stringWithFormat:@"<TPHPeerState: %@ preapproved:%d status:%lld memberChanges: %@ unk. mIDs: %@>",
+    return [NSString stringWithFormat:@"<TPHPeerState: %@ preapproved:%d status:%lld memberChanges: %@ unk. mIDs: %@ osVersion: %@>",
             self.peerID,
             self.identityIsPreapproved,
             (int64_t)self.peerStatus,
             self.memberChanges ? @"YES" : @"NO",
-            self.unknownMachineIDsPresent ? @"YES" : @"NO"];
+            self.unknownMachineIDsPresent ? @"YES" : @"NO",
+            self.osVersion?:@"unknown"];
 }
 
 + (BOOL)supportsSecureCoding {
@@ -181,6 +184,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         _peerStatus = (TPPeerStatus)[coder decodeInt64ForKey:@"peerStatus"];
         _memberChanges = (BOOL)[coder decodeInt64ForKey:@"memberChanges"];
         _unknownMachineIDsPresent = (BOOL)[coder decodeInt64ForKey:@"unknownMachineIDs"];
+        _osVersion = [coder decodeObjectOfClass:[NSString class] forKey:@"osVersion"];
     }
     return self;
 }
@@ -191,6 +195,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
     [coder encodeInt64:(int64_t)self.peerStatus forKey:@"peerStatus"];
     [coder encodeInt64:(int64_t)self.memberChanges forKey:@"memberChanges"];
     [coder encodeInt64:(int64_t)self.unknownMachineIDsPresent forKey:@"unknownMachineIDs"];
+    [coder encodeObject:self.osVersion forKey:@"osVersion"];
 
 }
 @end
@@ -199,16 +204,16 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 
 - (instancetype)initWithEgoPeerID:(NSString* _Nullable)egoPeerID
                            status:(TPPeerStatus)egoStatus
-              peerCountsByModelID:(NSDictionary<NSString*, NSNumber*>*)peerCountsByModelID
+        viablePeerCountsByModelID:(NSDictionary<NSString*, NSNumber*>*)viablePeerCountsByModelID
                        isExcluded:(BOOL)isExcluded
                          isLocked:(BOOL)isLocked
 {
     if((self = [super init])) {
         _egoPeerID = egoPeerID;
         _egoStatus = egoStatus;
-        _peerCountsByModelID = peerCountsByModelID;
+        _viablePeerCountsByModelID = viablePeerCountsByModelID;
         _numberOfPeersInOctagon = 0;
-        for(NSNumber* n in peerCountsByModelID.allValues) {
+        for(NSNumber* n in viablePeerCountsByModelID.allValues) {
             _numberOfPeersInOctagon += [n unsignedIntegerValue];
         }
         _isExcluded = isExcluded;
@@ -230,9 +235,9 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
     if ((self = [super init])) {
         _egoPeerID = [coder decodeObjectOfClass:[NSString class] forKey:@"peerID"];
         _egoStatus = (TPPeerStatus)[coder decodeInt64ForKey:@"egoStatus"];
-        _peerCountsByModelID = [coder decodeObjectOfClasses:[NSSet setWithArray:@[[NSDictionary class], [NSString class], [NSNumber class]]] forKey:@"peerCountsByModelID"];
+        _viablePeerCountsByModelID = [coder decodeObjectOfClasses:[NSSet setWithArray:@[[NSDictionary class], [NSString class], [NSNumber class]]] forKey:@"viablePeerCountsByModelID"];
         _numberOfPeersInOctagon = 0;
-        for(NSNumber* n in _peerCountsByModelID.allValues) {
+        for(NSNumber* n in _viablePeerCountsByModelID.allValues) {
             _numberOfPeersInOctagon += [n unsignedIntegerValue];
         }
 
@@ -245,7 +250,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 - (void)encodeWithCoder:(NSCoder *)coder {
     [coder encodeObject:self.egoPeerID forKey:@"peerID"];
     [coder encodeInt64:self.egoStatus forKey:@"egoStatus"];
-    [coder encodeObject:self.peerCountsByModelID forKey:@"peerCountsByModelID"];
+    [coder encodeObject:self.viablePeerCountsByModelID forKey:@"viablePeerCountsByModelID"];
     [coder encodeBool:self.isExcluded forKey:@"isExcluded"];
     [coder encodeBool:self.isLocked forKey:@"isLocked"];
 }

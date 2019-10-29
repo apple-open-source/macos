@@ -32,8 +32,7 @@
 @interface OTLocalResetOperation ()
 @property NSString* containerName;
 @property NSString* contextID;
-@property id<NSXPCProxyCreating> cuttlefishXPC;
-
+@property CuttlefishXPCWrapper* cuttlefishXPCWrapper;
 @property NSOperation* finishedOp;
 @end
 
@@ -45,7 +44,7 @@
            contextID:(NSString*)contextID
        intendedState:(OctagonState*)intendedState
           errorState:(OctagonState*)errorState
-       cuttlefishXPC:(id<NSXPCProxyCreating>)cuttlefishXPC
+cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
 {
     if((self = [super init])) {
         _intendedState = intendedState;
@@ -53,7 +52,7 @@
 
         _containerName = containerName;
         _contextID = contextID;
-        _cuttlefishXPC = cuttlefishXPC;
+        _cuttlefishXPCWrapper = cuttlefishXPCWrapper;
     }
     return self;
 }
@@ -66,26 +65,20 @@
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     WEAKIFY(self);
-    [[self.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+    [self.cuttlefishXPCWrapper localResetWithContainer:self.containerName
+                                               context:self.contextID
+                                                 reply:^(NSError * _Nullable error) {
+            STRONGIFY(self);
+            if(error) {
+                secnotice("octagon", "Unable to reset local cuttlefish for (%@,%@): %@", self.containerName, self.contextID, error);
+                self.error = error;
+            } else {
+                secnotice("octagon", "Successfully reset local cuttlefish");
+                self.nextState = self.intendedState;
+            }
 
-    }] localResetWithContainer:self.containerName
-     context:self.contextID
-     reply:^(NSError * _Nullable error) {
-         STRONGIFY(self);
-         if(error) {
-             secnotice("octagon", "Unable to reset local cuttlefish for (%@,%@): %@", self.containerName, self.contextID, error);
-             self.error = error;
-         } else {
-             secnotice("octagon", "Successfully reset local cuttlefish");
-             self.nextState = self.intendedState;
-         }
-
-         [self runBeforeGroupFinished:self.finishedOp];
-     }];
+            [self runBeforeGroupFinished:self.finishedOp];
+        }];
 }
 
 @end

@@ -48,7 +48,7 @@
 
 // TODO: This is a layer violation, we need a better way to do this
 // Currently it's only used for logging.
-#include <securityd/SecItemDataSource.h>
+#include "keychain/securityd/SecItemDataSource.h"
 
 #if defined(SOSMessageFormatSpecification) && 0
 
@@ -211,29 +211,6 @@ parameters	 ANY DEFINED BY algorithm OPTIONAL }
 #endif // defined(SOSMessageFormatSpecification) && 0
 
 
-#if 0
-static inline bool SecMallocOk(const void *ptr) {
-    if (ptr) return true;
-
-    return false;
-}
-#endif
-#if 0
-static void appendObjects(CFMutableStringRef desc, CFArrayRef objects) {
-    __block bool needComma = false;
-    CFArrayForEach(objects, ^(const void *value) {
-        if (needComma)
-            CFStringAppend(desc, CFSTR(","));
-        else
-            needComma = true;
-
-        SecItemServerAppendItemDescription(desc, value);
-    });
-}
-#endif
-
-
-
 //
 // MARK: SOSMessage implementation.
 //
@@ -300,7 +277,7 @@ static void SOSMessageDestroy(CFTypeRef cf) {
 }
 
 // TODO: Remove this layer violation!
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 
 static uint64_t SOSMessageInferType(SOSMessageRef message, CFErrorRef *error);
 
@@ -974,22 +951,6 @@ static const uint8_t *der_decode_optional_objects(SOSMessageRef message, CFError
     const uint8_t *seq_end = der_decode_objects(message, NULL, der, der_end);
     return seq_end ? seq_end : der;
 }
-
-#if 0
-// Move to ccder and possibly refactor ccder_decode_constructed_tl to call this.
-#ifdef CCDER_DECODE_CONSTRUCTED_LEN_SPECIFIER
-CCDER_DECODE_CONSTRUCTED_LEN_SPECIFIER
-#endif
-inline CC_NONNULL((1, 3))
-const uint8_t *
-ccder_decode_constructed_len(const uint8_t **body_end,
-                             const uint8_t *der, const uint8_t *der_end) {
-    size_t len;
-    der = ccder_decode_len(&len, der, der_end);
-    *body_end = der + len;
-    return der;
-}
-#endif
 
 static const uint8_t *der_decode_message_header(SOSMessageRef message, CFErrorRef *error, const uint8_t *der, const uint8_t *der_end) {
     cc_unit flags[1] = {};

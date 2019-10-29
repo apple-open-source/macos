@@ -25,7 +25,7 @@
         bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
         bottlerotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -104,7 +104,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -171,7 +171,7 @@
         bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
         bottlerotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -229,7 +229,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -262,8 +262,8 @@
 
         // The first peer will upload TLKs for the new peer
         self.assertAllCKKSViewsUpload(tlkShares: 1)
-        self.sendContainerChangeWaitForFetchForState(context: self.cuttlefishContext, state: OctagonStateReady)
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10*NSEC_PER_SEC)
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
         self.assertTrusts(context: self.cuttlefishContext, includedPeerIDCount: 2, excludedPeerIDCount: 0)
@@ -293,7 +293,7 @@
         self.assertTrusts(context: differentDevice, includedPeerIDCount: 2, excludedPeerIDCount: 1)
 
         // Then, if by some strange miracle the original peer is still around, it should bail (as it's now untrusted)
-        self.sendContainerChangeWaitForFetchForState(context: self.cuttlefishContext, state: OctagonStateUntrusted)
+        self.sendContainerChangeWaitForFetchForStates(context: self.cuttlefishContext, states: [OctagonStateUntrusted])
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
         self.assertTrusts(context: self.cuttlefishContext, includedPeerIDCount: 0, excludedPeerIDCount: 1)
     }
@@ -307,7 +307,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -363,7 +363,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -415,7 +415,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -463,10 +463,10 @@
 
         // We will upload a new TLK for the new peer
         self.assertAllCKKSViewsUpload(tlkShares: 1)
-        self.sendContainerChangeWaitForFetchForState(context: self.cuttlefishContext, state: OctagonStateReady)
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.sendContainerChangeWaitForFetchForState(context: initiatorContext, state: OctagonStateReady)
+        self.sendContainerChangeWaitForFetch(context: initiatorContext)
         bottleIDs = try OTClique.findOptimalBottleIDs(withContextData: self.otcliqueContext)
         XCTAssertNotNil(bottleIDs.preferredBottleIDs, "preferredBottleIDs should not be nil")
         XCTAssertEqual(bottleIDs.preferredBottleIDs.count, 2, "preferredBottleIDs should have 2 bottle")
@@ -478,7 +478,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -536,10 +536,10 @@
 
         // We will upload a new TLK for the new peer
         self.assertAllCKKSViewsUpload(tlkShares: 1)
-        self.sendContainerChangeWaitForFetchForState(context: self.cuttlefishContext, state: OctagonStateReady)
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        self.sendContainerChangeWaitForFetchForState(context: initiatorContext, state: OctagonStateReady)
+        self.sendContainerChangeWaitForFetch(context: initiatorContext)
 
         bottleIDs = try OTClique.findOptimalBottleIDs(withContextData: self.otcliqueContext)
         XCTAssertNotNil(bottleIDs.preferredBottleIDs, "preferredBottleIDs should not be nil")
@@ -591,7 +591,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
             self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
@@ -677,7 +677,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -717,7 +717,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -756,7 +756,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -796,7 +796,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -832,7 +832,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -857,7 +857,6 @@
 
         // To get into the state we need, we need to introduce peer B and C. C should then distrust A, whose bottle it used
         // B shouldn't have an opinion of C.
-
 
         let bNewOTCliqueContext = OTConfigurationContext()
         bNewOTCliqueContext.context = "restoreB"
@@ -982,7 +981,7 @@
         bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
         bottlerotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -1042,7 +1041,6 @@
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-
         //now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
 
@@ -1068,7 +1066,6 @@
             fetchViableExpectation.fulfill()
         }
         self.wait(for: [fetchViableExpectation], timeout: 10)
-        
 
         //now call fetchviablebottles, we should get the cached version
         let fetchViableBottlesExpectation = self.expectation(description: "fetch Cached ViableBottles")
@@ -1110,7 +1107,7 @@
         bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
         bottlerotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -1139,7 +1136,6 @@
 
         // Note: CKKS will want to upload a TLKShare for its self
         self.expectCKModifyKeyRecords(0, currentKeyPointerRecords: 0, tlkShareRecords: 1, zoneID: self.manateeZoneID)
-
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
         self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
@@ -1170,7 +1166,6 @@
         self.verifyDatabaseMocks()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
-
 
         //now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
@@ -1238,7 +1233,7 @@
         bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
         bottlerotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -1267,7 +1262,6 @@
 
         // Note: CKKS will want to upload a TLKShare for its self
         self.expectCKModifyKeyRecords(0, currentKeyPointerRecords: 0, tlkShareRecords: 1, zoneID: self.manateeZoneID)
-
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
         self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
@@ -1302,7 +1296,7 @@
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        let bottles:[Bottle] = self.fakeCuttlefishServer.state.bottles
+        let bottles: [Bottle] = self.fakeCuttlefishServer.state.bottles
         var bottleToExclude: String?
         bottles.forEach { bottle in
             if bottle.peerID == egoPeerID {

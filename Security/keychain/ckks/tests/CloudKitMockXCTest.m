@@ -32,18 +32,18 @@
 #import <CloudKit/CKContainer_Private.h>
 #import <OCMock/OCMock.h>
 
-#include "securityd/Regressions/SecdTestKeychainUtilities.h"
+#include "keychain/securityd/Regressions/SecdTestKeychainUtilities.h"
 #include <utilities/SecFileLocations.h>
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 
 #if NO_SERVER
-#include <securityd/spi.h>
+#include "keychain/securityd/spi.h"
 #endif
 
 #include <Security/SecureObjectSync/SOSViews.h>
 
 #include <utilities/SecDb.h>
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 #include <keychain/ckks/CKKS.h>
 #include <keychain/ckks/CKKSViewManager.h>
 #include <keychain/ckks/CKKSKeychainView.h>
@@ -123,6 +123,9 @@
     self.zones = [[NSMutableDictionary alloc] init];
 
     self.apsEnvironment = @"fake APS push string";
+
+    // Static variables are a scourge. Let's reset this one...
+    [OctagonAPSReceiver resetGlobalEnviornmentMap];
 
     self.mockDatabaseExceptionCatcher = OCMStrictClassMock([CKDatabase class]);
     self.mockDatabase = OCMStrictClassMock([CKDatabase class]);
@@ -321,6 +324,7 @@
 
     OCMStub([self.mockCKKSViewManager defaultViewList]).andCall(self, @selector(managedViewList));
     OCMStub([self.mockCKKSViewManager syncBackupAndNotifyAboutSync]);
+    OCMStub([self.mockCKKSViewManager waitForTrustReady]).andReturn(YES);
 
     self.injectedManager = self.mockCKKSViewManager;
 

@@ -37,6 +37,14 @@
 #import <wtf/RunLoop.h>
 #import <wtf/URL.h>
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WebPaymentCoordinatorProxyCocoaAdditions.mm>
+#else
+namespace WebKit {
+static void finishCreating(PKPaymentRequest *, const WebCore::ApplePaySessionPaymentRequest&) { }
+}
+#endif
+
 // FIXME: We don't support any platforms without -setThumbnailURLs:, so this can be removed.
 @interface PKPaymentRequest ()
 @property (nonatomic, strong) NSURL *thumbnailURL;
@@ -130,41 +138,11 @@ static PKAddressField toPKAddressField(const WebCore::ApplePaySessionPaymentRequ
 }
 #endif
 
-PKPaymentSummaryItemType toPKPaymentSummaryItemType(WebCore::ApplePaySessionPaymentRequest::LineItem::Type type)
-{
-    switch (type) {
-    case WebCore::ApplePaySessionPaymentRequest::LineItem::Type::Final:
-        return PKPaymentSummaryItemTypeFinal;
-
-    case WebCore::ApplePaySessionPaymentRequest::LineItem::Type::Pending:
-        return PKPaymentSummaryItemTypePending;
-    }
-}
-
 NSDecimalNumber *toDecimalNumber(const String& amount)
 {
     if (!amount)
         return [NSDecimalNumber zero];
     return [NSDecimalNumber decimalNumberWithString:amount locale:@{ NSLocaleDecimalSeparator : @"." }];
-}
-
-PKPaymentSummaryItem *toPKPaymentSummaryItem(const WebCore::ApplePaySessionPaymentRequest::LineItem& lineItem)
-{
-    return [PAL::getPKPaymentSummaryItemClass() summaryItemWithLabel:lineItem.label amount:toDecimalNumber(lineItem.amount) type:toPKPaymentSummaryItemType(lineItem.type)];
-}
-
-NSArray *toPKPaymentSummaryItems(const WebCore::ApplePaySessionPaymentRequest::TotalAndLineItems& totalAndLineItems)
-{
-    NSMutableArray *paymentSummaryItems = [NSMutableArray arrayWithCapacity:totalAndLineItems.lineItems.size() + 1];
-    for (auto& lineItem : totalAndLineItems.lineItems) {
-        if (PKPaymentSummaryItem *summaryItem = toPKPaymentSummaryItem(lineItem))
-            [paymentSummaryItems addObject:summaryItem];
-    }
-
-    if (PKPaymentSummaryItem *totalItem = toPKPaymentSummaryItem(totalAndLineItems.total))
-        [paymentSummaryItems addObject:totalItem];
-
-    return paymentSummaryItems;
 }
 
 static PKMerchantCapability toPKMerchantCapabilities(const WebCore::ApplePaySessionPaymentRequest::MerchantCapabilities& merchantCapabilities)
@@ -284,16 +262,7 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
         [shippingMethods addObject:toPKShippingMethod(shippingMethod)];
     [result setShippingMethods:shippingMethods.get()];
 
-    auto paymentSummaryItems = adoptNS([[NSMutableArray alloc] init]);
-    for (auto& lineItem : paymentRequest.lineItems()) {
-        if (PKPaymentSummaryItem *summaryItem = toPKPaymentSummaryItem(lineItem))
-            [paymentSummaryItems addObject:summaryItem];
-    }
-
-    if (PKPaymentSummaryItem *totalItem = toPKPaymentSummaryItem(paymentRequest.total()))
-        [paymentSummaryItems addObject:totalItem];
-
-    [result setPaymentSummaryItems:paymentSummaryItems.get()];
+    [result setPaymentSummaryItems:WebCore::platformSummaryItems(paymentRequest.total(), paymentRequest.lineItems())];
 
     [result setExpectsMerchantSession:YES];
 
@@ -327,6 +296,8 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
     if (!serviceType.isEmpty() && [result respondsToSelector:@selector(setCTDataConnectionServiceType:)])
         [result setCTDataConnectionServiceType:serviceType];
 #endif
+
+    finishCreating(result.get(), paymentRequest);
 
     return result;
 }

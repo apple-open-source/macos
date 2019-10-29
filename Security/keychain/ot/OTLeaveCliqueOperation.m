@@ -58,34 +58,28 @@
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     WEAKIFY(self);
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+    [self.deps.cuttlefishXPCWrapper departByDistrustingSelfWithContainer:self.deps.containerName
+                                                                 context:self.deps.contextID
+                                                                   reply:^(NSError * _Nullable error) {
+            STRONGIFY(self);
+            if(error) {
+                secnotice("octagon", "Unable to depart for (%@,%@): %@", self.deps.containerName, self.deps.contextID, error);
+                self.error = error;
+            } else {
+                NSError* localError = nil;
+                BOOL persisted = [self.deps.stateHolder persistNewTrustState:OTAccountMetadataClassC_TrustState_UNTRUSTED
+                                                                       error:&localError];
+                if(!persisted || localError) {
+                    secerror("octagon: unable to persist clique departure: %@", localError);
+                    self.error = localError;
+                } else {
+                    secnotice("octagon", "Successfully departed clique");
+                    self.nextState = self.intendedState;
+                }
+            }
 
-    }] departByDistrustingSelfWithContainer:self.deps.containerName
-                                    context:self.deps.contextID
-                                     reply:^(NSError * _Nullable error) {
-         STRONGIFY(self);
-         if(error) {
-             secnotice("octagon", "Unable to depart for (%@,%@): %@", self.deps.containerName, self.deps.contextID, error);
-             self.error = error;
-         } else {
-             NSError* localError = nil;
-             BOOL persisted = [self.deps.stateHolder persistNewTrustState:OTAccountMetadataClassC_TrustState_UNTRUSTED
-                                                                    error:&localError];
-             if(!persisted || localError) {
-                 secerror("octagon: unable to persist clique departure: %@", localError);
-                 self.error = localError;
-             } else {
-                 secnotice("octagon", "Successfully departed clique");
-                 self.nextState = self.intendedState;
-             }
-         }
-
-         [self runBeforeGroupFinished:self.finishedOp];
-     }];
+            [self runBeforeGroupFinished:self.finishedOp];
+        }];
 }
 
 @end

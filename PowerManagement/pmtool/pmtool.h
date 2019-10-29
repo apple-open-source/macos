@@ -11,6 +11,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFXPCBridge.h>
+#include <CoreFoundation/CFPreferences_Private.h>
 #include <IOKit/IOHibernatePrivate.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
@@ -115,6 +116,7 @@ static void cacheArgvString(int argc, char *argv[]);
 static void sendSmartBatteryCommand(uint32_t which, uint32_t level);
 static void sendCustomBatteryProperties(char *path);
 static void sendBHUpdateTimeDelta(long timeDelta);
+static void sendBHDataFromCFPrefs(void);
 
 /*************************************************************************/
 /*
@@ -164,6 +166,7 @@ typedef enum {
     kSetCustomBatteryPropertiesIndex,
     kResetCustomBatteryPropertiesIndex,
     kSetBHUpdateDeltaIndex,
+    kGetBHDataFromPrefsIndex,
     kActionsCount   // kActionsCount must always be the last item in this list
 } pmtoolActions;
 
@@ -242,6 +245,7 @@ enum {
 #define kActionSetBattProps                             "setbattprops"
 #define kActionResetBattProps                           "resetbattprops"
 #define kActionSetBHUpdateDelta                         "bhupdatedelta"
+#define kActionGetBHDataFromPrefs                       "getbhdatafromprefs"
 
 #define kArgIOPMConnection                              "iopmconnection"
 #define kArgIORegisterForSystemPower                    "ioregisterforsystempower"

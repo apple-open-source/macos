@@ -93,29 +93,23 @@
 {
     WEAKIFY(self);
 
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-        [[CKKSAnalytics logger] logRecoverableError:error forEvent:OctagonEventRecoveryKey withAttributes:NULL];
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishOp];
-
-    }]  setRecoveryKeyWithContainer:self.deps.containerName
-     context:self.deps.contextID
-     recoveryKey:self.recoveryKey
-     salt:salt
-     ckksKeys:viewKeySets
-     reply:^(NSError * _Nullable setError) {
-         if(setError){
-             [[CKKSAnalytics logger] logResultForEvent:OctagonEventSetRecoveryKey hardFailure:true result:setError];
-             secerror("octagon: Error setting recovery key: %@", setError);
-             self.error = setError;
-             [self runBeforeGroupFinished:self.finishOp];
-         } else {
-             secnotice("octagon", "successfully set recovery key");
-             [self runBeforeGroupFinished:self.finishOp];
-         }
-     }];
+    [self.deps.cuttlefishXPCWrapper setRecoveryKeyWithContainer:self.deps.containerName
+                                                        context:self.deps.contextID
+                                                    recoveryKey:self.recoveryKey
+                                                           salt:salt
+                                                       ckksKeys:viewKeySets
+                                                          reply:^(NSError * _Nullable setError) {
+            STRONGIFY(self);
+            if(setError){
+                [[CKKSAnalytics logger] logResultForEvent:OctagonEventSetRecoveryKey hardFailure:true result:setError];
+                secerror("octagon: Error setting recovery key: %@", setError);
+                self.error = setError;
+                [self runBeforeGroupFinished:self.finishOp];
+            } else {
+                secnotice("octagon", "successfully set recovery key");
+                [self runBeforeGroupFinished:self.finishOp];
+            }
+        }];
 }
 
 @end

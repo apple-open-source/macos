@@ -26,7 +26,7 @@
 
 #if OCTAGON
 
-#include <securityd/SecDbItem.h>
+#include "keychain/securityd/SecDbItem.h"
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/OctagonAPSReceiver.h"
 #import "keychain/ckks/CKKSAccountStateTracker.h"
@@ -140,6 +140,10 @@ NS_ASSUME_NONNULL_BEGIN
 // Notify sbd to re-backup.
 - (void)notifyNewTLKsInKeychain;
 - (void)syncBackupAndNotifyAboutSync;
+
+// allow user blocking operation to block on trust status trying to sort it-self out the
+// first time after launch, only waits the the initial call
+- (BOOL)waitForTrustReady;
 
 // For testing
 - (void)setOverrideCKKSViewsFromPolicy:(BOOL)value;

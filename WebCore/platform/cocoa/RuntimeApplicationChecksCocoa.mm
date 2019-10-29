@@ -202,6 +202,12 @@ bool IOSApplication::isMobileMail()
     return isMobileMail;
 }
 
+bool IOSApplication::isMailCompositionService()
+{
+    static bool isMailCompositionService = applicationBundleIsEqualTo("com.apple.MailCompositionService"_s);
+    return isMailCompositionService;
+}
+
 bool IOSApplication::isMobileSafari()
 {
     static bool isMobileSafari = applicationBundleIsEqualTo("com.apple.mobilesafari"_s);
@@ -304,6 +310,18 @@ bool IOSApplication::isEvernote()
 {
     static bool isEvernote = applicationBundleIsEqualTo("com.evernote.iPhone.Evernote"_s);
     return isEvernote;
+}
+
+bool IOSApplication::isEventbrite()
+{
+    static bool isEventbrite = applicationBundleIsEqualTo("com.eventbrite.attendee"_s);
+    return isEventbrite;
+}
+
+bool IOSApplication::isDataActivation()
+{
+    static bool isDataActivation = applicationBundleIsEqualTo("com.apple.DataActivation"_s);
+    return isDataActivation;
 }
 
 #endif

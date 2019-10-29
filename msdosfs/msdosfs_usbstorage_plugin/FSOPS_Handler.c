@@ -201,6 +201,12 @@ FSOPS_InitReadBootSectorAndSetFATType(void** ppvBootSector,FileSystemRecord_s *p
     struct byte_bpb50 *b50 = (struct byte_bpb50 *)boot->bs50.bsBPB;
     struct byte_bpb710 *b710 = (struct byte_bpb710 *)boot->bs710.bsBPB;
     
+    char cOEMName[9] = {0};
+    strlcpy(&cOEMName[0], (char *) boot->bs50.bsOemName , 8);
+    cOEMName[8] = '\0';
+    
+    MSDOS_LOG(LEVEL_DEFAULT, "FSOPS_InitReadBootSectorAndSetFATType: OEMName: %s\n", cOEMName);
+
     // The first three bytes are an Intel x86 jump instruction.  Windows only
     // checks the first byte, so that's what we'll do, too.
     
@@ -253,6 +259,12 @@ FSOPS_InitReadBootSectorAndSetFATType(void** ppvBootSector,FileSystemRecord_s *p
     
     if (uTotalSectors == 0)
     {
+        //check if we encountered special FAT case
+        if ((*((uint8_t*)(ppvBootSector + 0x42))) == 0x29 && (*((uint64_t*)(ppvBootSector + 0x52))) != 0)
+        {
+            MSDOS_LOG(LEVEL_ERROR, "Encountered special FAT where total sector location is 64bit. Not Supported\n");
+        }
+        
         *piErr = EINVAL;
         MSDOS_LOG(LEVEL_ERROR, "FSOPS_InitReadBootSectorAndSetFATType: invalid total sectors (%u)\n", uTotalSectors);
         return;
@@ -285,7 +297,7 @@ FSOPS_InitReadBootSectorAndSetFATType(void** ppvBootSector,FileSystemRecord_s *p
     // Usable clusters are numbered starting at 2, so the maximum usable cluster
     // is (number of clusters) + 1.  Convert the pm_firstcluster to device blocks.
     
-    psFSRecord->sFSInfo.uMaxCluster = (uTotalSectors - psFSRecord->sFSInfo.uClusterOffset) / uSectorsPerCluster + 1;
+    psFSRecord->sFSInfo.uMaxCluster = (uint32_t) ((uTotalSectors - psFSRecord->sFSInfo.uClusterOffset) / uSectorsPerCluster + 1);
     
     // Figure out the FAT type based on the number of clusters.
     if (psFSRecord->sFSInfo.uMaxCluster < (CLUST_RSRVD & FAT12_MASK))
@@ -344,7 +356,7 @@ FSOPS_InitReadBootSectorAndSetFATType(void** ppvBootSector,FileSystemRecord_s *p
 
         if (volume_serial_num[0] || volume_serial_num[1] || volume_serial_num[2] || volume_serial_num[3]) 
         {
-            FSOPS_generate_volume_uuid(psFSRecord->sFSInfo.sUUID, volume_serial_num, uTotalSectors); 
+            FSOPS_generate_volume_uuid(psFSRecord->sFSInfo.sUUID, volume_serial_num, (uint32_t) uTotalSectors); 
             psFSRecord->sFSInfo.bUUIDExist = true;
         }
 

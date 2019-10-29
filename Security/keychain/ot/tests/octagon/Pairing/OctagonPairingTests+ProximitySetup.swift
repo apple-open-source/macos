@@ -3,9 +3,9 @@
 extension OctagonPairingTests {
 
     func assertSOSSuccess() {
-        XCTAssertNotNil(self.fcInitiator?.accountPrivateKey ?? nil, "no accountPrivateKey in fcInitiator");
-        XCTAssertNotNil(self.fcAcceptor?.accountPrivateKey ?? nil, "no accountPrivateKey in fcAcceptor");
-        XCTAssert(CFEqualSafe(self.fcInitiator.accountPrivateKey, self.fcAcceptor.accountPrivateKey), "no accountPrivateKey not same in both");
+        XCTAssertNotNil(self.fcInitiator?.accountPrivateKey, "no accountPrivateKey in fcInitiator")
+        XCTAssertNotNil(self.fcAcceptor?.accountPrivateKey, "no accountPrivateKey in fcAcceptor")
+        XCTAssert(CFEqualSafe(self.fcInitiator.accountPrivateKey, self.fcAcceptor.accountPrivateKey), "no accountPrivateKey not same in both")
 
         XCTAssert(SOSCircleHasPeer(self.circle, self.fcInitiator.peerInfo(), nil), "HasPeer 1")
 //        XCTAssert(SOSCircleHasPeer(self.circle, self.fcAcceptor.peerInfo(), nil), "HasPeer 2") <rdar://problem/54040068>
@@ -205,8 +205,7 @@ extension OctagonPairingTests {
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
         /* calling Join */
-        let cuttlefishError = NSError(domain: CuttlefishErrorDomain, code: CuttlefishErrorCode.transactionalFailure.rawValue, userInfo: nil)
-        let ckError = NSError(domain: CKInternalErrorDomain, code: CKInternalErrorCode.errorInternalPluginError.rawValue, userInfo: [NSUnderlyingErrorKey: cuttlefishError])
+        let ckError = FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .transactionalFailure)
         self.fakeCuttlefishServer.nextJoinErrors.append(ckError)
         self.fakeCuttlefishServer.nextJoinErrors.append(ckError)
         self.fakeCuttlefishServer.nextJoinErrors.append(ckError)
@@ -321,8 +320,10 @@ extension OctagonPairingTests {
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
         /* calling Join */
-        let cuttlefishError = NSError(domain: CuttlefishErrorDomain, code: CuttlefishErrorCode.transactionalFailure.rawValue, userInfo: nil)
-        let ckError = NSError(domain: CKInternalErrorDomain, code: CKInternalErrorCode.errorInternalPluginError.rawValue, userInfo: [NSUnderlyingErrorKey: cuttlefishError])
+        let ckError = FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .transactionalFailure)
+        self.fakeCuttlefishServer.nextJoinErrors.append(ckError)
+        self.fakeCuttlefishServer.nextJoinErrors.append(ckError)
+        self.fakeCuttlefishServer.nextJoinErrors.append(ckError)
         self.fakeCuttlefishServer.nextJoinErrors.append(ckError)
         self.fakeCuttlefishServer.nextJoinErrors.append(ckError)
         self.fakeCuttlefishServer.nextJoinErrors.append(ckError)
@@ -336,7 +337,7 @@ extension OctagonPairingTests {
             XCTAssertNotNil(error, "error should be set")
             rpcJoinCallbackOccurs.fulfill()
         }
-        self.wait(for: [rpcJoinCallbackOccurs], timeout: 64)
+        self.wait(for: [rpcJoinCallbackOccurs], timeout: 35)
     }
 
     func testJoinWithCKKSConflict() {
@@ -639,7 +640,7 @@ extension OctagonPairingTests {
         self.startCKAccountStatusMock()
 
         let rpcCallbackOccurs = self.expectation(description: "rpcPrepare callback occurs")
-        self.initiatorPairingConfig.timeout = Int64(2*NSEC_PER_SEC)
+        self.initiatorPairingConfig.timeout = Int64(2 * NSEC_PER_SEC)
 
         self.cuttlefishContext.rpcPrepareIdentityAsApplicant(with: self.initiatorPairingConfig, epoch: 1) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, error in
             XCTAssertNotNil(error, "Should be an error calling 'prepare'")
@@ -714,7 +715,6 @@ extension OctagonPairingTests {
         }
         self.wait(for: [firstAcceptorCallback], timeout: 10)
 
-
         /* INITIATOR SECOND RTT PREPARE*/
         var initiatorSecondPacket = Data()
         let secondInitiatorCallback = self.expectation(description: "secondInitiatorCallback callback occurs")
@@ -728,7 +728,6 @@ extension OctagonPairingTests {
         }
 
         self.wait(for: [secondInitiatorCallback], timeout: 10)
-
 
         /* ACCEPTOR SECOND RTT */
         var acceptorSecondPacket = Data()
@@ -858,7 +857,6 @@ extension OctagonPairingTests {
         }
         self.wait(for: [firstAcceptorCallback], timeout: 10)
 
-
         /* INITIATOR SECOND RTT PREPARE*/
         var initiatorSecondPacket = Data()
         let secondInitiatorCallback = self.expectation(description: "secondInitiatorCallback callback occurs")
@@ -872,7 +870,6 @@ extension OctagonPairingTests {
         }
 
         self.wait(for: [secondInitiatorCallback], timeout: 10)
-
 
         /* ACCEPTOR SECOND RTT */
         var acceptorSecondPacket = Data()
@@ -1000,7 +997,6 @@ extension OctagonPairingTests {
         }
         self.wait(for: [firstAcceptorCallback], timeout: 10)
 
-
         /* INITIATOR SECOND RTT PREPARE*/
         var initiatorSecondPacket = Data()
         let secondInitiatorCallback = self.expectation(description: "secondInitiatorCallback callback occurs")
@@ -1014,7 +1010,6 @@ extension OctagonPairingTests {
         }
 
         self.wait(for: [secondInitiatorCallback], timeout: 10)
-
 
         /* ACCEPTOR SECOND RTT */
         var acceptorSecondPacket = Data()
@@ -1106,7 +1101,6 @@ extension OctagonPairingTests {
         }
         self.wait(for: [firstAcceptorCallback], timeout: 10)
 
-
         /* INITIATOR SECOND RTT PREPARE*/
         var initiatorSecondPacket = Data()
         let secondInitiatorCallback = self.expectation(description: "secondInitiatorCallback callback occurs")
@@ -1120,7 +1114,6 @@ extension OctagonPairingTests {
         }
 
         self.wait(for: [secondInitiatorCallback], timeout: 10)
-
 
         /* ACCEPTOR SECOND RTT */
         var acceptorSecondPacket = Data()
@@ -1349,7 +1342,6 @@ extension OctagonPairingTests {
         }
         self.wait(for: [firstAcceptorCallback], timeout: 10)
 
-
         /* INITIATOR SECOND RTT PREPARE*/
         let secondInitiatorCallback = self.expectation(description: "secondInitiatorCallback callback occurs")
 
@@ -1421,7 +1413,6 @@ extension OctagonPairingTests {
         }
         self.wait(for: [firstAcceptorCallback], timeout: 10)
 
-
         /* INITIATOR SECOND RTT PREPARE*/
         var initiatorSecondPacket = Data()
         let secondInitiatorCallback = self.expectation(description: "secondInitiatorCallback callback occurs")
@@ -1435,7 +1426,6 @@ extension OctagonPairingTests {
         }
 
         self.wait(for: [secondInitiatorCallback], timeout: 10)
-
 
         /* ACCEPTOR SECOND RTT */
         let SecondAcceptorCallback = self.expectation(description: "SecondAcceptorCallback callback occurs")
@@ -1506,7 +1496,6 @@ extension OctagonPairingTests {
         }
         self.wait(for: [firstAcceptorCallback], timeout: 10)
 
-
         /* INITIATOR SECOND RTT PREPARE*/
         var initiatorSecondPacket = Data()
         let secondInitiatorCallback = self.expectation(description: "secondInitiatorCallback callback occurs")
@@ -1520,7 +1509,6 @@ extension OctagonPairingTests {
         }
 
         self.wait(for: [secondInitiatorCallback], timeout: 10)
-
 
         /* ACCEPTOR SECOND RTT */
         var acceptorSecondPacket = Data()
@@ -1574,7 +1562,7 @@ extension OctagonPairingTests {
         acceptor.startOctagonStateMachine()
 
         let resetAndEstablishExpectation = self.expectation(description: "resetAndEstablish callback occurs")
-        acceptor.rpcResetAndEstablish() { resetError in
+        acceptor.rpcResetAndEstablish(.testGenerated) { resetError in
             XCTAssertNil(resetError, "Should be no error calling resetAndEstablish")
             resetAndEstablishExpectation.fulfill()
         }
@@ -1585,145 +1573,7 @@ extension OctagonPairingTests {
         self.assertConsidersSelfTrusted(context: acceptor)
         XCTAssertEqual(self.fakeCuttlefishServer.state.bottles.count, 1, "should be 1 bottles")
     }
-    /* TODO: FIX ME!!!!
-    func testOctagonUpgradeAfterReceivingSOSCCCircleChangedNotification() throws {
-        OctagonSetPlatformSupportsSOS(true)
-        OctagonSetIsEnabled(false)
-        OctagonAuthoritativeTrustSetIsEnabled(true)
-        OctagonSetSOSUpgrade(true)
-        self.startCKAccountStatusMock()
 
-        self.manager.initializeOctagon()
-
-        let (acceptor, initiator) = self.setupPairingEndpoints(withPairNumber: "1", initiatorContextID: OTDefaultContext, acceptorContextID: self.contextForAcceptor, initiatorUniqueID: self.initiatorName, acceptorUniqueID: "acceptor-2")
-
-        XCTAssertNotNil(acceptor, "acceptor should not be nil")
-        XCTAssertNotNil(initiator, "initiator should not be nil")
-
-        /* INITIATOR FIRST RTT JOINING MESSAGE*/
-        var initiatorFirstPacket = Data()
-        let firstInitiatorCallback = self.expectation(description: "firstInitiatorCallback callback occurs")
-
-        initiator.exchangePacket(nil) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            initiatorFirstPacket = packet!
-            firstInitiatorCallback.fulfill()
-        }
-
-        self.wait(for: [firstInitiatorCallback], timeout: 10)
-
-        /* ACCEPTOR FIRST RTT EPOCH*/
-        var acceptorFirstPacket = Data()
-        let firstAcceptorCallback = self.expectation(description: "firstAcceptorCallback callback occurs")
-
-        acceptor.exchangePacket(initiatorFirstPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            acceptorFirstPacket = packet!
-            firstAcceptorCallback.fulfill()
-        }
-        self.wait(for: [firstAcceptorCallback], timeout: 10)
-
-
-        /* INITIATOR SECOND RTT PREPARE*/
-        var initiatorSecondPacket = Data()
-        let secondInitiatorCallback = self.expectation(description: "secondInitiatorCallback callback occurs")
-
-        initiator.exchangePacket(acceptorFirstPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            initiatorSecondPacket = packet!
-            secondInitiatorCallback.fulfill()
-        }
-
-        self.wait(for: [secondInitiatorCallback], timeout: 10)
-
-
-        try self.circleAndSOS()
-
-        /* ACCEPTOR SECOND RTT */
-        var acceptorSecondPacket = Data()
-        let SecondAcceptorCallback = self.expectation(description: "SecondAcceptorCallback callback occurs")
-
-        acceptor.exchangePacket(initiatorSecondPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            acceptorSecondPacket = packet!
-            SecondAcceptorCallback.fulfill()
-        }
-        self.wait(for: [SecondAcceptorCallback], timeout: 10)
-        XCTAssertNotNil(acceptorSecondPacket, "acceptor second packet should not be nil")
-
-        /* INITIATOR THIRD STEP*/
-        var initiatorThirdPacket: Data?
-        let thirdInitiatorCallback = self.expectation(description: "thirdInitiatorCallback callback occurs")
-
-        initiator.exchangePacket(acceptorSecondPacket) { complete, packet, error in
-            XCTAssertFalse(complete, "should be false")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            initiatorThirdPacket = packet!
-            thirdInitiatorCallback.fulfill()
-        }
-        self.wait(for: [thirdInitiatorCallback], timeout: 10)
-        XCTAssertNotNil(initiatorThirdPacket, "acceptor second packet should not be nil")
-
-        /* ACCEPTOR THIRD RTT */
-        var acceptorThirdPacket = Data()
-        let ThirdAcceptorCallback = self.expectation(description: "ThirdAcceptorCallback callback occurs")
-
-        acceptor.exchangePacket(initiatorSecondPacket) { complete, packet, error in
-            XCTAssertTrue(complete, "should be true")
-            XCTAssertNotNil(packet, "packet should not be nil")
-            XCTAssertNil(error, "error should be nil")
-            acceptorThirdPacket = packet!
-            ThirdAcceptorCallback.fulfill()
-        }
-        self.wait(for: [ThirdAcceptorCallback], timeout: 10)
-        XCTAssertNotNil(acceptorThirdPacket, "acceptor third packet should not be nil")
-
-        /* INITIATOR Fourth STEP*/
-        let fourthInitiatorCallback = self.expectation(description: "fourthInitiatorCallback callback occurs")
-
-        initiator.exchangePacket(acceptorThirdPacket) { complete, packet, error in
-            XCTAssertTrue(complete, "should be true")
-            XCTAssertNil(packet, "packet should be nil")
-            XCTAssertNil(error, "error should be nil")
-            fourthInitiatorCallback.fulfill()
-        }
-        self.wait(for: [fourthInitiatorCallback], timeout: 10)
-
-        let peerInfo: SOSPeerInfoRef = SOSFullPeerInfoGetPeerInfo(self.fcInitiator.fullPeerInfo)
-        let encryptionKey = _SFECKeyPair.init(secKey: self.fcInitiator.octagonEncryptionKey)
-        let signingKey = _SFECKeyPair.init(secKey: self.fcInitiator.octagonSigningKey)
-        let peerID: NSString = (SOSPeerInfoGetPeerID(peerInfo) .takeUnretainedValue() as NSString)
-        let initiatorSOSPeer = CKKSSOSSelfPeer(sosPeerID: peerID as String,
-                                               encryptionKey: encryptionKey,
-                                               signingKey: signingKey)
-        self.mockSOSAdapter.trustedPeers.add(initiatorSOSPeer)
-
-        let mockSOS = CKKSMockSOSPresentAdapter(selfPeer: initiatorSOSPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
-        mockSOS.circleStatus = SOSCCStatus(kSOSCCInCircle)
-        let initiatorContext = self.manager.context(forContainerName: OTCKContainerName,
-                                                    contextID: OTDefaultContext,
-                                                    sosAdapter: mockSOS,
-                                                    authKitAdapter: self.mockAuthKit2,
-                                                    lockStateTracker: self.lockStateTracker,
-                                                    accountStateTracker: self.accountStateTracker,
-                                                    deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
-
-        self.manager.moveToCheckTrustedState(forContainer: OTCKContainerName, context: OTDefaultContext)
-
-        //test circle changed notification fired
-        self.assertEnters(context: initiatorContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        self.verifyDatabaseMocks()
-    }
-*/
     func testProximitySetupUsingCliqueAcceptorResolvesVersionToSOSOnly() {
         self.startCKAccountStatusMock()
 
@@ -1786,7 +1636,6 @@ extension OctagonPairingTests {
             firstAcceptorCallback.fulfill()
         }
         self.wait(for: [firstAcceptorCallback], timeout: 10)
-
 
         initiator.setSessionSupportsOctagonForTesting(false)
 

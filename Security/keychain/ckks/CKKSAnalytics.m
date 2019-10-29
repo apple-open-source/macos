@@ -55,11 +55,14 @@ NSString* const OctagonAnalyticsSOSStatus = @"OASOSStatus";
 NSString* const OctagonAnalyticsDateOfLastPreflightPreapprovedJoin = @"OALastPPJ";
 NSString* const OctagonAnalyticsLastKeystateReady = @"OALastKSR";
 NSString* const OctagonAnalyticsLastCoreFollowup = @"OALastCFU";
-NSString* const OctagonAnalyticsCoreFollowupStatus = @"OACFUStatus";
+//NSString* const OctagonAnalyticsCoreFollowupStatus = @"OACFUStatus";
 NSString* const OctagonAnalyticsCoreFollowupFailureCount = @"OACFUTFailureCount";
 NSString* const OctagonAnalyticsCoreFollowupLastFailureTime = @"OACFULastFailureTime";
 NSString* const OctagonAnalyticsPrerecordPending = @"OAPrerecordPending";
 NSString* const OctagonAnalyticsCDPStateRun = @"OACDPStateRun";
+
+NSString* const CKKSAnalyticsLastCKKSPush = @"lastCKKSPush";
+NSString* const CKKSAnalyticsLastOctagonPush = @"lastOctagonPush";
 
 NSString* const OctagonAnalyticsKVSProvisioned = @"OADCKVSProvisioned";
 NSString* const OctagonAnalyticsKVSEnabled = @"OADCKVSEnabled";
@@ -117,6 +120,7 @@ CKKSAnalyticsFailableEvent* const OctagonEventUpgradePrepare = (CKKSAnalyticsFai
 
 CKKSAnalyticsFailableEvent* const OctagonEventJoinWithVoucher = (CKKSAnalyticsFailableEvent*)@"OctagonEventJoinWithVoucher";
 
+CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithBottle = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightVouchWithBottle";
 CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithBottle = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithBottle";
 
 CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithRecoveryKey";

@@ -231,12 +231,24 @@ readboot(dosfs, boot)
 	if (boot->Sectors) {
 		boot->HugeSectors = 0;
 		boot->NumSectors = boot->Sectors;
-	} else
+    } else if (boot->HugeSectors) {
 		boot->NumSectors = boot->HugeSectors;
+    } else {
+        boot->NumSectors = 0;
+        u_int64_t SuperHugeSectors = (block[66] != 0x29)? 0 : (uint64_t) block[82] + ((uint64_t) block[83] << 8) + ((uint64_t) block[84] << 16) + ((uint64_t) block[85] << 24) + ((uint64_t) block[86]<<32) + ((uint64_t) block[87] << 40) + ((uint64_t) block[88] << 48) + ((uint64_t) block[89] << 54);
+        if (SuperHugeSectors != 0) {
+            pwarn("Encountered special FAT where total sector location is 64bit. Not Supported \n");
+        } else {
+            char cOEMName[9] = {0};
+            strlcpy(&cOEMName[0], (char *) &block[3] , 8);
+            cOEMName[8] = '\0';
+            pwarn("OEMName: %s\n", cOEMName);
+        }
+    }
 
     /* Ensure NumSectors isn't zero and >= ClusterOffset */
     if ((boot->NumSectors == 0) || (boot->NumSectors < boot->ClusterOffset)) {
-		pfatal("Filesystem has invalid NumSectors %u\n", boot->NumSectors);
+        pfatal("Filesystem has invalid NumSectors %u\n", boot->NumSectors);
 		return FSFATAL;
 	}
 
@@ -310,7 +322,7 @@ readboot(dosfs, boot)
 				block[33] = (boot->NumSectors >> 8) & 0xFF;
 				block[34] = (boot->NumSectors >> 16) & 0xFF;
 				block[35] = (boot->NumSectors >> 24) & 0xFF;
-			}
+            }
 			if (lseek(dosfs, 0, SEEK_SET) != 0 ||
 				write(dosfs, block, boot->BytesPerSec) != boot->BytesPerSec)
 			{

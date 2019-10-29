@@ -1,1 +1,1 @@
-../../trust/SecTrustSettingsPriv.h
+../../trust/headers/SecTrustSettingsPriv.h

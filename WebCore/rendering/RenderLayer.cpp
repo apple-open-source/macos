@@ -55,6 +55,7 @@
 #include "DocumentEventQueue.h"
 #include "DocumentMarkerController.h"
 #include "DocumentTimeline.h"
+#include "Editor.h"
 #include "Element.h"
 #include "EventHandler.h"
 #include "FEColorMatrix.h"
@@ -2570,6 +2571,7 @@ void RenderLayer::scrollTo(const ScrollPosition& position)
         view.frameView().didChangeScrollOffset();
 
     view.frameView().viewportContentsChanged();
+    frame.editor().renderLayerDidScroll(*this);
 }
 
 static inline bool frameElementAndViewPermitScroll(HTMLFrameElementBase* frameElementBase, FrameView& frameView)
@@ -6794,7 +6796,7 @@ void RenderLayer::filterNeedsRepaint()
     renderer().repaint();
 }
 
-bool RenderLayer::isTransparentOrFullyClippedRespectingParentFrames() const
+bool RenderLayer::isTransparentRespectingParentFrames() const
 {
     static const double minimumVisibleOpacity = 0.01;
 
@@ -6802,34 +6804,6 @@ bool RenderLayer::isTransparentOrFullyClippedRespectingParentFrames() const
     for (auto* layer = this; layer; layer = parentLayerCrossFrame(*layer)) {
         currentOpacity *= layer->renderer().style().opacity();
         if (currentOpacity < minimumVisibleOpacity)
-            return true;
-    }
-
-    auto hasEmptyClipRect = [] (const RenderLayer& layer) -> bool {
-        auto* frameView = layer.renderer().document().view();
-        if (!frameView)
-            return false;
-
-        auto* renderView = frameView->renderView();
-        if (!renderView)
-            return false;
-
-        auto* renderViewLayer = renderView->layer();
-        if (!renderViewLayer)
-            return false;
-
-        if (is<HTMLFrameOwnerElement>(layer.renderer().element()) && layer.visibleSize().isEmpty())
-            return true;
-
-        LayoutRect layerBounds;
-        ClipRect backgroundRect;
-        ClipRect foregroundRect;
-        layer.calculateRects({ renderViewLayer, TemporaryClipRects }, LayoutRect::infiniteRect(), layerBounds, backgroundRect, foregroundRect, layer.offsetFromAncestor(renderViewLayer));
-        return backgroundRect.isEmpty();
-    };
-
-    for (auto* layer = this; layer; layer = enclosingFrameRenderLayer(*layer)) {
-        if (hasEmptyClipRect(*layer))
             return true;
     }
 

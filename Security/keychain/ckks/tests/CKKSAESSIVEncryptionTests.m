@@ -33,7 +33,7 @@
 #import "keychain/ckks/CKKSIncomingQueueEntry.h"
 #import "keychain/ckks/CKKSItemEncrypter.h"
 
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 #include <Security/SecItemPriv.h>
 #include "OSX/sec/Security/SecItemShim.h"
 

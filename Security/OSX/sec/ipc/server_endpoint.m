@@ -32,7 +32,7 @@
 #include "ipc/server_entitlement_helpers.h"
 #include "ipc/server_endpoint.h"
 
-#include "securityd/SecItemServer.h"
+#include "keychain/securityd/SecItemServer.h"
 #include <Security/SecEntitlements.h>
 
 #pragma mark - Securityd Server

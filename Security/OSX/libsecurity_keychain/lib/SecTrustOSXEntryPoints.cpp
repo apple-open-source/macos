@@ -26,7 +26,7 @@
  * Framework.
  */
 
-#include "OSX/trustd/macOS/SecTrustOSXEntryPoints.h"
+#include "trust/trustd/macOS/SecTrustOSXEntryPoints.h"
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <dispatch/dispatch.h>

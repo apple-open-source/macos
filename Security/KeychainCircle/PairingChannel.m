@@ -273,16 +273,25 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
         return;
     }
 
-    if(OctagonIsEnabled() && self.sessionSupportsOctagon && !self.testFailOctagon) {
+    if(self.sessionSupportsOctagon && self.sessionSupportsSOS && !self.testFailOctagon) {
         __weak typeof(self) weakSelf = self;
         self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
             [weakSelf initiatorSecondPacket:nsdata complete:kscomplete];
         };
         complete(false, @{ @"d" : @YES, @"o" : @{@"v" : @"O"} }, NULL);
-    } else if (OctagonIsEnabled() && self.testFailOctagon) {
+        return;
+    } else if (self.sessionSupportsOctagon && self.testFailOctagon) {
         complete(true, nil, NULL);
         return;
-    } else {
+    } else if (self.sessionSupportsOctagon && !self.sessionSupportsSOS) {
+        __weak typeof(self) weakSelf = self;
+        self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
+            [weakSelf initiatorSecondPacket:nsdata complete:kscomplete];
+        };
+        complete(false, @{ @"o" : @{@"v" : @"O"} }, NULL);
+        return;
+    }
+    else {
         __weak typeof(self) weakSelf = self;
         self.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
             [weakSelf initiatorSecondPacket:nsdata complete:kscomplete];

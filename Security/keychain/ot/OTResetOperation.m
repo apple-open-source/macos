@@ -30,7 +30,7 @@
 @interface OTResetOperation ()
 @property NSString* containerName;
 @property NSString* contextID;
-@property id<NSXPCProxyCreating> cuttlefishXPC;
+@property CuttlefishXPCWrapper* cuttlefishXPCWrapper;
 
 // Since we're making callback based async calls, use this operation trick to hold off the ending of this operation
 @property NSOperation* finishedOp;
@@ -42,9 +42,10 @@
 
 - (instancetype)init:(NSString*)containerName
            contextID:(NSString*)contextID
+              reason:(CuttlefishResetReason)reason
        intendedState:(OctagonState*)intendedState
           errorState:(OctagonState*)errorState
-       cuttlefishXPC:(id<NSXPCProxyCreating>)cuttlefishXPC
+cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
 {
     if((self = [super init])) {
         _intendedState = intendedState;
@@ -52,7 +53,8 @@
 
         _containerName = containerName;
         _contextID = contextID;
-        _cuttlefishXPC = cuttlefishXPC;
+        _cuttlefishXPCWrapper = cuttlefishXPCWrapper;
+        _resetReason = reason;
     }
     return self;
 }
@@ -65,29 +67,23 @@
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     WEAKIFY(self);
-    [[self.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-        [[CKKSAnalytics logger] logRecoverableError:error forEvent:OctagonEventReset withAttributes:NULL];
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+    [self.cuttlefishXPCWrapper resetWithContainer:self.containerName
+                                          context:self.contextID
+                                      resetReason:self.resetReason
+                                            reply:^(NSError * _Nullable error) {
+            STRONGIFY(self);
+            [[CKKSAnalytics logger] logResultForEvent:OctagonEventReset hardFailure:true result:error];
+        
+            if(error) {
+                secnotice("octagon", "Unable to reset for (%@,%@): %@", self.containerName, self.contextID, error);
+                self.error = error;
+            } else {
+                secnotice("octagon", "Successfully reset Octagon");
+                self.nextState = self.intendedState;
+            }
 
-    }] resetWithContainer:self.containerName
-                  context:self.contextID
-                    reply:^(NSError * _Nullable error) {
-         STRONGIFY(self);
-         [[CKKSAnalytics logger] logResultForEvent:OctagonEventReset hardFailure:true result:error];
-
-         if(error) {
-             secnotice("octagon", "Unable to reset for (%@,%@): %@", self.containerName, self.contextID, error);
-             self.error = error;
-         } else {
-             secnotice("octagon", "Successfully reset Octagon");
-             self.nextState = self.intendedState;
-         }
-
-         [self runBeforeGroupFinished:self.finishedOp];
-     }];
+            [self runBeforeGroupFinished:self.finishedOp];
+        }];
 }
 
 @end

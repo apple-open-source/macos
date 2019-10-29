@@ -22,7 +22,7 @@
  *
  */
 #import <XCTest/XCTest.h>
-#include "OSX/trustd/trustd_spi.h"
+#include "trust/trustd/trustd_spi.h"
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecPolicy.h>
@@ -171,14 +171,24 @@ const CFStringRef kTestSystemRootKey = CFSTR("TestSystemRoot");
     CFPreferencesAppSynchronize(kSecurityPreferencesDomain);
 }
 
+- (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromResource:(NSString *)name
+                                                         subdirectory:(NSString *)dir
+{
+    NSURL *url = [[NSBundle bundleForClass:[self class]] URLForResource:name withExtension:@".cer"
+                                                           subdirectory:dir];
+    NSData *certData = [NSData dataWithContentsOfURL:url];
+    SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, (CFDataRef)certData);
+    return (__bridge id)cert;
+}
+
 /* MARK: run test methods from regressionBase */
 - (void)runOneLeafTest:(SecPolicyRef)policy
-                      anchors:(NSArray *)anchors
-                intermediates:(NSArray *)intermediates
-                    leafPath:(NSString *)path
-            expectedResult:(bool)expectedResult
-                 expectations:(NSObject *)expectations
-                   verifyDate:(NSDate *)date
+               anchors:(NSArray *)anchors
+         intermediates:(NSArray *)intermediates
+              leafPath:(NSString *)path
+        expectedResult:(bool)expectedResult
+          expectations:(NSObject *)expectations
+            verifyDate:(NSDate *)date
 {
     NSString* fileName = [path lastPathComponent];
     NSString *reason = NULL;

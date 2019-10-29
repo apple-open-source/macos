@@ -19,7 +19,7 @@ extension ViewKey {
             $0.parentkeyUuid = ckksKey.parentKeyUUID
             $0.keyclass = kc
             $0.wrappedkeyBase64 = ckksKey.wrappedkey.base64WrappedKey()
-            $0.uploadOsversion = SecCKKSHostOSVersion()
+            $0.uploadOsVersion = SecCKKSHostOSVersion()
         }
     }
 }

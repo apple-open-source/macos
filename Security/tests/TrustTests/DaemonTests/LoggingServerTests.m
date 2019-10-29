@@ -8,7 +8,7 @@
 #include <AssertMacros.h>
 #import <XCTest/XCTest.h>
 
-#import "../../../OSX/sec/securityd/SecTrustLoggingServer.h"
+#import "trust/trustd/SecTrustLoggingServer.h"
 
 @interface LoggingServerTests : XCTestCase
 @end

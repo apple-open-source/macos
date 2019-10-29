@@ -33,42 +33,6 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>secitemstresstest</string>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/CoreOS/tests/Security/secitemstresstest</string>
-			</array>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>secitemnotifications</string>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/CoreOS/tests/Security/secitemnotifications</string>
-			</array>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>secd_02_upgrade_while_locked</string>
-			<key>Command</key>
-			<array>
-				<string>/usr/local/bin/secdtests</string>
-				<string>-1</string>
-				<string>secd_02_upgrade_while_locked </string>
-			</array>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>secd_35_keychain_migrate_inet</string>
-			<key>Command</key>
-			<array>
-				<string>/usr/local/bin/secdtests</string>
-				<string>-1</string>
-				<string>secd_35_keychain_migrate_inet</string>
-			</array>
-		</dict>
-		<dict>
-			<key>TestName</key>
 			<string>keychainnetworkextensionsharing-1</string>
 			<key>Command</key>
 			<array>

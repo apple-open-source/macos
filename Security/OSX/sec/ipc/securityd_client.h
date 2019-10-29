@@ -25,7 +25,7 @@
 
 #include <stdint.h>
 
-#include "securityd/SecKeybagSupport.h"
+#include "keychain/securityd/SecKeybagSupport.h"
 
 #include <Security/SecTrust.h>
 #include <Security/SecTask.h>
@@ -88,6 +88,7 @@ extern const char *kSecXPCKeyPeerInfoArray;
 extern const char *kSecXPCKeyUserLabel;
 extern const char *kSecXPCKeyBackup;
 extern const char *kSecXPCKeyKeybag;
+extern const char *kSecXPCKeyFlags;
 extern const char *kSecXPCKeyUserPassword;
 extern const char *kSecXPCKeyEMCSBackup;
 extern const char *kSecXPCKeyDSID;
@@ -438,7 +439,7 @@ struct securityd {
     bool (*soscc_DeleteEngineState)(CFErrorRef *error);
     SOSPeerInfoRef (*soscc_CopyApplicant)(CFErrorRef *error);
     CFDataRef (*soscc_CopyCircleJoiningBlob)(SOSPeerInfoRef applicant, CFErrorRef *error);
-    CFDataRef (*soscc_CopyInitialSyncData)(CFErrorRef *error);
+    CFDataRef (*soscc_CopyInitialSyncData)(SOSInitialSyncFlags flags, CFErrorRef *error);
     bool (*soscc_JoinWithCircleJoiningBlob)(CFDataRef joiningBlob, PiggyBackProtocolVersion version, CFErrorRef *error);
     bool (*soscc_SOSCCCleanupKVSKeys)(CFErrorRef *error);
     bool (*soscc_SOSCCTestPopulateKVSWithBadKeys)(CFErrorRef *error);

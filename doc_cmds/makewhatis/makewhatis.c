@@ -42,6 +42,7 @@ __FBSDID("$FreeBSD: src/usr.bin/makewhatis/makewhatis.c,v 1.9 2002/09/04 23:29:0
 #include <ctype.h>
 #include <dirent.h>
 #include <err.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -121,6 +122,7 @@ static struct sbuf *whatis_final;
 static StringList *whatis_lines;	/* collected output lines */
 
 static char tmp_file[MAXPATHLEN];	/* path of temporary file, if any */
+static char tmp_rel_file[MAXPATHLEN];
 
 /* A set of possible names for the NAME man page section */
 static const char *name_section_titles[] = {
@@ -330,15 +332,23 @@ trap_signal(int sig __unused)
  * Attempts to open an output file.  Returns NULL if unsuccessful.
  */
 static FILE *
-open_output(char *name)
+open_output(char *name, int dir_fd, char *rel_name)
 {
 	FILE *output;
+	int output_fd;
+	struct stat statbuf;
 
 	whatis_lines = sl_init();
 	if (append) {
 		char line[LINE_ALLOC];
 
-		output = fopen(name, "r");
+		output_fd = openat(dir_fd, rel_name, O_RDONLY);
+		if (output_fd == -1) {
+			warn("%s", name);
+			exit_code = 1;
+			return NULL;
+		}
+		output = fdopen(output_fd, "r");
 		if (output == NULL) {
 			warn("%s", name);
 			exit_code = 1;
@@ -348,12 +358,38 @@ open_output(char *name)
 			line[strlen(line) - 1] = '\0';
 			sl_add(whatis_lines, strdup(line));
 		}
+		fclose(output);
 	}
 	if (common_output == NULL) {
 		snprintf(tmp_file, sizeof tmp_file, "%s.tmp", name);
+		snprintf(tmp_rel_file, sizeof tmp_rel_file, "%s.tmp", rel_name);
 		name = tmp_file;
+		rel_name = tmp_rel_file;
 	}
-	output = fopen(name, "w");
+	/* Bail out if the file is actually a symlink or has another link.
+	 * This script can run as root and we don't want to risk writing
+	 * into a random location.
+	 * See rdar://problem/55280616
+	 */
+	output_fd = openat(dir_fd, rel_name, O_WRONLY | O_NOFOLLOW | O_CREAT | O_TRUNC, 0644);
+	if (output_fd == -1) {
+		warn("%s", name);
+		exit_code = 1;
+		return NULL;
+	}
+	if (fstat(output_fd, &statbuf) == -1) {
+		warn("%s: unable to stat", name);
+		close(output_fd);
+		exit_code = 1;
+		return NULL;
+	}
+	if (statbuf.st_nlink > 1) {
+		warnx("%s: is a hardlink", name);
+		close(output_fd);
+		exit_code = 1;
+		return NULL;
+	}
+	output = fdopen(output_fd, "w");
 	if (output == NULL) {
 		warn("%s", name);
 		exit_code = 1;
@@ -372,7 +408,7 @@ linesort(const void *a, const void *b)
  * Writes the unique sorted lines to the output file.
  */
 static void
-finish_output(FILE *output, char *name)
+finish_output(FILE *output, char *name, int dir_fd, char *rel_name)
 {
 	size_t i;
 	char *prev = NULL;
@@ -389,27 +425,27 @@ finish_output(FILE *output, char *name)
 	fclose(output);
 	sl_free(whatis_lines, 1);
 	if (common_output == NULL) {
-		rename(tmp_file, name);
-		unlink(tmp_file);
+		renameat(dir_fd, tmp_rel_file, dir_fd, rel_name);
+		unlinkat(dir_fd, tmp_rel_file, 0);
 	}
 }
 
 static FILE *
-open_whatis(char *mandir)
+open_whatis(char *mandir, int mandir_fd)
 {
 	char filename[MAXPATHLEN];
 
 	snprintf(filename, sizeof filename, "%s/%s", mandir, whatis_name);
-	return open_output(filename);
+	return open_output(filename, mandir_fd, whatis_name);
 }
 
 static void
-finish_whatis(FILE *output, char *mandir)
+finish_whatis(FILE *output, char *mandir, int mandir_fd)
 {
 	char filename[MAXPATHLEN];
 
 	snprintf(filename, sizeof filename, "%s/%s", mandir, whatis_name);
-	finish_output(output, filename);
+	finish_output(output, filename, mandir_fd, whatis_name);
 }
 
 /*
@@ -907,39 +943,48 @@ select_sections(struct dirent *entry)
 static void
 process_mandir(char *dir_name)
 {
-	struct dirent **entries;
-	int nsections;
+	int dir_fd;
+	DIR *dir;
 	FILE *fp = NULL;
-	int i;
+	struct dirent *entry;
 	struct stat st;
 
 	if (already_visited(dir_name))
 		return;
 	if (verbose)
 		fprintf(stderr, "man directory %s\n", dir_name);
-	nsections = scandir(dir_name, &entries, select_sections, alphasort);
-	if (nsections < 0) {
+
+	dir_fd = open(dir_name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
+	if (dir_fd == -1) {
 		warn("%s", dir_name);
 		exit_code = 1;
 		return;
 	}
-	if (common_output == NULL && (fp = open_whatis(dir_name)) == NULL)
+	dir = fdopendir(dir_fd);
+	if (dir == NULL) {
+		warn("%s", dir_name);
+		close(dir_fd);
+		exit_code = 1;
 		return;
-	for (i = 0; i < nsections; i++) {
+	}
+	if (common_output == NULL && (fp = open_whatis(dir_name, dir_fd)) == NULL) {
+		closedir(dir);
+		return;
+	}
+	while ((entry = readdir(dir)) != NULL) {
 		char section_dir[MAXPATHLEN];
-		snprintf(section_dir, sizeof section_dir, "%s/%s", dir_name, entries[i]->d_name);
+		snprintf(section_dir, sizeof section_dir, "%s/%s", dir_name, entry->d_name);
 		process_section(section_dir);
 #ifndef __APPLE__
 		snprintf(section_dir, sizeof section_dir, "%s/%s/%s", dir_name,
-		    entries[i]->d_name, machine);
+		    entry->d_name, machine);
 		if (stat(section_dir, &st) == 0 && S_ISDIR(st.st_mode))
 			process_section(section_dir);
 #endif /* !__APPLE__ */
-		free(entries[i]);
 	}
-	free(entries);
 	if (common_output == NULL)
-		finish_whatis(fp, dir_name);
+		finish_whatis(fp, dir_name, dir_fd);
+	closedir(dir);
 }
 
 /*
@@ -1030,7 +1075,7 @@ main(int argc, char **argv)
 		machine = MACHINE;
 #endif /* !__APPLE__ */
 
-	if (common_output != NULL && (fp = open_output(common_output)) == NULL)
+	if (common_output != NULL && (fp = open_output(common_output, AT_FDCWD, common_output)) == NULL)
 		err(1, "%s", common_output);
 	if (optind == argc) {
 		const char *manpath = getenv("MANPATH");
@@ -1042,6 +1087,6 @@ main(int argc, char **argv)
 			process_argument(argv[optind++]);
 	}
 	if (common_output != NULL)
-		finish_output(fp, common_output);
+		finish_output(fp, common_output, AT_FDCWD, common_output);
 	exit(exit_code);
 }

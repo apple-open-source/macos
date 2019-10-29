@@ -23,7 +23,7 @@
 
 #import <Foundation/Foundation.h>
 #import "CKKSSQLDatabaseObject.h"
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 
 #import "keychain/ckks/CKKS.h"
 #import "CKKSKeychainView.h"

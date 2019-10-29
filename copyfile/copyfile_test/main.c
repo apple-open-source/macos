@@ -55,6 +55,7 @@ int main(__unused int argc, __unused const char * argv[]) {
 	failed |= do_sparse_recursive_test(TEST_DIR, stb.f_bsize);
 	failed |= do_fcopyfile_offset_test(TEST_DIR, stb.f_bsize);
 	failed |= do_preserve_dst_flags_test(TEST_DIR, stb.f_bsize);
+	failed |= do_preserve_dst_tracked_test(TEST_DIR, stb.f_bsize);
 
 	// Cleanup the disk image we ran our tests on.
 	if (USING_DISK_IMAGE) {

@@ -86,6 +86,22 @@
 #define GC_GREY     0x200000
 #define GC_PURPLE   0x300000
 
+/* Debug tracing */
+#if ZEND_GC_DEBUG > 1
+# define GC_TRACE(format, ...) fprintf(stderr, format "\n", ##__VA_ARGS__);
+# define GC_TRACE_REF(ref, format, ...) \
+	do { \
+		gc_trace_ref((zend_refcounted *) ref); \
+		fprintf(stderr, format "\n", ##__VA_ARGS__); \
+	} while (0)
+# define GC_TRACE_SET_COLOR(ref, color) \
+	GC_TRACE_REF(ref, "->%s", gc_color_name(color))
+#else
+# define GC_TRACE_REF(ref, format, ...)
+# define GC_TRACE_SET_COLOR(ref, new_color)
+# define GC_TRACE(str)
+#endif
+
 /* GC_INFO access */
 #define GC_REF_ADDRESS(ref) \
 	(((GC_TYPE_INFO(ref)) & (GC_ADDRESS << GC_INFO_SHIFT)) >> GC_INFO_SHIFT)
@@ -103,16 +119,19 @@
 	} while (0)
 
 #define GC_REF_SET_COLOR(ref, c) do { \
+		GC_TRACE_SET_COLOR(ref, c); \
 		GC_TYPE_INFO(ref) = \
 			(GC_TYPE_INFO(ref) & ~(GC_COLOR << GC_INFO_SHIFT)) | \
 			((c) << GC_INFO_SHIFT); \
 	} while (0)
 
 #define GC_REF_SET_BLACK(ref) do { \
+		GC_TRACE_SET_COLOR(ref, GC_BLACK); \
 		GC_TYPE_INFO(ref) &= ~(GC_COLOR << GC_INFO_SHIFT); \
 	} while (0)
 
 #define GC_REF_SET_PURPLE(ref) do { \
+		GC_TRACE_SET_COLOR(ref, GC_PURPLE); \
 		GC_TYPE_INFO(ref) |= (GC_COLOR << GC_INFO_SHIFT); \
 	} while (0)
 
@@ -228,21 +247,6 @@ static zend_gc_globals gc_globals;
 # define GC_BENCH_INC(counter)
 # define GC_BENCH_DEC(counter)
 # define GC_BENCH_PEAK(peak, counter)
-#endif
-
-#if ZEND_GC_DEBUG > 1
-# define GC_TRACE(format, ...) fprintf(stderr, format "\n", ##__VA_ARGS__);
-# define GC_TRACE_REF(ref, format, ...) \
-	do { \
-		gc_trace_ref((zend_refcounted *) ref); \
-		fprintf(stderr, format "\n", ##__VA_ARGS__); \
-	} while (0)
-# define GC_TRACE_SET_COLOR(ref, color) \
-	GC_TRACE_REF(ref, "->%s", gc_color_name(color))
-#else
-# define GC_TRACE_REF(ref, format, ...)
-# define GC_TRACE_SET_COLOR(ref, new_color)
-# define GC_TRACE(str)
 #endif
 
 
@@ -697,11 +701,14 @@ tail_call:
 			ZVAL_OBJ(&tmp, obj);
 			ht = get_gc(&tmp, &zv, &n);
 			end = zv + n;
-			if (EXPECTED(!ht)) {
+			if (EXPECTED(!ht) || UNEXPECTED(GC_REF_CHECK_COLOR(ht, GC_BLACK))) {
+				ht = NULL;
 				if (!n) goto next;
 				while (!Z_REFCOUNTED_P(--end)) {
 					if (zv == end) goto next;
 				}
+			} else {
+				GC_REF_SET_BLACK(ht);
 			}
 			while (zv != end) {
 				if (Z_REFCOUNTED_P(zv)) {
@@ -816,15 +823,19 @@ static void gc_mark_grey(zend_refcounted *ref, gc_stack *stack)
 				ZVAL_OBJ(&tmp, obj);
 				ht = get_gc(&tmp, &zv, &n);
 				end = zv + n;
-				if (EXPECTED(!ht)) {
+				if (EXPECTED(!ht) || UNEXPECTED(GC_REF_CHECK_COLOR(ht, GC_GREY))) {
+					ht = NULL;
 					if (!n) goto next;
 					while (!Z_REFCOUNTED_P(--end)) {
 						if (zv == end) goto next;
 					}
+				} else {
+					GC_REF_SET_COLOR(ht, GC_GREY);
 				}
 				while (zv != end) {
 					if (Z_REFCOUNTED_P(zv)) {
 						ref = Z_COUNTED_P(zv);
+						ZEND_ASSERT(GC_REFCOUNT(ref) > 0);
 						GC_DELREF(ref);
 						if (!GC_REF_CHECK_COLOR(ref, GC_GREY)) {
 							GC_REF_SET_COLOR(ref, GC_GREY);
@@ -835,6 +846,7 @@ static void gc_mark_grey(zend_refcounted *ref, gc_stack *stack)
 				}
 				if (EXPECTED(!ht)) {
 					ref = Z_COUNTED_P(zv);
+					ZEND_ASSERT(GC_REFCOUNT(ref) > 0);
 					GC_DELREF(ref);
 					if (!GC_REF_CHECK_COLOR(ref, GC_GREY)) {
 						GC_REF_SET_COLOR(ref, GC_GREY);
@@ -855,6 +867,7 @@ static void gc_mark_grey(zend_refcounted *ref, gc_stack *stack)
 		} else if (GC_TYPE(ref) == IS_REFERENCE) {
 			if (Z_REFCOUNTED(((zend_reference*)ref)->val)) {
 				ref = Z_COUNTED(((zend_reference*)ref)->val);
+				ZEND_ASSERT(GC_REFCOUNT(ref) > 0);
 				GC_DELREF(ref);
 				if (!GC_REF_CHECK_COLOR(ref, GC_GREY)) {
 					GC_REF_SET_COLOR(ref, GC_GREY);
@@ -887,6 +900,7 @@ static void gc_mark_grey(zend_refcounted *ref, gc_stack *stack)
 			}
 			if (Z_REFCOUNTED_P(zv)) {
 				ref = Z_COUNTED_P(zv);
+				ZEND_ASSERT(GC_REFCOUNT(ref) > 0);
 				GC_DELREF(ref);
 				if (!GC_REF_CHECK_COLOR(ref, GC_GREY)) {
 					GC_REF_SET_COLOR(ref, GC_GREY);
@@ -900,6 +914,7 @@ static void gc_mark_grey(zend_refcounted *ref, gc_stack *stack)
 			zv = Z_INDIRECT_P(zv);
 		}
 		ref = Z_COUNTED_P(zv);
+		ZEND_ASSERT(GC_REFCOUNT(ref) > 0);
 		GC_DELREF(ref);
 		if (!GC_REF_CHECK_COLOR(ref, GC_GREY)) {
 			GC_REF_SET_COLOR(ref, GC_GREY);
@@ -1001,11 +1016,14 @@ tail_call:
 					ZVAL_OBJ(&tmp, obj);
 					ht = get_gc(&tmp, &zv, &n);
 					end = zv + n;
-					if (EXPECTED(!ht)) {
+					if (EXPECTED(!ht) || UNEXPECTED(!GC_REF_CHECK_COLOR(ht, GC_GREY))) {
+						ht = NULL;
 						if (!n) goto next;
 						while (!Z_REFCOUNTED_P(--end)) {
 							if (zv == end) goto next;
 						}
+					} else {
+						GC_REF_SET_COLOR(ht, GC_WHITE);
 					}
 					while (zv != end) {
 						if (Z_REFCOUNTED_P(zv)) {
@@ -1172,7 +1190,8 @@ static int gc_collect_white(zend_refcounted *ref, uint32_t *flags, gc_stack *sta
 				ZVAL_OBJ(&tmp, obj);
 				ht = get_gc(&tmp, &zv, &n);
 				end = zv + n;
-				if (EXPECTED(!ht)) {
+				if (EXPECTED(!ht) || UNEXPECTED(GC_REF_CHECK_COLOR(ht, GC_BLACK))) {
+					ht = NULL;
 					if (!n) goto next;
 					while (!Z_REFCOUNTED_P(--end)) {
 						/* count non-refcounted for compatibility ??? */
@@ -1181,6 +1200,8 @@ static int gc_collect_white(zend_refcounted *ref, uint32_t *flags, gc_stack *sta
 						}
 						if (zv == end) goto next;
 					}
+				} else {
+					GC_REF_SET_BLACK(ht);
 				}
 				while (zv != end) {
 					if (Z_REFCOUNTED_P(zv)) {
@@ -1329,16 +1350,24 @@ static void gc_remove_nested_data_from_buffer(zend_refcounted *ref, gc_root_buff
 	zval *zv;
 
 tail_call:
-	if (root ||
-	    (GC_REF_ADDRESS(ref) != 0 &&
-	     GC_REF_CHECK_COLOR(ref, GC_BLACK))) {
-		GC_TRACE_REF(ref, "removing from buffer");
+	do {
 		if (root) {
+			GC_TRACE_REF(ref, "removing from buffer");
 			gc_remove_from_roots(root);
 			GC_REF_SET_INFO(ref, 0);
 			root = NULL;
-		} else {
+		} else if (GC_REF_ADDRESS(ref) != 0
+		 && GC_REF_CHECK_COLOR(ref, GC_BLACK)) {
+			GC_TRACE_REF(ref, "removing from buffer");
 			GC_REMOVE_FROM_BUFFER(ref);
+		} else if (GC_TYPE(ref) == IS_REFERENCE) {
+			if (Z_REFCOUNTED(((zend_reference*)ref)->val)) {
+				ref = Z_COUNTED(((zend_reference*)ref)->val);
+				goto tail_call;
+			}
+			return;
+		} else {
+			return;
 		}
 
 		if (GC_TYPE(ref) == IS_OBJECT) {
@@ -1376,12 +1405,6 @@ tail_call:
 			}
 		} else if (GC_TYPE(ref) == IS_ARRAY) {
 			ht = (zend_array*)ref;
-		} else if (GC_TYPE(ref) == IS_REFERENCE) {
-			if (Z_REFCOUNTED(((zend_reference*)ref)->val)) {
-				ref = Z_COUNTED(((zend_reference*)ref)->val);
-				goto tail_call;
-			}
-			return;
 		} else {
 			return;
 		}
@@ -1417,7 +1440,7 @@ tail_call:
 		}
 		ref = Z_COUNTED_P(zv);
 		goto tail_call;
-	}
+	} while (0);
 }
 
 ZEND_API int zend_gc_collect_cycles(void)

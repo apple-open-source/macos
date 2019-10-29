@@ -343,21 +343,9 @@ option can be specified on the command line at a time.
 Specify the
 .Ar output
 file for the
-.Fl G ,
-and
 .Fl l
 options, or for the traced data itself.
-If the
-.Fl G
-option is present and the
-.Fl s
-option's argument is of the form
-.Ar filename.d
-and
-.Fl o
-is not present, the default output file is
-.Ar filename.o .
-Otherwise the default output file is
+The default output file is
 .Ar d.out .
 .It Fl p Ar pid
 Grab the specified process-ID
@@ -409,7 +397,7 @@ option is present, the program is compiled and the set of probes matched by it
 is listed, but instrumentation is not enabled.
 .Pp
 If none of
-.Fl e , l , G ,
+.Fl e , l
 or
 .Fl A
 are present, the instrumentation specified by the D program is enabled and

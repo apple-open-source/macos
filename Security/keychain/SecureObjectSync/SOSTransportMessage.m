@@ -12,7 +12,7 @@
 #include "keychain/SecureObjectSync/SOSInternal.h"
 #include "keychain/SecureObjectSync/SOSAccountPriv.h"
 #include "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
-#include <securityd/SecItemServer.h> // TODO: Remove this layer violation.
+#include "keychain/securityd/SecItemServer.h" // TODO: Remove this layer violation.
 
 static const CFStringRef kSecSOSMessageRTT                   = CFSTR("com.apple.security.sos.messagertt");
 static const CFStringRef kSecAccessGroupSecureBackupd        = CFSTR("com.apple.securebackupd");

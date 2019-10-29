@@ -71,9 +71,10 @@
     if(self.bottleSalt != nil) {
         secnotice("octagon", "using passed in altdsid, altdsid is: %@", self.bottleSalt);
     } else{
-        if(self.deps.authKitAdapter.primaryiCloudAccountAltDSID){
-            secnotice("octagon", "using auth kit adapter, altdsid is: %@", self.deps.authKitAdapter.primaryiCloudAccountAltDSID);
-            self.bottleSalt = self.deps.authKitAdapter.primaryiCloudAccountAltDSID;
+        NSString* altDSID = self.deps.authKitAdapter.primaryiCloudAccountAltDSID;
+        if(altDSID){
+            secnotice("octagon", "fetched altdsid is: %@", altDSID);
+            self.bottleSalt = altDSID;
         }
         else {
             NSError* accountError = nil;
@@ -107,38 +108,65 @@
 
 - (void)proceedWithKeys:(NSArray<CKKSKeychainBackedKeySet*>*)viewKeySets tlkShares:(NSArray<CKKSTLKShare*>*)tlkShares
 {
+    // Preflight the vouch: this will tell us the peerID of the recovering peer.
+    // Then, filter the tlkShares array to include only tlks sent to that peer.
+    WEAKIFY(self);
+    [self.deps.cuttlefishXPCWrapper preflightVouchWithBottleWithContainer:self.deps.containerName
+                                                                  context:self.deps.contextID
+                                                                 bottleID:self.bottleID
+                                                                    reply:^(NSString * _Nullable peerID, NSError * _Nullable error) {
+        STRONGIFY(self);
+        [[CKKSAnalytics logger] logResultForEvent:OctagonEventPreflightVouchWithBottle hardFailure:true result:error];
+
+        if(error){
+            secerror("octagon: Error preflighting voucher using bottle: %@", error);
+            self.error = error;
+            [self runBeforeGroupFinished:self.finishedOp];
+            return;
+        }
+
+        secnotice("octagon", "Bottle %@ is for peerID %@", self.bottleID, peerID);
+
+        NSMutableArray<CKKSTLKShare*>* filteredTLKShares = [NSMutableArray array];
+        for(CKKSTLKShare* share in tlkShares) {
+            // If we didn't get a peerID, just pass every tlkshare and hope for the best
+            if(peerID == nil || [share.receiverPeerID isEqualToString:peerID]) {
+                [filteredTLKShares addObject:share];
+            }
+        }
+
+        [self proceedWithKeys:viewKeySets filteredTLKShares:filteredTLKShares];
+    }];
+}
+
+- (void)proceedWithKeys:(NSArray<CKKSKeychainBackedKeySet*>*)viewKeySets filteredTLKShares:(NSArray<CKKSTLKShare*>*)tlkShares
+{
     WEAKIFY(self);
 
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-        [[CKKSAnalytics logger] logRecoverableError:error forEvent:OctagonEventVoucherWithBottle withAttributes:NULL];
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+    [self.deps.cuttlefishXPCWrapper vouchWithBottleWithContainer:self.deps.containerName
+                                                         context:self.deps.contextID
+                                                        bottleID:self.bottleID
+                                                         entropy:self.entropy
+                                                      bottleSalt:self.bottleSalt
+                                                       tlkShares:tlkShares
+                                                           reply:^(NSData * _Nullable voucher, NSData * _Nullable voucherSig, NSError * _Nullable error) {
+            STRONGIFY(self);
+            [[CKKSAnalytics logger] logResultForEvent:OctagonEventVoucherWithBottle hardFailure:true result:error];
 
-    }] vouchWithBottleWithContainer:self.deps.containerName
-     context:self.deps.contextID
-     bottleID:self.bottleID
-     entropy:self.entropy
-     bottleSalt:self.bottleSalt
-     tlkShares:tlkShares
-     reply:^(NSData * _Nullable voucher, NSData * _Nullable voucherSig, NSError * _Nullable error) {
-         [[CKKSAnalytics logger] logResultForEvent:OctagonEventVoucherWithBottle hardFailure:true result:error];
+            if(error){
+                secerror("octagon: Error preparing voucher using bottle: %@", error);
+                self.error = error;
+                [self runBeforeGroupFinished:self.finishedOp];
+                return;
+            }
 
-         if(error){
-             secerror("octagon: Error preparing voucher using bottle: %@", error);
-             self.error = error;
-             [self runBeforeGroupFinished:self.finishedOp];
-             return;
-         }
+            secnotice("octagon", "Received bottle voucher");
 
-         secnotice("octagon", "Received bottle voucher");
-
-         self.voucher = voucher;
-         self.voucherSig = voucherSig;
-         self.nextState = self.intendedState;
-         [self runBeforeGroupFinished:self.finishedOp];
-     }];
+            self.voucher = voucher;
+            self.voucherSig = voucherSig;
+            self.nextState = self.intendedState;
+            [self runBeforeGroupFinished:self.finishedOp];
+        }];
 }
 
 @end

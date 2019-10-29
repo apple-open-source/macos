@@ -97,6 +97,11 @@
     _properties[@(kIOPSProductIDKey)] = props[@(kIOHIDProductIDKey)];
     _properties[@(kIOPSAccessoryIdentifierKey)] = props[@(kIOHIDSerialNumberKey)];
     
+    if ([props objectForKey:@(kIOHIDModelNumberKey)]) {
+        _properties[@(kIOPSModelNumber)] = [props objectForKey:@(kIOHIDModelNumberKey)];
+    }
+    
+    
     uint32_t usagePage = [props[@(kIOHIDPrimaryUsagePageKey)] intValue];
     uint32_t usage = [props[@(kIOHIDPrimaryUsageKey)] intValue];
     
@@ -268,6 +273,7 @@
                 switch (element.usage) {
                     case kHIDUsage_AppleVendor_Color:
                         element.psKey = @(kIOPSDeviceColor);
+                        element.isConstant = YES;
                         break;
                 }
             default:
@@ -301,12 +307,30 @@
         } else {
             [_elements.feature addObject:element];
             
+            /* Constant feature elements are the one which needs to be updated only one time
+             * We should have this option  propogated on hid element . This work is tracked by
+             * rdar://problem/55080850 and following changes need to be revisited
+             */
+            
+            if (element.isConstant && !element.isUpdated) {
+                
+                UPSLog("Feature element (UP : %x, U : %x) has const data, retrieve current value and skip polling",element.usagePage, element.usage);
+                // Retrieve current value for element
+                [self updateElements:@[element]];
+                element.isUpdated = YES;
+                continue;
+            }
+            
+            UPSLog("Feature element (UP : %x, U : %x) added for polling", element.usagePage, element.usage);
+            
             /*
              * Feature elements should be polled every 5 seconds. We create a
              * timer here and return it with the array we pass back in the
              * createAsyncEventSource method.
              */
             if (!_timer) {
+                UPSLog("Create time for polling feature reports");
+                
                 _timer = [[NSTimer alloc] initWithFireDate:[NSDate date]
                                                   interval:5.0
                                                    repeats:YES
@@ -381,19 +405,63 @@
 
 - (void)updateElements:(NSArray *)elements
 {
+    IOReturn ret = kIOReturnError;
+    NSInteger elementsToUpdate = 0;
+    
+    ret = (*_transaction)->setDirection(_transaction, kIOHIDTransactionDirectionTypeInput, 0);
+    
+    if (ret) {
+        UPSLog("Failed to set transaction direction %x",ret);
+    }
+    
     for (HIDLibElement *element in elements) {
-        IOReturn ret = kIOReturnError;
+        
+        // we shouldn't query multiple times if given element is const feature element.
+        if (element.isConstant && element.isUpdated) {
+            UPSLog("Feature element UP : %x , U : %x updated, skip device call",element.usagePage, element.usage);
+            continue;
+        }
+        
+        ret = (*_transaction)->addElement(_transaction, element.elementRef, 0);
+        if (ret) {
+            UPSLog("Failed to add element to transaction %x",ret);
+            continue;
+        }
+        elementsToUpdate++;
+    }
+    
+    if (elementsToUpdate == 0) {
+        UPSLog("Nothing to commit skip");
+        (*_transaction)->clear(_transaction, 0);
+        return;
+    }
+    
+    ret = (*_transaction)->commit(_transaction, 0, 0, 0, 0);
+    if (ret != kIOReturnSuccess) {
+        (*_transaction)->clear(_transaction, 0);
+        UPSLog("Failed to commit input element transaction with error %x",ret);
+        return;
+    }
+    
+    for (HIDLibElement *element in elements) {
+        
         IOHIDValueRef value = NULL;
         
-        ret = (*_device)->getValue(_device,
-                                   element.elementRef,
-                                   &value, 0, NULL, NULL,
-                                   kHIDGetElementValueForcePoll);
+        // we shouldn't query multiple times if given element is const feature element.
+        if (element.isConstant && element.isUpdated) {
+            UPSLog("Feature element UP : %x , U : %x updated, skip device call",element.usagePage, element.usage);
+            continue;
+        }
+        
+        ret = (*_transaction)->getValue(_transaction, element.elementRef, &value, 0);
         
         if (ret == kIOReturnSuccess && value) {
             element.valueRef = value;
         }
     }
+    
+    (*_transaction)->clear(_transaction, 0);
+    return;
 }
 
 - (BOOL)updateEvent
@@ -685,16 +753,24 @@ static void _valueAvailableCallback(void *context,
     ret = (*_device)->copyMatchingElements(_device, nil, &elements, 0);
     require(ret == kIOReturnSuccess && elements, exit);
     
-    [self parseElements:(__bridge NSArray *)elements];
-    
-    // get the initial values for our input/feature elements
-    [self updateElements:_elements.input];
     
     // setup queue
     result = (*_device)->QueryInterface(_device,
                             CFUUIDGetUUIDBytes(kIOHIDDeviceQueueInterfaceID),
                             (LPVOID *)&_queue);
     require(result == S_OK && _queue, exit);
+    
+    // setup transaction
+    result = (*_device)->QueryInterface(_device,
+                        CFUUIDGetUUIDBytes(kIOHIDDeviceTransactionInterfaceID),
+                        (LPVOID *)&_transaction);
+    require(result == S_OK && _transaction, exit);
+    
+    (*_transaction)->setDirection(_transaction,
+                                  kIOHIDTransactionDirectionTypeOutput, 0);
+    
+    [self parseElements:(__bridge NSArray *)elements];
+    
     
     (*_queue)->setDepth(_queue, (uint32_t)_elements.input.count, 0);
     
@@ -716,14 +792,8 @@ static void _valueAvailableCallback(void *context,
     ret = (*_queue)->start(_queue, 0);
     require_noerr(ret, exit);
     
-    // setup transaction
-    result = (*_device)->QueryInterface(_device,
-                        CFUUIDGetUUIDBytes(kIOHIDDeviceTransactionInterfaceID),
-                        (LPVOID *)&_transaction);
-    require(result == S_OK && _transaction, exit);
-    
-    (*_transaction)->setDirection(_transaction,
-                                  kIOHIDTransactionDirectionTypeOutput, 0);
+    // get the initial values for our input/feature elements
+    [self updateElements:_elements.input];
     
     ret = kIOReturnSuccess;
     
@@ -876,6 +946,8 @@ static IOReturn _sendCommand(void *iunknown, CFDictionaryRef command)
     if (!command || !command.count) {
         return kIOReturnBadArgument;
     }
+    
+    (*_transaction)->setDirection(_transaction, kIOHIDTransactionDirectionTypeOutput, 0);
     
     [command enumerateKeysAndObjectsUsingBlock:^(NSString *key,
                                                  id value,

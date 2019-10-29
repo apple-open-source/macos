@@ -30,14 +30,26 @@
 #define HAVE_COREFOLLOW_UP 1
 #endif
 
-#undef HAVE_COREFOLLOW_UP // XXX
-
 #import <CoreCDP/CDPFollowUpController.h>
 #import <CoreCDP/CDPFollowUpContext.h>
 
 #include "utilities/debugging.h"
 
 static NSString * const kOTFollowupEventCompleteKey = @"OTFollowupContextType";
+
+NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
+{
+    switch(contextType) {
+        case OTFollowupContextTypeNone:
+            return @"none";
+        case OTFollowupContextTypeRecoveryKeyRepair:
+            return @"recovery key";
+        case OTFollowupContextTypeStateRepair:
+            return @"repair";
+        case OTFollowupContextTypeOfflinePasscodeChange:
+            return @"offline passcode change";
+    }
+}
 
 @interface OTFollowup()
 @property id<OctagonFollowUpControllerProtocol> cdpd;

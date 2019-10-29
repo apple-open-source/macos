@@ -188,6 +188,122 @@
     [self waitForExpectations: @[waitmore] timeout: 0.2];
 }
 
+- (void)testBlockMultiShotDelaysWithZeroInitialDelay {
+    XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
+    first.assertForOverFulfill = NO;
+
+    XCTestExpectation *longdelay = [self expectationWithDescription:@"FutureScheduler fired (long delay expectation)"];
+    longdelay.inverted = YES;
+    longdelay.expectedFulfillmentCount = 2;
+
+    XCTestExpectation *second = [self expectationWithDescription:@"FutureScheduler fired (two)"];
+    second.expectedFulfillmentCount = 2;
+    second.assertForOverFulfill = YES;
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"test"
+                                                                          initialDelay:0*NSEC_PER_MSEC
+                                                                       continuingDelay:600*NSEC_PER_MSEC
+                                                                      keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
+        [first fulfill];
+        [longdelay fulfill];
+        [second fulfill];
+    }];
+
+    [scheduler trigger];
+
+    // Watches can be very slow. We expect this to come back immediately, but give them a lot of slack....
+    [self waitForExpectations: @[first] timeout:0.4];
+
+    [scheduler trigger];
+    [scheduler trigger];
+    [scheduler trigger];
+
+    // longdelay should NOT be fulfilled again within 0.3 seconds of the first run
+    [self waitForExpectations: @[longdelay] timeout:0.3];
+
+    // But second should be fulfilled in the first 1.0 seconds
+    [self waitForExpectations: @[second] timeout:0.6];
+
+    XCTestExpectation* waitmore = [self expectationWithDescription:@"waiting"];
+    waitmore.inverted = YES;
+    [self waitForExpectations: @[waitmore] timeout: 0.2];
+}
+
+- (void)testBlockExponentialDelays {
+    XCTestExpectation *first = [self expectationWithDescription:@"FutureScheduler fired (one)"];
+    first.assertForOverFulfill = NO;
+
+    XCTestExpectation *longdelay = [self expectationWithDescription:@"FutureScheduler fired (twice in 1s)"];
+    longdelay.inverted = YES;
+    longdelay.expectedFulfillmentCount = 2;
+    longdelay.assertForOverFulfill = NO;
+
+    XCTestExpectation *second = [self expectationWithDescription:@"FutureScheduler fired (two)"];
+    second.expectedFulfillmentCount = 2;
+    second.assertForOverFulfill = NO;
+
+    XCTestExpectation *longdelay2 = [self expectationWithDescription:@"FutureScheduler fired (three in 2s)"];
+    longdelay2.inverted = YES;
+    longdelay2.expectedFulfillmentCount = 3;
+    longdelay2.assertForOverFulfill = NO;
+
+    XCTestExpectation *third = [self expectationWithDescription:@"FutureScheduler fired (three)"];
+    third.expectedFulfillmentCount = 3;
+    third.assertForOverFulfill = NO;
+
+    XCTestExpectation *final = [self expectationWithDescription:@"FutureScheduler fired (fourth)"];
+    final.expectedFulfillmentCount = 4;
+    final.assertForOverFulfill = YES;
+
+    CKKSNearFutureScheduler* scheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"test"
+                                                                          initialDelay:500*NSEC_PER_MSEC
+                                                                      expontialBackoff:2
+                                                                          maximumDelay:30*NSEC_PER_SEC
+                                                                      keepProcessAlive:false
+                                                             dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                                 block:^{
+        [first fulfill];
+        [longdelay fulfill];
+        [second fulfill];
+        [longdelay2 fulfill];
+        [third fulfill];
+        [final fulfill];
+    }];
+
+    [scheduler trigger];
+
+    // first should be fulfilled in the first 0.6 seconds
+    [self waitForExpectations: @[first] timeout:0.6];
+
+    [scheduler trigger];
+
+    // longdelay should NOT be fulfilled twice in the first 1.3-1.4 seconds
+    [self waitForExpectations: @[longdelay] timeout:0.8];
+
+    // But second should be fulfilled in the first 1.6 seconds
+    [self waitForExpectations: @[second] timeout:0.3];
+
+    [scheduler trigger];
+
+    // and longdelay2 should NOT be fulfilled three times in the first 2.3-2.4 seconds
+    [self waitForExpectations: @[longdelay2] timeout:0.9];
+
+    // But third should be fulfilled in the first 3.6 seconds
+    [self waitForExpectations: @[third] timeout:1.2];
+
+    // Wait out the 4s reset delay...
+    XCTestExpectation *reset = [self expectationWithDescription:@"reset"];
+    reset.inverted = YES;
+    [self waitForExpectations: @[reset] timeout:4.2];
+
+    // and it should use a 0.5s delay after trigger
+    [scheduler trigger];
+
+    [self waitForExpectations: @[final] timeout:0.6];
+}
+
 - (void)testBlockCancel {
     XCTestExpectation *cancelexpectation = [self expectationWithDescription:@"FutureScheduler fired (after cancel)"];
     cancelexpectation.inverted = YES;

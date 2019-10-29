@@ -44,13 +44,12 @@
 #if OCTAGON
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
-#import "keychain/ot/OTContext.h"
 #import "keychain/ot/OTManager.h"
 #endif
 #include <Security/SecItemInternal.h>
 #include <Security/SecEntitlements.h>
 #include "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 
 
 #import "SecdWatchdog.h"
@@ -2327,11 +2326,11 @@ AddViewManagerResults(NSMutableArray *results, NSMutableSet *seenUUID)
 }
 
 
-NSMutableArray*
+NSArray<NSDictionary *>*
 SOSAccountGetAllTLKs(void)
 {
     CFTypeRef result = NULL;
-    NSMutableArray* results = [NSMutableArray array];
+    NSMutableArray<NSDictionary *>* results = [NSMutableArray array];
     NSMutableSet *seenUUID = [NSMutableSet set];
 
     // first use the TLK from the view manager
@@ -2400,6 +2399,7 @@ static uint8_t* piggy_encode_data(NSData* data,
     
 }
 
+// you can not add more items here w/o also adding a version, older clients wont understand newer numbers
 static kTLKTypes
 name2type(NSString *view)
 {
@@ -2414,6 +2414,7 @@ name2type(NSString *view)
     return kTLKUnknown;
 }
 
+// you can not add more items here w/o also adding a version, older clients wont understand newer numbers
 static unsigned
 rank_type(NSString *view)
 {
@@ -2613,21 +2614,28 @@ CF_RETURNS_RETAINED CFMutableArrayRef SOSAccountCopyiCloudIdentities(SOSAccount*
     return identities;
 }
 
-CFDataRef SOSAccountCopyInitialSyncData(SOSAccount* account, CFErrorRef *error) {
-    CFMutableArrayRef identities = SOSAccountCopyiCloudIdentities(account);
-    secnotice("piggy", "identities: %@", identities);
+CFDataRef SOSAccountCopyInitialSyncData(SOSAccount* account, SOSInitialSyncFlags flags, CFErrorRef *error) {
 
-    NSMutableArray *encodedIdenities = [NSMutableArray array];
-    CFIndex i, count = CFArrayGetCount(identities);
-    for (i = 0; i < count; i++) {
-        SOSPeerInfoRef fpi = (SOSPeerInfoRef)CFArrayGetValueAtIndex(identities, i);
-        NSData *data = CFBridgingRelease(SOSPeerInfoCopyData(fpi, error));
-        if (data)
-            [encodedIdenities addObject:data];
+    NSMutableArray<NSData *>* encodedIdenities = [NSMutableArray array];
+    NSArray<NSDictionary *>* tlks = nil;
+
+    if (flags & kSOSInitialSyncFlagiCloudIdentity) {
+        CFMutableArrayRef identities = SOSAccountCopyiCloudIdentities(account);
+        secnotice("piggy", "identities: %@", identities);
+
+        CFIndex i, count = CFArrayGetCount(identities);
+        for (i = 0; i < count; i++) {
+            SOSPeerInfoRef fpi = (SOSPeerInfoRef)CFArrayGetValueAtIndex(identities, i);
+            NSData *data = CFBridgingRelease(SOSPeerInfoCopyData(fpi, error));
+            if (data)
+                [encodedIdenities addObject:data];
+        }
+        CFRelease(identities);
     }
-    CFRelease(identities);
-    
-    NSMutableArray* tlks = SOSAccountGetAllTLKs();
+
+    if (flags & kSOSInitialSyncFlagTLKs) {
+        tlks = SOSAccountGetAllTLKs();
+    }
 
     return CFBridgingRetain(SOSPiggyCreateInitialSyncData(encodedIdenities, tlks));
 }

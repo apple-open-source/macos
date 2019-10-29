@@ -42,8 +42,8 @@ typedef enum {
 
 @interface KCJoiningAcceptSession ()
 @property (readonly) uint64_t dsid;
-@property (readonly) NSObject<KCJoiningAcceptSecretDelegate>* secretDelegate;
-@property (readonly) NSObject<KCJoiningAcceptCircleDelegate>* circleDelegate;
+@property (weak) id<KCJoiningAcceptSecretDelegate> secretDelegate;
+@property (weak) id<KCJoiningAcceptCircleDelegate> circleDelegate;
 @property (readonly) KCSRPServerContext* context;
 @property (readonly) KCAESGCMDuplexSession* session;
 @property (readonly) KCJoiningAcceptSessionState state;
@@ -114,8 +114,8 @@ typedef enum {
                                                    digestInfo: ccsha256_di()
                                                         group: ccsrp_gp_rfc5054_3072()
                                                  randomSource: rng];
-    self->_secretDelegate = secretDelegate;
-    self->_circleDelegate = circleDelegate;
+    self.secretDelegate = secretDelegate;
+    self.circleDelegate = circleDelegate;
     self->_state = kExpectingA;
     self->_dsid = dsid;
     self->_piggy_uuid = nil;
@@ -273,25 +273,27 @@ typedef enum {
         return nil;
     }
 
+    id<KCJoiningAcceptSecretDelegate> secretDelegate = self.secretDelegate;
+
     // We handle failure, don't capture the error.
     NSData* confirmation = [self.context copyConfirmationFor:message.firstData error:NULL];
     if (!confirmation) {
         // Find out what kind of error we should send.
         NSData* errorData = nil;
 
-        KCRetryOrNot status = [self.secretDelegate verificationFailed: error];
+        KCRetryOrNot status = [secretDelegate verificationFailed: error];
         secerror("processResponse: handle error: %d", (int)status);
 
         switch (status) {
             case kKCRetryError:
                 // We fill in an error if they didn't, but if they did this wont bother.
-                KCJoiningErrorCreate(kInternalError, error, @"Delegate returned error without filling in error: %@", self.secretDelegate);
+                KCJoiningErrorCreate(kInternalError, error, @"Delegate returned error without filling in error: %@", secretDelegate);
                 return nil;
             case kKCRetryWithSameChallenge:
                 errorData = [NSData data];
                 break;
             case kKCRetryWithNewChallenge:
-                if ([self.context resetWithPassword:[self.secretDelegate secret] error:error]) {
+                if ([self.context resetWithPassword:[secretDelegate secret] error:error]) {
                     errorData = [self copyChallengeMessage: error];
                 }
                 break;
@@ -303,7 +305,7 @@ typedef enum {
                                             error:error] der];
     }
 
-    NSData* encoded = [NSData dataWithEncodedString:[self.secretDelegate accountCode] error:error];
+    NSData* encoded = [NSData dataWithEncodedString:[secretDelegate accountCode] error:error];
     if (encoded == nil)
         return nil;
 
@@ -323,6 +325,8 @@ typedef enum {
     NSData* decryptedPayload = [self.session decryptAndVerify:message error:error];
     if (decryptedPayload == nil) return nil;
 
+    id<KCJoiningAcceptCircleDelegate> circleDelegate = self.circleDelegate;
+
     CFErrorRef cfError = NULL;
     SOSPeerInfoRef ref = SOSPeerInfoCreateFromData(NULL, &cfError, (__bridge CFDataRef) decryptedPayload);
     if (ref == NULL) {
@@ -331,7 +335,7 @@ typedef enum {
         return nil;
     }
 
-    NSData* joinData = [self.circleDelegate circleJoinDataFor:ref error:error];
+    NSData* joinData = [circleDelegate circleJoinDataFor:ref error:error];
     if(ref) {
         CFRelease(ref);
         ref = NULL;
@@ -339,13 +343,26 @@ typedef enum {
 
     if (joinData == nil) return nil;
 
-    if(self->_piggy_version == kPiggyV1){
+    SOSInitialSyncFlags flags = 0;
+    switch (self.piggy_version) {
+        case kPiggyV0:
+            break;
+        case kPiggyV1:
+            secnotice("acceptor", "piggy version is 1");
+            flags |= kSOSInitialSyncFlagTLKs | kSOSInitialSyncFlagiCloudIdentity;
+            break;
+        case kPiggyV2:
+            secnotice("acceptor", "piggy version is 2");
+            flags |= kSOSInitialSyncFlagiCloudIdentity;
+            break;
+    }
+
+    if (flags) {
         //grab iCloud Identities, TLKs
-        secnotice("acceptor", "piggy version is 1");
-        NSError *localV1Error = nil;
-        NSData* initialSyncData = [self.circleDelegate circleGetInitialSyncViews:&localV1Error];
-        if(localV1Error){
-            secnotice("piggy", "PB v1 threw an error: %@", localV1Error);
+        NSError *localISVError = nil;
+        NSData* initialSyncData = [circleDelegate circleGetInitialSyncViews:flags error:&localISVError];
+        if(initialSyncData == NULL){
+            secnotice("piggy", "PB threw an error: %@", localISVError);
         }
 
         NSMutableData* growPacket = [[NSMutableData alloc] initWithData:joinData];

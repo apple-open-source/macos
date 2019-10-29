@@ -539,6 +539,12 @@ _ConvertNewFormatToOldFormat(
 	SecKeychainAttributeList* &attrList
 	)
 {
+    // make storage to extract the dictionary items
+    CFIndex itemsInDictionary = CFDictionaryGetCount(dictionaryRef);
+    if (itemsInDictionary > 10000) {
+        return errSecParam;
+    }
+
 	// get the keychain attributes array from the data item
 	// here's the problem.  On the one hand, we have a dictionary that is purported to contain
 	// attributes for our type.  On the other hand, the dictionary may contain items we don't support,
@@ -547,8 +553,6 @@ _ConvertNewFormatToOldFormat(
 	// setup the return
 	attrList = (SecKeychainAttributeList*) calloc(1, sizeof(SecKeychainAttributeList));
 
-	// make storage to extract the dictionary items
-	CFIndex itemsInDictionary = CFDictionaryGetCount(dictionaryRef);
 	std::vector<CFTypeRef> keys(itemsInDictionary);
 	std::vector<CFTypeRef> values(itemsInDictionary);
 
@@ -592,7 +596,7 @@ _ConvertNewFormatToOldFormat(
     if(count == 0) {
         attrList->attr = NULL;
     } else {
-        attrList->attr = (SecKeychainAttribute*) malloc(sizeof(SecKeychainAttribute) * count);
+        attrList->attr = (SecKeychainAttribute*) calloc(count, sizeof(SecKeychainAttribute));
 
         // fill out the array
         int resultPointer = 0;
@@ -2362,7 +2366,7 @@ _ReplaceKeychainItem(
 
 	// make attribute list for new item (the data is still owned by attrList)
 	newAttrList.count = attrList->count;
-	newAttrList.attr = (SecKeychainAttribute *) malloc(sizeof(SecKeychainAttribute) * attrList->count);
+	newAttrList.attr = (SecKeychainAttribute *) calloc(attrList->count, sizeof(SecKeychainAttribute));
 	int i, newCount;
 	for (i=0, newCount=0; i < attrList->count; i++) {
 		if (attrList->attr[i].length > 0) {

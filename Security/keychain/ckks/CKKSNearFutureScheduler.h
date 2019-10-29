@@ -62,6 +62,14 @@ NS_ASSUME_NONNULL_BEGIN
    dependencyDescriptionCode:(NSInteger)code
                        block:(void (^_Nonnull)(void))futureBlock;
 
+- (instancetype)initWithName:(NSString*)name
+                initialDelay:(dispatch_time_t)initialDelay
+            expontialBackoff:(double)backoff
+                maximumDelay:(dispatch_time_t)maximumDelay
+            keepProcessAlive:(bool)keepProcessAlive
+   dependencyDescriptionCode:(NSInteger)code
+                       block:(void (^_Nonnull)(void))futureBlock;
+
 - (void)trigger;
 
 - (void)cancel;

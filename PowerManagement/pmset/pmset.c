@@ -6046,7 +6046,7 @@ static void printWakeReqMsg(asl_object_t m, int logType)
     int cnt = 0;
     long  chosen = -1;
     char    key[50];
-    const char    *appName, *wakeType, *delta, *str;
+    const char    *appName, *wakeType, *wakeTime, *delta, *str;
 
     if ((str = asl_get(m, kPMASLWakeReqChosenIdx))) {
         chosen = strtol(str, NULL, 0);
@@ -6065,6 +6065,10 @@ static void printWakeReqMsg(asl_object_t m, int logType)
         if (!(delta = asl_get(m, key)))
             break;
 
+        snprintf(key, sizeof(key), "%s%d", kPMASLWakeReqTimePrefix, cnt);
+        if (!(wakeTime = asl_get(m, key)))
+            break;
+
         snprintf(key, sizeof(key), "%s%d", kPMASLWakeReqTypePrefix, cnt);
         if (!(wakeType = asl_get(m, key)))
             break;
@@ -6073,17 +6077,17 @@ static void printWakeReqMsg(asl_object_t m, int logType)
         str = asl_get(m, key); // Optional client info
 
         if (!logType)
-            printf("[%sproc=%s request=%s inDelta=%s%s%s%s] ",
+            printf("[%sprocess=%s request=%s deltaSecs=%s wakeAt=%s%s%s%s] ",
                    (cnt == chosen) ? "*" : "",
-                   appName, wakeType, delta,
+                   appName, wakeType, delta, wakeTime,
                    (str) ? " info=\"" : "",
                    (str) ? str : "",
                    (str) ? "\"" : "");
         else {
             if (cnt != 0)
                 printf(",");
-            printf("{\"proc\":\"%s\",\"request\":\"%s\",\"inDelta\":\"%s%s%s\"}",
-                   appName, wakeType, delta,
+            printf("{\"process\":\"%s\",\"request\":\"%s\",\"deltaSecs\":\"%s\",\"wakeAt\":\"%s%s%s\"}",
+                   appName, wakeType, delta, wakeTime,
                    (str) ? " info=" : "",
                    (str) ? str : "");
         }

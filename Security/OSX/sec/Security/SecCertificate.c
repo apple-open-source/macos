@@ -2260,7 +2260,7 @@ static inline int parseDecimalPair(const DERByte **p) {
    Note that this is needed to distinguish an error condition from a
    valid time which specifies 2001-01-01 00:00:00 (i.e. a value of 0).
 */
-static CFAbsoluteTime SecAbsoluteTimeFromDateContentWithError(DERTag tag,
+CFAbsoluteTime SecAbsoluteTimeFromDateContentWithError(DERTag tag,
 	const uint8_t *bytes,
 	size_t length,
 	CFErrorRef *error) {
@@ -2367,7 +2367,8 @@ static CFAbsoluteTime SecAbsoluteTimeFromDateContentWithError(DERTag tag,
 
     static int mdays[13] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 };
     int is_leap_year = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) ? 1 : 0;
-    if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 59
+    /* Some basic checks on the date, allowing leap seconds */
+    if (month < 1 || month > 12 || day < 1 || day > 31 || hour > 23 || minute > 59 || second > 60
         || (month == 2 && day > mdays[month] - mdays[month - 1] + is_leap_year)
         || (month != 2 && day > mdays[month] - mdays[month - 1])) {
         /* Invalid date. */
@@ -4306,13 +4307,12 @@ CFArrayRef SecCertificateCopyLegacyProperties(SecCertificateRef certificate) {
     return properties;
 }
 
-CFArrayRef SecCertificateCopyProperties(SecCertificateRef certificate) {
+static CFArrayRef CopyProperties(SecCertificateRef certificate, Boolean localized) {
 	if (!certificate->_properties) {
 		CFAllocatorRef allocator = CFGetAllocator(certificate);
 		CFMutableArrayRef properties = CFArrayCreateMutable(allocator, 0,
 			&kCFTypeArrayCallBacks);
         require_quiet(properties, out);
-        bool localized = true;
 
         /* First we put the Subject Name in the property list. */
         CFArrayRef subject_plist = createPropertiesForX501NameContent(allocator,
@@ -4381,6 +4381,22 @@ CFArrayRef SecCertificateCopyProperties(SecCertificateRef certificate) {
 out:
     CFRetainSafe(certificate->_properties);
 	return certificate->_properties;
+}
+
+CFArrayRef SecCertificateCopyProperties(SecCertificateRef certificate) {
+    /*
+       Wrapper function which defaults to localized string properties
+       for compatibility with prior releases.
+    */
+    return CopyProperties(certificate, true);
+}
+
+CFArrayRef SecCertificateCopyLocalizedProperties(SecCertificateRef certificate, Boolean localized) {
+    /*
+       Wrapper function which permits caller to specify whether
+       localized string properties are used.
+    */
+    return CopyProperties(certificate, localized);
 }
 
 /* Unified serial number API */

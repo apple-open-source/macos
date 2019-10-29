@@ -24,9 +24,58 @@
 #include <os/assumes.h>
 #include <stdint.h>
 #include <TargetConditionals.h>
+#include "crt_externs.h"
 
+#ifndef PR_13085474_CHECK
+#define PR_13085474_CHECK TARGET_OS_OSX
+#endif
+
+#if PR_13085474_CHECK
+/* Some shipped applications fail this check and were tested against
+ * versions of these functions that supported overlapping buffers.
+ *
+ * We would rather let such applications run, using the old memmove
+ * implementation, than abort() because they can't use the new
+ * implementation.
+ */
+
+#include <libkern/OSAtomic.h>
+#include <mach-o/dyld.h>
+#include <mach-o/dyld_priv.h>
+#if TARGET_OS_OSX
+#define START_VERSION dyld_platform_version_macOS_10_9
+#else
+#error "This platform should not build with PR_13085474_CHECK=1"
+#endif
+#endif /* !PR_13085474_CHECK */
+
+/* For PR_13085474_CHECK set, we initialize __chk_assert_no_overlap to
+ * 1 initially and then reset it to 0 if the main image of the process
+ * was linked earlier than 10.9.
+ *
+ * If PR_13085474_CHECK is zero, then we never do any sdk version checking
+ * and always do overlap checks.
+ */
 __attribute__ ((visibility ("hidden")))
 uint32_t __chk_assert_no_overlap = 1;
+
+#if PR_13085474_CHECK
+static bool
+__chk_assert_sdk_pre_start(const struct mach_header *mh) {
+  return (dyld_get_active_platform() == PLATFORM_MACOS &&
+      !dyld_sdk_at_least(mh, START_VERSION));
+}
+#endif
+
+__attribute__ ((visibility ("hidden")))
+void __chk_init(void) {
+#if PR_13085474_CHECK
+  if (__chk_assert_sdk_pre_start((const struct mach_header *)
+        _NSGetMachExecuteHeader())) {
+    __chk_assert_no_overlap = 0;
+  }
+#endif
+}
 
 __attribute__ ((visibility ("hidden")))
 __attribute__ ((noreturn))

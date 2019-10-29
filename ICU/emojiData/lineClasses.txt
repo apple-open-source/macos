@@ -1,3 +1,3 @@
-$EB = [[:LineBreak =  EB:] \U0001F46A-\U0001F46D\U0001F46F\U0001F91D\U0001F93C];
+$EB = [:LineBreak =  EB:];
 $EmojiNRK = [[\p{Emoji}] - [$RI \u002a\u00230-9©®™〰〽]];
 $Extended_Pict = [:ExtPict:];

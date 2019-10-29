@@ -3623,6 +3623,24 @@ const char* const basic_maximize_data[][2] = {
   }, {
     "ks_Arab",
     "ks_Arab_IN"
+  }, { // start Apple tests for <rdar://problem/54153189>
+    "mni",
+    "mni_Beng_IN"
+  }, {
+    "mni_Beng",
+    "mni_Beng_IN"
+  }, {
+    "mni_Mtei",
+    "mni_Mtei_IN"
+  }, {
+    "sat",
+    "sat_Olck_IN"
+  }, {
+    "sat_Olck",
+    "sat_Olck_IN"
+  }, {
+    "sat_Deva",
+    "sat_Deva_IN"
   }
 };
 
@@ -6948,6 +6966,26 @@ static const UldnItem hi_Latn_StdMidLong[] = { // Apple <rdar://problem/53216112
 	{ "hi_Latn_IN",             TEST_ULDN_LOCALE, u"Hindi (Latin, Bhaarat)" },
 };
 
+static const UldnItem mni_Beng_StdMidLong[] = { // Apple <rdar://problem/54153189>
+	{ "mni_Beng",               TEST_ULDN_LOCALE, u"মৈতৈলোন্ (বাংলা)" },
+	{ "mni_Mtei",               TEST_ULDN_LOCALE, u"মৈতৈলোন্ (মেইটেই মায়েক)" },
+};
+
+static const UldnItem mni_Mtei_StdMidLong[] = { // Apple <rdar://problem/54153189>
+	{ "mni_Beng",               TEST_ULDN_LOCALE, u"ꯃꯤꯇꯩꯂꯣꯟ (ꯕꯪꯂꯥ)" },
+	{ "mni_Mtei",               TEST_ULDN_LOCALE, u"ꯃꯤꯇꯩꯂꯣꯟ (ꯃꯤꯇꯩ ꯃꯌꯦꯛ)" },
+};
+
+static const UldnItem sat_Olck_StdMidLong[] = { // Apple <rdar://problem/54153189>
+	{ "sat_Olck",               TEST_ULDN_LOCALE, u"ᱥᱟᱱᱛᱟᱲᱤ (ᱚᱞ ᱪᱤᱠᱤ)" },
+	{ "sat_Deva",               TEST_ULDN_LOCALE, u"ᱥᱟᱱᱛᱟᱲᱤ (ᱫᱮᱣᱟᱱᱟᱜᱟᱨᱤ)" },
+};
+
+static const UldnItem sat_Deva_StdMidLong[] = { // Apple <rdar://problem/54153189>
+	{ "sat_Olck",               TEST_ULDN_LOCALE, u"सानताड़ी (अल चीकी)" },
+	{ "sat_Deva",               TEST_ULDN_LOCALE, u"सानताड़ी (देवानागारी)" },
+};
+
 static const UldnLocAndOpts uldnLocAndOpts[] = {
     { "en", optStdMidLong, en_StdMidLong, UPRV_LENGTHOF(en_StdMidLong) },
     { "en", optStdMidShrt, en_StdMidShrt, UPRV_LENGTHOF(en_StdMidShrt) },
@@ -6967,6 +7005,10 @@ static const UldnLocAndOpts uldnLocAndOpts[] = {
     { "pa_Aran", optStdMidLong, pa_Arab_StdMidLong, UPRV_LENGTHOF(pa_Arab_StdMidLong) },
     { "zh", optStdMidLong,      zh_StdMidLong,      UPRV_LENGTHOF(zh_StdMidLong) },
     { "hi_Latn", optStdMidLong, hi_Latn_StdMidLong, UPRV_LENGTHOF(hi_Latn_StdMidLong) },
+    { "mni_Beng", optStdMidLong, mni_Beng_StdMidLong, UPRV_LENGTHOF(mni_Beng_StdMidLong) },
+    { "mni_Mtei", optStdMidLong, mni_Mtei_StdMidLong, UPRV_LENGTHOF(mni_Mtei_StdMidLong) },
+    { "sat_Olck", optStdMidLong, sat_Olck_StdMidLong, UPRV_LENGTHOF(sat_Olck_StdMidLong) },
+    { "sat_Deva", optStdMidLong, sat_Deva_StdMidLong, UPRV_LENGTHOF(sat_Deva_StdMidLong) },
     { NULL, NULL, NULL, 0 }
 };
 

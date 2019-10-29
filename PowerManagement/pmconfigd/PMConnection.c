@@ -2149,8 +2149,22 @@ static void PMConnectionPowerCallBack(
                        ^{handleSleepPreventersMsg(inMessageType, messageData);});
         return;
     }
-    else if (kIOMessageSystemCapabilityChange != inMessageType)
+    else if (inMessageType == kIOPMMessageProModeStateChange)
+    {
+		if ((int)messageData)
+			notify_post(kIOPMSystemProModeEngaged);
+		else
+			notify_post(kIOPMSystemProModeDisengaged);
+
+        INFO_LOG("Notified clients of ProMode state change to %d\n", (int)messageData);
+
         return;
+    }
+    else if (kIOMessageSystemCapabilityChange != inMessageType)
+    {
+        ERROR_LOG("Unhandled inMessageType (%x)\n", inMessageType);
+        return;
+    }
 
     capArgs = (typeof(capArgs)) messageData;
 
@@ -2886,6 +2900,7 @@ static aslmsg describeWakeRequest(
     static int cnt = 0;
     char    key[50];
     char    value[512];
+    int     year, month, day, hour, minute, second;
 
     if (m == NULL) {
         m = new_msg_pmset_log();
@@ -2903,6 +2918,11 @@ static aslmsg describeWakeRequest(
 
     snprintf(key, sizeof(key), "%s%d", kPMASLWakeReqTimeDeltaPrefix, cnt);
     snprintf(value, sizeof(value), "%.0f", requestedTime - CFAbsoluteTimeGetCurrent());
+    asl_set(m, key, value);
+
+    CFCalendarDecomposeAbsoluteTime(_gregorian(), requestedTime, "yMdHms", &year, &month, &day, &hour, &minute, &second);
+    snprintf(key, sizeof(key), "%s%d", kPMASLWakeReqTimePrefix, cnt);
+    snprintf(value, sizeof(value), "%d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, minute, second);
     asl_set(m, key, value);
 
     if (isA_CFString(clientInfoString) && 

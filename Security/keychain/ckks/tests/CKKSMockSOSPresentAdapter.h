@@ -19,6 +19,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSSOSSelfPeer* selfPeer;
 @property NSMutableSet<id<CKKSSOSPeerProtocol>>* trustedPeers;
 
+@property (nullable) void (^updateOctagonKeySetListener)(id<CKKSSelfPeer>);
+
 - (instancetype)initWithSelfPeer:(CKKSSOSSelfPeer*)selfPeer
                     trustedPeers:(NSSet<id<CKKSSOSPeerProtocol>>*)trustedPeers
                        essential:(BOOL)essential;

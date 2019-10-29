@@ -6,6 +6,8 @@
 	<true/>
 	<key>com.apple.private.necp.policies</key>
 	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
 	<key>com.apple.SystemConfiguration.SCPreferences-write-access</key>
 	<array>
 		<string>SCTestPreferences.plist</string>

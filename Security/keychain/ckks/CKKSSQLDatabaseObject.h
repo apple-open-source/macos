@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <securityd/SecDbItem.h>
+#include "keychain/securityd/SecDbItem.h"
 #include <utilities/SecDb.h>
 
 #define CKKSNilToNSNull(obj)   \

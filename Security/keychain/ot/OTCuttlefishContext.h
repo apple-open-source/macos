@@ -48,6 +48,7 @@
 #import <KeychainCircle/PairingChannel.h>
 #import "keychain/ot/OTJoiningConfiguration.h"
 #import "keychain/ot/OTOperationDependencies.h"
+#import "keychain/ot/CuttlefishXPCWrapper.h"
 #import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
 
 #import <CoreCDP/CDPAccount.h>
@@ -62,9 +63,10 @@ NS_ASSUME_NONNULL_BEGIN
                                            OTAuthKitAdapterNotifier,
                                            OctagonStateMachineEngine,
                                            CKKSCloudKitAccountStateListener,
-                                           CKKSPeerUpdateListener>
+                                           CKKSPeerUpdateListener,
+                                           OTDeviceInformationNameUpdateListener>
 
-@property (readonly) id<NSXPCProxyCreating> cuttlefishXPCConnection;
+@property (readonly) CuttlefishXPCWrapper* cuttlefishXPCWrapper;
 @property (readonly) OTFollowup *followupHandler;
 
 @property (readonly) NSString                               *containerName;
@@ -78,6 +80,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) BOOL postedEscrowRepairCFU;
 @property (readonly) BOOL postedRecoveryKeyCFU;
 @property (nullable, nonatomic) CKKSNearFutureScheduler* apsRateLimiter;
+@property (nullable, nonatomic) CKKSNearFutureScheduler* sosConsistencyRateLimiter;
 
 @property (readonly, nullable) CKKSViewManager*             viewManager;
 
@@ -104,6 +107,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)accountNoLongerAvailable:(NSError**)error;
 - (BOOL)idmsTrustLevelChanged:(NSError**)error;
 
+- (void)deviceNameUpdated;
+
 - (void)startOctagonStateMachine;
 - (void)handlePairingRestart:(OTJoiningConfiguration*)config;
 
@@ -120,7 +125,7 @@ NS_ASSUME_NONNULL_BEGIN
 preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
           reply:(void (^)(NSError * _Nullable error))reply;
 
-- (void)rpcResetAndEstablish:(nonnull void (^)(NSError * _Nullable))reply;
+- (void)rpcResetAndEstablish:(CuttlefishResetReason)resetReason reply:(nonnull void (^)(NSError * _Nullable))reply;
 
 - (void)localReset:(nonnull void (^)(NSError * _Nullable))reply;
 
@@ -139,7 +144,7 @@ preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
                      reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)rpcRemoveFriendsInClique:(NSArray<NSString*>*)peerIDs
-                           reply:(void (^)(NSError*))reply;
+                           reply:(void (^)(NSError * _Nullable))reply;
 
 - (void)notifyContainerChange:(APSIncomingMessage* _Nullable)notification;
 - (void)notifyContainerChangeWithUserInfo:(NSDictionary*)userInfo;
@@ -171,9 +176,12 @@ preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
 
 - (void)attemptSOSUpgrade:(void (^)(NSError* _Nullable error))reply;
 
-- (void)waitForOctagonUpgrade:(void (^)(NSError* error))reply;
+- (void)waitForOctagonUpgrade:(void (^)(NSError* error))reply NS_SWIFT_NAME(waitForOctagonUpgrade(reply:));
 
 - (void)clearPendingCFUFlags;
+
+- (BOOL)waitForReady:(int64_t)timeOffset;
+
 
 // For testing.
 - (void)setPostedBool:(BOOL)posted;

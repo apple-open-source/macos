@@ -84,9 +84,6 @@ ORDER_FILE = $(SDKROOT)/$(APPLE_INTERNAL_DIR)/OrderFiles/$(PRODUCT_NAME).order
 ORDER_FILE[sdk=*simulator*] =
 ORDER_FILE[sdk=driverkit*] =
 
-DIRTY_LDFLAGS = -Wl,-dirty_data_list,$(SRCROOT)/xcodeconfig/libmalloc.dirty
-DIRTY_LDFLAGS[sdk=macosx*] =
-
 DYLIB_CURRENT_VERSION = $(CURRENT_PROJECT_VERSION)
 
 

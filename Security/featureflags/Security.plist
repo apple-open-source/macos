@@ -2,6 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>EnableSecureObjectSync</key>
+	<dict>
+		<key>Enabled</key>
+		<true/>
+	</dict>
 	<key>octagonTrust</key>
 	<dict>
 		<key>Enabled</key>
@@ -33,9 +38,9 @@
 		<false/>
 	</dict>
 	<key>octagonUseDeviceName</key>
-        <dict>
-                <key>Enabled</key>
-                <false/>
-        </dict>
+	<dict>
+		<key>Enabled</key>
+		<false/>
+	</dict>
 </dict>
 </plist>

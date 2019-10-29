@@ -857,7 +857,9 @@ See remaining rules for examples.
 			<key>shared</key>
 			<false/>
 			<key>timeout</key>
-			<integer>300</integer>
+			<integer>900</integer>
+            <key>version</key>
+            <integer>2</integer>
 		</dict>
 		<key>system.install.software.iap</key>
 		<dict>

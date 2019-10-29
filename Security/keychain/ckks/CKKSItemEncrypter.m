@@ -26,7 +26,7 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <CoreFoundation/CFPropertyList_Private.h>
 
-#include <securityd/SecItemSchema.h>
+#include "keychain/securityd/SecItemSchema.h"
 
 #import "CKKSItemEncrypter.h"
 #import "CKKSKeychainView.h"

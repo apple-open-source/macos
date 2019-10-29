@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IONDRVSupport</string>
 	<key>CFBundleGetInfoString</key>
-	<string>558.3, Copyright 2000-2017 Apple Inc. All rights reserved.</string>
+	<string>568, Copyright 2000-2017 Apple Inc. All rights reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>558.3</string>
+	<string>568</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>558.3</string>
+	<string>568</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>1</key>

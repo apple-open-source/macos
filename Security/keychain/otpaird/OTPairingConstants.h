@@ -38,3 +38,5 @@ enum {
 #define OTPairingXPCActivityInterval    XPC_ACTIVITY_INTERVAL_1_HOUR
 
 #define OTPairingXPCActivityPoke        "com.apple.security.otpaird.poke"
+
+#define OTPairingXPCEventIDSDeviceState "ids-device-state"

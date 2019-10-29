@@ -1,6 +1,7 @@
 #if OCTAGON
 
 #import "keychain/ckks/CKKSPeer.h"
+#import "keychain/ckks/CKKSPeerProvider.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/SecureObjectSync/SOSCloudCircle.h"
 

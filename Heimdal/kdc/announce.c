@@ -106,7 +106,7 @@ retry_timer(void)
 
     g_restart_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, g_queue);
     t = dispatch_time(DISPATCH_TIME_NOW, 5ull * NSEC_PER_SEC);
-    dispatch_source_set_timer(g_restart_timer, t, 0, NSEC_PER_SEC);
+    dispatch_source_set_timer(g_restart_timer, t, DISPATCH_TIME_FOREVER, NSEC_PER_SEC);
     dispatch_source_set_event_handler(g_restart_timer, ^{
 	    create_dns_sd();
 	    dispatch_release(g_restart_timer);

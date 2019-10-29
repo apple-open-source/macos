@@ -147,6 +147,7 @@ struct krb5_sendto_ctx_data {
     char *hostname;
     char *sitename;
     krb5_uuid delegated_uuid;
+    pid_t delegated_pid;
     char *delegated_signing_identity;
     krb5_krbhst_handle krbhst;
 
@@ -266,6 +267,7 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_sendto_set_delegated_app(krb5_context context,
 			      krb5_sendto_ctx ctx,
 			      krb5_uuid uuid,
+			      pid_t pid,
 			      const char *signingIdentity)
 {
     const char *type = "unknown";
@@ -277,8 +279,6 @@ krb5_sendto_set_delegated_app(krb5_context context,
 	memset(ctx->delegated_uuid, 0, sizeof(krb5_uuid));
 #if TARGET_OS_SIMULATOR
 	type = "sim";
-#elif TARGET_OS_OSX
-	type = "osx";
 #else
 	xpc_object_t uuid_array = NEHelperCacheCopyAppUUIDMapping(signingIdentity, NULL);
 	if (uuid_array && xpc_get_type(uuid_array) == XPC_TYPE_ARRAY && xpc_array_get_count(uuid_array) > 0) {
@@ -299,12 +299,16 @@ krb5_sendto_set_delegated_app(krb5_context context,
     }
     if (signingIdentity)
 	ctx->delegated_signing_identity = strdup(signingIdentity);
-
+    if (pid) {
+	ctx->delegated_pid = pid;
+    }
+    
     uuid = ctx->delegated_uuid;
 
-    _krb5_debugx(context, 5, "krb5_sendto_set_delegated_app: %s - %s uuid: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+    _krb5_debugx(context, 5, "krb5_sendto_set_delegated_app: %s - %s, %d uuid: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
 		 type,
 		 signingIdentity,
+		 pid,
 		 uuid[0],uuid[1],uuid[2],uuid[3],uuid[4],uuid[5],uuid[6],uuid[7],
 		 uuid[8],uuid[9],uuid[10],uuid[11],uuid[12],uuid[13],uuid[14],uuid[15]);
 
@@ -933,109 +937,114 @@ eval_host_state(krb5_context context,
  *
  */
 
-#ifndef SO_FLOW_DIVERT_TOKEN
-#define	SO_FLOW_DIVERT_TOKEN	0x1106
-#endif
+//#ifndef SO_FLOW_DIVERT_TOKEN
+//#define	SO_FLOW_DIVERT_TOKEN	0x1106
+//#endif
 
-static void
-prepare_app_vpn(krb5_context context,
-		krb5_sendto_ctx ctx,
-		krb5_krbhst_info *hi,
-		int fd)
-{
-#if !TARGET_OS_SIMULATOR && !TARGET_OS_OSX
-    const char *hostname = hi->hostname;
-    nw_path_evaluator_t evaluator = NULL;
-    nw_parameters_t parameters = NULL;
-    nw_parameters_t resultParameters = NULL;
-    nw_endpoint_t nwhost = NULL;
-    xpc_object_t token = NULL;
-    nw_path_t path = NULL;
-    char port[10];
-    int error;
-
-    snprintf(port, sizeof(port), "%d", hi->port);
-
-    nwhost = nw_endpoint_create_host(hostname, port);
-    if (nwhost == NULL)
-	_krb5_debugx(context, 5, "host_create: nw_endpoint_t host is NULL");
-
-    parameters = nw_parameters_create();
-    if (parameters == NULL) {
-	_krb5_debugx(context, 5, "host_create: nw_parameters_t is NULL");
-	goto out;
-    }
-
-    nw_parameters_set_e_proc_uuid(parameters, ctx->delegated_uuid);
-
-    evaluator = nw_path_create_evaluator_for_endpoint(nwhost, parameters);
-    if (evaluator == NULL) {
-	_krb5_debugx(context, 5, "host_create: nw_path_evaluator_t is NULL");
-	goto out;
-    }
-
-    path = nw_path_evaluator_copy_path(evaluator);
-    if (path == NULL) {
-	_krb5_debugx(context, 5, "host_create: nw_path_t is NULL");
-	goto out;
-    }
-
-    resultParameters = nw_path_copy_derived_parameters(path);
-
-    if (!nw_path_is_flow_divert(path)) {
-	_krb5_debugx(context, 5, "host_create: no flow divert");
-	goto out;
-    }
-
-    uint32_t flow_divert_unit = nw_path_get_flow_divert_unit(path);
-    if (flow_divert_unit == 0) {
-	_krb5_debugx(context, 5, "host_create: divert unit");
-	goto out;
-    }
-    
-    uuid_t config_uuid;
-    
-    if (!nw_path_get_vpn_config_id(path, &config_uuid)) {
-	_krb5_debugx(context, 5, "host_create: no config");
-	goto out;
-    }
-    
-    xpc_object_t flow_properties = xpc_dictionary_create(NULL, NULL, 0);
-    xpc_dictionary_set_data(flow_properties, NESessionFlowPropertyHostAddress, hi->ai->ai_addr, hi->ai->ai_addrlen);
-    xpc_dictionary_set_string(flow_properties, NESessionFlowPropertyHostName, hostname);
-    xpc_dictionary_set_int64(flow_properties, NESessionFlowPropertyHostPort, hi->port);
-    
-    token = ne_session_policy_copy_flow_divert_token(config_uuid, flow_divert_unit, flow_properties, ctx->delegated_signing_identity);
-    if (token == NULL) {
-	_krb5_debugx(context, 5, "host_create: no token");
-	goto out;
-    }
-    
-    error = setsockopt(fd,
-		       SOL_SOCKET,
-		       SO_FLOW_DIVERT_TOKEN,
-		       xpc_data_get_bytes_ptr(token),
-		       (socklen_t)xpc_data_get_length(token));
-    if (error) {
-	_krb5_debugx(context, 5, "host_create: SO_FLOW_DIVERT_TOKEN failed: %d", errno);
-	goto out;
-    }
-    
-out:
-    if (nwhost)
-	network_release(nwhost);
-    if (parameters)
-	network_release(parameters);
-    if (path)
-	network_release(path);
-    if (evaluator)
-	network_release(evaluator);
-    if (resultParameters)
-	network_release(resultParameters);
-    if (token)
-	xpc_release(token);
-#endif
-}
+//static void
+//prepare_app_vpn(krb5_context context,
+//		krb5_sendto_ctx ctx,
+//		krb5_krbhst_info *hi,
+//		int fd)
+//{
+//#if !TARGET_OS_SIMULATOR
+//    const char *hostname = hi->hostname;
+//    nw_path_evaluator_t evaluator = NULL;
+//    nw_parameters_t parameters = NULL;
+//    nw_parameters_t resultParameters = NULL;
+//    nw_endpoint_t nwhost = NULL;
+//    xpc_object_t token = NULL;
+//    nw_path_t path = NULL;
+//    char port[10];
+//    int error;
+//
+//    snprintf(port, sizeof(port), "%d", hi->port);
+//
+//
+//    nwhost = nw_endpoint_create_host(hostname, port);
+//    if (nwhost == NULL)
+//	_krb5_debugx(context, 5, "host_create: nw_endpoint_t host is NULL");
+//
+//    parameters = nw_parameters_create();
+//    if (parameters == NULL) {
+//	_krb5_debugx(context, 5, "host_create: nw_parameters_t is NULL");
+//	goto out;
+//    }
+//
+//    if (!uuid_is_null(ctx->delegated_uuid)) {
+//	nw_parameters_set_e_proc_uuid(parameters, ctx->delegated_uuid);
+//    } else if (ctx->delegated_signing_identity) {
+//	nw_parameters_set_effective_bundle_id(parameters, ctx->delegated_signing_identity);
+//    }
+//
+//    evaluator = nw_path_create_evaluator_for_endpoint(nwhost, parameters);
+//    if (evaluator == NULL) {
+//	_krb5_debugx(context, 5, "host_create: nw_path_evaluator_t is NULL");
+//	goto out;
+//    }
+//
+//    path = nw_path_evaluator_copy_path(evaluator);
+//    if (path == NULL) {
+//	_krb5_debugx(context, 5, "host_create: nw_path_t is NULL");
+//	goto out;
+//    }
+//
+//    resultParameters = nw_path_copy_derived_parameters(path);
+//
+//    if (!nw_path_is_flow_divert(path)) {
+//	_krb5_debugx(context, 5, "host_create: no flow divert");
+//	goto out;
+//    }
+//
+//    uint32_t flow_divert_unit = nw_path_get_flow_divert_unit(path);
+//    if (flow_divert_unit == 0) {
+//	_krb5_debugx(context, 5, "host_create: divert unit");
+//	goto out;
+//    }
+//
+//    uuid_t config_uuid;
+//
+//    if (!nw_path_get_vpn_config_id(path, &config_uuid)) {
+//	_krb5_debugx(context, 5, "host_create: no config");
+//	goto out;
+//    }
+//
+//    xpc_object_t flow_properties = xpc_dictionary_create(NULL, NULL, 0);
+//    xpc_dictionary_set_data(flow_properties, NESessionFlowPropertyHostAddress, hi->ai->ai_addr, hi->ai->ai_addrlen);
+//    xpc_dictionary_set_string(flow_properties, NESessionFlowPropertyHostName, hostname);
+//    xpc_dictionary_set_int64(flow_properties, NESessionFlowPropertyHostPort, hi->port);
+//
+//    token = ne_session_policy_copy_flow_divert_token(config_uuid, flow_divert_unit, flow_properties, ctx->delegated_signing_identity);
+//    if (token == NULL) {
+//	_krb5_debugx(context, 5, "host_create: no token");
+//	goto out;
+//    }
+//    
+//    error = setsockopt(fd,
+//		       SOL_SOCKET,
+//		       SO_FLOW_DIVERT_TOKEN,
+//		       xpc_data_get_bytes_ptr(token),
+//		       (socklen_t)xpc_data_get_length(token));
+//    if (error) {
+//	_krb5_debugx(context, 5, "host_create: SO_FLOW_DIVERT_TOKEN failed: %d", errno);
+//	goto out;
+//    }
+//
+//out:
+//    if (nwhost)
+//	network_release(nwhost);
+//    if (parameters)
+//	network_release(parameters);
+//    if (path)
+//	network_release(path);
+//    if (evaluator)
+//	network_release(evaluator);
+//    if (resultParameters)
+//	network_release(resultParameters);
+//    if (token)
+//	xpc_release(token);
+//#endif
+//}
 
 
 
@@ -1080,25 +1089,34 @@ host_create(krb5_context context,
 
 #if __APPLE__
 #ifndef SO_DELEGATED_UUID
-#define    SO_DELEGATED_UUID    0x1108
+#define    SO_DELEGATED_UUID    0x1108  /* set socket as delegate (uuid_t) */
 #endif
-
+    
+#ifndef SO_DELEGATED
+#define SO_DELEGATED            0x1107  /* set socket as delegate (pid_t) */
+#endif
+    
     /*
      * If we have a uuid, pass that along
      */
     if (ctx->contextflags & KRBHST_CTX_F_HAVE_DELEGATED_UUID) {
 	int error;
 
-	_krb5_debugx(context, 5, "host_create: setting host delegate", errno);
-
+	_krb5_debugx(context, 5, "host_create: setting host delegate uuid", errno);
 	error = setsockopt(host->fd, SOL_SOCKET, SO_DELEGATED_UUID, ctx->delegated_uuid, sizeof(uuid_t));
 	if (error)
 	    _krb5_debugx(context, 5, "host_create: SO_DELEGATED_UUID failed: %d", errno);
 
-	prepare_app_vpn(context, ctx, hi, host->fd);
+	if (ctx->delegated_pid) {
+	    _krb5_debugx(context, 5, "host_create: setting host delegate process", errno);
+	    error = setsockopt(host->fd, SOL_SOCKET, SO_DELEGATED, (void *)&ctx->delegated_pid, sizeof(pid_t));
+	    if (error)
+		_krb5_debugx(context, 5, "host_create: SO_DELEGATED failed: %d", errno);
+	}
+	//prepare_app_vpn(context, ctx, hi, host->fd);
     }
 
-#if !TARGET_OS_SIMULATOR && !TARGET_OS_OSX
+#if !TARGET_OS_SIMULATOR
     /*
      * Hint to kernel what direction this connection is going
      */
@@ -1546,6 +1564,10 @@ krb5_sendto_context(krb5_context context,
 		}
 		if (ctx->contextflags & KRBHST_CTX_F_HAVE_DELEGATED_UUID) {
 		    ret = krb5_krbhst_set_delgated_uuid(context, handle, ctx->delegated_uuid);
+		    if (ret)
+			goto out;
+		    
+		    ret = krb5_krbhst_set_delgated_pid(context, handle, ctx->delegated_pid);
 		    if (ret)
 			goto out;
 		}

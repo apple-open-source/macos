@@ -25,6 +25,7 @@
 
 #import "keychain/ot/OTCheckHealthOperation.h"
 #import "keychain/ot/OTOperationDependencies.h"
+#import "keychain/ot/OTStates.h"
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import <Security/SecInternalReleasePriv.h>
@@ -146,31 +147,40 @@
     }
     WEAKIFY(self);
 
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon-health: Can't talk with TrustedPeersHelper: %@", error);
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishOp];
-        return;
+    [self.deps.cuttlefishXPCWrapper requestHealthCheckWithContainer:self.deps.containerName
+                                                            context:self.deps.contextID
+                                                requiresEscrowCheck: [self checkIfPasscodeIsSetForDevice]
+                                                              reply:^(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, NSError *error) {
+            STRONGIFY(self);
+            if(error) {
+                secerror("octagon-health: error: %@", error);
+                self.error = error;
 
-    }]  requestHealthCheckWithContainer:self.deps.containerName
-     context:self.deps.contextID
-     requiresEscrowCheck: [self checkIfPasscodeIsSetForDevice]
-     reply:^(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, NSError *error) {
-         STRONGIFY(self);
-         if(error) {
-             secerror("octagon-health: error: %@", error);
-             self.error = error;
-         } else {
-             secnotice("octagon-health", "cuttlefish came back with these suggestions\n: post repair? %d\n, post escrow? %d\n, reset octagon? %d", postRepairCFU, postEscrowCFU, resetOctagon);
-             self.postEscrowCFU = postEscrowCFU;
-             self.postRepairCFU = postRepairCFU;
-             self.resetOctagon = resetOctagon;
+                [self runBeforeGroupFinished:self.finishOp];
+                return;
+            } else {
+                secnotice("octagon-health", "cuttlefish came back with these suggestions\n: post repair? %d\n, post escrow? %d\n, reset octagon? %d", postRepairCFU, postEscrowCFU, resetOctagon);
+                [self handleRepairSuggestions:postRepairCFU
+                                postEscrowCFU:postEscrowCFU
+                                 resetOctagon:resetOctagon];
+            }
+        }];
+}
 
-             self.nextState = self.intendedState;
-         }
-         [self runBeforeGroupFinished:self.finishOp];
-     }];
+- (void)handleRepairSuggestions:(BOOL)postRepairCFU postEscrowCFU:(BOOL)postEscrowCFU resetOctagon:(BOOL)resetOctagon
+{
+    self.postEscrowCFU = postEscrowCFU;
+    self.postRepairCFU = postRepairCFU;
+    self.resetOctagon = resetOctagon;
+
+    if (resetOctagon) {
+        secnotice("octagon-health", "Resetting Octagon as per Cuttlefish request");
+        self.nextState = OctagonStateHealthCheckReset;
+    } else {
+        self.nextState = self.intendedState;
+    }
+
+    [self runBeforeGroupFinished:self.finishOp];
 }
 
 @end

@@ -1,10 +1,12 @@
 
 #import <Foundation/Foundation.h>
 
+#import "keychain/ot/CuttlefishXPCWrapper.h"
 #import "keychain/ot/OctagonStateMachine.h"
 #import "keychain/ot/OTSOSAdapter.h"
 #import "keychain/ot/OTAuthKitAdapter.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
+#import "keychain/ot/OTDeviceInformationAdapter.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
@@ -23,7 +25,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property id<OTSOSAdapter> sosAdapter;
 @property (nullable) id<CKKSPeerProvider> octagonAdapter;
 @property id<OTAuthKitAdapter> authKitAdapter;
-@property id<NSXPCProxyCreating> cuttlefishXPC;
+@property id<OTDeviceInformationAdapter> deviceInformationAdapter;
+@property (readonly) CuttlefishXPCWrapper* cuttlefishXPCWrapper;
 @property CKKSViewManager* viewManager;
 @property CKKSLockStateTracker* lockStateTracker;
 @property Class<SecEscrowRequestable> escrowRequestClass;
@@ -35,9 +38,10 @@ NS_ASSUME_NONNULL_BEGIN
                       sosAdapter:(id<OTSOSAdapter>)sosAdapter
                   octagonAdapter:(id<CKKSPeerProvider> _Nullable)octagonAdapter
                   authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
+               deviceInfoAdapter:(id<OTDeviceInformationAdapter>)deviceInfoAdapter
                      viewManager:(CKKSViewManager*)viewManager
                 lockStateTracker:(CKKSLockStateTracker *)lockStateTracker
-                   cuttlefishXPC:(id<NSXPCProxyCreating>)cuttlefishXPC
+            cuttlefishXPCWrapper:(CuttlefishXPCWrapper *)cuttlefishXPCWrapper
               escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass;
 @end
 

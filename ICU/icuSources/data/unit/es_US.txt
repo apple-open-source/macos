@@ -198,7 +198,7 @@ es_US{
         }
         temperature{
             celsius{
-                one{"{0} °C"}
+                one{"{0} °C"}
             }
         }
         volume{

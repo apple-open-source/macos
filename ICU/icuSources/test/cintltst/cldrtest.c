@@ -986,8 +986,10 @@ static void VerifyTranslation(void) {
                     uprv_strcmp(currLoc,"dv") == 0 || uprv_strncmp(currLoc,"dv_",3) == 0 ||
                     uprv_strcmp(currLoc,"sa") == 0 || uprv_strncmp(currLoc,"sa_",3) == 0 ||
                     uprv_strncmp(currLoc,"kaj",3) == 0 || uprv_strncmp(currLoc,"kpe",3) == 0 ||
-                    uprv_strncmp(currLoc,"nqo",3) == 0 || uprv_strncmp(currLoc,"syr",3) == 0 ||
-                    uprv_strcmp(currLoc,"ks_Deva") == 0 || uprv_strcmp(currLoc,"sd_Deva") == 0) { // Apple xtra locales
+                    uprv_strncmp(currLoc,"nqo",3) == 0 || uprv_strncmp(currLoc,"sat",3) == 0 ||
+                    uprv_strncmp(currLoc,"syr",3) == 0 ||
+                    uprv_strcmp(currLoc,"ks_Deva") == 0 || uprv_strncmp(currLoc,"mni_Mtei",8) == 0 ||
+                    uprv_strcmp(currLoc,"sd_Deva") == 0 ) { // Apple xtra locales
                 log_verbose("skipping day/month tests for %s, missing some translated names\n", currLoc);
             } else {
                 UResourceBundle* cal = ures_getByKey(currentLocale, "calendar", NULL, &errorCode);

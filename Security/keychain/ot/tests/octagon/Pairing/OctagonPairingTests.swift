@@ -78,6 +78,7 @@ class KCJoiningRequestTestDelegate: NSObject, KCJoiningRequestSecretDelegate, KC
 }
 
 class KCJoiningAcceptTestDelegate: NSObject, KCJoiningAcceptSecretDelegate, KCJoiningAcceptCircleDelegate {
+
     var secrets: Array<String> = []
     var currentSecret: Int = 0
     var retriesLeft: Int = 0
@@ -157,7 +158,7 @@ class KCJoiningAcceptTestDelegate: NSObject, KCJoiningAcceptSecretDelegate, KCJo
         }
     }
 
-    func circleGetInitialSyncViews(_ error: NSErrorPointer) -> Data {
+    func circleGetInitialSyncViews(_ flags: SOSInitialSyncFlags, error: NSErrorPointer) -> Data {
         return Data()
     }
 }
@@ -206,7 +207,7 @@ class KCJoiningAcceptTestDelegate: NSObject, KCJoiningAcceptSecretDelegate, KCJo
     func getAcceptorInCircle() {
         let resetAndEstablishExpectation = self.expectation(description: "resetAndEstablish callback occurs")
         self.cuttlefishContextForAcceptor.startOctagonStateMachine()
-        self.cuttlefishContextForAcceptor.rpcResetAndEstablish() { resetError in
+        self.cuttlefishContextForAcceptor.rpcResetAndEstablish(.testGenerated) { resetError in
             XCTAssertNil(resetError, "Should be no error calling resetAndEstablish")
             resetAndEstablishExpectation.fulfill()
         }

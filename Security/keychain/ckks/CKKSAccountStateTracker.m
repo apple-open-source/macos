@@ -211,7 +211,11 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
     // signals when this notify is Complete, including all downcalls.
     dispatch_semaphore_t finishedSema = dispatch_semaphore_create(0);
 
+    WEAKIFY(self);
+
     [self.container accountInfoWithCompletionHandler:^(CKAccountInfo* ckAccountInfo, NSError * _Nullable error) {
+        STRONGIFY(self);
+
         if(error) {
             secerror("ckksaccount: error getting account info: %@", error);
             dispatch_semaphore_signal(finishedSema);

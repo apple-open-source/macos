@@ -463,7 +463,7 @@ funcs/tst.strjoin.d
 funcs/tst.strstr.d
 funcs/tst.strtok.d
 funcs/tst.substr.d
-#funcs/tst.system.d /* 25393358: system() is disallowed on watchOS and tvOS */
+funcs/tst.system.d 
 funcs/tst.tolower.d
 funcs/tst.toupper.d
 grammar/err.D_ADDROF_LVAL.d

@@ -146,12 +146,12 @@ sMethods[kIOHIDLibUserClientNumCommands] = {
     },
     { //    kIOHIDLibUserClientUpdateElementValues
     (IOExternalMethodAction) &IOHIDLibUserClient::_updateElementValues,
-    kIOUCVariableStructureSize, 0,
+    0,kIOUCVariableStructureSize,
     0, 0
     },
     { //    kIOHIDLibUserClientPostElementValues
     (IOExternalMethodAction) &IOHIDLibUserClient::_postElementValues,
-    kIOUCVariableStructureSize, 0,
+     0, kIOUCVariableStructureSize,
     0, 0
     },
     { //    kIOHIDLibUserClientGetReport
@@ -181,17 +181,6 @@ sMethods[kIOHIDLibUserClientNumCommands] = {
     0, 0
     }
 };
-
-static void deflate_vec(uint32_t *dp, uint32_t d, const uint64_t *sp, uint32_t s)
-{
-    if (d > s)
-    d = s;
-
-    for (uint32_t i = 0; i < d; i++) {
-        dp[i] = (uint32_t) sp[i];
-    }
-}
-
 
 bool IOHIDLibUserClient::initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
 {
@@ -1315,12 +1304,19 @@ IOReturn IOHIDLibUserClient::stopQueue (IOHIDEventQueue * queue)
     // update the feature element value
 IOReturn IOHIDLibUserClient::_updateElementValues (IOHIDLibUserClient * target, void * reference __unused, IOExternalMethodArguments * arguments)
 {
-    return target->updateElementValues(arguments->scalarInput, arguments->scalarInputCount);
+    return target->updateElementValues((const uint64_t*)arguments->structureInput, (uint32_t)arguments->structureInputSize);
 }
 
-IOReturn IOHIDLibUserClient::updateElementValues (const uint64_t * lCookies, uint32_t cookieCount)
+IOReturn IOHIDLibUserClient::updateElementValues (const uint64_t * lCookies, uint32_t cookieSize)
 {
     IOReturn    ret = kIOReturnError;
+    uint32_t cookieCount = 0;
+    
+    require_action(lCookies, exit, ret =kIOReturnBadArgument);
+    require_action(cookieSize, exit, ret =kIOReturnBadArgument);
+    
+    require_action((cookieSize % sizeof(uint32_t)) == 0, exit, ret =kIOReturnBadArgument);
+    cookieCount = (uint32_t)(cookieSize / sizeof(uint32_t));
     
     require_action(fClientOpened, exit, ret = kIOReturnNotOpen);
     require_action(fValid, exit, ret = kIOReturnNotPermitted);
@@ -1329,21 +1325,21 @@ IOReturn IOHIDLibUserClient::updateElementValues (const uint64_t * lCookies, uin
         uint32_t   cookies_[kMaxLocalCookieArrayLength];
         uint32_t   *cookies;
         
-        if (cookieCount > UINT32_MAX / sizeof(*cookies))
+        if (cookieCount > UINT32_MAX / sizeof(uint32_t))
             return kIOReturnBadArgument;
       
-        cookies = (cookieCount <= kMaxLocalCookieArrayLength) ? cookies_ : (uint32_t*)IOMalloc(cookieCount * sizeof(*cookies));
+        cookies = (cookieCount <= kMaxLocalCookieArrayLength) ? cookies_ : (uint32_t*)IOMalloc(cookieSize);
  
         if (cookies == NULL) {
           return kIOReturnNoMemory;
         }
       
-        deflate_vec(cookies, cookieCount, lCookies, cookieCount);
+        memcpy(cookies, lCookies, cookieSize);
         
         ret = fNub->updateElementValues((IOHIDElementCookie *)cookies, cookieCount);
       
         if (cookies != &cookies_[0]) {
-          IOFree(cookies, cookieCount * sizeof(*cookies));
+          IOFree(cookies, cookieSize);
         }
     }
     
@@ -1358,12 +1354,20 @@ exit:
     // Set the element values
 IOReturn IOHIDLibUserClient::_postElementValues (IOHIDLibUserClient * target, void * reference __unused, IOExternalMethodArguments * arguments)
 {
-    return target->postElementValues(arguments->scalarInput, arguments->scalarInputCount);
+    return target->postElementValues((const uint64_t*)arguments->structureInput, (uint32_t)arguments->structureInputSize);
 }
 
-IOReturn IOHIDLibUserClient::postElementValues (const uint64_t * lCookies, uint32_t cookieCount)
+IOReturn IOHIDLibUserClient::postElementValues (const uint64_t * lCookies, uint32_t cookieSize)
 {
     IOReturn    ret = kIOReturnError;
+    uint32_t cookieCount = 0;
+    
+    require_action(lCookies, exit, ret =kIOReturnBadArgument);
+    require_action(cookieSize, exit, ret =kIOReturnBadArgument);
+    
+    require_action((cookieSize % sizeof(uint32_t)) == 0, exit, ret =kIOReturnBadArgument);
+    
+    cookieCount = (uint32_t)(cookieSize /sizeof(uint32_t));
     
     require_action(fClientOpened, exit, ret = kIOReturnNotOpen);
     require_action(fValid, exit, ret = kIOReturnNotPermitted);
@@ -1372,21 +1376,21 @@ IOReturn IOHIDLibUserClient::postElementValues (const uint64_t * lCookies, uint3
         uint32_t   cookies_[kMaxLocalCookieArrayLength];
         uint32_t   *cookies;
         
-        if (cookieCount > UINT32_MAX / sizeof(*cookies))
+        if (cookieCount > UINT32_MAX / sizeof(uint32_t))
             return kIOReturnBadArgument;
         
-        cookies = (cookieCount <= kMaxLocalCookieArrayLength) ? cookies_ : (uint32_t*)IOMalloc(cookieCount * sizeof(*cookies));
+        cookies = (cookieCount <= kMaxLocalCookieArrayLength) ? cookies_ : (uint32_t*)IOMalloc(cookieSize);
 
         if (cookies == NULL) {
           return kIOReturnNoMemory;
         }
       
-        deflate_vec(cookies, cookieCount, lCookies, cookieCount);
+        memcpy(cookies, lCookies, cookieSize);
         
         ret = fNub->postElementValues((IOHIDElementCookie *)cookies, cookieCount);
 
         if (cookies != &cookies_[0]) {
-          IOFree(cookies, cookieCount * sizeof(*cookies));
+          IOFree(cookies, cookieSize);
         }
 
     }

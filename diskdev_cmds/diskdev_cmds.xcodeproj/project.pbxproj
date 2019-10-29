@@ -616,6 +616,8 @@
 /* Begin PBXFileReference section */
 		072AAAA42167CE8E004ED4E2 /* mount_flags.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mount_flags.c; sourceTree = "<group>"; };
 		072AAAA52167CE8E004ED4E2 /* mount_flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mount_flags.h; sourceTree = "<group>"; };
+		07AF95B12323281D001E9266 /* System.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = System.framework; path = System/Library/Frameworks/System.framework; sourceTree = SDKROOT; };
+		07AF95B323232837001E9266 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = System/Library/Frameworks/Kernel.framework; sourceTree = SDKROOT; };
 		1A18DEA82108A2B800C4C867 /* mount_internal */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_internal; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A9041012091EE830061D05A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		1A9041032091EE910061D05A /* APFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = APFS.framework; path = System/Library/PrivateFrameworks/APFS.framework; sourceTree = SDKROOT; };
@@ -911,6 +913,8 @@
 		1A9041002091EE820061D05A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				07AF95B323232837001E9266 /* Kernel.framework */,
+				07AF95B12323281D001E9266 /* System.framework */,
 				785314FE227120BD00B25661 /* MediaKit.framework */,
 				1A9041052091EE980061D05A /* CoreFoundation.framework */,
 				1A9041032091EE910061D05A /* APFS.framework */,
@@ -1626,6 +1630,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 4D07DD29153CA616002B57CB;
@@ -2118,7 +2123,7 @@
 				CODE_SIGN_ENTITLEMENTS = mount.tproj/mount.entitlements;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks";
 			};
 			name = Release;
 		};

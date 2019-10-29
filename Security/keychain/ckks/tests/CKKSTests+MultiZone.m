@@ -687,6 +687,86 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testMultiZoneResync {
+    // Set up
+    [self putFakeKeyHierachiesInCloudKit];
+    [self saveTLKsToKeychain];
+    [self expectCKKSTLKSelfShareUploads];
+
+    // Put sample data in zones, and save off a change token for later fetch shenanigans
+    [self.manateeZone addToZone:[self createFakeRecord:self.manateeZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D00" withAccount:@"manatee0"]];
+    [self.manateeZone addToZone:[self createFakeRecord:self.manateeZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D01" withAccount:@"manatee1"]];
+    CKServerChangeToken* manateeChangeToken1 = self.manateeZone.currentChangeToken;
+    [self.manateeZone addToZone:[self createFakeRecord:self.manateeZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D02" withAccount:@"manatee2"]];
+    [self.manateeZone addToZone:[self createFakeRecord:self.manateeZoneID recordName:@"7B598D31-0000-0000-0000-5A507ACB2D03" withAccount:@"manatee3"]];
+
+    [self.healthZone addToZone:[self createFakeRecord:self.healthZoneID recordName:@"7B598D31-0000-0000-FFFF-5A507ACB2D00" withAccount:@"health0"]];
+    [self.healthZone addToZone:[self createFakeRecord:self.healthZoneID recordName:@"7B598D31-0000-0000-FFFF-5A507ACB2D01" withAccount:@"health1"]];
+
+    [self startCKKSSubsystem];
+    [self waitForKeyHierarchyReadinesses];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self.manateeView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    [self.healthView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+
+    [self findGenericPassword:@"manatee0" expecting:errSecSuccess];
+    [self findGenericPassword:@"manatee1" expecting:errSecSuccess];
+    [self findGenericPassword:@"manatee2" expecting:errSecSuccess];
+    [self findGenericPassword:@"manatee3" expecting:errSecSuccess];
+    [self findGenericPassword:@"health0" expecting:errSecSuccess];
+    [self findGenericPassword:@"health1" expecting:errSecSuccess];
+
+    // Now, we resync. But, the manatee zone comes down in two fetches
+    self.silentFetchesAllowed = false;
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
+        // Assert that the fetch is a refetch
+        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.manateeZoneID].previousServerChangeToken;
+        if(changeToken == nil) {
+            return YES;
+        } else {
+            return NO;
+        }
+    } runBeforeFinished:^{}];
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
+        // Assert that the fetch is happening with the change token we paused at before
+        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.manateeZoneID].previousServerChangeToken;
+        if(changeToken && [changeToken isEqual:manateeChangeToken1]) {
+            return YES;
+        } else {
+            return NO;
+        }
+    } runBeforeFinished:^{}];
+
+    self.manateeZone.limitFetchTo = manateeChangeToken1;
+
+    // Attempt to trigger simultaneous key state resyncs. This is a horrible hack...
+    [self.manateeView dispatchSyncWithAccountKeys:^bool {
+        self.manateeView.keyStateFullRefetchRequested = YES;
+        [self.manateeView _onqueueAdvanceKeyStateMachineToState:nil withError:nil];
+        return true;
+    }];
+    [self.healthView dispatchSyncWithAccountKeys:^bool {
+        self.healthView.keyStateFullRefetchRequested = YES;
+        [self.healthView _onqueueAdvanceKeyStateMachineToState:nil withError:nil];
+        return true;
+    }];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self.manateeView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+    [self.healthView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+
+    // And all items should still exist
+    [self findGenericPassword:@"manatee0" expecting:errSecSuccess];
+    [self findGenericPassword:@"manatee1" expecting:errSecSuccess];
+    [self findGenericPassword:@"manatee2" expecting:errSecSuccess];
+    [self findGenericPassword:@"manatee3" expecting:errSecSuccess];
+    [self findGenericPassword:@"health0" expecting:errSecSuccess];
+    [self findGenericPassword:@"health1" expecting:errSecSuccess];
+}
+
 @end
 
 #endif // OCTAGON

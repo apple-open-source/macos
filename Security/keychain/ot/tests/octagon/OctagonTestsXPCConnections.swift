@@ -13,7 +13,7 @@ class ProxyXPCConnection: NSObject, NSXPCListenerDelegate {
         self.listener = NSXPCListener.anonymous()
 
         super.init()
-        self.listener.delegate = self;
+        self.listener.delegate = self
         self.listener.resume()
     }
 

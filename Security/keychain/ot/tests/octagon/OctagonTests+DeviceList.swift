@@ -17,10 +17,10 @@ class OctagonDeviceListTests: OctagonTestsBase {
         let expectFail = self.expectation(description: "expect to fail")
 
         do {
-            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNil(clique, "Clique should be nil")
         } catch {
-            expectFail.fulfill();
+            expectFail.fulfill()
         }
 
         self.wait(for: [expectFail], timeout: 10)
@@ -41,7 +41,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
-            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -147,7 +147,6 @@ class OctagonDeviceListTests: OctagonTestsBase {
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .excludes, target: peer2ID)),
                       "peer 1 should distrust peer 2 after update")
     }
-
 
     func testTrustPeerWhenMissingFromDeviceList() throws {
         self.startCKAccountStatusMock()
@@ -394,9 +393,9 @@ class OctagonDeviceListTests: OctagonTestsBase {
         // Peer 2 is not on Peer 1's machine ID list yet
         self.mockAuthKit.otherDevices.remove(self.mockAuthKit2.currentMachineID)
 
-        let _ = self.assertResetAndBecomeTrustedInDefaultContext()
+        _ = self.assertResetAndBecomeTrustedInDefaultContext()
         let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
-        let _ = self.assertJoinViaEscrowRecovery(joiningContext: joiningContext, sponsor: self.cuttlefishContext)
+        _ = self.assertJoinViaEscrowRecovery(joiningContext: joiningContext, sponsor: self.cuttlefishContext)
 
         // Now, add peer2 to the machineID list, but don't send peer1 a notification about the IDMS change
         self.mockAuthKit.otherDevices.insert(self.mockAuthKit2.currentMachineID)
@@ -415,7 +414,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
         // At this time, peer1 should trust peer2, but it should _not_ have fetched the AuthKit list,
         // because peer2 is still within the 48 hour grace period. peer1 is hoping for a push to arrive.
 
-        XCTAssertNotEqual(condition.wait(2*NSEC_PER_SEC), 0, "Octagon should not fetch the authkit machine ID list")
+        XCTAssertNotEqual(condition.wait(2 * NSEC_PER_SEC), 0, "Octagon should not fetch the authkit machine ID list")
         let peer2MIDSet = Set([self.mockAuthKit2.currentMachineID])
         self.assertMIDList(context: self.cuttlefishContext,
                            allowed: self.mockAuthKit.currentDeviceList().subtracting(peer2MIDSet),
@@ -429,7 +428,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
                 if machinemo.machineID == self.mockAuthKit2.currentMachineID {
                     foundPeer2 = true
                     //
-                    machinemo.modified = Date(timeIntervalSinceNow: -60*60*TimeInterval(72))
+                    machinemo.modified = Date(timeIntervalSinceNow: -60 * 60 * TimeInterval(72))
                     XCTAssertEqual(machinemo.status, Int64(TPMachineIDStatus.unknown.rawValue), "peer2's MID entry should be 'unknown'")
                 }
             }
@@ -441,7 +440,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
-        XCTAssertEqual(condition.wait(10*NSEC_PER_SEC), 0, "Octagon should fetch the authkit machine ID list")
+        XCTAssertEqual(condition.wait(10 * NSEC_PER_SEC), 0, "Octagon should fetch the authkit machine ID list")
 
         self.assertMIDList(context: self.cuttlefishContext, allowed: self.mockAuthKit.currentDeviceList())
     }
@@ -501,7 +500,7 @@ class OctagonDeviceListTests: OctagonTestsBase {
         sleep(1)
         XCTAssertEqual(self.cuttlefishContext.stateMachine.possiblePendingFlags(), [], "Should have 0 pending flags")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        
+
         self.wait(for: [updateTrustExpectation], timeout: 10)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)

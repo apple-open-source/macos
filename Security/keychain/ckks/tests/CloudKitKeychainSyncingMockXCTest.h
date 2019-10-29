@@ -57,7 +57,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) NSError* keychainFetchError;
 
 // A single trusted SOSPeer, but without any CKKS keys
-@property CKKSSOSPeer* remoteSOSOnlyPeer;
+@property (nullable) CKKSSOSPeer* remoteSOSOnlyPeer;
 
 // Set this to false after calling -setUp if you want to initialize the views yourself
 @property bool automaticallyBeginCKKSViewCloudKitOperation;

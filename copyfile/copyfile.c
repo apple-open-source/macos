@@ -2744,6 +2744,16 @@ static int copyfile_stat(copyfile_state_t s)
 		return -1;
 	added_flags |= (dst_sb.st_flags & COPYFILE_PRESERVE_FLAGS);
 
+	/*
+	 * The caller requested that copyfile attempts to preserve UF_TRACKED
+	 * on the destination. This can be used to avoid dangling docIDs when
+	 * the copy races against a process that sets the flag on newly created
+	 * documents for instance.
+	 */
+	if (s->flags & COPYFILE_PRESERVE_DST_TRACKED) {
+		added_flags |= (dst_sb.st_flags & UF_TRACKED);
+	}
+
 	/* Copy file flags, masking out any we don't want to preserve */
 	dst_flags = (s->sb.st_flags & ~COPYFILE_OMIT_FLAGS) | added_flags;
 	(void)fchflags(s->dst_fd, dst_flags);

@@ -117,7 +117,8 @@
     [self startCKKSSubsystem];
 
     // Let things shake themselves out.
-    [self.keychainView waitForKeyHierarchyReadiness];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     // Ensure there's no current pointer
     [self fetchCurrentPointerExpectingError:false];
@@ -504,7 +505,8 @@
     [self startCKKSSubsystem];
 
     // Let things shake themselves out.
-    [self.keychainView waitForKeyHierarchyReadiness];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     // Ensure there's no current pointer
     [self fetchCurrentPointerExpectingError:false];
@@ -613,7 +615,8 @@
     [self startCKKSSubsystem];
 
     // Let things shake themselves out.
-    [self.keychainView waitForKeyHierarchyReadiness];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     // Ensure there's no current pointer
     [self fetchCurrentPointerExpectingError:false];
@@ -687,7 +690,8 @@
     [self startCKKSSubsystem];
 
     // Let things shake themselves out.
-    [self.keychainView waitForKeyHierarchyReadiness];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     // Ensure there's no current pointer
     [self fetchCurrentPointerExpectingError:false];
@@ -766,7 +770,8 @@
     [self startCKKSSubsystem];
 
     // Let things shake themselves out.
-    [self.keychainView waitForKeyHierarchyReadiness];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     // Ensure there's no current pointer
     [self fetchCurrentPointerExpectingError:false];
@@ -852,7 +857,8 @@
     [self startCKKSSubsystem];
 
     // Let things shake themselves out.
-    [self.keychainView waitForKeyHierarchyReadiness];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     // Ensure there's no current pointer
     [self fetchCurrentPointerExpectingError:false];
@@ -915,7 +921,8 @@
     [self startCKKSSubsystem];
 
     // Let things shake themselves out.
-    [self.keychainView waitForKeyHierarchyReadiness];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     // Ensure there's no current pointer
     [self fetchCurrentPointerExpectingError:false];

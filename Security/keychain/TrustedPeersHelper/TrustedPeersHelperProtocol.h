@@ -27,6 +27,8 @@
 #import "keychain/ckks/CKKSKeychainBackedKey.h"
 #import "keychain/ckks/CKKSTLKShare.h"
 
+#import "keychain/ot/OTConstants.h"
+
 NS_ASSUME_NONNULL_BEGIN
 
 // Any client hoping to use the TrustedPeersHelperProtocol should have an entitlement
@@ -38,13 +40,16 @@ NS_ASSUME_NONNULL_BEGIN
 @property TPPeerStatus peerStatus;
 @property BOOL memberChanges;
 @property BOOL unknownMachineIDsPresent;
+@property (nullable) NSString* osVersion;
 
 - (instancetype)initWithPeerID:(NSString* _Nullable)peerID
                  isPreapproved:(BOOL)isPreapproved
                         status:(TPPeerStatus)peerStatus
                  memberChanges:(BOOL)memberChanges
-             unknownMachineIDs:(BOOL)unknownMachineIDs;
+             unknownMachineIDs:(BOOL)unknownMachineIDs
+                     osVersion:(NSString * _Nullable)osVersion;
 @end
+
 @interface TrustedPeersHelperPeer : NSObject <NSSecureCoding>
 @property (nullable) NSString* peerID;
 @property (nullable) NSData* signingSPKI;
@@ -61,13 +66,15 @@ NS_ASSUME_NONNULL_BEGIN
 @property TPPeerStatus egoStatus;
 @property NSString* _Nullable egoPeerID;
 @property (assign) uint64_t numberOfPeersInOctagon;
-@property NSDictionary<NSString*, NSNumber*>* peerCountsByModelID;
+
+// Note: this field does not include untrusted peers
+@property NSDictionary<NSString*, NSNumber*>* viablePeerCountsByModelID;
 @property BOOL isExcluded;
 @property BOOL isLocked;
 
 - (instancetype)initWithEgoPeerID:(NSString* _Nullable)egoPeerID
                            status:(TPPeerStatus)egoStatus
-              peerCountsByModelID:(NSDictionary<NSString*, NSNumber*>*)peerCountsByModelID
+        viablePeerCountsByModelID:(NSDictionary<NSString*, NSNumber*>*)viablePeerCountsByModelID
                        isExcluded:(BOOL)isExcluded
                          isLocked:(BOOL)isLocked;
 
@@ -99,6 +106,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)resetWithContainer:(NSString *)container
                    context:(NSString *)context
+                    resetReason:(CuttlefishResetReason)reason
                      reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)localResetWithContainer:(NSString *)container
@@ -178,6 +186,14 @@ NS_ASSUME_NONNULL_BEGIN
                      reply:(void (^)(NSData * _Nullable voucher,
                                      NSData * _Nullable voucherSig,
                                      NSError * _Nullable error))reply;
+
+// Preflighting a vouch will return the peer ID associated with the bottle you will be recovering.
+// You can then use that peer ID to filter the tlkshares provided to vouchWithBottle.
+- (void)preflightVouchWithBottleWithContainer:(NSString *)container
+                                      context:(NSString *)context
+                                     bottleID:(NSString*)bottleID
+                                        reply:(void (^)(NSString* _Nullable peerID,
+                                                        NSError * _Nullable error))reply;
 
 // Returns a voucher for our own identity, created by the identity inside this bottle
 - (void)vouchWithBottleWithContainer:(NSString *)container

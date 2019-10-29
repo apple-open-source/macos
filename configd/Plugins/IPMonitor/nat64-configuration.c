@@ -397,7 +397,7 @@ NAT64PrefixRequestStart(NAT64PrefixRequestRef request)
 	};
 	start_time = CFAbsoluteTimeGetCurrent();
 	handler = ^(int32_t num_prefixes, nw_nat64_prefix_t *prefixes) {
-		Boolean	set_prefix_failed = FALSE;
+		Boolean	remove_resolver = FALSE;
 
 		if (!NAT64PrefixRequestFlagsIsSet(request,
 						  kRequestFlagsValid)) {
@@ -407,10 +407,9 @@ NAT64PrefixRequestStart(NAT64PrefixRequestRef request)
 		}
 		if (prefixes != NULL) {
 			/* set prefixes on the interface */
-			if (!_nat64_prefix_set(request->if_name,
-					       num_prefixes, prefixes)) {
-				set_prefix_failed = TRUE;
-			}
+			_nat64_prefix_set(request->if_name,
+					  num_prefixes, prefixes);
+			remove_resolver = TRUE;
 		} else {
 			SC_log(LOG_ERR, "%s: NAT64 no prefixes",
 			       request->if_name);
@@ -419,10 +418,10 @@ NAT64PrefixRequestStart(NAT64PrefixRequestRef request)
 				   num_prefixes, prefixes, start_time);
 #if TEST_NAT64_CONFIGURATION
 		if (G_set_prefixes_force_failure) {
-			set_prefix_failed = TRUE;
+			remove_resolver = TRUE;
 		}
 #endif /* TEST_NAT64_CONFIGURATION */
-		if (set_prefix_failed) {
+		if (remove_resolver) {
 			/* remove resolver */
 			NAT64PrefixRequestInvalidate(request);
 			NAT64PrefixRequestRelease(request);

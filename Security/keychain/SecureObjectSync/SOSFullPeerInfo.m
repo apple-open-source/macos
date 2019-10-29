@@ -226,8 +226,9 @@ CFDataRef SOSPeerInfoCopyData(SOSPeerInfoRef pi, CFErrorRef *error)
 exit:
     CFReleaseNull(query);
     CFReleaseNull(pubKey);
-
-    secnotice("fpi","no private key found");
+    if (vData == NULL) {
+        secnotice("fpi","no private key found");
+    }
     return (CFDataRef)vData;
 }
 

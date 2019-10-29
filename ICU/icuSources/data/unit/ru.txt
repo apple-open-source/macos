@@ -1686,10 +1686,10 @@ ru{
         temperature{
             celsius{
                 dnam{"°C"}
-                few{"{0} °C"}
-                many{"{0} °C"}
-                one{"{0} °C"}
-                other{"{0} °C"}
+                few{"{0} °C"}
+                many{"{0} °C"}
+                one{"{0} °C"}
+                other{"{0} °C"}
             }
         }
         volume{
@@ -2644,10 +2644,10 @@ ru{
         temperature{
             celsius{
                 dnam{"°C"}
-                few{"{0} °C"}
-                many{"{0} °C"}
-                one{"{0} °C"}
-                other{"{0} °C"}
+                few{"{0} °C"}
+                many{"{0} °C"}
+                one{"{0} °C"}
+                other{"{0} °C"}
             }
             fahrenheit{
                 dnam{"°F"}

@@ -15792,13 +15792,13 @@ supplementalData:table(nofallback){
         }
         sat{
             primary{
-                scripts{"Latn"}
+                scripts{"Olck"}
             }
             secondary{
                 scripts{
                     "Beng",
                     "Deva",
-                    "Olck",
+                    "Latn",
                     "Orya",
                 }
                 territories{"IN"}
@@ -19451,8 +19451,10 @@ supplementalData:table(nofallback){
             "ky_Latn",
             "ml_Arab",
             "mn_Mong",
+            "mni_Mtei",
             "ms_Arab",
             "pa_Arab",
+            "sat_Deva",
             "sd_Deva",
             "sd_Khoj",
             "sd_Sind",

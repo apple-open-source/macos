@@ -60,5 +60,6 @@
 -(void) addRingDictionary;
 -(void) resetRingDictionary;
 
+
 @end
 #endif /* SOSAccountTrustClassic_h */

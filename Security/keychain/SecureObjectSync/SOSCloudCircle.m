@@ -47,7 +47,7 @@
 #include <Security/SecFramework.h>
 #include <CoreFoundation/CFXPCBridge.h>
 
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 
 #include <utilities/SecDispatchRelease.h>
 #include <utilities/SecCFRelease.h>
@@ -63,7 +63,7 @@
 #include <xpc/xpc.h>
 #define MINIMIZE_INCLUDES MINIMIZE_INCLUDES
 #include <ipc/securityd_client.h>
-#include <securityd/spi.h>
+#include "keychain/securityd/spi.h"
 
 #include <Security/SecuritydXPC.h>
 
@@ -395,6 +395,31 @@ static CF_RETURNS_RETAINED SOSPeerInfoRef peer_info_error_request(enum SecXPCOpe
     CFReleaseNull(data);
     return result;
 }
+
+static CFDataRef flags_to_data_error_request(enum SecXPCOperation op, uint32_t flags, CFErrorRef *error)
+{
+    __block CFDataRef result = NULL;
+
+    secdebug("sosops", "enter -- operation: %d", op);
+    securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+        xpc_dictionary_set_uint64(message, kSecXPCKeyFlags, flags);
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *error) {
+        xpc_object_t temp_result = xpc_dictionary_get_value(response, kSecXPCKeyResult);
+        if (response && (NULL != temp_result)) {
+            result = _CFXPCCreateCFObjectFromXPCObject(temp_result);
+        }
+        return result != NULL;
+    });
+
+    if (!isData(result)) {
+        SOSErrorCreate(kSOSErrorUnexpectedType, error, NULL, CFSTR("Expected CFData, got: %@"), result);
+        return NULL;
+    }
+
+    return result;
+}
+
 
 static CFDataRef data_to_error_request(enum SecXPCOperation op, CFErrorRef *error)
 {
@@ -1731,13 +1756,13 @@ CFDataRef SOSCCCopyCircleJoiningBlob(SOSPeerInfoRef applicant, CFErrorRef *error
     }, CFSTR("return=%@"));
 }
 
-CFDataRef SOSCCCopyInitialSyncData(CFErrorRef *error) {
+CFDataRef SOSCCCopyInitialSyncData(SOSInitialSyncFlags flags, CFErrorRef *error) {
     secnotice("circleJoin", "enter SOSCCCopyInitialSyncData approver");
     sec_trace_enter_api(NULL);
     
     sec_trace_return_api(CFDataRef, ^{
-        do_if_registered(soscc_CopyInitialSyncData, error);
-        return data_to_error_request(kSecXPCOpCopyInitialSyncBlob, error);
+        do_if_registered(soscc_CopyInitialSyncData, flags, error);
+        return flags_to_data_error_request(kSecXPCOpCopyInitialSyncBlob, flags, error);
     }, CFSTR("return=%@"));
 }
 

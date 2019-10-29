@@ -41,7 +41,7 @@
 #include <CoreFoundation/CFRunLoop.h>
 
 #if NO_SERVER
-#include <securityd/spi.h>
+#include "keychain/securityd/spi.h"
 #endif
 
 /* Maximum length of an input line in interactive mode. */

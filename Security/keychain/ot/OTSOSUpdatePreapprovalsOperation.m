@@ -59,10 +59,11 @@
             // Is this a very scary error?
             bool fatal = false;
 
-            NSTimeInterval ckdelay = CKRetryAfterSecondsForError(self.error);
-            NSTimeInterval delay = 30;
-            if(ckdelay != 0) {
-                delay = ckdelay;
+            NSTimeInterval ckDelay = CKRetryAfterSecondsForError(self.error);
+            NSTimeInterval cuttlefishDelay = [self.error cuttlefishRetryAfter];
+            NSTimeInterval delay = MAX(ckDelay, cuttlefishDelay);
+            if (delay == 0) {
+                delay = 30;
             }
 
             if([self.error isCuttlefishError:CuttlefishErrorResultGraphNotFullyReachable]) {
@@ -98,26 +99,20 @@
     NSArray<NSData*>* publicSigningSPKIs = [OTSOSActualAdapter peerPublicSigningKeySPKIs:peerSet];
     secnotice("octagon-sos", "Updating SOS preapproved keys to %@", publicSigningSPKIs);
 
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper, update of preapproved keys is lost: %@", error);
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
-
-    }] setPreapprovedKeysWithContainer:self.deps.containerName
-                               context:self.deps.contextID
-                       preapprovedKeys:publicSigningSPKIs
-                                 reply:^(NSError* error) {
-                                     STRONGIFY(self);
-                                     if(error) {
-                                         secerror("octagon-sos: unable to update preapproved keys: %@", error);
-                                         self.error = error;
-                                     } else {
-                                         secnotice("octagon-sos", "Updated SOS preapproved keys");
-                                         self.nextState = self.intendedState;
-                                     }
-                                     [self runBeforeGroupFinished:self.finishedOp];
-                                 }];
+    [self.deps.cuttlefishXPCWrapper setPreapprovedKeysWithContainer:self.deps.containerName
+                                                            context:self.deps.contextID
+                                                    preapprovedKeys:publicSigningSPKIs
+                                                              reply:^(NSError* error) {
+            STRONGIFY(self);
+            if(error) {
+                secerror("octagon-sos: unable to update preapproved keys: %@", error);
+                self.error = error;
+            } else {
+                secnotice("octagon-sos", "Updated SOS preapproved keys");
+                self.nextState = self.intendedState;
+            }
+            [self runBeforeGroupFinished:self.finishedOp];
+        }];
 }
 
 @end

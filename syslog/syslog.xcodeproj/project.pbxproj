@@ -292,6 +292,7 @@
 		2D9C4F131B3A29E700219FB3 /* com.apple.system.log */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = com.apple.system.log; path = syslogd.tproj/com.apple.system.log; sourceTree = "<group>"; };
 		2DB4DA0A125FC69A001CDC45 /* after_install.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = after_install.sh; path = syslogd.tproj/after_install.sh; sourceTree = "<group>"; };
 		2DB8178915589D0C004D0BDE /* entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; name = entitlements.plist; path = util.tproj/entitlements.plist; sourceTree = "<group>"; };
+		3ABA38852335754100E6D121 /* com.apple.syslogd.disabled.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.syslogd.disabled.plist; path = syslogd.tproj/com.apple.syslogd.disabled.plist; sourceTree = "<group>"; };
 		3F6B6311185AF66C00F692C5 /* aslmanager.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = aslmanager.xcconfig; sourceTree = "<group>"; };
 		3F6B6312185AF66C00F692C5 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		3F6B6313185AF66C00F692C5 /* syslogd.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = syslogd.xcconfig; sourceTree = "<group>"; };
@@ -520,6 +521,7 @@
 				503917AA1091410E0001165E /* bsd_in.c */,
 				503917AB1091410E0001165E /* bsd_out.c */,
 				503917AC1091410E0001165E /* com.apple.syslogd.plist */,
+				3ABA38852335754100E6D121 /* com.apple.syslogd.disabled.plist */,
 				503917AD1091410E0001165E /* daemon.c */,
 				503917AE1091410E0001165E /* daemon.h */,
 				503917AF1091410E0001165E /* dbserver.c */,

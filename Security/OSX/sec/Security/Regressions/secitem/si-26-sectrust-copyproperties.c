@@ -391,7 +391,7 @@ static void tests(void)
     SecTrustResultType trustResult;
     CFArrayRef properties = NULL;
     properties = SecTrustCopyProperties(trust);
-#if TARGET_OS_IPHONE  
+#if TARGET_OS_IPHONE
     // Note: OS X will trigger the evaluation in order to return the properties.
     is(properties, NULL, "no properties returned before eval");
 #endif
@@ -407,8 +407,15 @@ static void tests(void)
         print_cert(wwdr_intermediate, false);
     }
 #endif
-
     CFReleaseNull(properties);
+    // verify wrapper functions are available
+    properties = SecCertificateCopyProperties(leaf);
+    isnt(properties, NULL, "leaf properties returned");
+    CFReleaseNull(properties);
+    properties = SecCertificateCopyLocalizedProperties(leaf, true);
+    isnt(properties, NULL, "localized leaf properties returned");
+    CFReleaseNull(properties);
+
     CFReleaseNull(trust);
     CFReleaseNull(wwdr_intermediate);
     CFReleaseNull(leaf);
@@ -420,10 +427,10 @@ static void tests(void)
 int si_26_sectrust_copyproperties(int argc, char *const *argv)
 {
 #if TARGET_OS_IPHONE
-    plan_tests(8);
+    plan_tests(10);
 #else
     // <rdar://problem/26358545>
-    plan_tests(7);
+    plan_tests(9);
 #endif
 
 

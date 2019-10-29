@@ -107,6 +107,11 @@ HeimCredSetImpersonateBundle(CFStringRef bundle);
 const char *
 HeimCredGetImpersonateBundle(void);
 
+void
+HeimCredSetImpersonatePID(pid_t pid);
+
+pid_t
+HeimCredGetImpersonatePID(void);
 /*
  * Only valid server side side
  */

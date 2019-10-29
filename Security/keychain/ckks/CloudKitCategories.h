@@ -41,6 +41,7 @@ NS_ASSUME_NONNULL_BEGIN
 // 2) Every single suberror is either CKErrorServerRecordChanged or CKErrorUnknownItem
 - (bool)ckksIsCKErrorRecordChangedError;
 - (BOOL)isCuttlefishError:(CuttlefishErrorCode)cuttlefishError;
+- (NSTimeInterval)cuttlefishRetryAfter;
 @end
 // Ensure we don't print addresses
 @interface CKAccountInfo (CKKS)

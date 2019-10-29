@@ -36,8 +36,8 @@
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
 #include <corecrypto/ccsha2.h>
-#include <securityd/SecItemServer.h>
-#include <securityd/SecItemDataSource.h>
+#include "keychain/securityd/SecItemServer.h"
+#include "keychain/securityd/SecItemDataSource.h"
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecFileLocations.h>
 #include <utilities/SecIOFormat.h>
@@ -266,22 +266,6 @@ CFDataRef SOSTestDeviceCreateMessage(SOSTestDeviceRef td, CFStringRef peerID) {
 
     return msgData;
 }
-
-#if 0
-CFDictionaryRef SOSTestDeviceCreateMessages(SOSTestDeviceRef td) {
-    CFTypeRef peer = NULL;
-    CFMutableDictionaryRef messages = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
-    CFArrayForEachC(td->peers, peer) {
-        CFStringRef peerID = SOSPeerGetID((SOSPeerRef)peer);
-        CFDataRef msg = SOSTestDeviceCreateMessage(td, peerID);
-        if (msg) {
-            CFDictionaryAddValue(messages, peerID, msg);
-            CFRelease(msg);
-        }
-    }
-    return messages;
-}
-#endif
 
 bool SOSTestDeviceHandleMessage(SOSTestDeviceRef td, CFStringRef peerID, CFDataRef msgData) {
     setup("handle message");

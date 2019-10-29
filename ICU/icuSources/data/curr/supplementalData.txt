@@ -4845,7 +4845,7 @@ supplementalData:table(nofallback){
             0,
         }
         COP:intvector{
-            2,
+            0,
             0,
             0,
             0,
@@ -4905,7 +4905,7 @@ supplementalData:table(nofallback){
             0,
         }
         IDR:intvector{
-            2,
+            0,
             0,
             0,
             0,
@@ -5043,7 +5043,7 @@ supplementalData:table(nofallback){
             0,
         }
         PKR:intvector{
-            2,
+            0,
             0,
             0,
             0,

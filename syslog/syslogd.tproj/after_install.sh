@@ -12,6 +12,11 @@ elif [[ "${PLATFORM_NAME}" == "bridgeos" ]] ; then
     ASL_CONF="${SRCROOT}"/syslogd.tproj/asl.conf.ios
     SYSLOG_CONF="${SRCROOT}"/syslogd.tproj/syslog.conf
     SYSTEM_LOG_CONF="${SRCROOT}"/syslogd.tproj/com.apple.system.log.bridgeos
+elif [[ "${PLATFORM_NAME}" == "watchos" ]] ; then
+    PLIST="${SRCROOT}"/syslogd.tproj/com.apple.syslogd.disabled.plist
+    ASL_CONF="${SRCROOT}"/syslogd.tproj/asl.conf.ios
+    SYSLOG_CONF="${SRCROOT}"/syslogd.tproj/syslog.conf
+    SYSTEM_LOG_CONF="${SRCROOT}"/syslogd.tproj/com.apple.system.log
 else
     PLIST="${SRCROOT}"/syslogd.tproj/com.apple.syslogd.plist
     ASL_CONF="${SRCROOT}"/syslogd.tproj/asl.conf.ios

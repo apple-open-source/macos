@@ -128,66 +128,59 @@
         secerror("octagon: failed to save 'attempted join' state: %@", persistError);
     }
 
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-        [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventPrepareIdentity withAttributes:nil];
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+    [self.deps.cuttlefishXPCWrapper prepareWithContainer:self.deps.containerName
+                                                 context:self.deps.contextID
+                                                   epoch:self.epoch
+                                               machineID:self.deviceInfo.machineID
+                                              bottleSalt:bottleSalt
+                                                bottleID:[NSUUID UUID].UUIDString
+                                                 modelID:self.deviceInfo.modelID
+                                              deviceName:self.deviceInfo.deviceName
+                                            serialNumber:self.deviceInfo.serialNumber
+                                               osVersion:self.deviceInfo.osVersion
+                                           policyVersion:nil
+                                           policySecrets:nil
+                             signingPrivKeyPersistentRef:signingKeyPersistRef
+                                 encPrivKeyPersistentRef:encryptionKeyPersistRef
+                                                   reply:^(NSString * _Nullable peerID, NSData * _Nullable permanentInfo, NSData * _Nullable permanentInfoSig, NSData * _Nullable stableInfo, NSData * _Nullable stableInfoSig, NSError * _Nullable error) {
+            STRONGIFY(self);
+            [[CKKSAnalytics logger] logResultForEvent:OctagonEventPrepareIdentity hardFailure:true result:error];
+            if(error) {
+                secerror("octagon: Error preparing identity: %@", error);
+                self.error = error;
+                [self runBeforeGroupFinished:self.finishedOp];
+            } else {
+                secnotice("octagon", "Prepared: %@ %@ %@", peerID, permanentInfo, permanentInfoSig);
+                self.peerID = peerID;
+                self.permanentInfo = permanentInfo;
+                self.permanentInfoSig = permanentInfoSig;
+                self.stableInfo = stableInfo;
+                self.stableInfoSig = stableInfoSig;
 
-    }] prepareWithContainer:self.deps.containerName
-                    context:self.deps.contextID
-                      epoch:self.epoch
-                  machineID:self.deviceInfo.machineID
-                 bottleSalt:bottleSalt
-                   bottleID:[NSUUID UUID].UUIDString
-                    modelID:self.deviceInfo.modelID
-                 deviceName:self.deviceInfo.deviceName
-               serialNumber:self.deviceInfo.serialNumber
-                  osVersion:self.deviceInfo.osVersion
-              policyVersion:nil
-              policySecrets:nil
-signingPrivKeyPersistentRef:signingKeyPersistRef
-    encPrivKeyPersistentRef:encryptionKeyPersistRef
-     reply:^(NSString * _Nullable peerID, NSData * _Nullable permanentInfo, NSData * _Nullable permanentInfoSig, NSData * _Nullable stableInfo, NSData * _Nullable stableInfoSig, NSError * _Nullable error) {
-         STRONGIFY(self);
-         [[CKKSAnalytics logger] logResultForEvent:OctagonEventPrepareIdentity hardFailure:true result:error];
-         if(error) {
-             secerror("octagon: Error preparing identity: %@", error);
-             self.error = error;
-             [self runBeforeGroupFinished:self.finishedOp];
-         } else {
-             secnotice("octagon", "Prepared: %@ %@ %@", peerID, permanentInfo, permanentInfoSig);
-             self.peerID = peerID;
-             self.permanentInfo = permanentInfo;
-             self.permanentInfoSig = permanentInfoSig;
-             self.stableInfo = stableInfo;
-             self.stableInfoSig = stableInfoSig;
+                NSError* localError = nil;
+                BOOL persisted = [self.deps.stateHolder persistNewEgoPeerID:peerID error:&localError];
+                if(!persisted || localError) {
+                    secnotice("octagon", "Couldn't persist peer ID: %@", localError);
+                    self.error = localError;
+                    [self runBeforeGroupFinished:self.finishedOp];
+                } else {
+                    WEAKIFY(self);
 
-             NSError* localError = nil;
-             BOOL persisted = [self.deps.stateHolder persistNewEgoPeerID:peerID error:&localError];
-             if(!persisted || localError) {
-                 secnotice("octagon", "Couldn't persist peer ID: %@", localError);
-                 self.error = localError;
-                 [self runBeforeGroupFinished:self.finishedOp];
-             } else {
-                 WEAKIFY(self);
+                    CKKSResultOperation *doneOp = [CKKSResultOperation named:@"ot-prepare"
+                                                                   withBlock:^{
+                            STRONGIFY(self);
+                            self.nextState = self.intendedState;
+                        }];
 
-                 CKKSResultOperation *doneOp = [CKKSResultOperation named:@"ot-prepare"
-                                                                    withBlock:^{
-                         STRONGIFY(self);
-                         self.nextState = self.intendedState;
-                     }];
-
-                 OTFetchViewsOperation *fetchViewsOp = [[OTFetchViewsOperation alloc] initWithDependencies:self.deps];
-                 [self runBeforeGroupFinished:fetchViewsOp];
-                 [doneOp addDependency:fetchViewsOp];
-                 [self runBeforeGroupFinished:doneOp];
-                 [self.finishedOp addDependency:doneOp];
-                 [self runBeforeGroupFinished:self.finishedOp];
-             }
-         }
-     }];
+                    OTFetchViewsOperation *fetchViewsOp = [[OTFetchViewsOperation alloc] initWithDependencies:self.deps];
+                    [self runBeforeGroupFinished:fetchViewsOp];
+                    [doneOp addDependency:fetchViewsOp];
+                    [self runBeforeGroupFinished:doneOp];
+                    [self.finishedOp addDependency:doneOp];
+                    [self runBeforeGroupFinished:self.finishedOp];
+                }
+            }
+        }];
 }
 
 @end

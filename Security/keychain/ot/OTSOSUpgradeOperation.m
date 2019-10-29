@@ -97,6 +97,13 @@
         return;
     }
 
+    // Now that we have some non-error SOS status, write down that we attempted an SOS Upgrade.
+    NSError* persistError = nil;
+    BOOL persisted = [self.deps.stateHolder persistOctagonJoinAttempt:OTAccountMetadataClassC_AttemptedAJoinState_ATTEMPTED error:&persistError];
+    if(!persisted || persistError) {
+        secerror("octagon: failed to save 'attempted join' state: %@", persistError);
+    }
+
     if(sosCircleStatus != kSOSCCInCircle) {
         secnotice("octagon-sos", "Device is not in SOS circle (state: %@), quitting SOS upgrade", SOSAccountGetSOSCCStatusString(sosCircleStatus));
         self.nextState = OctagonStateBecomeUntrusted;
@@ -133,10 +140,11 @@
             // Is this a very scary error?
             bool fatal = false;
 
-            NSTimeInterval ckdelay = CKRetryAfterSecondsForError(self.error);
-            NSTimeInterval delay = 30;
-            if(ckdelay != 0) {
-                delay = ckdelay;
+            NSTimeInterval ckDelay = CKRetryAfterSecondsForError(self.error);
+            NSTimeInterval cuttlefishDelay = [self.error cuttlefishRetryAfter];
+            NSTimeInterval delay = MAX(ckDelay, cuttlefishDelay);
+            if (delay == 0) {
+                delay = 30;
             }
 
             if([self.error isCuttlefishError:CuttlefishErrorResultGraphNotFullyReachable]) {
@@ -176,92 +184,73 @@
         }
     }
 
-    NSError* persistError = nil;
-    BOOL persisted = [self.deps.stateHolder persistOctagonJoinAttempt:OTAccountMetadataClassC_AttemptedAJoinState_ATTEMPTED error:&persistError];
-    if(!persisted || persistError) {
-        secerror("octagon: failed to save 'attempted join' state: %@", persistError);
-    }
+    [self.deps.cuttlefishXPCWrapper prepareWithContainer:self.deps.containerName
+                                                 context:self.deps.contextID
+                                                   epoch:self.deviceInfo.epoch
+                                               machineID:self.deviceInfo.machineID
+                                              bottleSalt:bottleSalt
+                                                bottleID:[NSUUID UUID].UUIDString
+                                                 modelID:self.deviceInfo.modelID
+                                              deviceName:self.deviceInfo.deviceName
+                                            serialNumber:self.self.deviceInfo.serialNumber
+                                               osVersion:self.deviceInfo.osVersion
+                                           policyVersion:nil
+                                           policySecrets:nil
+                             signingPrivKeyPersistentRef:signingKeyPersistRef
+                                 encPrivKeyPersistentRef:encryptionKeyPersistRef
+                                                   reply:^(NSString * _Nullable peerID,
+                                                           NSData * _Nullable permanentInfo,
+                                                           NSData * _Nullable permanentInfoSig,
+                                                           NSData * _Nullable stableInfo,
+                                                           NSData * _Nullable stableInfoSig,
+                                                           NSError * _Nullable error) {
+            STRONGIFY(self);
 
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+            [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePrepare hardFailure:true result:error];
 
-    }] prepareWithContainer:self.deps.containerName
-                    context:self.deps.contextID
-                      epoch:self.deviceInfo.epoch
-                  machineID:self.deviceInfo.machineID
-                 bottleSalt:bottleSalt
-                   bottleID:[NSUUID UUID].UUIDString
-                    modelID:self.deviceInfo.modelID
-                 deviceName:self.deviceInfo.deviceName
-               serialNumber:self.self.deviceInfo.serialNumber
-                  osVersion:self.deviceInfo.osVersion
-              policyVersion:nil
-              policySecrets:nil
-signingPrivKeyPersistentRef:signingKeyPersistRef
-    encPrivKeyPersistentRef:encryptionKeyPersistRef
-                      reply:^(NSString * _Nullable peerID,
-                              NSData * _Nullable permanentInfo,
-                              NSData * _Nullable permanentInfoSig,
-                              NSData * _Nullable stableInfo,
-                              NSData * _Nullable stableInfoSig,
-                              NSError * _Nullable error) {
-                          STRONGIFY(self);
+            if(error) {
+                secerror("octagon-sos: Error preparing identity: %@", error);
+                self.error = error;
+                [self handlePrepareErrors:error nextExpectedState:OctagonStateBecomeUntrusted];
 
-                          [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePrepare hardFailure:true result:error];
+                [self runBeforeGroupFinished:self.finishedOp];
+            } else {
+                secnotice("octagon-sos", "Prepared: %@ %@ %@", peerID, permanentInfo, permanentInfoSig);
 
-                          if(error) {
-                              secerror("octagon-sos: Error preparing identity: %@", error);
-                              self.error = error;
-                              [self handlePrepareErrors:error nextExpectedState:OctagonStateBecomeUntrusted];
+                [self afterPrepare];
+            }
 
-                              [self runBeforeGroupFinished:self.finishedOp];
-                          } else {
-                              secnotice("octagon-sos", "Prepared: %@ %@ %@", peerID, permanentInfo, permanentInfoSig);
-
-                              [self afterPrepare];
-                          }
-
-    }];
+        }];
 }
 
 - (void)afterPrepare
 {
     WEAKIFY(self);
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon-sos: Can't talk with TrustedPeersHelper: %@", error);
-        [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePreflightPreapprovedJoin hardFailure:true result:error];
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+    [self.deps.cuttlefishXPCWrapper preflightPreapprovedJoinWithContainer:self.deps.containerName
+                                                                  context:self.deps.contextID
+                                                                    reply:^(BOOL launchOkay, NSError * _Nullable error) {
+            STRONGIFY(self);
 
-    }] preflightPreapprovedJoinWithContainer:self.deps.containerName
-                                     context:self.deps.contextID
-                                       reply:^(BOOL launchOkay, NSError * _Nullable error) {
-         STRONGIFY(self);
+            [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePreflightPreapprovedJoin hardFailure:true result:error];
+            if(error) {
+                secerror("octagon-sos: preflightPreapprovedJoin failed: %@", error);
 
-        [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePreflightPreapprovedJoin hardFailure:true result:error];
-        if(error) {
-            secerror("octagon-sos: preflightPreapprovedJoin failed: %@", error);
+                self.error = error;
+                self.nextState = OctagonStateBecomeUntrusted;
+                [self runBeforeGroupFinished:self.finishedOp];
+                return;
+            }
 
-            self.error = error;
-            self.nextState = OctagonStateBecomeUntrusted;
-            [self runBeforeGroupFinished:self.finishedOp];
-            return;
-        }
+            if(!launchOkay) {
+                secnotice("octagon-sos", "TPH believes a preapprovedJoin will fail; aborting.");
+                self.nextState = OctagonStateBecomeUntrusted;
+                [self runBeforeGroupFinished:self.finishedOp];
+                return;
+            }
 
-        if(!launchOkay) {
-            secnotice("octagon-sos", "TPH believes a preapprovedJoin will fail; aborting.");
-            self.nextState = OctagonStateBecomeUntrusted;
-            [self runBeforeGroupFinished:self.finishedOp];
-            return;
-        }
-
-        secnotice("octagon-sos", "TPH believes a preapprovedJoin might succeed; continuing.");
-        [self afterPreflight];
-    }];
+            secnotice("octagon-sos", "TPH believes a preapprovedJoin might succeed; continuing.");
+            [self afterPreflight];
+        }];
 }
 
 - (void)afterPreflight
@@ -369,66 +358,59 @@ signingPrivKeyPersistentRef:signingKeyPersistRef
 
     secnotice("octagon-sos", "Beginning SOS upgrade with %d key sets and %d SOS peers", (int)viewKeySets.count, (int)peerSet.count);
 
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon-sos: Can't talk with TrustedPeersHelper: %@", error);
-        [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradeSilentEscrow hardFailure:true result:error];
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+    [self.deps.cuttlefishXPCWrapper attemptPreapprovedJoinWithContainer:self.deps.containerName
+                                                                context:self.deps.contextID
+                                                               ckksKeys:viewKeySets
+                                                              tlkShares:pendingTLKShares
+                                                        preapprovedKeys:publicSigningSPKIs
+                                                                  reply:^(NSString * _Nullable peerID, NSArray<CKRecord*>* keyHierarchyRecords, NSError * _Nullable error) {
+            STRONGIFY(self);
 
-    }] attemptPreapprovedJoinWithContainer:self.deps.containerName
-                                   context:self.deps.contextID
-                                  ckksKeys:viewKeySets
-                                 tlkShares:pendingTLKShares
-                           preapprovedKeys:publicSigningSPKIs
-                                     reply:^(NSString * _Nullable peerID, NSArray<CKRecord*>* keyHierarchyRecords, NSError * _Nullable error) {
-                                         STRONGIFY(self);
+            [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePreapprovedJoin hardFailure:true result:error];
+            if(error) {
+                secerror("octagon-sos: attemptPreapprovedJoin failed: %@", error);
 
-                                         [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePreapprovedJoin hardFailure:true result:error];
-                                         if(error) {
-                                             secerror("octagon-sos: attemptPreapprovedJoin failed: %@", error);
+                if ([error isCuttlefishError:CuttlefishErrorKeyHierarchyAlreadyExists]) {
+                    secnotice("octagon-ckks", "A CKKS key hierarchy is out of date; requesting reset");
+                    self.nextState = self.ckksConflictState;
+                } else {
+                    self.error = error;
+                    self.nextState = OctagonStateBecomeUntrusted;
+                }
+                [self runBeforeGroupFinished:self.finishedOp];
+                return;
+            }
 
-                                             if ([error isCuttlefishError:CuttlefishErrorKeyHierarchyAlreadyExists]) {
-                                                 secnotice("octagon-ckks", "A CKKS key hierarchy is out of date; requesting reset");
-                                                 self.nextState = self.ckksConflictState;
-                                             } else {
-                                                 self.error = error;
-                                                 self.nextState = OctagonStateBecomeUntrusted;
-                                             }
-                                             [self runBeforeGroupFinished:self.finishedOp];
-                                             return;
-                                         }
+            [self requestSilentEscrowUpdate];
 
-                                         [self requestSilentEscrowUpdate];
+            secerror("octagon-sos: attemptPreapprovedJoin succeded");
 
-                                         secerror("octagon-sos: attemptPreapprovedJoin succeded");
+            NSError* localError = nil;
+            BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC *  _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
+                    metadata.trustState = OTAccountMetadataClassC_TrustState_TRUSTED;
+                    metadata.peerID = peerID;
+                    return metadata;
+                } error:&localError];
 
-                                         NSError* localError = nil;
-                                         BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC *  _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
-                                                 metadata.trustState = OTAccountMetadataClassC_TrustState_TRUSTED;
-                                                 metadata.peerID = peerID;
-                                                 return metadata;
-                                             } error:&localError];
+            if(!persisted || localError) {
+                secnotice("octagon-sos", "Couldn't persist results: %@", localError);
+                self.error = localError;
+                self.nextState = OctagonStateError;
+                [self runBeforeGroupFinished:self.finishedOp];
+                return;
+            }
 
-                                         if(!persisted || localError) {
-                                             secnotice("octagon-sos", "Couldn't persist results: %@", localError);
-                                             self.error = localError;
-                                             self.nextState = OctagonStateError;
-                                             [self runBeforeGroupFinished:self.finishedOp];
-                                             return;
-                                         }
+            self.nextState = self.intendedState;
 
-                                         self.nextState = self.intendedState;
+            // Tell CKKS about our shiny new records!
+            for (id key in self.deps.viewManager.views) {
+                CKKSKeychainView* view = self.deps.viewManager.views[key];
+                secnotice("octagon-ckks", "Providing ck records (from sos upgrade) to %@", view);
+                [view receiveTLKUploadRecords: keyHierarchyRecords];
+            }
 
-                                         // Tell CKKS about our shiny new records!
-                                         for (id key in self.deps.viewManager.views) {
-                                             CKKSKeychainView* view = self.deps.viewManager.views[key];
-                                             secnotice("octagon-ckks", "Providing ck records (from sos upgrade) to %@", view);
-                                             [view receiveTLKUploadRecords: keyHierarchyRecords];
-                                         }
-
-                                         [self runBeforeGroupFinished:self.finishedOp];
-                           }];
+            [self runBeforeGroupFinished:self.finishedOp];
+        }];
 }
 
 @end

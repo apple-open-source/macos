@@ -14,9 +14,14 @@
 #import "keychain/SecureObjectSync/SOSAccountTrustClassic+Retirement.h"
 
 #import "keychain/SecureObjectSync/SOSAccountGhost.h"
+#import "keychain/SecureObjectSync/SOSIntervalEvent.h"
 #import "keychain/SecureObjectSync/SOSViews.h"
+#import "Analytics/Clients/SOSAnalytics.h"
+
 
 @implementation SOSAccountTrustClassic (Circle)
+
+#define ICLOUDIDDATE @"iCloudIDDate"
 
 -(bool) isInCircleOnly:(CFErrorRef *)error
 {
@@ -237,6 +242,16 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
     });
 
     return hasUpdated;
+}
+
+// Check on the iCloud identity availability every 24-36 hours random interval
+- (SOSIntervalEvent *) iCloudCheckEventHandle: (SOSAccount *) account {
+    return [[SOSIntervalEvent alloc] initWithDefaults:account.settings dateDescription:@"iCloudIDCheck" earliest:60*60*24 latest:60*60*36];
+}
+
+// Cleanup unusable iCloud identities every 5-7 days random interval
+- (SOSIntervalEvent *) iCloudCleanerHandle: (SOSAccount *) account {
+    return [[SOSIntervalEvent alloc] initWithDefaults:account.settings dateDescription:@"iCloudCleanerCheck" earliest:60*60*24*5 latest:60*60*24*7];
 }
 
 -(bool) handleUpdateCircle:(SOSCircleRef) prospective_circle transport:(SOSKVSCircleStorageTransport*)circleTransport update:(bool) writeUpdate err:(CFErrorRef*)error
@@ -474,6 +489,21 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
             }
             CFReleaseNull(reject);
         }
+
+        if(me && account.accountKeyIsTrusted && SOSCircleHasPeer(newCircle, me, NULL)) {
+            // do this on daily interval +/- 8 hours random to keep all peers doing this at the same time
+            SOSIntervalEvent *iCloudCheckEvent = [self iCloudCheckEventHandle: account];
+            if([iCloudCheckEvent checkDate]) {
+                bool fixedIdentities = [self fixICloudIdentities:account circle:newCircle];
+                if(fixedIdentities) {
+                    writeUpdate = true;
+                    secnotice("circleOps", "Fixed iCloud Identity in circle");
+                } else {
+                    secnotice("circleOps", "Failed to fix broken icloud identity");
+                }
+                [iCloudCheckEvent followup];
+            }
+        }
         
         CFRetainSafe(oldCircle);
         account.previousAccountKey = account.accountKey;
@@ -583,6 +613,45 @@ fail:
     
 }
 
+// true means things changed.
+-(bool) fixICloudIdentities:(SOSAccount *) account circle: (SOSCircleRef) circle {
+    bool retval = false;
+    SOSFullPeerInfoRef icfpi = SOSCircleCopyiCloudFullPeerInfoRef(circle, NULL);
+    if(!icfpi) {
+        SOSAccountRestartPrivateCredentialTimer(account);
+        if((SOSAccountGetPrivateCredential(account, NULL) != NULL) || SOSAccountAssertStashedAccountCredential(account, NULL)) {
+            SecKeyRef privKey = SOSAccountGetPrivateCredential(account, NULL);
+            if(privKey) {
+                SOSIntervalEvent *iCloudCleanupEvent = [self iCloudCleanerHandle: account];
+                if([iCloudCleanupEvent checkDate]) {
+                    SOSAccountRemoveIncompleteiCloudIdentities(account, circle, privKey, NULL);
+                    [iCloudCleanupEvent followup];
+                }
+                CFErrorRef error = NULL;
+                bool identityAdded = [self addiCloudIdentity:circle key:privKey err:&error];
+                if(identityAdded) {
+                    account.notifyBackupOnExit = true;
+                    retval = true;
+                    [[SOSAnalytics logger] logSuccessForEventNamed:@"iCloudIdentityFix"];
+                } else {
+                    [[SOSAnalytics logger] logResultForEvent:@"iCloudIdentityFix" hardFailure:true result:(__bridge NSError * _Nullable)(error)];
+                }
+                CFReleaseNull(error);
+            } else {
+                NSDictionary *attr = @{ @"reason" : @"noPrivateKey" };
+                [[SOSAnalytics logger] logHardFailureForEventNamed:@"iCloudIdentityFix" withAttributes:attr];
+            }
+        } else {
+            NSDictionary *attr = @{ @"reason" : @"noPrivateKey" };
+            [[SOSAnalytics logger] logHardFailureForEventNamed:@"iCloudIdentityFix" withAttributes:attr];
+        }
+    } else {
+        // everything is fine.
+        CFReleaseNull(icfpi);
+    }
+    return retval;
+}
+
 -(void) generationSignatureUpdateWith:(SOSAccount*)account key:(SecKeyRef) privKey
 {
     // rdar://51233857 - don't gensign if there isn't a change in the userKey
@@ -604,19 +673,11 @@ fail:
                 change |= SOSCircleGenerationSign(circle, privKey, self.fullPeerInfo, NULL);
                 [self setDepartureCode:kSOSNeverLeftCircle];
             } else if(iAmPeer) {
-                SOSFullPeerInfoRef icfpi = SOSCircleCopyiCloudFullPeerInfoRef(circle, NULL);
-                if(!icfpi) {
-                    SOSAccountRemoveIncompleteiCloudIdentities(account, circle, privKey, NULL);
-                    bool identityAdded = [self addiCloudIdentity:circle key:privKey err:NULL];
-                    if(identityAdded) {
-                        account.notifyBackupOnExit = true;
-                    }
-                    change |= identityAdded;
-                } else {
-                    CFReleaseNull(icfpi);
-                }
+                change |= [self fixICloudIdentities:account circle:circle];
             }
             secnotice("updatingGenSignature", "we changed the circle? %@", change ? CFSTR("YES") : CFSTR("NO"));
+            SOSIntervalEvent *iCloudCheckEvent = [self iCloudCheckEventHandle: account];
+            [iCloudCheckEvent followup];
             return change;
         }];
     }

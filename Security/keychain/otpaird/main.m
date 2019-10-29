@@ -3,7 +3,6 @@
 #import <Security/SecXPCHelper.h>
 #import <xpc/xpc.h>
 #if TARGET_OS_WATCH
-#import <NanoRegistry/NanoRegistry.h>
 #import <xpc/private.h>
 #endif /* TARGET_OS_WATCH */
 
@@ -12,9 +11,11 @@
 
 #if TARGET_OS_WATCH
 static void create_xpc_listener(xpc_handler_t handler);
-static bool should_retry(NSError *error);
+static void handle_pairing_result(bool success, NSError *error);
 static void pairing_retry_register(bool checkin);
 static void pairing_retry_unregister(void);
+static void ids_retry_init(void);
+static void ids_retry_enable(bool);
 #endif /* TARGET_OS_WATCH */
 
 int
@@ -29,6 +30,8 @@ main()
 #if TARGET_OS_WATCH
     /* Check in; handle a possibly-pending retry. */
     pairing_retry_register(true);
+
+    ids_retry_init();
 
     create_xpc_listener(^(xpc_object_t message) {
         xpc_object_t reply;
@@ -55,10 +58,7 @@ main()
             connection = xpc_dictionary_get_remote_connection(reply);
             xpc_connection_send_message(connection, reply);
 
-            // Retry on failure - unless we were already in
-            if (!success && should_retry(error)) {
-                pairing_retry_register(false);
-            }
+            handle_pairing_result(success, error);
         }];
     });
 #endif /* TARGET_OS_WATCH */
@@ -98,26 +98,51 @@ create_xpc_listener(xpc_handler_t handler)
     xpc_connection_activate(listener);
 }
 
-static bool
-should_retry(NSError *error)
+static void
+handle_pairing_result(bool success, NSError *error)
 {
-    bool retry;
+    bool actual_success = false;
+    bool standard_retry = false;
+    bool ids_retry = false;
 
-    if ([error.domain isEqualToString:OTPairingErrorDomain]) {
-        switch (error.code) {
-        case OTPairingErrorTypeAlreadyIn:
-        case OTPairingErrorTypeBusy:
-            retry = false;
-            break;
-        default:
-            retry = true;
-            break;
-        }
+    if (success) {
+        actual_success = true;
     } else {
-        retry = true;
+        if ([error.domain isEqualToString:OTPairingErrorDomain]) {
+            switch (error.code) {
+            /* AlreadyIn: Treat like success; unregister all retries. */
+            case OTPairingErrorTypeAlreadyIn:
+                actual_success = true;
+                break;
+            /* Busy: In progress. Do nothing, leave any configured retries. */
+            case OTPairingErrorTypeBusy:
+                break;
+            /* IDS error. Set up IDS retry _and_ standard retry. */
+            case OTPairingErrorTypeIDS:
+                standard_retry = true;
+                ids_retry = true;
+                break;
+            /* Other error, standard retry. */
+            default:
+                standard_retry = true;
+                break;
+            }
+        } else {
+            standard_retry = true;
+        }
     }
 
-    return retry;
+    if (actual_success) {
+        pairing_retry_unregister();
+        ids_retry_enable(false);
+    } else {
+        if (standard_retry) {
+            pairing_retry_register(false);
+        }
+        if (ids_retry) {
+            ids_retry_enable(true);
+        }
+    }
 }
 
 static void
@@ -163,5 +188,54 @@ static void
 pairing_retry_unregister(void)
 {
     xpc_activity_unregister(OTPairingXPCActivityIdentifier);
+}
+
+static void
+ids_retry_init(void)
+{
+    xpc_set_event_stream_handler("com.apple.notifyd.matching", dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(xpc_object_t event) {
+        const char *name;
+        uint64_t state;
+
+        name = xpc_dictionary_get_string(event, XPC_EVENT_KEY_NAME);
+        if (strcmp(name, OTPairingXPCEventIDSDeviceState) != 0) {
+            return;
+        }
+
+        state = xpc_dictionary_get_uint64(event, "_State");
+        if ((state & kIDSDeviceStatePropertiesIsNearby) && (state & kIDSDeviceStatePropertiesIsConnected)) {
+            OTPairingService *service = [OTPairingService sharedService];
+            os_log(OS_LOG_DEFAULT, "IDS paired device is connected, retrying");
+            [service initiatePairingWithCompletion:^(bool success, NSError *error) {
+                if (success) {
+                    os_log(OS_LOG_DEFAULT, "IDS notification retry succeeded");
+                } else {
+                    os_log(OS_LOG_DEFAULT, "IDS notification retry failed: %@", error);
+                }
+                handle_pairing_result(success, error);
+            }];
+        }
+    });
+}
+
+static void
+ids_retry_enable(bool enable)
+{
+    const char *notification;
+    xpc_object_t dict;
+
+    @autoreleasepool {
+        if (enable) {
+            notification = [OTPairingService sharedService].pairedDeviceNotificationName.UTF8String;
+            if (notification != NULL) {
+                dict = xpc_dictionary_create(NULL, NULL, 0);
+                xpc_dictionary_set_string(dict, "Notification", notification);
+            }
+        } else {
+            dict = NULL;
+        }
+
+        xpc_set_event("com.apple.notifyd.matching", OTPairingXPCEventIDSDeviceState, dict);
+    }
 }
 #endif /* TARGET_OS_WATCH */

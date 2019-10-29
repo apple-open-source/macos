@@ -256,6 +256,10 @@ static DTOption pmtool_options[] =
           required_argument, &args.doAction[kSetBHUpdateDeltaIndex], 1}, kActionType,
         "Set the minimum time delta required to change MaxCapacity in battery health. Not all devices require time delta between MaxCapacity updates.\n",
         { NULL }, {NULL}},
+    { {kActionGetBHDataFromPrefs,
+          no_argument, &args.doAction[kGetBHDataFromPrefsIndex], 1}, kActionType,
+        "Gets the battery health data from CFPrefs and returns it as an XML plist.\n",
+        { NULL }, {NULL}},
     { {"help", no_argument, NULL, 'h'}, kNilType, NULL, { NULL }, { NULL } },
 
     { {NULL, 0, NULL, 0}, kNilType, NULL, { NULL }, { NULL } }
@@ -303,6 +307,10 @@ int main(int argc, char *argv[])
     }
     if (args.doAction[kSetBHUpdateDeltaIndex]) {
         sendBHUpdateTimeDelta(args.nccpUpdateDelta);
+        exit(1);
+    }
+    if (args.doAction[kGetBHDataFromPrefsIndex]) {
+        sendBHDataFromCFPrefs();
         exit(1);
     }
 #if TARGET_OS_OSX
@@ -1474,7 +1482,6 @@ static void cacheArgvString(int argc, char *argv[])
     {
         char tmp_buf[200];
         CFStringGetCString(g.invokedStr, tmp_buf, sizeof(tmp_buf), kCFStringEncodingUTF8);
-        printf("- pmtool: %s\n", tmp_buf);
     }
 }
 
@@ -1708,3 +1715,4 @@ exit:
 
 static void sendCustomBatteryProperties(char *path) {}
 static void sendBHUpdateTimeDelta(long timeDelta) {}
+static void sendBHDataFromCFPrefs(void){}

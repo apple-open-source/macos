@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <securityd/SOSCloudCircleServer.h>
+#include "keychain/securityd/SOSCloudCircleServer.h"
 
 #include "SOSCircle_regressions.h"
 

@@ -31,6 +31,7 @@
 #include "unicode/unumsys.h"
 #include "unicode/ustring.h"
 #include "unicode/udisplaycontext.h"
+#include "unicode/uchar.h"
 
 #include "cintltst.h"
 #include "cnumtst.h"
@@ -2666,7 +2667,7 @@ static void TestCurrencyIsoPluralFormat(void) {
         {"ja_JP",             "42",       NULL,  "\\u00A542",          "\\u00A542",          "\\u00A542",          "JPY\\u00A042",          "42\\u00A0\\u5186"},
         {"ja_JP@currency=USD", "42",      NULL,  "$42.00",             "$42.00",             "$42.00",             "USD\\u00A042.00",       "42.00\\u00A0\\u7C73\\u30C9\\u30EB"},
         {"ms_MY",             "1234.56",  "MYR", "RM1,234.56",         "RM1,234.56",         "RM1,234.56",         "MYR1,234.56",           "1,234.56 Ringgit Malaysia"},
-        {"id_ID",             "1234.56",  "IDR", "Rp1.234,56",         "Rp1.234,56",         "Rp1.234,56",         "IDR\\u00A01.234,56",    "1.234,56 Rupiah Indonesia"},
+        {"id_ID",             "1234.56",  "IDR", "Rp1.235",            "Rp1.235",            "Rp1.235",            "IDR\\u00A01.235",       "1.235 Rupiah Indonesia"},
         // test locale without currency information
         {"root",              "-1.23",    "USD", "-US$\\u00A01.23",    "-US$\\u00A01.23",    "-US$\\u00A01.23",    "-USD\\u00A01.23", "-1.23 USD"},
         {"root@cf=account",   "-1.23",    "USD", "-US$\\u00A01.23",    "-US$\\u00A01.23",    "-US$\\u00A01.23",    "-USD\\u00A01.23", "-1.23 USD"},
@@ -3681,7 +3682,7 @@ static void TestSetSigDigAndRoundIncr(void) {
         status = U_ZERO_ERROR;
         ulen = unum_formatDouble(unum, value, ubuf, kUBufMax, NULL, &status);
         if ( U_FAILURE(status) ) {
-            printf("unum_formatDouble value %.1f status %s\n", value, u_errorName(status));
+            log_err("unum_formatDouble value %.1f status %s\n", value, u_errorName(status));
         } else if (u_strcmp(ubuf,u"1.03") != 0) {
             u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
             log_err("unum_formatDouble value %.1f expected 1.03, got %s\n", value, bbuf);
@@ -3873,6 +3874,107 @@ static void TestParseWithEmptyCurr(void) {
         }
         unum_close(unum);
     }
+
+    // Additions for <rdar://problem/51938595>
+    //                              "¤#,##0.00" "¤ #,##0.00" "#,##0.00 ¤" "#,##,##0.00¤"
+    static const char* locales[] = {"en_US",    "en_NO",     "en_CZ",     "en_BD",       NULL };
+    const char ** localesPtr = locales;
+    const char* locale;
+    while ((locale = *localesPtr++) != NULL) {
+        status = U_ZERO_ERROR;
+        unum = unum_open(UNUM_CURRENCY, NULL, 0, locale, NULL, &status);
+        if (U_FAILURE(status)) {
+            log_data_err("locale %s unum_open UNUM_CURRENCY fails with %s\n", locale, u_errorName(status));
+        } else {
+            char bbuf[kBBufMax] = { 0 };
+            UChar curr[4] = { 0 };
+            UChar ubuf[kUBufMax];
+            int32_t ppos, blen, ulen;
+            const double posValToUse = 37.0;
+            const double negValToUse = -3.0;
+            double val;
+
+            status = U_ZERO_ERROR;
+            unum_setSymbol(unum, UNUM_CURRENCY_SYMBOL, u"", 0, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_setSymbol UNUM_CURRENCY_SYMBOL u\"\" fails with %s, skipping\n", locale, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, posValToUse, ubuf, kUBufMax, NULL, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_formatDouble %.1f fails with %s, skipping\n", locale, posValToUse, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ppos = 0;
+            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, posValToUse);
+            } else if (ppos != ulen || val != posValToUse) {
+                log_err("locale %s unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, posValToUse, ppos, val);
+            }
+
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, negValToUse, ubuf, kUBufMax, NULL, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_formatDouble %.1f fails with %s, skipping\n", locale, negValToUse, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ppos = 0;
+            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, negValToUse);
+            } else if (ppos != ulen || val != negValToUse) {
+                log_err("locale %s unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, negValToUse, ppos, val);
+            }
+
+            status = U_ZERO_ERROR;
+            unum_applyPattern(unum, FALSE, u"#,##0.00¤", -1, NULL, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s unum_applyPattern \"#,##0.00¤\" fails with %s, skipping\n", locale, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, posValToUse, ubuf, kUBufMax, NULL, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s with \"#,##0.00¤\" unum_formatDouble %.1f fails with %s, skipping\n", locale, posValToUse, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ppos = 0;
+            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, posValToUse);
+            } else if (ppos != ulen || val != posValToUse) {
+                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, posValToUse, ppos, val);
+            }
+
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, negValToUse, ubuf, kUBufMax, NULL, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s with \"#,##0.00¤\" unum_formatDouble %.1f fails with %s, skipping\n", locale, negValToUse, u_errorName(status));
+                continue;
+            }
+
+            status = U_ZERO_ERROR;
+            ppos = 0;
+            val = unum_parseDouble(unum, ubuf, ulen, &ppos, &status);
+            if (U_FAILURE(status)) {
+                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble fails with %s, ppos %d, expect %.1f\n", locale, u_errorName(status), ppos, negValToUse);
+            } else if (ppos != ulen || val != negValToUse) {
+                log_err("locale %s with \"#,##0.00¤\" unum_parseDouble expect ppos %d, val %.1f; get %d, %.2f\n", locale, ulen, negValToUse, ppos, val);
+            }
+
+            unum_close(unum);
+        }
+    }
 }
 
 // Apple only for <rdar://problem/50113359>
@@ -3907,7 +4009,7 @@ static void TestSciNotationNumbers(void) {
                 status = U_ZERO_ERROR;
                 ulen = unum_formatDouble(unum, value, ubuf, kUBufMax, NULL, &status);
                 if ( U_FAILURE(status) ) {
-                    printf("unum_formatDouble value %.1f status %s\n", value, u_errorName(status));
+                    log_err("unum_formatDouble value %.1f status %s\n", value, u_errorName(status));
                 } else if (u_strncmp(ubuf,u"1E+0",4) != 0) {
                     u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
                     log_err("unum_formatDouble value %.1f expected result to begin with 1E+0, got %s\n", value, bbuf);

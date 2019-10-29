@@ -37,6 +37,7 @@
 #import "keychain/analytics/SecEventMetric.h"
 #import "keychain/analytics/SecMetrics.h"
 
+#import "keychain/ot/OTManager.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTConstants.h"
 #import "keychain/ot/ObjCImprovements.h"
@@ -45,9 +46,9 @@
 
 #import "SecEntitlements.h"
 
-#include <securityd/SecDbItem.h>
-#include <securityd/SecDbKeychainItem.h>
-#include <securityd/SecItemSchema.h>
+#include "keychain/securityd/SecDbItem.h"
+#include "keychain/securityd/SecDbKeychainItem.h"
+#include "keychain/securityd/SecItemSchema.h"
 #include <Security/SecureObjectSync/SOSViews.h>
 
 #import <Foundation/NSXPCConnection.h>
@@ -155,6 +156,18 @@ NSSet<NSString*>* _viewList;
         container = [[CKContainer alloc] initWithContainerID: container.containerID options:containerOptions];
     }
     return container;
+}
+
+- (BOOL)waitForTrustReady {
+    static dispatch_once_t onceToken;
+    __block BOOL success = YES;
+    dispatch_once(&onceToken, ^{
+        OTManager* manager = [OTManager manager];
+        if (![manager waitForReady:OTCKContainerName context:OTDefaultContext wait:3*NSEC_PER_SEC]) {
+            success = NO;
+        }
+    });
+    return success;
 }
 
 - (void)setupAnalytics
@@ -883,6 +896,7 @@ dispatch_once_t globalZoneStateQueueOnce;
             [self.accountTracker.ckdeviceIDInitialized wait:1*NSEC_PER_SEC];
             NSString *deviceID = self.accountTracker.ckdeviceID;
             NSError *deviceIDError = self.accountTracker.ckdeviceIDError;
+            NSDate *lastCKKSPush = [[CKKSAnalytics logger] datePropertyForKey:CKKSAnalyticsLastCKKSPush];
 
 #define stringify(obj) CKKSNilToNSNull([obj description])
             NSDictionary* global = @{
@@ -892,6 +906,7 @@ dispatch_once_t globalZoneStateQueueOnce;
                                      @"ckdeviceIDError":     CKKSNilToNSNull(deviceIDError),
                                      @"lockstatetracker":    stringify(self.lockStateTracker),
                                      @"cloudkitRetryAfter":  stringify(self.zoneModifier.cloudkitRetryAfter),
+                                     @"lastCKKSPush":        CKKSNilToNSNull(lastCKKSPush),
                                      };
             [a addObject: global];
         }
@@ -918,6 +933,10 @@ dispatch_once_t globalZoneStateQueueOnce;
     }
 
     if(self.accountTracker.currentCKAccountInfo.accountStatus == CKAccountStatusAvailable) {
+        if (![self waitForTrustReady]) {
+            secerror("ckks status: Haven't yet figured out trust status");
+        }
+
         CKKSResultOperation* blockOp = [CKKSResultOperation named:@"wait-for-status" withBlock:^{}];
         [blockOp timeout:8*NSEC_PER_SEC];
         for(CKKSKeychainView* view in actualViews) {
@@ -1028,6 +1047,11 @@ dispatch_once_t globalZoneStateQueueOnce;
 
 -(void)xpc24HrNotification {
     // XPC has poked us and said we should do some cleanup!
+    secnotice("ckks", "Received a 24hr notification from XPC");
+
+    if (![self waitForTrustReady]) {
+        secnotice("ckks", "Trust not ready, still going ahead");
+    }
 
     [[CKKSAnalytics logger] dailyCoreAnalyticsMetrics:@"com.apple.security.CKKSHealthSummary"];
 
@@ -1038,7 +1062,6 @@ dispatch_once_t globalZoneStateQueueOnce;
         actualViews = self.views.allValues;
     }
 
-    secnotice("ckks", "Received a 24hr notification from XPC");
     CKOperationGroup* group = [CKOperationGroup CKKSGroupWithName:@"periodic-device-state-update"];
     for(CKKSKeychainView* view in actualViews) {
         ckksnotice("ckks", view, "Starting device state XPC update");

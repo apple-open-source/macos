@@ -131,6 +131,7 @@ SEC_CONST_DECL (kSecPolicyNameAppleHealthProviderService, "HealthProvider");
 SEC_CONST_DECL (kSecPolicyNameAppleParsecService, "Parsec");
 SEC_CONST_DECL (kSecPolicyNameAppleAMPService, "AMP");
 SEC_CONST_DECL (kSecPolicyNameAppleSiriService, "Siri");
+SEC_CONST_DECL (kSecPolicyNameAppleHomeAppClipUploadService, "HomeAppClipUploadService");
 
 #define kSecPolicySHA1Size 20
 #define kSecPolicySHA256Size 32

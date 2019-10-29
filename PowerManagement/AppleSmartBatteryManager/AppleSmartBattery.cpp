@@ -86,6 +86,7 @@ static const OSSymbol *_FullyChargedSym         = OSSymbol::withCString(kIOPMFul
 static const OSSymbol *_AvgTimeToEmptySym       = OSSymbol::withCString("AvgTimeToEmpty");
 static const OSSymbol *_InstantTimeToEmptySym   = OSSymbol::withCString("InstantTimeToEmpty");
 static const OSSymbol *_AmperageSym             = OSSymbol::withCStringNoCopy(kIOPMPSAmperageKey);
+static const OSSymbol *_VoltageSym              = OSSymbol::withCStringNoCopy(kIOPMPSVoltageKey);
 static const OSSymbol *_InstantAmperageSym      = OSSymbol::withCString("InstantAmperage");
 static const OSSymbol *_AvgTimeToFullSym        = OSSymbol::withCString("AvgTimeToFull");
 static const OSSymbol *_ManfDateSym             = OSSymbol::withCString(kIOPMPSManufactureDateKey);

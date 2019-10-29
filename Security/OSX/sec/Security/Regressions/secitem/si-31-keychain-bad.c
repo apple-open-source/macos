@@ -25,7 +25,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecBase.h>
 #include <Security/SecItem.h>
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 
 #include <stdlib.h>
 #include <fcntl.h>

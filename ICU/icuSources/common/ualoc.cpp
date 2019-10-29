@@ -571,8 +571,8 @@ static LocParentAndDistance locParentMap[] = {
 enum { kLocParentMapCount = UPRV_LENGTHOF(locParentMap), kMaxParentDistance = 8 };
 
 enum {
-    kStringsAllocSize = 5248, // cannot expand; current actual usage 5102
-    kParentMapInitCount = 272 // can expand; current actual usage 251
+    kStringsAllocSize = 5280, // cannot expand; current actual usage 5259
+    kParentMapInitCount = 272 // can expand; current actual usage 254
 };
 
 U_CDECL_BEGIN

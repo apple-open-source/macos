@@ -100,6 +100,7 @@ extern OctagonState* const OctagonStateSecurityTrustCheck;
 extern OctagonState* const OctagonStateTPHTrustCheck;
 extern OctagonState* const OctagonStateCuttlefishTrustCheck;
 extern OctagonState* const OctagonStatePostRepairCFU;
+extern OctagonState* const OctagonStateHealthCheckReset;
 
 // End of account reset state flow
 
@@ -124,6 +125,8 @@ extern OctagonState* const OctagonStateDetermineiCloudAccountState;
 
 // CKKS sometimes needs an assist. These states are supposed to handle those cases
 extern OctagonState* const OctagonStateAssistCKKSTLKUpload;
+extern OctagonState* const OctagonStateAssistCKKSTLKUploadCKKSReset;
+extern OctagonState* const OctagonStateAssistCKKSTLKUploadAfterCKKSReset;
 
 // Call out to otpaird (KCPairing via IDS), then proceed to BecomeUntrusted
 extern OctagonState* const OctagonStateStartCompanionPairing;
@@ -146,6 +149,8 @@ NSSet<OctagonState*>* OctagonInAccountStates(void);
 NSSet<OctagonState *>* OctagonHealthSourceStates(void);
 
 ////// State machine flags
+extern OctagonFlag* const OctagonFlagIDMSLevelChanged;
+
 extern OctagonFlag* const OctagonFlagEgoPeerPreapproved;
 
 extern OctagonFlag* const OctagonFlagCKKSRequestsTLKUpload;
@@ -161,8 +166,7 @@ extern OctagonFlag* const OctagonFlagAttemptSOSUpgrade;
 extern OctagonFlag* const OctagonFlagUnlocked;
 
 extern OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals;
-
-extern OctagonFlag* const OctagonFlagPerformHealthCheck;
+extern OctagonFlag* const OctagonFlagAttemptSOSConsistency;
 
 extern OctagonFlag* const OctagonFlagEscrowRequestInformCloudServicesOperation;
 

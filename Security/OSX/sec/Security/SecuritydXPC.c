@@ -41,6 +41,7 @@ const char *kSecXPCKeyPeerInfo = "peer-info";
 const char *kSecXPCKeyUserLabel = "userlabel";
 const char *kSecXPCKeyBackup = "backup";
 const char *kSecXPCKeyKeybag = "keybag";
+const char *kSecXPCKeyFlags = "flags";
 const char *kSecXPCKeyUserPassword = "password";
 const char *kSecXPCKeyEMCSBackup = "emcsbackup";
 const char *kSecXPCKeyDSID = "dsid";

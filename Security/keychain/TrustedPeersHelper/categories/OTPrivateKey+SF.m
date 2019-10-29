@@ -26,6 +26,7 @@
 #import <SecurityFoundation/SFKey_Private.h>
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTConstants.h"
+#import "utilities/SecCFWrappers.h"
 
 @implementation OTPrivateKey (SecurityFoundation)
 
@@ -36,7 +37,8 @@
     pk.keyData = keyPair.keyData;
     return pk;
 }
-+ (SecKeyRef) createSecKey:(NSData*)keyData
+
++ (SecKeyRef) createSecKey:(NSData*)keyData CF_RETURNS_RETAINED
 {
     NSDictionary *keyAttributes = @{
                                     (__bridge id)kSecAttrKeyClass : (__bridge id)kSecAttrKeyClassPrivate,
@@ -55,7 +57,10 @@
         }
         return nil;
     }
-    return [[SFECKeyPair alloc] initWithSecKey:[OTPrivateKey createSecKey:self.keyData]];
+    SecKeyRef secKey = [OTPrivateKey createSecKey:self.keyData];
+    SFECKeyPair *result = [[SFECKeyPair alloc] initWithSecKey:secKey];
+    CFReleaseNull(secKey);
+    return result;
 }
 
 @end

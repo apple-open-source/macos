@@ -27,15 +27,16 @@ bool SeriesMatcher::match(StringSegment& segment, ParsedNumber& result, UErrorCo
         const NumberParseMatcher* matcher = *it;
         bool startCurrencyIsEmpty = (result.currencyCode[0]==0); // Apple fix for <rdar://problem/46915356>
         int matcherOffset = segment.getOffset();
-        if (segment.length() != 0) {
+        if (segment.length() != 0
+                || (startCurrencyIsEmpty && result.seenNumber())) { // Apple <rdar://problem/51938595>
             maybeMore = matcher->match(segment, result, status);
         } else {
             // Nothing for this matcher to match; ask for more.
             maybeMore = true;
         }
 
-        bool success = ((segment.getOffset() != matcherOffset)
-                        || (startCurrencyIsEmpty && result.currencyCode[0]!=0)); // Apple fix for <rdar://problem/46915356>
+        bool addedCurrency = (startCurrencyIsEmpty && result.currencyCode[0]!=0); // Apple <rdar://problem/51938595>
+        bool success = ((segment.getOffset() != matcherOffset) || addedCurrency); // Apple fix for <rdar://problem/46915356>
         bool isFlexible = matcher->isFlexible();
         if (success && isFlexible) {
             // Match succeeded, and this is a flexible matcher. Re-run it.
@@ -44,7 +45,7 @@ bool SeriesMatcher::match(StringSegment& segment, ParsedNumber& result, UErrorCo
             it++;
             // Small hack: if there is another matcher coming, do not accept trailing weak chars.
             // Needed for proper handling of currency spacing.
-            if (it < end() && segment.getOffset() != result.charEnd && result.charEnd > matcherOffset) {
+            if (it < end() && segment.getOffset() != result.charEnd && (result.charEnd > matcherOffset || addedCurrency)) { // Apple <rdar://problem/51938595>
                 segment.setOffset(result.charEnd);
             }
         } else if (isFlexible) {

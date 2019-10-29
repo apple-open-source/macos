@@ -69,6 +69,7 @@ public:
     WEBCORE_EXPORT bool isNeverRichlyEditableForTouchBar() const;
     WEBCORE_EXPORT bool shouldAvoidResizingWhenInputViewBoundsChange() const;
     WEBCORE_EXPORT bool shouldAvoidScrollingWhenFocusedContentIsVisible() const;
+    WEBCORE_EXPORT bool shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation() const;
 
     WEBCORE_EXPORT bool needsYouTubeMouseOutQuirk() const;
     
@@ -78,6 +79,8 @@ public:
     bool needsYouTubeOverflowScrollQuirk() const;
 
     bool shouldOpenAsAboutBlank(const String&) const;
+
+    bool needsPreloadAutoQuirk() const;
 
 private:
     bool needsQuirks() const;
@@ -93,6 +96,7 @@ private:
 #if PLATFORM(IOS_FAMILY)
     mutable Optional<bool> m_needsGMailOverflowScrollQuirk;
     mutable Optional<bool> m_needsYouTubeOverflowScrollQuirk;
+    mutable Optional<bool> m_needsPreloadAutoQuirk;
 #endif
 };
 

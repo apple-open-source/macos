@@ -338,7 +338,7 @@ DISPATCH_OPTIONS(dispatch_invoke_flags, uint32_t,
 	// @const DISPATCH_INVOKE_THREAD_BOUND
 	// We're draining from the context of a thread-bound queue (main thread)
 	//
-	// @const DISPATCH_INVOKE_WORKER_DRAIN
+	// @const DISPATCH_INVOKE_WORKLOOP_DRAIN
 	// The queue at the bottom of this drain is a workloop that supports
 	// reordering.
 	//

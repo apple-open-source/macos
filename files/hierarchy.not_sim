@@ -1,6 +1,6 @@
 1775	root	admin	cores
 0555	root	wheel	dev
-0755	root	wheel	Applications/Utilities
+0775	root	wheel	Applications/Utilities
 0775	root	admin	Library
 0755	root	wheel	Library/Application Support
 1777	root	admin	Library/Caches

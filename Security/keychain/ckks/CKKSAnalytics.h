@@ -46,11 +46,13 @@ extern NSString* const OctagonAnalyticsSOSStatus;
 extern NSString* const OctagonAnalyticsDateOfLastPreflightPreapprovedJoin;
 extern NSString* const OctagonAnalyticsLastKeystateReady;
 extern NSString* const OctagonAnalyticsLastCoreFollowup;
-extern NSString* const OctagonAnalyticsCoreFollowupStatus;
 extern NSString* const OctagonAnalyticsCoreFollowupFailureCount;
 extern NSString* const OctagonAnalyticsCoreFollowupLastFailureTime;
 extern NSString* const OctagonAnalyticsPrerecordPending;
 extern NSString* const OctagonAnalyticsCDPStateRun;
+
+extern NSString* const CKKSAnalyticsLastCKKSPush;
+extern NSString* const CKKSAnalyticsLastOctagonPush;
 
 extern NSString* const OctagonAnalyticsKVSProvisioned;
 extern NSString* const OctagonAnalyticsKVSEnabled;
@@ -118,6 +120,7 @@ extern CKKSAnalyticsFailableEvent* const OctagonEventUpgradePreapprovedJoinAfter
 extern CKKSAnalyticsFailableEvent* const OctagonEventJoinWithVoucher;
 
 /* inner: join with bottle */
+extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithBottle;
 extern CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithBottle;
 
 /* inner: join with recovery key */

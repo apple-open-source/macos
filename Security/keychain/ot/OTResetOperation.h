@@ -26,18 +26,22 @@
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
+#import "keychain/ot/CuttlefishXPCWrapper.h"
 
 #import "keychain/ot/OTAuthKitAdapter.h"
-
+#import "keychain/ot/OTConstants.h"
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTResetOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
 
 - (instancetype)init:(NSString*)containerName
            contextID:(NSString*)contextID
+              reason:(CuttlefishResetReason)reason
        intendedState:(OctagonState*)intendedState
           errorState:(OctagonState*)errorState
-       cuttlefishXPC:(id<NSXPCProxyCreating>)cuttlefishXPC;
+cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper;
+
+@property CuttlefishResetReason resetReason;
 @end
 
 NS_ASSUME_NONNULL_END

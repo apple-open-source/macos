@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd November 2, 2017
+.Dd July 22, 2019
 .Dt COPYFILE 3
 .Os
 .Sh NAME
@@ -217,6 +217,12 @@ This is a convenience macro, equivalent to
 .Dv (COPYFILE_NOFOLLOW_DST | COPYFILE_NOFOLLOW_SRC) .
 .It Dv COPYFILE_RUN_IN_PLACE
 If the src file has quarantine information, add the QTN_FLAG_DO_NOT_TRANSLOCATE flag to the quarantine information of the dst file. This allows a bundle to run in place instead of being translocated.
+.It Dv COPYFILE_PRESERVE_DST_TRACKED
+Preserve the UF_TRACKED flag at
+.Va to
+when copying metadata, regardless of whether
+.Va from
+has it set.  This flag is used in conjunction with COPYFILE_STAT, or COPYFILE_CLONE (for its fallback case).
 .El
 .Pp
 Copying files into a directory is supported. If

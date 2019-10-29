@@ -1041,7 +1041,7 @@ likelySubtags:table(nofallback){
     sah{"sah_Cyrl_RU"}
     saq{"saq_Latn_KE"}
     sas{"sas_Latn_ID"}
-    sat{"sat_Latn_IN"}
+    sat{"sat_Olck_IN"}
     sav{"sav_Latn_SN"}
     saz{"saz_Saur_IN"}
     sba{"sba_Latn_ZZ"}

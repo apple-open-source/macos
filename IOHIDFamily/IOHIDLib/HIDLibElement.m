@@ -33,6 +33,8 @@
 @synthesize psKey = _psKey;
 @synthesize elementStruct = _elementStruct;
 @synthesize defaultValueRef = _defaultValue;
+@synthesize isConstant = _isConstant;
+@synthesize isUpdated = _isUpdated;
 
 - (nullable instancetype)initWithElementRef:(nonnull IOHIDElementRef)elementRef
 {

@@ -28,7 +28,7 @@
 #endif
 
 #include <utilities/debugging.h>
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 #include <Security/SecItemPriv.h>
 
 #import <Foundation/Foundation.h>

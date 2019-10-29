@@ -68,6 +68,7 @@
 #include <sys/wait.h>
 #include <sys/queue.h>
 #include <sys/types.h>
+#include <sys/attr.h>
 
 #include <oncrpc/rpc.h>
 #include <oncrpc/pmap_clnt.h>
@@ -171,6 +172,7 @@ TAILQ_HEAD(namelisttqh, namelist);
 struct dirlist {
 	struct dirlist		*dl_next;
 	char			*dl_dir;
+	char			*dl_realpath;
 };
 
 /*
@@ -199,7 +201,7 @@ struct expfs {
 	int			xf_flag;	/* internal flags for this struct */
 	u_char			xf_uuid[16];	/* file system's UUID */
 	u_int32_t		xf_fsid;	/* exported FS ID */
-	char			*xf_fsdir;	/* mount point of this file system */
+	char			*xf_fsdir;	/* mount point of this file system (physical path) */
 };
 /* xf_flag bits */
 #define	XF_LINKED	0x1
@@ -220,6 +222,7 @@ struct expdir {
 	struct nfs_sec		xd_osec;	/* old default security flavors */
 	struct nfs_sec		xd_ssec;	/* security flavors for showmount */
 	char			*xd_dir;	/* pathname of exported directory */
+	char			*xd_realpath;	/* resolved version of above */
 	struct expidlist 	*xd_xid;	/* corresponding export ID */
 };
 
@@ -434,6 +437,57 @@ void		prevent_idle_sleep_assertion_update(u_int);
 #define RECHECKEXPORTS_TIMEOUT			600
 #define RECHECKEXPORTS_DELAYED_STARTUP_TIMEOUT	120
 #define RECHECKEXPORTS_DELAYED_STARTUP_INTERVAL	5
+
+static char *
+mountd_realpath(const char *file_name, char *resolved_name)
+{
+	char *result = NULL;
+	struct attrlist al = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.commonattr  = ATTR_CMN_RETURNED_ATTRS,
+		.forkattr = ATTR_CMNEXT_NOFIRMLINKPATH,
+	};
+	struct {
+		uint32_t len;
+		attribute_set_t returned;
+		struct attrreference path_attr;
+		uint8_t extra[PATH_MAX];
+	} __attribute__((aligned(4), packed)) ab;
+	int rv;
+
+	rv = getattrlist(file_name, &al, &ab, sizeof(ab),
+			 FSOPT_ATTR_CMN_EXTENDED);
+	if (rv == -1)
+		return NULL;
+
+	result = (char *)&ab.path_attr + ab.path_attr.attr_dataoffset;
+	if (resolved_name != NULL) {
+		strlcpy(resolved_name, result, PATH_MAX);
+		result = resolved_name;
+	} else {
+		result = strdup(result);
+	}
+
+	return result;
+}
+
+static int
+mountd_statfs(const char *path, struct statfs *sb)
+{
+	char real_mntonname[PATH_MAX];
+	int rv;
+
+	if ((rv = statfs(path, sb)) != 0) {
+		return rv;
+	}
+
+	if (mountd_realpath(sb->f_mntonname, real_mntonname) == NULL) {
+		return -1;
+	}
+
+	strlcpy(sb->f_mntonname, real_mntonname, sizeof(sb->f_mntonname));
+	return 0;
+}
 
 /*
  * Mountd server for NFS mount protocol as described in:
@@ -952,7 +1006,7 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 	struct nfs_sec secflavs;
 	struct sockaddr *sa;
 	u_short sport;
-	char rpcpath[RPCMNT_PATHLEN + 1], dirpath[MAXPATHLEN];
+	char rpcpath[RPCMNT_PATHLEN + 1], dirpath[MAXPATHLEN], mlistpath[MAXPATHLEN];
 	char addrbuf[2*INET6_ADDRSTRLEN], hostbuf[NI_MAXHOST];
 	int bad = ENOENT, options;
 	u_char uuid[16];
@@ -990,11 +1044,12 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 		 * or a regular file if the -r option was specified
 		 * and it exists.
 		 */
-		if (realpath(rpcpath, dirpath) == 0 ||
+		if (mountd_realpath(rpcpath, dirpath) == NULL ||
+		    realpath(rpcpath, mlistpath) == NULL ||
 		    stat(dirpath, &stb) < 0 ||
 		    (!S_ISDIR(stb.st_mode) &&
 		     (!config.mount_regular_files || !S_ISREG(stb.st_mode))) ||
-		    statfs(dirpath, &fsb) < 0) {
+		    mountd_statfs(dirpath, &fsb) < 0) {
 			unlock_exports();
 			chdir("/");	/* Just in case realpath doesn't */
 			DEBUG(1, "stat failed on %s", dirpath);
@@ -1041,7 +1096,7 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			if (!svc_sendreply(transp, (xdrproc_t)xdr_fhs, (caddr_t)&fhr))
 				log(LOG_ERR, "Can't send mount reply");
 			if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, 0))
-				add_mlist(hostbuf, dirpath);
+				add_mlist(hostbuf, mlistpath);
 			log(LOG_INFO, "Mount successful: %s %s", hostbuf, dirpath);
 		} else {
 			bad = EACCES;
@@ -1067,19 +1122,23 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			svcerr_weakauth(transp);
 			return;
 		}
-		if (!svc_getargs(transp, (xdrproc_t)xdr_dir, dirpath)) {
+		if (!svc_getargs(transp, (xdrproc_t)xdr_dir, rpcpath)) {
 			svcerr_decode(transp);
 			return;
 		}
 		if (!svc_sendreply(transp, (xdrproc_t)xdr_void, (caddr_t)NULL))
 			log(LOG_ERR, "Can't send UMOUNT reply");
+		if (realpath(rpcpath, mlistpath) == NULL) {
+			log(LOG_ERR, "realpath(%s) failed", rpcpath);
+			return;
+		}
 		if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, NI_NAMEREQD))
-			del_mlist(hostbuf, dirpath);
+			del_mlist(hostbuf, mlistpath);
 		else
 			hostbuf[0] = '\0';
 		if (!getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST))
-			del_mlist(addrbuf, dirpath);
-		log(LOG_INFO, "umount: %s %s", hostbuf[0] ? hostbuf : addrbuf, dirpath);
+			del_mlist(addrbuf, mlistpath);
+		log(LOG_INFO, "umount: %s %s", hostbuf[0] ? hostbuf : addrbuf, mlistpath);
 		return;
 	case RPCMNT_UMNTALL:
 		if ((sport >= IPPORT_RESERVED) && config.mount_require_resv_port) {
@@ -1880,7 +1939,7 @@ uuidlist_restore(void)
 
 		/* verify the path exists and that it is a mount point */
 		if (!check_dirpath(ulp->ul_mntonname) ||
-		    (statfs(ulp->ul_mntonname, &fsb) < 0) ||
+		    (mountd_statfs(ulp->ul_mntonname, &fsb) < 0) ||
 		    strcmp(ulp->ul_mntonname, fsb.f_mntonname)) {
 			/* don't drop the UUID record if the volume isn't currently mounted! */
 			/* If it's mounted/exported later, we want to use the same record. */
@@ -1998,6 +2057,15 @@ struct uuidlist *
 find_exported_fs_by_path_and_uuid(char *fspath, u_char *fsuuid)
 {
 	struct uuidlist *ulp;
+	char real_fspath[PATH_MAX];
+
+	if (fspath) {
+		if (mountd_realpath(fspath, real_fspath) == NULL) {
+			log(LOG_ERR, "unable to resolve fspath %s", fspath);
+			return NULL;
+		}
+		fspath = real_fspath;
+	}
 
 	ulp = TAILQ_FIRST(&ulhead);
 	while (ulp) {
@@ -2038,11 +2106,11 @@ find_exported_fs_by_dirlist(struct dirlist *dirhead)
 	if (!dirhead)
 		return (NULL);
 
-	path = strdup(dirhead->dl_dir);
+	path = strdup(dirhead->dl_realpath);
 
 	dirl = dirhead->dl_next;
 	while (dirl) {
-		cmp = subdir_check(path, dirl->dl_dir);
+		cmp = subdir_check(path, dirl->dl_realpath);
 		if (cmp >= 0) {
 			/* same or subdir, so skip */
 			dirl = dirl->dl_next;
@@ -2056,7 +2124,7 @@ find_exported_fs_by_dirlist(struct dirlist *dirhead)
 		}
 		p[0] = '\0';
 	}
-	DEBUG(4, "find_exported_fs: %s", path);
+	DEBUG(4, "find_exported_fs_by_dirlist: %s", path);
 
 	/*
 	 * Now search uuid list for best match.
@@ -2485,23 +2553,29 @@ get_exportlist(void)
 			export_error(LOG_WARNING, "no usable directories in export entry");
 			goto prepare_offline_export;
 		}
-		if (statfs(dirl->dl_dir, &fsb) < 0) {
-			export_error(LOG_ERR, "statfs failed (%s (%d)) for path: %s",
-				strerror(errno), errno, dirl->dl_dir);
+		if (mountd_statfs(dirl->dl_realpath, &fsb) < 0) {
+			export_error(LOG_ERR, "statfs failed (%s (%d)) for path: %s (%s)",
+				strerror(errno), errno, dirl->dl_dir, dirl->dl_realpath);
 			export_error_cleanup(xf);
 			goto nextline;
 		}
-		if ((opt_flags & OP_FSPATH) && strcmp(fsb.f_mntonname, fspath)) {
-			/* fspath doesn't match export fs path? */
-			if (!bestulp) {
-				export_error(LOG_ERR, "file system path (%s) does not match fspath (%s) and no fallback",
-					fsb.f_mntonname, fspath);
-				export_error_cleanup(xf);
-				goto nextline;
+		if ((opt_flags & OP_FSPATH)) {
+			char *real_fspath = mountd_realpath(fspath, NULL);
+			if (strcmp(fsb.f_mntonname, fspath)) {
+				/* fspath doesn't match export fs path? */
+				if (!bestulp) {
+					export_error(LOG_ERR, "file system path (%s) does not match fspath (%s) (%s) and no fallback",
+						fsb.f_mntonname, fspath, real_fspath);
+					free(real_fspath);
+					export_error_cleanup(xf);
+					goto nextline;
+				}
+				export_error(LOG_WARNING, "file system path (%s) does not match fspath (%s) (%s)",
+					fsb.f_mntonname, fspath, real_fspath);
+				free(real_fspath);
+				goto prepare_offline_export;
 			}
-			export_error(LOG_WARNING, "file system path (%s) does not match fspath (%s)",
-				fsb.f_mntonname, fspath);
-			goto prepare_offline_export;
+			free(real_fspath);
 		}
 		if (bestulp && (subdir_check(fsb.f_mntonname, bestulp->ul_mntonname) > 0)) {
 			export_error(LOG_WARNING, "Exported file system (%s) doesn't match best guess (%s).",
@@ -2545,8 +2619,9 @@ prepare_offline_export:
 		xf = ex_search(uuid);
 		if (xf == NULL) {
 			xf = get_expfs();
-			if (xf)
-				xf->xf_fsdir = strdup(mntonname);
+			if (xf) {
+				xf->xf_fsdir = mountd_realpath(mntonname, NULL);
+			}
 			if (!xf || !xf->xf_fsdir) {
 				export_error(LOG_ERR, "Can't allocate memory to export volume: %s",
 					mntonname);
@@ -2569,7 +2644,7 @@ prepare_offline_export:
 				export_error(LOG_WARNING, "path contains non-directory or non-existent components: %s", dirl->dl_dir);
 				continue;
 			}
-			if (statfs(dirl->dl_dir, &fsb) < 0) {
+			if (mountd_statfs(dirl->dl_realpath, &fsb) < 0) {
 				export_error(LOG_WARNING, "statfs failed (%s (%d)) for path: %s",
 					strerror(errno), errno, dirl->dl_dir);
 				continue;
@@ -2591,7 +2666,7 @@ prepare_offline_export:
 		 */
 		dirl = dirhead;
 		while (dirl) {
-			DEBUG(2, "dir: %s", dirl->dl_dir);
+			DEBUG(2, "dir: %s (%s)", dirl->dl_dir, dirl->dl_realpath);
 			/*
 			 * Check for nesting conflicts with any existing entries.
 			 * Note we skip any entries that are NOT marked OP_ADD because
@@ -2635,15 +2710,18 @@ prepare_offline_export:
 				DEBUG(2, "     %s xd is %s", dirl->dl_dir, xd->xd_dir);
 			} else {
 				/* go ahead and create a new expdir structure */
-				if (strncmp(dirl->dl_dir, mntonname, strlen(mntonname))) {
-					export_error(LOG_ERR, "exported dir/fs mismatch: %s %s",
-						dirl->dl_dir, mntonname);
+				if (strncmp(dirl->dl_realpath, xf->xf_fsdir,
+					    strlen(xf->xf_fsdir))) {
+					export_error(LOG_ERR,"exported dir/fs mismatch: %s (%s) %s",
+						     dirl->dl_dir,
+						     dirl->dl_realpath,
+						     xf->xf_fsdir);
 					export_error_cleanup(xf);
 					goto nextline;
 				}
 				/* first, get export path and ID */
 				/* point subdir beyond mount path string */
-				subdir = dirl->dl_dir + strlen(mntonname);
+				subdir = dirl->dl_realpath + strlen(mntonname);
 				/* skip "/" between mount and subdir */
 				while (*subdir && (*subdir == '/'))
 					subdir++;
@@ -2654,9 +2732,11 @@ prepare_offline_export:
 					goto nextline;
 				}
 				xd = get_expdir();
-				if (xd)
+				if (xd) {
 					xd->xd_dir = strdup(dirl->dl_dir);
-				if (!xd || !xd->xd_dir) {
+					xd->xd_realpath = strdup(dirl->dl_realpath);
+				}
+				if (!xd || !xd->xd_dir || !xd->xd_realpath) {
 					if (xd)
 						free_expdir(xd);
 					export_error(LOG_ERR, "can't allocate memory for export %s", dirl->dl_dir);
@@ -2690,7 +2770,7 @@ prepare_offline_export:
 						/* if EISDIR report lack of extended readdir support */
 						export_error(LOG_ERR, "kernel export registration failed: "
 							"NFS exporting not supported by fstype \"%s\" (%s)",
-							statfs(xf->xf_fsdir, &fsb) ? "?" : fsb.f_fstypename,
+							mountd_statfs(xf->xf_fsdir, &fsb) ? "?" : fsb.f_fstypename,
 							(errno == EISDIR) ? "readdir" : "fh");
 					} else {
 						export_error(LOG_ERR, "kernel export registration failed");
@@ -3545,6 +3625,12 @@ add_dir(struct dirlist **dlpp, char *cp)
 		return (ENOMEM);
 	}
 	newdl->dl_dir = cp;
+	newdl->dl_realpath = mountd_realpath(cp, NULL);
+	if (newdl->dl_realpath == NULL) {
+		log(LOG_ERR, "can't get physical path for %s", cp);
+		free(newdl);
+		return (ENOMEM);
+	}
 	if (dl2 == NULL) {
 		newdl->dl_next = *dlpp;
 		*dlpp = newdl;
@@ -3555,7 +3641,8 @@ add_dir(struct dirlist **dlpp, char *cp)
 	if (config.verbose >= 6) {
 		dl = *dlpp;
 		while (dl) {
-			DEBUG(4, "DIRLIST: %s", dl->dl_dir);
+			DEBUG(4, "DIRLIST: %s (%s)", dl->dl_dir,
+			      dl->dl_realpath);
 			dl = dl->dl_next;
 		}
 	}
@@ -3574,6 +3661,8 @@ free_dirlist(struct dirlist *dl)
 		dl2 = dl->dl_next;
 		if (dl->dl_dir)
 			free(dl->dl_dir);
+		if (dl->dl_realpath)
+			free(dl->dl_realpath);
 		free(dl);
 		dl = dl2;
 	}
@@ -4033,6 +4122,8 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
  * an exact match on exported directory mountdir path
  * a subdir match on exported directory mountdir path with ALLDIRS
  * a subdir match on exported directory path with ALLDIRS
+ *
+ * N.B. "dirpath" is a firmlinks-resolved *physical* path.
  */
 int
 expdir_search(struct expfs *xf, char *dirpath, struct sockaddr *sa, int *options, struct nfs_sec *secflavs)
@@ -4042,7 +4133,7 @@ expdir_search(struct expfs *xf, char *dirpath, struct sockaddr *sa, int *options
 	int cmp = 1, chkalldirs = 0;
 
 	TAILQ_FOREACH(xd, &xf->xf_dirl, xd_next) {
-		if ((cmp = subdir_check(xd->xd_dir, dirpath)) >= 0)
+		if ((cmp = subdir_check(xd->xd_realpath, dirpath)) >= 0)
 			break;
 	}
 	if (!xd) {
@@ -4050,7 +4141,7 @@ expdir_search(struct expfs *xf, char *dirpath, struct sockaddr *sa, int *options
 		return (0);
 	}
 
-	DEBUG(1, "expdir_search: %s -> %s", dirpath, xd->xd_dir);
+	DEBUG(1, "expdir_search: %s -> %s", dirpath, xd->xd_realpath);
 
 	if (cmp == 0) {
 		/* exact match on exported directory path */
@@ -4079,7 +4170,7 @@ check_xd_hosts:
 
 	/* search for a matching mountdir */
 	TAILQ_FOREACH(mxd, &xd->xd_mountdirs, xd_next) {
-		cmp = subdir_check(mxd->xd_dir, dirpath);
+		cmp = subdir_check(mxd->xd_realpath, dirpath);
 		if (cmp < 0)
 			continue;
 		DEBUG(1, "expdir_search: %s subdir path match %s",
@@ -4396,6 +4487,8 @@ free_expdir(struct expdir *xd)
 	}
 	if (xd->xd_dir)
 		free(xd->xd_dir);
+	if (xd->xd_realpath)
+		free(xd->xd_realpath);
 	free(xd);
 }
 

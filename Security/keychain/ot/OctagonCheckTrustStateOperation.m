@@ -45,28 +45,22 @@
 
     // Make sure we're in agreement with TPH about _which_ peer ID we should have
     WEAKIFY(self);
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper, can't ensure check trust state: %@", error);
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+    [self.deps.cuttlefishXPCWrapper fetchTrustStateWithContainer:self.deps.containerName
+                                                         context:self.deps.contextID
+                                                           reply:^(TrustedPeersHelperPeerState * _Nullable selfPeerState,
+                                                                   NSArray<TrustedPeersHelperPeer *> * _Nullable trustedPeers,
+                                                                   NSError * _Nullable error) {
+            STRONGIFY(self);
+            if(error || !selfPeerState || !trustedPeers) {
+                secerror("octagon: TPH was unable to determine current peer state: %@", error);
+                self.error = error;
+                self.nextState = OctagonStateError;
+                [self runBeforeGroupFinished:self.finishedOp];
 
-    }] fetchTrustStateWithContainer:self.deps.containerName
-                            context:self.deps.contextID
-                              reply:^(TrustedPeersHelperPeerState * _Nullable selfPeerState,
-                                      NSArray<TrustedPeersHelperPeer *> * _Nullable trustedPeers,
-                                      NSError * _Nullable error) {
-        STRONGIFY(self);
-        if(error || !selfPeerState || !trustedPeers) {
-            secerror("octagon: TPH was unable to determine current peer state: %@", error);
-            self.error = error;
-            self.nextState = OctagonStateError;
-            [self runBeforeGroupFinished:self.finishedOp];
-
-        } else {
-            [self afterTPHTrustState:selfPeerState trustedPeers:trustedPeers];
-        }
-     }];
+            } else {
+                [self afterTPHTrustState:selfPeerState trustedPeers:trustedPeers];
+            }
+        }];
 }
 
 - (void)afterTPHTrustState:(TrustedPeersHelperPeerState*)peerState
@@ -169,6 +163,17 @@
         secnotice("octagon-consistency", "Saved new account metadata");
     }
 
+    // See if we possibly should do an update because peer data in Octagon
+    // is different from local state, ie we upgraded
+    if (peerState.osVersion) {
+        NSString *osVersion = self.deps.deviceInformationAdapter.osVersion;
+        if (osVersion && ![osVersion isEqualToString:peerState.osVersion]) {
+            OctagonPendingFlag *pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:OctagonFlagCuttlefishNotification
+                                                                            conditions:OctagonPendingConditionsDeviceUnlocked];
+            [self.deps.flagHandler handlePendingFlag:pendingFlag];
+        }
+    }
+
     // And determine where to go from here!
 
     if(currentAccountMetadata.peerID && currentAccountMetadata.trustState == OTAccountMetadataClassC_TrustState_TRUSTED) {
@@ -178,19 +183,10 @@
     } else if(self.deps.sosAdapter.sosEnabled &&
               currentAccountMetadata.trustState != OTAccountMetadataClassC_TrustState_TRUSTED &&
               OctagonPerformSOSUpgrade()) {
-        secnotice("octagon", "Have iCloud account but not trusted in Octagon yet; inspecting SOS status: %@",
+        secnotice("octagon", "Have iCloud account but not trusted in Octagon yet: %@; attempting SOS upgrade",
                   [currentAccountMetadata trustStateAsString:currentAccountMetadata.trustState]);
 
-        NSError* circleError = nil;
-        SOSCCStatus sosStatus = [self.deps.sosAdapter circleStatus:&circleError];
-
-        if(sosStatus == kSOSCCInCircle) {
-            secnotice("octagon", "SOS status is 'trusted'; requesting SOS upgrade");
-            [self.deps.flagHandler handleFlag:OctagonFlagAttemptSOSUpgrade];
-        } else {
-            secnotice("octagon", "SOS status is %d (error: %@)", (int)sosStatus, circleError);
-        }
-        self.nextState = OctagonStateBecomeUntrusted;
+        self.nextState = OctagonStateAttemptSOSUpgrade;
 
     } else if(currentAccountMetadata.trustState != OTAccountMetadataClassC_TrustState_TRUSTED) {
         secnotice("octagon", "Have iCloud account but not trusted in Octagon (%@)",

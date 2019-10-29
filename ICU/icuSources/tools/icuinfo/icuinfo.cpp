@@ -46,6 +46,7 @@ static UOption options[]={
   /*5*/ UOPTION_DEF("milisecond-time", 'm', UOPT_NO_ARG),
   /*6*/ UOPTION_DEF("cleanup", 'K', UOPT_NO_ARG),
   /*7*/ UOPTION_DEF("xml", 'x', UOPT_REQUIRES_ARG),
+  /*8*/ UOPTION_DEF("perf", 'p', UOPT_NO_ARG), // Apple
 };
 
 static UErrorCode initStatus = U_ZERO_ERROR;
@@ -58,6 +59,7 @@ static void do_init() {
     }
 }
 
+static void cmd_perf(); // Apple
 
 void cmd_millis()
 {
@@ -130,7 +132,7 @@ void cmd_version(UBool /* noLoad */, UErrorCode &errorCode)
 #endif
 #else
     fprintf(stderr, "Plugins are disabled.\n");
-#endif    
+#endif
 }
 
 void cmd_cleanup()
@@ -248,7 +250,8 @@ main(int argc, char* argv[]) {
               " -L         or  --list-plugins     - List and diagnose issues with ICU Plugins\n"
 #endif
               " -K         or  --cleanup          - Call u_cleanup() before exitting (will attempt to unload plugins)\n"
-              "\n"
+              " -p         or  --perf             - Perf tests (Apple)\n"
+             "\n"
               "If no arguments are given, the tool will print ICU version and configuration information.\n"
               );
       fprintf(stderr, "International Components for Unicode %s\n%s\n", U_ICU_VERSION, U_COPYRIGHT_STRING );
@@ -291,9 +294,61 @@ main(int argc, char* argv[]) {
       didSomething = TRUE;
     }
 
+    if(options[8].doesOccur) { // Apple
+      cmd_perf();
+      didSomething=TRUE;
+    } 
+
     if(!didSomething) {
       cmd_version(FALSE, errorCode);  /* at least print the version # */
     }
 
     return U_FAILURE(errorCode);
 }
+
+// Apple addition
+#include <unistd.h>
+#include <mach/mach_time.h>
+#include <unicode/ustring.h>
+#include <unicode/udat.h>
+enum { kUCharsOutMax = 128, kBytesOutMax = 256 };
+
+static void cmd_perf() {
+    static const char* locale = "en_US";
+    static const UChar* tzName = (const UChar*)u"America/Los_Angeles";
+    static const UDate udatTry1 = 1290714600000.0; // 2010 Nov. 25 (Thurs) 11:50:00 AM PT
+    static const UDate udatTry2 = 1451736016000.0; // 2016 Jan. 02  ...
+    int remaining = 2;
+    mach_timebase_info_data_t info;
+    mach_timebase_info(&info);
+    while (remaining-- > 0) {
+        uint64_t start, durationOpen, durationUse1, durationUse2;
+        UDateFormat *udatfmt;
+        int32_t datlen1, datlen2;
+        UChar outUChars[kUCharsOutMax];
+        UErrorCode status = U_ZERO_ERROR;
+    
+        start = mach_absolute_time();
+        udatfmt = udat_open(UDAT_MEDIUM, UDAT_FULL, locale, tzName, -1, NULL, 0, &status);
+        durationOpen = ((mach_absolute_time() - start) * info.numer)/info.denom;
+        if ( U_SUCCESS(status) ) {
+            start = mach_absolute_time();
+            datlen1 = udat_format(udatfmt, udatTry1, outUChars, kUCharsOutMax, NULL, &status);
+            durationUse1 = ((mach_absolute_time() - start) * info.numer)/info.denom;
+
+            start = mach_absolute_time();
+            datlen2 = udat_format(udatfmt, udatTry2, outUChars, kUCharsOutMax, NULL, &status);
+            durationUse2 = ((mach_absolute_time() - start) * info.numer)/info.denom;
+
+            if ( U_SUCCESS(status) ) {
+                printf("first time %d udat open, fmt1(len %d), fmt2(len %d) nsec:\t%llu\t%llu\t%llu\n", remaining, datlen1, datlen2, durationOpen, durationUse1, durationUse2);
+            } else {
+                printf("first time %d udat_format failed\n", remaining);
+            }
+            udat_close(udatfmt);
+        } else {
+            printf("first time %d udat_open failed\n", remaining);
+        }
+    }
+}
+

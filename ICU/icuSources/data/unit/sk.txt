@@ -1598,16 +1598,16 @@ sk{
         temperature{
             celsius{
                 dnam{"°C"}
-                few{"{0} °C"}
-                many{"{0} °C"}
-                one{"{0} °C"}
-                other{"{0} °C"}
+                few{"{0} °C"}
+                many{"{0} °C"}
+                one{"{0} °C"}
+                other{"{0} °C"}
             }
             fahrenheit{
-                few{"{0} °F"}
-                many{"{0} °F"}
-                one{"{0} °F"}
-                other{"{0} °F"}
+                few{"{0} °F"}
+                many{"{0} °F"}
+                one{"{0} °F"}
+                other{"{0} °F"}
             }
             generic{
                 few{"{0} °"}
@@ -2602,17 +2602,17 @@ sk{
         temperature{
             celsius{
                 dnam{"°C"}
-                few{"{0} °C"}
-                many{"{0} °C"}
-                one{"{0} °C"}
-                other{"{0} °C"}
+                few{"{0} °C"}
+                many{"{0} °C"}
+                one{"{0} °C"}
+                other{"{0} °C"}
             }
             fahrenheit{
                 dnam{"°F"}
-                few{"{0} °F"}
-                many{"{0} °F"}
-                one{"{0} °F"}
-                other{"{0} °F"}
+                few{"{0} °F"}
+                many{"{0} °F"}
+                one{"{0} °F"}
+                other{"{0} °F"}
             }
             generic{
                 dnam{"°"}

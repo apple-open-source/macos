@@ -143,11 +143,20 @@ static const SingleUnitFormat fr_CA_singFmt[] = {
     { UAMEASUNIT_DURATION_MINUTE,           1.0,   "1,00 minute",                   "1 minute",                   "1 min",            "1,0 min",        "1m",          "1m",        0,1,    0,1   },
     { UAMEASUNIT_DURATION_MINUTE,           5.25,  "5,25 minutes",                  "5 minutes",                  "5,25 min",         "5,2 min",        "5m",          "5m",        0,1,    0,1   },
     { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37,20 centim\\u00E8tres",       "37 centim\\u00E8tres",       "37,203 cm",        "37,2 cm",        "37 cm",       "37 cm",     0,2,    0,2   },
-    { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37,20 degr\\u00E9s Celsius",    "37 degr\\u00E9s Celsius",    "37,203 \\u00B0C",  "37,2 \\u00B0C",  "37 \\u00B0C", "37\\u00B0", 0,2,    0,2   },
-    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20 degr\\u00E9s Fahrenheit", "37 degr\\u00E9s Fahrenheit", "37,203 \\u00B0F",  "37,2 \\u00B0F",  "37 \\u00B0F", "37\\u00B0", 0,2,    0,2   },
+    { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37,20 degr\\u00E9s Celsius",    "37 degr\\u00E9s Celsius",    "37,203\\u00A0\\u00B0C", "37,2\\u00A0\\u00B0C", "37\\u00A0\\u00B0C", "37\\u00B0", 0,2, 0,2 },
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20 degr\\u00E9s Fahrenheit", "37 degr\\u00E9s Fahrenheit", "37,203\\u00A0\\u00B0F", "37,2\\u00A0\\u00B0F", "37\\u00A0\\u00B0F", "37\\u00B0", 0,2, 0,2 },
     { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37,20\\u00B0",                  "37\\u00B0",                  "37,203\\u00B0",    "37,2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_VOLUME_LITER,             37.203, "37,20 litres",                  "37 litres",                  "37,203 L",         "37,2 L",         "37L",         "37L",       0,2,    0,2   },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37,20 calories",                "37 calories",                "37,203 cal",       "37,2 cal",       "37 cal",      "37 cal",    0,2,    0,2   },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static const SingleUnitFormat zh_Hant_singFmt[] = {
+//    unit                                 value   wide_2                           wide_0                        shrt_X                  shrt_1                narr_0              numr_0            wide_0  narr_0
+    { UAMEASUNIT_DURATION_MINUTE,           5.25,  "5.25\\u5206\\u9418",            "5\\u5206\\u9418",            "5.25\\u5206\\u9418",   "5.2\\u5206\\u9418",  "5\\u5206",         "5\\u5206",         0,1,  0,1 },
+    { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37.20\\u516C\\u5206",           "37\\u516C\\u5206",           "37.203\\u516C\\u5206", "37.2\\u516C\\u5206", "37\\u516C\\u5206", "37\\u516C\\u5206", 0,2,  0,2 },
+    { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37.20\\u00B0",                  "37\\u00B0",                  "37.203\\u00B0",        "37.2\\u00B0",        "37\\u00B0",        "37\\u00B0",        0,2,  0,2 },
+    { UAMEASUNIT_ANGLE_DEGREE,             37.203, "37.20\\u5EA6",                  "37\\u5EA6",                  "37.203\\u00B0",        "37.2\\u00B0",        "37\\u00B0",        "37\\u00B0",        0,2,  0,2 },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -335,7 +344,7 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     { "tr",         NULL,            NULL,            NULL,            NULL            }, // tr: try plural cases for 1, other
     { "uk",         NULL,            NULL,            NULL,            NULL            }, // uk: try plural cases for 1, 2, 5, 8.5
     { "vi",         NULL,            NULL,            NULL,            NULL            }, // vi: try plural cases for other only
-    { "zh_Hant",    NULL,            NULL,            NULL,            NULL            }, // zh_Hant: try plural cases for other only
+    { "zh_Hant",    zh_Hant_singFmt, NULL,            NULL,            NULL            }, // zh_Hant: try plural cases for other only
     { "zh_Hant_HK", NULL,            NULL,            NULL,            NULL            }, 
 
     // =============TERMINATOR

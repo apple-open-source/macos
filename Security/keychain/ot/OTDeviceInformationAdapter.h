@@ -3,6 +3,10 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+@protocol OTDeviceInformationNameUpdateListener
+- (void)deviceNameUpdated;
+@end
+
 @protocol OTDeviceInformationAdapter
 
 /* Returns a string like "iPhone3,5" */
@@ -16,6 +20,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 /* Returns the serial number as a string. */
 - (NSString*)serialNumber;
+
+/* register for deviceName updates */
+- (void)registerForDeviceNameUpdates:(id<OTDeviceInformationNameUpdateListener>)listener;
 
 @end
 

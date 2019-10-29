@@ -27,6 +27,7 @@
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
+#import "keychain/ckks/CKKSAnalytics.h"
 #import "keychain/analytics/SecMetrics.h"
 #import "keychain/analytics/SecEventMetric.h"
 #import "keychain/ot/ObjCImprovements.h"
@@ -79,18 +80,15 @@
 
 + (instancetype)receiverForEnvironment:(NSString *)environmentName
                      namedDelegatePort:(NSString*)namedDelegatePort
-                    apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass {
-    static NSMutableDictionary<NSString*, OctagonAPSReceiver*>* environmentMap = nil;
-
+                    apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
+{
     if(environmentName == nil) {
         secnotice("octagonpush", "No push environment; not bringing up APS.");
         return nil;
     }
 
     @synchronized([self class]) {
-        if(environmentMap == nil) {
-            environmentMap = [[NSMutableDictionary alloc] init];
-        }
+        NSMutableDictionary<NSString*, OctagonAPSReceiver*>* environmentMap = [self synchronizedGlobalEnvironmentMap];
 
         OctagonAPSReceiver* recv = [environmentMap valueForKey: environmentName];
 
@@ -103,6 +101,29 @@
     }
 }
 
++ (void)resetGlobalEnviornmentMap
+{
+    @synchronized (self) {
+        [self resettableSynchronizedGlobalEnvironmentMap:YES];
+    }
+}
+
++ (NSMutableDictionary<NSString*, OctagonAPSReceiver*>*)synchronizedGlobalEnvironmentMap
+{
+    return [self resettableSynchronizedGlobalEnvironmentMap:NO];
+}
+
++ (NSMutableDictionary<NSString*, OctagonAPSReceiver*>*)resettableSynchronizedGlobalEnvironmentMap:(BOOL)reset
+{
+    static NSMutableDictionary<NSString*, OctagonAPSReceiver*>* environmentMap = nil;
+
+    if(environmentMap == nil || reset) {
+        environmentMap = [[NSMutableDictionary alloc] init];
+    }
+
+    return environmentMap;
+}
+
 + (dispatch_queue_t)apsDeliveryQueue {
     static dispatch_queue_t aps_dispatch_queue;
     static dispatch_once_t onceToken;
@@ -113,7 +134,7 @@
 }
 
 + (int64_t)stalePushTimeout {
-    return 5*60*NSEC_PER_MSEC;
+    return 5*60*NSEC_PER_SEC;
 }
 
 - (BOOL) haveStalePushes
@@ -319,6 +340,7 @@
         NSString* container = cfInfo[@"c"];
 
         secnotice("octagonpush", "Received a cuttlefish push to container %@", container);
+        [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastOctagonPush];
 
         if(container) {
             id<OctagonCuttlefishUpdateReceiver> receiver = [self.octagonContainerMap objectForKey:container];
@@ -349,6 +371,8 @@
         rznotification.ckksPushTracingEnabled = message.tracingEnabled;
         rznotification.ckksPushTracingUUID = message.tracingUUID ? [[[NSUUID alloc] initWithUUIDBytes:message.tracingUUID.bytes] UUIDString] : nil;
         rznotification.ckksPushReceivedDate = [NSDate date];
+
+        [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastCKKSPush];
 
         // Find receiever in map
         id<CKKSZoneUpdateReceiver> recv = [self.zoneMap objectForKey:rznotification.recordZoneID.zoneName];

@@ -11,6 +11,7 @@
 #import "SecItemPriv.h"
 #import "SecItemServer.h"
 #import "spi.h"
+#include <ipc/server_security_helpers.h>
 #import <utilities/SecCFWrappers.h>
 #import <utilities/SecFileLocations.h>
 #import <SecurityFoundation/SFEncryptionOperation.h>
@@ -23,11 +24,20 @@
 
 NSString* homeDirUUID;
 
+@interface mockaksxcbase ()
+@property NSArray<NSString *>* originalAccessGroups;
+@property NSMutableArray<NSString *>* currentAccessGroups;
+@end
+
+
 @implementation mockaksxcbase
 
 + (void)setUp
 {
     [super setUp];
+
+    securityd_init_local_spi();
+    securityd_init(NULL);
 
     SecCKKSDisable();
     /*
@@ -41,6 +51,12 @@ NSString* homeDirUUID;
 #endif
     // Give this test run a UUID within which each test has a directory
     homeDirUUID = [[NSUUID UUID] UUIDString];
+}
+
+- (void)addAccessGroup:(NSString *)accessGroup
+{
+    [self.currentAccessGroups addObject:accessGroup];
+    SecAccessGroupsSetCurrent((__bridge CFArrayRef)self.currentAccessGroups);
 }
 
 - (NSString*)createKeychainDirectoryWithSubPath:(NSString*)suffix
@@ -62,6 +78,8 @@ NSString* homeDirUUID;
 
 - (void)setUp {
     [super setUp];
+    self.originalAccessGroups = (__bridge NSArray *)SecAccessGroupsGetCurrent();
+    self.currentAccessGroups = [self.originalAccessGroups mutableCopy];
 
     NSString* testName = [self.name componentsSeparatedByString:@" "][1];
     testName = [testName stringByReplacingOccurrencesOfString:@"]" withString:@""];
@@ -71,14 +89,16 @@ NSString* homeDirUUID;
     [self createKeychainDirectory];
 
     SetCustomHomeURLString((__bridge CFStringRef) self.testHomeDirectory);
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        securityd_init(NULL);
-    });
     SecKeychainDbReset(NULL);
 
     // Actually load the database.
     kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+}
+
+- (void)tearDown
+{
+    SecAccessGroupsSetCurrent((__bridge CFArrayRef)self.originalAccessGroups);
+    [super tearDown];
 }
 
 + (void)tearDown
@@ -86,5 +106,7 @@ NSString* homeDirUUID;
     SetCustomHomeURLString(NULL);
     SecKeychainDbReset(NULL);
 }
+
+
 
 @end

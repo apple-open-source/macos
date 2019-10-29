@@ -119,7 +119,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
     }
 
     /* verify that M8 is not spoofed */
-    if (!LAVerifySEP(pwd->pw_uid, &error)) {
+    if (!isContinuityUnlock && !LAVerifySEP(pwd->pw_uid, &error)) {
         openpam_log(PAM_LOG_ERROR, "LAVerifySEP failed: %ld", CFErrorGetCode(error));
         retval = PAM_AUTH_ERR;
         goto cleanup;

@@ -1511,6 +1511,45 @@ void DecimalFormat::setSignificantDigitsUsed(UBool useSignificantDigits) {
     touchNoError();
 }
 
+// Group-set several settings used for numbers in date formats. Apple rdar://50064762
+// Equivalent to:
+//    setGroupingUsed(FALSE);
+//    setDecimalSeparatorAlwaysShown(FALSE);
+//    setParseIntegerOnly(TRUE);
+//    setMinimumFractionDigits(0);
+void DecimalFormat::setDateSettings(void) {
+    if (fields == nullptr) {
+        return;
+    }
+    UBool didChange = FALSE;
+
+    if (fields->properties->groupingUsed) {
+        NumberFormat::setGroupingUsed(FALSE); // to set field for compatibility
+        fields->properties->groupingUsed = false;
+        didChange = TRUE;
+    }
+
+    if (fields->properties->decimalSeparatorAlwaysShown) {
+        fields->properties->decimalSeparatorAlwaysShown = false;
+        didChange = TRUE;
+    }
+
+    if (!fields->properties->parseIntegerOnly) {
+        NumberFormat::setParseIntegerOnly(TRUE); // to set field for compatibility
+        fields->properties->parseIntegerOnly = true;
+        didChange = TRUE;
+    }
+
+    if (fields->properties->minimumFractionDigits != 0) {
+        fields->properties->minimumFractionDigits = 0;
+        didChange = TRUE;
+    }
+
+    if (didChange) {
+        touchNoError();
+    }
+}
+
 void DecimalFormat::setCurrency(const char16_t* theCurrency, UErrorCode& ec) {
     // don't overwrite ec if it's already a failure.
     if (U_FAILURE(ec)) { return; }

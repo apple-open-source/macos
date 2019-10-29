@@ -176,7 +176,7 @@
     
     if (!eventValue) return;
     
-    [eventValue enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+    [eventValue enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx __unused , BOOL * _Nonnull stop __unused) {
         
         if (![obj isKindOfClass:[NSDictionary class]]) {
             return;
@@ -197,9 +197,9 @@
             
             if (!processedInfo) return;
             
-            [processedInfo enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+            [processedInfo enumerateObjectsUsingBlock:^(id  _Nonnull objP, NSUInteger idxP __unused, BOOL * _Nonnull stopP __unused) {
                 
-                NSDictionary *infoToLog = (NSDictionary*)obj;
+                NSDictionary *infoToLog = (NSDictionary*)objP;
                 AnalyticsSendEventLazy(eventName, ^NSDictionary<NSString *,NSObject *> *{
                     return infoToLog;
                 });

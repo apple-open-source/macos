@@ -1444,6 +1444,8 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 #define kIOPMTCPKeepAlivePrefKey                        "TCPKeepAlivePref"
 // units - CFNumber 0/1
 #define kIOPMProximityDarkWakeKey                       "ProximityDarkWake"
+// units - CFNumber 0/1
+#define kIOPMProModeKey                                 "ProMode"
 
 #define kIOPMUpdateDarkWakeBGSettingKey                 "Update DarkWakeBG Setting"
 #define kIOPMDarkWakeLingerDurationKey                  "DarkWake Linger Duration"
@@ -1457,6 +1459,19 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 // Restart on Kernel panic
 // Deprecated in 10.8. Do not use.
 #define kIOPMRestartOnKernelPanicKey                    "RestartAfterKernelPanic"
+
+/*!
+ * @constant    kIOPMSystemProModeEnaged
+ * @abstract    Notify(3) string that PM fires every time the system enters ProMode.
+ */
+#define kIOPMSystemProModeEngaged						"com.apple.system.promode.engaged"
+
+/*!
+ * @constant    kIOPMSystemProModeDisengaged
+ * @abstract    Notify(3) string that PM fires every time the system exits ProMode
+ */
+#define kIOPMSystemProModeDisengaged					"com.apple.system.promode.disengaged"
+
 
 // See xnu/iokit/IOKit/pwr_mgt/IOPM.h for other PM Settings keys:
 //  kIOPMDeepSleepEnabledKey 

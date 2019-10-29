@@ -736,7 +736,7 @@ zh_Hant{
             }
             degree{
                 dnam{"角度"}
-                other{"{0}度"}
+                other{"{0}°"}
             }
             radian{
                 dnam{"弧度"}
@@ -1327,7 +1327,7 @@ zh_Hant{
             }
             degree{
                 dnam{"角度"}
-                other{"{0}度"}
+                other{"{0}°"}
             }
             radian{
                 dnam{"弧度"}

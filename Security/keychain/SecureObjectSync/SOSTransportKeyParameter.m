@@ -2,7 +2,7 @@
 #include "keychain/SecureObjectSync/SOSTransport.h"
 #include "keychain/SecureObjectSync/SOSTransportKeyParameter.h"
 #include "keychain/SecureObjectSync/SOSKVSKeys.h"
-#include <securityd/SOSCloudCircleServer.h>
+#include "keychain/securityd/SOSCloudCircleServer.h"
 #include <utilities/SecCFWrappers.h>
 #include "keychain/SecureObjectSync/SOSAccountPriv.h"
 #include "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"

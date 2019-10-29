@@ -33,8 +33,8 @@
 #import "keychain/ckks/CKKSCurrentItemPointer.h"
 #import "keychain/ot/ObjCImprovements.h"
 
-#include <securityd/SecItemServer.h>
-#include <securityd/SecItemDb.h>
+#include "keychain/securityd/SecItemServer.h"
+#include "keychain/securityd/SecItemDb.h"
 #include <Security/SecItemPriv.h>
 
 #include <utilities/SecADWrapper.h>

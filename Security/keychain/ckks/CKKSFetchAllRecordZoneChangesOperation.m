@@ -39,7 +39,7 @@
 #import "keychain/analytics/SecMetrics.h"
 #import "NSError+UsefulConstructors.h"
 #import "CKKSPowerCollection.h"
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 
 @implementation CKKSCloudKitFetchRequest
 @end
@@ -60,14 +60,19 @@
 @property CKDatabaseOperation<CKKSFetchRecordZoneChangesOperation>* fetchRecordZoneChangesOperation;
 @property NSMutableDictionary<CKRecordZoneID*, CKFetchRecordZoneChangesConfiguration*>* allClientOptions;
 
+@property NSMutableDictionary<CKRecordZoneID*, id<CKKSChangeFetcherClient>>* clientMap;
+
 @property CKOperationGroup* ckoperationGroup;
 @property (assign) NSUInteger fetchedItems;
 @property bool forceResync;
 
 @property bool moreComing;
 
-// Holds the original change token that the client believes they have synced to
-@property NSMutableDictionary<CKRecordZoneID*, CKServerChangeToken*>* originalChangeTokens;
+@property size_t totalModifications;
+@property size_t totalDeletions;
+
+// A zoneID is in this set if we're attempting to resync them
+@property NSMutableSet<CKRecordZoneID*>* resyncingZones;
 
 @property CKKSResultOperation* fetchCompletedOperation;
 @end
@@ -93,11 +98,10 @@
         _container = container;
         _fetchRecordZoneChangesOperationClass = fetchRecordZoneChangesOperationClass;
 
-        NSMutableDictionary* clientMap = [NSMutableDictionary dictionary];
+        _clientMap = [NSMutableDictionary dictionary];
         for(id<CKKSChangeFetcherClient> client in clients) {
-            clientMap[client.zoneID] = client;
+            _clientMap[client.zoneID] = client;
         }
-        _clientMap = [clientMap copy];
 
         _ckoperationGroup = ckoperationGroup;
         _forceResync = forceResync;
@@ -107,7 +111,11 @@
         _modifications = [[NSMutableDictionary alloc] init];
         _deletions = [[NSMutableDictionary alloc] init];
         _changeTokens = [[NSMutableDictionary alloc] init];
-        _originalChangeTokens = [[NSMutableDictionary alloc] init];
+
+        _resyncingZones = [NSMutableSet set];
+
+        _totalModifications = 0;
+        _totalDeletions = 0;
 
         _fetchCompletedOperation = [CKKSResultOperation named:@"record-zone-changes-completed" withBlock:^{}];
 
@@ -140,13 +148,11 @@
                 } else {
                     options.previousServerChangeToken = clientPreference.changeToken;
                 }
-
-                self.originalChangeTokens[clientZoneID] = options.previousServerChangeToken;
             }
 
-            //if(options.previousServerChangeToken == nil) {
-            //    nilChangeTag = true;
-            //}
+            if(clientPreference.resync || self.forceResync) {
+                [self.resyncingZones addObject:clientZoneID];
+            }
 
             self.allClientOptions[client.zoneID] = options;
         }
@@ -242,6 +248,8 @@
         ckksnotice("ckksfetch", recordZoneID, "Record zone fetch complete: changeToken=%@ clientChangeTokenData=%@ moreComing=%@ error=%@", serverChangeToken, clientChangeTokenData,
                    moreComing ? @"YES" : @"NO",
                    recordZoneError);
+
+        [self sendChangesToClient:recordZoneID moreComing:moreComing];
     };
 
     // Called with overall operation success. As I understand it, this block will be called for every operation.
@@ -252,6 +260,15 @@
             secerror("ckksfetch: received callback for released object");
             return;
         }
+
+        // Count record changes per zone
+        NSMutableDictionary<CKRecordZoneID*,NSNumber*>* recordChangesPerZone = [NSMutableDictionary dictionary];
+        self.totalModifications += self.modifications.count;
+        self.totalDeletions += self.deletions.count;
+
+        // All of these should have been delivered by recordZoneFetchCompletionBlock; throw them away
+        [self.modifications removeAllObjects];
+        [self.deletions removeAllObjects];
 
         // If we were told that there were moreChanges coming for any zone, we'd like to fetch again.
         //  This is true if we recieve no error or a network timeout. Any other error should cause a failure.
@@ -264,9 +281,6 @@
 
         if(operationError) {
             self.error = operationError;
-        } else {
-            secnotice("ckksfetch", "Advising clients of fetched changes");
-            [self sendAllChangesToClients];
         }
 
         secnotice("ckksfetch", "Record zone changes fetch complete: error=%@", operationError);
@@ -274,10 +288,6 @@
         [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventFetchAllChanges
                                       count:self.fetchedItems];
 
-        // Count record changes per zone
-        NSMutableDictionary<CKRecordZoneID*,NSNumber*>* recordChangesPerZone = [NSMutableDictionary dictionary];
-        NSNumber* totalModifications = [NSNumber numberWithUnsignedLong:self.modifications.count];
-        NSNumber* totalDeletions = [NSNumber numberWithUnsignedLong:self.deletions.count];
 
         for(CKRecordID* recordID in self.modifications) {
             NSNumber* last = recordChangesPerZone[recordID.zoneID];
@@ -303,8 +313,8 @@
                 metric[@"fetch_error_domain"] = operationError.domain;
                 metric[@"fetch_error_code"] = [NSNumber numberWithLong:operationError.code];
 
-                metric[@"total_modifications"] = totalModifications;
-                metric[@"total_deletions"] = totalDeletions;
+                metric[@"total_modifications"] = @(self.totalModifications);
+                metric[@"total_deletions"] = @(self.totalDeletions);
                 for(CKRecordZoneID* zoneID in recordChangesPerZone) {
                     metric[zoneID.zoneName] = recordChangesPerZone[zoneID];
                 }
@@ -316,8 +326,8 @@
 
                 metric2[@"fetch_error"] = operationError;
 
-                metric2[@"total_modifications"] = totalModifications;
-                metric2[@"total_deletions"] = totalDeletions;
+                metric2[@"total_modifications"] = @(self.totalModifications);
+                metric2[@"total_deletions"] = @(self.totalDeletions);
                 for(CKRecordZoneID* zoneID in recordChangesPerZone) {
                     metric2[zoneID.zoneName] = recordChangesPerZone[zoneID];
                 }
@@ -341,12 +351,11 @@
             }
         }
 
-        // Don't need these any more; save some memory
-        [self.modifications removeAllObjects];
-        [self.deletions removeAllObjects];
-
         // Trigger the fake 'we're done' operation.
         [self runBeforeGroupFinished: self.fetchCompletedOperation];
+
+        // Drop strong pointer to clients
+        [self.clientMap removeAllObjects];
     };
 
     [self dependOnBeforeGroupFinished:self.fetchCompletedOperation];
@@ -354,14 +363,7 @@
     [self.container.privateCloudDatabase addOperation:self.fetchRecordZoneChangesOperation];
 }
 
-- (void)sendAllChangesToClients
-{
-    for(CKRecordZoneID* clientZoneID in self.clientMap) {
-        [self sendChangesToClient:clientZoneID];
-    }
-}
-
-- (void)sendChangesToClient:(CKRecordZoneID*)recordZoneID
+- (void)sendChangesToClient:(CKRecordZoneID*)recordZoneID moreComing:(BOOL)moreComing
 {
     id<CKKSChangeFetcherClient> client = self.clientMap[recordZoneID];
     if(!client) {
@@ -391,14 +393,22 @@
         }
     }];
 
-    ckksnotice("ckksfetch", recordZoneID, "Delivering fetched changes: changed=%lu deleted=%lu",
-               (unsigned long)zoneModifications.count, (unsigned long)zoneDeletions.count);
+    BOOL resync = [self.resyncingZones containsObject:recordZoneID];
+
+    ckksnotice("ckksfetch", recordZoneID, "Delivering fetched changes: changed=%lu deleted=%lu moreComing=%lu resync=%u",
+               (unsigned long)zoneModifications.count, (unsigned long)zoneDeletions.count, (unsigned long)moreComing, resync);
 
     // Tell the client about these changes!
     [client changesFetched:zoneModifications
           deletedRecordIDs:zoneDeletions
-            oldChangeToken:self.originalChangeTokens[recordZoneID]
-            newChangeToken:self.changeTokens[recordZoneID]];
+            newChangeToken:self.changeTokens[recordZoneID]
+                moreComing:moreComing
+                    resync:resync];
+
+    if(resync && !moreComing) {
+        ckksnotice("ckksfetch", recordZoneID, "No more changes for zone; turning off resync bit");
+        [self.resyncingZones removeObject:recordZoneID];
+    }
 }
 
 - (void)cancel {

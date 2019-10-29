@@ -108,31 +108,25 @@
 {
     WEAKIFY(self);
 
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-        [[CKKSAnalytics logger] logRecoverableError:error forEvent:OctagonEventVoucherWithBottle withAttributes:NULL];
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishOp];
-
-    }]  vouchWithRecoveryKeyWithContainer:self.deps.containerName
-     context:self.deps.contextID
-     recoveryKey:self.recoveryKey
-     salt:salt
-     tlkShares:tlkShares
-     reply:^(NSData * _Nullable voucher, NSData * _Nullable voucherSig, NSError * _Nullable error) {
-         if(error){
-             [[CKKSAnalytics logger] logResultForEvent:OctagonEventVoucherWithRecoveryKey hardFailure:true result:error];
-             secerror("octagon: Error preparing voucher using recovery key: %@", error);
-             self.error = error;
-             [self runBeforeGroupFinished:self.finishOp];
-             return;
-         }
-         self.voucher = voucher;
-         self.voucherSig = voucherSig;
-         self.nextState = self.intendedState;
-         [self runBeforeGroupFinished:self.finishOp];
-     }];
+    [self.deps.cuttlefishXPCWrapper vouchWithRecoveryKeyWithContainer:self.deps.containerName
+                                                              context:self.deps.contextID
+                                                          recoveryKey:self.recoveryKey
+                                                                 salt:salt
+                                                            tlkShares:tlkShares
+                                                                reply:^(NSData * _Nullable voucher, NSData * _Nullable voucherSig, NSError * _Nullable error) {
+            STRONGIFY(self);
+            if(error){
+                [[CKKSAnalytics logger] logResultForEvent:OctagonEventVoucherWithRecoveryKey hardFailure:true result:error];
+                secerror("octagon: Error preparing voucher using recovery key: %@", error);
+                self.error = error;
+                [self runBeforeGroupFinished:self.finishOp];
+                return;
+            }
+            self.voucher = voucher;
+            self.voucherSig = voucherSig;
+            self.nextState = self.intendedState;
+            [self runBeforeGroupFinished:self.finishOp];
+        }];
 }
 
 @end

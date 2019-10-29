@@ -33,11 +33,11 @@
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ot/ObjCImprovements.h"
 
-#include <securityd/SecItemServer.h>
-#include <securityd/SecItemSchema.h>
-#include <securityd/SecItemDb.h>
+#include "keychain/securityd/SecItemServer.h"
+#include "keychain/securityd/SecItemSchema.h"
+#include "keychain/securityd/SecItemDb.h"
 #include <Security/SecItemPriv.h>
-#include <securityd/SecDbQuery.h>
+#include "keychain/securityd/SecDbQuery.h"
 #import <CloudKit/CloudKit.h>
 
 @interface CKKSUpdateCurrentItemPointerOperation ()

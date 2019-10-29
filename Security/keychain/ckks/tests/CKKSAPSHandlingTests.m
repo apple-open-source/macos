@@ -287,7 +287,7 @@
 
 - (int64_t)stalePushTimeoutShort
 {
-    return 10 * NSEC_PER_SEC;
+    return 4 * NSEC_PER_SEC;
 }
 
 - (void)testDropStalePushes {
@@ -298,9 +298,10 @@
 
     APSIncomingMessage* apsMessage = [CKKSAPSHandlingTests messageWithTracingEnabledForZoneID:pushTestZone];
 
-    OctagonAPSReceiver* apsReceiver = [OctagonAPSReceiver receiverForEnvironment:self.apsEnvironment
-                                                               namedDelegatePort:SecCKKSAPSNamedPort
-                                                              apsConnectionClass:[FakeAPSConnection class]];
+    // Don't use the global map here, because we need to ensure we create a new object (to use the stalePushTimeout we injected above)
+    OctagonAPSReceiver* apsReceiver = [[OctagonAPSReceiver alloc] initWithEnvironmentName:self.apsEnvironment
+                                                                        namedDelegatePort:SecCKKSAPSNamedPort
+                                                                       apsConnectionClass:[FakeAPSConnection class]];
     XCTAssertNotNil(apsReceiver, "Should have gotten an APS receiver");
 
     [apsReceiver connection:nil didReceiveIncomingMessage:apsMessage];
@@ -308,12 +309,14 @@
     XCTAssertEqual(apsReceiver.haveStalePushes, YES, "should have stale pushes");
 
     XCTestExpectation *expection = [self expectationWithDescription:@"no push"];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, [self stalePushTimeoutShort] + 2), dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, [self stalePushTimeoutShort] + (2*NSEC_PER_SEC)), dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
         XCTAssertEqual(apsReceiver.haveStalePushes, NO, "should have cleared out stale pushes");
         [expection fulfill];
     });
 
     [self waitForExpectations: @[expection] timeout:([self stalePushTimeoutShort] * 4)/NSEC_PER_SEC];
+
+    [nearFutureSchduler stopMocking];
 }
 
 

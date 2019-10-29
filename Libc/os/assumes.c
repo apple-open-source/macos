@@ -63,8 +63,6 @@ typedef struct dl_info {
 #define OSX_ASSUMES_LOG_REDIRECT_SECT_NAME "__osx_log_func"
 #define os_atomic_cmpxchg(p, o, n) __sync_bool_compare_and_swap((p), (o), (n))
 
-static bool _os_should_abort_on_assumes = false;
-
 #if !TARGET_OS_DRIVERKIT
 static const char *
 _os_basename(const char *p)
@@ -127,34 +125,14 @@ _os_get_image_uuid(void *hdr, uuid_t uuid)
 }
 #endif
 
-static void
-_os_abort_on_assumes_once(void)
-{
-	/* Embedded boot-args can get pretty long. Let's just hope this is big
-	 * enough.
-	 */
-	char bootargs[2048];
-	size_t len = sizeof(bootargs) - 1;
-
-	if (sysctlbyname("kern.bootargs", bootargs, &len, NULL, 0) == 0) {
-		if (strnstr(bootargs, "-os_assumes_fatal", len)) {
-			_os_should_abort_on_assumes = true;
-		}
-	}
-}
-
 static bool
 _os_abort_on_assumes(void)
 {
-	static pthread_once_t once = PTHREAD_ONCE_INIT;
 	bool result = false;
 
 	if (getpid() != 1) {
 		if (getenv("OS_ASSUMES_FATAL")) {
 			result = true;
-		} else {
-			pthread_once(&once, _os_abort_on_assumes_once);
-			result = _os_should_abort_on_assumes;
 		}
 	} else {
 		if (getenv("OS_ASSUMES_FATAL_PID1")) {

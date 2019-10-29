@@ -36,6 +36,9 @@ static inline void _dispatch_queue_wakeup_with_override(
 static void _dispatch_workloop_drain_barrier_waiter(dispatch_workloop_t dwl,
 		struct dispatch_object_s *dc, dispatch_qos_t qos,
 		dispatch_wakeup_flags_t flags, uint64_t owned);
+static inline bool
+_dispatch_async_and_wait_should_always_async(dispatch_queue_class_t dqu,
+		uint64_t dq_state);
 
 #pragma mark -
 #pragma mark dispatch_assert_queue
@@ -1183,8 +1186,8 @@ again:
 	}
 
 	if (dsc->dc_flags & DC_FLAG_ASYNC_AND_WAIT) {
-		// _dispatch_barrier_async_and_wait_f_slow() expects dc_other to be the
-		// bottom queue of the graph
+		// We're in case (2) of _dispatch_async_and_wait_f_slow() which expects
+		// dc_other to be the bottom queue of the graph
 		dsc->dc_other = dq;
 	}
 	return _dispatch_waiter_wake_wlh_anon(dsc);
@@ -1254,11 +1257,6 @@ _dispatch_barrier_waiter_redirect_or_wake(dispatch_queue_class_t dqu,
 		return dx_push(tq, dsc, _dq_state_max_qos(old_state));
 	}
 
-	if (dsc->dc_flags & DC_FLAG_ASYNC_AND_WAIT) {
-		// _dispatch_async_and_wait_f_slow() expects dc_other to be the
-		// bottom queue of the graph
-		dsc->dc_other = dq;
-	}
 #if DISPATCH_INTROSPECTION
 	if (dsc->dsc_from_async) {
 		_dispatch_trace_runtime_event(async_sync_handoff, dq, 0);
@@ -1266,6 +1264,12 @@ _dispatch_barrier_waiter_redirect_or_wake(dispatch_queue_class_t dqu,
 		_dispatch_trace_runtime_event(sync_sync_handoff, dq, 0);
 	}
 #endif // DISPATCH_INTROSPECTION
+
+	if (dsc->dc_flags & DC_FLAG_ASYNC_AND_WAIT) {
+		// Falling into case (2) of _dispatch_async_and_wait_f_slow, dc_other is
+		// the bottom queue
+		dsc->dc_other = dq;
+	}
 	return _dispatch_waiter_wake(dsc, wlh, old_state, new_state);
 }
 
@@ -1724,6 +1728,8 @@ _dispatch_sync_f_slow(dispatch_queue_class_t top_dqu, void *ctxt,
 	__DISPATCH_WAIT_FOR_QUEUE__(&dsc, dq);
 
 	if (dsc.dsc_func == NULL) {
+		// dsc_func being cleared means that the block ran on another thread ie.
+		// case (2) as listed in _dispatch_async_and_wait_f_slow.
 		dispatch_queue_t stop_dq = dsc.dc_other;
 		return _dispatch_sync_complete_recurse(top_dq, stop_dq, top_dc_flags);
 	}
@@ -1981,6 +1987,34 @@ static void
 _dispatch_async_and_wait_f_slow(dispatch_queue_t dq, uintptr_t top_dc_flags,
 		dispatch_sync_context_t dsc, dispatch_queue_t tq)
 {
+	/* dc_other is an in-out parameter.
+	 *
+	 * As an in-param, it specifies the top queue on which the blocking
+	 * primitive is called.
+	 *
+	 * As an out-param, it refers to the queue up till which we have the drain
+	 * lock. This is slightly different depending on how we come out of
+	 * _WAIT_FOR_QUEUE.
+	 *
+	 * Case 1:
+	 * If the continuation is to be invoked on another thread - for
+	 * async_and_wait, or we ran on a thread bound main queue - then someone
+	 * already called _dispatch_async_and_wait_invoke which invoked the block
+	 * already. dc_other as an outparam here tells the enqueuer the queue up
+	 * till which the enqueuer got the drain lock so that we know what to unlock
+	 * on the way out. This is the case whereby the enqueuer owns part of the
+	 * locks in the queue hierachy (but not all).
+	 *
+	 * Case 2:
+	 * If the continuation is to be invoked on the enqueuing thread -  because
+	 * we were contending with another sync or async_and_wait - then enqueuer
+	 * return from _WAIT_FOR_QUEUE without having invoked the block. The
+	 * enqueuer has had the locks for the rest of the queue hierachy handed off
+	 * to it so dc_other specifies the queue up till which it has the locks
+	 * which in this case, is up till the bottom queue in the hierachy. So it
+	 * needs to unlock everything up till the bottom queue, on the way out.
+	 */
+
 	__DISPATCH_WAIT_FOR_QUEUE__(dsc, tq);
 
 	if (unlikely(dsc->dsc_func == NULL)) {
@@ -2008,11 +2042,19 @@ _dispatch_async_and_wait_should_always_async(dispatch_queue_class_t dqu,
 
 DISPATCH_ALWAYS_INLINE
 static inline bool
-_dispatch_async_and_wait_recurse_one(dispatch_queue_t dq, dispatch_tid tid,
-		uintptr_t dc_flags)
+_dispatch_async_and_wait_recurse_one(dispatch_queue_t dq,
+		dispatch_sync_context_t dsc, dispatch_tid tid, uintptr_t dc_flags)
 {
 	uint64_t dq_state = os_atomic_load2o(dq, dq_state, relaxed);
 	if (unlikely(_dispatch_async_and_wait_should_always_async(dq, dq_state))) {
+		// Remove the async_and_wait flag but drive down the slow path so that
+		// we do the synchronous wait. We are guaranteed that dq is the base
+		// queue.
+		//
+		// We're falling down to case (1) of _dispatch_async_and_wait_f_slow so
+		// set dc_other to dq
+		dsc->dc_flags &= ~DC_FLAG_ASYNC_AND_WAIT;
+		dsc->dc_other = dq;
 		return false;
 	}
 	if (likely(dc_flags & DC_FLAG_BARRIER)) {
@@ -2032,7 +2074,8 @@ _dispatch_async_and_wait_recurse(dispatch_queue_t top_dq,
 	_dispatch_trace_item_push(top_dq, dsc);
 
 	for (;;) {
-		if (unlikely(!_dispatch_async_and_wait_recurse_one(dq, tid, dc_flags))){
+		if (unlikely(!_dispatch_async_and_wait_recurse_one(dq, dsc, tid,
+				dc_flags))) {
 			return _dispatch_async_and_wait_f_slow(top_dq, top_flags, dsc, dq);
 		}
 
@@ -4284,7 +4327,7 @@ _dispatch_workloop_invoke(dispatch_workloop_t dwl,
 {
 	flags &= ~(dispatch_invoke_flags_t)DISPATCH_INVOKE_REDIRECTING_DRAIN;
 	flags |= DISPATCH_INVOKE_WORKLOOP_DRAIN;
-	_dispatch_queue_class_invoke(dwl, dic, flags, 0,_dispatch_workloop_invoke2);
+	_dispatch_queue_class_invoke(dwl, dic, flags, 0, _dispatch_workloop_invoke2);
 }
 
 DISPATCH_ALWAYS_INLINE
@@ -4510,6 +4553,9 @@ _dispatch_workloop_wakeup(dispatch_workloop_t dwl, dispatch_qos_t qos,
 	os_atomic_rmw_loop2o(dwl, dq_state, old_state, new_state, release, {
 		new_state = _dq_state_merge_qos(old_state, qos);
 		if (_dq_state_max_qos(new_state)) {
+			// We need to make sure we have the enqueued bit when we are making
+			// the syscall to update QoS and we know that we will do it since
+			// we're at the base anyways
 			new_state |= DISPATCH_QUEUE_ENQUEUED;
 		}
 		if (flags & DISPATCH_WAKEUP_MAKE_DIRTY) {
@@ -4562,7 +4608,7 @@ _dispatch_workloop_push_waiter(dispatch_workloop_t dwl,
 	uint64_t old_state, new_state;
 
 	os_atomic_rmw_loop2o(dwl, dq_state, old_state, new_state, release, {
-		new_state  = _dq_state_merge_qos(old_state, qos);
+		new_state = _dq_state_merge_qos(old_state, qos);
 		new_state |= DISPATCH_QUEUE_DIRTY;
 		if (unlikely(_dq_state_drain_locked(old_state))) {
 			// not runnable, so we should just handle overrides
@@ -4574,6 +4620,12 @@ _dispatch_workloop_push_waiter(dispatch_workloop_t dwl,
 			new_state |= set_owner_and_set_full_width_and_in_barrier;
 		}
 	});
+
+	if ((dsc->dc_flags & DC_FLAG_ASYNC_AND_WAIT) &&
+		_dispatch_async_and_wait_should_always_async(dwl, new_state)) {
+		dsc->dc_other = dwl;
+		dsc->dc_flags &= ~DC_FLAG_ASYNC_AND_WAIT;
+	}
 
 	dsc->dsc_wlh_was_first = (dsc->dsc_waiter == _dispatch_tid_self());
 
@@ -4887,8 +4939,9 @@ _dispatch_queue_wakeup(dispatch_queue_class_t dqu, dispatch_qos_t qos,
 			if (likely(!_dq_state_is_suspended(new_state) &&
 					!_dq_state_is_enqueued(old_state) &&
 					(!_dq_state_drain_locked(old_state) ||
-					(enqueue != DISPATCH_QUEUE_ENQUEUED_ON_MGR &&
-					_dq_state_is_base_wlh(old_state))))) {
+					enqueue != DISPATCH_QUEUE_ENQUEUED_ON_MGR))) {
+				// Always set the enqueued bit for async enqueues on all queues
+				// in the hierachy
 				new_state |= enqueue;
 			}
 			if (flags & DISPATCH_WAKEUP_MAKE_DIRTY) {
@@ -4929,8 +4982,10 @@ _dispatch_queue_wakeup(dispatch_queue_class_t dqu, dispatch_qos_t qos,
 		//
 		uint64_t old_state, new_state;
 		os_atomic_rmw_loop2o(dq, dq_state, old_state, new_state, relaxed, {
-			if (!_dq_state_drain_locked(old_state) ||
-					!_dq_state_is_enqueued(old_state)) {
+			// Avoid spurious override if the item was drained before we could
+			// apply an override
+			if (!_dq_state_drain_locked(old_state) &&
+				!_dq_state_is_enqueued(old_state)) {
 				os_atomic_rmw_loop_give_up(goto done);
 			}
 			new_state = _dq_state_merge_qos(old_state, qos);
@@ -4994,6 +5049,10 @@ _dispatch_lane_push_waiter(dispatch_lane_t dq, dispatch_sync_context_t dsc,
 
 	if (unlikely(_dispatch_queue_push_item(dq, dsc))) {
 		if (unlikely(_dispatch_lane_push_waiter_should_wakeup(dq, dsc))) {
+			// If this returns true, we know that we are pushing onto the base
+			// queue
+			dsc->dc_flags &= ~DC_FLAG_ASYNC_AND_WAIT;
+			dsc->dc_other = dq;
 			return dx_wakeup(dq, qos, DISPATCH_WAKEUP_MAKE_DIRTY);
 		}
 

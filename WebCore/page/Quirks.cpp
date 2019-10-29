@@ -372,6 +372,18 @@ Optional<Event::IsCancelable> Quirks::simulatedMouseEventTypeForTarget(EventTarg
     if (equalLettersIgnoringASCIICase(host, "desmos.com") || host.endsWithIgnoringASCIICase(".desmos.com"))
         return Event::IsCancelable::No;
 
+    if (equalLettersIgnoringASCIICase(host, "airtable.com") || host.endsWithIgnoringASCIICase(".airtable.com")) {
+        // We want to limit simulated mouse events to elements under <div id="paneContainer"> to allow for column re-ordering and multiple cell selection.
+        if (is<Node>(target)) {
+            auto* node = downcast<Node>(target);
+            if (auto* paneContainer = node->treeScope().getElementById(AtomString("paneContainer"))) {
+                if (paneContainer->contains(node))
+                    return Event::IsCancelable::Yes;
+            }
+        }
+        return { };
+    }
+
     return Event::IsCancelable::Yes;
 }
 
@@ -554,6 +566,15 @@ bool Quirks::shouldAvoidScrollingWhenFocusedContentIsVisible() const
     return equalLettersIgnoringASCIICase(m_document->url().host(), "www.zillow.com");
 }
 
+bool Quirks::shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation() const
+{
+    if (!needsQuirks())
+        return false;
+
+    auto host = m_document->url().host();
+    return equalLettersIgnoringASCIICase(host, "att.com") || host.endsWithIgnoringASCIICase(".att.com");
+}
+
 bool Quirks::shouldOpenAsAboutBlank(const String& stringToOpen) const
 {
 #if PLATFORM(IOS_FAMILY)
@@ -574,6 +595,25 @@ bool Quirks::shouldOpenAsAboutBlank(const String& stringToOpen) const
     return !equalLettersIgnoringASCIICase(urlToOpen.host(), "blank") && !equalLettersIgnoringASCIICase(urlToOpen.host(), "srcdoc");
 #else
     UNUSED_PARAM(stringToOpen);
+    return false;
+#endif
+}
+
+bool Quirks::needsPreloadAutoQuirk() const
+{
+#if PLATFORM(IOS_FAMILY)
+    if (!needsQuirks())
+        return false;
+
+    if (m_needsPreloadAutoQuirk)
+        return m_needsPreloadAutoQuirk.value();
+
+    auto domain = m_document->securityOrigin().domain().convertToASCIILowercase();
+
+    m_needsPreloadAutoQuirk = domain == "vimeo.com" || domain.endsWith("vimeo.com");
+
+    return m_needsPreloadAutoQuirk.value();
+#else
     return false;
 #endif
 }

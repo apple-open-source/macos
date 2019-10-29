@@ -24,6 +24,7 @@ gen_cert()
 	    ${openssl} x509 \
 		-req \
 		-days 3650 \
+		-sha256 \
 		-in cert.req \
 		-extfile openssl.cnf \
 		-extensions $4 \
@@ -40,6 +41,7 @@ gen_cert()
 		-req \
 		-in cert.req \
 		-days 3650 \
+		-sha256 \
 		-out cert.crt \
 		-CA $2.crt \
 		-CAkey $2.key \

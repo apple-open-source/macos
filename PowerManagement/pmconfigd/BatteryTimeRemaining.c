@@ -121,9 +121,6 @@ static BatteryControl   control;
 static CFDictionaryRef  adapterDetails = NULL;
 
 #if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
-#define kBatteryHealthPrefsAppName          "com.apple.batteryhealthdata"
-#define kBatteryHealthPrefsContainer        "/var/MobileSoftwareUpdate/Hardware/Battery/"
-
 bool smcBasedDevice = false;
 bool nccp_cc_filtering = true;  // Support for NCCP filtering using CycleCount
 uint64_t batteryHealthP0Threshold = 0;
@@ -174,6 +171,17 @@ typedef enum {
     kImmediateFullPoll      = 1
 } PollCommand;
 static bool             startBatteryPoll(PollCommand x);
+
+static void BatteryTimeRemaining_notify_post(const char *token)
+{
+    uint32_t rc = notify_post(token);
+
+    if (rc == NOTIFY_STATUS_OK) {
+        INFO_LOG("posted '%s'\n", token);
+    } else {
+        ERROR_LOG("failed to post '%s'. rc:%#x\n", token, rc);
+    }
+}
 
 
 
@@ -814,15 +822,12 @@ static void HandlePublishAllPowerSources(void)
         return;
     }
     is_charging = fully_charged = false;
-    for(int i=0; i<_batteryCount(); i++)
-    {
+    for (int i = 0; i < _batteryCount(); i++) {
         if (batteries[i]->isPresent) {
             combinedTime += batteries[i]->swCalculatedTR;
-
         }
-
     }
-    
+
 
     if (ups) {
         CFNumberRef num_cf = CFDictionaryGetValue(ups, CFSTR(kIOPSTimeToEmptyKey));
@@ -840,7 +845,7 @@ static void HandlePublishAllPowerSources(void)
             ups_prevExternalConnected = ups_externalConnected;
         }
     }
-    
+
     if (b) {
             tr_unknown = b->isTimeRemainingUnknown;
             is_charging = b->isCharging;
@@ -897,7 +902,7 @@ static void HandlePublishAllPowerSources(void)
                                          showChargingUI,
                                          playChargingChime,
                                          control.noPoll);
-    
+
     if (b) {
         publish_IOPSBatteryGetWarningLevel(b, combinedTime, percentRemaining);
     }
@@ -907,15 +912,9 @@ static void HandlePublishAllPowerSources(void)
                                     is_charging,
                                     fully_charged,
                                     b);
-    
+
     if (((percentRemaining != prev_percentRemaining) || battcase_change) && !tr_posted) {
-        uint32_t rc = notify_post(kIOPSNotifyTimeRemaining);
-        if (rc != NOTIFY_STATUS_OK) {
-            ERROR_LOG("Failed to post notification for battery time remaining. rc:0x%x\n", rc);
-        }
-        else {
-            INFO_LOG("Battery time remaining posted. Capacity:%d\n", percentRemaining);
-        }
+        BatteryTimeRemaining_notify_post(kIOPSNotifyTimeRemaining);
     }
 
     prev_percentRemaining = percentRemaining;
@@ -925,7 +924,6 @@ static void HandlePublishAllPowerSources(void)
      * TELL: powerd-internal code that responds to power changes
      ************************************************************************/
 
-     
      // Notifiy PSLowPower of power sources change
     UPSLowPowerPSChange();
     PMSettingsPSChange();
@@ -942,11 +940,10 @@ static void HandlePublishAllPowerSources(void)
         recordFDREvent(kFDRACChanged, false, batteries);
 
         INFO_LOG("Power Source change. Source:%{public}s", externalConnected ? "AC" : "Batt");
-        notify_post(kIOPSNotifyPowerSource);
+        BatteryTimeRemaining_notify_post(kIOPSNotifyPowerSource);
     }
 
-
-    notify_post(kIOPSNotifyAnyPowerSource);
+    BatteryTimeRemaining_notify_post(kIOPSNotifyAnyPowerSource);
 
     /************************************************************************
      *
@@ -2221,7 +2218,7 @@ __private_extern__ void readAndPublishACAdapter(bool adapterExists, CFDictionary
         adapterDetails = newAdapter;
     }
 
-    notify_post(kIOPSNotifyAdapterChange);
+    BatteryTimeRemaining_notify_post(kIOPSNotifyAdapterChange);
 
 exit:
     return ;
@@ -2452,12 +2449,12 @@ kern_return_t _io_ps_new_pspowersource(
          */
 
         if (ps->psType == kPSTypeAccessory) {
-            notify_post(kIOPSAccNotifyTimeRemaining);
-            notify_post(kIOPSAccNotifyAttach);
+            BatteryTimeRemaining_notify_post(kIOPSAccNotifyTimeRemaining);
+            BatteryTimeRemaining_notify_post(kIOPSAccNotifyAttach);
         }
         else {
-            notify_post(kIOPSNotifyTimeRemaining);
-            notify_post(kIOPSNotifyAttach);
+            BatteryTimeRemaining_notify_post(kIOPSNotifyTimeRemaining);
+            BatteryTimeRemaining_notify_post(kIOPSNotifyAttach);
         }
         INFO_LOG("Posted notifications for loss of power source id %ld\n", ps->psid);
         if (ps->procdeathsrc) {
@@ -2558,7 +2555,7 @@ kern_return_t _io_ps_update_pspowersource(
                 }
                 else {
                     // This is the first update for this source
-                    notify_post(kIOPSNotifyAttach);
+                    BatteryTimeRemaining_notify_post(kIOPSNotifyAttach);
                     INFO_LOG("Posted \"%s\" for new power source id %d\n", kIOPSNotifyAttach, psid);
                 }
                 next->description = details;
@@ -2746,12 +2743,12 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
 
 
         if (do_notify_ps) {
-            notify_post(kIOPSAccNotifyPowerSource);
+            BatteryTimeRemaining_notify_post(kIOPSAccNotifyPowerSource);
             INFO_LOG("Posted \"%s\" for power source id %ld\n", kIOPSAccNotifyPowerSource, ps->psid);
         }
 
         if (do_notify_tr) {
-            notify_post(kIOPSAccNotifyTimeRemaining);
+            BatteryTimeRemaining_notify_post(kIOPSAccNotifyTimeRemaining);
             INFO_LOG("Posted \"%s\" for power source id %ld\n", kIOPSAccNotifyTimeRemaining, ps->psid);
         }
 
@@ -2759,8 +2756,8 @@ static IOReturn HandleAccessoryPowerSources(PSStruct *ps, CFDictionaryRef update
     }
     else {
         /* This is a new accessory with power source */
-        notify_post(kIOPSAccNotifyAttach);
-        notify_post(kIOPSAccNotifyTimeRemaining);
+        BatteryTimeRemaining_notify_post(kIOPSAccNotifyAttach);
+        BatteryTimeRemaining_notify_post(kIOPSAccNotifyTimeRemaining);
         INFO_LOG("Posted notifications for new power source id %ld\n", ps->psid);
     }
 

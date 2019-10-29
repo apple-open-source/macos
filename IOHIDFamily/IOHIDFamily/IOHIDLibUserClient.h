@@ -294,11 +294,11 @@ protected:
 							
 	// Update Feature element value
 	static IOReturn	_updateElementValues (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
-	IOReturn		updateElementValues (const uint64_t * lCookies, uint32_t cookieCount);
+	IOReturn		updateElementValues (const uint64_t  * lCookies, uint32_t cookieSize);
 												
 	// Post element value
 	static IOReturn _postElementValues (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
-	IOReturn		postElementValues (const uint64_t * lCookies, uint32_t cookieCount);
+	IOReturn		postElementValues (const uint64_t  * lCookies, uint32_t cookieSize);
 												
 	// Get report
 	static IOReturn _getReport(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);

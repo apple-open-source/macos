@@ -24,6 +24,7 @@
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/NSOperationCategories.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import "utilities/debugging.h"
 
 @implementation NSOperation (CKKSUsefulPrintingOperation)
 - (NSString*)selfname {
@@ -41,6 +42,9 @@
                 // don't depend on yourself
                 continue;
             }
+#if DEBUG
+            secnotice("ckks-operation", "adding dependency of %@ on %@", self, existingop);
+#endif
             [self addDependency: existingop];
         }
         [collection addObject:self];

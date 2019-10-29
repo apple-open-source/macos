@@ -57,29 +57,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithCurrent:(id<CKKSSelfPeer>)selfPeer allSelves:(NSSet<id<CKKSSelfPeer>>* _Nullable)allSelves;
 @end
 
-// ==== Peer handler protocols ====
-
-@protocol CKKSPeerUpdateListener;
-
-@protocol CKKSPeerProvider <NSObject>
-@property (readonly) NSString* providerID;
-@property BOOL essential;
-
-- (CKKSSelves* _Nullable)fetchSelfPeers:(NSError* _Nullable __autoreleasing* _Nullable)error;
-- (NSSet<id<CKKSRemotePeerProtocol>>* _Nullable)fetchTrustedPeers:(NSError* _Nullable __autoreleasing* _Nullable)error;
-// Trusted peers should include self peers
-
-- (void)registerForPeerChangeUpdates:(id<CKKSPeerUpdateListener>)listener;
-- (void)sendSelfPeerChangedUpdate;
-- (void)sendTrustedPeerSetChangedUpdate;
-@end
-
-// A CKKSPeerUpdateListener wants to be notified when a CKKSPeerProvider has new information
-@protocol CKKSPeerUpdateListener <NSObject>
-- (void)selfPeerChanged:(id<CKKSPeerProvider> _Nullable)provider;
-- (void)trustedPeerSetChanged:(id<CKKSPeerProvider> _Nullable)provider;
-@end
-
 extern NSString* const CKKSSOSPeerPrefix;
 
 @interface CKKSActualPeer : NSObject <CKKSPeer, CKKSRemotePeerProtocol, NSSecureCoding>

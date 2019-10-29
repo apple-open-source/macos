@@ -38,13 +38,7 @@ typedef NS_ENUM(uint8_t, OTFollowupContextType) {
     OTFollowupContextTypeStateRepair,
     OTFollowupContextTypeOfflinePasscodeChange,
 };
-
-typedef NS_ENUM(uint8_t, OTFollowupStatus) {
-    OTFollowupStatusIdle = 0,
-    OTFollowupStatusSuccess = 1,
-    OTFollowupStatusFailed = 2,
-    OTFollowupStatusPending = 3,
-};
+NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType);
 
 @protocol OctagonFollowUpControllerProtocol
 - (BOOL)postFollowUpWithContext:(CDPFollowUpContext *)context error:(NSError **)error;
@@ -54,7 +48,6 @@ typedef NS_ENUM(uint8_t, OTFollowupStatus) {
 @end
 
 @interface OTFollowup : NSObject
-@property (readonly) OTFollowupStatus followupStatus;
 - (id)initWithFollowupController:(id<OctagonFollowUpControllerProtocol>)cdpFollowupController;
 
 - (BOOL)postFollowUp:(OTFollowupContextType)contextType

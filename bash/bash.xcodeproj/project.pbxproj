@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		4AB3FA3A2325F89C0000629D /* unit_tests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 4AB3FA3B2325F89C0000629D /* Build configuration list for PBXAggregateTarget "unit_tests" */;
+			buildPhases = (
+				4AB3FA3D2325F8A20000629D /* CopyFiles */,
+				4AB3FA3F2325F8BE0000629D /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = unit_tests;
+			productName = unit_tests;
+		};
 		59DC3C531120DC9C00B033EC /* ostype.h */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 59DC3C5D1120DD1500B033EC /* Build configuration list for PBXAggregateTarget "ostype.h" */;
@@ -40,6 +52,7 @@
 				59C497210FE1BA8300B4278B /* finale */,
 			);
 			dependencies = (
+				4AB3FA422325F8F50000629D /* PBXTargetDependency */,
 				59C497020FE18EBC00B4278B /* PBXTargetDependency */,
 			);
 			name = all;
@@ -49,6 +62,8 @@
 
 /* Begin PBXBuildFile section */
 		3F33BE5121EBE68100305526 /* siglist.c in Sources */ = {isa = PBXBuildFile; fileRef = 59926F000FE0692C005D5BC8 /* siglist.c */; };
+		4AB3FA3E2325F8AB0000629D /* sample_test.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4AB3FA382325F8840000629D /* sample_test.sh */; };
+		4AB3FA402325F8C10000629D /* bash.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4AB3FA392325F8840000629D /* bash.plist */; };
 		591539150FE05880007671F4 /* syntax.c in Sources */ = {isa = PBXBuildFile; fileRef = 591539140FE05880007671F4 /* syntax.c */; };
 		591608260FE0767300762101 /* libreadline.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5992724B0FE0741F005D5BC8 /* libreadline.a */; };
 		591608360FE0772D00762101 /* eaccess.c in Sources */ = {isa = PBXBuildFile; fileRef = 59926E7C0FE0692C005D5BC8 /* eaccess.c */; };
@@ -252,6 +267,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		4AB3FA412325F8F50000629D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4AB3FA3A2325F89C0000629D;
+			remoteInfo = unit_tests;
+		};
 		5916086A0FE0773100762101 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -325,6 +347,26 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		4AB3FA3D2325F8A20000629D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/bash;
+			dstSubfolderSpec = 0;
+			files = (
+				4AB3FA3E2325F8AB0000629D /* sample_test.sh in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		4AB3FA3F2325F8BE0000629D /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
+			dstSubfolderSpec = 0;
+			files = (
+				4AB3FA402325F8C10000629D /* bash.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		59C496DF0FE189F800B4278B /* bashbug */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -416,6 +458,8 @@
 
 /* Begin PBXFileReference section */
 		3F0C454E189AED7000B957A9 /* bash.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = bash.xcconfig; sourceTree = "<group>"; };
+		4AB3FA382325F8840000629D /* sample_test.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = sample_test.sh; sourceTree = "<group>"; };
+		4AB3FA392325F8840000629D /* bash.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = bash.plist; sourceTree = "<group>"; };
 		591539140FE05880007671F4 /* syntax.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = syntax.c; sourceTree = "<group>"; };
 		591608300FE076F200762101 /* libsh.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsh.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		591608880FE0777A00762101 /* libglob.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libglob.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -692,6 +736,7 @@
 		08FB7794FE84155DC02AAC07 /* bash */ = {
 			isa = PBXGroup;
 			children = (
+				4AB3FA372325F8840000629D /* tests */,
 				3F0C454E189AED7000B957A9 /* bash.xcconfig */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
@@ -735,6 +780,15 @@
 				724AC2D60FE8A74900061EAD /* printenv */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4AB3FA372325F8840000629D /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				4AB3FA382325F8840000629D /* sample_test.sh */,
+				4AB3FA392325F8840000629D /* bash.plist */,
+			);
+			path = tests;
 			sourceTree = "<group>";
 		};
 		59926C500FE0692B005D5BC8 /* builtins */ = {
@@ -1230,6 +1284,12 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 0830;
+				TargetAttributes = {
+					4AB3FA3A2325F89C0000629D = {
+						CreatedOnToolsVersion = 11.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "bash" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1254,6 +1314,7 @@
 				724AC2C90FE8A6F000061EAD /* zecho */,
 				724AC2D50FE8A74900061EAD /* printenv */,
 				59DC3C531120DC9C00B033EC /* ostype.h */,
+				4AB3FA3A2325F89C0000629D /* unit_tests */,
 			);
 		};
 /* End PBXProject section */
@@ -1546,6 +1607,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		4AB3FA422325F8F50000629D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4AB3FA3A2325F89C0000629D /* unit_tests */;
+			targetProxy = 4AB3FA412325F8F50000629D /* PBXContainerItemProxy */;
+		};
 		5916086B0FE0773100762101 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 5916082F0FE076F200762101 /* libsh */;
@@ -1652,6 +1718,14 @@
 				OTHER_CFLAGS = "-Werror=format-security";
 				USER_HEADER_SEARCH_PATHS = "$(SYMROOT) $(SRCROOT)/**";
 				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		4AB3FA3C2325F89C0000629D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -1782,6 +1856,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4AB3FA3B2325F89C0000629D /* Build configuration list for PBXAggregateTarget "unit_tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4AB3FA3C2325F89C0000629D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

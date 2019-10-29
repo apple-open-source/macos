@@ -37,7 +37,7 @@
 
 #if TARGET_HAS_KEYSTORE
 #include <Security/SecRandom.h>
-#include <securityd/SecDbItem.h>
+#include "keychain/securityd/SecDbItem.h"
 #include <coreauthd_spi.h>
 #include <corecrypto/ccder.h>
 #endif /* TARGET_HAS_KEYSTORE */

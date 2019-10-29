@@ -1,6 +1,6 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json",
-    "assetVersion": 6,
+    "assetVersion": 7,
     "operators": [
         {
             "email": [
@@ -18,7 +18,7 @@
                             "version": "11"
                         }
                     },
-                    "url": "ct.startssl.com/"
+                    "url": "https://ct.startssl.com/"
                 }
             ],
             "name": "StartCom"
@@ -52,7 +52,7 @@
                         "end_exclusive": "2018-01-01T00:00:00Z",
                         "start_inclusive": "2017-01-01T00:00:00Z"
                     },
-                    "url": "ct.cloudflare.com/logs/nimbus2017/"
+                    "url": "https://ct.cloudflare.com/logs/nimbus2017/"
                 },
                 {
                     "description": "Cloudflare 'Nimbus 2023' log",
@@ -60,16 +60,16 @@
                     "log_id": "ejKMVNi3LbYg6jjgUh7phBZwMhOFTTvSK8E6V6NS61I=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2019-02-23T20:27:56Z",
-                            "version": "37"
+                        "usable": {
+                            "timestamp": "2019-06-19T06:31:29Z",
+                            "version": "60"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2024-01-01T00:00:00Z",
                         "start_inclusive": "2023-01-01T00:00:00Z"
                     },
-                    "url": "ct.cloudflare.com/logs/nimbus2023/"
+                    "url": "https://ct.cloudflare.com/logs/nimbus2023/"
                 },
                 {
                     "description": "Cloudflare 'Nimbus 2022' log",
@@ -77,16 +77,16 @@
                     "log_id": "QcjKsd8iRkoQxqE6CUKHXk4xixsD6+tLx2jwkGKWBvY=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2019-02-23T20:27:05Z",
-                            "version": "36"
+                        "usable": {
+                            "timestamp": "2019-06-19T06:31:12Z",
+                            "version": "59"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2023-01-01T00:00:00Z",
                         "start_inclusive": "2022-01-01T00:00:00Z"
                     },
-                    "url": "ct.cloudflare.com/logs/nimbus2022/"
+                    "url": "https://ct.cloudflare.com/logs/nimbus2022/"
                 },
                 {
                     "description": "Cloudflare 'Nimbus 2021' log",
@@ -103,7 +103,7 @@
                         "end_exclusive": "2022-01-01T00:00:00Z",
                         "start_inclusive": "2021-01-01T00:00:00Z"
                     },
-                    "url": "ct.cloudflare.com/logs/nimbus2021/"
+                    "url": "https://ct.cloudflare.com/logs/nimbus2021/"
                 },
                 {
                     "description": "Cloudflare 'Nimbus 2020' log",
@@ -120,7 +120,7 @@
                         "end_exclusive": "2021-01-01T00:00:00Z",
                         "start_inclusive": "2020-01-01T00:00:00Z"
                     },
-                    "url": "ct.cloudflare.com/logs/nimbus2020/"
+                    "url": "https://ct.cloudflare.com/logs/nimbus2020/"
                 },
                 {
                     "description": "Cloudflare 'Nimbus 2018' log",
@@ -141,7 +141,7 @@
                         "end_exclusive": "2019-01-01T00:00:00Z",
                         "start_inclusive": "2018-01-01T00:00:00Z"
                     },
-                    "url": "ct.cloudflare.com/logs/nimbus2018/"
+                    "url": "https://ct.cloudflare.com/logs/nimbus2018/"
                 },
                 {
                     "description": "Cloudflare 'Nimbus 2019' log",
@@ -158,7 +158,7 @@
                         "end_exclusive": "2020-01-01T00:00:00Z",
                         "start_inclusive": "2019-01-01T00:00:00Z"
                     },
-                    "url": "ct.cloudflare.com/logs/nimbus2019/"
+                    "url": "https://ct.cloudflare.com/logs/nimbus2019/"
                 }
             ],
             "name": "Cloudflare"
@@ -179,7 +179,7 @@
                             "version": "10"
                         }
                     },
-                    "url": "ctlog.wosign.com/"
+                    "url": "https://ctlog.wosign.com/"
                 }
             ],
             "name": "WoSign"
@@ -200,7 +200,7 @@
                             "version": "24"
                         }
                     },
-                    "url": "log.gdca.com.cn/"
+                    "url": "https://log.gdca.com.cn/"
                 },
                 {
                     "description": "GDCA 'CT Log 2' log",
@@ -213,7 +213,7 @@
                             "version": "25"
                         }
                     },
-                    "url": "log2.gdca.com.cn/"
+                    "url": "https://log2.gdca.com.cn/"
                 }
             ],
             "name": "GDCA"
@@ -229,12 +229,16 @@
                     "log_id": "AwGd8/2FppqOvR+sxtqbpz5Gl3T+d/V5/FoIuDKMHWs=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2017-06-01T23:28:39",
-                            "version": "6"
+                        "readonly": {
+                            "final_tree_head": {
+                                "sha256_root_hash": "+wpnQSIAXAgRm10MIGYSpVdsrbuzKR5fPsxZUrddtWk=",
+                                "tree_size": 111554066
+                            },
+                            "timestamp": "2018-02-28T23:59:59Z",
+                            "version": "47"
                         }
                     },
-                    "url": "ctlog-gen2.api.venafi.com/"
+                    "url": "https://ctlog-gen2.api.venafi.com/"
                 },
                 {
                     "description": "Venafi log",
@@ -247,7 +251,7 @@
                             "version": "1"
                         }
                     },
-                    "url": "ctlog.api.venafi.com/"
+                    "url": "https://ctlog.api.venafi.com/"
                 }
             ],
             "name": "Venafi"
@@ -268,7 +272,7 @@
                             "version": "19"
                         }
                     },
-                    "url": "ctserver.cnnic.cn/"
+                    "url": "https://ctserver.cnnic.cn/"
                 }
             ],
             "name": "CNNIC"
@@ -289,14 +293,14 @@
                             "version": "4"
                         }
                     },
-                    "url": "ct.izenpe.com/"
+                    "url": "https://ct.izenpe.com/"
                 }
             ],
             "name": "Izenpe"
         },
         {
             "email": [
-                "google-ct-logs@google.com"
+                "google-ct-logs@googlegroups.com"
             ],
             "logs": [
                 {
@@ -314,7 +318,7 @@
                         "end_exclusive": "2018-01-01T00:00:00Z",
                         "start_inclusive": "2017-01-01T00:00:00Z"
                     },
-                    "url": "ct.googleapis.com/logs/argon2017/"
+                    "url": "https://ct.googleapis.com/logs/argon2017/"
                 },
                 {
                     "description": "Google 'Skydiver' log",
@@ -327,7 +331,7 @@
                             "version": "5"
                         }
                     },
-                    "url": "ct.googleapis.com/skydiver/"
+                    "url": "https://ct.googleapis.com/skydiver/"
                 },
                 {
                     "description": "Google 'Aviator' log",
@@ -344,7 +348,7 @@
                             "version": "1"
                         }
                     },
-                    "url": "ct.googleapis.com/aviator/"
+                    "url": "https://ct.googleapis.com/aviator/"
                 },
                 {
                     "description": "Google 'Pilot' log",
@@ -357,7 +361,7 @@
                             "version": "1"
                         }
                     },
-                    "url": "ct.googleapis.com/pilot/"
+                    "url": "https://ct.googleapis.com/pilot/"
                 },
                 {
                     "description": "Google 'Xenon 2019' log",
@@ -365,16 +369,16 @@
                     "log_id": "CEEUmABxUywWGQRgvPxH/cJlOvopLHKzf/hjrinMyfA=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2019-02-23T20:46:27Z",
-                            "version": "39"
+                        "usable": {
+                            "timestamp": "2019-06-19T06:29:23Z",
+                            "version": "55"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2020-01-01T00:00:00Z",
                         "start_inclusive": "2019-01-01T00:00:00Z"
                     },
-                    "url": "ct.googleapis.com/logs/xenon2019"
+                    "url": "https://ct.googleapis.com/logs/xenon2019/"
                 },
                 {
                     "description": "Google 'Xenon 2018' log",
@@ -382,16 +386,16 @@
                     "log_id": "sQzVWabWeEaBH335pRUyc5rEjXA76gMj2l04dVvArU4=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2019-02-23T20:45:40Z",
-                            "version": "38"
+                        "usable": {
+                            "timestamp": "2019-06-19T06:28:36Z",
+                            "version": "54"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2019-01-01T00:00:00Z",
                         "start_inclusive": "2018-01-01T00:00:00Z"
                     },
-                    "url": "ct.googleapis.com/logs/xenon2018"
+                    "url": "https://ct.googleapis.com/logs/xenon2018/"
                 },
                 {
                     "description": "Google 'Argon 2021' log",
@@ -408,7 +412,7 @@
                         "end_exclusive": "2022-01-01T00:00:00Z",
                         "start_inclusive": "2021-01-01T00:00:00Z"
                     },
-                    "url": "ct.googleapis.com/logs/argon2021/"
+                    "url": "https://ct.googleapis.com/logs/argon2021/"
                 },
                 {
                     "description": "Google 'Argon 2020' log",
@@ -425,7 +429,7 @@
                         "end_exclusive": "2021-01-01T00:00:00Z",
                         "start_inclusive": "2020-01-01T00:00:00Z"
                     },
-                    "url": "ct.googleapis.com/logs/argon2020/"
+                    "url": "https://ct.googleapis.com/logs/argon2020/"
                 },
                 {
                     "description": "Google 'Rocketeer' log",
@@ -438,7 +442,7 @@
                             "version": "1"
                         }
                     },
-                    "url": "ct.googleapis.com/rocketeer/"
+                    "url": "https://ct.googleapis.com/rocketeer/"
                 },
                 {
                     "description": "Google 'Argon 2018' log",
@@ -455,7 +459,7 @@
                         "end_exclusive": "2019-01-01T00:00:00Z",
                         "start_inclusive": "2018-01-01T00:00:00Z"
                     },
-                    "url": "ct.googleapis.com/logs/argon2018/"
+                    "url": "https://ct.googleapis.com/logs/argon2018/"
                 },
                 {
                     "description": "Google 'Argon 2019' log",
@@ -472,7 +476,7 @@
                         "end_exclusive": "2020-01-01T00:00:00Z",
                         "start_inclusive": "2019-01-01T00:00:00Z"
                     },
-                    "url": "ct.googleapis.com/logs/argon2019/"
+                    "url": "https://ct.googleapis.com/logs/argon2019/"
                 },
                 {
                     "description": "Google 'Xenon 2020' log",
@@ -480,16 +484,16 @@
                     "log_id": "B7dcG+V9aP/xsMYdIxXHuuZXfFeUt2ruvGE6GmnTohw=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2019-02-23T20:47:12Z",
-                            "version": "40"
+                        "usable": {
+                            "timestamp": "2019-06-19T06:29:42Z",
+                            "version": "56"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2021-01-01T00:00:00Z",
                         "start_inclusive": "2020-01-01T00:00:00Z"
                     },
-                    "url": "ct.googleapis.com/logs/xenon2020"
+                    "url": "https://ct.googleapis.com/logs/xenon2020/"
                 },
                 {
                     "description": "Google 'Xenon 2021' log",
@@ -497,16 +501,16 @@
                     "log_id": "fT7y+I//iFVoJMLAyp5SiXkrxQ54CX8uapdomX4i8Nc=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2019-02-23T20:47:58Z",
-                            "version": "41"
+                        "usable": {
+                            "timestamp": "2019-06-19T06:29:58Z",
+                            "version": "57"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2022-01-01T00:00:00Z",
                         "start_inclusive": "2021-01-01T00:00:00Z"
                     },
-                    "url": "ct.googleapis.com/logs/xenon2021"
+                    "url": "https://ct.googleapis.com/logs/xenon2021/"
                 },
                 {
                     "description": "Google 'Icarus' log",
@@ -519,7 +523,7 @@
                             "version": "5"
                         }
                     },
-                    "url": "ct.googleapis.com/icarus/"
+                    "url": "https://ct.googleapis.com/icarus/"
                 },
                 {
                     "description": "Google 'Xenon 2022' log",
@@ -527,16 +531,16 @@
                     "log_id": "RqVV63X6kSAwtaKJafTzfREsQXS+/Um4havy/HD+bUc=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2019-02-23T20:48:40Z",
-                            "version": "42"
+                        "usable": {
+                            "timestamp": "2019-06-19T06:30:14Z",
+                            "version": "58"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2023-01-01T00:00:00Z",
                         "start_inclusive": "2022-01-01T00:00:00Z"
                     },
-                    "url": "ct.googleapis.com/logs/xenon2022"
+                    "url": "https://ct.googleapis.com/logs/xenon2022/"
                 },
                 {
                     "description": "Google 'Argon 2022' log",
@@ -544,16 +548,50 @@
                     "log_id": "KXm+8J45OSHwVnOfY6V35b5XfZxgCvj5TV0mXCVdx4Q=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2019-02-23T20:26:04Z",
-                            "version": "35"
+                        "usable": {
+                            "timestamp": "2019-06-19T06:28:07Z",
+                            "version": "53"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2023-01-01T00:00:00Z",
                         "start_inclusive": "2022-01-01T00:00:00Z"
                     },
-                    "url": "ct.googleapis.com/logs/argon2022"
+                    "url": "https://ct.googleapis.com/logs/argon2022/"
+                },
+                {
+                    "description": "Google 'Argon 2023' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0JCPZFJOQqyEti5M8j13ALN3CAVHqkVM4yyOcKWCu2yye5yYeqDpEXYoALIgtM3TmHtNlifmt+4iatGwLpF3eA==",
+                    "log_id": "6D7Q2j71BjUy51covIlryQPTy9ERa+zraeF3fW0GvW4=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2019-08-26T02:15:02Z",
+                            "version": "69"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2024-01-01T00:00:00Z",
+                        "start_inclusive": "2023-01-01T00:00:00Z"
+                    },
+                    "url": "https://ct.googleapis.com/logs/argon2023/"
+                },
+                {
+                    "description": "Google 'Xenon 2023 log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEchY+C+/vzj5g3ZXLY3q5qY1Kb2zcYYCmRV4vg6yU84WI0KV00HuO/8XuQqLwLZPjwtCymeLhQunSxgAnaXSuzg==",
+                    "log_id": "rfe++nz/EMiLnT2cHj4YarRnKV3PsQwkyoWGNOvcgoo=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2019-08-26T02:22:43Z",
+                            "version": "71"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2024-01-01T00:00:00Z",
+                        "start_inclusive": "2023-01-01T00:00:00Z"
+                    },
+                    "url": "https://ct.googleapis.com/logs/xenon2023/"
                 }
             ],
             "name": "Google"
@@ -574,7 +612,7 @@
                             "version": "7"
                         }
                     },
-                    "url": "www.certificatetransparency.cn/ct/"
+                    "url": "https://www.certificatetransparency.cn/ct/"
                 }
             ],
             "name": "Beijing PuChuangSiDa Technology Ltd."
@@ -595,7 +633,7 @@
                             "version": "4"
                         }
                     },
-                    "url": "log.certly.io/"
+                    "url": "https://log.certly.io/"
                 }
             ],
             "name": "Certly"
@@ -611,16 +649,16 @@
                     "log_id": "/kRhCLHQGreKYsz+q2qysrq/86va2ApNizDfLQAIgww=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2018-10-20T00:55:00Z",
-                            "version": "22"
+                        "usable": {
+                            "timestamp": "2019-03-18T18:10:27Z",
+                            "version": "43"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2020-01-01T00:00:00Z",
                         "start_inclusive": "2019-01-01T00:00:00Z"
                     },
-                    "url": "nessie2019.ct.digicert.com/log/"
+                    "url": "https://nessie2019.ct.digicert.com/log/"
                 },
                 {
                     "description": "DigiCert 'Nessie 2018' log",
@@ -637,7 +675,7 @@
                         "end_exclusive": "2019-01-01T00:00:00Z",
                         "start_inclusive": "2018-01-01T00:00:00Z"
                     },
-                    "url": "nessie2018.ct.digicert.com/log/"
+                    "url": "https://nessie2018.ct.digicert.com/log/"
                 },
                 {
                     "description": "DigiCert 'Nessie 2022' log",
@@ -645,16 +683,16 @@
                     "log_id": "UaOw9f0BeZxWbbg3eI8MpHrMGyfL956IQpoN/tSLBeU=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2018-10-20T00:55:00Z",
-                            "version": "22"
+                        "usable": {
+                            "timestamp": "2019-03-18T18:13:27Z",
+                            "version": "46"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2023-01-01T00:00:00Z",
                         "start_inclusive": "2022-01-01T00:00:00Z"
                     },
-                    "url": "nessie2022.ct.digicert.com/log/"
+                    "url": "https://nessie2022.ct.digicert.com/log/"
                 },
                 {
                     "description": "Symantec 'Sirius' log",
@@ -667,7 +705,7 @@
                             "version": "34"
                         }
                     },
-                    "url": "sirius.ws.symantec.com/"
+                    "url": "https://sirius.ws.symantec.com/"
                 },
                 {
                     "description": "Symantec log",
@@ -680,7 +718,7 @@
                             "version": "32"
                         }
                     },
-                    "url": "ct.ws.symantec.com/"
+                    "url": "https://ct.ws.symantec.com/"
                 },
                 {
                     "description": "DigiCert Log Server",
@@ -693,7 +731,7 @@
                             "version": "1"
                         }
                     },
-                    "url": "ct1.digicert-ct.com/log/"
+                    "url": "https://ct1.digicert-ct.com/log/"
                 },
                 {
                     "description": "DigiCert Log Server 2",
@@ -706,7 +744,7 @@
                             "version": "7"
                         }
                     },
-                    "url": "ct2.digicert-ct.com/log/"
+                    "url": "https://ct2.digicert-ct.com/log/"
                 },
                 {
                     "description": "DigiCert 'Yeti 2019' log",
@@ -715,7 +753,7 @@
                     "mmd": 86400,
                     "state": {
                         "usable": {
-                            "timestamp": "2018-05-18T19:25:41",
+                            "timestamp": "2018-05-18T19:25:41Z",
                             "version": "17"
                         }
                     },
@@ -723,7 +761,7 @@
                         "end_exclusive": "2020-01-01T00:00:00Z",
                         "start_inclusive": "2019-01-01T00:00:00Z"
                     },
-                    "url": "yeti2019.ct.digicert.com/log/"
+                    "url": "https://yeti2019.ct.digicert.com/log/"
                 },
                 {
                     "description": "DigiCert 'Yeti 2018' log",
@@ -732,7 +770,7 @@
                     "mmd": 86400,
                     "state": {
                         "usable": {
-                            "timestamp": "2018-05-18T19:25:41",
+                            "timestamp": "2018-05-18T19:25:41Z",
                             "version": "17"
                         }
                     },
@@ -740,7 +778,7 @@
                         "end_exclusive": "2019-01-01T00:00:00Z",
                         "start_inclusive": "2018-01-01T00:00:00Z"
                     },
-                    "url": "yeti2018.ct.digicert.com/log/"
+                    "url": "https://yeti2018.ct.digicert.com/log/"
                 },
                 {
                     "description": "Symantec 'Vega' log",
@@ -753,7 +791,7 @@
                             "version": "33"
                         }
                     },
-                    "url": "vega.ws.symantec.com/"
+                    "url": "https://vega.ws.symantec.com/"
                 },
                 {
                     "description": "DigiCert 'Nessie 2020' log",
@@ -761,16 +799,16 @@
                     "log_id": "xlKg7EjOs/yrFwmSxDqHQTMJ6ABlomJSQBujNioXxWU=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2018-10-20T00:55:00Z",
-                            "version": "22"
+                        "usable": {
+                            "timestamp": "2019-03-18T18:11:49Z",
+                            "version": "44"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2021-01-01T00:00:00Z",
                         "start_inclusive": "2020-01-01T00:00:00Z"
                     },
-                    "url": "nessie2020.ct.digicert.com/log/"
+                    "url": "https://nessie2020.ct.digicert.com/log/"
                 },
                 {
                     "description": "DigiCert 'Yeti 2021' log",
@@ -779,7 +817,7 @@
                     "mmd": 86400,
                     "state": {
                         "usable": {
-                            "timestamp": "2018-05-18T19:25:41",
+                            "timestamp": "2018-05-18T19:25:41Z",
                             "version": "17"
                         }
                     },
@@ -787,7 +825,7 @@
                         "end_exclusive": "2022-01-01T00:00:00Z",
                         "start_inclusive": "2021-01-01T00:00:00Z"
                     },
-                    "url": "yeti2021.ct.digicert.com/log/"
+                    "url": "https://yeti2021.ct.digicert.com/log/"
                 },
                 {
                     "description": "DigiCert 'Yeti 2022' log",
@@ -796,7 +834,7 @@
                     "mmd": 86400,
                     "state": {
                         "usable": {
-                            "timestamp": "2018-05-18T19:25:41",
+                            "timestamp": "2018-05-18T19:25:41Z",
                             "version": "17"
                         }
                     },
@@ -804,7 +842,7 @@
                         "end_exclusive": "2023-01-01T00:00:00Z",
                         "start_inclusive": "2022-01-01T00:00:00Z"
                     },
-                    "url": "yeti2022.ct.digicert.com/log/"
+                    "url": "https://yeti2022.ct.digicert.com/log/"
                 },
                 {
                     "description": "DigiCert 'Yeti 2020' log",
@@ -813,7 +851,7 @@
                     "mmd": 86400,
                     "state": {
                         "usable": {
-                            "timestamp": "2018-05-18T19:25:41",
+                            "timestamp": "2018-05-18T19:25:41Z",
                             "version": "17"
                         }
                     },
@@ -821,7 +859,7 @@
                         "end_exclusive": "2021-01-01T00:00:00Z",
                         "start_inclusive": "2020-01-01T00:00:00Z"
                     },
-                    "url": "yeti2020.ct.digicert.com/log/"
+                    "url": "https://yeti2020.ct.digicert.com/log/"
                 },
                 {
                     "description": "DigiCert 'Nessie 2021' log",
@@ -829,16 +867,16 @@
                     "log_id": "7sCV7o1yZA+S48O5G8cSo2lqCXtLahoUOOZHssvtxfk=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2018-10-20T00:55:00Z",
-                            "version": "22"
+                        "usable": {
+                            "timestamp": "2019-03-18T18:12:26Z",
+                            "version": "45"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2022-01-01T00:00:00Z",
                         "start_inclusive": "2021-01-01T00:00:00Z"
                     },
-                    "url": "nessie2021.ct.digicert.com/log/"
+                    "url": "https://nessie2021.ct.digicert.com/log/"
                 },
                 {
                     "description": "DigiCert 'Yeti 2023' log",
@@ -846,16 +884,16 @@
                     "log_id": "Nc8ZG7+xbFe/D61MbULLu7YnICZR6j/hKu+oA8M71kw=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2019-01-17T06:04:37Z",
-                            "version": "30"
+                        "qualified": {
+                            "timestamp": "2019-08-26T02:03:14Z",
+                            "version": "62"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2024-01-01T00:00:00Z",
                         "start_inclusive": "2023-01-01T00:00:00Z"
                     },
-                    "url": "yeti2023.ct.digicert.com/log"
+                    "url": "https://yeti2023.ct.digicert.com/log/"
                 },
                 {
                     "description": "DigiCert 'Nessie 2023' log",
@@ -863,16 +901,16 @@
                     "log_id": "s3N3B+GEUPhjhtYFqdwRCUp5LbFnDAuH3PADDnk2pZo=",
                     "mmd": 86400,
                     "state": {
-                        "pending": {
-                            "timestamp": "2019-01-17T06:07:26Z",
-                            "version": "31"
+                        "qualified": {
+                            "timestamp": "2019-08-26T02:04:10Z",
+                            "version": "63"
                         }
                     },
                     "temporal_interval": {
                         "end_exclusive": "2024-01-01T00:00:00Z",
                         "start_inclusive": "2023-01-01T00:00:00Z"
                     },
-                    "url": "nessie2023.ct.digicert.com/log"
+                    "url": "https://nessie2023.ct.digicert.com/log/"
                 }
             ],
             "name": "DigiCert"
@@ -893,7 +931,7 @@
                             "version": "7"
                         }
                     },
-                    "url": "mammoth.ct.comodo.com/"
+                    "url": "https://mammoth.ct.comodo.com/"
                 },
                 {
                     "description": "Sectigo 'Sabre' CT log",
@@ -906,11 +944,87 @@
                             "version": "7"
                         }
                     },
-                    "url": "sabre.ct.comodo.com/"
+                    "url": "https://sabre.ct.comodo.com/"
                 }
             ],
             "name": "Sectigo"
+        },
+        {
+            "email": [
+                "sre@letsencrypt.org"
+            ],
+            "logs": [
+                {
+                    "description": "Let's Encrypt 'Oak2019' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEFkqNKRuZ+Z8IOsnNJrUZ8gwp+KKGOdQrJ/HKhSadK/SJuoCc9+dxQ7awpmWIMr9SKcQeG5uRzG1kVSyFN4Wfcw==",
+                    "log_id": "ZZszUPQ7EsxepatOx2XT/ebIgkN3d3jnIAP56yuMMSk=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2019-08-26T02:05:13Z",
+                            "version": "64"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2020-01-07T00:00:00Z",
+                        "start_inclusive": "2019-01-01T00:00:00Z"
+                    },
+                    "url": "https://oak.ct.letsencrypt.org/2019/"
+                },
+                {
+                    "description": "Let's Encrypt 'Oak2020' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfzb42Zdr/h7hgqgDCo1vrNJqGqbcUvJGJEER9DDqp19W/wFSB0l166hD+U5cAXchpH8ZkBNUuvOHS0OnJ4oJrQ==",
+                    "log_id": "5xLysDd+GmL7jskMYYTx6ns3y1YdESZb8+DzS/JBVG4=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2019-08-26T02:05:44Z",
+                            "version": "65"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2021-01-07T00:00:00Z",
+                        "start_inclusive": "2020-01-01T00:00:00Z"
+                    },
+                    "url": "https://oak.ct.letsencrypt.org/2020/"
+                },
+                {
+                    "description": "Let's Encrypt 'Oak2021' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAELsYzGMNwo8rBIlaklBIdmD2Ofn6HkfrjK0Ukz1uOIUC6Lm0jTITCXhoIdjs7JkyXnwuwYiJYiH7sE1YeKu8k9w==",
+                    "log_id": "lCC8Ho7VjWyIcx+CiyIsDdHaTV5sT5Q9YdtOL1hNosI=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2019-08-26T02:06:07Z",
+                            "version": "66"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2022-01-07T00:00:00Z",
+                        "start_inclusive": "2021-01-01T00:00:00Z"
+                    },
+                    "url": "https://oak.ct.letsencrypt.org/2021/"
+                },
+                {
+                    "description": "Let's Encrypt 'Oak2022' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEhjyxDVIjWt5u9sB/o2S8rcGJ2pdZTGA8+IpXhI/tvKBjElGE5r3de4yAfeOPhqTqqc+o7vPgXnDgu/a9/B+RLg==",
+                    "log_id": "36Veq2iCTx9sre64X04+WurNohKkal6OOxLAIERcKnM=",
+                    "mmd": 86400,
+                    "state": {
+                        "qualified": {
+                            "timestamp": "2019-08-26T02:06:27Z",
+                            "version": "67"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2023-01-07T00:00:00Z",
+                        "start_inclusive": "2022-01-01T00:00:00Z"
+                    },
+                    "url": "https://oak.ct.letsencrypt.org/2022/"
+                }
+            ],
+            "name": "Let's Encrypt"
         }
     ],
-    "version": "42"
+    "version": "71"
 }

@@ -254,7 +254,7 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
     return [NSData dataWithBytes: joinDataBuffer length: sizeof(joinDataBuffer) ];
 }
 
--(NSData*) circleGetInitialSyncViews: (NSError**) error{
+-(NSData*) circleGetInitialSyncViews:(SOSInitialSyncFlags)flags error:(NSError**) error{
     return [NSData data];
 }
 

@@ -102,6 +102,9 @@
 }
 
 - (void)updateOctagonKeySetWithAccount:(nonnull id<CKKSSelfPeer>)currentSelfPeer error:(NSError *__autoreleasing  _Nullable * _Nullable)error {
+    if(self.updateOctagonKeySetListener) {
+        self.updateOctagonKeySetListener(currentSelfPeer);
+    }
     return;
 }
 
@@ -119,6 +122,10 @@
     [self.peerChangeListeners iterateListeners: ^(id<CKKSPeerUpdateListener> listener) {
         [listener trustedPeerSetChanged:self];
     }];
+}
+
+- (nonnull CKKSPeerProviderState *)currentState {
+    return [CKKSPeerProviderState createFromProvider:self];
 }
 
 - (NSSet<id<CKKSRemotePeerProtocol>>*)allPeers

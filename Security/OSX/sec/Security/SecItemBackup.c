@@ -31,7 +31,7 @@
 #include <Security/SecItemPriv.h>
 #include <Security/SecuritydXPC.h>
 #include <Security/SecFramework.h>
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemServer.h"
 #include <ipc/securityd_client.h>
 #include "keychain/SecureObjectSync/SOSBackupEvent.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>

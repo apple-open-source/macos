@@ -34,7 +34,7 @@
 #include "utilities/SecCFRelease.h"
 #include "utilities/SecCFWrappers.h"
 #include "utilities/debugging.h"
-#include "securityd/SecDbQuery.h"
+#include "keychain/securityd/SecDbQuery.h"
 
 #if __has_include(<MobileKeyBag/MobileKeyBag.h>) && TARGET_HAS_KEYSTORE
 #include <MobileKeyBag/MobileKeyBag.h>

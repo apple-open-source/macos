@@ -11418,8 +11418,6 @@ IOReturn IOFramebuffer::setDisplayAttributes(OSObject * obj)
 {
     IOFB_START(setDisplayAttributes,0,0,0);
     IOReturn       r, ret = kIOReturnSuccess;
-    OSData *       data;
-    OSDictionary * dict;
     uint32_t *     attributes;
     uint32_t       idx, max;
     uint32_t       attr, attrValue, value, mask;
@@ -11435,16 +11433,16 @@ IOReturn IOFramebuffer::setDisplayAttributes(OSObject * obj)
         return (kIOReturnSuccess);
     }
 
+    OSSafeReleaseNULL(__private->displayAttributes);
     obj->retain();
-    if (__private->displayAttributes) __private->displayAttributes->release();
     __private->displayAttributes = obj;
 
-    if (__private->display) __private->display->setProperty(kIODisplayAttributesKey, obj);
+    if (__private->display)
+        __private->display->setProperty(kIODisplayAttributesKey, obj);
 
-    dict = OSDynamicCast(OSDictionary, obj);
-    data = dict ? OSDynamicCast(OSData, dict->getObject(kIODisplayAttributesKey))
-    : OSDynamicCast(OSData, obj);
-
+    OSDictionary* dict = OSDynamicCast(OSDictionary, obj);
+    OSData* data = OSDynamicCast(OSData,
+            (dict ? dict->getObject(kIODisplayAttributesKey) : obj));
     if (!data)
     {
         IOFB_END(setDisplayAttributes,kIOReturnSuccess,__LINE__,0);
@@ -11568,45 +11566,69 @@ IOReturn IOFramebuffer::setDisplayAttributes(OSObject * obj)
     return (ret);
 }
 
-IOReturn IOFramebuffer::extSetProperties( OSDictionary * props )
+IOReturn IOFramebuffer::extSetProperties(OSDictionary* props)
 {
     IOFB_START(extSetProperties,0,0,0);
-    OSDictionary * dict;
-    OSArray *      array;
-    IOReturn       err = kIOReturnUnsupported;
 
-    if ((err = extEntry(true, kIOGReportAPIState_SetProperties)))
-    {
+    IOReturn err =
+        extEntry(/* allowOffline */ true, kIOGReportAPIState_SetProperties);
+    if (err) {
         IOFB_END(extSetProperties,err,__LINE__,0);
-        return (err);
+        return err;
     }
 
-    err = kIOReturnUnsupported;
-    if ((dict = OSDynamicCast(OSDictionary, props->getObject(gIOFBConfigKey)))) do
-    {
-        setProperty( gIOFBConfigKey, dict );
-        if (!__private->online)
-        {
-            err = kIOReturnSuccess;
-            break;
-        }
-        if (dict->getObject("IOFBScalerUnderscan"))
-        {
-            __private->enableScalerUnderscan = true;
-        }
-        if ((array = OSDynamicCast(OSArray,
-                                   dict->getObject(kIOFBDetailedTimingsKey))))
-        {
-            err = doSetDetailedTimings(array, DBG_IOG_SOURCE_EXT_SET_PROPERTIES, __LINE__);
-        }
-        else
-            err = kIOReturnSuccess;
-    }
-    while (false);
+    bool validProperty = false;
 
-	setDisplayAttributes(props->getObject(kIODisplayAttributesKey));
+    // Decode IOFBConfig
+    OSObject* obj = props->getObject(gIOFBConfigKey);
+    OSDictionary* dict = OSDynamicCast(OSDictionary, obj);
+    if (static_cast<bool>(dict)) {
+        validProperty = true;
+        setProperty(gIOFBConfigKey, dict);
+        if (__private->online) {
+            if (dict->getObject("IOFBScalerUnderscan"))
+                __private->enableScalerUnderscan = true;
+            auto *array = OSDynamicCast(
+                    OSArray, dict->getObject(kIOFBDetailedTimingsKey));
+            if (array)
+                err = doSetDetailedTimings(
+                        array, DBG_IOG_SOURCE_EXT_SET_PROPERTIES, __LINE__);
+        }
+    } else if (static_cast<bool>(obj))
+        IOLog("[%s] Error: bad format ignoring %s\n",
+                thisName, gIOFBConfigKey->getCStringNoCopy());
 
-	extExit(err, kIOGReportAPIState_SetProperties);
+    // Decode IODisplayAttributes
+    obj = props->getObject(kIODisplayAttributesKey);
+    OSDictionary* attrDict  = OSDynamicCast(OSDictionary, obj);
+    if (static_cast<bool>(attrDict)) {
+        // With the IOBacklight module we get IODisplayAttributes from two
+        // sources, CoreDisplay and IOBacklight itself.  Just replacing the
+        // displayAttributes would cause data to be lost.  Since
+        // IODictionary::merge replaces current entries with the entries from a
+        // source we merge in new values, as we locked here this is safe.  Also
+        // setDisplayAttributes with the current values is called on connect
+        // change so it is incumbent to save old untouched values.
+        validProperty = true;
+        dict = nullptr;
+        if (static_cast<bool>(__private->displayAttributes)) {
+            dict = static_cast<OSDictionary*>(__private->displayAttributes);
+            dict = OSDictionary::withDictionary(dict);
+            dict->merge(attrDict);
+            attrDict = dict;
+        }
+        const IOReturn setDispErr = setDisplayAttributes(attrDict);
+        OSSafeReleaseNULL(dict);
+        if (!err)
+            err = setDispErr;
+    } else if (static_cast<bool>(obj))
+        IOLog("[%s] Error: bad format ignoring %s\n",
+                thisName, kIODisplayAttributesKey);
+
+    if (!err && !validProperty)
+        err = kIOReturnUnsupported;
+
+    extExit(err, kIOGReportAPIState_SetProperties);
 
     IOFB_END(extSetProperties,err,0,0);
     return (err);

@@ -28,7 +28,7 @@
 #import "CKKSCurrentKeyPointer.h"
 #import "CKKSKey.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
-#include <securityd/SecItemSchema.h>
+#include "keychain/securityd/SecItemSchema.h"
 #include <Security/SecItem.h>
 #include <Security/SecItemPriv.h>
 #include "OSX/sec/Security/SecItemShim.h"

@@ -61,7 +61,7 @@ bool KCJoiningOctagonPiggybackingEnabled() {
 
 
 @interface KCJoiningRequestSecretSession ()
-@property (readonly) NSObject<KCJoiningRequestSecretDelegate>* secretDelegate;
+@property (weak) id<KCJoiningRequestSecretDelegate> secretDelegate;
 @property (readonly) KCSRPClientContext* context;
 @property (readonly) uint64_t dsid;
 @property (readonly) KCJoiningRequestSecretSessionState state;
@@ -245,9 +245,11 @@ bool KCJoiningOctagonPiggybackingEnabled() {
 
 - (NSData*) handleVerification: (KCJoiningMessage*) message error: (NSError**) error {
     secnotice("joining", "joining: KCJoiningRequestSecretSession handleVerification called");
+    id<KCJoiningRequestSecretDelegate> secretDelegate = self.secretDelegate;
+
     if ([message type] == kError) {
         bool newCode = [[message firstData] length] == 0;
-        NSString* nextSecret = [self.secretDelegate verificationFailed: newCode];
+        NSString* nextSecret = [secretDelegate verificationFailed: newCode];
 
         if (nextSecret) {
             if (newCode) {
@@ -279,7 +281,7 @@ bool KCJoiningOctagonPiggybackingEnabled() {
         NSString* accountCode = [NSString decodeFromDER:payload error:error];
         if (accountCode == nil) return nil;
 
-        if (![self.secretDelegate processAccountCode:accountCode error:error]) return nil;
+        if (![secretDelegate processAccountCode:accountCode error:error]) return nil;
     }
 
     self->_state = kRequestSecretDone;

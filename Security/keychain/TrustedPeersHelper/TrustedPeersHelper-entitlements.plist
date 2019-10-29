@@ -35,5 +35,7 @@
 		<string>com.apple.security.octagon</string>
 		<string>com.apple.security.egoIdentities</string>
 	</array>
+	<key>com.apple.symptom_diagnostics.report</key>
+	<true/>
 </dict>
 </plist>

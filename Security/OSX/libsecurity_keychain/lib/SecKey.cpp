@@ -863,9 +863,9 @@ namespace Security {
                             }
                         }
                     } else {
-                        cdsaKey = SecKeyCreateFromData(keyAttributes, keyData, NULL);
+                        cdsaKey.take(SecKeyCreateFromData(keyAttributes, keyData, NULL));
                         if (cdsaKey) {
-                            SecKeySetAuxilliaryCDSAKeyForKey(key, cdsaKey.retain());
+                            SecKeySetAuxilliaryCDSAKeyForKey(key, cdsaKey.get());
                         }
                     }
                 }

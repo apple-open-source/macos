@@ -96,9 +96,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
         self.startCKAccountStatusMock()
 
-        self.mockAuthKit.machineIDFetchErrors.append(CKPrettyError(domain:CKErrorDomain,
-                                                                   code:CKError.networkUnavailable.rawValue,
-                                                                   userInfo:[CKErrorRetryAfterKey: 2]))
+        self.mockAuthKit.machineIDFetchErrors.append(CKPrettyError(domain: CKErrorDomain,
+                                                                   code: CKError.networkUnavailable.rawValue,
+                                                                   userInfo: [CKErrorRetryAfterKey: 2]))
 
         self.cuttlefishContext.startOctagonStateMachine()
 
@@ -160,7 +160,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             self.fakeCuttlefishServer.establishListener = nil
             establishExpectation.fulfill()
 
-            return CKPrettyError(domain:CKErrorDomain, code:CKError.networkUnavailable.rawValue, userInfo:[CKErrorRetryAfterKey: 2])
+            return CKPrettyError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2])
         }
 
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
@@ -194,12 +194,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             self.fakeCuttlefishServer.establishListener = nil
             establishExpectation.fulfill()
 
-            return CKPrettyError(domain: CKInternalErrorDomain,
-                                 code: CKInternalErrorCode.errorInternalPluginError.rawValue,
-                                 userInfo: [CKErrorRetryAfterKey: 2,
-                                            NSUnderlyingErrorKey: NSError(domain: CuttlefishErrorDomain,
-                                                                          code: CuttlefishErrorCode.resultGraphNotFullyReachable.rawValue,
-                                                                          userInfo: nil)])
+            return FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphNotFullyReachable, retryAfter: 2)
         }
 
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
@@ -230,7 +225,6 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         peer2.startOctagonStateMachine()
 
         self.assertEnters(context: peer2, state: OctagonStateReady, within: 100 * NSEC_PER_SEC)
-
 
         // Now we arrive, and attempt to SOS join
         let sosUpgradeStateCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateAttemptSOSUpgrade] as! CKKSCondition
@@ -350,8 +344,6 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         // Right now, peer2 has just upgraded after peer1. It should trust peer1, and both should implictly trust each other
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer1ID)),
                       "peer 2 should trust peer 1")
-        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer1ID)),
-                      "peer 2 should trust peer 1 by preapproval")
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trustsByPreapproval, target: peer2ID)),
                       "peer 1 should trust peer 2 by preapproval")
         XCTAssertFalse(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trusts, target: peer2ID)),
@@ -439,7 +431,6 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.assertEnters(context: peer2, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
     }
 
-
     func testSOSJoinUponNotificationOfPreapprovalRetry() throws {
         // Peer 1 becomes SOS+Octagon
         self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID!)
@@ -508,7 +499,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
             }
             updateTrustExpectation1.fulfill()
 
-            return CKPrettyError(domain:CKErrorDomain, code:CKError.networkUnavailable.rawValue, userInfo:[CKErrorRetryAfterKey: 2])
+            return CKPrettyError(domain: CKErrorDomain, code: CKError.networkUnavailable.rawValue, userInfo: [CKErrorRetryAfterKey: 2])
         }
 
         self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
@@ -631,7 +622,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer1ID)),
                       "peer 2 should trust peer 1")
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer1ID)),
-                      "peer 2 should trust peer 1 by preapproval")
+                      "peer 2 should trust peer 1")
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trustsByPreapproval, target: peer2ID)),
                       "peer 1 should trust peer 2 by preapproval")
         XCTAssertFalse(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trusts, target: peer2ID)),
@@ -752,7 +743,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         let upgradeExpectation = self.expectation(description: "waitForOctagonUpgrade")
-        self.manager.wait(forOctagonUpgrade:OTCKContainerName, context: self.otcliqueContext.context ?? "defaultContext") { error in
+        self.manager.wait(forOctagonUpgrade: OTCKContainerName, context: self.otcliqueContext.context ?? "defaultContext") { error in
             XCTAssertNil(error, "operation should not fail")
             upgradeExpectation.fulfill()
         }
@@ -774,7 +765,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
-            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -860,14 +851,18 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer1ID)),
                       "peer 2 should trust peer 1")
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer1ID)),
-                      "peer 2 should trust peer 1 by preapproval")
+                      "peer 2 should trust peer 1")
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trustsByPreapproval, target: peer2ID)),
                       "peer 1 should trust peer 2 by preapproval")
         XCTAssertFalse(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trusts, target: peer2ID)),
                        "peer 1 should not trust peer 2 (as it hasn't responded to peer2's upgradeJoin yet)")
 
         // Now, tell peer1 about the change
+        // The first peer will upload TLKs for the new peer
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
 
         // Peer1 should trust peer2 now, since it upgraded it from implicitly explicitly trusted
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trusts, target: peer2ID)),
@@ -878,7 +873,15 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         var bottleID: String = ""
 
         //now try restoring bottles
-        let newGuyUsingBottle = self.manager.context(forContainerName: OTCKContainerName, contextID: "NewGuyUsingBottle")
+        let mockNoSOS = CKKSMockSOSPresentAdapter(selfPeer: self.createSOSPeer(peerID: "peer3ID"), trustedPeers: Set(), essential: false)
+        mockNoSOS.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
+        let newGuyUsingBottle = self.manager.context(forContainerName: OTCKContainerName,
+                                                     contextID: "NewGuyUsingBottle",
+                                                     sosAdapter: mockNoSOS,
+                                                     authKitAdapter: self.mockAuthKit3,
+                                                     lockStateTracker: self.lockStateTracker,
+                                                     accountStateTracker: self.accountStateTracker,
+                                                     deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone-3", serialNumber: "456", osVersion: "iOS (fake version)"))
         let peer2AltDSID = try peer2.accountMetadataStore.loadOrCreateAccountMetadata().altDSID
         newGuyUsingBottle.startOctagonStateMachine()
 
@@ -896,14 +899,6 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         XCTAssertNotNil(peer2AltDSID, "should have a dsid for peer2")
 
-        self.sendContainerChange(context: peer2)
-
-        // The first peer will upload TLKs for the new peer
-        self.assertAllCKKSViewsUpload(tlkShares: 1)
-        self.sendContainerChangeWaitForFetchForState(context: self.cuttlefishContext, state: OctagonStateReady)
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10*NSEC_PER_SEC)
-        self.verifyDatabaseMocks()
-
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
         newGuyUsingBottle.join(withBottle: bottleID, entropy: entropy, bottleSalt: peer2AltDSID!) { error in
             XCTAssertNil(error, "error should be nil")
@@ -911,6 +906,14 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         }
         self.wait(for: [joinWithBottleExpectation], timeout: 10)
         self.assertEnters(context: newGuyUsingBottle, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        let newGuyPeerID = try newGuyUsingBottle.accountMetadataStore.getEgoPeerID()
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: newGuyPeerID, opinion: .trusts, target: newGuyPeerID)),
+                      "newPeer should trust itself after bottle restore")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: newGuyPeerID, opinion: .trusts, target: peer1ID)),
+                      "newPeer should trust peer 1 after bottle restore")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: newGuyPeerID, opinion: .trusts, target: peer2ID)),
+                      "newPeer should trust peer 2 after bottle restore")
 
         let gonnaFailContext = self.manager.context(forContainerName: OTCKContainerName, contextID: "gonnaFailContext")
         gonnaFailContext.startOctagonStateMachine()
@@ -922,7 +925,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.wait(for: [joinWithBottleFailExpectation], timeout: 10)
         self.assertEnters(context: gonnaFailContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext, isLocked: false)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
     }
 
     func testSOSPeerUpdatePreapprovesNewPeer() throws {
@@ -1105,7 +1110,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         }
 
         let resetAndEstablishExpectation = self.expectation(description: "resetAndEstablish")
-        self.cuttlefishContext.rpcResetAndEstablish() { error in
+        self.cuttlefishContext.rpcResetAndEstablish(.testGenerated) { error in
             XCTAssertNil(error, "Should be no error performing a reset and establish")
             resetAndEstablishExpectation.fulfill()
         }
@@ -1166,7 +1171,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.wait(for: [dumpExpectation], timeout: 10)
 
         let resetAndEstablishExpectation = self.expectation(description: "resetAndEstablish")
-        self.cuttlefishContext.rpcResetAndEstablish() { error in
+        self.cuttlefishContext.rpcResetAndEstablish(.testGenerated) { error in
             XCTAssertNil(error, "Should be no error performing a reset and establish")
             resetAndEstablishExpectation.fulfill()
         }
@@ -1211,9 +1216,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
-        self.mockAuthKit.machineIDFetchErrors.append(NSError(domain:AKAppleIDAuthenticationErrorDomain,
-                                                             code:AKAppleIDAuthenticationError.authenticationErrorCannotFindServer.rawValue,
-                                                             userInfo:nil))
+        self.mockAuthKit.machineIDFetchErrors.append(NSError(domain: AKAppleIDAuthenticationErrorDomain,
+                                                             code: AKAppleIDAuthenticationError.authenticationErrorCannotFindServer.rawValue,
+                                                             userInfo: nil))
 
         // Octagon should decide it is quite sad.
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
@@ -1236,8 +1241,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         OctagonSetPlatformSupportsSOS(true)
 
-        var clique : OTClique?
-        XCTAssertNoThrow(clique = try OTClique.init(contextData: self.otcliqueContext))
+        var clique: OTClique?
+        XCTAssertNoThrow(clique = try OTClique(contextData: self.otcliqueContext))
         XCTAssertNotNil(clique, "Clique should not be nil")
         XCTAssertNoThrow(try clique!.waitForOctagonUpgrade(), "Upgrading should pass")
 
@@ -1255,13 +1260,122 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         OctagonSetPlatformSupportsSOS(true)
 
-        var clique : OTClique?
-        XCTAssertNoThrow(clique = try OTClique.init(contextData: self.otcliqueContext))
+        var clique: OTClique?
+        XCTAssertNoThrow(clique = try OTClique(contextData: self.otcliqueContext))
         XCTAssertNotNil(clique, "Clique should not be nil")
         XCTAssertThrowsError(try clique!.waitForOctagonUpgrade(), "Upgrading should fail")
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
+    }
+
+    func testSOSDoNotJoinByPreapprovalMultipleTimes() throws {
+        self.startCKAccountStatusMock()
+
+        // First, peer 1 establishes, preapproving both peer2 and peer3. Then, peer2 and peer3 join and harmonize.
+        // Peer1 is never told about the follow-on joins.
+        // Then, the test can begin.
+
+        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+
+        let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
+        let peer3SOSMockPeer = self.createSOSPeer(peerID: "peer3ID")
+
+        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter.trustedPeers.add(peer3SOSMockPeer)
+
+        // Due to how everything is shaking out, SOS TLKShares will be uploaded in a second transaction after Octagon uploads its TLKShares
+        // This isn't great: <rdar://problem/49080104> Octagon: upload SOS TLKShares alongside initial key hierarchy
+        self.assertAllCKKSViewsUpload(tlkShares: 3)
+
+        self.cuttlefishContext.startOctagonStateMachine()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        let peer1ID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+
+        // peer2
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2 = self.makeInitiatorContext(contextID: "peer2", authKitAdapter: self.mockAuthKit2, sosAdapter: peer2mockSOS)
+
+        peer2.startOctagonStateMachine()
+        self.assertEnters(context: peer2, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: peer2)
+        let peer2ID = try peer2.accountMetadataStore.getEgoPeerID()
+
+        // peer3
+        let peer3mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer3SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer3 = self.makeInitiatorContext(contextID: "peer3", authKitAdapter: self.mockAuthKit3, sosAdapter: peer3mockSOS)
+
+        peer3.startOctagonStateMachine()
+        self.assertEnters(context: peer3, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: peer3)
+        let peer3ID = try peer3.accountMetadataStore.getEgoPeerID()
+
+        // Now, tell peer2 about peer3's join
+        self.sendContainerChangeWaitForFetch(context: peer2)
+
+        // Peer 1 should preapprove both peers.
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trustsByPreapproval, target: peer2ID)),
+                      "peer 1 should trust peer 2 by preapproval")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trustsByPreapproval, target: peer2ID)),
+                      "peer 1 should trust peer 3 by preapproval")
+
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer1ID)),
+                      "peer 2 should trust peer 1")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer3ID)),
+                      "peer 2 should trust peer 3")
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer3ID, opinion: .trusts, target: peer1ID)),
+                      "peer 3 should trust peer 1")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer3ID, opinion: .trusts, target: peer2ID)),
+                      "peer 3 should trust peer 2")
+
+        // Now, the test can begin. Peer2 decides it rules the world.
+        let removalExpectation = self.expectation(description: "removal occurs")
+        peer2.rpcRemoveFriends(inClique: [peer1ID, peer3ID]) { removeError in
+            XCTAssertNil(removeError, "Should be no error removing peer1 and peer3")
+            removalExpectation.fulfill()
+        }
+        self.wait(for: [removalExpectation], timeout: 5)
+        self.assertEnters(context: peer2, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: peer2)
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .excludes, target: peer1ID)),
+                      "peer 2 should distrust peer 1")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .excludes, target: peer3ID)),
+                      "peer 2 should distrust peer 3")
+
+        // And we notify peer3 about this, and it should become sad
+        self.sendContainerChangeWaitForFetchForStates(context: peer3, states: [OctagonStateReadyUpdated, OctagonStateUntrusted])
+        self.assertEnters(context: peer3, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfUntrusted(context: peer3)
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer3ID, opinion: .excludes, target: peer3ID)),
+                      "peer 3 should distrust peer 3")
+
+        // And if peer3 decides to reupgrade, but it shouldn't: there's no potentially-trusted peer that preapproves it
+        let upgradeExpectation = self.expectation(description: "sosUpgrade call returns")
+        peer3.attemptSOSUpgrade() { error in
+            XCTAssertNotNil(error, "should be an error performing an SOS upgrade (the second time)")
+            upgradeExpectation.fulfill()
+        }
+        self.wait(for: [upgradeExpectation], timeout: 5)
+
+        // And peer3 remains untrusted
+        self.assertEnters(context: peer3, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfUntrusted(context: peer3)
+
+        // And "wait for upgrade" does something reasonable too
+        let upgradeWaitExpectation = self.expectation(description: "sosWaitForUpgrade call returns")
+        peer3.waitForOctagonUpgrade() { error in
+            XCTAssertNotNil(error, "should be an error waiting for an SOS upgrade (the second time)")
+            upgradeWaitExpectation.fulfill()
+        }
+        self.wait(for: [upgradeWaitExpectation], timeout: 5)
     }
 }
 

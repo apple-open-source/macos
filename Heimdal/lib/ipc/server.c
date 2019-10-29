@@ -83,7 +83,7 @@ set_timer(void)
     dispatch_source_set_timer(timer,
 			      dispatch_time(DISPATCH_TIME_NOW,
 					    timeoutvalue * NSEC_PER_SEC),
-			      timeoutvalue * NSEC_PER_SEC, 1000000);
+			      DISPATCH_TIME_FOREVER, 1000000);
 }
 
 static void

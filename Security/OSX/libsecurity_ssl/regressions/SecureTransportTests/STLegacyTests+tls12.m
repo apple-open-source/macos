@@ -224,7 +224,7 @@ static OSStatus securetransport(ssl_test_handle * ssl)
             SecTrustResultType trust_result = 0;
             /* this won't verify without setting up a trusted anchor */
             require_noerr(SecTrustEvaluate(trust, &trust_result), out);
-            require((trust_result == kSecTrustResultUnspecified), out);
+            require((trust_result == kSecTrustResultUnspecified || trust_result == kSecTrustResultProceed), out);
 
         }
     } while (ortn == errSSLWouldBlock

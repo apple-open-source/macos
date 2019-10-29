@@ -31,7 +31,7 @@
 #import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CloudKitDependencies.h"
 
-#include <securityd/SecDbItem.h>
+#include "keychain/securityd/SecDbItem.h"
 #include <utilities/SecDb.h>
 
 #import "keychain/ckks/CKKS.h"
@@ -43,6 +43,7 @@
 #import "keychain/ckks/CKKSNotifier.h"
 #import "keychain/ckks/CKKSOutgoingQueueOperation.h"
 #import "keychain/ckks/CKKSPeer.h"
+#import "keychain/ckks/CKKSPeerProvider.h"
 #import "keychain/ckks/CKKSProcessReceivedKeysOperation.h"
 #import "keychain/ckks/CKKSReencryptOutgoingItemsOperation.h"
 #import "keychain/ckks/CKKSScanLocalItemsOperation.h"
@@ -68,29 +69,6 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSOutgoingQueueEntry;
 @class CKKSZoneChangeFetcher;
 @class CKKSCurrentKeySet;
-
-@interface CKKSPeerProviderState : NSObject
-@property NSString* peerProviderID;
-
-// The peer provider believes trust in this state is essential. Any subsystem using
-// a peer provider state should fail and pause if this is YES and there are trust errors.
-@property BOOL essential;
-
-@property (nonatomic, readonly, nullable) CKKSSelves* currentSelfPeers;
-@property (nonatomic, readonly, nullable) NSError* currentSelfPeersError;
-@property (nonatomic, readonly, nullable) NSSet<id<CKKSRemotePeerProtocol>>* currentTrustedPeers;
-@property (nonatomic, readonly, nullable) NSSet<NSString*>* currentTrustedPeerIDs;
-@property (nonatomic, readonly, nullable) NSError* currentTrustedPeersError;
-
-- (instancetype)initWithPeerProviderID:(NSString*)providerID
-                             essential:(BOOL)essential
-                             selfPeers:(CKKSSelves* _Nullable)selfPeers
-                        selfPeersError:(NSError* _Nullable)selfPeersError
-                          trustedPeers:(NSSet<id<CKKSPeer>>* _Nullable)currentTrustedPeers
-                     trustedPeersError:(NSError* _Nullable)trustedPeersError;
-
-+ (CKKSPeerProviderState*)noPeersState:(id<CKKSPeerProvider>)provider;
-@end
 
 @interface CKKSKeychainView : CKKSZone <CKKSZoneUpdateReceiver,
                                         CKKSChangeFetcherClient,
@@ -118,6 +96,10 @@ NS_ASSUME_NONNULL_BEGIN
 // If the key hierarchy isn't coming together, it might be because we're out of sync with cloudkit.
 // Use this to track if we've completed a full refetch, so fix-up operations can be done.
 @property bool keyStateMachineRefetched;
+
+// Set this to request a key state refetch (tests only)
+@property bool keyStateFullRefetchRequested;
+
 @property (nullable) CKKSEgoManifest* egoManifest;
 @property (nullable) CKKSManifest* latestManifest;
 @property (nullable) CKKSResultOperation* keyStateReadyDependency;

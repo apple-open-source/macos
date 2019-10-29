@@ -841,7 +841,8 @@ static IOReturn _setValue(void *iunknown,
     HIDLibElement *element = nil;
     HIDLibElement *tmp = nil;
     IOHIDElementValue *elementValue = NULL;
-    uint64_t input;
+    uint32_t input = 0;
+    size_t inputSize = 0;
     NSUInteger elementIndex;
     
     require_action(_opened, exit, ret = kIOReturnNotOpen);
@@ -876,11 +877,13 @@ static IOReturn _setValue(void *iunknown,
                    exit,
                    ret = kIOReturnSuccess);
     
-    input = element.elementCookie;
-    ret = IOConnectCallScalarMethod(_connect,
+    inputSize = sizeof(uint32_t);
+    input = (uint32_t)element.elementCookie;
+    
+    ret = IOConnectCallStructMethod(_connect,
                                     kIOHIDLibUserClientPostElementValues,
                                     &input,
-                                    1,
+                                    inputSize,
                                     0,
                                     NULL);
     if (ret) {
@@ -921,7 +924,8 @@ static IOReturn _getValue(void *iunknown,
     HIDLibElement *tmp = nil;
     IOHIDElementValue *elementValue = NULL;
     uint64_t timestamp;
-    uint64_t input;
+    uint32_t input = 0;
+    size_t inputSize = 0;
     NSUInteger elementIndex;
     
     if (!pValue) {
@@ -984,11 +988,13 @@ static IOReturn _getValue(void *iunknown,
                    exit,
                    ret = kIOReturnSuccess);
     
-    input = element.elementCookie;
-    ret = IOConnectCallScalarMethod(_connect,
+    inputSize = sizeof(uint32_t);
+    input =  (uint32_t)element.elementCookie;
+    
+    ret = IOConnectCallStructMethod(_connect,
                                     kIOHIDLibUserClientUpdateElementValues,
                                     &input,
-                                    1,
+                                    inputSize,
                                     0,
                                     NULL);
     require_noerr(ret, exit);

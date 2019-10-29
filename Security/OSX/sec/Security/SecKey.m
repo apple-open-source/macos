@@ -170,11 +170,21 @@ static CFMutableDictionaryRef auxilliaryCDSAKeyMap;
 static struct os_unfair_lock_s auxilliaryCDSAKeyMapLock = OS_UNFAIR_LOCK_INIT;
 
 static void SecKeyDestroyAuxilliaryCDSAKeyForKey(CFTypeRef cf) {
+    CFTypeRef keyToDestroy = NULL;
     os_unfair_lock_lock(&auxilliaryCDSAKeyMapLock);
     if (auxilliaryCDSAKeyMap != NULL) {
-        CFDictionaryRemoveValue(auxilliaryCDSAKeyMap, cf);
+        keyToDestroy = CFDictionaryGetValue(auxilliaryCDSAKeyMap, cf);
+        if (keyToDestroy != NULL) {
+            CFRetain(keyToDestroy);
+            CFDictionaryRemoveValue(auxilliaryCDSAKeyMap, cf);
+        }
     }
     os_unfair_lock_unlock(&auxilliaryCDSAKeyMapLock);
+
+    // Actual aux key destruction is performed outside unfair lock to avoid recursive lock.
+    if (keyToDestroy != NULL) {
+        CFRelease(keyToDestroy);
+    }
 }
 
 void SecKeySetAuxilliaryCDSAKeyForKey(SecKeyRef cf, SecKeyRef auxKey) {

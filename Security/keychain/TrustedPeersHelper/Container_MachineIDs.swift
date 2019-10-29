@@ -1,4 +1,3 @@
-
 import CoreData
 import Foundation
 
@@ -8,7 +7,7 @@ extension MachineMO {
             return false
         }
 
-        let dateLimit = Date(timeIntervalSinceNow: -60*60*TimeInterval(hours))
+        let dateLimit = Date(timeIntervalSinceNow: -60 * 60 * TimeInterval(hours))
         return modifiedDate.compare(dateLimit) == ComparisonResult.orderedDescending
     }
 
@@ -89,8 +88,7 @@ extension Container {
                 var differences = false
 
                 var knownMachines = containerMO.machines as? Set<MachineMO> ?? Set()
-                let knownMachineIDs = Set(knownMachines.compactMap { $0.machineID } )
-
+                let knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
 
                 knownMachines.forEach { machine in
                     guard let mid = machine.machineID else {
@@ -162,21 +160,26 @@ extension Container {
                     }
                 }
 
-                // Now, are there any machine IDs in the model that aren't in the list? If so, add them as "unknown"
-                let modelMachineIDs = self.model.allMachineIDs()
-                modelMachineIDs.forEach { peerMachineID in
-                    if !knownMachineIDs.contains(peerMachineID) && !allowedMachineIDs.contains(peerMachineID) {
-                        os_log("Peer machineID is unknown, beginning grace period: %@", log: tplogDebug, type: .default, peerMachineID)
-                        let machine = MachineMO(context: self.moc)
-                        machine.machineID = peerMachineID
-                        machine.container = containerMO
-                        machine.seenOnFullList = false
-                        machine.modified = Date()
-                        machine.status = Int64(TPMachineIDStatus.unknown.rawValue)
-                        differences = true
+                // if this account is not a demo account...
+                if knownMachines.count > 0 {
+                    // Are there any machine IDs in the model that aren't in the list? If so, add them as "unknown"
+                    let modelMachineIDs = self.model.allMachineIDs()
+                    modelMachineIDs.forEach { peerMachineID in
+                        if !knownMachineIDs.contains(peerMachineID) && !allowedMachineIDs.contains(peerMachineID) {
+                            os_log("Peer machineID is unknown, beginning grace period: %@", log: tplogDebug, type: .default, peerMachineID)
+                            let machine = MachineMO(context: self.moc)
+                            machine.machineID = peerMachineID
+                            machine.container = containerMO
+                            machine.seenOnFullList = false
+                            machine.modified = Date()
+                            machine.status = Int64(TPMachineIDStatus.unknown.rawValue)
+                            differences = true
 
-                        self.containerMO.addToMachines(machine)
+                            self.containerMO.addToMachines(machine)
+                        }
                     }
+                } else {
+                    os_log("Believe we're in a demo account; not starting an unknown machine ID grace period", log: tplogDebug, type: .default)
                 }
 
                 // We no longer use allowed machine IDs.
@@ -205,7 +208,7 @@ extension Container {
         self.moc.performAndWait {
             do {
                 var knownMachines = containerMO.machines as? Set<MachineMO> ?? Set()
-                let knownMachineIDs = Set(knownMachines.compactMap { $0.machineID } )
+                let knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
 
                 // We treat an add push as authoritative (even though we should really confirm it with a full list fetch).
                 // We can get away with this as we're using this list as a deny-list, and if we accidentally don't deny someone fast enough, that's okay.
@@ -254,7 +257,7 @@ extension Container {
         self.moc.performAndWait {
             do {
                 var knownMachines = containerMO.machines as? Set<MachineMO> ?? Set()
-                let knownMachineIDs = Set(knownMachines.compactMap { $0.machineID } )
+                let knownMachineIDs = Set(knownMachines.compactMap { $0.machineID })
 
                 // This is an odd approach: we'd like to confirm that this MID was actually removed (and not just a delayed push).
                 // So, let's set the status to "unknown", and its modification date to the distant past.
@@ -331,7 +334,7 @@ extension Container {
         // We don't want to automatically kick out new peers if they rejoin with the same MID.
 
         let machines = containerMO.machines as? Set<MachineMO> ?? Set()
-        let knownMachineIDs = Set(machines.compactMap { $0.machineID } )
+        let knownMachineIDs = Set(machines.compactMap { $0.machineID })
 
         // Peers trust themselves. So if the ego peer is in Octagon, its machineID will be in this set
         let trustedMachineIDs = Set(dynamicInfo.includedPeerIDs.compactMap { self.model.peer(withID: $0)?.permanentInfo.machineID })

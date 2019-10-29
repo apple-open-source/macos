@@ -210,6 +210,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
     var joinListener: ((JoinWithVoucherRequest) -> NSError?)?
     var healthListener: ((GetRepairActionRequest) -> NSError?)?
     var fetchViableBottlesListener: ((FetchViableBottlesRequest) -> NSError?)?
+    var resetListener: ((ResetRequest) -> NSError?)?
 
     var fetchViableBottlesDontReturnBottleWithID: String?
 
@@ -233,12 +234,19 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
         }
     }
 
-    static func makeCloudKitCuttlefishError(code: CuttlefishErrorCode) -> NSError {
-        return CKPrettyError(domain: CKInternalErrorDomain,
-                             code: CKInternalErrorCode.errorInternalPluginError.rawValue,
-                             userInfo: [NSUnderlyingErrorKey: NSError(domain: CuttlefishErrorDomain,
-                                                                      code: code.rawValue,
-                                                                      userInfo: nil)])
+    static func makeCloudKitCuttlefishError(code: CuttlefishErrorCode, retryAfter: TimeInterval = 5) -> NSError {
+        let cuttlefishError = CKPrettyError(domain: CuttlefishErrorDomain,
+                                            code: code.rawValue,
+                                            userInfo: [CuttlefishErrorRetryAfterKey: retryAfter])
+        let internalError = CKPrettyError(domain: CKInternalErrorDomain,
+                                          code: CKInternalErrorCode.errorInternalPluginError.rawValue,
+                                          userInfo: [NSUnderlyingErrorKey: cuttlefishError, ])
+        let ckError = CKPrettyError(domain: CKErrorDomain,
+                                    code: CKError.serverRejectedRequest.rawValue,
+                                    userInfo: [NSUnderlyingErrorKey: internalError,
+                                               CKErrorServerDescriptionKey: "Fake: FunctionError domain: CuttlefishError, code: \(code),\(code.rawValue)",
+                                               ])
+        return ckError
     }
 
     func makeSnapshot() {
@@ -287,6 +295,13 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
 
     func reset(_ request: ResetRequest, completion: @escaping (ResetResponse?, Error?) -> Void) {
         print("FakeCuttlefish: reset called")
+        if let resetListener = self.resetListener {
+            let possibleError = resetListener(request)
+            guard possibleError == nil else {
+                completion(nil, possibleError)
+                return
+            }
+        }
         self.state = State()
         self.makeSnapshot()
         completion(ResetResponse.with {
@@ -328,11 +343,11 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
 
             if let fakeZone = self.fakeCKZones[rzid] as? FakeCKZone {
                 fakeZone.queue.sync {
-                    let tlkRecord    = viewKeys.newTlk.fakeRecord(zoneID: rzid)
+                    let tlkRecord = viewKeys.newTlk.fakeRecord(zoneID: rzid)
                     let classARecord = viewKeys.newClassA.fakeRecord(zoneID: rzid)
                     let classCRecord = viewKeys.newClassC.fakeRecord(zoneID: rzid)
 
-                    let tlkPointerRecord    = viewKeys.newTlk.fakeKeyPointer(zoneID: rzid)
+                    let tlkPointerRecord = viewKeys.newTlk.fakeKeyPointer(zoneID: rzid)
                     let classAPointerRecord = viewKeys.newClassA.fakeKeyPointer(zoneID: rzid)
                     let classCPointerRecord = viewKeys.newClassC.fakeKeyPointer(zoneID: rzid)
 
@@ -342,11 +357,11 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                     let zoneKeys = self.ckksZoneKeys[rzid] as? ZoneKeys ?? ZoneKeys(forZoneName: rzid.zoneName)
                     self.ckksZoneKeys[rzid] = zoneKeys
 
-                    zoneKeys.tlk    = CKKSKey(ckRecord: tlkRecord)
+                    zoneKeys.tlk = CKKSKey(ckRecord: tlkRecord)
                     zoneKeys.classA = CKKSKey(ckRecord: classARecord)
                     zoneKeys.classC = CKKSKey(ckRecord: classCRecord)
 
-                    zoneKeys.currentTLKPointer    = CKKSCurrentKeyPointer(ckRecord: tlkPointerRecord)
+                    zoneKeys.currentTLKPointer = CKKSCurrentKeyPointer(ckRecord: tlkPointerRecord)
                     zoneKeys.currentClassAPointer = CKKSCurrentKeyPointer(ckRecord: classAPointerRecord)
                     zoneKeys.currentClassCPointer = CKKSCurrentKeyPointer(ckRecord: classCPointerRecord)
                     #endif
@@ -407,7 +422,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
             let possibleError = establishListener(request)
             guard possibleError == nil else {
                 completion(nil, possibleError)
-                return;
+                return
             }
         }
 
@@ -425,7 +440,6 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
         keyRecords.append(contentsOf: store(tlkShares: request.tlkShares))
 
         self.makeSnapshot()
-
 
         let response = EstablishResponse.with {
             if self.nextEstablishReturnsMoreChanges {
@@ -450,7 +464,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
             let possibleError = joinListener(request)
             guard possibleError == nil else {
                 completion(nil, possibleError)
-                return;
+                return
             }
         }
 
@@ -518,7 +532,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
             let possibleError = updateListener(request)
             guard possibleError == nil else {
                 completion(nil, possibleError)
-                return;
+                return
             }
         }
 
@@ -571,7 +585,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
             let possibleError = fetchChangesListener(request)
             guard possibleError == nil else {
                 completion(nil, possibleError)
-                return;
+                return
             }
         }
 
@@ -606,7 +620,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
             let possibleError = fetchViableBottlesListener(request)
             guard possibleError == nil else {
                 completion(nil, possibleError)
-                return;
+                return
             }
         }
 
@@ -659,8 +673,8 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
     func reportHealth(_: ReportHealthRequest, completion: @escaping (ReportHealthResponse?, Error?) -> Void) {
         completion(ReportHealthResponse(), nil)
     }
-    func pushHealthInquiry(_: HealthInquiryRequest, completion: @escaping (HealthInquiryResponse?, Error?) -> Void) {
-        completion(HealthInquiryResponse(), nil)
+    func pushHealthInquiry(_: PushHealthInquiryRequest, completion: @escaping (PushHealthInquiryResponse?, Error?) -> Void) {
+        completion(PushHealthInquiryResponse(), nil)
     }
 
     func getRepairAction(_ request: GetRepairActionRequest, completion: @escaping (GetRepairActionResponse?, Error?) -> Void) {
@@ -670,7 +684,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
             let possibleError = healthListener(request)
             guard possibleError == nil else {
                 completion(nil, possibleError)
-                return;
+                return
             }
         }
 
@@ -679,20 +693,17 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                 $0.repairAction = .postRepairEscrow
             }
             completion(response, nil)
-        }
-        else if self.returnRepairAccountResponse {
+        } else if self.returnRepairAccountResponse {
             let response = GetRepairActionResponse.with {
                 $0.repairAction = .postRepairAccount
             }
             completion(response, nil)
-        }
-        else if self.returnResetOctagonResponse {
+        } else if self.returnResetOctagonResponse {
             let response = GetRepairActionResponse.with {
                 $0.repairAction = .resetOctagon
             }
             completion(response, nil)
-        }
-        else if self.returnNoActionResponse {
+        } else if self.returnNoActionResponse {
             let response = GetRepairActionResponse.with {
                 $0.repairAction = .noAction
             }
@@ -702,14 +713,17 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                 $0.repairAction = .noAction
             }
             completion(response, self.returnRepairErrorResponse)
-        }
-        else {
+        } else {
             completion(GetRepairActionResponse(), nil)
         }
     }
+
+    func getSupportAppInfo(_: GetSupportAppInfoRequest, completion: @escaping (GetSupportAppInfoResponse?, Error?) -> Void) {
+        completion(GetSupportAppInfoResponse(), nil)
+    }
 }
 
-extension FakeCuttlefishServer : CloudKitCode.Invocable {
+extension FakeCuttlefishServer: CloudKitCode.Invocable {
     func invoke<RequestType, ResponseType>(function: String,
                                            request: RequestType,
                                            completion: @escaping (ResponseType?, Error?) -> Void) {
@@ -745,8 +759,8 @@ extension FakeCuttlefishServer : CloudKitCode.Invocable {
         case let request as ReportHealthRequest:
             self.reportHealth(request, completion: completion as! (ReportHealthResponse?, Error?) -> Void)
             return
-        case let request as HealthInquiryRequest:
-            self.pushHealthInquiry(request, completion: completion as! (HealthInquiryResponse?, Error?) -> Void)
+        case let request as PushHealthInquiryRequest:
+            self.pushHealthInquiry(request, completion: completion as! (PushHealthInquiryResponse?, Error?) -> Void)
             return
         case let request as GetRepairActionRequest:
             self.getRepairAction(request, completion: completion as! (GetRepairActionResponse?, Error?) -> Void)

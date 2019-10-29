@@ -1,6 +1,737 @@
-2019-08-01  Mark Lam  <mark.lam@apple.com>
+2019-10-03  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r249345. rdar://problem/55362909
+        Cherry-pick r249538. rdar://problem/55911485
+
+    LazyClassStructure::setConstructor should not store the constructor to the global object
+    https://bugs.webkit.org/show_bug.cgi?id=201484
+    <rdar://problem/50400451>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/web-assembly-constructors-should-not-override-global-object-property.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    LazyClassStructure::setConstructor sets the constructor as a property of the global object.
+    This became a problem when it started being used for WebAssembly constructors, such as Module
+    and Instance, since they are properties of the WebAssembly object, not the global object. That
+    resulted in properties of the global object replaced whenever a lazy WebAssembly constructor
+    was first accessed. e.g.
+    
+    globalThis.Module = x;
+    WebAssembly.Module;
+    globalThis.Module === WebAssembly.Module;
+    
+    * runtime/LazyClassStructure.cpp:
+    (JSC::LazyClassStructure::Initializer::setConstructor):
+    * runtime/LazyClassStructure.h:
+    * runtime/Lookup.h:
+    (JSC::reifyStaticProperty):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249538 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-05  Tadeu Zagallo  <tzagallo@apple.com>
+
+            LazyClassStructure::setConstructor should not store the constructor to the global object
+            https://bugs.webkit.org/show_bug.cgi?id=201484
+            <rdar://problem/50400451>
+
+            Reviewed by Yusuke Suzuki.
+
+            LazyClassStructure::setConstructor sets the constructor as a property of the global object.
+            This became a problem when it started being used for WebAssembly constructors, such as Module
+            and Instance, since they are properties of the WebAssembly object, not the global object. That
+            resulted in properties of the global object replaced whenever a lazy WebAssembly constructor
+            was first accessed. e.g.
+
+            globalThis.Module = x;
+            WebAssembly.Module;
+            globalThis.Module === WebAssembly.Module;
+
+            * runtime/LazyClassStructure.cpp:
+            (JSC::LazyClassStructure::Initializer::setConstructor):
+            * runtime/LazyClassStructure.h:
+            * runtime/Lookup.h:
+            (JSC::reifyStaticProperty):
+
+2019-09-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r250058. rdar://problem/55826329
+
+    Phantom insertion phase may disagree with arguments forwarding about live ranges
+    https://bugs.webkit.org/show_bug.cgi?id=200715
+    <rdar://problem/54301717>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/phantom-insertion-live-range-should-agree-with-arguments-forwarding.js: Added.
+    (main.v23):
+    (main.try.v43):
+    (main.):
+    (main):
+    
+    Source/JavaScriptCore:
+    
+    The issue is that Phantom insertion phase was disagreeing about live ranges
+    from the arguments forwarding phase. The effect is that Phantom insertion
+    would insert a Phantom creating a longer live range than what arguments
+    forwarding was analyzing. Arguments forwarding will look for the last DFG
+    use or the last bytecode use of a variable it wants to eliminate. It then
+    does an interference analysis to ensure that nothing clobbers other variables
+    it needs to recover the sunken allocation during OSR exit.
+            
+    Phantom insertion works by ordering the program into OSR exit epochs. If a value was used
+    in the current epoch, there is no need to insert a phantom for it. We
+    determine where we might need a Phantom by looking at bytecode kills. In this
+    analysis, we have a mapping from bytecode local to DFG node. However, we
+    sometimes forgot to remove the entry when a local is killed. So, if the first
+    kill of a variable is in the same OSR exit epoch, we won't insert a Phantom by design.
+    However, if the variable gets killed again, we might errantly insert a Phantom
+    for the prior variable which should've already been killed. The solution is to
+    clear the entry in our mapping when a variable is killed.
+            
+    The program in question was like this:
+            
+    1: DirectArguments
+    ...
+    2: MovHint(@1, loc1) // arguments forwarding treats this as the final kill for @1
+    ...
+    clobber things needed for recovery
+    ...
+            
+    Arguments elimination would transform the program since between @1 and
+    @2, nothing clobbers values needed for exit and nothing escapes @1. The
+    program becomes:
+            
+    1: PhantomDirectArguments
+    ...
+    2: MovHint(@1, loc1) // arguments forwarding treats this as the final kill for @1
+    ...
+    clobber things needed for recovery of @1
+    ...
+            
+            
+    Phantom insertion would then transform the program into:
+            
+    1: PhantomDirectArguments
+    ...
+    2: MovHint(@1, loc1) // arguments forwarding treats this as the final kill for @1
+    ...
+    clobber things needed for recovery of @1
+    ...
+    3: Phantom(@1)
+    ...
+            
+    This is wrong because Phantom insertion and arguments forwarding must agree on live
+    ranges, otherwise the interference analysis performed by arguments forwarding will
+    not correctly analyze up until where the value might be recovered.
+    
+    * dfg/DFGPhantomInsertionPhase.cpp:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250058 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-18  Saam Barati  <sbarati@apple.com>
+
+            Phantom insertion phase may disagree with arguments forwarding about live ranges
+            https://bugs.webkit.org/show_bug.cgi?id=200715
+            <rdar://problem/54301717>
+
+            Reviewed by Yusuke Suzuki.
+
+            The issue is that Phantom insertion phase was disagreeing about live ranges
+            from the arguments forwarding phase. The effect is that Phantom insertion
+            would insert a Phantom creating a longer live range than what arguments
+            forwarding was analyzing. Arguments forwarding will look for the last DFG
+            use or the last bytecode use of a variable it wants to eliminate. It then
+            does an interference analysis to ensure that nothing clobbers other variables
+            it needs to recover the sunken allocation during OSR exit.
+
+            Phantom insertion works by ordering the program into OSR exit epochs. If a value was used
+            in the current epoch, there is no need to insert a phantom for it. We
+            determine where we might need a Phantom by looking at bytecode kills. In this
+            analysis, we have a mapping from bytecode local to DFG node. However, we
+            sometimes forgot to remove the entry when a local is killed. So, if the first
+            kill of a variable is in the same OSR exit epoch, we won't insert a Phantom by design.
+            However, if the variable gets killed again, we might errantly insert a Phantom
+            for the prior variable which should've already been killed. The solution is to
+            clear the entry in our mapping when a variable is killed.
+
+            The program in question was like this:
+
+            1: DirectArguments
+            ...
+            2: MovHint(@1, loc1) // arguments forwarding treats this as the final kill for @1
+            ...
+            clobber things needed for recovery
+            ...
+
+            Arguments elimination would transform the program since between @1 and
+            @2, nothing clobbers values needed for exit and nothing escapes @1. The
+            program becomes:
+
+            1: PhantomDirectArguments
+            ...
+            2: MovHint(@1, loc1) // arguments forwarding treats this as the final kill for @1
+            ...
+            clobber things needed for recovery of @1
+            ...
+
+
+            Phantom insertion would then transform the program into:
+
+            1: PhantomDirectArguments
+            ...
+            2: MovHint(@1, loc1) // arguments forwarding treats this as the final kill for @1
+            ...
+            clobber things needed for recovery of @1
+            ...
+            3: Phantom(@1)
+            ...
+
+            This is wrong because Phantom insertion and arguments forwarding must agree on live
+            ranges, otherwise the interference analysis performed by arguments forwarding will
+            not correctly analyze up until where the value might be recovered.
+
+            * dfg/DFGPhantomInsertionPhase.cpp:
+
+2019-09-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r249926. rdar://problem/55826870
+
+    [JSC] Perform check again when we found non-BMP characters
+    https://bugs.webkit.org/show_bug.cgi?id=201647
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/regexp-unicode-surrogate-pair-increment-should-involve-length-check.js: Added.
+    * stress/regexp-unicode-within-string.js: Updated test to eliminate the bogus print().
+    (testRegExpInbounds):
+    
+    Source/JavaScriptCore:
+    
+    We need to check for end of input for non-BMP characters when matching a character class that contains
+    both BMP and non-BMP characters.  In advanceIndexAfterCharacterClassTermMatch() we were checking for
+    end of input for both BMP and non-BMP characters.  For BMP characters, this check is redundant.
+    After moving the check to after the "is BMP check", we need to decrement index after reaching the failure
+    label to back out the index++ for the first surrogate of the non-BMP character.
+    
+    Added the same kind of check in generateCharacterClassOnce().  In that case, we have pre-checked the
+    first character (surrogate) for a non-BMP codepoint, so we just need to check for end of input before
+    we increment for the second surrogate.
+    
+    While writing tests, I found an off by one error in backtrackCharacterClassGreedy() and changed the
+    loop to check the count at loop top instead of loop bottom.
+    
+    * yarr/YarrJIT.cpp:
+    (JSC::Yarr::YarrGenerator::advanceIndexAfterCharacterClassTermMatch):
+    (JSC::Yarr::YarrGenerator::generateCharacterClassOnce):
+    (JSC::Yarr::YarrGenerator::generateCharacterClassGreedy):
+    (JSC::Yarr::YarrGenerator::backtrackCharacterClassGreedy):
+    (JSC::Yarr::YarrGenerator::backtrackCharacterClassNonGreedy):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249926 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-16  Michael Saboff  <msaboff@apple.com>
+
+            [JSC] Perform check again when we found non-BMP characters
+            https://bugs.webkit.org/show_bug.cgi?id=201647
+
+            Reviewed by Yusuke Suzuki.
+
+            We need to check for end of input for non-BMP characters when matching a character class that contains
+            both BMP and non-BMP characters.  In advanceIndexAfterCharacterClassTermMatch() we were checking for
+            end of input for both BMP and non-BMP characters.  For BMP characters, this check is redundant.
+            After moving the check to after the "is BMP check", we need to decrement index after reaching the failure
+            label to back out the index++ for the first surrogate of the non-BMP character.
+
+            Added the same kind of check in generateCharacterClassOnce().  In that case, we have pre-checked the
+            first character (surrogate) for a non-BMP codepoint, so we just need to check for end of input before
+            we increment for the second surrogate.
+
+            While writing tests, I found an off by one error in backtrackCharacterClassGreedy() and changed the
+            loop to check the count at loop top instead of loop bottom.
+
+            * yarr/YarrJIT.cpp:
+            (JSC::Yarr::YarrGenerator::advanceIndexAfterCharacterClassTermMatch):
+            (JSC::Yarr::YarrGenerator::generateCharacterClassOnce):
+            (JSC::Yarr::YarrGenerator::generateCharacterClassGreedy):
+            (JSC::Yarr::YarrGenerator::backtrackCharacterClassGreedy):
+            (JSC::Yarr::YarrGenerator::backtrackCharacterClassNonGreedy):
+
+2019-09-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r249777. rdar://problem/55826876
+
+    JSC crashes due to stack overflow while building RegExp
+    https://bugs.webkit.org/show_bug.cgi?id=201649
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    New regression test.
+    
+    * stress/regexp-bol-optimize-out-of-stack.js: Added.
+    (test):
+    (catch):
+    
+    Source/JavaScriptCore:
+    
+    Check for running out of stack when we are optimizing RegExp containing BOL terms or
+    other deep copying of disjunctions.
+    
+    * yarr/YarrPattern.cpp:
+    (JSC::Yarr::YarrPatternConstructor::copyDisjunction):
+    (JSC::Yarr::YarrPatternConstructor::copyTerm):
+    (JSC::Yarr::YarrPatternConstructor::error):
+    (JSC::Yarr::YarrPattern::compile):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249777 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-11  Michael Saboff  <msaboff@apple.com>
+
+            JSC crashes due to stack overflow while building RegExp
+            https://bugs.webkit.org/show_bug.cgi?id=201649
+
+            Reviewed by Yusuke Suzuki.
+
+            Check for running out of stack when we are optimizing RegExp containing BOL terms or
+            other deep copying of disjunctions.
+
+            * yarr/YarrPattern.cpp:
+            (JSC::Yarr::YarrPatternConstructor::copyDisjunction):
+            (JSC::Yarr::YarrPatternConstructor::copyTerm):
+            (JSC::Yarr::YarrPatternConstructor::error):
+            (JSC::Yarr::YarrPattern::compile):
+
+2019-09-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r248951. rdar://problem/55826863
+
+    [JSC] incorrent JIT lead to StackOverflow
+    https://bugs.webkit.org/show_bug.cgi?id=197823
+    
+    Reviewed by Tadeu Zagallo.
+    
+    JSTests:
+    
+    New test.
+    
+    * stress/bound-function-stack-overflow.js: Added.
+    (foo):
+    (catch):
+    
+    Source/JavaScriptCore:
+    
+    Added stack overflow check to the bound function thunk generator.  Added a new C++ operation
+    throwStackOverflowErrorFromThunk() to throw the error.
+            
+    * jit/JITOperations.cpp:
+    * jit/JITOperations.h:
+    * jit/ThunkGenerators.cpp:
+    (JSC::boundThisNoArgsFunctionCallGenerator):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@248951 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-21  Michael Saboff  <msaboff@apple.com>
+
+            [JSC] incorrent JIT lead to StackOverflow
+            https://bugs.webkit.org/show_bug.cgi?id=197823
+
+            Reviewed by Tadeu Zagallo.
+
+            Added stack overflow check to the bound function thunk generator.  Added a new C++ operation
+            throwStackOverflowErrorFromThunk() to throw the error.
+
+            * jit/JITOperations.cpp:
+            * jit/JITOperations.h:
+            * jit/ThunkGenerators.cpp:
+            (JSC::boundThisNoArgsFunctionCallGenerator):
+
+2019-09-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r248796. rdar://problem/55826874
+
+    [Re-land] ProxyObject should not be allow to access its target's private properties.
+    https://bugs.webkit.org/show_bug.cgi?id=200739
+    <rdar://problem/53972768>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/proxy-should-not-be-allowed-to-access-private-properties-of-target.js: Copied from JSTests/stress/proxy-should-not-be-allowed-to-access-private-properties-of-target.js.
+    * stress/proxy-with-private-symbols.js:
+    
+    Source/JavaScriptCore:
+    
+    Re-landing this after r200829 which resolves the test262 failure uncovered by this patch.
+    
+    * runtime/ProxyObject.cpp:
+    (JSC::performProxyGet):
+    (JSC::ProxyObject::performInternalMethodGetOwnProperty):
+    (JSC::ProxyObject::performHasProperty):
+    (JSC::ProxyObject::performPut):
+    (JSC::ProxyObject::performDelete):
+    (JSC::ProxyObject::performDefineOwnProperty):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@248796 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-16  Mark Lam  <mark.lam@apple.com>
+
+            [Re-land] ProxyObject should not be allow to access its target's private properties.
+            https://bugs.webkit.org/show_bug.cgi?id=200739
+            <rdar://problem/53972768>
+
+            Reviewed by Yusuke Suzuki.
+
+            Re-landing this after r200829 which resolves the test262 failure uncovered by this patch.
+
+            * runtime/ProxyObject.cpp:
+            (JSC::performProxyGet):
+            (JSC::ProxyObject::performInternalMethodGetOwnProperty):
+            (JSC::ProxyObject::performHasProperty):
+            (JSC::ProxyObject::performPut):
+            (JSC::ProxyObject::performDelete):
+            (JSC::ProxyObject::performDefineOwnProperty):
+
+2019-09-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r247799. rdar://problem/55826880
+
+    performJITMemcpy should be PACed with a non-zero diversifier when passed and called via a pointer.
+    https://bugs.webkit.org/show_bug.cgi?id=200100
+    <rdar://problem/53474939>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    * assembler/ARM64Assembler.h:
+    (JSC::ARM64Assembler::CopyFunction::CopyFunction):
+    (JSC::ARM64Assembler::CopyFunction::operator()):
+    - I choose to use ptrauth_auth_function() here instead of retagCodePtr() because
+      retagCodePtr() would auth, assert, and re-pac the pointer.  This is needed in
+      general because retagCodePtr() doesn't know that you will consume the pointer
+      immediately (and therefore crash imminently if a failed auth is encountered).
+      Since we know here that we will call with the auth'ed pointer immediately, we
+      can skip the assert.
+    
+      This also has the benefit of letting Clang do a peephole optimization to emit
+      a blrab instruction with the intended diversifier, instead of emitting multiple
+      instructions to auth the pointer into a C function, and then using a blraaz to
+      do a C function call.
+    
+    (JSC::ARM64Assembler::linkJumpOrCall):
+    (JSC::ARM64Assembler::linkCompareAndBranch):
+    (JSC::ARM64Assembler::linkConditionalBranch):
+    (JSC::ARM64Assembler::linkTestAndBranch):
+    * assembler/LinkBuffer.cpp:
+    (JSC::LinkBuffer::copyCompactAndLinkCode):
+    * runtime/JSCPtrTag.h:
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@247799 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-07-24  Mark Lam  <mark.lam@apple.com>
+
+            performJITMemcpy should be PACed with a non-zero diversifier when passed and called via a pointer.
+            https://bugs.webkit.org/show_bug.cgi?id=200100
+            <rdar://problem/53474939>
+
+            Reviewed by Yusuke Suzuki.
+
+            * assembler/ARM64Assembler.h:
+            (JSC::ARM64Assembler::CopyFunction::CopyFunction):
+            (JSC::ARM64Assembler::CopyFunction::operator()):
+            - I choose to use ptrauth_auth_function() here instead of retagCodePtr() because
+              retagCodePtr() would auth, assert, and re-pac the pointer.  This is needed in
+              general because retagCodePtr() doesn't know that you will consume the pointer
+              immediately (and therefore crash imminently if a failed auth is encountered).
+              Since we know here that we will call with the auth'ed pointer immediately, we
+              can skip the assert.
+
+              This also has the benefit of letting Clang do a peephole optimization to emit
+              a blrab instruction with the intended diversifier, instead of emitting multiple
+              instructions to auth the pointer into a C function, and then using a blraaz to
+              do a C function call.
+
+            (JSC::ARM64Assembler::linkJumpOrCall):
+            (JSC::ARM64Assembler::linkCompareAndBranch):
+            (JSC::ARM64Assembler::linkConditionalBranch):
+            (JSC::ARM64Assembler::linkTestAndBranch):
+            * assembler/LinkBuffer.cpp:
+            (JSC::LinkBuffer::copyCompactAndLinkCode):
+            * runtime/JSCPtrTag.h:
+
+2019-09-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250440. rdar://problem/55800893
+
+    OSR exit shouldn't bother updating get_by_id array profiles that have changed modes
+    https://bugs.webkit.org/show_bug.cgi?id=202324
+    <rdar://problem/52669110>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    This is an optimization that avoids polluting the array profile.
+    
+    * dfg/DFGOSRExit.cpp:
+    (JSC::DFG::OSRExit::executeOSRExit):
+    (JSC::DFG::OSRExit::compileExit):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250440 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-27  Keith Miller  <keith_miller@apple.com>
+
+            OSR exit shouldn't bother updating get_by_id array profiles that have changed modes
+            https://bugs.webkit.org/show_bug.cgi?id=202324
+            <rdar://problem/52669110>
+
+            Reviewed by Yusuke Suzuki.
+
+            This is an optimization that avoids polluting the array profile.
+
+            * dfg/DFGOSRExit.cpp:
+            (JSC::DFG::OSRExit::executeOSRExit):
+            (JSC::DFG::OSRExit::compileExit):
+
+2019-09-23  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250116. rdar://problem/55608003
+
+    [JSC] DFG op_call_varargs should not assume that one-previous-local of freeReg is usable
+    https://bugs.webkit.org/show_bug.cgi?id=202014
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/call-varargs-inlining-should-not-clobber-previous-to-free-register.js: Added.
+    (__v0):
+    
+    Source/JavaScriptCore:
+    
+    Let's look into the bytecode generated by the test.
+    
+        [   0] enter
+        [   1] get_scope          loc4
+        [   3] mov                loc5, loc4
+        [   6] check_traps
+        [   7] mov                loc6, callee
+        [  10] create_direct_arguments loc7
+        [  12] to_this            this
+        [  15] mov                loc8, loc7
+        [  18] mov                loc9, loc6
+        [  21] mov                loc12, Undefined(const0)
+        [  24] get_by_id          loc11, loc6, 0
+        [  29] jneq_ptr           loc11, ApplyFunction, 18(->47)
+        [  34] mov                loc11, loc6
+        [  37] call_varargs       loc11, loc11, this, loc8, loc13, 0
+        [  45] jmp                17(->62)
+        [  47] mov                loc16, loc6
+        [  50] mov                loc15, this
+        [  53] mov                loc14, loc8
+        [  56] call               loc11, loc11, 3, 22
+        ...
+    
+    call_varargs uses loc13 as firstFreeReg (first usable bottom register in the current stack-frame to spread variadic arguments after this).
+    This is correct. And call_varargs uses |this| as this argument for the call_varargs. This |this| argument is not in a region starting from loc13.
+    And it is not in the previous place to loc13 (|this| is not loc12).
+    
+    On the other hand, DFG::ByteCodeParser's inlining path is always assuming that the previous to firstFreeReg is usable and part of arguments.
+    But this is wrong. loc12 in the above bytecode is used for `[  56] call               loc11, loc11, 3, 22`'s argument later, and this call assumes
+    that loc12 is not clobbered by call_varargs. But DFG and FTL clobbers it.
+    
+    The test is recursively calling the same function, and we inline the same function one-level. And stack-overflow error happens when inlined
+    CallForwardVarargs (from op_call_varargs) is called. FTL recovers the frames, and at this point, outer function's loc12 is recovered to garbage since
+    LoadVarargs clobbers it. And we eventually use it and crash.
+    
+        60:<!0:-> LoadVarargs(Check:Untyped:Kill:@30, MustGen, start = loc13, count = loc15, machineStart = loc7, machineCount = loc9, offset = 0, mandatoryMinimum = 0, limit = 2, R:World, W:Stack(-16),Stack(-14),Stack(-13),Heap, Exits, ClobbersExit, bc#37, ExitValid)
+    
+    This LoadVarargs clobbers loc12, loc13, and loc15 while loc12 is used.
+    
+    In all the tiers, op_call_varargs first allocates enough region to hold varargs including |this|. And we store |this| value to a correct place.
+    DFG should not assume that the previous register to firstFreeReg is used for |this|.
+    
+    This patch fixes DFG::ByteCodeParser's stack region calculation for op_call_varargs inlining. And we rename maxNumArguments to maxArgumentCountIncludingThis to
+    represent that `maxArgumentCountIncludingThis` includes |this| count.
+    
+    * bytecode/CallLinkInfo.cpp:
+    (JSC::CallLinkInfo::setMaxArgumentCountIncludingThis):
+    (JSC::CallLinkInfo::setMaxNumArguments): Deleted.
+    * bytecode/CallLinkInfo.h:
+    (JSC::CallLinkInfo::addressOfMaxArgumentCountIncludingThis):
+    (JSC::CallLinkInfo::maxArgumentCountIncludingThis):
+    (JSC::CallLinkInfo::addressOfMaxNumArguments): Deleted.
+    (JSC::CallLinkInfo::maxNumArguments): Deleted.
+    * bytecode/CallLinkStatus.cpp:
+    (JSC::CallLinkStatus::computeFor):
+    (JSC::CallLinkStatus::dump const):
+    * bytecode/CallLinkStatus.h:
+    (JSC::CallLinkStatus::maxArgumentCountIncludingThis const):
+    (JSC::CallLinkStatus::maxNumArguments const): Deleted.
+    * dfg/DFGByteCodeParser.cpp:
+    (JSC::DFG::ByteCodeParser::handleVarargsInlining):
+    * dfg/DFGSpeculativeJIT32_64.cpp:
+    (JSC::DFG::SpeculativeJIT::emitCall):
+    * dfg/DFGSpeculativeJIT64.cpp:
+    (JSC::DFG::SpeculativeJIT::emitCall):
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileDirectCallOrConstruct):
+    * jit/JITCall.cpp:
+    (JSC::JIT::compileSetupFrame):
+    * jit/JITCall32_64.cpp:
+    (JSC::JIT::compileSetupFrame):
+    * jit/JITOperations.cpp:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250116 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] DFG op_call_varargs should not assume that one-previous-local of freeReg is usable
+            https://bugs.webkit.org/show_bug.cgi?id=202014
+
+            Reviewed by Saam Barati.
+
+            Let's look into the bytecode generated by the test.
+
+                [   0] enter
+                [   1] get_scope          loc4
+                [   3] mov                loc5, loc4
+                [   6] check_traps
+                [   7] mov                loc6, callee
+                [  10] create_direct_arguments loc7
+                [  12] to_this            this
+                [  15] mov                loc8, loc7
+                [  18] mov                loc9, loc6
+                [  21] mov                loc12, Undefined(const0)
+                [  24] get_by_id          loc11, loc6, 0
+                [  29] jneq_ptr           loc11, ApplyFunction, 18(->47)
+                [  34] mov                loc11, loc6
+                [  37] call_varargs       loc11, loc11, this, loc8, loc13, 0
+                [  45] jmp                17(->62)
+                [  47] mov                loc16, loc6
+                [  50] mov                loc15, this
+                [  53] mov                loc14, loc8
+                [  56] call               loc11, loc11, 3, 22
+                ...
+
+            call_varargs uses loc13 as firstFreeReg (first usable bottom register in the current stack-frame to spread variadic arguments after this).
+            This is correct. And call_varargs uses |this| as this argument for the call_varargs. This |this| argument is not in a region starting from loc13.
+            And it is not in the previous place to loc13 (|this| is not loc12).
+
+            On the other hand, DFG::ByteCodeParser's inlining path is always assuming that the previous to firstFreeReg is usable and part of arguments.
+            But this is wrong. loc12 in the above bytecode is used for `[  56] call               loc11, loc11, 3, 22`'s argument later, and this call assumes
+            that loc12 is not clobbered by call_varargs. But DFG and FTL clobbers it.
+
+            The test is recursively calling the same function, and we inline the same function one-level. And stack-overflow error happens when inlined
+            CallForwardVarargs (from op_call_varargs) is called. FTL recovers the frames, and at this point, outer function's loc12 is recovered to garbage since
+            LoadVarargs clobbers it. And we eventually use it and crash.
+
+                60:<!0:-> LoadVarargs(Check:Untyped:Kill:@30, MustGen, start = loc13, count = loc15, machineStart = loc7, machineCount = loc9, offset = 0, mandatoryMinimum = 0, limit = 2, R:World, W:Stack(-16),Stack(-14),Stack(-13),Heap, Exits, ClobbersExit, bc#37, ExitValid)
+
+            This LoadVarargs clobbers loc12, loc13, and loc15 while loc12 is used.
+
+            In all the tiers, op_call_varargs first allocates enough region to hold varargs including |this|. And we store |this| value to a correct place.
+            DFG should not assume that the previous register to firstFreeReg is used for |this|.
+
+            This patch fixes DFG::ByteCodeParser's stack region calculation for op_call_varargs inlining. And we rename maxNumArguments to maxArgumentCountIncludingThis to
+            represent that `maxArgumentCountIncludingThis` includes |this| count.
+
+            * bytecode/CallLinkInfo.cpp:
+            (JSC::CallLinkInfo::setMaxArgumentCountIncludingThis):
+            (JSC::CallLinkInfo::setMaxNumArguments): Deleted.
+            * bytecode/CallLinkInfo.h:
+            (JSC::CallLinkInfo::addressOfMaxArgumentCountIncludingThis):
+            (JSC::CallLinkInfo::maxArgumentCountIncludingThis):
+            (JSC::CallLinkInfo::addressOfMaxNumArguments): Deleted.
+            (JSC::CallLinkInfo::maxNumArguments): Deleted.
+            * bytecode/CallLinkStatus.cpp:
+            (JSC::CallLinkStatus::computeFor):
+            (JSC::CallLinkStatus::dump const):
+            * bytecode/CallLinkStatus.h:
+            (JSC::CallLinkStatus::maxArgumentCountIncludingThis const):
+            (JSC::CallLinkStatus::maxNumArguments const): Deleted.
+            * dfg/DFGByteCodeParser.cpp:
+            (JSC::DFG::ByteCodeParser::handleVarargsInlining):
+            * dfg/DFGSpeculativeJIT32_64.cpp:
+            (JSC::DFG::SpeculativeJIT::emitCall):
+            * dfg/DFGSpeculativeJIT64.cpp:
+            (JSC::DFG::SpeculativeJIT::emitCall):
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileDirectCallOrConstruct):
+            * jit/JITCall.cpp:
+            (JSC::JIT::compileSetupFrame):
+            * jit/JITCall32_64.cpp:
+            (JSC::JIT::compileSetupFrame):
+            * jit/JITOperations.cpp:
+
+2019-09-17  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r249911. rdar://problem/55461405
+
+    JSObject::putInlineSlow should not ignore "__proto__" for Proxy
+    https://bugs.webkit.org/show_bug.cgi?id=200386
+    <rdar://problem/53854946>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/proxy-__proto__-in-prototype-chain.js: Added.
+    * stress/proxy-property-replace-structure-transition.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    We used to ignore '__proto__' in putInlineSlow when the object in question
+    was Proxy. There is no reason for this, and it goes against the spec. So
+    I've removed that condition. This also has the effect that it fixes an
+    assertion firing inside our inline caching code which dictates that for a
+    property replace that the base value's structure must be equal to the
+    structure when we grabbed the structure prior to the put operation.
+    The old code caused a weird edge case where we broke this invariant.
+    
+    * runtime/JSObject.cpp:
+    (JSC::JSObject::putInlineSlow):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249911 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-16  Saam Barati  <sbarati@apple.com>
+
+            JSObject::putInlineSlow should not ignore "__proto__" for Proxy
+            https://bugs.webkit.org/show_bug.cgi?id=200386
+            <rdar://problem/53854946>
+
+            Reviewed by Yusuke Suzuki.
+
+            We used to ignore '__proto__' in putInlineSlow when the object in question
+            was Proxy. There is no reason for this, and it goes against the spec. So
+            I've removed that condition. This also has the effect that it fixes an
+            assertion firing inside our inline caching code which dictates that for a
+            property replace that the base value's structure must be equal to the
+            structure when we grabbed the structure prior to the put operation.
+            The old code caused a weird edge case where we broke this invariant.
+
+            * runtime/JSObject.cpp:
+            (JSC::JSObject::putInlineSlow):
+
+2019-09-04  Mark Lam  <mark.lam@apple.com>
+
+        Cherry-pick 249345. rdar://problem/55000994
 
     2019-08-30  Mark Lam  <mark.lam@apple.com>
 
@@ -25,9 +756,9 @@
             * heap/SlotVisitor.cpp:
             (JSC::SlotVisitor::reportZappedCellAndCrash):
 
-2019-08-01  Mark Lam  <mark.lam@apple.com>
+2019-09-04  Mark Lam  <mark.lam@apple.com>
 
-        Cherry-pick r248143, r248162. rdar://problem/55362908
+        Cherry-pick 248143, 248162. rdar://problem/55000992
 
         Also deleted an unused function.  This is needed to resolve a merge conflict for
         this patch.
@@ -36,6 +767,17 @@
         (JSC::MarkedBlock::Handle::zap): Deleted.
         * heap/MarkedBlock.h:
         (JSC::MarkedBlock::Handle::zap): Deleted.
+
+    2019-08-02  Mark Lam  <mark.lam@apple.com>
+
+            Gardening: build fix.
+            https://bugs.webkit.org/show_bug.cgi?id=200149
+            <rdar://problem/53570112>
+
+            Not reviewed.
+
+            * assembler/CPU.cpp:
+            (JSC::hwPhysicalCPUMax):
 
     2019-08-01  Mark Lam  <mark.lam@apple.com>
 
@@ -106,16 +848,106 @@
             (JSC::VMInspector::dumpSubspaceHashes):
             * tools/VMInspector.h:
 
-    2019-08-02  Mark Lam  <mark.lam@apple.com>
+2019-09-03  Kocsen Chung  <kocsen_chung@apple.com>
 
-            Gardening: build fix.
-            https://bugs.webkit.org/show_bug.cgi?id=200149
-            <rdar://problem/53570112>
+        Cherry-pick r248824. rdar://problem/55001142
 
-            Not reviewed.
+    [JSC] WebAssembly BBQ should switch compile mode for size of modules
+    https://bugs.webkit.org/show_bug.cgi?id=200807
+    
+    Reviewed by Mark Lam.
+    
+    Some webpages use very large Wasm module, and it exhausts all executable memory in ARM64 devices since the size of executable memory region is 128MB.
+    The long term solution should be introducing Wasm interpreter. But as a short term solution, we introduce heuristics switching back to BBQ B3 at
+    the sacrifice of start-up time, since BBQ Air bloats such lengthy code, and thereby consumes a large amount of executable memory.
+    
+    Currently, I picked 10MB since the reported website is using 11MB wasm module.
+    
+    * runtime/Options.h:
+    * wasm/WasmAirIRGenerator.cpp:
+    (JSC::Wasm::parseAndCompileAir):
+    * wasm/WasmB3IRGenerator.cpp:
+    (JSC::Wasm::parseAndCompile):
+    * wasm/WasmBBQPlan.cpp:
+    (JSC::Wasm::BBQPlan::compileFunctions):
+    * wasm/WasmModuleInformation.h:
+    * wasm/WasmSectionParser.cpp:
+    (JSC::Wasm::SectionParser::parseCode):
+    * wasm/WasmStreamingParser.cpp:
+    (JSC::Wasm::StreamingParser::parseCodeSectionSize):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@248824 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-            * assembler/CPU.cpp:
-            (JSC::hwPhysicalCPUMax):
+    2019-08-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] WebAssembly BBQ should switch compile mode for size of modules
+            https://bugs.webkit.org/show_bug.cgi?id=200807
+
+            Reviewed by Mark Lam.
+
+            Some webpages use very large Wasm module, and it exhausts all executable memory in ARM64 devices since the size of executable memory region is 128MB.
+            The long term solution should be introducing Wasm interpreter. But as a short term solution, we introduce heuristics switching back to BBQ B3 at
+            the sacrifice of start-up time, since BBQ Air bloats such lengthy code, and thereby consumes a large amount of executable memory.
+
+            Currently, I picked 10MB since the reported website is using 11MB wasm module.
+
+            * runtime/Options.h:
+            * wasm/WasmAirIRGenerator.cpp:
+            (JSC::Wasm::parseAndCompileAir):
+            * wasm/WasmB3IRGenerator.cpp:
+            (JSC::Wasm::parseAndCompile):
+            * wasm/WasmBBQPlan.cpp:
+            (JSC::Wasm::BBQPlan::compileFunctions):
+            * wasm/WasmModuleInformation.h:
+            * wasm/WasmSectionParser.cpp:
+            (JSC::Wasm::SectionParser::parseCode):
+            * wasm/WasmStreamingParser.cpp:
+            (JSC::Wasm::StreamingParser::parseCodeSectionSize):
+
+2019-09-03  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r248793. rdar://problem/55001191
+
+    [JSC] Promise.prototype.finally should accept non-promise objects
+    https://bugs.webkit.org/show_bug.cgi?id=200829
+    
+    Reviewed by Mark Lam.
+    
+    JSTests:
+    
+    * stress/promise-finally-should-accept-non-promise-objects.js: Added.
+    (shouldBe):
+    (Thenable):
+    (Thenable.prototype.then):
+    
+    Source/JavaScriptCore:
+    
+    According to the Promise.prototype.finally spec step 2[1], we should check @isObject instead of @isPromise,
+    since Promise.prototype.finally should accept thenable objects that are defined by user libraries (like, bluebird for example).
+    This patch changes this check to the specified one.
+    
+    [1]: https://tc39.es/proposal-promise-finally/
+    
+    * builtins/PromisePrototype.js:
+    (finally):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@248793 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-16  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Promise.prototype.finally should accept non-promise objects
+            https://bugs.webkit.org/show_bug.cgi?id=200829
+
+            Reviewed by Mark Lam.
+
+            According to the Promise.prototype.finally spec step 2[1], we should check @isObject instead of @isPromise,
+            since Promise.prototype.finally should accept thenable objects that are defined by user libraries (like, bluebird for example).
+            This patch changes this check to the specified one.
+
+            [1]: https://tc39.es/proposal-promise-finally/
+
+            * builtins/PromisePrototype.js:
+            (finally):
 
 2019-08-18  Babak Shafiei  <bshafiei@apple.com>
 

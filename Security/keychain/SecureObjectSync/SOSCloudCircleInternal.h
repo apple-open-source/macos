@@ -114,7 +114,7 @@ bool SOSCCDeleteEngineState(CFErrorRef *error);
 CFDataRef SOSCCCopyRecoveryPublicKey(CFErrorRef *error);
 CFDictionaryRef SOSCCCopyBackupInformation(CFErrorRef *error);
 bool SOSCCTestPopulateKVSWithBadKeys(CFErrorRef *error);
-CFDataRef SOSCCCopyInitialSyncData(CFErrorRef *error);
+CFDataRef SOSCCCopyInitialSyncData(SOSInitialSyncFlags flags, CFErrorRef *error);
 
 void SOSCCForEachEngineStateAsStringFromArray(CFArrayRef states, void (^block)(CFStringRef oneStateString));
 

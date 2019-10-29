@@ -908,6 +908,16 @@ static void sendEnergySettingsToKernel(
         }
     }
 
+    // ProModeControl
+    if( !removeUnsupportedSettings
+       || IOPMFeatureIsAvailableWithSupportedTable(CFSTR(kIOPMFeatureProModeKey), providing_power, _supportedCached))
+    {
+		CFNumberRef modeNum;
+		if ((modeNum = CFDictionaryGetValue(useSettings, CFSTR(kIOPMProModeKey))) && isA_CFNumber(modeNum)) {
+				IORegistryEntrySetCFProperty(PMRootDomain, CFSTR(kIOPMSettingProModeControl), modeNum);
+			}
+	}
+
     if ( !_platformSleepServiceSupport && !_platformBackgroundTaskSupport)
     {
         bool ssupdate, btupdate, pnupdate;

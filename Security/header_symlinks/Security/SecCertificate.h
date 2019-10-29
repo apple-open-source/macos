@@ -1,1 +1,1 @@
-../../trust/SecCertificate.h
+../../trust/headers/SecCertificate.h

@@ -184,6 +184,7 @@ static void print_json(NSDictionary* dict)
     [self.control resetAndEstablish:container
                             context:contextID
                             altDSID:altDSID
+                        resetReason:CuttlefishResetReasonUserInitiatedReset
                               reply:^(NSError* _Nullable error) {
                                   if(error) {
                                       printf("Error resetting: %s\n", [[error description] UTF8String]);

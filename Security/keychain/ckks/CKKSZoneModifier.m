@@ -99,9 +99,11 @@
 
     if(!self.pendingOperations) {
         CKKSResultOperation* zoneModificationOperationDependency = [CKKSResultOperation named:@"zone-modification" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+            secnotice("ckkszonemodifier", "finished creating zones");
         }];
 
         CKKSResultOperation* zoneSubscriptionOperationDependency = [CKKSResultOperation named:@"zone-subscription" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+            secnotice("ckkszonemodifier", "finished subscribing to zones");
         }];
 
         self.pendingOperations = [[CKKSZoneModifyOperations alloc] initWithZoneModificationOperation:zoneModificationOperationDependency
@@ -244,6 +246,8 @@
 
 - (CKDatabaseOperation<CKKSModifySubscriptionsOperation>* _Nullable)createModifySubscriptionsOperation:(CKKSZoneModifyOperations*)ops
 {
+    secnotice("ckkszonemodifier", "Attempting to subscribe to zones %@", ops.subscriptionsToSubscribe);
+
     if(ops.subscriptionsToSubscribe.count == 0) {
         [self.operationQueue addOperation: ops.zoneSubscriptionOperation];
         return nil;
@@ -257,10 +261,6 @@
     zoneSubscriptionOperation.configuration.isCloudKitSupportOperation = YES;
     zoneSubscriptionOperation.database = self.database;
     zoneSubscriptionOperation.name = @"zone-subscription-operation";
-
-    // Completion blocks don't count for dependencies. Use this intermediate operation hack instead.
-    NSBlockOperation* zoneSubscriptionCompleteOperation = [[NSBlockOperation alloc] init];
-    zoneSubscriptionCompleteOperation.name = @"zone-subscription-complete";
 
     WEAKIFY(self);
     zoneSubscriptionOperation.modifySubscriptionsCompletionBlock = ^(NSArray<CKSubscription *> * _Nullable savedSubscriptions,

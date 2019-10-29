@@ -1,6 +1,4 @@
 
-#include "xcconfig/PlatformLibraries.xcconfig"
-
 PLATFORM_STR = "unknown"
 PLATFORM_STR[sdk=macosx*] = "macOS"
 PLATFORM_STR[sdk=iphoneos*] = "iphone"
@@ -40,3 +38,14 @@ SHAREDWEBCREDENTIALS_ON[sdk=bridgeos*] = 0
 SHAREDWEBCREDENTIALS_ON[sdk=watch*] = 0
 SHAREDWEBCREDENTIALS_ON[sdk=appletv*] = 0
 SHAREDWEBCREDENTIALS_ON[sdk=macos*] = 0
+
+ABC_BUGCAPTURE_ON[sdk=iphoneos*] = 1
+ABC_BUGCAPTURE_ON[sdk=iphonesimulator*] = 0
+ABC_BUGCAPTURE_ON[sdk=watchos*] = 1
+ABC_BUGCAPTURE_ON[sdk=watchsimulator*] = 0
+ABC_BUGCAPTURE_ON[sdk=appletvos*] = 1
+ABC_BUGCAPTURE_ON[sdk=appletvsimulator*] = 0
+ABC_BUGCAPTURE_ON[sdk=macos*] = 1
+ABC_BUGCAPTURE_ON[sdk=bridgeos*] = 0
+
+#include "xcconfig/PlatformLibraries.xcconfig"

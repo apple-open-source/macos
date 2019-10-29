@@ -65,7 +65,6 @@ class EscrowKeys: NSObject {
     class func generateEscrowKey(keyType: escrowKeyType, masterSecret: Data, bottleSalt: String) throws -> (Data) {
         var keyLength: Int
         var info: Data
-        var infoLength: Int
         var derivedKey: Data
         var finalKey = Data()
 
@@ -75,7 +74,6 @@ class EscrowKeys: NSObject {
 
             let infoString = Array("Escrow Symmetric Key".utf8)
             info = Data(bytes: infoString, count: infoString.count)
-            infoLength = info.count
 
             break
         case escrowKeyType.kOTEscrowKeyEncryption:
@@ -83,7 +81,6 @@ class EscrowKeys: NSObject {
 
             let infoString = Array("Escrow Encryption Private Key".utf8)
             info = Data(bytes: infoString, count: infoString.count)
-            infoLength = info.count
 
             break
         case escrowKeyType.kOTEscrowKeySigning:
@@ -91,7 +88,6 @@ class EscrowKeys: NSObject {
 
             let infoString = Array("Escrow Signing Private Key".utf8)
             info = Data(bytes: infoString, count: infoString.count)
-            infoLength = info.count
 
             break
         }
@@ -107,30 +103,28 @@ class EscrowKeys: NSObject {
         derivedKey = Data(count: keyLength)
 
         var masterSecretMutable = masterSecret
-        let masterSecretLength = masterSecret.count
-        let derivedKeySize = derivedKey.count
 
         let bottleSaltData = Data(bytes: Array(bottleSalt.utf8), count: bottleSalt.utf8.count)
 
-        try derivedKey.withUnsafeMutableBytes { (derivedKeyBytes: UnsafeMutablePointer<UInt8>) throws ->Void in
-            try masterSecretMutable.withUnsafeMutableBytes { (masterSecretBytes: UnsafeMutablePointer<UInt8>) throws ->Void in
-                try bottleSaltData.withUnsafeBytes { (bottleSaltBytes: UnsafePointer<UInt8>) throws -> Void in
-                    try info.withUnsafeBytes { (infoBytes: UnsafePointer<UInt8>) throws -> Void in
+        try derivedKey.withUnsafeMutableBytes { (derivedKeyBytes: UnsafeMutableRawBufferPointer) throws -> Void in
+            try masterSecretMutable.withUnsafeMutableBytes { (masterSecretBytes: UnsafeMutableRawBufferPointer) throws -> Void in
+                try bottleSaltData.withUnsafeBytes { (bottleSaltBytes: UnsafeRawBufferPointer) throws -> Void in
+                    try info.withUnsafeBytes { (infoBytes: UnsafeRawBufferPointer) throws -> Void in
                         status = cchkdf(ccsha384_di(),
-                                        masterSecretLength, masterSecretBytes,
-                                        bottleSaltData.count, bottleSaltBytes,
-                                        infoLength, infoBytes,
-                                        keyLength, derivedKeyBytes)
+                                        masterSecretBytes.count, masterSecretBytes.baseAddress!,
+                                        bottleSaltBytes.count, bottleSaltBytes.baseAddress!,
+                                        infoBytes.count, infoBytes.baseAddress!,
+                                        derivedKeyBytes.count, derivedKeyBytes.baseAddress!)
                         if status != 0 {
                             throw EscrowKeysError.corecryptoKeyGeneration(corecryptoError: status)
                         }
 
                         if(keyType == escrowKeyType.kOTEscrowKeySymmetric) {
-                            finalKey = Data(buffer: UnsafeBufferPointer(start: derivedKeyBytes, count: derivedKeySize))
+                            finalKey = Data(buffer: derivedKeyBytes.bindMemory(to: UInt8.self))
                             return
                         } else if(keyType == escrowKeyType.kOTEscrowKeyEncryption || keyType == escrowKeyType.kOTEscrowKeySigning) {
                             status = ccec_generate_key_deterministic(cp,
-                                                                     derivedKeySize, derivedKeyBytes,
+                                                                     derivedKeyBytes.count, derivedKeyBytes.bindMemory(to: UInt8.self).baseAddress!,
                                                                      ccDRBGGetRngState(),
                                                                      UInt32(CCEC_GENKEY_DETERMINISTIC_FIPS),
                                                                      fullKey)
@@ -141,8 +135,8 @@ class EscrowKeys: NSObject {
 
                             let space = ccec_x963_export_size(1, ccec_ctx_pub(fullKey))
                             var key = Data(count: space)
-                            key.withUnsafeMutableBytes { (bytes: UnsafeMutablePointer<UInt8>) -> Void in
-                                ccec_x963_export(1, bytes, fullKey)
+                            key.withUnsafeMutableBytes { (bytes: UnsafeMutableRawBufferPointer) -> Void in
+                                ccec_x963_export(1, bytes.baseAddress!, fullKey)
                             }
                             finalKey = Data(key)
                         }
@@ -192,11 +186,10 @@ class EscrowKeys: NSObject {
         let di = ccsha384_di()
         var result = Data(count: TPHObjectiveC.ccsha384_diSize())
 
-        let derivedKeySize = keyData.count
         var keyDataMutable = keyData
-        result.withUnsafeMutableBytes {(resultBytes: UnsafeMutablePointer<UInt8>) -> Void in
-            keyDataMutable.withUnsafeMutableBytes {(keyDataBytes: UnsafeMutablePointer<UInt8>) -> Void in
-                ccdigest(di, derivedKeySize, keyDataBytes, resultBytes)
+        result.withUnsafeMutableBytes {(resultBytes: UnsafeMutableRawBufferPointer) -> Void in
+            keyDataMutable.withUnsafeMutableBytes {(keyDataBytes: UnsafeMutableRawBufferPointer) -> Void in
+                ccdigest(di, keyDataBytes.count, keyDataBytes.baseAddress!, resultBytes.baseAddress!)
             }
         }
         let hash = result.base64EncodedString(options: [])
@@ -211,7 +204,7 @@ class EscrowKeys: NSObject {
             kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
             kSecUseDataProtectionKeychain: true,
             kSecAttrAccessGroup: "com.apple.security.octagon",
-            kSecAttrSynchronizable: kCFBooleanFalse,
+            kSecAttrSynchronizable: false,
             kSecAttrLabel: label,
             kSecAttrApplicationLabel: String(format: "Escrowed Encryption Key-%@", NSUUID().uuidString),
             kSecValueData: keyData,
@@ -225,7 +218,7 @@ class EscrowKeys: NSObject {
             kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
             kSecUseDataProtectionKeychain: true,
             kSecAttrAccessGroup: "com.apple.security.octagon",
-            kSecAttrSynchronizable: kCFBooleanFalse,
+            kSecAttrSynchronizable: false,
             kSecAttrApplicationLabel: String(format: "Escrowed Signing Key-%@", NSUUID().uuidString),
             kSecAttrLabel: label,
             kSecValueData: keyData,
@@ -239,7 +232,7 @@ class EscrowKeys: NSObject {
             kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
             kSecUseDataProtectionKeychain: true,
             kSecAttrAccessGroup: "com.apple.security.octagon",
-            kSecAttrSynchronizable: kCFBooleanFalse,
+            kSecAttrSynchronizable: false,
             kSecAttrApplicationLabel: String(format: "Escrowed Symmetric Key-%@", NSUUID().uuidString),
             kSecAttrLabel: label,
             kSecValueData: keyData,
@@ -256,7 +249,7 @@ class EscrowKeys: NSObject {
             kSecAttrLabel: label,
             kSecReturnAttributes: true,
             kSecReturnData: true,
-            kSecAttrSynchronizable: kCFBooleanFalse,
+            kSecAttrSynchronizable: false,
             kSecMatchLimit: kSecMatchLimitAll,
             ]
 
@@ -368,14 +361,12 @@ extension EscrowKeysError: CustomNSError {
         }
         switch self {
         case .failedToSaveToKeychain(errorCode: let osError):
-            userInfo[NSUnderlyingErrorKey] = NSError.init(domain: NSOSStatusErrorDomain, code: Int(osError), userInfo: nil)
+            userInfo[NSUnderlyingErrorKey] = NSError(domain: NSOSStatusErrorDomain, code: Int(osError), userInfo: nil)
         case .corecryptoKeyGeneration(corecryptoError: let corecryptoError):
-            userInfo[NSUnderlyingErrorKey] = NSError.init(domain: "corecrypto", code: Int(corecryptoError), userInfo: nil)
+            userInfo[NSUnderlyingErrorKey] = NSError(domain: "corecrypto", code: Int(corecryptoError), userInfo: nil)
         default:
             break
         }
         return userInfo
     }
 }
-
-

@@ -1,4 +1,4 @@
-0755	root	wheel	Applications
+0775	root	admin	Applications
 0755	root	wheel	private
 0755	root	wheel	private/etc
 0755	root	wheel	private/etc/newsyslog.d

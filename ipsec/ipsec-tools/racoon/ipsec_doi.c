@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
 #include <netinet/in.h>
 
@@ -3999,8 +4000,8 @@ ipsecdoi_setid2(iph2)
 		local_v4_address.sin_len = sizeof(struct sockaddr_in);
 		local_v4_address.sin_family = AF_INET;
 		local_v4_address.sin_port = ((struct sockaddr_in6 *)&sp->spidx.src)->sin6_port;
-		local_v4_address.sin_addr.s_addr = 0;
-
+		// Setting a fixed IPv4 address to avoid FATAL-ID issue with 0.0.0.0 IPv4 address
+		inet_pton(AF_INET, "192.168.2.2", &local_v4_address.sin_addr);
 		srcaddr = ALIGNED_CAST(struct sockaddr_storage *)&local_v4_address;
 		prefs = 32;
 	}

@@ -47,13 +47,13 @@
 
 #include <Security/SecEntitlements.h>
 #include <Security/SecItemPriv.h>
-#include <securityd/SecItemServer.h>
-#include <securityd/SecItemSchema.h>
-#include <securityd/SecItemDb.h>
+#include "keychain/securityd/SecItemServer.h"
+#include "keychain/securityd/SecItemSchema.h"
+#include "keychain/securityd/SecItemDb.h"
 
 #include "keychain/ckks/CKKSViewManager.h"
 
-#import "securityd/SecDbBackupManager.h"
+#import "keychain/securityd/SecDbBackupManager.h"
 
 @interface SecOSTransactionHolder : NSObject
 @property os_transaction_t transaction;

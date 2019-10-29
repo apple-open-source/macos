@@ -8052,7 +8052,9 @@ void NumberFormatTest::TestCurrencyUsage() {
 
     // compare the Currency and Currency Cash Digits
     // Note that as of CLDR 26:
-    // * TWD and PKR switched from 0 decimals to 2; ISK still has 0, so change test to that
+    // * TWD and PKR switched from 0 decimals to 2; ISK still has 0, so change test to that.
+    // * (PKR must have switched back again, because it switched from 0 to 2 again in CLDR 34;
+    //    Apple ICU-64243 restores it to 0 again)
     // * CAD rounds to .05 in cash mode only
     // 1st time for getter/setter, 2nd time for factory method
     Locale enUS_ISK("en_US@currency=ISK");
@@ -8147,7 +8149,7 @@ void NumberFormatTest::TestCurrencyUsage() {
 
         UnicodeString PKR_changed;
         fmt->format(agent, PKR_changed);
-        assertEquals("Test Currency Usage 6", u"PKR\u00A0123.57", PKR_changed);
+        assertEquals("Test Currency Usage 6", u"PKR\u00A0124", PKR_changed);
         delete fmt;
     }
 }

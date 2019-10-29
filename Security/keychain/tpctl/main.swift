@@ -652,7 +652,7 @@ for command in commands {
 
     case .reset:
         os_log("resetting (%@, %@)", log: tplogDebug, type: .default, container, context)
-        tpHelper.reset(withContainer: container, context: context) { error in
+        tpHelper.reset(withContainer: container, context: context, resetReason: .userInitiatedReset) { error in
             guard error == nil else {
                 print("Error during reset:", error!)
                 return

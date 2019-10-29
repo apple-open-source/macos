@@ -57,6 +57,9 @@
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <System/sys/reason.h>
 
 #include <err.h>
 #include <os/errno.h>
@@ -134,6 +137,8 @@ int unmount_location(char *mount_point);
 int construct_apfs_volume(char *mounted_device_name);
 int create_partition_table(size_t partition_size, char *device);
 int attach_device(size_t device_size , char* deviceOut);
+int validate_system_devt (void);
+dev_t get_devt_for_path (const char *pathname);
 void truncate_whitespace(char* str);
 int run_command(char **command_argv, char *output, int *rc, int *signal_no);
 
@@ -166,6 +171,38 @@ errno_or_sysexit(int err, int sysexit)
         sysexit = sysexit_np(err);
     }
     return (ret_errno ? err : sysexit);
+}
+
+dev_t get_devt_for_path(const char *pathname)
+{
+	struct stat statbuf;
+	int flag = 0;
+
+	int err = fstatat(AT_FDCWD, pathname, &statbuf, flag);
+	if (err) {
+		return 0;
+	}
+	return statbuf.st_dev;
+}
+
+/* Assert that the dev_t for "/" is the same as for "/Applications" */
+int validate_system_devt (void)
+{
+	dev_t system = get_devt_for_path ("/");
+	if (system == 0) {
+		return 0;
+	}
+
+	dev_t data = get_devt_for_path ("/Applications");
+	if (data == 0) {
+		return 0;
+	}
+
+	if (memcmp(&system, &data, sizeof(dev_t)) == 0) {
+		return 0;
+	}
+
+	return 1;
 }
 
 /*
@@ -473,6 +510,18 @@ main(argc, argv)
 
             rval = upgrade_mount (mount_point, init_flags, options);
 
+			/* Assert that the unified dev_t "lie" was instantiated */
+			if (rval == 0)
+			{
+				if (validate_system_devt()) {
+					/*
+					 * If the two mount points don't unify, then
+					 * exit with a string that launchd can propagate
+					 * on and resolve.
+					 */
+					abort_with_reason(OS_REASON_LIBSYSTEM, 0, "UNEXPECTED: macOS mount-2 APFS dev_t not unified", 0);
+				}
+			}
         } else {
             print_mount(vfslist);
         }

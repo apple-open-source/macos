@@ -7,6 +7,11 @@ mni{
         " ঢ {ঢ\u09BC} ণ ত থ দ ধ ন প ফ ব ভ ম য {য\u09BC} র ল ৱ শ ষ স হ া ি ী \u09C1 "
         "\u09C2 \u09C3 ে ৈ ো ৌ \u09CD]"
     }
+    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0০ 1১ 2২ 3৩ 4৪ 5৫ 6৬ 7৭ 8৮ 9৯]"}
+    ExemplarCharactersPunctuation{
+        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ ′ "
+        "″]"
+    }
     NumberElements{
         default{"beng"}
     }

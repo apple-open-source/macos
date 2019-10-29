@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,6 +39,15 @@
 
 #if PLATFORM(IOS_FAMILY)
 #import <UIKit/UIFont.h>
+#endif
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WebCoreArgumentCodersCocoaAdditions.mm>
+#elif ENABLE(APPLE_PAY)
+namespace IPC {
+static bool finishDecoding(Decoder&, WebCore::ApplePaySessionPaymentRequest&) { return true; }
+static void finishEncoding(Encoder&, const WebCore::ApplePaySessionPaymentRequest&) { }
+}
 #endif
 
 namespace IPC {
@@ -152,16 +161,16 @@ Optional<WebCore::PaymentMethod> ArgumentCoder<WebCore::PaymentMethod>::decode(D
 
 void ArgumentCoder<WebCore::PaymentMethodUpdate>::encode(Encoder& encoder, const WebCore::PaymentMethodUpdate& update)
 {
-    encoder << update.newTotalAndLineItems;
+    encoder << update.platformUpdate();
 }
 
 Optional<WebCore::PaymentMethodUpdate> ArgumentCoder<WebCore::PaymentMethodUpdate>::decode(Decoder& decoder)
 {
-    Optional<ApplePaySessionPaymentRequest::TotalAndLineItems> newTotalAndLineItems;
-    decoder >> newTotalAndLineItems;
-    if (!newTotalAndLineItems)
+    auto update = IPC::decode<PKPaymentRequestPaymentMethodUpdate>(decoder, PAL::getPKPaymentRequestPaymentMethodUpdateClass());
+    if (!update)
         return WTF::nullopt;
-    return {{ WTFMove(*newTotalAndLineItems) }};
+
+    return PaymentMethodUpdate { WTFMove(*update) };
 }
 
 void ArgumentCoder<ApplePaySessionPaymentRequest>::encode(Encoder& encoder, const ApplePaySessionPaymentRequest& request)
@@ -181,6 +190,7 @@ void ArgumentCoder<ApplePaySessionPaymentRequest>::encode(Encoder& encoder, cons
     encoder << request.applicationData();
     encoder << request.supportedCountries();
     encoder.encodeEnum(request.requester());
+    finishEncoding(encoder, request);
 }
 
 bool ArgumentCoder<ApplePaySessionPaymentRequest>::decode(Decoder& decoder, ApplePaySessionPaymentRequest& request)
@@ -262,6 +272,9 @@ bool ArgumentCoder<ApplePaySessionPaymentRequest>::decode(Decoder& decoder, Appl
     if (!decoder.decodeEnum(requester))
         return false;
     request.setRequester(requester);
+
+    if (!finishDecoding(decoder, request))
+        return false;
 
     return true;
 }
@@ -415,6 +428,20 @@ Optional<WebCore::ShippingMethodUpdate> ArgumentCoder<WebCore::ShippingMethodUpd
     if (!newTotalAndLineItems)
         return WTF::nullopt;
     return {{ WTFMove(*newTotalAndLineItems) }};
+}
+
+void ArgumentCoder<WebCore::PaymentSessionError>::encode(Encoder& encoder, const WebCore::PaymentSessionError& error)
+{
+    encoder << error.platformError();
+}
+
+Optional<WebCore::PaymentSessionError> ArgumentCoder<WebCore::PaymentSessionError>::decode(Decoder& decoder)
+{
+    auto platformError = IPC::decode<NSError>(decoder);
+    if (!platformError)
+        return WTF::nullopt;
+
+    return { WTFMove(*platformError) };
 }
 
 #endif // ENABLE(APPLEPAY)

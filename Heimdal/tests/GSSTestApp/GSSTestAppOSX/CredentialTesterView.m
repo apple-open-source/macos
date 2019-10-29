@@ -62,6 +62,8 @@
         [self.url setStringValue:@"http://dc01qad.qad.apple.com/negotiate/"];
     } else if ([self.name rangeOfString:@"@APPLECONNECT.APPLE.COM"].location != NSNotFound) {
         [self.url setStringValue:@"https://radar-webservices.apple.com/find/16000000"];
+    } else if ([self.name rangeOfString:@"@CORP.CEAD.APPLE.COM"].location != NSNotFound) {
+        [self.url setStringValue:@"https://negotiate.cead.apple.com/index.aspx"];
     }
 }
 

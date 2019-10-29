@@ -24,7 +24,7 @@
 
 #import <Foundation/Foundation.h>
 #import <Foundation/NSXPCConnection_Private.h>
-#import <securityd/SOSCloudCircleServer.h>
+#import "keychain/securityd/SOSCloudCircleServer.h"
 #import <Security/SecureObjectSync/SOSPeerInfo.h>
 #import <Security/SecureObjectSync/SOSCloudCircleInternal.h>
 #import <Security/SecureObjectSync/SOSViews.h>
@@ -428,7 +428,7 @@
 #if OCTAGON
     OTControl *ot = [self OTControl];
 
-    [ot resetAndEstablish:nil context:OTDefaultContext altDSID:altDSID reply:^(NSError * _Nullable error) {
+    [ot resetAndEstablish:nil context:OTDefaultContext altDSID:altDSID resetReason:CuttlefishResetReasonTestGenerated reply:^(NSError * _Nullable error) {
         complete(error == NULL, error);
     }];
 #else

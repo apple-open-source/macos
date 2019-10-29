@@ -52,15 +52,20 @@
 #define __QOS_AVAILABLE_10_11 __API_AVAILABLE(macos(10.11), ios(9.0), tvos(9.0), watchos(2.0))
 #undef __QOS_AVAILABLE_10_12
 #define __QOS_AVAILABLE_10_12 __API_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0))
+#undef __QOS_AVAILABLE_10_15_1
+#define __QOS_AVAILABLE_10_15_1 __API_AVAILABLE(macos(10.15.1), ios(13.2), tvos(13.2), watchos(6.2))
 #endif
 #endif
 
+// This enum matches workq_set_self_flags in
+// xnu's workqueue_internal.h.
 __QOS_ENUM(_pthread_set_flags, unsigned int,
    _PTHREAD_SET_SELF_QOS_FLAG __QOS_AVAILABLE_10_10 = 0x1,
    _PTHREAD_SET_SELF_VOUCHER_FLAG __QOS_AVAILABLE_10_10 = 0x2,
    _PTHREAD_SET_SELF_FIXEDPRIORITY_FLAG __QOS_AVAILABLE_10_11 = 0x4,
    _PTHREAD_SET_SELF_TIMESHARE_FLAG __QOS_AVAILABLE_10_11 = 0x8,
    _PTHREAD_SET_SELF_WQ_KEVENT_UNBIND __QOS_AVAILABLE_10_12 = 0x10,
+   _PTHREAD_SET_SELF_ALTERNATE_AMX __QOS_AVAILABLE_10_15_1 = 0x20,
 );
 
 #undef __QOS_ENUM
@@ -152,6 +157,13 @@ pthread_set_fixedpriority_self(void);
 __API_AVAILABLE(macos(10.10), ios(8.0))
 int
 pthread_set_timeshare_self(void);
+
+// Set self to avoid running on the same AMX as
+// other work in this group.
+// Only allowed on non-workqueue pthreads
+__API_AVAILABLE(macos(10.15.1), ios(13.2), tvos(13.2), watchos(6.2))
+int
+pthread_prefer_alternate_amx_self(void);
 
 /*!
  * @const PTHREAD_MAX_PARALLELISM_PHYSICAL

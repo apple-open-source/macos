@@ -6,7 +6,7 @@
 //
 
 #import <XCTest/XCTest.h>
-#import "securityd/SecDbBackupManager.h"
+#import "keychain/securityd/SecDbBackupManager.h"
 
 #if !SECDB_BACKUPS_ENABLED
 
@@ -18,7 +18,7 @@
 
 #else // SECDB_BACKUPS_ENABLED
 
-#import "securityd/SecDbBackupManager_Internal.h"
+#import "keychain/securityd/SecDbBackupManager_Internal.h"
 
 #import "CKKS.h"
 #import <utilities/SecFileLocations.h>

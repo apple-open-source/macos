@@ -33,7 +33,11 @@
 @interface CKKSNearFutureScheduler ()
 @property NSString* name;
 @property dispatch_time_t initialDelay;
-@property dispatch_time_t continuingDelay;
+
+@property dispatch_time_t currentDelay;
+@property dispatch_time_t maximumDelay;
+
+@property double backoff;
 
 @property NSInteger operationDependencyDescriptionCode;
 @property CKKSResultOperation* operationDependency;
@@ -73,12 +77,35 @@
   dependencyDescriptionCode:(NSInteger)code
                       block:(void (^)(void))futureBlock
 {
+    // If the continuing delay is below the initial delay, use an exponential backoff of 1
+    // We'll clamp the timer delay to continuing delay at use time.
+    return [self initWithName:name
+                 initialDelay:initialDelay
+             expontialBackoff:MAX(initialDelay > 0 ? (continuingDelay / initialDelay) : 1, 1)
+                 maximumDelay:continuingDelay
+             keepProcessAlive:keepProcessAlive
+    dependencyDescriptionCode:code
+                        block:futureBlock];
+}
+
+- (instancetype)initWithName:(NSString*)name
+             initialDelay:(dispatch_time_t)initialDelay
+         expontialBackoff:(double)backoff
+             maximumDelay:(dispatch_time_t)maximumDelay
+         keepProcessAlive:(bool)keepProcessAlive
+dependencyDescriptionCode:(NSInteger)code
+                    block:(void (^_Nonnull)(void))futureBlock
+{
     if((self = [super init])) {
         _name = name;
 
         _queue = dispatch_queue_create([[NSString stringWithFormat:@"near-future-scheduler-%@",name] UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
         _initialDelay = initialDelay;
-        _continuingDelay = continuingDelay;
+
+        _currentDelay = initialDelay;
+        _maximumDelay = maximumDelay;
+        _backoff = backoff;
+
         _futureBlock = futureBlock;
 
         _liveRequest = false;
@@ -98,7 +125,9 @@
 {
     dispatch_sync(self.queue, ^{
         self.initialDelay = initialDelay;
-        self.continuingDelay = continuingDelay;
+        self.currentDelay = self.initialDelay;
+        self.backoff = initialDelay > 0 ? ((double)continuingDelay) / initialDelay : 1;
+        self.maximumDelay = continuingDelay;
     });
 }
 
@@ -159,13 +188,26 @@
         self.liveRequestReceived = [[CKKSCondition alloc] init];
         self.transaction = nil;
 
+        // No current delay means that exponential backoff means nothing. Head straight for slowtown.
+        if(self.currentDelay == 0) {
+            self.currentDelay = self.maximumDelay;
+        } else {
+            // Modify the delay by the exponential backoff, unless that exceeds the maximum delay
+            self.currentDelay = MIN(self.currentDelay * self.backoff, self.maximumDelay);
+        }
+        dispatch_source_set_timer(self.timer,
+                                  dispatch_walltime(NULL, self.currentDelay),
+                                  self.currentDelay,
+                                  50 * NSEC_PER_MSEC);
+
         [self.operationQueue addOperation: dependency];
 
-        self.predictedNextFireTime = [NSDate dateWithTimeIntervalSinceNow: (NSTimeInterval) ((double) self.continuingDelay) / (double) NSEC_PER_SEC];
+        self.predictedNextFireTime = [NSDate dateWithTimeIntervalSinceNow: (NSTimeInterval) ((double) self.currentDelay) / (double) NSEC_PER_SEC];
     } else {
         // The timer has fired with no requests to call the block. Cancel it.
         dispatch_source_cancel(self.timer);
         self.predictedNextFireTime = nil;
+        self.currentDelay = self.initialDelay;
     }
 }
 
@@ -226,7 +268,7 @@
             [self _onqueueTimerTick];
         });
 
-        dispatch_time_t actualDelay = self.initialDelay;
+        dispatch_time_t actualDelay = self.currentDelay;
         if(requestedDelay != DISPATCH_TIME_NOW) {
             actualDelay = MAX(actualDelay, requestedDelay);
         }
@@ -234,9 +276,11 @@
             actualDelay = MIN(actualDelay, maximumDelay);
         }
 
+        // Note: we pass initialDelay in as the timerInterval here. [-_onqueueTimerTick] is responsible for
+        // modifying the delay to be correct for the next time period.
         dispatch_source_set_timer(self.timer,
                                   dispatch_walltime(NULL, actualDelay),
-                                  self.continuingDelay,
+                                  self.currentDelay,
                                   50 * NSEC_PER_MSEC);
         dispatch_resume(self.timer);
 

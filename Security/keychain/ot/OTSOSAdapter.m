@@ -7,7 +7,7 @@
 #import "keychain/SecureObjectSync/SOSCloudCircleInternal.h"
 #include "keychain/SecureObjectSync/SOSViews.h"
 
-#import "OSX/sec/securityd/SOSCloudCircleServer.h"
+#import "keychain/securityd/SOSCloudCircleServer.h"
 #import "OSX/utilities/SecCFWrappers.h"
 
 #import "keychain/categories/NSError+UsefulConstructors.h"
@@ -282,6 +282,27 @@
     }];
 }
 
+- (nonnull CKKSPeerProviderState *)currentState {
+    __block CKKSPeerProviderState* result = nil;
+
+    [SOSAccount performOnQuietAccountQueue: ^{
+        NSError* selfPeersError = nil;
+        CKKSSelves* currentSelfPeers = [self fetchSelfPeers:&selfPeersError];
+
+        NSError* trustedPeersError = nil;
+        NSSet<id<CKKSRemotePeerProtocol>>* currentTrustedPeers = [self fetchTrustedPeers:&trustedPeersError];
+
+        result = [[CKKSPeerProviderState alloc] initWithPeerProviderID:self.providerID
+                                                             essential:self.essential
+                                                             selfPeers:currentSelfPeers
+                                                        selfPeersError:selfPeersError
+                                                          trustedPeers:currentTrustedPeers
+                                                     trustedPeersError:trustedPeersError];
+    }];
+
+    return result;
+}
+
 + (NSArray<NSData*>*)peerPublicSigningKeySPKIs:(NSSet<id<CKKSPeer>>* _Nullable)peerSet
 {
     NSMutableArray<NSData*>* publicSigningSPKIs = [NSMutableArray array];
@@ -372,6 +393,19 @@
 {
     // no op
 }
+
+- (nonnull CKKSPeerProviderState *)currentState {
+    NSError* unimplementedError = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                                      code:errSecUnimplemented
+                                               description:@"SOS unsupported on this platform"];
+    return [[CKKSPeerProviderState alloc] initWithPeerProviderID:self.providerID
+                                                                 essential:self.essential
+                                                                 selfPeers:nil
+                                                            selfPeersError:unimplementedError
+                                                              trustedPeers:nil
+                                                         trustedPeersError:unimplementedError];
+}
+
 
 
 @end

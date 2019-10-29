@@ -60,7 +60,7 @@ static DirEntryStatus_e DIROPS_GetDirEntryByOffset( NodeRecord_s* psFolderNode, 
 static void DIROPS_SynthesizeDotAndDotX2( NodeRecord_s* psFolderNode, uint8_t* puBuf, uint32_t* uBytesWrite, uint64_t uCookie );
 static int  DIROPS_VerifyCookieAndVerifier( NodeRecord_s* psFolderNode, uint64_t uCookie, ClusterData_s* psClusterData, bool bIsReadAttr, uint64_t uVerifier );
 static int  DIROPS_LookForFreeEntriesInDirectory(NodeRecord_s* psFolderNode,uint32_t uAmountOfNewEntries,uint32_t* puNewStartEntryOffset);
-static int  DIROPS_CreateShortNameEntry(NodeRecord_s* psFolderNode, struct unistr255* psName, uint8_t puShortName[SHORT_NAME_LEN], uint32_t uDirOffset, struct dosdirentry* psDosDirEntry, const UVFSFileAttributes *psAttrs, uint8_t uIsLowerCase, uint32_t uStartCluster, int uEntryType);
+static int  DIROPS_CreateShortNameEntry(NodeRecord_s* psFolderNode, struct unistr255* psName, uint8_t puShortName[SHORT_NAME_LEN], int iShortNameKind, struct dosdirentry* psDosDirEntry, const UVFSFileAttributes *psAttrs, uint8_t uIsLowerCase, uint32_t uStartCluster, int uEntryType);
 static int  DIROPS_SaveNewEntriesIntoDevice(NodeRecord_s* psFolderNode,struct dosdirentry* psShortNameDosDirEntry, uint32_t uNewStartEntryOffset,struct unistr255* psName,uint32_t uAmountOfNewEntries);
 static int  DIROPS_ReadDirInternal(UVFSFileNode dirNode, void* pvBuf, size_t uBufLen, uint64_t uCookie, size_t *bytesRead, uint64_t *puVerifier, bool bIsReadAttr);
 static bool DIROPS_DirScanIsMatch(NodeRecord_s* psFolderNode, struct unistr255* psName, ScanDirRequest_s* psScanDirRequest, NodeDirEntriesData_s* psNodeDirEntriesData, uint32_t* piErr);
@@ -378,7 +378,7 @@ DIROPS_SynthesizeDotAndDotX2( NodeRecord_s* psFolderNode, uint8_t* puBuf, uint32
 }
 
 static int
-DIROPS_LookForFreeEntriesInDirectory(NodeRecord_s* psFolderNode,uint32_t uAmountOfNewEntries,uint32_t* puNewStartEntryOffset)
+DIROPS_LookForFreeEntriesInDirectory(NodeRecord_s* psFolderNode, uint32_t uAmountOfNewEntries, uint32_t* puNewStartEntryOffset)
 {
     uint32_t iError =0 ;
     uint32_t uAmountOfFreeEntriesFound = 0;
@@ -436,7 +436,8 @@ DIROPS_LookForFreeEntriesInDirectory(NodeRecord_s* psFolderNode,uint32_t uAmount
             {
                 uDirSize = psFSRecord->sRootInfo.uRootLength;
             }
-            uint32_t uFreeEntriesToAllocate = (uDirSize - uEntryOffset)/sizeof(struct dosdirentry);
+            
+            uint32_t uFreeEntriesToAllocate = (uDirSize - uEntryOffset) / sizeof(struct dosdirentry);
 
             //Update start entry offset if needed
             if (!uAmountOfFreeEntriesFound)
@@ -454,12 +455,12 @@ DIROPS_LookForFreeEntriesInDirectory(NodeRecord_s* psFolderNode,uint32_t uAmount
                 else
                 {
                     //Clculate how many clusters are needed to be allocated
-                    uint32_t uAmountOfNewFreeSpaceToExtend = (uAmountOfNewEntries - uAmountOfFreeEntriesFound)*sizeof(struct dosdirentry);
-                    uint32_t uAmountOfClustersToExtendTheDir = ROUND_UP(uAmountOfNewFreeSpaceToExtend,psFSRecord->sFSInfo.uBytesPerCluster)/psFSRecord->sFSInfo.uBytesPerCluster;
+                    uint32_t uAmountOfNewFreeSpaceToExtend = (uAmountOfNewEntries - uAmountOfFreeEntriesFound) * sizeof(struct dosdirentry);
+                    uint32_t uAmountOfClustersToExtendTheDir = ((ROUND_UP(uAmountOfNewFreeSpaceToExtend, CLUSTER_SIZE(psFSRecord))) / CLUSTER_SIZE(psFSRecord));
 
                     uint32_t uAmountOfAllocatedClusters = 0;
-                    uint32_t uNewAllocatedCluster = 0;
-                    iError = FAT_Access_M_AllocateClusters(psFSRecord, uAmountOfClustersToExtendTheDir, uLastCluster, &uNewAllocatedCluster, &uLastCluster, &uAmountOfAllocatedClusters, false, true);
+                    uint32_t uNewFirstAllocatedCluster = 0;
+                    iError = FAT_Access_M_AllocateClusters(psFSRecord, uAmountOfClustersToExtendTheDir, uLastCluster, &uNewFirstAllocatedCluster, &uLastCluster, &uAmountOfAllocatedClusters, false, true);
                     if (iError != 0)
                     {
                         MSDOS_LOG(LEVEL_ERROR, "DIROPS_LookForFreeEntriesInDirectory: Failed to allocate new cluster for dir expand [%d].\n",iError);
@@ -468,10 +469,10 @@ DIROPS_LookForFreeEntriesInDirectory(NodeRecord_s* psFolderNode,uint32_t uAmount
                     else
                     {
                         //Update the extended dir params
-                        psFolderNode->sRecordData.uClusterChainLength += uAmountOfClustersToExtendTheDir;
+                        psFolderNode->sRecordData.uClusterChainLength += uAmountOfAllocatedClusters;
                         psFolderNode->sRecordData.uLastAllocatedCluster = uLastCluster;
                         
-                        uFreeEntriesToAllocate += (uAmountOfClustersToExtendTheDir*CLUSTER_SIZE(psFSRecord))/sizeof(struct dosdirentry);
+                        uFreeEntriesToAllocate += (uAmountOfAllocatedClusters * CLUSTER_SIZE(psFSRecord)) / sizeof(struct dosdirentry);
                     }
                 }
             }
@@ -484,7 +485,7 @@ DIROPS_LookForFreeEntriesInDirectory(NodeRecord_s* psFolderNode,uint32_t uAmount
             }
             
             // Found enough
-            uAmountOfFreeEntriesFound = uAmountOfNewEntries;
+            break;
         }
         // If error
         else if  ( eStatus == DIR_ENTRY_ERROR )
@@ -511,9 +512,10 @@ DIROPS_LookForFreeEntriesInDirectory(NodeRecord_s* psFolderNode,uint32_t uAmount
  * likely unique generation number), or 1 if no generation number should be used.
  */
 static int
-DIROPS_CreateShortNameEntry(NodeRecord_s* psFolderNode, struct unistr255* psName, uint8_t puShortName[SHORT_NAME_LEN], uint32_t uDirOffset, struct dosdirentry* psDosDirEntry, const UVFSFileAttributes * psAttrs, uint8_t uIsLowerCase, uint32_t uStartCluster, int uEntryType)
+DIROPS_CreateShortNameEntry(NodeRecord_s* psFolderNode, struct unistr255* psName, uint8_t puShortName[SHORT_NAME_LEN], int iShortNameKind, struct dosdirentry* psDosDirEntry, const UVFSFileAttributes * psAttrs, uint8_t uIsLowerCase, uint32_t uStartCluster, int uEntryType)
 {
     uint32_t uGenerationNum = 0;
+    bool bNeedsGeneration = (iShortNameKind == 3);
     int iError = 0;
     bool bIsExist = false;
     FileSystemRecord_s* psFSRecord = GET_FSRECORD(psFolderNode);
@@ -524,10 +526,10 @@ DIROPS_CreateShortNameEntry(NodeRecord_s* psFolderNode, struct unistr255* psName
     NodeDirEntriesData_s sNodeDirEntriesData;
     RecordIdentifier_e eRecoredId;
     
-    if (uDirOffset == 1)
+    if (!bNeedsGeneration)
     {
         /*
-         * dir_offset == 1 means the short name is case-insensitively equal to
+         * uNeedsGeneration == 0 means the short name is case-insensitively equal to
          * the long name, so don't use a generation number.
          */
         iError = DIROPS_LookForDirEntry( psFolderNode, &sArgs, &eRecoredId, &sNodeDirEntriesData);
@@ -535,7 +537,7 @@ DIROPS_CreateShortNameEntry(NodeRecord_s* psFolderNode, struct unistr255* psName
             iError = 0;
         else
             if (!iError) MSDOS_LOG(LEVEL_ERROR, "DIROPS_CreateShortNameEntry: short name already exist.\n");
-            else MSDOS_LOG(LEVEL_ERROR, "DIROPS_CreateShortNameEntry: error raised while lookin for short dir entry [%d].\n",iError);
+            else MSDOS_LOG(LEVEL_ERROR, "DIROPS_CreateShortNameEntry: error raised while looking for short dir entry [%d].\n",iError);
     }
     else
     {
@@ -638,7 +640,7 @@ DIROPS_CreateShortNameEntry(NodeRecord_s* psFolderNode, struct unistr255* psName
     return iError;
 }
 
-static int DIROPS_SaveNewEntriesIntoDevice(NodeRecord_s* psFolderNode,struct dosdirentry* psShortNameDosDirEntry, uint32_t uNewStartEntryOffset,struct unistr255* psName, uint32_t uAmountOfNewEntries)
+static int DIROPS_SaveNewEntriesIntoDevice(NodeRecord_s* psFolderNode, struct dosdirentry* psShortNameDosDirEntry, uint32_t uNewStartEntryOffset, struct unistr255* psName, uint32_t uAmountOfNewEntries)
 {
     int iError = 0;
 
@@ -710,6 +712,7 @@ static int DIROPS_SaveNewEntriesIntoDevice(NodeRecord_s* psFolderNode,struct dos
         
         uNewStartEntryOffset += sizeof(struct winentry);
         
+        //If we need to replace a cluster, or we finished updating all entries - preform a write
         if ( (( uNewStartEntryOffset % uClusterSize ) == 0) || (uLongNameCounter == uAmountOfNewEntries - 1 ) )
         {
             // Flush the cluster data.
@@ -721,6 +724,10 @@ static int DIROPS_SaveNewEntriesIntoDevice(NodeRecord_s* psFolderNode,struct dos
                 goto exit;
             }
             
+            //After writing all is good
+            psFolderNode->sExtraData.sDirData.psDirClusterData->bIsValid = true;
+            
+            //Check if we need to replace a cluster
             if ( (( uNewStartEntryOffset % uClusterSize ) == 0) && (uLongNameCounter != uAmountOfNewEntries - 1) )
             {
                 uWantedClusterInChain++;
@@ -730,18 +737,19 @@ static int DIROPS_SaveNewEntriesIntoDevice(NodeRecord_s* psFolderNode,struct dos
                     MSDOS_LOG(LEVEL_ERROR, "DIROPS_SaveNewEntriesIntoDevice: Get Dir Cluster error [%d].\n",iError);
                     goto exit;
                 }
+                
+                //We changed cluster, so we are not valid again
+                psFolderNode->sExtraData.sDirData.psDirClusterData->bIsValid = false;
             }
         }
     }
     
-    psFolderNode->sExtraData.sDirData.psDirClusterData->bIsValid = true;
 exit:
-
     return iError;
 }
 
 int
-DIROPS_CreateNewEntry(NodeRecord_s* psFolderNode, const char *pcUTF8Name,const UVFSFileAttributes *attrs, uint32_t uNodeStartCluster,int uEntryType)
+DIROPS_CreateNewEntry(NodeRecord_s* psFolderNode, const char *pcUTF8Name, const UVFSFileAttributes *attrs, uint32_t uNodeStartCluster, int uEntryType)
 {
     int iError = 0;
 
@@ -812,7 +820,7 @@ DIROPS_CreateNewEntry(NodeRecord_s* psFolderNode, const char *pcUTF8Name,const U
     
     // Look for free slots in the directory
     uint32_t uNewStartEntryOffset;
-    iError = DIROPS_LookForFreeEntriesInDirectory(psFolderNode,uAmountOfNewEntries,&uNewStartEntryOffset);
+    iError = DIROPS_LookForFreeEntriesInDirectory(psFolderNode, uAmountOfNewEntries, &uNewStartEntryOffset);
     if (iError)
     {
         MSDOS_LOG(LEVEL_ERROR, "DIROPS_CreateNewEntry: Lookup for free directory entries failed with error [%d].\n",iError);
@@ -821,7 +829,7 @@ DIROPS_CreateNewEntry(NodeRecord_s* psFolderNode, const char *pcUTF8Name,const U
     
     // Generate short name entry
     struct dosdirentry  sShortNameDosDirEntry;
-    iError = DIROPS_CreateShortNameEntry(psFolderNode, psName,puShortName,((iShortNameKind == 3) ? uNewStartEntryOffset : 1),&sShortNameDosDirEntry,attrs,uIsLowerCase,uNodeStartCluster,uEntryType);
+    iError = DIROPS_CreateShortNameEntry(psFolderNode, psName, puShortName, iShortNameKind, &sShortNameDosDirEntry, attrs,uIsLowerCase, uNodeStartCluster, uEntryType);
     if (iError)
     {
         MSDOS_LOG(LEVEL_ERROR, "DIROPS_CreateNewEntry: Generate short name entry failed with error [%d].\n",iError);
@@ -829,7 +837,7 @@ DIROPS_CreateNewEntry(NodeRecord_s* psFolderNode, const char *pcUTF8Name,const U
     }
     
     // Save all new entries into the device
-    iError = DIROPS_SaveNewEntriesIntoDevice(psFolderNode,&sShortNameDosDirEntry,uNewStartEntryOffset,psName,uAmountOfNewEntries);
+    iError = DIROPS_SaveNewEntriesIntoDevice(psFolderNode, &sShortNameDosDirEntry, uNewStartEntryOffset, psName, uAmountOfNewEntries);
     if (iError)
     {
         MSDOS_LOG(LEVEL_ERROR, "DIROPS_CreateNewEntry: Save new entries to device failed with error [%d].\n",iError);
@@ -854,6 +862,7 @@ DIROPS_CreateNewEntry(NodeRecord_s* psFolderNode, const char *pcUTF8Name,const U
         MSDOS_LOG(LEVEL_ERROR, "DIROPS_CreateNewEntry: ht_insert failed with [%d].\n",iError);
     }
 
+    DIROPS_UpdateDirLastModifiedTime( psFolderNode );
 
 free_lock:
     MultiReadSingleWrite_FreeWrite( &GET_FSRECORD(psFolderNode)->sDirEntryAccessLock );
@@ -918,7 +927,7 @@ MSDOS_MkDir (UVFSFileNode dirNode, const char *name, const UVFSFileAttributes *a
     }
     
     // Create direntry in the parent directory
-    iError = DIROPS_CreateNewEntry(psParentRecord, name,attrs,uAllocatedCluster,UVFS_FA_TYPE_DIR);
+    iError = DIROPS_CreateNewEntry(psParentRecord, name, attrs, uAllocatedCluster, UVFS_FA_TYPE_DIR);
     if (iError)
     {
         MSDOS_LOG(LEVEL_ERROR, "MSDOS_MkDir: Create new dir entry failure [%d].\n", iError);
@@ -927,10 +936,6 @@ MSDOS_MkDir (UVFSFileNode dirNode, const char *name, const UVFSFileAttributes *a
     
     UVFSFileAttributes sParentAttributes;
     MSDOS_GetAtrrFromDirEntry(psParentRecord, &sParentAttributes);
-
-    MultiReadSingleWrite_LockWrite( &psParentRecord->sRecordData.psFSRecord->sDirEntryAccessLock );
-    DIROPS_UpdateDirLastModifiedTime( psParentRecord );
-    MultiReadSingleWrite_FreeWrite( &psParentRecord->sRecordData.psFSRecord->sDirEntryAccessLock );
     
     // Lookup for the new dir
     iError = DIROPS_LookupInternal(dirNode, name, outNode, true);
@@ -1484,7 +1489,7 @@ DIROPS_GetDirEntryByOffset( NodeRecord_s* psFolderNode, ClusterData_s* psCluster
 
     uint64_t uCurrentEntryOffset = uEntryOffset;
     psNodeDirEntriesData->uFirstEntryOffset = uEntryOffset; //Save entry offset for hash table
-    uint32_t uRelCurrentEntryOffset = uEntryOffset % uClusterSize;
+    uint32_t uRelCurrentEntryOffset = (uint32_t) (uEntryOffset % uClusterSize);
     uint32_t uCurrentCluster = (uint32_t)(uCurrentEntryOffset / uClusterSize);
     
     //In case that the last directory cluster was full, and the last one.
@@ -1551,10 +1556,11 @@ DIROPS_GetDirEntryByOffset( NodeRecord_s* psFolderNode, ClusterData_s* psCluster
         int iLongNameChecksum   = psLongEntry->weChksum;
         uint32_t uLongNameIndex = psLongEntry->weCnt & WIN_CNT;
         
-        psNodeDirEntriesData->uNumberOfDirEntriesForNode = uLongNameIndex+1;
+        //Include the short name enrty
+        psNodeDirEntriesData->uNumberOfDirEntriesForNode = uLongNameIndex + 1;
 
         psName->length = uLongNameIndex * WIN_CHARS;
-        for ( uint32_t uCurNameIdx = uLongNameIndex; uCurNameIdx>0; uCurNameIdx-- )
+        for (uint32_t uCurNameIdx = uLongNameIndex; uCurNameIdx > 0; uCurNameIdx--)
         {
             psLongEntry = (struct winentry *)(&psClusterData->puClusterData[uRelCurrentEntryOffset]);
             if ( iLongNameChecksum != psLongEntry->weChksum )
@@ -1667,6 +1673,9 @@ DIROPS_MarkNodeDirEntriesAsDeleted( NodeRecord_s* psFolderNode, NodeDirEntriesDa
                 goto exit;
             }
             
+            //After writing all is good
+            psFolderNode->sExtraData.sDirData.psDirClusterData->bIsValid = true;
+
             if ( (( uCurOffset % uClusterSize ) == 0) && (uIdx != psNodeDirEntriesData->uNumberOfDirEntriesForNode-1) )
             {
                 uCurCacheCluster++;
@@ -1676,6 +1685,9 @@ DIROPS_MarkNodeDirEntriesAsDeleted( NodeRecord_s* psFolderNode, NodeDirEntriesDa
                     MSDOS_LOG(LEVEL_ERROR, "DIROPS_MarkNodeDirEntriesAsDeleted fail to get dir cluster\n");
                     goto exit;
                 }
+                
+                //We changed cluster, so we are not valid again
+                psFolderNode->sExtraData.sDirData.psDirClusterData->bIsValid = false;
             }
         }
     }
@@ -1694,7 +1706,8 @@ DIROPS_MarkNodeDirEntriesAsDeleted( NodeRecord_s* psFolderNode, NodeDirEntriesDa
         err = DIROPS_PopulateHT(psFolderNode, psFolderNode->sExtraData.sDirData.sHT, true);
     }
     
-    psFolderNode->sExtraData.sDirData.psDirClusterData->bIsValid = true;
+    DIROPS_UpdateDirLastModifiedTime( psFolderNode );
+
 exit:
     return err;
 }
@@ -2585,7 +2598,7 @@ DIROPS_LookForDirEntryByName (NodeRecord_s* psFolderNode, const char *pcUTF8Name
 
     LF_TableEntry_t* psFirstTableEntry = psTableEntry;
     FileSystemRecord_s *psFSRecord = psFolderNode->sRecordData.psFSRecord;
-    uint64_t uClusterSize = CLUSTER_SIZE(psFSRecord);
+    uint32_t uClusterSize = CLUSTER_SIZE(psFSRecord);
     bool bCheckCurrentClusterOnly = true;
     uint32_t uAlreadyCheckedCluster = 0;
     bool bAlreadyCheckedClusterIsValid = false;
@@ -2846,8 +2859,6 @@ MSDOS_Remove (UVFSFileNode dirNode, const char *pcUTF8Name, __unused UVFSFileNod
         }
     }
 
-    DIROPS_UpdateDirLastModifiedTime( psFolderNode );
-
 exit:
     MultiReadSingleWrite_FreeWrite( &GET_FSRECORD(psFolderNode)->sDirEntryAccessLock );
     MultiReadSingleWrite_FreeWrite( &psFolderNode->sRecordData.sRecordLck );
@@ -2946,8 +2957,6 @@ MSDOS_RmDir (UVFSFileNode dirNode, const char *pcUTF8Name)
     {
         goto exit;
     }
-
-    DIROPS_UpdateDirLastModifiedTime( psFolderNode );
 
 exit:
     MultiReadSingleWrite_FreeWrite( &GET_FSRECORD(psFolderNode)->sDirEntryAccessLock );

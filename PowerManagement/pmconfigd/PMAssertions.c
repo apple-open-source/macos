@@ -5761,7 +5761,11 @@ assertion_t * createKernelAssertion(CFDictionaryRef kAssertion)
             uint32_t n_asserted = 0;
             CFNumberGetValue(asserted, kCFNumberSInt32Type, &n_asserted);
             const char *assertionName = descriptiveKernelAssertions(n_asserted);
-            CFDictionarySetValue(assertion->props, kIOPMAssertionNameKey, CFStringCreateWithCString(0, assertionName,kCFStringEncodingUTF8));
+            CFStringRef name = CFStringCreateWithCString(0, assertionName, kCFStringEncodingUTF8);
+            if (name) {
+                CFDictionarySetValue(assertion->props, kIOPMAssertionNameKey, name);
+                CFRelease(name);
+            }
         }
 
         // assertion type

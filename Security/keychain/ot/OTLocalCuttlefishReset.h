@@ -27,6 +27,7 @@
 
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
+#import "keychain/ot/CuttlefishXPCWrapper.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -36,7 +37,7 @@ NS_ASSUME_NONNULL_BEGIN
            contextID:(NSString*)contextID
        intendedState:(OctagonState*)intendedState
           errorState:(OctagonState*)errorState
-       cuttlefishXPC:(id<NSXPCProxyCreating>)cuttlefishXPC;
+cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper;
 @end
 
 NS_ASSUME_NONNULL_END

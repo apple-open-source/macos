@@ -153,6 +153,7 @@ const char	*kao_optarg;				/* Keep Alive Offload option */
 int		kao = -1;				/* Keep Alive Offload value */
 
 int		Tflag = -1;			/* IP Type of Service */
+int		tos_cmsg = 0;		/* Use cmsg to set IP Type of Service, otherwise use setsockopt */
 
 int		netsvctype_flag = 0;		/* Network service type  */
 const char	*netsvctype_optarg = NULL;	/* Network service type option string */
@@ -241,6 +242,7 @@ const struct option long_options[] =
 	{ "apple-resvd-13",	no_argument,		NULL,	'S' },
 #endif /* !__APPLE__ */
 	{ "apple-tos",		required_argument,	NULL,	'T' },
+	{ "apple-tos-cmsg",	no_argument,		&tos_cmsg,	1 },
 	{ "apple-resvd-14",	no_argument,		NULL,	't' },
 	{ "apple-resvd-15",	no_argument,		NULL,	'U' },
 	{ "apple-resvd-16",	no_argument,		NULL,	'u' },
@@ -579,6 +581,10 @@ main(int argc, char *argv[])
 		errx(1, "cannot use -z and -l");
 	if (!lflag && kflag)
 		errx(1, "must use -l with -k");
+
+	if (tos_cmsg > 0 && Tflag == -1) {
+		errx(1, "must use --apple-tos with --apple-tos-cmsg");
+	}
 
 	/* Initialize addrinfo structure. */
 	if (family != AF_UNIX) {
@@ -1034,6 +1040,56 @@ local_listen(char *host, char *port, struct addrinfo hints)
 }
 
 /*
+ * sendmsg_tos()
+ * Call sendmsg with the provided TOS value in a cmsg header.
+ */
+static ssize_t
+sendmsg_tos(int fd, const void *buf, size_t buf_len, uint8_t tos)
+{
+	struct sockaddr_storage ss = {};
+	socklen_t len = sizeof(ss);
+	if (getsockname(fd, (struct sockaddr*)&ss, &len) != 0) {
+		return -1;
+	}
+
+	if (len < offsetof(struct sockaddr_storage, ss_len) + sizeof(ss.ss_len) ||
+		len < ss.ss_len) {
+		errx(1, "getsockname provided invalid length: len: %u, ss.ss_len: %u", len, ss.ss_len);
+	}
+
+	int type = 0;
+	int level = 0;
+
+	if (ss.ss_family == AF_INET6) {
+		level = IPPROTO_IPV6;
+		type = IPV6_TCLASS;
+	} else {
+		level = IPPROTO_IP;
+		type = IP_TOS;
+	}
+
+	struct msghdr msgvec = {};
+	struct iovec msg = {};
+	msg.iov_base = (void *)buf;
+	msg.iov_len = buf_len;
+	msgvec.msg_name = 0;
+	msgvec.msg_namelen = 0;
+	msgvec.msg_iov = &msg;
+	msgvec.msg_iovlen = 1;
+
+	uint8_t ctrl[CMSG_SPACE(sizeof(int))] = {};
+	msgvec.msg_control = &ctrl;
+	msgvec.msg_controllen = sizeof(ctrl);
+	struct cmsghdr * const cmsg = CMSG_FIRSTHDR(&msgvec);
+	cmsg->cmsg_level = level;
+	cmsg->cmsg_type = type;
+	cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+	*(int *)CMSG_DATA(cmsg) = tos;
+
+	return sendmsg(fd, &msgvec, 0);
+}
+
+/*
  * readwrite()
  * Loop that polls on the network file descriptor and stdin.
  */
@@ -1149,13 +1205,31 @@ readwrite(int nfd)
 #endif
 			} else {
 				if ((cflag) && (buf[n - 1] == '\n')) {
-					if (atomicio(vwrite, nfd, buf, n - 1) != (n - 1))
-						return;
-					if (atomicio(vwrite, nfd, "\r\n", 2) != 2)
-						return;
+					if (tos_cmsg > 0) {
+						if (sendmsg_tos(nfd, buf, n - 1, (uint8_t)Tflag) != (n - 1)) {
+							return;
+						}
+						if (sendmsg_tos(nfd, "\r\n", 2, (uint8_t)Tflag) != 2) {
+							return;
+						}
+					} else {
+						if (atomicio(vwrite, nfd, buf, n - 1) != (n - 1)) {
+							return;
+						}
+						if (atomicio(vwrite, nfd, "\r\n", 2) != 2) {
+							return;
+						}
+					}
 				} else {
-					if (atomicio(vwrite, nfd, buf, n) != n)
-						return;
+					if (tos_cmsg > 0) {
+						if (sendmsg_tos(nfd, buf, n, (uint8_t)Tflag) != n) {
+							return;
+						}
+					} else {
+						if (atomicio(vwrite, nfd, buf, n) != n) {
+							return;
+						}
+					}
 				}
 				if (notify_ack > 0) {
 					++marker_id;
@@ -1203,8 +1277,15 @@ atelnet(int nfd, unsigned char *buf, unsigned int size)
 		p++;
 		obuf[2] = *p;
 		obuf[3] = '\0';
-		if (atomicio(vwrite, nfd, obuf, 3) != 3)
-			warn("Write Error!");
+		if (tos_cmsg > 0) {
+			if (sendmsg_tos(nfd, obuf, 3, (uint8_t)Tflag) != 3) {
+				warn("Write Error!");
+			}
+		} else {
+			if (atomicio(vwrite, nfd, obuf, 3) != 3) {
+				warn("Write Error!");
+			}
+		}
 		obuf[0] = '\0';
 	}
 }
@@ -1461,8 +1542,11 @@ set_common_sockopts(int s, int af)
 			option = IP_TOS;
 		}
 
-		if (setsockopt(s, proto, option, &Tflag, sizeof(Tflag)) == -1)
-			err(1, "set IP ToS");
+		if (tos_cmsg == 0) {
+			if (setsockopt(s, proto, option, &Tflag, sizeof(Tflag)) == -1) {
+				err(1, "set IP ToS");
+			}
+		}
 	}
 #endif /* __APPLE__ */
 }
@@ -1535,7 +1619,6 @@ help(void)
                 "%s"
                 "%s"
                 "%s"
-                "%s"
                 "Port numbers can be individual or ranges: lo-hi [inclusive]\n",
 #ifndef __APPLE__
                 "",
@@ -1589,7 +1672,8 @@ help(void)
                 "\t--apple-nowakefromsleep       No wake from sleep\n",
                 "\t--apple-notify-ack            Receive events when data gets acknowledged\n",
                 "\t--apple-sockev                Receive and print socket events\n",
-                "\t--apple-tos tos               Set the IP_TOS or IPV6_TCLASS option\n"
+                "\t--apple-tos tos               Set the IP_TOS or IPV6_TCLASS option\n",
+				"\t--apple-tos-cmsg              Set the IP_TOS or IPV6_TCLASS option via cmsg\n"
 #endif /* !__APPLE__ */
                 );
         exit(1);
@@ -1615,7 +1699,7 @@ usage(int ret)
                 "\t  [--apple-kao] [--apple-ext-bk-idle]\n"
                 "\t  [--apple-netsvctype svc] [---apple-nowakefromsleep]\n"
                 "\t  [--apple-notify-ack] [--apple-sockev]\n"
-                "\t  [--apple-tos tos]\n");
+                "\t  [--apple-tos tos] [--apple-tos-cmsg]\n");
 #endif /* !__APPLE__ */
 	fprintf(stderr, "\t  [-s source_ip_address] [-w timeout] [-X proxy_version]\n");
 	fprintf(stderr, "\t  [-x proxy_address[:port]] [hostname] [port[s]]\n");

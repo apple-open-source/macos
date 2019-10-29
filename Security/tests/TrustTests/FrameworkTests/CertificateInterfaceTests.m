@@ -32,7 +32,7 @@
 #include <Security/SecTrustSettingsPriv.h>
 #include "OSX/sec/Security/SecFramework.h"
 #include "OSX/utilities/SecCFWrappers.h"
-#include <securityd/OTATrustUtilities.h>
+#include "trust/trustd/OTATrustUtilities.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <utilities/SecCFRelease.h>

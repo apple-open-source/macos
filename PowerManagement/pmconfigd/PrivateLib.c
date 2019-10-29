@@ -237,6 +237,7 @@ __private_extern__ dispatch_queue_t         _getPMMainQueue(void)
     return pmRLS;
 }
 
+
 asl_object_t getSleepCntObject(char *store)
 {
     asl_object_t        response = NULL;
@@ -1352,17 +1353,18 @@ __private_extern__ void logASLMessagePMStart(void)
 __private_extern__ void logASLMessageSMCShutdownCause(int shutdownCause)
 {
     const char *shutdownCauseString = smcShutdownCauseString(shutdownCause);
+    char buf[120];
+
+    snprintf(buf, sizeof(buf), "SMC shutdown cause: %d: %s", shutdownCause, shutdownCauseString);
+    INFO_LOG("%s\n", buf);
+
     aslmsg m;
     m = new_msg_pmset_log();
     asl_set(m, kPMASLDomainKey, kPMASLDomainSMCShutdownCause);
     asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
-    char buf[120];
-    snprintf(buf, sizeof(buf), "SMC shutdown cause: %d: %s", shutdownCause, shutdownCauseString);
     asl_set(m, ASL_KEY_MSG, buf);
     asl_send(NULL, m);
-    INFO_LOG("%s\n", buf);
     asl_release(m);
-
 }
 
 
@@ -1484,7 +1486,7 @@ __private_extern__ void logASLMessageWake(
 )
 {
     aslmsg                  m;
-    int                     i = 0;
+    char                    numbuf[15];
     CFStringRef             tmpStr = NULL;
     char                    buf[200];
     char                    source[10];
@@ -1493,7 +1495,6 @@ __private_extern__ void logASLMessageWake(
     char                    cBuf[50];
     const char *            detailString = NULL;
     static int              darkWakeCnt = 0;
-    char                    numbuf[15];
     char                    battCap[15];
     static char             prev_uuid[50];
     CFStringRef             wakeType = NULL;
@@ -1502,8 +1503,8 @@ __private_extern__ void logASLMessageWake(
     PowerSources            pwrSrc;
 
     m = new_msg_pmset_log();
-
     asl_set(m, kPMASLSignatureKey, sig);
+
     if (_getUUIDString(buf, sizeof(buf))) {
         asl_set(m, kPMASLUUIDKey, buf);
         if (strncmp(buf, prev_uuid, sizeof(prev_uuid))) {
@@ -1538,14 +1539,14 @@ __private_extern__ void logASLMessageWake(
         success = false;
 
     }
-    
+
     /* populate driver wake reasons */
     if (success && isA_CFArray(reasons.claimedWakeEventsArray))
     {
         int  keyIndex = 0;
         long    claimedCount = CFArrayGetCount(reasons.claimedWakeEventsArray);
 
-        for (i=0; i<claimedCount; i++) {
+        for (int i=0; i<claimedCount; i++) {
             /* Legal requirement: 16513925 & 16544525
              * Limit the length of the reported string to 60 characters.
              */
@@ -1556,7 +1557,6 @@ __private_extern__ void logASLMessageWake(
             char                    claimedDetailsStr[kMaxClaimReportLen];
             char                    claimed[255];
             char                    key[255];
-
 
             claimedReasonStr[0] = 0;
             claimedDetailsStr[0] = 0;
@@ -1585,9 +1585,7 @@ __private_extern__ void logASLMessageWake(
             asl_set(m, key, claimed);
             keyIndex++;
         }
-    
     }
-
 
     if (!success)
     {
@@ -1595,9 +1593,9 @@ __private_extern__ void logASLMessageWake(
     }
     else if (dark_wake == kIsDarkWake)
     {
-        asl_set(m, kPMASLDomainKey, kPMASLDomainPMDarkWake);
-        snprintf(buf, sizeof(buf), "%s", "DarkWake");
         darkWakeCnt++;
+        snprintf(buf, sizeof(buf), "%s", "DarkWake");
+        asl_set(m, kPMASLDomainKey, kPMASLDomainPMDarkWake);
         snprintf(numbuf, sizeof(numbuf), "%d", darkWakeCnt);
         asl_set(m, kPMASLValueKey, numbuf);
     }
@@ -1652,17 +1650,18 @@ __private_extern__ void logASLMessageWake(
 
 __private_extern__ void logASLMessageWakeTime(uint64_t waketime, WakeTypeEnum waketype)
 {
-    aslmsg m = NULL;
-    m = new_msg_pmset_log();
-    asl_set(m, kPMASLDomainKey, kPMASLDomainWakeTime);
-
-    asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
     char buf[128];
     double wakeTime = (double)(waketime)/1000000.0;
     snprintf(buf, sizeof(buf), "WakeTime: %2.3lf sec", wakeTime/1000.0);
+    INFO_LOG("%s\n", buf);
+
+    aslmsg m = NULL;
+    m = new_msg_pmset_log();
+
+    asl_set(m, kPMASLDomainKey, kPMASLDomainWakeTime);
+    asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
     asl_set(m, ASL_KEY_MSG, buf);
     asl_send(NULL, m);
-    INFO_LOG("%s\n", buf);
     mt2PublishWakeTime(wakeTime, waketype);
     asl_release(m);
 }
@@ -1674,6 +1673,10 @@ __private_extern__ void logASLAppWakeReason(
 {
 #define kPMASLDomainAppWakeReason   "AppWakeReason"
 
+    char msg[255];
+    snprintf(msg, sizeof(msg), "AppWoke:%s Reason:%s", ident?ident:"--none--", reason?reason:"--none--");
+    INFO_LOG("%{public}s\n", msg);
+
     aslmsg m = new_msg_pmset_log();
 
     asl_set(m, kPMASLDomainKey, kPMASLDomainAppWakeReason);
@@ -1681,14 +1684,9 @@ __private_extern__ void logASLAppWakeReason(
         asl_set(m, kPMASLSignatureKey, ident);
     }
 
-    char msg[255];
-    snprintf(msg, sizeof(msg), "AppWoke:%s Reason:%s", ident?ident:"--none--", reason?reason:"--none--");
     asl_set(m, ASL_KEY_MSG, msg);
-
     asl_send(NULL, m);
     asl_release(m);
-
-    INFO_LOG("%{public}s\n", msg);
 }
 
 
@@ -1699,7 +1697,6 @@ __private_extern__ void logASLPMConnectionNotify(
     int             notificationBits
     )
 {
-
     aslmsg m;
     char buf[128];
     char appName[100];
@@ -1730,9 +1727,7 @@ __private_extern__ void logASLPMConnectionNotify(
 
 __private_extern__ void logASLDisplayStateChange()
 {
-
     bool displayOff = isDisplayAsleep();
-
 
     aslmsg m;
     char buf[128];
@@ -1814,8 +1809,6 @@ __private_extern__ void logASLInactivityWindow(inactivityWindowType type, CFDate
 }
 
 
-
-
 __private_extern__ void logASLPerforamceState(int perfState)
 {
     aslmsg m;
@@ -1830,20 +1823,17 @@ __private_extern__ void logASLPerforamceState(int perfState)
         asl_set(m, kPMASLUUIDKey, buf);
     }
 
-   snprintf(buf, sizeof(buf), "Performance State is %d", perfState);
+    snprintf(buf, sizeof(buf), "Performance State is %d", perfState);
 
     asl_set(m, ASL_KEY_MSG, buf);
     asl_send(NULL, m);
     asl_release(m);
-
-
 }
 
 __private_extern__ void logASLThermalState(int thermalState)
 {
     aslmsg m;
     char buf[128];
-
 
     m = new_msg_pmset_log();
     asl_set(m, kPMASLDomainKey, kPMASLDomainThermalEvent);
@@ -1858,8 +1848,6 @@ __private_extern__ void logASLThermalState(int thermalState)
     asl_set(m, ASL_KEY_MSG, buf);
     asl_send(NULL, m);
     asl_release(m);
-
-
 }
 
 __private_extern__ void logASLMessagePMConnectionResponse(
@@ -2081,7 +2069,6 @@ __private_extern__ void  logASLMessageAppStats(CFArrayRef appFailuresArray, char
     }
     asl_send(NULL, m);
     asl_release(m);
-
 }
 
 
@@ -2116,7 +2103,6 @@ __private_extern__ void logASLMessagePMConnectionScheduledWakeEvents(CFStringRef
     asl_send(NULL, m);
     asl_release(m);
     CFRelease(messageString);
-
 }
 
 __private_extern__ void logASLMessageExecutedWakeupEvent(CFStringRef requestedMaintenancesString)
@@ -3053,7 +3039,6 @@ static void logASLMessageHibernateStatistics(void)
         CFRelease(statsData);
     return;
 }
-
 
 
 #pragma mark FDR

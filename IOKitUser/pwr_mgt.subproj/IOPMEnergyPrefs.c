@@ -91,6 +91,7 @@ PMSettingDescriptorStruct defaultSettings[] =
     {kIOPMWakeOnRingKey,                                1,   0,  0},
     {kIOPMTCPKeepAlivePrefKey,                          1,   1,  1},
     {kIOPMProximityDarkWakeKey,                         1,   0,  0},
+    {kIOPMProModeKey,                                   0,   0,  0},
 };
 
 static const int kPMSettingsCount = sizeof(defaultSettings)/sizeof(PMSettingDescriptorStruct);
@@ -260,6 +261,7 @@ bool isA_GenericPref(CFStringRef key)
         CFSTR(kIOPMRestartOnPowerLossKey),
         CFSTR(kIOPMSystemSleepKey),
         CFSTR(kIOPMWakeOnLANKey),
+        CFSTR(kIOPMProModeKey),
         CFSTR(kIOPMCarrierMode),
         CFSTR(kIOPMCarrierModeVh),
         CFSTR(kIOPMCarrierModeVl),

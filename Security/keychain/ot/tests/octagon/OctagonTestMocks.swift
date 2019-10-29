@@ -2,29 +2,45 @@
 import Foundation
 
 class OTMockSecureBackup: NSObject, OctagonEscrowRecovererPrococol {
-    let bottleID : String
-    let entropy : Data
+    let bottleID: String?
+    let entropy: Data?
 
-    init(bottleID: String, entropy: Data) {
+    init(bottleID: String?, entropy: Data?) {
         self.bottleID = bottleID
         self.entropy = entropy
 
         super.init()
     }
 
-    func recover(withInfo info: [AnyHashable : Any]!,
+    func recover(withInfo info: [AnyHashable: Any]!,
                  results: AutoreleasingUnsafeMutablePointer<NSDictionary?>!) -> Error! {
-        results.pointee = [
-            "bottleID": self.bottleID,
-            "bottleValid": "valid",
-            "EscrowServiceEscrowData" : ["BottledPeerEntropy": entropy],
-        ]
+        if self.bottleID == nil && self.entropy == nil {
+            results.pointee = [
+                "bottleValid": "invalid",
+            ]
+        } else if self.bottleID == nil && self.entropy != nil {
+            results.pointee = [
+                "EscrowServiceEscrowData": ["BottledPeerEntropy": self.entropy],
+                "bottleValid": "invalid",
+            ]
+        } else if self.bottleID != nil && self.entropy == nil {
+            results.pointee = [
+                "bottleID": self.bottleID!,
+                "bottleValid": "invalid",
+            ]
+        } else { //entropy and bottleID must exist, so its a good bottle.
+            results.pointee = [
+                "bottleID": self.bottleID!,
+                "bottleValid": "valid",
+                "EscrowServiceEscrowData": ["BottledPeerEntropy": self.entropy],
+            ]
+        }
         return nil
     }
 }
 
 class OTMockFollowUpController: NSObject, OctagonFollowUpControllerProtocol {
-    var postedFollowUp : Bool = false
+    var postedFollowUp: Bool = false
 
     override init() {
         super.init()

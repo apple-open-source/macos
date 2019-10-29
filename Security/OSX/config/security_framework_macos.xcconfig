@@ -26,7 +26,7 @@ APPLY_RULES_IN_COPY_FILES = NO
 
 // Adding things here is against the spirit of TAPI. If something is in the framework, it should be in the framework headers.
 // Don't add things.
-OTHER_TAPI_FLAGS_TRUST = -extra-private-header $(PROJECT_DIR)/OSX/trustd/macOS/SecTrustOSXEntryPoints.h -extra-private-header $(PROJECT_DIR)/OSX/sec/Security/SecCertificateInternal.h
+OTHER_TAPI_FLAGS_TRUST = -extra-private-header $(PROJECT_DIR)/trust/trustd/macOS/SecTrustOSXEntryPoints.h -extra-private-header $(PROJECT_DIR)/OSX/sec/Security/SecCertificateInternal.h
 
 OTHER_TAPI_FLAGS_USR_LIB_HEADERS = -extra-private-header $(PROJECT_DIR)/OSX/utilities/debugging.h
 OTHER_TAPI_FLAGS_HACKS = -exclude-public-header $(BUILT_PRODUCTS_DIR)/Security.framework/Versions/A/Headers/AuthorizationPlugin.h -extra-public-header $(PROJECT_DIR)/OSX/macos_tapi_hacks.h -extra-public-header $(PROJECT_DIR)/OSX/sec/Security/SecItemShim.h -D SECURITY_PROJECT_TAPI_HACKS=1

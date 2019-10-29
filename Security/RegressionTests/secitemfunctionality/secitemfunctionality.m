@@ -38,6 +38,7 @@ fail(const char *fmt, ...)
     va_end(ap);
 }
 
+#if 0
 /*
  * Create item w/o data, try to make sure we end up in the OS X keychain
  */
@@ -78,6 +79,7 @@ CheckItemAddDeleteMaybeLegacyKeychainNoData(void)
     printf("[PASS] %s\n", __FUNCTION__);
 
 }
+#endif
 
 static void
 CheckItemAddDeleteNoData(void)
@@ -91,6 +93,7 @@ CheckItemAddDeleteNoData(void)
         (id)kSecAttrAccessGroup : @"keychain-test1",
         (id)kSecAttrAccount : @"item-delete-me",
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
+        (id)kSecUseDataProtectionKeychain: @YES,
     };
     status = SecItemDelete((__bridge CFDictionaryRef)query);
     if (status != errSecSuccess && status != errSecItemNotFound)
@@ -125,10 +128,12 @@ CheckItemUpdateAccessGroupGENP(void)
     NSDictionary *clean1 = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : @"keychain-test1",
+        (id)kSecUseDataProtectionKeychain: @YES,
     };
     NSDictionary *clean2 = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : @"keychain-test2",
+        (id)kSecUseDataProtectionKeychain: @YES,
     };
 
     (void)SecItemDelete((__bridge CFDictionaryRef)clean1);
@@ -144,6 +149,7 @@ CheckItemUpdateAccessGroupGENP(void)
         (id)kSecAttrAccount : @"item-delete-me",
         (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
+        (id)kSecUseDataProtectionKeychain: @YES,
     };
     status = SecItemAdd((__bridge CFDictionaryRef)add, NULL);
     if (status != errSecSuccess)
@@ -156,7 +162,7 @@ CheckItemUpdateAccessGroupGENP(void)
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : @"keychain-test1",
         (id)kSecAttrAccount : @"item-delete-me",
-        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain: @YES,
     };
     NSDictionary *modified = @{
         (id)kSecAttrAccessGroup : @"keychain-test2",
@@ -173,7 +179,7 @@ CheckItemUpdateAccessGroupGENP(void)
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : @"keychain-test1",
         (id)kSecAttrAccount : @"item-delete-me",
-        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain: @YES,
     };
     status = SecItemCopyMatching((__bridge CFDictionaryRef)check1, NULL);
     if (status != errSecItemNotFound)
@@ -184,7 +190,7 @@ CheckItemUpdateAccessGroupGENP(void)
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccessGroup : @"keychain-test2",
         (id)kSecAttrAccount : @"item-delete-me",
-        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain: @YES,
     };
     status = SecItemCopyMatching((__bridge CFDictionaryRef)check2, NULL);
     if (status != errSecSuccess)
@@ -280,7 +286,7 @@ CheckIdentityItem(NSString *accessGroup, OSStatus expectedStatus)
                              (id)kSecClass : (id)kSecClassIdentity,
                              (id)kSecAttrAccessGroup : accessGroup,
                              (id)kSecAttrLabel : @"item-delete-me",
-                             (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
+                             (id)kSecUseDataProtectionKeychain: @YES,
                              };
     status = SecItemCopyMatching((__bridge CFDictionaryRef)check, NULL);
     if (status != expectedStatus)
@@ -324,7 +330,7 @@ CheckItemUpdateAccessGroupIdentity(void)
         (id)kSecAttrAccessGroup : @"keychain-test1",
         (id)kSecAttrLabel : @"item-delete-me",
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
-        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecReturnPersistentRef: (id)kCFBooleanTrue,
     };
     status = SecItemAdd((__bridge CFDictionaryRef)add, &ref);
@@ -371,7 +377,7 @@ CheckItemUpdateAccessGroupIdentity(void)
         (id)kSecClass : (id)kSecClassIdentity,
         (id)kSecAttrAccessGroup : @"keychain-test2",
         (id)kSecAttrLabel : @"item-delete-me",
-        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecReturnPersistentRef : (id)kCFBooleanTrue,
     };
     status = SecItemCopyMatching((__bridge CFDictionaryRef)prefQuery, (CFTypeRef *)&data);
@@ -444,7 +450,7 @@ CheckFindIdentityByReference(void)
         (id)kSecAttrAccessGroup : @"keychain-test1",
         (id)kSecAttrLabel : @"CheckItemReference",
         (id)kSecAttrAccessible : (id)kSecAttrAccessibleAfterFirstUnlock,
-        (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
+        (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecReturnPersistentRef: (id)kCFBooleanTrue,
     };
     status = SecItemAdd((__bridge CFDictionaryRef)add, (CFTypeRef *)&pref);
@@ -483,6 +489,7 @@ CheckFindIdentityByReference(void)
         (id)kSecClass : (id)kSecClassIdentity,
         (id)kSecAttrAccessGroup : @"keychain-test1",
         (id)kSecAttrLabel : @"CheckItemReference",
+        (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecReturnPersistentRef: (id)kCFBooleanTrue,
     };
     status = SecItemCopyMatching((CFDictionaryRef)query2, (CFTypeRef *)&pref2);
@@ -506,6 +513,7 @@ CheckFindIdentityByReference(void)
         (id)kSecAttrAccessGroup : @"keychain-test1",
         (id)kSecAttrLabel : @"CheckItemReference",
         (id)kSecValueRef : (__bridge id)identity,
+        (id)kSecUseDataProtectionKeychain: @YES,
         (id)kSecReturnPersistentRef: (id)kCFBooleanTrue,
     };
     status = SecItemCopyMatching((CFDictionaryRef)query3, (CFTypeRef *)&pref2);
@@ -636,7 +644,7 @@ CheckItemPerformance(void)
             (id)kSecAttrService : @"service",
             (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
             (id)kSecAttrAccessGroup : @"keychain-test1",
-            (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
+            (id)kSecUseDataProtectionKeychain: @YES,
             (id)kSecValueData : data,
         };
         SecItemAdd((__bridge CFDictionaryRef)item, NULL);
@@ -647,17 +655,20 @@ CheckItemPerformance(void)
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrService : @"service",
         (id)kSecMatchLimit : (id)kSecMatchLimitOne,
+        (id)kSecUseDataProtectionKeychain: @YES,
     });
     RunCopyPerfTest(@"FindOneItemUnique", @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrAccount : @"account-0",
         (id)kSecAttrService : @"service",
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+        (id)kSecUseDataProtectionKeychain: @YES,
     });
     RunCopyPerfTest(@"Find1000Items", @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrService : @"service",
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+        (id)kSecUseDataProtectionKeychain: @YES,
     });
     RunDigestPerfTest(@"Digest1000Items", (id)kSecClassGenericPassword, @"keychain-test1", 1000);
     RunCopyPerfTest(@"GetAttrOneItemUnique", @{
@@ -666,12 +677,14 @@ CheckItemPerformance(void)
         (id)kSecAttrService : @"service",
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+        (id)kSecUseDataProtectionKeychain: @YES,
     });
     RunCopyPerfTest(@"GetData1000Items", @{
         (id)kSecClass : (id)kSecClassGenericPassword,
         (id)kSecAttrService : @"service",
         (id)kSecReturnData : (id)kCFBooleanTrue,
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+        (id)kSecUseDataProtectionKeychain: @YES,
     });
     RunCopyPerfTest(@"GetDataOneItemUnique", @{
         (id)kSecClass : (id)kSecClassGenericPassword,
@@ -679,6 +692,7 @@ CheckItemPerformance(void)
         (id)kSecAttrService : @"service",
         (id)kSecReturnData : (id)kCFBooleanTrue,
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+        (id)kSecUseDataProtectionKeychain: @YES,
     });
     RunCopyPerfTest(@"GetDataAttrOneItemUnique", @{
         (id)kSecClass : (id)kSecClassGenericPassword,
@@ -687,6 +701,7 @@ CheckItemPerformance(void)
         (id)kSecReturnData : (id)kCFBooleanTrue,
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+        (id)kSecUseDataProtectionKeychain: @YES,
     });
 #if TARGET_OS_IPHONE /* macOS doesn't support fetching data for more then one item */
     RunCopyPerfTest(@"GetData1000Items", @{
@@ -694,6 +709,7 @@ CheckItemPerformance(void)
         (id)kSecAttrService : @"service",
         (id)kSecReturnData : (id)kCFBooleanTrue,
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+        (id)kSecUseDataProtectionKeychain: @YES,
     });
     RunCopyPerfTest(@"GetDataAttr1000Items", @{
         (id)kSecClass : (id)kSecClassGenericPassword,
@@ -701,6 +717,7 @@ CheckItemPerformance(void)
         (id)kSecReturnData : (id)kCFBooleanTrue,
         (id)kSecReturnAttributes : (id)kCFBooleanTrue,
         (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+        (id)kSecUseDataProtectionKeychain: @YES,
     });
 #endif
 
@@ -715,17 +732,11 @@ main(int argc, const char ** argv)
 {
     printf("[TEST] secitemfunctionality\n");
 
-#if TARGET_OS_OSX
-    char *user = getenv("USER");
-    if (user && strcmp("bats", user) == 0) {
-        (void)SecKeychainUnlock(NULL, 4, "bats", true);
-    }
-#endif
     CheckItemPerformance();
 
     CheckFindIdentityByReference();
 
-    CheckItemAddDeleteMaybeLegacyKeychainNoData();
+    //CheckItemAddDeleteMaybeLegacyKeychainNoData();
     CheckItemAddDeleteNoData();
     CheckItemUpdateAccessGroupGENP();
     CheckItemUpdateAccessGroupIdentity();

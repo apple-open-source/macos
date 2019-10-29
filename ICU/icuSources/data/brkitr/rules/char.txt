@@ -47,7 +47,7 @@ $Extended_Pict = [:ExtPict:];
 #  $E_Base_GAZ  = [\p{Grapheme_Cluster_Break = EBG}];
 # They must be replaced with updated versions as follows
 #  $E_Base      = [:EBase:];
-#  $E_Base_GAZ  = [\U000026F9\U0001F466-\U0001F469]; # EBase that also occur after ZWJ in emoji-zwj-sequences
+#  $E_Base_GAZ  = [\U000026F9\U0001F466-\U0001F469\U0001F91D\U0001F9D1]; # EBase that also occur after ZWJ in emoji-zwj-sequences
 
 ## -------------------------------------------------
 !!chain;

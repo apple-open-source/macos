@@ -21,10 +21,10 @@ extension Container {
         return (reta, reterr)
     }
 
-    func resetSync(test: XCTestCase) -> Error? {
+    func resetSync(resetReason: CuttlefishResetReason, test: XCTestCase) -> Error? {
         let expectation = XCTestExpectation(description: "reset replied")
         var reterr: Error?
-        self.reset { error in
+        self.reset(resetReason: resetReason) { error in
             reterr = error
             expectation.fulfill()
         }
@@ -124,6 +124,18 @@ extension Container {
         }
         test.wait(for: [expectation], timeout: 10.0)
         return (reta, retb, reterr)
+    }
+
+    func preflightVouchWithBottleSync(test: XCTestCase, bottleID: String) -> (String?, Error?) {
+        let expectation = XCTestExpectation(description: "preflightVouchWithBottle replied")
+        var reta: String?, reterr: Error?
+        self.preflightVouchWithBottle(bottleID: bottleID) { a, err in
+            reta = a
+            reterr = err
+            expectation.fulfill()
+        }
+        test.wait(for: [expectation], timeout: 10.0)
+        return (reta, reterr)
     }
 
     func vouchWithBottleSync(test: XCTestCase, b: String, entropy: Data, bottleSalt: String, tlkShares: [CKKSTLKShare]) -> (Data?, Data?, Error?) {
@@ -310,7 +322,7 @@ extension Container {
 
     func trustStatusSync(test: XCTestCase) -> (TrustedPeersHelperEgoPeerStatus, Error?) {
         let expectation = XCTestExpectation(description: "trustStatus replied")
-        var retEgoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil, status: .unknown, peerCountsByModelID: [:], isExcluded: false, isLocked: false)
+        var retEgoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil, status: .unknown, viablePeerCountsByModelID: [:], isExcluded: false, isLocked: false)
         var reterror: Error?
         self.trustStatus { egoStatus, error in
             retEgoStatus = egoStatus

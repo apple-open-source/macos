@@ -58,6 +58,7 @@
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecItem.h>
+#include <libDER/asn1Types.h>
 
 #include "tsaSupport.h"
 #include "tsaSupportPriv.h"
@@ -93,104 +94,60 @@
 static OSStatus
 DER_UTCTimeToCFDate(const CSSM_DATA_PTR utcTime, CFAbsoluteTime *date)
 {
-    CFGregorianDate gdate;
-    char *string = (char *)utcTime->Data;
-    long year, month, mday, hour, minute, second, hourOff, minOff;
-    CFTimeZoneRef timeZone;
-
-    /* Verify time is formatted properly and capture information */
-    second = 0;
-    hourOff = 0;
-    minOff = 0;
-    CAPTURE(year,string+0,loser);
-    if (year < 50) {
-        /* ASSUME that year # is in the 2000's, not the 1900's */
-        year += 100;
-    }
-    CAPTURE(month,string+2,loser);
-    if ((month == 0) || (month > 12)) goto loser;
-    CAPTURE(mday,string+4,loser);
-    if ((mday == 0) || (mday > 31)) goto loser;
-    CAPTURE(hour,string+6,loser);
-    if (hour > 23) goto loser;
-    CAPTURE(minute,string+8,loser);
-    if (minute > 59) goto loser;
-    if (ISDIGIT(string[10])) {
-        CAPTURE(second,string+10,loser);
-        if (second > 59) goto loser;
-        string += 2;
-    }
-    if (string[10] == '+') {
-        CAPTURE(hourOff,string+11,loser);
-        if (hourOff > 23) goto loser;
-        CAPTURE(minOff,string+13,loser);
-        if (minOff > 59) goto loser;
-    } else if (string[10] == '-') {
-        CAPTURE(hourOff,string+11,loser);
-        if (hourOff > 23) goto loser;
-        hourOff = -hourOff;
-        CAPTURE(minOff,string+13,loser);
-        if (minOff > 59) goto loser;
-        minOff = -minOff;
-    } else if (string[10] != 'Z') {
-        goto loser;
+    CFErrorRef error = NULL;
+    /* <rdar://problem/55316705> CMS attributes don't correctly encode/decode times (always use UTCTime) */
+    CFAbsoluteTime result = SecAbsoluteTimeFromDateContentWithError(ASN1_UTC_TIME, utcTime->Data, utcTime->Length, &error);
+    if (error) {
+        CFReleaseNull(error);
+        return SECFailure;
     }
 
-    gdate.year = (SInt32)(year + 1900);
-    gdate.month = month;
-    gdate.day = mday;
-    gdate.hour = hour;
-    gdate.minute = minute;
-    gdate.second = second;
-
-    if (hourOff == 0 && minOff == 0)
-	timeZone = NULL; /* GMT */
-    else
-    {
-	timeZone = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, (hourOff * 60 + minOff) * 60);
+    if (date) {
+        *date = result;
     }
-
-    *date = CFGregorianDateGetAbsoluteTime(gdate, timeZone);
-    if (timeZone)
-	CFRelease(timeZone);
-
     return SECSuccess;
-
-loser:
-    return SECFailure;
 }
 
 static OSStatus
 DER_CFDateToUTCTime(CFAbsoluteTime date, CSSM_DATA_PTR utcTime)
 {
-    CFGregorianDate gdate =  CFAbsoluteTimeGetGregorianDate(date, NULL /* GMT */);
     unsigned char *d;
-    SInt8 second;
 
     utcTime->Length = 13;
     utcTime->Data = d = PORT_Alloc(13);
-    if (!utcTime->Data)
-	return SECFailure;
+    if (!utcTime->Data) {
+        return SECFailure;
+    }
 
-    /* UTC time does not handle the years before 1950 */
-    if (gdate.year < 1950)
-            return SECFailure;
+    __block int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+    __block bool result;
+    SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
+        result = CFCalendarDecomposeAbsoluteTime(zuluCalendar, date, "yMdHms", &year, &month, &day, &hour, &minute, &second);
+    });
+    if (!result) {
+        return SECFailure;
+    }
+
+    /* UTC time does not handle the years before 1950 or after 2049 */
+    /* <rdar://problem/55316705> CMS attributes don't correctly encode/decode times (always use UTCTime) */
+    if (year < 1950 || year > 2049) {
+        return SECFailure;
+    }
 
     /* remove the century since it's added to the year by the
        CFAbsoluteTimeGetGregorianDate routine, but is not needed for UTC time */
-    gdate.year %= 100;
-    second = gdate.second + 0.5;
+    year %= 100;
 
-    d[0] = HIDIGIT(gdate.year);
-    d[1] = LODIGIT(gdate.year);
-    d[2] = HIDIGIT(gdate.month);   
-    d[3] = LODIGIT(gdate.month);
-    d[4] = HIDIGIT(gdate.day);
-    d[5] = LODIGIT(gdate.day);
-    d[6] = HIDIGIT(gdate.hour);
-    d[7] = LODIGIT(gdate.hour);  
-    d[8] = HIDIGIT(gdate.minute);
-    d[9] = LODIGIT(gdate.minute);
+    d[0] = HIDIGIT(year);
+    d[1] = LODIGIT(year);
+    d[2] = HIDIGIT(month);
+    d[3] = LODIGIT(month);
+    d[4] = HIDIGIT(day);
+    d[5] = LODIGIT(day);
+    d[6] = HIDIGIT(hour);
+    d[7] = LODIGIT(hour);
+    d[8] = HIDIGIT(minute);
+    d[9] = LODIGIT(minute);
     d[10] = HIDIGIT(second);
     d[11] = LODIGIT(second);
     d[12] = 'Z';

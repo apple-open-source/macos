@@ -48,16 +48,16 @@
 #include <Security/SecTask.h>
 #include <Security/SecTrustInternal.h>
 #include <Security/SecuritydXPC.h>
-#include <securityd/OTATrustUtilities.h>
-#include <securityd/SOSCloudCircleServer.h>
-#include <securityd/SecItemBackupServer.h>
-#include <securityd/SecItemServer.h>
-#include <securityd/SecLogSettingsServer.h>
-#include <securityd/SecOTRRemote.h>
-#include <securityd/SecTrustServer.h>
-#include <securityd/SecTrustStoreServer.h>
-#include <securityd/iCloudTrace.h>
-#include <securityd/spi.h>
+#include "trust/trustd/OTATrustUtilities.h"
+#include "keychain/securityd/SOSCloudCircleServer.h"
+#include "keychain/securityd/SecItemBackupServer.h"
+#include "keychain/securityd/SecItemServer.h"
+#include "keychain/securityd/SecLogSettingsServer.h"
+#include "keychain/securityd/SecOTRRemote.h"
+#include "trust/trustd/SecTrustServer.h"
+#include "trust/trustd/SecTrustStoreServer.h"
+#include "keychain/securityd/iCloudTrace.h"
+#include "keychain/securityd/spi.h"
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecDb.h>
@@ -67,17 +67,17 @@
 #include <utilities/SecInternalReleasePriv.h>
 #include <utilities/der_plist_internal.h>
 #include <utilities/der_plist.h>
-#include <securityd/personalization.h>
-#include <securityd/SecPinningDb.h>
-#include <securityd/SFKeychainControlManager.h>
+#include "trust/trustd/personalization.h"
+#include "trust/trustd/SecPinningDb.h"
+#include "keychain/securityd/SFKeychainControlManager.h"
 
 #include <keychain/ckks/CKKS.h>
 #include <keychain/ckks/CKKSControlServer.h>
 #include "keychain/ot/OctagonControlServer.h"
 
-#include <securityd/SFKeychainServer.h>
+#include "keychain/securityd/SFKeychainServer.h"
 #if !TARGET_OS_BRIDGE
-#include <securityd/PolicyReporter.h>
+#include "keychain/securityd/PolicyReporter.h"
 #endif
 
 #include <AssertMacros.h>
@@ -1537,7 +1537,8 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
                 break;
             case kSecXPCOpCopyInitialSyncBlob:
                     if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementCircleJoin, &error)) {
-                        CFDataRef initialblob = SOSCCCopyInitialSyncData_Server(&error);
+                        uint64_t flags = xpc_dictionary_get_uint64(event, kSecXPCKeyFlags); // 0 is a valid flags, so no error checking
+                        CFDataRef initialblob = SOSCCCopyInitialSyncData_Server((uint32_t)flags, &error);
                         if (initialblob) {
                             xpc_object_t xpc_object = _CFXPCCreateXPCObjectFromCFObject(initialblob);
                             xpc_dictionary_set_value(replyMessage, kSecXPCKeyResult, xpc_object);

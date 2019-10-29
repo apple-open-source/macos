@@ -529,6 +529,8 @@
 		77EC95322008041C00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
 		77F2C5E920228A0600209463 /* krb5cf-protos.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = 77F2C5E8202289E300209463 /* krb5cf-protos.h */; };
 		77FADD351FFC40870046BF01 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 77FADD341FFC407B0046BF01 /* CoreFoundation.framework */; };
+		8C5D2C9522F1080D00F18C97 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = EBEF29590FFEB23E00B7E286 /* libbsm.dylib */; };
+		8C5D2C9622F1082700F18C97 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = EBEF29590FFEB23E00B7E286 /* libbsm.dylib */; };
 		EB00129F1A2D07D6005B4B09 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB82E91F0F8A680100EE4F4A /* SystemConfiguration.framework */; };
 		EB0012A11A2D0A50005B4B09 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB6B1FB013AC1992001CB8AD /* CoreFoundation.framework */; };
 		EB00F0E2103CC6CA00399574 /* ct.c in Sources */ = {isa = PBXBuildFile; fileRef = EB00F0E1103CC6CA00399574 /* ct.c */; };
@@ -3964,6 +3966,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.x";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).c",
@@ -3975,6 +3979,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.asn1";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/asn1_$(INPUT_FILE_BASE)_asn1.x",
@@ -3985,6 +3991,8 @@
 		};
 		EB04E7630F347055009A5B13 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 			);
@@ -3994,6 +4002,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.et";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).c",
@@ -4006,6 +4016,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.et";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).c",
@@ -4018,6 +4030,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.x";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).c",
@@ -4029,6 +4043,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.asn1";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/asn1_$(INPUT_FILE_BASE)_asn1.x",
@@ -4042,6 +4058,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.x";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.c",
@@ -4053,6 +4071,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.asn1";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"${DERIVED_FILES_DIR}/asn1_${INPUT_FILE_BASE}_asn1.x",
@@ -4066,6 +4086,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.et";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).c",
@@ -4078,6 +4100,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.et";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.c",
@@ -4089,6 +4113,8 @@
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.proxy.script;
 			fileType = sourcecode.yacc;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"${DERIVED_FILES_DIR}/${INPUT_FILE_BASE}.c",
@@ -4101,6 +4127,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.in";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).c",
@@ -4112,6 +4140,8 @@
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.proxy.script;
 			fileType = sourcecode.yacc;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).c",
@@ -4123,6 +4153,8 @@
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.proxy.script;
 			fileType = sourcecode.yacc;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).c",
@@ -4134,6 +4166,8 @@
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.proxy.script;
 			fileType = sourcecode.yacc;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).c",
@@ -10297,6 +10331,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8C5D2C9522F1080D00F18C97 /* libbsm.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -10634,6 +10669,7 @@
 				EBBB6B5C1059953900B84263 /* libgss-krb5.a in Frameworks */,
 				EBBB6B5D1059953900B84263 /* libgss-mechglue.a in Frameworks */,
 				EBBB6B5E1059953900B84263 /* libgss-spnego.a in Frameworks */,
+				8C5D2C9622F1082700F18C97 /* libbsm.dylib in Frameworks */,
 				EBBB6B5F1059953900B84263 /* libgss-ntlm.a in Frameworks */,
 				EB792A231226E279004407A7 /* libgss-digest.a in Frameworks */,
 				EB17B5E71062E0ED0015DEB4 /* libgss-netlogon.a in Frameworks */,
@@ -22739,6 +22775,2002 @@
 			};
 			name = "Release-Embedded";
 		};
+		8C1E4DC22320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB7F141A1768EF6800492225 /* Heimdal.xcconfig */;
+			buildSettings = {
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)",
+					"$(HEIMDAL_XNU_SYS_HEADERS)",
+				);
+				HEIMDAL_ASN1BASE_INSTALL_PATH = /usr/local;
+				HEIMDAL_MAN_DIR = "$(HEIMDAL_ROOT)/usr/share/man";
+				HEIMDAL_ROOT = "";
+				HEIMDAL_SBIN_DIR = "$(HEIMDAL_ROOT)/usr/sbin";
+				"HEIMDAL_SBIN_DIR[sdk=iphoneos*]" = "$(HEIMDAL_ROOT)/usr/local/sbin";
+				"HEIMDAL_SBIN_DIR[sdk=iphonesimulator*]" = usr/local/sbin;
+				HEIMDAL_TMPDIR = "$(BUILT_PRODUCTS_DIR)/Derived";
+				INSTALL_PATH = "$(INSTALL_PATH_PREFIX)$(INSTALL_PATH_ACTUAL)";
+				LD_GENERATE_MAP_FILE = YES;
+				OTHER_CFLAGS = (
+					"$(HEIMDAL_PLATFORM_CFLAGS)",
+					"$(inherited)",
+				);
+				RUN_CLANG_STATIC_ANALYZER = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = __;
+			};
+			name = Debug;
+		};
+		8C1E4DC32320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "All-MacOSX";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DC42320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = HeimdalEmbedded;
+			};
+			name = Debug;
+		};
+		8C1E4DC52320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = HeimdalCompilerStep1;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DC62320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4DC72320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4DC82320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = OpenDirectory;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DC92320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4DCA2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4DCB2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4DCC2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = Heimdal;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DCD2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = libraries;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DCE2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = Clients;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DCF2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4DD02320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = vers;
+				SKIP_INSTALL = YES;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DD12320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = heimbase;
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DD22320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = roken;
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DD32320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "roken-application";
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DD42320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "compile_et-yacc2";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DD52320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)/compile_et",
+					"$(HEIMDAL_TMPDIR)",
+				);
+				INSTALL_PATH = "$(HEIMDAL_HOST_TOOLCHAIN)";
+				PRODUCT_NAME = "heimdal-compile_et";
+				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
+			};
+			name = Debug;
+		};
+		8C1E4DD62320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "gen-error-tables";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DD72320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "error-tables";
+				SKIP_INSTALL = YES;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DD82320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "error-tables-kadm";
+				SKIP_INSTALL = YES;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DD92320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = a;
+				EXECUTABLE_PREFIX = lib;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				MACH_O_TYPE = staticlib;
+				PRODUCT_NAME = com_err;
+				SKIP_INSTALL = YES;
+				STANDARD_C_PLUS_PLUS_LIBRARY_TYPE = static;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DDA2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "asn1_compiler-yacc2";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DDB2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)/asn1_compile",
+					"$(HEIMDAL_TMPDIR)",
+				);
+				INSTALL_PATH = "$(HEIMDAL_HOST_TOOLCHAIN)";
+				PRODUCT_NAME = "heimdal-asn1_compile";
+				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DDC2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "slc-yacc2";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DDD2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)/slc",
+					"$(HEIMDAL_TMPDIR)",
+				);
+				INSTALL_PATH = "$(HEIMDAL_HOST_TOOLCHAIN)";
+				PRODUCT_NAME = "heimdal-slc";
+				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DDE2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "slc-generated-files";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DDF2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = sl;
+				SKIP_INSTALL = YES;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DE02320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "asn1-generate-template";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DE12320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = dylib;
+				EXECUTABLE_PREFIX = lib;
+				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/heimdal-asn1.exp";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/lib;
+				PRIVATE_HEADERS_FOLDER_PATH = "/usr/local/include/heimdal-asn1";
+				PRODUCT_NAME = "heimdal-asn1";
+				PUBLIC_HEADERS_FOLDER_PATH = "/usr/local/include/heimdal-asn1";
+				SKIP_INSTALL = YES;
+				STANDARD_C_PLUS_PLUS_LIBRARY_TYPE = dynamic;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DE22320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4DE32320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "install-heimdal-asn1 copy";
+			};
+			name = Debug;
+		};
+		8C1E4DE42320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = a;
+				EXECUTABLE_PREFIX = lib;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				MACH_O_TYPE = staticlib;
+				PRODUCT_NAME = "asn1-defs";
+				SKIP_INSTALL = YES;
+				STANDARD_C_PLUS_PLUS_LIBRARY_TYPE = static;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DE52320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "asn1-hdb";
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DE62320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_PREFIX = lib;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				MACH_O_TYPE = staticlib;
+				PRODUCT_NAME = "asn1-hx509";
+				SKIP_INSTALL = YES;
+				STANDARD_C_PLUS_PLUS_LIBRARY_TYPE = static;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DE72320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "asn1-digest";
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DE82320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				EXECUTABLE_PREFIX = lib;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				INSTALL_PATH_ACTUAL = /usr/local/lib;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4DE92320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4DEA2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
+				HEADER_SEARCH_PATHS = "$(HEIMDAL_TMPDIR)";
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = hcrypto;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DEB2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = ipc;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DEC2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "ipc-client";
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DED2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "ipc-server";
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DEE2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = wind;
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DEF2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				EXECUTABLE_PREFIX = lib;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DF02320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = hdb;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DF12320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "hx509-yacc";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DF22320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
+				GCC_MODEL_TUNING = G5;
+				GCC_WARN_UNUSED_FUNCTION = NO;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = hx509;
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DF32320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"BUILD_KRB5_LIB=1",
+					"$(inherited)",
+				);
+				INSTALL_PATH = /usr/local/lib;
+				MACH_O_TYPE = staticlib;
+				PRODUCT_NAME = krb5;
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DF42320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "build-export-data";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DF52320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APPLY_RULES_IN_COPY_FILES = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "";
+				INFOPLIST_FILE = "lib/heimcred/GSSCred-Info.plist";
+				INFOPLIST_PREPROCESS = YES;
+				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/Frameworks/GSS.framework/Helpers";
+				LIBRARY_SEARCH_PATHS = /usr/local/lib;
+				MACH_O_TYPE = mh_execute;
+				OTHER_CFLAGS = (
+					"$(HEIMDAL_PLATFORM_CFLAGS)",
+					"-DHEIMCRED_SERVER=1",
+				);
+				OTHER_LDFLAGS = (
+					"$(HEIMDAL_AKS_LIBS)",
+					"$(OTHER_LDFLAGS_MOBILE_KEYBAG)",
+				);
+				OTHER_LDFLAGS_MOBILE_KEYBAG = "";
+				"OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=iphoneos*]" = "-framework MobileKeyBag";
+				"OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=macosx*]" = "-framework MobileKeyBag";
+				PRODUCT_NAME = GSSCred;
+				SDKROOT = iphoneos.internal;
+				SKIP_INSTALL = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+				STRIP_STYLE = debugging;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
+				WRAPPER_EXTENSION = xpc;
+			};
+			name = Debug;
+		};
+		8C1E4DF62320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/heimdal.exp";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				FRAMEWORK_VERSION = A;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "";
+				INFOPLIST_FILE = "packages/mac/Heimdal-Info.plist";
+				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				OTHER_LDFLAGS = (
+					"-Wl,-search_paths_first",
+					"$(HEIMDAL_TRUSTEDEVALUATIONAGENT_FRAMEWORK)",
+					"$(inherited)",
+					"$(HEIMDAL_STATISTICS_FRAMEWORK)",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = Heimdal;
+				STRIP_STYLE = "non-global";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DF72320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/commonauth.exp";
+				FRAMEWORK_VERSION = A;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = "packages/mac/CommonAuth-Info.plist";
+				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = CommonAuth;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DF82320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				OTHER_CFLAGS = (
+					"-isystem",
+					"$(HEIMDAL_XNU_SYS_HEADERS)",
+					"$(inherited)",
+				);
+				PRODUCT_NAME = "gss-krb5";
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DF92320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "gss-spnego";
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DFA2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "gss-ntlm";
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DFB2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "gss-mechglue";
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DFC2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "gss-netlogon";
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DFD2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = "gss-digest";
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4DFE2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/gss.exp";
+				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "packages/mac/GSS-Info.plist";
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				INSTALL_PATH_ACTUAL = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				MODULEMAP_FILE = "$(HEIMDAL_GSS_MODULEMAP_FILE)";
+				OTHER_LDFLAGS = (
+					"$(HEIMDAL_OPENDIRECTORY_FRAMEWORK)",
+					"$(inherited)",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = GSS;
+			};
+			name = Debug;
+		};
+		8C1E4DFF2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "$(HEIMDAL_BIN_DIR)";
+				PRODUCT_NAME = kinit;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E002320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				INSTALL_PATH = "$(HEIMDAL_BIN_DIR)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4E012320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "$(HEIMDAL_BIN_DIR)";
+				PRODUCT_NAME = kgetcred;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E022320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "$(HEIMDAL_BIN_DIR)";
+				PRODUCT_NAME = kdestroy;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E032320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "$(HEIMDAL_BIN_DIR)";
+				PRODUCT_NAME = kswitch;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E042320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = kadm5srv;
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E052320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = kadm5clnt;
+				SEPARATE_STRIP = NO;
+				SKIP_INSTALL = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E062320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)/kadm",
+					"$(HEIMDAL_TMPDIR)",
+				);
+				INSTALL_PATH = "$(HEIMDAL_SBIN_DIR)";
+				PRODUCT_NAME = ktutil;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E072320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				PRODUCT_NAME = hxtool;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E082320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				PRODUCT_NAME = kcm;
+				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E092320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				PRODUCT_NAME = kcminit;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E0A2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				PRODUCT_NAME = gsstool;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E0B2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = "plugins/Reachability-Info.plist";
+				INSTALL_PATH = /System/Library/KerberosPlugins/KerberosFrameworkPlugins/;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.reachability;
+				PRODUCT_NAME = Reachability;
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E0C2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = "plugins/GSSNotificationForwarder/GSSNotificationForwarder-Info.plist";
+				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.Kerberos.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = GSSNotificationForwarder;
+				WRAPPER_EXTENSION = plugin;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E0D2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = "plugins/SCKerberosConfig/SCKerberosConfig-Info.plist";
+				INSTALL_PATH = /System/Library/KerberosPlugins/KerberosFrameworkPlugins/;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.sckerberosconfig;
+				PRODUCT_NAME = SCKerberosConfig;
+				WRAPPER_EXTENSION = bundle;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E0E2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				INFOPLIST_FILE = "plugins/GSSCredentialSelector/GSSCredentialSelector-Info.plist";
+				INSTALL_PATH = /System/Library/KerberosPlugins/GSSAPI;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.kerberos.gsscredentialselector;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		8C1E4E0F2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "plugins/KDCProxy/KDCProxy-Prefix.pch";
+				INFOPLIST_FILE = "plugins/KDCProxy/KDCProxy-Info.plist";
+				INSTALL_PATH = /System/Library/KerberosPlugins/krb5;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Debug;
+		};
+		8C1E4E102320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				INFOPLIST_FILE = PACParser/Info.plist;
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Bundles";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = bundle;
+			};
+			name = Debug;
+		};
+		8C1E4E112320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)/kadm",
+					"$(HEIMDAL_TMPDIR)",
+				);
+				INSTALL_PATH = "$(HEIMDAL_BIN_DIR)";
+				PRODUCT_NAME = kpasswd;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E122320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_ENTITLEMENTS = "kdc/digest-service.entitlements";
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				PRODUCT_NAME = "digest-service";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E132320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
+				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				OTHER_LDFLAGS = (
+					"$(HEIMDAL_OPENDIRECTORY_FRAMEWORK)",
+					"$(inherited)",
+				);
+				PRODUCT_NAME = kdc;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E142320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/OpenDirectory.framework/Versions/A/Frameworks",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)",
+					"$(HEIMDAL_TMPDIR)/kadm",
+				);
+				INSTALL_PATH = "$(HEIMDAL_SBIN_DIR)";
+				PRODUCT_NAME = kadmin;
+				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E152320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)",
+					"$(HEIMDAL_TMPDIR)/kadm",
+				);
+				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				PRODUCT_NAME = kadmind;
+				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E162320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = (
+					"$(HEIMDAL_TMPDIR)/kadm",
+					"$(HEIMDAL_TMPDIR)",
+				);
+				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				PRODUCT_NAME = kpasswdd;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E172320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = "$(HEIMDAL_TMPDIR)/heimodadmin.exp";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/Frameworks/OpenDirectory.framework/Versions/A/Frameworks",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
+				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "packages/mac/HeimODAdmin-Info.plist";
+				INSTALL_PATH = /System/Library/PrivateFrameworks;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_NAME = HeimODAdmin;
+				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
+			};
+			name = Debug;
+		};
+		8C1E4E182320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(SDKROOT)/System/Library/Frameworks/OpenDirectory.framework/Versions/A/Frameworks",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				PRODUCT_NAME = "hod-admin";
+				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E192320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = TestTools;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E1A2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "test_ap-req";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E1B2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = tc;
+				SKIP_INSTALL = YES;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E1C2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/bin;
+				PRODUCT_NAME = ts;
+				SKIP_INSTALL = YES;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E1D2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_context;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E1E2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "check-gen";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E1F2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "check-der";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E202320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4E212320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_acquire_cred;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E222320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "heimdal-test-cc";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E232320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_names;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E242320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_ntlm;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E252320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_renew;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E262320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_gic;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E272320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_kcred;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E282320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_get_cred;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E292320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = Tests;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E2A2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PRODUCT_NAME = "Install tests";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E2B2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/Heimdal/bin;
+				OTHER_LDFLAGS = "$(HEIMDAL_AKS_LIBS)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4E2C2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_rsa;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E2D2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_base;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E2E2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_config;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E2F2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_commonauth;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E302320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_sendto;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E312320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_scram;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E322320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_rand;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E332320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_gssntlm;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E342320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_gssscram;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E352320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = rkpty;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E362320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_enctypes;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E372320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/Library/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4E382320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4E392320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4E3A2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				COPY_PHASE_STRIP = YES;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		8C1E4E3B2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_srv;
+			};
+			name = Debug;
+		};
+		8C1E4E3C2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_gss_fuzzer;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E3D2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = test_fx;
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
+		8C1E4E3E2320778200FEB5B6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				ZERO_LINK = NO;
+			};
+			name = Debug;
+		};
 		EB00F1A7103D6A2C00399574 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EB4602FE1B9E5F540013F3DC /* lib.xcconfig */;
@@ -23236,7 +25268,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -23244,6 +25276,7 @@
 				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "lib/heimcred/GSSCred-Info.plist";
@@ -23255,6 +25288,7 @@
 					"$(HEIMDAL_PLATFORM_CFLAGS)",
 					"-DHEIMCRED_SERVER=1",
 				);
+				OTHER_CODE_SIGN_FLAGS = "$(OTHER_CODE_SIGN_FLAGS_LIBRARY_VALIDATION)";
 				OTHER_LDFLAGS = (
 					"$(HEIMDAL_AKS_LIBS)",
 					"$(OTHER_LDFLAGS_MOBILE_KEYBAG)",
@@ -23263,7 +25297,10 @@
 				"OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=iphoneos*]" = "-framework MobileKeyBag";
 				"OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=macosx*]" = "-framework MobileKeyBag";
 				PRODUCT_NAME = GSSCred;
+				SDKROOT = iphoneos.internal;
 				SKIP_INSTALL = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+				STRIP_STYLE = debugging;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 				WRAPPER_EXTENSION = xpc;
@@ -23283,7 +25320,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -23291,6 +25328,7 @@
 				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "lib/heimcred/GSSCred-Info.plist";
@@ -23302,6 +25340,7 @@
 					"$(HEIMDAL_PLATFORM_CFLAGS)",
 					"-DHEIMCRED_SERVER=1",
 				);
+				OTHER_CODE_SIGN_FLAGS = "$(OTHER_CODE_SIGN_FLAGS_LIBRARY_VALIDATION)";
 				OTHER_LDFLAGS = (
 					"$(HEIMDAL_AKS_LIBS)",
 					"$(OTHER_LDFLAGS_MOBILE_KEYBAG)",
@@ -23312,6 +25351,8 @@
 				PLIST_FILE_OUTPUT_FORMAT = binary;
 				PRODUCT_NAME = GSSCred;
 				SKIP_INSTALL = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+				STRIP_STYLE = debugging;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 				WRAPPER_EXTENSION = xpc;
@@ -24388,6 +26429,7 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				OTHER_CODE_SIGN_FLAGS = "$(OTHER_CODE_SIGN_FLAGS_LIBRARY_VALIDATION)";
 				PRODUCT_NAME = kcm;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 				ZERO_LINK = NO;
@@ -25500,7 +27542,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				COMBINE_HIDPI_IMAGES = YES;
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -25508,6 +27550,7 @@
 				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "lib/heimcred/GSSCred-Info.plist";
@@ -25519,6 +27562,7 @@
 					"$(HEIMDAL_PLATFORM_CFLAGS)",
 					"-DHEIMCRED_SERVER=1",
 				);
+				OTHER_CODE_SIGN_FLAGS = "$(OTHER_CODE_SIGN_FLAGS_LIBRARY_VALIDATION)";
 				OTHER_LDFLAGS = (
 					"$(HEIMDAL_AKS_LIBS)",
 					"$(OTHER_LDFLAGS_MOBILE_KEYBAG)",
@@ -25526,6 +27570,8 @@
 				OTHER_LDFLAGS_MOBILE_KEYBAG = "";
 				PRODUCT_NAME = GSSCred;
 				SKIP_INSTALL = NO;
+				STRIP_INSTALLED_PRODUCT = NO;
+				STRIP_STYLE = debugging;
 				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 				WRAPPER_EXTENSION = xpc;
@@ -25877,6 +27923,7 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				OTHER_CODE_SIGN_FLAGS = "$(OTHER_CODE_SIGN_FLAGS_LIBRARY_VALIDATION)";
 				PRODUCT_NAME = kcm;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 				ZERO_LINK = NO;
@@ -28273,6 +30320,7 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)/System/Library/PrivateFrameworks";
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /System/Library/PrivateFrameworks/Heimdal.framework/Helpers;
+				OTHER_CODE_SIGN_FLAGS = "$(OTHER_CODE_SIGN_FLAGS_LIBRARY_VALIDATION)";
 				PRODUCT_NAME = kcm;
 				WARNING_CFLAGS = "$(WARNING_CFLAGS_YL)";
 				ZERO_LINK = NO;
@@ -28547,1252 +30595,1377 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1DEB928B08733DD80010E9CD /* Release */,
+				8C1E4DC22320778200FEB5B6 /* Debug */,
 				EB4603001B9E61160013F3DC /* Release */,
 				EB42F4381169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		727E263B120B6D7B002CBF58 /* Build configuration list for PBXNativeTarget "Reachability" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				727E2638120B6D79002CBF58 /* Release */,
+				8C1E4E0B2320778200FEB5B6 /* Debug */,
 				EB4603491B9E61160013F3DC /* Release-asan */,
 				727E2639120B6D79002CBF58 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		772992B51FD1F0A000665B56 /* Build configuration list for PBXNativeTarget "test_get_principal_list" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				772992B61FD1F0A000665B56 /* Release */,
+				8C1E4E3E2320778200FEB5B6 /* Debug */,
 				772992B71FD1F0A000665B56 /* Release-asan */,
 				772992B81FD1F0A000665B56 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB00F1AB103D6A8A00399574 /* Build configuration list for PBXNativeTarget "hcrypto" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB00F1A7103D6A2C00399574 /* Release */,
+				8C1E4DEA2320778200FEB5B6 /* Debug */,
 				EB4603281B9E61160013F3DC /* Release-asan */,
 				EB42F4511169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB01C69C120914E0005BD826 /* Build configuration list for PBXNativeTarget "test_scram" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB01C68B120914AB005BD826 /* Release */,
+				8C1E4E312320778200FEB5B6 /* Debug */,
 				EB46036E1B9E61160013F3DC /* Release-asan */,
 				EB01C68C120914AB005BD826 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB081DA40FD5FC0400F8373D /* Build configuration list for PBXAggregateTarget "compile_et-yacc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB081D9B0FD5FBAA00F8373D /* Release */,
+				8C1E4DD42320778200FEB5B6 /* Debug */,
 				EB4603121B9E61160013F3DC /* Release-asan */,
 				EB42F4411169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB081DD80FD5FCE900F8373D /* Build configuration list for PBXAggregateTarget "asn1_compiler-yacc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB081DD50FD5FCC100F8373D /* Release */,
+				8C1E4DDA2320778200FEB5B6 /* Debug */,
 				EB4603181B9E61160013F3DC /* Release-asan */,
 				EB42F4471169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB081E0D0FD5FE8B00F8373D /* Build configuration list for PBXAggregateTarget "slc-yacc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB081E0C0FD5FE5F00F8373D /* Release */,
+				8C1E4DDC2320778200FEB5B6 /* Debug */,
 				EB46031A1B9E61160013F3DC /* Release-asan */,
 				EB42F4491169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB081F440FD60F8500F8373D /* Build configuration list for PBXAggregateTarget "asn1-generate-template" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB081F410FD60F5500F8373D /* Release */,
+				8C1E4DE02320778200FEB5B6 /* Debug */,
 				EB46031E1B9E61160013F3DC /* Release-asan */,
 				EB42F44D1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB0820570FD61CF700F8373D /* Build configuration list for PBXAggregateTarget "gen-error-tables" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB0820560FD61CC200F8373D /* Release */,
+				8C1E4DD62320778200FEB5B6 /* Debug */,
 				EB4603141B9E61160013F3DC /* Release-asan */,
 				EB42F4431169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB0DA27F12727C85002ECA30 /* Build configuration list for PBXNativeTarget "SCKerberosConfig" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB0DA27C12727C83002ECA30 /* Release */,
+				8C1E4E0D2320778200FEB5B6 /* Debug */,
 				EB46034B1B9E61160013F3DC /* Release-asan */,
 				EB0DA27D12727C83002ECA30 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB0F9BE3111E3AA500744852 /* Build configuration list for PBXAggregateTarget "build-export-data" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB0F9BDC111E3A6600744852 /* Release */,
+				8C1E4DF42320778200FEB5B6 /* Debug */,
 				EB4603321B9E61160013F3DC /* Release-asan */,
 				EB42F45A1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB0F9C5C111E432200744852 /* Build configuration list for PBXAggregateTarget "slc-generated-files" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB0F9C55111E42E500744852 /* Release */,
+				8C1E4DDE2320778200FEB5B6 /* Debug */,
 				EB46031C1B9E61160013F3DC /* Release-asan */,
 				EB42F44B1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB1BF8481150392600D6B8D2 /* Build configuration list for PBXNativeTarget "test_kcred" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB1BF8401150392100D6B8D2 /* Release */,
+				8C1E4E272320778200FEB5B6 /* Debug */,
 				EB4603651B9E61160013F3DC /* Release-asan */,
 				EB42F4841169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB1C8FB217F24B01002F9FF7 /* Build configuration list for PBXNativeTarget "test_fx" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB1C8FB317F24B01002F9FF7 /* Release */,
+				8C1E4E3D2320778200FEB5B6 /* Debug */,
 				EB46037A1B9E61160013F3DC /* Release-asan */,
 				EB1C8FB517F24B01002F9FF7 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB20B7D0114DDEED00EDEDBF /* Build configuration list for PBXAggregateTarget "Create test scripts" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB20B7C7114DDEA800EDEDBF /* Release */,
+				8C1E4E292320778200FEB5B6 /* Debug */,
 				EB4603671B9E61160013F3DC /* Release-asan */,
 				EB42F4851169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB20B80A114DF13C00EDEDBF /* Build configuration list for PBXAggregateTarget "Install tests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB20B7F6114DF0D300EDEDBF /* Release */,
+				8C1E4E2A2320778200FEB5B6 /* Debug */,
 				EB4603681B9E61160013F3DC /* Release-asan */,
 				EB42F4861169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB20EDF51710A9CC0018526B /* Build configuration list for PBXNativeTarget "parse_reply-test" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB20EDF21710A9CC0018526B /* Release */,
+				8C1E4E3A2320778200FEB5B6 /* Debug */,
 				EB4603771B9E61160013F3DC /* Release-asan */,
 				EB20EDF31710A9CC0018526B /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB224FF9128A1FFC0093D709 /* Build configuration list for PBXNativeTarget "test_enctypes" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB224FF2128A1FD80093D709 /* Release */,
+				8C1E4E362320778200FEB5B6 /* Debug */,
 				EB4603731B9E61160013F3DC /* Release-asan */,
 				EB224FF3128A1FD80093D709 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB23C4E9176A49AB0079B83B /* Build configuration list for PBXAggregateTarget "HeimdalEmbeddedExecutables" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB23C4E6176A49AB0079B83B /* Release */,
+				8C1E4DCA2320778200FEB5B6 /* Debug */,
 				EB4603081B9E61160013F3DC /* Release-asan */,
 				EB23C4E7176A49AB0079B83B /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB24F3500F3175B100B2533C /* Build configuration list for PBXNativeTarget "kadm5srv" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB24F3450F31758700B2533C /* Release */,
+				8C1E4E042320778200FEB5B6 /* Debug */,
 				EB4603421B9E61160013F3DC /* Release-asan */,
 				EB42F46A1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB24F3510F3175B100B2533C /* Build configuration list for PBXNativeTarget "kadm5clnt" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB24F34E0F3175A400B2533C /* Release */,
+				8C1E4E052320778200FEB5B6 /* Debug */,
 				EB4603431B9E61160013F3DC /* Release-asan */,
 				EB42F46B1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB24F43F0F31792200B2533C /* Build configuration list for PBXNativeTarget "kadmin" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB24F43E0F31790400B2533C /* Release */,
+				8C1E4E142320778200FEB5B6 /* Debug */,
 				EB4603521B9E61160013F3DC /* Release-asan */,
 				EB42F46C1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB24F6210F3187E000B2533C /* Build configuration list for PBXNativeTarget "kadmind" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB24F5D40F31878900B2533C /* Release */,
+				8C1E4E152320778200FEB5B6 /* Debug */,
 				EB4603531B9E61160013F3DC /* Release-asan */,
 				EB42F46D1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB24F6F90F3191E500B2533C /* Build configuration list for PBXNativeTarget "ktutil" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB24F6F60F3191D000B2533C /* Release */,
+				8C1E4E062320778200FEB5B6 /* Debug */,
 				EB4603441B9E61160013F3DC /* Release-asan */,
 				EB42F46E1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB2C2D8014DCB30700FAB8D7 /* Build configuration list for PBXAggregateTarget "HeimdalExecutables" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB2C2D8114DCB30700FAB8D7 /* Release */,
+				8C1E4DC92320778200FEB5B6 /* Debug */,
 				EB4603071B9E61160013F3DC /* Release-asan */,
 				EB2C2D8214DCB30700FAB8D7 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB2C2DA114DCB51600FAB8D7 /* Build configuration list for PBXAggregateTarget "HeimdalFrameworks" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB2C2DA214DCB51600FAB8D7 /* Release */,
+				8C1E4DC62320778200FEB5B6 /* Debug */,
 				EB4603041B9E61160013F3DC /* Release-asan */,
 				EB2C2DA314DCB51600FAB8D7 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB2C3DF416CB0A2300D75FA0 /* Build configuration list for PBXAggregateTarget "install-heimdal-asn1-lib" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB2C3DF516CB0A2300D75FA0 /* Release */,
+				8C1E4DE32320778200FEB5B6 /* Debug */,
 				EB4603211B9E61160013F3DC /* Release-asan */,
 				EB2C3DF616CB0A2300D75FA0 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB2C3E0216CC087A00D75FA0 /* Build configuration list for PBXNativeTarget "heimcred" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB2C3DFF16CC087900D75FA0 /* Release */,
+				8C1E4DEF2320778200FEB5B6 /* Debug */,
 				EB46032D1B9E61160013F3DC /* Release-asan */,
 				EB2C3E0016CC087900D75FA0 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB2C3E1F16CC42D400D75FA0 /* Build configuration list for PBXNativeTarget "GSSCred" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB2C3E1C16CC42D300D75FA0 /* Release */,
+				8C1E4DF52320778200FEB5B6 /* Debug */,
 				EB4603331B9E61160013F3DC /* Release-asan */,
 				EB2C3E1D16CC42D300D75FA0 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB312D9510B4EA7C00B0732B /* Build configuration list for PBXNativeTarget "test_acquire_cred" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB312D6510B4EA0500B0732B /* Release */,
+				8C1E4E212320778200FEB5B6 /* Debug */,
 				EB46035F1B9E61160013F3DC /* Release-asan */,
 				EB42F47E1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB321F5E0F31D929003852AC /* Build configuration list for PBXNativeTarget "test_ap-req" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB321F550F31D8D6003852AC /* Release */,
+				8C1E4E1A2320778200FEB5B6 /* Debug */,
 				EB4603581B9E61160013F3DC /* Release-asan */,
 				EB42F4771169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB33A9F210CCD42C004B043F /* Build configuration list for PBXNativeTarget "heimdal-test-cc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB33A9DE10CCD3C9004B043F /* Release */,
+				8C1E4E222320778200FEB5B6 /* Debug */,
 				EB4603601B9E61160013F3DC /* Release-asan */,
 				EB42F47F1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB341C3311D066F200877F5E /* Build configuration list for PBXNativeTarget "HeimODAdmin" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB341C3011D066F000877F5E /* Release */,
+				8C1E4E172320778200FEB5B6 /* Debug */,
 				EB4603551B9E61160013F3DC /* Release-asan */,
 				EB341C3111D066F000877F5E /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB3CBAFE1185A42900F0B712 /* Build configuration list for PBXNativeTarget "test_config" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB3CBAA71185A38D00F0B712 /* Release */,
+				8C1E4E2E2320778200FEB5B6 /* Debug */,
 				EB46036B1B9E61160013F3DC /* Release-asan */,
 				EB3CBAA81185A38D00F0B712 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB3CC83914DCCE6D008E9787 /* Build configuration list for PBXAggregateTarget "GeneratedFiles" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB3CC83A14DCCE6D008E9787 /* Release */,
+				8C1E4DCF2320778200FEB5B6 /* Debug */,
 				EB46030D1B9E61160013F3DC /* Release-asan */,
 				EB3CC83B14DCCE6D008E9787 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB3CC87C14DCCFB4008E9787 /* Build configuration list for PBXAggregateTarget "hcrypto-generate-headers" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB3CC87D14DCCFB4008E9787 /* Release */,
+				8C1E4DE92320778200FEB5B6 /* Debug */,
 				EB4603271B9E61160013F3DC /* Release-asan */,
 				EB3CC87E14DCCFB4008E9787 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB42F4FB116BCE7200FCDD8F /* Build configuration list for PBXNativeTarget "heimbase" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB42F4F4116BCE2700FCDD8F /* Release */,
+				8C1E4DD12320778200FEB5B6 /* Debug */,
 				EB46030F1B9E61160013F3DC /* Release-asan */,
 				EB42F4F5116BCE2700FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB47CCF712F8C18B002E6C2F /* Build configuration list for PBXNativeTarget "test_get_cred" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB47CCE012F8C149002E6C2F /* Release */,
+				8C1E4E282320778200FEB5B6 /* Debug */,
 				EB4603661B9E61160013F3DC /* Release-asan */,
 				EB47CCE112F8C149002E6C2F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB4857EE17515B9000C7D4E6 /* Build configuration list for PBXNativeTarget "heimdal-asn1-all-templates" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB4857EB17515B9000C7D4E6 /* Release */,
+				8C1E4DE82320778200FEB5B6 /* Debug */,
 				EB4603261B9E61160013F3DC /* Release-asan */,
 				EB4857EC17515B9000C7D4E6 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB48583A17515FC700C7D4E6 /* Build configuration list for PBXNativeTarget "check-asn1-fuzzer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB48583B17515FC700C7D4E6 /* Release */,
+				8C1E4E202320778200FEB5B6 /* Debug */,
 				EB46035E1B9E61160013F3DC /* Release-asan */,
 				EBB2F4FA17BA28580048CAA2 /* Release-asan */,
 				EB48583C17515FC700C7D4E6 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB49AA700F25847A0076E27F /* Build configuration list for PBXNativeTarget "Heimdal" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB49AA6F0F25847A0076E27F /* Release */,
+				8C1E4DF62320778200FEB5B6 /* Debug */,
 				EB4603341B9E61160013F3DC /* Release-asan */,
 				EB42F45B1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB513C5E142B4F95003062B7 /* Build configuration list for PBXNativeTarget "kcc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB513C5F142B4F95003062B7 /* Release */,
+				8C1E4E002320778200FEB5B6 /* Debug */,
 				EB46033E1B9E61160013F3DC /* Release-asan */,
 				EB513C60142B4F95003062B7 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB52C94B1524F7940053138D /* Build configuration list for PBXAggregateTarget "HeimdalKDC" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB52C9481524F7940053138D /* Release */,
+				8C1E4DCB2320778200FEB5B6 /* Debug */,
 				EB4603091B9E61160013F3DC /* Release-asan */,
 				EB52C9491524F7940053138D /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB57281315DD966200BFC9E9 /* Build configuration list for PBXNativeTarget "asn1-defs" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB57281415DD966200BFC9E9 /* Release */,
+				8C1E4DE42320778200FEB5B6 /* Debug */,
 				EB4603221B9E61160013F3DC /* Release-asan */,
 				EB57281515DD966200BFC9E9 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB5F3C6A11A38EB10061142C /* Build configuration list for PBXNativeTarget "CommonAuth" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB5F3C6711A38EB00061142C /* Release */,
+				8C1E4DF72320778200FEB5B6 /* Debug */,
 				EB4603351B9E61160013F3DC /* Release-asan */,
 				EB5F3C6811A38EB00061142C /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB618153105F524A004A7FF2 /* Build configuration list for PBXNativeTarget "gss-netlogon" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB61814B105F522C004A7FF2 /* Release */,
+				8C1E4DFC2320778200FEB5B6 /* Debug */,
 				EB46033A1B9E61160013F3DC /* Release-asan */,
 				EB42F4611169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB663F5317A0186100801830 /* Build configuration list for PBXNativeTarget "test_srv" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB663F5417A0186100801830 /* Release */,
+				8C1E4E3B2320778200FEB5B6 /* Debug */,
 				EB4603781B9E61160013F3DC /* Release-asan */,
 				EB663F5517A0186100801830 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB670F711C5ED184003D49CA /* Build configuration list for PBXNativeTarget "test_aks" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB670F721C5ED184003D49CA /* Release */,
+				8C1E4E2B2320778200FEB5B6 /* Debug */,
 				EB670F731C5ED184003D49CA /* Release-asan */,
 				EB670F741C5ED184003D49CA /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB692788107932CE00ACB444 /* Build configuration list for PBXAggregateTarget "hx509-yacc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB692773107932A200ACB444 /* Release */,
+				8C1E4DF12320778200FEB5B6 /* Debug */,
 				EB46032F1B9E61160013F3DC /* Release-asan */,
 				EB42F4571169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB6B1FC213AC1992001CB8AD /* Build configuration list for PBXNativeTarget "GSSCredentialSelector" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB6B1FBF13AC1992001CB8AD /* Release */,
+				8C1E4E0E2320778200FEB5B6 /* Debug */,
 				EB46034C1B9E61160013F3DC /* Release-asan */,
 				EB6B1FC013AC1992001CB8AD /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB6FCB2610A759D900D80A61 /* Build configuration list for PBXNativeTarget "kcminit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB6FCB1D10A759AE00D80A61 /* Release */,
+				8C1E4E092320778200FEB5B6 /* Debug */,
 				EB4603471B9E61160013F3DC /* Release-asan */,
 				EB42F4741169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB713D2311F5458E00208594 /* Build configuration list for PBXAggregateTarget "HeimdalFrameworksFoundation" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB713D1A11F5452C00208594 /* Release */,
+				8C1E4DC82320778200FEB5B6 /* Debug */,
 				EB4603061B9E61160013F3DC /* Release-asan */,
 				EB713D1B11F5452C00208594 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB713D2C11F545CA00208594 /* Build configuration list for PBXAggregateTarget "HeimdalMacOSX" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB713D2511F5459900208594 /* Release */,
+				8C1E4DC32320778200FEB5B6 /* Debug */,
 				EB4603011B9E61160013F3DC /* Release-asan */,
 				EB713D2611F5459900208594 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB713D7B11F547F600208594 /* Build configuration list for PBXAggregateTarget "HeimdalEmbedded" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB713D6A11F547DC00208594 /* Release */,
+				8C1E4DC42320778200FEB5B6 /* Debug */,
 				EB4603021B9E61160013F3DC /* Release-asan */,
 				EB713D6B11F547DC00208594 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB71DF061162F18500E470E6 /* Build configuration list for PBXNativeTarget "hod-admin" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB71DEEC1162F10F00E470E6 /* Release */,
+				8C1E4E182320778200FEB5B6 /* Debug */,
 				EB4603561B9E61160013F3DC /* Release-asan */,
 				EB42F4881169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7632221155C9A4007FD544 /* Build configuration list for PBXNativeTarget "check-der" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7632031155C91B007FD544 /* Release */,
+				8C1E4E1F2320778200FEB5B6 /* Debug */,
 				EB46035D1B9E61160013F3DC /* Release-asan */,
 				EB42F47D1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7898041480499000627F36 /* Build configuration list for PBXNativeTarget "test_export" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7898011480499000627F36 /* Release */,
+				8C1E4E392320778200FEB5B6 /* Debug */,
 				EB4603761B9E61160013F3DC /* Release-asan */,
 				EB7898021480499000627F36 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7928B812260AAE004407A7 /* Build configuration list for PBXNativeTarget "gss-digest" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB79289212260A29004407A7 /* Release */,
+				8C1E4DFD2320778200FEB5B6 /* Debug */,
 				EB46033B1B9E61160013F3DC /* Release-asan */,
 				EB79289312260A29004407A7 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB792AB31227184D004407A7 /* Build configuration list for PBXNativeTarget "test_gssscram" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB792A9B12271808004407A7 /* Release */,
+				8C1E4E342320778200FEB5B6 /* Debug */,
 				EB4603711B9E61160013F3DC /* Release-asan */,
 				EB792A9C12271808004407A7 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7A3FD70F283DCF00FA18F7 /* Build configuration list for PBXNativeTarget "kgetcred" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7A3FC80F283D6600FA18F7 /* Release */,
+				8C1E4E012320778200FEB5B6 /* Debug */,
 				EB46033F1B9E61160013F3DC /* Release-asan */,
 				EB42F4661169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7A40540F283ECF00FA18F7 /* Build configuration list for PBXNativeTarget "kdestroy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7A40010F283E2100FA18F7 /* Release */,
+				8C1E4E022320778200FEB5B6 /* Debug */,
 				EB4603401B9E61160013F3DC /* Release-asan */,
 				EB42F4671169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7A40560F283ECF00FA18F7 /* Build configuration list for PBXNativeTarget "kswitch" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7A40100F283E4400FA18F7 /* Release */,
+				8C1E4E032320778200FEB5B6 /* Debug */,
 				EB4603411B9E61160013F3DC /* Release-asan */,
 				EB42F4681169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7A40900F283FBC00FA18F7 /* Build configuration list for PBXNativeTarget "gss-mechglue" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7A40710F283F6500FA18F7 /* Release */,
+				8C1E4DFB2320778200FEB5B6 /* Debug */,
 				EB4603391B9E61160013F3DC /* Release-asan */,
 				EB42F4601169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7A40910F283FBC00FA18F7 /* Build configuration list for PBXNativeTarget "gss-krb5" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7A40790F283F7800FA18F7 /* Release */,
+				8C1E4DF82320778200FEB5B6 /* Debug */,
 				EB4603361B9E61160013F3DC /* Release-asan */,
 				EB42F45D1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7A40920F283FBC00FA18F7 /* Build configuration list for PBXNativeTarget "gss-spnego" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7A40830F283F9000FA18F7 /* Release */,
+				8C1E4DF92320778200FEB5B6 /* Debug */,
 				EB4603371B9E61160013F3DC /* Release-asan */,
 				EB42F45E1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7AF0F819C9989B00056325 /* Build configuration list for PBXNativeTarget "PACParser" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7AF0F919C9989B00056325 /* Release */,
+				8C1E4E102320778200FEB5B6 /* Debug */,
 				EB46034E1B9E61160013F3DC /* Release-asan */,
 				EB7AF0FB19C9989B00056325 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7B40D5114F05C500D6EA17 /* Build configuration list for PBXNativeTarget "test_renew" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7B40B5114F056D00D6EA17 /* Release */,
+				8C1E4E252320778200FEB5B6 /* Debug */,
 				EB4603631B9E61160013F3DC /* Release-asan */,
 				EB42F4821169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB7B4145114F07BD00D6EA17 /* Build configuration list for PBXNativeTarget "test_gic" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB7B411B114F074600D6EA17 /* Release */,
+				8C1E4E262320778200FEB5B6 /* Debug */,
 				EB4603641B9E61160013F3DC /* Release-asan */,
 				EB42F4831169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB8779460F8EAF19009CC7AC /* Build configuration list for PBXNativeTarget "error-tables-kadm" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB8779480F8EAF19009CC7AC /* Release */,
+				8C1E4DD82320778200FEB5B6 /* Debug */,
 				EB4603161B9E61160013F3DC /* Release-asan */,
 				EB42F4451169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB8FBCCC114CB8FD00C97ADD /* Build configuration list for PBXNativeTarget "test_ntlm" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB8FBCC2114CB8C200C97ADD /* Release */,
+				8C1E4E242320778200FEB5B6 /* Debug */,
 				EB4603621B9E61160013F3DC /* Release-asan */,
 				EB42F4811169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB90DF0D10AB21F500DCB939 /* Build configuration list for PBXNativeTarget "check-gen" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB90DF0A10AB21D700DCB939 /* Release */,
+				8C1E4E1E2320778200FEB5B6 /* Debug */,
 				EB46035C1B9E61160013F3DC /* Release-asan */,
 				EB42F47C1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB91072D1201F31B0072E044 /* Build configuration list for PBXNativeTarget "test_sendto" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB9107141201F2B80072E044 /* Release */,
+				8C1E4E302320778200FEB5B6 /* Debug */,
 				EB46036D1B9E61160013F3DC /* Release-asan */,
 				EB9107151201F2B80072E044 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB91CFB90F28449600CCDEA3 /* Build configuration list for PBXNativeTarget "error-tables" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB91CFB50F28446800CCDEA3 /* Release */,
+				8C1E4DD72320778200FEB5B6 /* Debug */,
 				EB4603151B9E61160013F3DC /* Release-asan */,
 				EB42F4441169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB9535780FFBBB590013822C /* Build configuration list for PBXNativeTarget "ipc-server" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB9535520FFBBA7D0013822C /* Release */,
+				8C1E4DED2320778200FEB5B6 /* Debug */,
 				EB46032B1B9E61160013F3DC /* Release-asan */,
 				EB42F4541169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB9536090FFC27600013822C /* Build configuration list for PBXNativeTarget "digest-service" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB9536060FFC27460013822C /* Release */,
+				8C1E4E122320778200FEB5B6 /* Debug */,
 				EB4603501B9E61160013F3DC /* Release-asan */,
 				EB42F4701169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB9536680FFC565B0013822C /* Build configuration list for PBXNativeTarget "tc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB9536460FFC562F0013822C /* Release */,
+				8C1E4E1B2320778200FEB5B6 /* Debug */,
 				EB4603591B9E61160013F3DC /* Release-asan */,
 				EB42F4781169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB95367C0FFC56EF0013822C /* Build configuration list for PBXAggregateTarget "TestTools" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB9536770FFC56BF0013822C /* Release */,
+				8C1E4E192320778200FEB5B6 /* Debug */,
 				EB4603571B9E61160013F3DC /* Release-asan */,
 				EB42F4761169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB95375F0FFC73BB0013822C /* Build configuration list for PBXNativeTarget "asn1-digest" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB95375C0FFC73830013822C /* Release */,
+				8C1E4DE72320778200FEB5B6 /* Debug */,
 				EB4603251B9E61160013F3DC /* Release-asan */,
 				EB42F4621169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB9662A00F285A3C00E3B9E0 /* Build configuration list for PBXNativeTarget "hdb" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB9662960F285A2200E3B9E0 /* Release */,
+				8C1E4DF02320778200FEB5B6 /* Debug */,
 				EB46032E1B9E61160013F3DC /* Release-asan */,
 				EB42F4561169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB9662D20F285B9F00E3B9E0 /* Build configuration list for PBXNativeTarget "asn1-hdb" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB9662D00F285AC800E3B9E0 /* Release */,
+				8C1E4DE52320778200FEB5B6 /* Debug */,
 				EB4603231B9E61160013F3DC /* Release-asan */,
 				EB42F44F1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB9662F30F285CF900E3B9E0 /* Build configuration list for PBXNativeTarget "kdc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB9662E80F285CAC00E3B9E0 /* Release */,
+				8C1E4E132320778200FEB5B6 /* Debug */,
 				EB4603511B9E61160013F3DC /* Release-asan */,
 				EB42F4691169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB9B2F59192E1337008D8305 /* Build configuration list for PBXAggregateTarget "HeimdalASN1_frameworks" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB9B2F5A192E1337008D8305 /* Release */,
+				8C1E4DC72320778200FEB5B6 /* Debug */,
 				EB4603051B9E61160013F3DC /* Release-asan */,
 				EB9B2F5C192E1337008D8305 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB9C927112406B7500274045 /* Build configuration list for PBXNativeTarget "rkpty" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB9C925F12406B4C00274045 /* Release */,
+				8C1E4E352320778200FEB5B6 /* Debug */,
 				EB4603721B9E61160013F3DC /* Release-asan */,
 				EB9C926012406B4C00274045 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EB9D4D3D11A6F0EC00E39DF7 /* Build configuration list for PBXNativeTarget "test_commonauth" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB9D4D3311A6F0B100E39DF7 /* Release */,
+				8C1E4E2F2320778200FEB5B6 /* Debug */,
 				EB46036C1B9E61160013F3DC /* Release-asan */,
 				EB9D4D3411A6F0B100E39DF7 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBA0315610D20D6900E6E2E5 /* Build configuration list for PBXNativeTarget "test_names" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBA0314E10D20D4900E6E2E5 /* Release */,
+				8C1E4E232320778200FEB5B6 /* Debug */,
 				EB4603611B9E61160013F3DC /* Release-asan */,
 				EB42F4801169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBA241EB0F25452F00C3DF74 /* Build configuration list for PBXNativeTarget "wind" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBA241E60F2544EC00C3DF74 /* Release */,
+				8C1E4DEE2320778200FEB5B6 /* Debug */,
 				EB46032C1B9E61160013F3DC /* Release-asan */,
 				EB42F4551169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBA2428F0F254B5000C3DF74 /* Build configuration list for PBXNativeTarget "kinit" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBA242850F254B2800C3DF74 /* Release */,
+				8C1E4DFF2320778200FEB5B6 /* Debug */,
 				EB46033D1B9E61160013F3DC /* Release-asan */,
 				EB42F4641169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBA242B10F254BE400C3DF74 /* Build configuration list for PBXAggregateTarget "Clients" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBA242AA0F254BB500C3DF74 /* Release */,
+				8C1E4DCE2320778200FEB5B6 /* Debug */,
 				EB46030C1B9E61160013F3DC /* Release-asan */,
 				EB42F43C1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBA40384116E9DA200C04623 /* Build configuration list for PBXNativeTarget "test_rsa" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBA40374116E9D5400C04623 /* Release */,
+				8C1E4E2C2320778200FEB5B6 /* Debug */,
 				EB4603691B9E61160013F3DC /* Release-asan */,
 				EBA40375116E9D5400C04623 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBABC9360F2C295000166EA0 /* Build configuration list for PBXNativeTarget "roken-application" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBABC9340F2C292700166EA0 /* Release */,
+				8C1E4DD32320778200FEB5B6 /* Debug */,
 				EB4603111B9E61160013F3DC /* Release-asan */,
 				EB42F4401169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBB1EA1F16C45A3700DC776D /* Build configuration list for PBXNativeTarget "KDCProxy" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBB1EA2016C45A3700DC776D /* Release */,
+				8C1E4E0F2320778200FEB5B6 /* Debug */,
 				EB46034D1B9E61160013F3DC /* Release-asan */,
 				EBB1EA2116C45A3700DC776D /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBB270D6140AE2C800448F12 /* Build configuration list for PBXNativeTarget "http_client" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBB270D7140AE2C800448F12 /* Release */,
+				8C1E4E372320778200FEB5B6 /* Debug */,
 				EB4603741B9E61160013F3DC /* Release-asan */,
 				EBB270D8140AE2C800448F12 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBB6B1EB0F22B22E006BD106 /* Build configuration list for PBXAggregateTarget "BasicStaticLibraries" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBB6B1E40F22B1EC006BD106 /* Release */,
+				8C1E4DCD2320778200FEB5B6 /* Debug */,
 				EB46030B1B9E61160013F3DC /* Release-asan */,
 				EB42F43B1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBB6B2BD0F22B855006BD106 /* Build configuration list for PBXNativeTarget "com_err" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBB6B2B60F22B801006BD106 /* Release */,
+				8C1E4DD92320778200FEB5B6 /* Debug */,
 				EB4603171B9E61160013F3DC /* Release-asan */,
 				EB42F4461169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBB6B3E20F22C4B2006BD106 /* Build configuration list for PBXNativeTarget "roken" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBB6B3E10F22C494006BD106 /* Release */,
+				8C1E4DD22320778200FEB5B6 /* Debug */,
 				EB4603101B9E61160013F3DC /* Release-asan */,
 				EB42F43F1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBB741C00FFD56DA0047AC11 /* Build configuration list for PBXNativeTarget "test_gssntlm" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBB741890FFD56210047AC11 /* Release */,
+				8C1E4E332320778200FEB5B6 /* Debug */,
 				EB4603701B9E61160013F3DC /* Release-asan */,
 				EB42F47A1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBBEA993160AA1E000C95447 /* Build configuration list for PBXAggregateTarget "install-heimdal-asn1-headers" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBBEA994160AA1E000C95447 /* Release */,
+				8C1E4DE22320778200FEB5B6 /* Debug */,
 				EB4603201B9E61160013F3DC /* Release-asan */,
 				EBBEA995160AA1E000C95447 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBC057F317D7ED670004EE78 /* Build configuration list for PBXNativeTarget "test_gss_fuzzer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBC057F417D7ED670004EE78 /* Release */,
+				8C1E4E3C2320778200FEB5B6 /* Debug */,
 				EB4603791B9E61160013F3DC /* Release-asan */,
 				EBC057F617D7ED670004EE78 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBC17DF7143F0B1A007C9072 /* Build configuration list for PBXNativeTarget "test_gsscf" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBC17DF8143F0B1A007C9072 /* Release */,
+				8C1E4E382320778200FEB5B6 /* Debug */,
 				EB4603751B9E61160013F3DC /* Release-asan */,
 				EBC17DF9143F0B1A007C9072 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBC65AE21211F3200030FB59 /* Build configuration list for PBXNativeTarget "test_rand" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBC65AD41211F3050030FB59 /* Release */,
+				8C1E4E322320778200FEB5B6 /* Debug */,
 				EB46036F1B9E61160013F3DC /* Release-asan */,
 				EBC65AD51211F3050030FB59 /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBC6C6730FFAB4390065A377 /* Build configuration list for PBXNativeTarget "ipc-client" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBC6C66D0FFAB41E0065A377 /* Release */,
+				8C1E4DEC2320778200FEB5B6 /* Debug */,
 				EB46032A1B9E61160013F3DC /* Release-asan */,
 				EB42F4531169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBC6F09A0F22CA1D00D1AB35 /* Build configuration list for PBXNativeTarget "heimdal-slc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBC6F0980F22C9F900D1AB35 /* Release */,
+				8C1E4DDD2320778200FEB5B6 /* Debug */,
 				EB46031B1B9E61160013F3DC /* Release-asan */,
 				EB42F44A1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBC6F0B60F22CAF400D1AB35 /* Build configuration list for PBXNativeTarget "sl" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBC6F0AC0F22CAA000D1AB35 /* Release */,
+				8C1E4DDF2320778200FEB5B6 /* Debug */,
 				EB46031D1B9E61160013F3DC /* Release-asan */,
 				EB42F44C1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBC6F1F80F22CD1100D1AB35 /* Build configuration list for PBXNativeTarget "krb5" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBC6F1F70F22CCF200D1AB35 /* Release */,
+				8C1E4DF32320778200FEB5B6 /* Debug */,
 				EB4603311B9E61160013F3DC /* Release-asan */,
 				EB42F4591169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBDA3364105990250042FFAE /* Build configuration list for PBXNativeTarget "GSS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBDA3363105990250042FFAE /* Release */,
+				8C1E4DFE2320778200FEB5B6 /* Debug */,
 				EB46033C1B9E61160013F3DC /* Release-asan */,
 				EB42F4631169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBDB59CC10A361F8003FD0F9 /* Build configuration list for PBXNativeTarget "kpasswd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBDB59C610A361DF003FD0F9 /* Release */,
+				8C1E4E112320778200FEB5B6 /* Debug */,
 				EB46034F1B9E61160013F3DC /* Release-asan */,
 				EB42F4721169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBDB59CD10A361F8003FD0F9 /* Build configuration list for PBXNativeTarget "kpasswdd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBDB59BC10A361C9003FD0F9 /* Release */,
+				8C1E4E162320778200FEB5B6 /* Debug */,
 				EB4603541B9E61160013F3DC /* Release-asan */,
 				EB42F4731169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBE9B11A0F2C3D27006561DA /* Build configuration list for PBXNativeTarget "gss-ntlm" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBE9B1140F2C3D03006561DA /* Release */,
+				8C1E4DFA2320778200FEB5B6 /* Debug */,
 				EB4603381B9E61160013F3DC /* Release-asan */,
 				EB42F45F1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBEBB4D61000752100CD647B /* Build configuration list for PBXNativeTarget "kcm" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBEBB4D5100074F200CD647B /* Release */,
+				8C1E4E082320778200FEB5B6 /* Debug */,
 				EB4603461B9E61160013F3DC /* Release-asan */,
 				EB42F4711169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBED18861171A67C0097433E /* Build configuration list for PBXNativeTarget "test_base" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBED18761171A65A0097433E /* Release */,
+				8C1E4E2D2320778200FEB5B6 /* Debug */,
 				EB46036A1B9E61160013F3DC /* Release-asan */,
 				EBED18771171A65A0097433E /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBF5699A0F32D8B100501CE8 /* Build configuration list for PBXNativeTarget "hx509" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBF569980F32D8A500501CE8 /* Release */,
+				8C1E4DF22320778200FEB5B6 /* Debug */,
 				EB4603301B9E61160013F3DC /* Release-asan */,
 				EB42F4581169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBF56A0C0F32D98D00501CE8 /* Build configuration list for PBXNativeTarget "hxtool" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBF569F40F32D93E00501CE8 /* Release */,
+				8C1E4E072320778200FEB5B6 /* Debug */,
 				EB4603451B9E61160013F3DC /* Release-asan */,
 				EB42F46F1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBF56A360F32DB7C00501CE8 /* Build configuration list for PBXNativeTarget "asn1-hx509" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBF56A2E0F32DB1200501CE8 /* Release */,
+				8C1E4DE62320778200FEB5B6 /* Debug */,
 				EB4603241B9E61160013F3DC /* Release-asan */,
 				EB42F4501169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBF791C112190B9F00D4957A /* Build configuration list for PBXNativeTarget "GSSNotificationForwarder" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBF791BE12190B9D00D4957A /* Release */,
+				8C1E4E0C2320778200FEB5B6 /* Debug */,
 				EB46034A1B9E61160013F3DC /* Release-asan */,
 				EBF791BF12190B9D00D4957A /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBF8B7B81016CEB7000BA085 /* Build configuration list for PBXNativeTarget "test_context" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBF8B7B61016CEB5000BA085 /* Release */,
+				8C1E4E1D2320778200FEB5B6 /* Debug */,
 				EB46035B1B9E61160013F3DC /* Release-asan */,
 				EB42F47B1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBF8BA0110196F23000BA085 /* Build configuration list for PBXNativeTarget "gsstool" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBF8B9FE10196F05000BA085 /* Release */,
+				8C1E4E0A2320778200FEB5B6 /* Debug */,
 				EB4603481B9E61160013F3DC /* Release-asan */,
 				EB42F4751169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBFB57B10F2182810009D37C /* Build configuration list for PBXNativeTarget "heimdal-compile_et" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBFB57B00F2182620009D37C /* Release */,
+				8C1E4DD52320778200FEB5B6 /* Debug */,
 				EB4603131B9E61160013F3DC /* Release-asan */,
 				EB42F4421169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBFB59170F2254450009D37C /* Build configuration list for PBXNativeTarget "vers" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBFB58C80F2253FB0009D37C /* Release */,
+				8C1E4DD02320778200FEB5B6 /* Debug */,
 				EB46030E1B9E61160013F3DC /* Release-asan */,
 				EB42F43E1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBFB59240F2255040009D37C /* Build configuration list for PBXAggregateTarget "HeimdalCompilers" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBFB591C0F2254B50009D37C /* Release */,
+				8C1E4DC52320778200FEB5B6 /* Debug */,
 				EB4603031B9E61160013F3DC /* Release-asan */,
 				EB42F43A1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBFB593C0F22558D0009D37C /* Build configuration list for PBXNativeTarget "heimdal-asn1_compile" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBFB592C0F22550F0009D37C /* Release */,
+				8C1E4DDB2320778200FEB5B6 /* Debug */,
 				EB4603191B9E61160013F3DC /* Release-asan */,
 				EB42F4481169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBFB593D0F22558D0009D37C /* Build configuration list for PBXAggregateTarget "OpenSourceFiles" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBFB59310F2255210009D37C /* Release */,
+				8C1E4DCC2320778200FEB5B6 /* Debug */,
 				EB46030A1B9E61160013F3DC /* Release-asan */,
 				EB42F4391169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBFB59A80F2258210009D37C /* Build configuration list for PBXNativeTarget "heimdal-asn1" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBFB59A70F2258030009D37C /* Release */,
+				8C1E4DE12320778200FEB5B6 /* Debug */,
 				EB46031F1B9E61160013F3DC /* Release-asan */,
 				EB42F44E1169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBFD83851013C8790037D4DD /* Build configuration list for PBXAggregateTarget "ipc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBFD83761013C84B0037D4DD /* Release */,
+				8C1E4DEB2320778200FEB5B6 /* Debug */,
 				EB4603291B9E61160013F3DC /* Release-asan */,
 				EB42F4521169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		EBFD83861013C8790037D4DD /* Build configuration list for PBXNativeTarget "ts" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EBFD83831013C8780037D4DD /* Release */,
+				8C1E4E1C2320778200FEB5B6 /* Debug */,
 				EB46035A1B9E61160013F3DC /* Release-asan */,
 				EB42F4791169203600FCDD8F /* Release-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};

@@ -29,22 +29,28 @@
 #include <Security/Security.h>
 #include "../TrustEvaluationTestHelpers.h"
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface TrustEvaluationTestCase : XCTestCase
-- (id _Nullable)addTrustSettingsForCert:(SecCertificateRef _Nonnull)cert trustSettings:(id _Nonnull)trustSettings; // returns a persistent ref for call to removeTrustSettings, takes a dictionary or array of trust settings
-- (id _Nullable)addTrustSettingsForCert:(SecCertificateRef _Nonnull)cert; // returns a persistent ref for call to removeTrustSettings
-- (void)removeTrustSettingsForCert:(SecCertificateRef _Nonnull)cert persistentRef:(id _Nullable)persistentRef;
-- (void)setTestRootAsSystem:(const uint8_t* _Nonnull)sha256hash; // this is expected to be a 32-byte array
+- (id _Nullable)addTrustSettingsForCert:(SecCertificateRef)cert trustSettings:(id)trustSettings; // returns a persistent ref for call to removeTrustSettings, takes a dictionary or array of trust settings
+- (id _Nullable)addTrustSettingsForCert:(SecCertificateRef)cert; // returns a persistent ref for call to removeTrustSettings
+- (void)removeTrustSettingsForCert:(SecCertificateRef)cert persistentRef:(id _Nullable)persistentRef;
+- (void)setTestRootAsSystem:(const uint8_t*)sha256hash; // this is expected to be a 32-byte array
 - (void)removeTestRootAsSystem;
 
 // ported from regressionBase
-- (void)runCertificateTestForDirectory:(SecPolicyRef _Nonnull)policy subDirectory:(NSString * _Nonnull)resourceSubDirectory verifyDate:(NSDate* _Nonnull)date;
+- (void)runCertificateTestForDirectory:(SecPolicyRef)policy subDirectory:(NSString *)resourceSubDirectory verifyDate:(NSDate*)date;
+
+- (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromResource:(NSString * )name subdirectory:(NSString *)dir;
 @end
 
 /* Use this interface to get a SecCertificateRef that has the same CFTypeID
  * as used by the Security framework */
 CF_RETURNS_RETAINED _Nullable
-SecCertificateRef SecFrameworkCertificateCreate(const uint8_t * _Nonnull der_bytes, CFIndex der_length);
+SecCertificateRef SecFrameworkCertificateCreate(const uint8_t * der_bytes, CFIndex der_length);
 CF_RETURNS_RETAINED _Nullable
-SecCertificateRef SecFrameworkCertificateCreateFromTestCert(SecCertificateRef _Nonnull cert);
+SecCertificateRef SecFrameworkCertificateCreateFromTestCert(SecCertificateRef cert);
+
+NS_ASSUME_NONNULL_END
 
 #endif /* _TRUSTTESTS_EVALUATION_TESTCASE_H_ */

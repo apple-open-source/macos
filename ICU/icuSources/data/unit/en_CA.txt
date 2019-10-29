@@ -416,12 +416,12 @@ en_CA{
         }
         temperature{
             celsius{
-                one{"{0} °C"}
-                other{"{0} °C"}
+                one{"{0} °C"}
+                other{"{0} °C"}
             }
             fahrenheit{
-                one{"{0} °F"}
-                other{"{0} °F"}
+                one{"{0} °F"}
+                other{"{0} °F"}
             }
         }
         volume{

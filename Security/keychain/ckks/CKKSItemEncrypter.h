@@ -23,7 +23,7 @@
 
 #if OCTAGON
 
-#include <securityd/SecDbItem.h>
+#include "keychain/securityd/SecDbItem.h"
 
 @class CKKSItem;
 @class CKKSMirrorEntry;

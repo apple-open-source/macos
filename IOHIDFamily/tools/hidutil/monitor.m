@@ -15,6 +15,7 @@
 #import <os/variant_private.h>
 
 #define kOptClientType  1000
+#define kOptSerialize   1001
 
 Boolean clientTypeForString (NSString * string, IOHIDEventSystemClientType * type);
 int monitor(int argc, const char * argv[]);
@@ -32,6 +33,7 @@ static const struct option MAIN_OPTIONS[] =
     { "help",       0,                  NULL,   'h' },
     { "verbose",    0,                  NULL,   'v' },
     { "client",     required_argument,  NULL,    kOptClientType },
+    { "serialize",  0,                  NULL,    kOptSerialize },
     { NULL,         0,                  NULL,    0  }
 };
 
@@ -47,6 +49,7 @@ const char monitorUsage[] =
 "  -v  --verbose...............print service enumerated/terminated info\n"
 "  -o  --output................output to file\n"
 "      --client................event system clien type (admin, passive, ratecontrolled, simple, monitor)\n"
+"      --serialize.............output events in serialized binary format\n"
 
 MATCHING_HELP
 "\nExamples:\n\n"
@@ -59,6 +62,7 @@ MATCHING_HELP
 
 static NSCompoundPredicate * _predicate = NULL;
 static bool                  _children   = false;
+static bool                  _serialize = false;
 static NSArray *             _variables = NULL;
 static char *                _fileNameStr;
 static char *                _clientTypeStr;
@@ -102,6 +106,16 @@ static void eventCallback(void *target __unused, void *refcon __unused, void *se
         }
         
         if (!predicated) {
+            if (_serialize) {
+                NSData *data = (NSData *)CFBridgingRelease(IOHIDEventCreateData(kCFAllocatorDefault, event));
+                NSMutableString *str = [NSMutableString stringWithCapacity:data.length * 2];
+                for (unsigned int i = 0; i < data.length; i++) {
+                    [str appendFormat:@"%02x", ((uint8_t *)data.bytes)[i]];
+                }
+                fprintf(_file, "%s\n", [[str description] UTF8String]);
+                return;
+            }
+            
             if (_variables) {
                 printEventVariables(hidEvent);
             } else {
@@ -293,6 +307,9 @@ int monitor(int argc __unused, const char * argv[] __unused) {
                 break;
             case kOptClientType:
                 _clientTypeStr = optarg;
+                break;
+            case kOptSerialize:
+                _serialize = true;
                 break;
             default:
                 printf("%s", monitorUsage);

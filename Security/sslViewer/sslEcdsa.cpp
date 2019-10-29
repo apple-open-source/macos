@@ -27,7 +27,7 @@
 #include <sys/param.h>
 
 #if NO_SERVER
-#include <securityd/spi.h>
+#include "keychain/securityd/spi.h"
 #endif
 
 

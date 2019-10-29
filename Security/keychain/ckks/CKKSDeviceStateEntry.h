@@ -26,7 +26,7 @@
 
 #if OCTAGON
 
-#include <securityd/SecDbItem.h>
+#include "keychain/securityd/SecDbItem.h"
 #include <utilities/SecDb.h>
 
 #import <CloudKit/CloudKit.h>

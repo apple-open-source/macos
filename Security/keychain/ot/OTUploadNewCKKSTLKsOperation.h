@@ -13,6 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
+                   ckksConflictState:(OctagonState*)ckksConflictState
                           errorState:(OctagonState*)errorState;
 
 @property OctagonState* nextState;

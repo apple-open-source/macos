@@ -54,7 +54,7 @@
 #include "keychain/SecureObjectSync/SOSPeerInfoV2.h"
 #include "keychain/SecureObjectSync/SOSUserKeygen.h"
 #include "keychain/SecureObjectSync/SOSKVSKeys.h"
-#include <securityd/SOSCloudCircleServer.h>
+#include "keychain/securityd/SOSCloudCircleServer.h"
 #include <Security/SecOTRSession.h>
 #include "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
 

@@ -129,7 +129,7 @@ main(int argc, char **argv)
 	if (uuid_string)
 	    if (uuid_parse(uuid_string, uuid) != 0)
 		errx(1, "Failed to parse `%s` as a uuid", uuid_string);
-	ret = krb5_sendto_set_delegated_app(context, ctx, uuid_string ? uuid : NULL, signing_string);
+	ret = krb5_sendto_set_delegated_app(context, ctx, uuid_string ? uuid : NULL, 0, signing_string);
 	if (ret)
 	    krb5_err(context, 1, ret, "krb5_sendto_set_delegated_app");
     }

@@ -157,6 +157,7 @@
 #define kPMASLDomainClientWakeRequests      "ClientWakeRequests"
 
 #define KPMASLWakeReqAppNamePrefix          "WakeAppName"
+#define kPMASLWakeReqTimePrefix             "WakeTime"
 #define kPMASLWakeReqTimeDeltaPrefix        "WakeTimeDelta"
 #define kPMASLWakeReqTypePrefix             "WakeType"
 #define kPMASLWakeReqClientInfoPrefix       "WakeClientInfo"

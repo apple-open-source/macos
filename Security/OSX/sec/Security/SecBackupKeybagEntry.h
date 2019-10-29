@@ -23,7 +23,7 @@
 
 #import "CKKSSQLDatabaseObject.h"
 #include <utilities/SecDb.h>
-#include <securityd/SecDbItem.h>
+#include "keychain/securityd/SecDbItem.h"
 
 #ifndef SecBackupKeybagEntry_h
 #define SecBackupKeybagEntry_h

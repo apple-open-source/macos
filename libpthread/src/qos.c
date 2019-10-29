@@ -208,7 +208,8 @@ _pthread_qos_class_encode_workqueue(int queue_priority, unsigned long flags)
 
 #define _PTHREAD_SET_SELF_OUTSIDE_QOS_SKIP \
 		(_PTHREAD_SET_SELF_QOS_FLAG | _PTHREAD_SET_SELF_FIXEDPRIORITY_FLAG | \
-		 _PTHREAD_SET_SELF_TIMESHARE_FLAG)
+		 _PTHREAD_SET_SELF_TIMESHARE_FLAG | \
+		 _PTHREAD_SET_SELF_ALTERNATE_AMX)
 
 int
 _pthread_set_properties_self(_pthread_set_flags_t flags,
@@ -255,6 +256,13 @@ pthread_set_timeshare_self(void)
 {
 	return _pthread_set_properties_self(_PTHREAD_SET_SELF_TIMESHARE_FLAG, 0, 0);
 }
+
+int
+pthread_prefer_alternate_amx_self(void)
+{
+	return _pthread_set_properties_self(_PTHREAD_SET_SELF_ALTERNATE_AMX, 0, 0);
+}
+
 
 pthread_override_t
 pthread_override_qos_class_start_np(pthread_t thread,  qos_class_t qc, int relpri)

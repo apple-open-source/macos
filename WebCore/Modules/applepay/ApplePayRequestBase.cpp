@@ -31,13 +31,19 @@
 #include "PaymentCoordinator.h"
 #include <wtf/text/StringConcatenateNumbers.h>
 
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/ApplePayRequestBaseAdditions.cpp>
+#else
+namespace WebCore {
+static void finishConverting(ApplePaySessionPaymentRequest&, ApplePayRequestBase&) { }
+static bool requiresSupportedNetworks(unsigned, const ApplePayRequestBase&) { return true; }
+}
+#endif
+
 namespace WebCore {
 
 static ExceptionOr<Vector<String>> convertAndValidate(Document& document, unsigned version, const Vector<String>& supportedNetworks, const PaymentCoordinator& paymentCoordinator)
 {
-    if (supportedNetworks.isEmpty())
-        return Exception { TypeError, "At least one supported network must be provided." };
-
     Vector<String> result;
     result.reserveInitialCapacity(supportedNetworks.size());
     for (auto& supportedNetwork : supportedNetworks) {
@@ -64,6 +70,9 @@ ExceptionOr<ApplePaySessionPaymentRequest> convertAndValidate(Document& document
         return merchantCapabilities.releaseException();
     result.setMerchantCapabilities(merchantCapabilities.releaseReturnValue());
 
+    if (requiresSupportedNetworks(version, request) && request.supportedNetworks.isEmpty())
+        return Exception { TypeError, "At least one supported network must be provided." };
+
     auto supportedNetworks = convertAndValidate(document, version, request.supportedNetworks, paymentCoordinator);
     if (supportedNetworks.hasException())
         return supportedNetworks.releaseException();
@@ -78,7 +87,7 @@ ExceptionOr<ApplePaySessionPaymentRequest> convertAndValidate(Document& document
 
     if (request.billingContact)
         result.setBillingContact(PaymentContact::fromApplePayPaymentContact(version, *request.billingContact));
-    
+
     if (request.requiredShippingContactFields) {
         auto requiredShippingContactFields = convertAndValidate(version, *request.requiredShippingContactFields);
         if (requiredShippingContactFields.hasException())
@@ -93,6 +102,8 @@ ExceptionOr<ApplePaySessionPaymentRequest> convertAndValidate(Document& document
 
     if (version >= 3)
         result.setSupportedCountries(WTFMove(request.supportedCountries));
+
+    finishConverting(result, request);
 
     return WTFMove(result);
 }

@@ -5095,6 +5095,25 @@ krb5_init_creds_set_source_app (
 	const char *signingIdentity);
 
 /**
+ * Set source app process information to be used for this context
+ *
+ * @param context a Kerberos 5 context.
+ * @param ctx a krb5_init_creds_context context.
+ * @param uuid uuid of delegated app
+ * @param pid pid_t of delegated app
+ *
+ * @return 0 for success, or an Kerberos 5 error code, see krb5_get_error_message().
+ * @ingroup krb5_credential
+ */
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_init_creds_set_source_process(krb5_context context,
+				   krb5_init_creds_context ctx,
+				   krb5_uuid uuid,
+				   pid_t pid,
+				   const char *signingIdentity);
+
+/**
  * The core loop if krb5_get_init_creds() function family. Create the
  * packets and have the caller send them off to the KDC.
  *
@@ -5447,6 +5466,12 @@ krb5_krbhst_set_delgated_uuid (
 	krb5_context context,
 	krb5_krbhst_handle handle,
 	krb5_uuid uuid);
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_krbhst_set_delgated_pid (
+	krb5_context context,
+	krb5_krbhst_handle handle,
+	pid_t pid);
 
 krb5_error_code KRB5_LIB_FUNCTION
 krb5_krbhst_set_hostname (
@@ -7571,6 +7596,7 @@ krb5_sendto_set_delegated_app (
 	krb5_context context,
 	krb5_sendto_ctx ctx,
 	krb5_uuid uuid,
+	pid_t pid,
 	const char *signingIdentity);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL

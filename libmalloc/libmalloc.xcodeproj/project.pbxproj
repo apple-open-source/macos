@@ -338,7 +338,6 @@
 		B66C71D72034BFAE0047E265 /* malloc_common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = malloc_common.h; sourceTree = "<group>"; };
 		B66C71D82034BFAE0047E265 /* malloc_common.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = malloc_common.c; sourceTree = "<group>"; };
 		B670DABD2072D0BB00139A1D /* perf_realloc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = perf_realloc.c; sourceTree = "<group>"; };
-		B671CFFD207578CC00EEAF20 /* libmalloc.dirty */ = {isa = PBXFileReference; lastKnownFileType = text; path = libmalloc.dirty; sourceTree = "<group>"; };
 		B6726EC92092473D00E8AF5A /* malloc_heap_check_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = malloc_heap_check_test.c; sourceTree = "<group>"; };
 		B675F74520213D0A00B5038B /* nano_tests.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = nano_tests.c; sourceTree = "<group>"; };
 		B68B7F9C1FCDCBC600BAD1AA /* nano_malloc_common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nano_malloc_common.h; sourceTree = "<group>"; };
@@ -545,7 +544,6 @@
 				C0CE450E1C52B9E300C24048 /* libmalloc_static.xcconfig */,
 				B66AA658202A70B00019D607 /* libmalloc_resolved.xcconfig */,
 				B629CF29202BA3C2007719B9 /* libmalloc_resolver.xcconfig */,
-				B671CFFD207578CC00EEAF20 /* libmalloc.dirty */,
 			);
 			path = xcodeconfig;
 			sourceTree = "<group>";
@@ -910,6 +908,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 3FFC1BE416A908F800027192;

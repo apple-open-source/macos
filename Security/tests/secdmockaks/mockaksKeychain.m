@@ -136,6 +136,9 @@
 
 - (void)testSecItemServerDeleteAll
 {
+    [self addAccessGroup:@"com.apple.bluetooth"];
+    [self addAccessGroup:@"lockdown-identities"];
+
     // BT root key, should not be deleted
     NSMutableDictionary* bt = [@{
                                  (id)kSecClass : (id)kSecClassGenericPassword,

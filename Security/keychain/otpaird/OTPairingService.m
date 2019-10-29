@@ -60,6 +60,18 @@
     return self;
 }
 
+- (NSString *)pairedDeviceNotificationName
+{
+	NSString *result = nil;
+	for (IDSDevice *device in self.service.devices) {
+		if (device.isDefaultPairedDevice) {
+			result = [NSString stringWithFormat:@"ids-device-state-%@", device.uniqueIDOverride];
+			break;
+		}
+	}
+	return result;
+}
+
 #if TARGET_OS_WATCH
 - (void)initiatePairingWithCompletion:(OTPairingCompletionHandler)completionHandler
 {
@@ -174,6 +186,12 @@
             NSString *responseIdentifier;
 
             os_log(OS_LOG_DEFAULT, "exchangePacket: complete=%d responsePacket=%@ channelError=%@", complete, responsePacket, channelError);
+
+            if (self.session == nil) {
+                os_log(OS_LOG_DEFAULT, "pairing session went away, dropping exchangePacket response");
+                return;
+            }
+
             if (channelError != nil) {
 #if TARGET_OS_IOS
                 NSError *cleansedError = [SecXPCHelper cleanseErrorForXPC:channelError];

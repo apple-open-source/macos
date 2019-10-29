@@ -66,6 +66,7 @@
 #import "keychain/ckks/CKKSTLKShareRecord.h"
 #import "keychain/ckks/CKKSHealTLKSharesOperation.h"
 #import "keychain/ckks/CKKSLocalSynchronizeOperation.h"
+#import "keychain/ckks/CKKSPeerProvider.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
 #import "keychain/ot/OTConstants.h"
@@ -76,10 +77,10 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecTrace.h>
 #include <utilities/SecDb.h>
-#include <securityd/SecDbItem.h>
-#include <securityd/SecItemDb.h>
-#include <securityd/SecItemSchema.h>
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecDbItem.h"
+#include "keychain/securityd/SecItemDb.h"
+#include "keychain/securityd/SecItemSchema.h"
+#include "keychain/securityd/SecItemServer.h"
 #include <utilities/debugging.h>
 #include <Security/SecItemPriv.h>
 #include "keychain/SecureObjectSync/SOSAccountTransaction.h"
@@ -88,61 +89,9 @@
 #include <os/transaction_private.h>
 
 #if OCTAGON
-@implementation CKKSPeerProviderState
-- (instancetype)initWithPeerProviderID:(NSString*)providerID
-                             essential:(BOOL)essential
-                             selfPeers:(CKKSSelves* _Nullable)selfPeers
-                        selfPeersError:(NSError* _Nullable)selfPeersError
-                          trustedPeers:(NSSet<id<CKKSRemotePeerProtocol>>* _Nullable)currentTrustedPeers
-                     trustedPeersError:(NSError* _Nullable)trustedPeersError
-{
-    if((self = [super init])) {
-        _peerProviderID = providerID;
-        _essential = essential;
-        _currentSelfPeers = selfPeers;
-        _currentSelfPeersError = selfPeersError;
-        _currentTrustedPeers = currentTrustedPeers;
-        _currentTrustedPeersError = trustedPeersError;
-
-        if(_currentTrustedPeers) {
-            NSMutableSet<NSString*>* trustedPeerIDs = [NSMutableSet set];
-            for(id<CKKSPeer> peer in _currentTrustedPeers) {
-                [trustedPeerIDs addObject:peer.peerID];
-            }
-            _currentTrustedPeerIDs = trustedPeerIDs;
-        }
-    }
-    return self;
-}
-
-- (NSString*)description
-{
-    return [NSString stringWithFormat:@"<CKKSPeerProviderState(%@): %@%@ %@%@>",
-            self.peerProviderID,
-            self.currentSelfPeers,
-            self.currentSelfPeersError ?: @"",
-            self.currentTrustedPeers,
-            self.currentTrustedPeersError ?: @""];
-}
-
-+ (CKKSPeerProviderState*)noPeersState:(id<CKKSPeerProvider>)provider
-{
-    return [[CKKSPeerProviderState alloc] initWithPeerProviderID:provider.providerID
-                                                       essential:provider.essential
-                                                       selfPeers:nil
-                                             selfPeersError:[NSError errorWithDomain:CKKSErrorDomain
-                                                                                 code:CKKSNoPeersAvailable
-                                                                          description:@"No current self peer available"]
-                                               trustedPeers:nil
-                                          trustedPeersError:[NSError errorWithDomain:CKKSErrorDomain
-                                                                                 code:CKKSNoPeersAvailable
-                                                                          description:@"No current trusted peers available"]];
-}
-@end
 
 @interface CKKSKeychainView()
 @property bool keyStateFetchRequested;
-@property bool keyStateFullRefetchRequested;
 @property bool keyStateProcessRequested;
 @property bool trustedPeersSetChanged;
 
@@ -170,6 +119,9 @@
 
 // An extra queue for semaphore-waiting-based NSOperations
 @property NSOperationQueue* waitingQueue;
+
+// Scratch space for resyncs
+@property (nullable) NSMutableSet<NSString*>* resyncRecordsSeen;
 
 // Make these readwrite
 @property NSArray<id<CKKSPeerProvider>>* currentPeerProviders;
@@ -222,6 +174,8 @@
         _zoneChangeFetcher = fetcher;
         [fetcher registerClient:self];
 
+        _resyncRecordsSeen = nil;
+
         _notifierClass = cloudKitClassDependencies.notifierClass;
         _notifyViewChangedScheduler = [[CKKSNearFutureScheduler alloc] initWithName:[NSString stringWithFormat: @"%@-notify-scheduler", self.zoneName]
                                                             initialDelay:250*NSEC_PER_MSEC
@@ -254,7 +208,7 @@
 
                                                                                   [center postNotificationName:@"com.apple.security.view-become-ready"
                                                                                                         object:nil
-                                                                                                      userInfo:@{ @"view" : self.zoneName }
+                                                                                                      userInfo:@{ @"view" : self.zoneName ?: @"unknown" }
                                                                                                        options:0];
                                                                               }];
 
@@ -500,6 +454,7 @@
         }
 
         // If it's been more than 24 hours since the last fetch, fetch and process everything.
+        // Or, if we think we were interrupted in the middle of fetching, fetch some more.
         // Otherwise, just kick off the local queue processing.
 
         NSDate* now = [NSDate date];
@@ -507,7 +462,9 @@
         [offset setHour:-24];
         NSDate* deadline = [[NSCalendar currentCalendar] dateByAddingComponents:offset toDate:now options:0];
 
-        if(ckse.lastFetchTime == nil || [ckse.lastFetchTime compare: deadline] == NSOrderedAscending) {
+        if(ckse.lastFetchTime == nil ||
+           [ckse.lastFetchTime compare: deadline] == NSOrderedAscending ||
+           ckse.moreRecordsInCloudKit) {
             initialProcess = [self fetchAndProcessCKChanges:CKKSFetchBecauseSecuritydRestart after:self.lastFixupOperation];
 
             // Also, kick off a scan local items: it'll find any out-of-sync issues in the local keychain
@@ -1026,28 +983,20 @@
     CKKSZoneKeyState* nextState = nil;
     NSError* nextError = nil;
 
-    // Many of our decisions below will be based on what keys exist. Help them out.
-    CKKSCurrentKeySet* keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
-    NSError* localerror = nil;
-    NSArray<CKKSKey*>* localKeys = [CKKSKey localKeys:self.zoneID error:&localerror];
-    NSArray<CKKSKey*>* remoteKeys = [CKKSKey remoteKeys:self.zoneID error: &localerror];
-
-    // We also are checking for OutgoingQueueEntries in the reencrypt state; this is a sign that our key hierarchy is out of date.
-    NSInteger outdatedOQEs = [CKKSOutgoingQueueEntry countByState:SecCKKSStateReencrypt zone:self.zoneID error:&localerror];
-
-    SecADSetValueForScalarKey((__bridge CFStringRef) SecCKKSAggdViewKeyCount, [localKeys count]);
-
-    if(localerror) {
-        ckkserror("ckkskey", self, "couldn't fetch keys and OQEs from local database, entering error state: %@", localerror);
-        self.keyHierarchyState = SecCKKSZoneKeyStateError;
-        self.keyHierarchyError = localerror;
-        [self _onqueueHandleKeyStateNonTransientDependency:nil];
-        return;
-    }
+    // Any state that wants should fill this in; it'll be used at the end of this function as well
+    CKKSCurrentKeySet* keyset = nil;
 
 #if !defined(NDEBUG)
-    NSArray<CKKSKey*>* allKeys = [CKKSKey allKeys:self.zoneID error:&localerror];
-    ckksdebug("ckkskey", self, "All keys: %@", allKeys);
+    {
+        NSError* localerror = nil;
+        NSError* allKeysError = nil;
+        NSArray<CKKSKey*>* allKeys = [CKKSKey allKeys:self.zoneID error:&allKeysError];
+
+        if(localerror) {
+            ckkserror("ckkskey", self, "couldn't fetch all keys from local database, entering error state: %@", allKeysError);
+        }
+        ckksdebug("ckkskey", self, "All keys: %@", allKeys);
+    }
 #endif
 
     NSError* hierarchyError = nil;
@@ -1122,6 +1071,17 @@
         }
 
     } else if([state isEqualToString: SecCKKSZoneKeyStateReady]) {
+        NSError* localerror = nil;
+        NSArray<CKKSKey*>* remoteKeys = [CKKSKey remoteKeys:self.zoneID error: &localerror];
+
+        if(remoteKeys == nil || localerror) {
+            ckkserror("ckkskey", self, "couldn't fetch keys from local database, entering error state: %@", localerror);
+            self.keyHierarchyState = SecCKKSZoneKeyStateError;
+            self.keyHierarchyError = localerror;
+            [self _onqueueHandleKeyStateNonTransientDependency:nil];
+            return;
+        }
+
         if(self.keyStateProcessRequested || [remoteKeys count] > 0) {
             // We've either received some remote keys from the last fetch, or someone has requested a reprocess.
             ckksnotice("ckkskey", self, "Kicking off a key reprocess based on request:%d and remote key count %lu", self.keyStateProcessRequested, (unsigned long)[remoteKeys count]);
@@ -1149,6 +1109,7 @@
 
         if(!self.keyStateMachineOperation && !nextState) {
             // We think we're ready. Double check.
+            keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
             CKKSZoneKeyState* checkedstate = [self _onqueueEnsureKeyHierarchyHealth:keyset error:&hierarchyError];
             if(![checkedstate isEqualToString:SecCKKSZoneKeyStateReady] || hierarchyError) {
                 // Things is bad. Kick off a heal to fix things up.
@@ -1181,6 +1142,7 @@
             nextState = SecCKKSZoneKeyStateWaitForFixupOperation;
         } else {
             // Check if we have an existing key hierarchy in keyset
+            keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
             if(keyset.error && !([keyset.error.domain isEqual: @"securityd"] && keyset.error.code == errSecItemNotFound)) {
                 ckkserror("ckkskey", self, "Error examining existing key hierarchy: %@", error);
             }
@@ -1209,7 +1171,9 @@
 
     } else if([state isEqualToString: SecCKKSZoneKeyStateNeedFullRefetch]) {
         ckksnotice("ckkskey", self, "Starting a key hierarchy full refetch");
-        [self _onqueueKeyHierarchyRefetch];
+        [self _onqueueKeyHierarchyFetchForReasons:[NSSet setWithObjects:CKKSFetchBecauseKeyHierarchy, CKKSFetchBecauseResync, nil]];
+        self.keyStateMachineRefetched = true;
+        self.keyStateFullRefetchRequested = false;
 
     } else if([state isEqualToString:SecCKKSZoneKeyStateWaitForFixupOperation]) {
         // We should enter 'initialized' when the fixup operation completes
@@ -1227,6 +1191,21 @@
 
     } else if([state isEqualToString: SecCKKSZoneKeyStateFetchComplete]) {
         // We've just completed a fetch of everything. Are there any remote keys?
+        keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
+
+        NSError* localerror = nil;
+
+        NSArray<CKKSKey*>* localKeys = [CKKSKey localKeys:self.zoneID error:&localerror];
+        NSArray<CKKSKey*>* remoteKeys = [CKKSKey remoteKeys:self.zoneID error: &localerror];
+
+        if(localKeys == nil || remoteKeys == nil || localerror) {
+            ckkserror("ckkskey", self, "couldn't fetch keys from local database, entering error state: %@", localerror);
+            self.keyHierarchyState = SecCKKSZoneKeyStateError;
+            self.keyHierarchyError = localerror;
+            [self _onqueueHandleKeyStateNonTransientDependency:nil];
+            return;
+        }
+
         if(remoteKeys.count > 0u) {
             // Process the keys we received.
             self.keyStateMachineOperation = [[CKKSProcessReceivedKeysStateMachineOperation alloc] initWithCKKSKeychainView: self];
@@ -1274,6 +1253,7 @@
 
 
         if(self.keyStateProcessRequested) {
+            keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
             if(keyset.currentTLKPointer.currentKeyUUID) {
                 ckksnotice("ckkskey", self, "Received a nudge that our TLK records might be here (and there's some current TLK pointer)");
                 nextState = SecCKKSZoneKeyStateProcess;
@@ -1306,6 +1286,8 @@
             self.trustedPeersSetChanged = false;
 
         } else {
+            keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
+
             // Should we nuke this zone?
             if(self.trustStatus == CKKSAccountStatusAvailable) {
                 if([self _onqueueOtherDevicesReportHavingTLKs:keyset]) {
@@ -1369,6 +1351,8 @@
     } else {
         ckkserror("ckks", self, "asked to advance state machine to unknown state: %@", state);
         self.keyHierarchyState = state;
+
+        keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
         [self _onqueueHandleKeyStateNonTransientDependency:keyset];
         return;
     }
@@ -1387,6 +1371,17 @@
         }
 
         // If there are any OQEs waiting to be encrypted, launch an op to fix them
+        NSError* localerror = nil;
+        NSInteger outdatedOQEs = [CKKSOutgoingQueueEntry countByState:SecCKKSStateReencrypt zone:self.zoneID error:&localerror];
+
+        if(localerror) {
+           ckkserror("ckkskey", self, "couldn't fetch OQEs from local database, entering error state: %@", localerror);
+            self.keyHierarchyState = SecCKKSZoneKeyStateError;
+            self.keyHierarchyError = localerror;
+            [self _onqueueHandleKeyStateNonTransientDependency:nil];
+            return;
+        }
+
         if(outdatedOQEs > 0) {
             ckksnotice("ckksreencrypt", self, "Reencrypting outgoing items as the key hierarchy is ready");
             CKKSReencryptOutgoingItemsOperation* op = [[CKKSReencryptOutgoingItemsOperation alloc] initWithCKKSKeychainView:self ckoperationGroup:self.keyHierarchyOperationGroup];
@@ -1433,6 +1428,11 @@
         }
     }
 
+    // If the keystate is non-transient, ensure we've loaded the keyset, and provide it to any waiters
+    // If it is transient, just call the handler anyway: it needs to set up the dependency
+    if(!CKKSKeyStateTransient(self.keyHierarchyState) && keyset == nil) {
+        keyset = [CKKSCurrentKeySet loadForZone:self.zoneID];
+    }
     [self _onqueueHandleKeyStateNonTransientDependency:keyset];
 }
 
@@ -1992,6 +1992,11 @@
 }
 
 - (void)_onqueueKeyHierarchyFetch {
+    [self _onqueueKeyHierarchyFetchForReasons:[NSSet setWithArray:@[CKKSFetchBecauseKeyHierarchy]]];
+}
+
+- (void)_onqueueKeyHierarchyFetchForReasons:(NSSet<CKKSFetchBecause*>*)reasons
+{
     dispatch_assert_queue(self.queue);
 
     WEAKIFY(self);
@@ -2010,35 +2015,9 @@
     }];
     self.keyStateMachineOperation.name = @"waiting-for-fetch";
 
-    NSOperation* fetchOp = [self.zoneChangeFetcher requestSuccessfulFetch: CKKSFetchBecauseKeyHierarchy];
+    NSOperation* fetchOp = [self.zoneChangeFetcher requestSuccessfulFetchForManyReasons:reasons];
     [self.keyStateMachineOperation addDependency: fetchOp];
 
-    self.keyStateFetchRequested = false;
-}
-
-- (void)_onqueueKeyHierarchyRefetch {
-    dispatch_assert_queue(self.queue);
-
-    WEAKIFY(self);
-    self.keyStateMachineOperation = [NSBlockOperation blockOperationWithBlock: ^{
-        STRONGIFY(self);
-        if(!self) {
-            ckkserror("ckks", self, "received callback for released object");
-            return;
-        }
-
-        [self dispatchSyncWithAccountKeys: ^bool{
-            [self _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateFetchComplete withError: nil];
-            return true;
-        }];
-    }];
-    self.keyStateMachineOperation.name = @"waiting-for-refetch";
-
-    NSOperation* fetchOp = [self.zoneChangeFetcher requestSuccessfulFetchForManyReasons:[NSSet setWithObjects:CKKSFetchBecauseKeyHierarchy, CKKSFetchBecauseResync, nil]];
-    [self.keyStateMachineOperation addDependency: fetchOp];
-
-    self.keyStateMachineRefetched = true;
-    self.keyStateFullRefetchRequested = false;
     self.keyStateFetchRequested = false;
 }
 
@@ -3649,48 +3628,31 @@
                              override:(bool)overridePeerProviders
                                 block:(bool (^)(void))block
 {
-    [SOSAccount performOnQuietAccountQueue: ^{
-        NSArray<id<CKKSPeerProvider>>* actualPeerProviders = overridePeerProviders ? peerProviders : self.currentPeerProviders;
-        NSMutableArray<CKKSPeerProviderState*>* trustStates = [NSMutableArray array];
+    NSArray<id<CKKSPeerProvider>>* actualPeerProviders = overridePeerProviders ? peerProviders : self.currentPeerProviders;
+    NSMutableArray<CKKSPeerProviderState*>* trustStates = [NSMutableArray array];
 
-        for(id<CKKSPeerProvider> provider in actualPeerProviders) {
-            ckksnotice("ckks", self, "Fetching account keys for provider %@", provider);
+    for(id<CKKSPeerProvider> provider in actualPeerProviders) {
+        ckksnotice("ckks", self, "Fetching account keys for provider %@", provider);
+        [trustStates addObject:provider.currentState];
+    }
 
-            NSError* selfPeersError = nil;
-            CKKSSelves* currentSelfPeers = [provider fetchSelfPeers:&selfPeersError];
-
-            NSError* trustedPeersError = nil;
-            NSSet<id<CKKSRemotePeerProtocol>>* currentTrustedPeers = [provider fetchTrustedPeers:&trustedPeersError];
-
-            [trustStates addObject:[[CKKSPeerProviderState alloc] initWithPeerProviderID:provider.providerID
-                                                                               essential:provider.essential
-                                                                               selfPeers:currentSelfPeers
-                                                                          selfPeersError:selfPeersError
-                                                                            trustedPeers:currentTrustedPeers
-                                                                       trustedPeersError:trustedPeersError]];
+    [self dispatchSync:^bool{
+        if(overridePeerProviders) {
+            self.currentPeerProviders = peerProviders;
         }
+        self.currentTrustStates = trustStates;
 
-        [self dispatchSync:^bool{
-            if(overridePeerProviders) {
-                self.currentPeerProviders = peerProviders;
-            }
-            self.currentTrustStates = trustStates;
+        bool result = block();
 
-            __block bool result = false;
-            [SOSAccount performWhileHoldingAccountQueue:^{ // so any calls through SOS account will know they can perform their work without dispatching to the account queue, which we already hold
-                result = block();
-            }];
+        // Forget the peers; they might have class A key material
+        NSMutableArray<CKKSPeerProviderState*>* noTrustStates = [NSMutableArray array];
+        for(id<CKKSPeerProvider> provider in peerProviders) {
+            (void)provider;
+            [noTrustStates addObject:[CKKSPeerProviderState noPeersState:provider]];
+        }
+        self.currentTrustStates = noTrustStates;
 
-            // Forget the peers; they might have class A key material
-            NSMutableArray<CKKSPeerProviderState*>* noTrustStates = [NSMutableArray array];
-            for(id<CKKSPeerProvider> provider in peerProviders) {
-                (void)provider;
-                [noTrustStates addObject:[CKKSPeerProviderState noPeersState:provider]];
-            }
-            self.currentTrustStates = noTrustStates;
-
-            return result;
-        }];
+        return result;
     }];
 }
 
@@ -3868,6 +3830,7 @@
             // We want to return a nil change tag (to force a resync)
             ckksnotice("ckksfetch", self, "Beginning refetch");
             request.changeToken = nil;
+            request.resync = true;
         } else {
             CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:self.zoneName];
             if(!ckse) {
@@ -3888,16 +3851,13 @@
 
 - (void)changesFetched:(NSArray<CKRecord*>*)changedRecords
       deletedRecordIDs:(NSArray<CKKSCloudKitDeletion*>*)deletedRecords
-        oldChangeToken:(CKServerChangeToken*)oldChangeToken
         newChangeToken:(CKServerChangeToken*)newChangeToken
+            moreComing:(BOOL)moreComing
+                resync:(BOOL)resync
 {
     [self.launch addEvent:@"changes-fetched"];
 
     [self dispatchSyncWithAccountKeys:^bool{
-        // This is a resync if we already have a change token, but this fetch didn't have one
-        CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state: self.zoneName];
-        bool resync = ckse.changeToken && (oldChangeToken == nil);
-
         for (CKRecord* record in changedRecords) {
             [self _onqueueCKRecordChanged:record resync:resync];
         }
@@ -3908,51 +3868,67 @@
 
         NSError* error = nil;
         if(resync) {
-            // Scan through all CKMirrorEntries and determine if any exist that CloudKit didn't tell us about
-            ckksnotice("ckksresync", self, "Comparing local UUIDs against the CloudKit list");
-            NSMutableArray<NSString*>* uuids = [[CKKSMirrorEntry allUUIDs:self.zoneID error:&error] mutableCopy];
+            // If we're performing a resync, we need to keep track of everything that's actively in
+            // CloudKit during the fetch, (so that we can find anything that's on-disk and not in CloudKit).
+            // Please note that if, during a resync, the fetch errors, we won't be notified. If a record is in
+            // the first refetch but not the second, it'll be added to our set, and the second resync will not
+            // delete the record (which is a consistency violation, but only with actively changing records).
+            // A third resync should correctly delete that record.
 
-            for(NSString* uuid in uuids) {
-                CKRecord* record = nil;
-                CKRecordID* recordID = [[CKRecordID alloc] initWithRecordName:uuid zoneID:self.zoneID];
-                for(CKRecord* r in changedRecords) {
-                    if([r.recordID isEqual:recordID]) {
-                        record = r;
-                        break;
+            if(self.resyncRecordsSeen == nil) {
+                self.resyncRecordsSeen = [NSMutableSet set];
+            }
+            for(CKRecord* r in changedRecords) {
+                [self.resyncRecordsSeen addObject:r.recordID.recordName];
+            }
+
+            // Is there More Coming? If not, self.resyncRecordsSeen contains everything in CloudKit. Inspect for anything extra!
+            if(moreComing) {
+                ckksnotice("ckksresync", self, "In a resync, but there's More Coming. Waiting to scan for extra items.");
+
+            } else {
+                // Scan through all CKMirrorEntries and determine if any exist that CloudKit didn't tell us about
+                ckksnotice("ckksresync", self, "Comparing local UUIDs against the CloudKit list");
+                NSMutableArray<NSString*>* uuids = [[CKKSMirrorEntry allUUIDs:self.zoneID error:&error] mutableCopy];
+
+                for(NSString* uuid in uuids) {
+                    if([self.resyncRecordsSeen containsObject:uuid]) {
+                        ckksnotice("ckksresync", self, "UUID %@ is still in CloudKit; carry on.", uuid);
+                    } else {
+                        CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid zoneID:self.zoneID error:&error];
+                        if(error != nil) {
+                            ckkserror("ckksresync", self, "Couldn't read an item from the database, but it used to be there: %@ %@", uuid, error);
+                            continue;
+                        }
+                        if(!ckme) {
+                            ckkserror("ckksresync", self, "Couldn't read ckme(%@) from database; continuing", uuid);
+                            continue;
+                        }
+
+                        ckkserror("ckksresync", self, "BUG: Local item %@ not found in CloudKit, deleting", uuid);
+                        [self _onqueueCKRecordDeleted:ckme.item.storedCKRecord.recordID recordType:ckme.item.storedCKRecord.recordType resync:resync];
                     }
                 }
 
-                if(record) {
-                    ckksnotice("ckksresync", self, "UUID %@ is still in CloudKit; carry on.", uuid);
-                } else {
-                    CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid zoneID:self.zoneID error:&error];
-                    if(error != nil) {
-                        ckkserror("ckksresync", self, "Couldn't read an item from the database, but it used to be there: %@ %@", uuid, error);
-                        continue;
-                    }
-                    if(!ckme) {
-                        ckkserror("ckksresync", self, "Couldn't read ckme(%@) from database; continuing", uuid);
-                        continue;
-                    }
-
-                    ckkserror("ckksresync", self, "BUG: Local item %@ not found in CloudKit, deleting", uuid);
-                    [self _onqueueCKRecordDeleted:ckme.item.storedCKRecord.recordID recordType:ckme.item.storedCKRecord.recordType resync:resync];
-                }
+                // Now that we've inspected resyncRecordsSeen, reset it for the next time through
+                self.resyncRecordsSeen = nil;
             }
         }
-
-        error = nil;
 
         CKKSZoneStateEntry* state = [CKKSZoneStateEntry state:self.zoneName];
         state.lastFetchTime = [NSDate date]; // The last fetch happened right now!
         state.changeToken = newChangeToken;
+        state.moreRecordsInCloudKit = moreComing;
         [state saveToDatabase:&error];
         if(error) {
             ckkserror("ckksfetch", self, "Couldn't save new server change token: %@", error);
         }
 
-        // Might as well kick off a IQO!
-        [self processIncomingQueue:false];
+        if(!moreComing) {
+            // Might as well kick off a IQO!
+            [self processIncomingQueue:false];
+            ckksnotice("ckksfetch", self, "Beginning incoming processing for %@", self.zoneID);
+        }
 
         ckksnotice("ckksfetch", self, "Finished processing changes for %@", self.zoneID);
 

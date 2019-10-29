@@ -62,6 +62,8 @@
 #include <Security/SecBasePriv.h>
 #include <Security/SecItem.h>
 
+#include <libDER/asn1Types.h>
+
 
 #define HIDIGIT(v) (((v) / 10) + '0')    
 #define LODIGIT(v) (((v) % 10) + '0')     
@@ -77,61 +79,18 @@
 static OSStatus
 DER_UTCTimeToCFDate(const SecAsn1Item * utcTime, CFAbsoluteTime *date)
 {
-    char *string = (char *)utcTime->Data;
-    int year, month, mday, hour, minute, second, hourOff, minOff;
-
-    /* Verify time is formatted properly and capture information */
-    second = 0;
-    hourOff = 0;
-    minOff = 0;
-    CAPTURE(year,string+0,loser);
-    if (year < 50) {
-        /* ASSUME that year # is in the 2000's, not the 1900's */
-        year += 2000;
-    } else {
-        year += 1900;
-    }
-    CAPTURE(month,string+2,loser);
-    if ((month == 0) || (month > 12)) goto loser;
-    CAPTURE(mday,string+4,loser);
-    if ((mday == 0) || (mday > 31)) goto loser;
-    CAPTURE(hour,string+6,loser);
-    if (hour > 23) goto loser;
-    CAPTURE(minute,string+8,loser);
-    if (minute > 59) goto loser;
-    if (ISDIGIT(string[10])) {
-        CAPTURE(second,string+10,loser);
-        if (second > 59) goto loser;
-        string += 2;
-    }
-    if (string[10] == '+') {
-        CAPTURE(hourOff,string+11,loser);
-        if (hourOff > 23) goto loser;
-        CAPTURE(minOff,string+13,loser);
-        if (minOff > 59) goto loser;
-    } else if (string[10] == '-') {
-        CAPTURE(hourOff,string+11,loser);
-        if (hourOff > 23) goto loser;
-        hourOff = -hourOff;
-        CAPTURE(minOff,string+13,loser);
-        if (minOff > 59) goto loser;
-        minOff = -minOff;
-    } else if (string[10] != 'Z') {
-        goto loser;
+    CFErrorRef error = NULL;
+    /* <rdar://problem/55316705> CMS attributes don't correctly encode/decode times (always use UTCTime) */
+    CFAbsoluteTime result = SecAbsoluteTimeFromDateContentWithError(ASN1_UTC_TIME, utcTime->Data, utcTime->Length, &error);
+    if (error) {
+        CFReleaseNull(error);
+        return SECFailure;
     }
 
-    if (hourOff == 0 && minOff == 0) {
-        *date = CFAbsoluteTimeForGregorianZuluMoment(year, month, mday, hour, minute, second);
-    } else {
-        CFTimeZoneRef tz = CFTimeZoneCreateWithTimeIntervalFromGMT(kCFAllocatorDefault, (hourOff * 60 + minOff) * 60);
-        *date = CFAbsoluteTimeForGregorianMoment(tz, year, month, mday, hour, minute, second);
-        CFReleaseSafe(tz);
+    if (date) {
+        *date = result;
     }
-
     return SECSuccess;
-
-loser:
-    return SECFailure;
 }
 
 static OSStatus
@@ -141,20 +100,24 @@ DER_CFDateToUTCTime(CFAbsoluteTime date, SecAsn1Item * utcTime)
 
     utcTime->Length = 13;
     utcTime->Data = d = PORT_Alloc(13);
-    if (!utcTime->Data)
-	return SECFailure;
+    if (!utcTime->Data) {
+        return SECFailure;
+    }
     
     __block int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
     __block bool result;
     SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
         result = CFCalendarDecomposeAbsoluteTime(zuluCalendar, date, "yMdHms", &year, &month, &day, &hour, &minute, &second);
     });
-    if (!result)
+    if (!result) {
         return SECFailure;
+    }
 
-    /* UTC time does not handle the years before 1950 */
-    if (year < 1950)
+    /* UTC time does not handle the years before 1950 or after 2049 */
+    /* <rdar://problem/55316705> CMS attributes don't correctly encode/decode times (always use UTCTime) */
+    if (year < 1950 || year > 2049) {
         return SECFailure;
+    }
 
     /* remove the century since it's added to the year by the
        CFAbsoluteTimeGetGregorianDate routine, but is not needed for UTC time */

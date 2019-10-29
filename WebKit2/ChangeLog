@@ -1,41 +1,1840 @@
-2019-09-20  Alan Coon  <alancoon@apple.com>
+2019-10-08  Alan Coon  <alancoon@apple.com>
 
-        Apply patch. rdar://problem/55564031
+        Apply patch. rdar://problem/55920073
+
+    2019-10-08  youenn fablet  <youenn@apple.com>
+
+            Remove the protection to spin more than one service worker process at a time.
+            rdar://problem/55044713
+
+            Before site isolation, we were creating one service worker process for all domains.
+            We now create one service worker process per domain, which makes the protection to only spin
+            one service worker process potentially harmful: if two requests to create a service worker processes
+            for two different domains are made, only one will actually succeed.
+            This is reproduced by API test.
+
+            At UIProcess side, there is already a check to see whether a service worker process for a given domain is launched.
+            That protects against spinning several service worker processes for the same domain.
+
+            * NetworkProcess/NetworkProcess.cpp:
+            (WebKit::NetworkProcess::createNetworkConnectionToWebProcess):
+            (WebKit::NetworkProcess::createServerToContextConnection):
+            * NetworkProcess/NetworkProcess.h:
+
+2019-10-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250438. rdar://problem/55984974
+
+    Unreviewed build-fix: wrap the AssertionServicesSPI.h in an IOS_FAMILY check.
+    
+    * WebProcess/cocoa/WebProcessCocoa.mm:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250438 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-27  Jer Noble  <jer.noble@apple.com>
+
+            Unreviewed build-fix: wrap the AssertionServicesSPI.h in an IOS_FAMILY check.
+
+            * WebProcess/cocoa/WebProcessCocoa.mm:
+
+2019-10-03  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250642. rdar://problem/55947639
+
+    [iOS] When hit testing for a context menu interaction, do not consider whether the element is contenteditable
+    https://bugs.webkit.org/show_bug.cgi?id=202498
+    <rdar://problem/54723131>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    When the user selects a context menu action, WebKit performs a hit test in order to find the
+    acted-on element on the page. This is separate from the hit test performed to generate the
+    context menu's targeted preview. Since an arbitrary amount of time can elapse between
+    preview generation and action selection, this second hit-tests might return a different
+    element.
+    
+    One case where we know a different element can be returned is in apps that dynamically
+    enable and disable editing. If editing is disabled when the first hit test occurs but is
+    enabled when the second one occurs, different elements will be returned due to
+    Frame::qualifyingNodeAtViewportLocation preferring to return the root editable element when
+    the approximate node is contenteditable.
+    
+    While the appropriate long-term fix is to only hit-test once and use that element for both
+    preview generation and action selection, this patch implements a short-term fix to address
+    the specific problem in rdar://problem/54723131 by disabling the contenteditable behavior
+    described above for context menu interaction hit testing.
+    
+    The long-term fix is tracked by <https://webkit.org/b/202499>.
+    
+    * page/Frame.h:
+    * page/ios/FrameIOS.mm:
+    (WebCore::Frame::qualifyingNodeAtViewportLocation):
+    (WebCore::Frame::approximateNodeAtViewportLocationLegacy):
+    (WebCore::ancestorRespondingToClickEventsNodeQualifier):
+    (WebCore::Frame::nodeRespondingToClickEvents):
+    (WebCore::Frame::nodeRespondingToDoubleClickEvent):
+    (WebCore::Frame::nodeRespondingToInteraction):
+    (WebCore::Frame::nodeRespondingToScrollWheelEvents):
+    
+    Source/WebKit:
+    
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::WebPage::startInteractionWithElementAtPosition): Changed to call
+    WebCore::Frame::nodeRespondingToInteraction.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250642 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-02  Andy Estes  <aestes@apple.com>
+
+            [iOS] When hit testing for a context menu interaction, do not consider whether the element is contenteditable
+            https://bugs.webkit.org/show_bug.cgi?id=202498
+            <rdar://problem/54723131>
+
+            Reviewed by Tim Horton.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::startInteractionWithElementAtPosition): Changed to call
+            WebCore::Frame::nodeRespondingToInteraction.
+
+2019-09-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250428. rdar://problem/55825357
+
+    [iOS] Lock screen controls can fail to play web content
+    https://bugs.webkit.org/show_bug.cgi?id=202279
+    
+    Reviewed by Chris Dumez.
+    
+    When playback is paused from the lock screen via Now Playing controls, the WebProcess,
+    UIProcess, and Network Process will all be suspended. MediaRemote will take an assertion
+    and wake up the WebProcess when a remote control command to "play" is sent via the Now
+    Playing controls. However, if a synchronous message to the (suspended) Network or UIProcess
+    is issued before the notification that the process was unexpectedly unsuspended can be
+    issued (which will subsequently unsuspend the UIProcess and Network process), we can get
+    into a deadlocked state where the main thread is blocked on the sync message to a suspended
+    process.
+    
+    To work around this problem, move all the processing from ProcessTaskStateObserver to a
+    WorkQueue / background thread. This requires making the ProcessTaskStateObserver thread-safe,
+    though its only current client is a Singleton (the WebProcess class), and so the risk of
+    thread safety issues is currently minimal. Regardless, access to the Client pointer must be
+    guarded by a Lock, and the Client itself must become ref-counted, so that the
+    ProcessTaskStateObserver can ref its Client (the WebProcess) during callback processing.
+    
+    Unfortunately, sendWithAsyncReply() is not thread safe, nor is ProcessAssertion, so instead
+    just use send() and set a 5-second timeout before expiring the assertion, and just use
+    BKSProcessStateAssertion directly.
+    
+    * Shared/Cocoa/ProcessTaskStateObserver.h:
+    (WebKit::ProcessTaskStateObserver::Client::ref):
+    (WebKit::ProcessTaskStateObserver::Client::deref):
+    (WebKit::ProcessTaskStateObserver::setClient): Deleted.
+    (WebKit::ProcessTaskStateObserver::client): Deleted.
+    * Shared/Cocoa/ProcessTaskStateObserver.mm:
+    (-[WKProcessTaskStateObserverDelegate process:taskStateDidChange:]):
+    (WebKit::ProcessTaskStateObserver::create):
+    (WebKit::ProcessTaskStateObserver::ProcessTaskStateObserver):
+    (WebKit::ProcessTaskStateObserver::~ProcessTaskStateObserver):
+    (WebKit::ProcessTaskStateObserver::invalidate):
+    (WebKit::ProcessTaskStateObserver::client):
+    (WebKit::ProcessTaskStateObserver::setTaskState):
+    * WebProcess/WebProcess.cpp:
+    (WebKit::m_taskStateObserver):
+    * WebProcess/WebProcess.h:
+    * UIProcess/Cocoa/WebProcessProxyCocoa.mm:
+    (WebKit::WebProcessProxy::processWasUnexpectedlyUnsuspended):
+    * UIProcess/WebProcessProxy.h:
+    * UIProcess/WebProcessProxy.messages.in:
+    * WebProcess/cocoa/WebProcessCocoa.mm:
+    (WebKit::WebProcess::processTaskStateDidChange):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250428 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-27  Jer Noble  <jer.noble@apple.com>
+
+            [iOS] Lock screen controls can fail to play web content
+            https://bugs.webkit.org/show_bug.cgi?id=202279
+
+            Reviewed by Chris Dumez.
+
+            When playback is paused from the lock screen via Now Playing controls, the WebProcess,
+            UIProcess, and Network Process will all be suspended. MediaRemote will take an assertion
+            and wake up the WebProcess when a remote control command to "play" is sent via the Now
+            Playing controls. However, if a synchronous message to the (suspended) Network or UIProcess
+            is issued before the notification that the process was unexpectedly unsuspended can be
+            issued (which will subsequently unsuspend the UIProcess and Network process), we can get
+            into a deadlocked state where the main thread is blocked on the sync message to a suspended
+            process.
+
+            To work around this problem, move all the processing from ProcessTaskStateObserver to a
+            WorkQueue / background thread. This requires making the ProcessTaskStateObserver thread-safe,
+            though its only current client is a Singleton (the WebProcess class), and so the risk of
+            thread safety issues is currently minimal. Regardless, access to the Client pointer must be
+            guarded by a Lock, and the Client itself must become ref-counted, so that the
+            ProcessTaskStateObserver can ref its Client (the WebProcess) during callback processing.
+
+            Unfortunately, sendWithAsyncReply() is not thread safe, nor is ProcessAssertion, so instead
+            just use send() and set a 5-second timeout before expiring the assertion, and just use
+            BKSProcessStateAssertion directly.
+
+            * Shared/Cocoa/ProcessTaskStateObserver.h:
+            (WebKit::ProcessTaskStateObserver::Client::ref):
+            (WebKit::ProcessTaskStateObserver::Client::deref):
+            (WebKit::ProcessTaskStateObserver::setClient): Deleted.
+            (WebKit::ProcessTaskStateObserver::client): Deleted.
+            * Shared/Cocoa/ProcessTaskStateObserver.mm:
+            (-[WKProcessTaskStateObserverDelegate process:taskStateDidChange:]):
+            (WebKit::ProcessTaskStateObserver::create):
+            (WebKit::ProcessTaskStateObserver::ProcessTaskStateObserver):
+            (WebKit::ProcessTaskStateObserver::~ProcessTaskStateObserver):
+            (WebKit::ProcessTaskStateObserver::invalidate):
+            (WebKit::ProcessTaskStateObserver::client):
+            (WebKit::ProcessTaskStateObserver::setTaskState):
+            * WebProcess/WebProcess.cpp:
+            (WebKit::m_taskStateObserver):
+            * WebProcess/WebProcess.h:
+            * UIProcess/Cocoa/WebProcessProxyCocoa.mm:
+            (WebKit::WebProcessProxy::processWasUnexpectedlyUnsuspended):
+            * UIProcess/WebProcessProxy.h:
+            * UIProcess/WebProcessProxy.messages.in:
+            * WebProcess/cocoa/WebProcessCocoa.mm:
+            (WebKit::WebProcess::processTaskStateDidChange):
+
+2019-09-30  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250405. rdar://problem/55825353
+
+    Add some logging to help diagnose blank or stuck WKWebViews
+    https://bugs.webkit.org/show_bug.cgi?id=202297
+    <rdar://problem/55763610>
+    
+    Reviewed by Wenson Hsieh.
+    
+    Our current logging is insufficient to rule out some of the potential
+    causes of stuck/blank WKWebViews in <rdar://problem/53399054>. Add
+    some new logging, and improve some existing logging, to aid in diagnosis.
+    
+    * UIProcess/API/Cocoa/WKWebView.mm:
+    (-[WKWebView _willInvokeUIScrollViewDelegateCallback]):
+    (-[WKWebView _didInvokeUIScrollViewDelegateCallback]):
+    Rename _delayUpdateVisibleContentRects to be more specific that it
+    was due to us being underneath a UIScrollView delegate callback.
+    
+    (-[WKWebView _processWillSwapOrDidExit]):
+    (-[WKWebView _didCommitLayerTree:]):
+    Add a log when we receive an incoming commit while visible content rect
+    updates are being deferred. Also, include the current transaction ID
+    and the transaction ID that _needsResetViewState... is waiting for, to
+    help rule out a class of potential problems.
+    
+    Add a log when we receive an incoming commit more than 5 seconds after
+    a visible content rect update.
+    
+    (-[WKWebView _updateVisibleContentRects]):
+    Keep track of when we defer visual content rect updates for any reason,
+    and log the first time we do an update after deferring them. This will make
+    it MUCH easier at-a-glance to tell if one of the "bailing" messages
+    represents a long-term state (a problem), or is expected.
+    
+    Keep track of how long it's been since we sent a visible content rect update
+    and didn't get a commit back from the Web Content process; if it's been
+    more than 5 seconds, start logging.
+    
+    (-[WKWebView _cancelAnimatedResize]):
+    (-[WKWebView _didCompleteAnimatedResize]):
+    (-[WKWebView _beginAnimatedResizeWithUpdates:]):
+    (-[WKWebView _endAnimatedResize]):
+    (-[WKWebView _resizeWhileHidingContentWithUpdates:]):
+    Turn animated resize logging into release logging. It is a common culprit
+    for many kinds of bugs, while also not being high volume, so this is well worth it.
+    
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::freezeLayerTree):
+    (WebKit::WebPage::unfreezeLayerTree):
+    Show the current value of m_layerTreeFreezeReasons in addition to the old value and delta,
+    so you don't have to manually compute the current value when reading logs.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250405 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-26  Tim Horton  <timothy_horton@apple.com>
+
+            Add some logging to help diagnose blank or stuck WKWebViews
+            https://bugs.webkit.org/show_bug.cgi?id=202297
+            <rdar://problem/55763610>
+
+            Reviewed by Wenson Hsieh.
+
+            Our current logging is insufficient to rule out some of the potential
+            causes of stuck/blank WKWebViews in <rdar://problem/53399054>. Add
+            some new logging, and improve some existing logging, to aid in diagnosis.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _willInvokeUIScrollViewDelegateCallback]):
+            (-[WKWebView _didInvokeUIScrollViewDelegateCallback]):
+            Rename _delayUpdateVisibleContentRects to be more specific that it
+            was due to us being underneath a UIScrollView delegate callback.
+
+            (-[WKWebView _processWillSwapOrDidExit]):
+            (-[WKWebView _didCommitLayerTree:]):
+            Add a log when we receive an incoming commit while visible content rect
+            updates are being deferred. Also, include the current transaction ID
+            and the transaction ID that _needsResetViewState... is waiting for, to
+            help rule out a class of potential problems.
+
+            Add a log when we receive an incoming commit more than 5 seconds after
+            a visible content rect update.
+
+            (-[WKWebView _updateVisibleContentRects]):
+            Keep track of when we defer visual content rect updates for any reason,
+            and log the first time we do an update after deferring them. This will make
+            it MUCH easier at-a-glance to tell if one of the "bailing" messages
+            represents a long-term state (a problem), or is expected.
+
+            Keep track of how long it's been since we sent a visible content rect update
+            and didn't get a commit back from the Web Content process; if it's been
+            more than 5 seconds, start logging.
+
+            (-[WKWebView _cancelAnimatedResize]):
+            (-[WKWebView _didCompleteAnimatedResize]):
+            (-[WKWebView _beginAnimatedResizeWithUpdates:]):
+            (-[WKWebView _endAnimatedResize]):
+            (-[WKWebView _resizeWhileHidingContentWithUpdates:]):
+            Turn animated resize logging into release logging. It is a common culprit
+            for many kinds of bugs, while also not being high volume, so this is well worth it.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::freezeLayerTree):
+            (WebKit::WebPage::unfreezeLayerTree):
+            Show the current value of m_layerTreeFreezeReasons in addition to the old value and delta,
+            so you don't have to manually compute the current value when reading logs.
+
+2019-09-30  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r250394. rdar://problem/55826250
+
+    Crash under WebPage::beginPrinting when m_printContext becomes null due to synchronous layout
+    https://bugs.webkit.org/show_bug.cgi?id=202171
+    <rdar://problem/49731211>
+    
+    Reviewed by Tim Horton.
+    
+    Speculatively fix a null pointer dereference crash in WebPage::beginPrinting.
+    
+    WebPage::beginPrinting creates a PrintContext, stores it in m_printContext, then calls
+    PrintContext::begin which forces a synchronous, paginated layout. If a post-layout task
+    executes script, that might result in the WebPage being closed and m_printContext being set
+    to nullptr.
+    
+    Guard against this in WebPage::beginPrinting by adding a null check before calling
+    PrintContext::computePageRects.
+    
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::beginPrinting):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250394 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-26  Andy Estes  <aestes@apple.com>
+
+            Crash under WebPage::beginPrinting when m_printContext becomes null due to synchronous layout
+            https://bugs.webkit.org/show_bug.cgi?id=202171
+            <rdar://problem/49731211>
+
+            Reviewed by Tim Horton.
+
+            Speculatively fix a null pointer dereference crash in WebPage::beginPrinting.
+
+            WebPage::beginPrinting creates a PrintContext, stores it in m_printContext, then calls
+            PrintContext::begin which forces a synchronous, paginated layout. If a post-layout task
+            executes script, that might result in the WebPage being closed and m_printContext being set
+            to nullptr.
+
+            Guard against this in WebPage::beginPrinting by adding a null check before calling
+            PrintContext::computePageRects.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::beginPrinting):
+
+2019-09-29  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250345. rdar://problem/55825352
+
+    [iPadOS] [DataActivation] Focus moves away after focusing input fields on www.att.com
+    https://bugs.webkit.org/show_bug.cgi?id=202167
+    <rdar://problem/55185021>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    Adds a new site-specific quirk. See WebKit ChangeLog for more details.
+    
+    * page/Quirks.cpp:
+    (WebCore::Quirks::shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation const):
+    * page/Quirks.h:
+    * platform/RuntimeApplicationChecks.h:
+    * platform/cocoa/RuntimeApplicationChecksCocoa.mm:
+    (WebCore::IOSApplication::isDataActivation):
+    
+    Source/WebKit:
+    
+    When using the data activation page on www.att.com, one of the sections on the page contains several select
+    elements; in the case where the user agent:
+    
+    1. contains the string "iPad", and
+    2. does not contain the string "Safari"
+    
+    ...www.att.com's data activation page will opt into a mode where it adds blur event listeners to the select
+    elements; in this blur event listener, www.att.com proceeds to programmatically focus a non-editable div element
+    after a 1 second timeout. The reasons for this behavior remain unclear to me, though it's worth noting that the
+    blur event handler name is "screenReaderFocus", which suggests that this is in place to ensure compatibility
+    with screen readers.
+    
+    In iOS 12, dismissing the popover would blur the focused select menu with an animation. Since the animation
+    would take a slightly less than 1 second, www.att.com's logic would have the effect of moving focus to the div
+    element shortly after dismissing the select menu. However, after r243808, we no longer attempt to blur the
+    focused select element when dismissing the popover. This means that the select element is only blurred the next
+    time the user activates another focused element, such as one of the input fields on the page, or a different
+    select element. Consequently, the logic to move focus into a div element now occurs only after a different
+    element has already been focused; this results in focus moving away from newly focused elements after 1 second
+    in the case where a select element has previously focused.
+    
+    To mitigate this, restore iOS 12 behavior behind a site- and app-specific quirk. See comments below for more
+    details.
+    
+    * Shared/FocusedElementInformation.cpp:
+    (WebKit::FocusedElementInformation::encode const):
+    (WebKit::FocusedElementInformation::decode):
+    * Shared/FocusedElementInformation.h:
+    
+    Add a new behavioral quirk flag to FocusedElementInformation to determine whether we should use "legacy" select
+    popover dismissal behavior (i.e. blurring the focused select element when dismissing the select popover, as well
+    as dismissing the popover with animation).
+    
+    * Shared/WebPreferences.yaml:
+    
+    Enable site-specific quirks by default in WKWebView. With regards to this bug, this change allows for
+    site-specific hacks (namely, legacy select popover dismissal) in DataActivation. However, this also fixes
+    various known bugs that are otherwise addressed in Safari only, via site-specific quirks.
+    
+    * UIProcess/API/Cocoa/WKWebView.mm:
+    (-[WKWebView _initializeWithConfiguration:]):
+    
+    For apps linked on or before iOS 13 and macOS 10.15, revert the default of value of NeedsSiteSpecificQuirks to
+    false. This is done here instead of in a default value function in WebPreferencesDefaultValues to prevent the
+    default values of NeedsSiteSpecificQuirks in the web process and UI process from going out of sync, since the
+    web process is not necessarily linked against the same SDK as the application.
+    
+    * UIProcess/Cocoa/VersionChecks.h:
+    
+    Add a new DYLD version check for the first version of iOS and macOS where site-specific quirks are enabled by
+    default.
+    
+    * UIProcess/ios/WKContentViewInteraction.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView endEditingAndUpdateFocusAppearanceWithReason:]):
+    (-[WKContentView _elementDidBlur]):
+    (-[WKContentView _shouldUseLegacySelectPopoverDismissalBehavior]):
+    
+    We only use "legacy" select popover dismissal behavior in the case where the site-specific quirk flag is on, a
+    select popover is used (i.e. the device is an iPad and a select element is focused), and the application bundle
+    is "com.apple.DataActivation".
+    
+    * UIProcess/ios/forms/WKFormSelectPopover.mm:
+    (-[WKSelectTableViewController shouldDismissWithAnimation]):
+    
+    Keyed off of _shouldUseLegacySelectPopoverDismissalBehavior.
+    
+    (-[WKSelectPopover controlEndEditing]):
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::WebPage::getFocusedElementInformation):
+    
+    Source/WTF:
+    
+    Declare DYLD_IOS_VERSION_13_2.
+    
+    * wtf/spi/darwin/dyldSPI.h:
+    
+    Tools:
+    
+    Rebaseline an API test.
+    
+    * TestWebKitAPI/Tests/WebKit/WKPreferences.cpp:
+    (TestWebKitAPI::TEST):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250345 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-25  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iPadOS] [DataActivation] Focus moves away after focusing input fields on www.att.com
+            https://bugs.webkit.org/show_bug.cgi?id=202167
+            <rdar://problem/55185021>
+
+            Reviewed by Tim Horton.
+
+            When using the data activation page on www.att.com, one of the sections on the page contains several select
+            elements; in the case where the user agent:
+
+            1. contains the string "iPad", and
+            2. does not contain the string "Safari"
+
+            ...www.att.com's data activation page will opt into a mode where it adds blur event listeners to the select
+            elements; in this blur event listener, www.att.com proceeds to programmatically focus a non-editable div element
+            after a 1 second timeout. The reasons for this behavior remain unclear to me, though it's worth noting that the
+            blur event handler name is "screenReaderFocus", which suggests that this is in place to ensure compatibility
+            with screen readers.
+
+            In iOS 12, dismissing the popover would blur the focused select menu with an animation. Since the animation
+            would take a slightly less than 1 second, www.att.com's logic would have the effect of moving focus to the div
+            element shortly after dismissing the select menu. However, after r243808, we no longer attempt to blur the
+            focused select element when dismissing the popover. This means that the select element is only blurred the next
+            time the user activates another focused element, such as one of the input fields on the page, or a different
+            select element. Consequently, the logic to move focus into a div element now occurs only after a different
+            element has already been focused; this results in focus moving away from newly focused elements after 1 second
+            in the case where a select element has previously focused.
+
+            To mitigate this, restore iOS 12 behavior behind a site- and app-specific quirk. See comments below for more
+            details.
+
+            * Shared/FocusedElementInformation.cpp:
+            (WebKit::FocusedElementInformation::encode const):
+            (WebKit::FocusedElementInformation::decode):
+            * Shared/FocusedElementInformation.h:
+
+            Add a new behavioral quirk flag to FocusedElementInformation to determine whether we should use "legacy" select
+            popover dismissal behavior (i.e. blurring the focused select element when dismissing the select popover, as well
+            as dismissing the popover with animation).
+
+            * Shared/WebPreferences.yaml:
+
+            Enable site-specific quirks by default in WKWebView. With regards to this bug, this change allows for
+            site-specific hacks (namely, legacy select popover dismissal) in DataActivation. However, this also fixes
+            various known bugs that are otherwise addressed in Safari only, via site-specific quirks.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _initializeWithConfiguration:]):
+
+            For apps linked on or before iOS 13 and macOS 10.15, revert the default of value of NeedsSiteSpecificQuirks to
+            false. This is done here instead of in a default value function in WebPreferencesDefaultValues to prevent the
+            default values of NeedsSiteSpecificQuirks in the web process and UI process from going out of sync, since the
+            web process is not necessarily linked against the same SDK as the application.
+
+            * UIProcess/Cocoa/VersionChecks.h:
+
+            Add a new DYLD version check for the first version of iOS and macOS where site-specific quirks are enabled by
+            default.
+
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView endEditingAndUpdateFocusAppearanceWithReason:]):
+            (-[WKContentView _elementDidBlur]):
+            (-[WKContentView _shouldUseLegacySelectPopoverDismissalBehavior]):
+
+            We only use "legacy" select popover dismissal behavior in the case where the site-specific quirk flag is on, a
+            select popover is used (i.e. the device is an iPad and a select element is focused), and the application bundle
+            is "com.apple.DataActivation".
+
+            * UIProcess/ios/forms/WKFormSelectPopover.mm:
+            (-[WKSelectTableViewController shouldDismissWithAnimation]):
+
+            Keyed off of _shouldUseLegacySelectPopoverDismissalBehavior.
+
+            (-[WKSelectPopover controlEndEditing]):
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::getFocusedElementInformation):
+
+2019-09-29  Babak Shafiei  <bshafiei@apple.com>
+
+        Apply patch. rdar://problem/55801087
+
+    2019-09-29  John Wilander  <wilander@apple.com>
+
+            Cherry-pick r250413.
+
+            Patch by Kate Cheney <katherine_cheney@apple.com> on 2019-09-26.
+
+            Resource Load Statistics: Downgrade all third-party referrer headers
+            https://bugs.webkit.org/show_bug.cgi?id=201353
+            <rdar://problem/54895650>
+
+            Majority of this patch was written by John Wilander <wilander@apple.com>.
+
+            Reviewed by Brent Fulgham.
+
+            When tracking protections are enabled, we should downgrade all third-party
+            referrers to their origins. Note that this downgrade will be specific to
+            Cocoa so other ports will have to adopt as they see fit.
+
+            Cocoa already does this downgrade in ephemeral sessions (shipping).
+
+            The majority of these changes are test infrastructure. The functional
+            change is in WebKit::NetworkDataTaskCocoa and WebKit::NetworkSession.
+
+            * NetworkProcess/NetworkProcess.cpp:
+            (WebKit::NetworkProcess::setShouldDowngradeReferrerForTesting):
+            * NetworkProcess/NetworkProcess.h:
+            * NetworkProcess/NetworkProcess.messages.in:
+            * NetworkProcess/NetworkSession.cpp:
+            (WebKit::NetworkSession::isResourceLoadStatisticsEnabled const):
+            (WebKit::NetworkSession::setShouldDowngradeReferrerForTesting):
+            (WebKit::NetworkSession::shouldDowngradeReferrer const):
+            * NetworkProcess/NetworkSession.h:
+            * NetworkProcess/cocoa/NetworkDataTaskCocoa.h:
+            * NetworkProcess/cocoa/NetworkDataTaskCocoa.mm:
+            (WebKit::NetworkDataTaskCocoa::isThirdPartyRequest const):
+            (WebKit::NetworkDataTaskCocoa::NetworkDataTaskCocoa):
+            (WebKit::NetworkDataTaskCocoa::restrictRequestReferrerToOriginIfNeeded):
+            (WebKit::NetworkDataTaskCocoa::willPerformHTTPRedirection):
+            (WebKit::NetworkDataTaskCocoa::isThirdPartyRequest): Deleted.
+            * UIProcess/API/C/WKWebsiteDataStoreRef.cpp:
+            (WKWebsiteDataStoreSetResourceLoadStatisticsShouldDowngradeReferrerForTesting):
+            (WKWebsiteDataStoreStatisticsResetToConsistentState):
+            * UIProcess/API/C/WKWebsiteDataStoreRef.h:
+            * UIProcess/API/Cocoa/_WKProcessPoolConfiguration.h:
+                Added missing property configureJSCForTesting to fix the build.
+            * UIProcess/Network/NetworkProcessProxy.cpp:
+            (WebKit::NetworkProcessProxy::setShouldDowngradeReferrerForTesting):
+            * UIProcess/Network/NetworkProcessProxy.h:
+            * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+            (WebKit::WebsiteDataStore::setResourceLoadStatisticsShouldDowngradeReferrerForTesting):
+            * UIProcess/WebsiteData/WebsiteDataStore.h:
+
+2019-09-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250432. rdar://problem/55801091
+
+    [iOS]: When inserting a photo and then inserting auto-corrected text, the photo is removed
+    https://bugs.webkit.org/show_bug.cgi?id=202294
+    
+    Patch by Said Abou-Hallawa <sabouhallawa@apple.com> on 2019-09-27
+    Reviewed by Wenson Hsieh.
+    
+    Source/WebKit:
+    
+    WebPage::applyAutocorrectionInternal() calls wordRangeFromPosition() to
+    calculate the range of the word to be replaced with the auto-corrected
+    word. But if the text of the range does not match the original text,
+    applyAutocorrectionInternal() tries to correct the range by moving it
+    forward such that the length of the text range matches the length of the
+    original text.
+    
+    Another case, which should correct the range also, is: the range does not
+    have a text but it is not collapsed. In this case, we should set the range
+    back to the selection range so non-text nodes is removed.
+    
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::WebPage::applyAutocorrectionInternal):
+    
+    LayoutTests:
+    
+    * fast/events/ios/autocorrect-after-image-expected.txt: Added.
+    * fast/events/ios/autocorrect-after-image.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250432 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-27  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+            [iOS]: When inserting a photo and then inserting auto-corrected text, the photo is removed
+            https://bugs.webkit.org/show_bug.cgi?id=202294
+
+            Reviewed by Wenson Hsieh.
+
+            WebPage::applyAutocorrectionInternal() calls wordRangeFromPosition() to
+            calculate the range of the word to be replaced with the auto-corrected
+            word. But if the text of the range does not match the original text,
+            applyAutocorrectionInternal() tries to correct the range by moving it
+            forward such that the length of the text range matches the length of the
+            original text.
+
+            Another case, which should correct the range also, is: the range does not
+            have a text but it is not collapsed. In this case, we should set the range
+            back to the selection range so non-text nodes is removed.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::applyAutocorrectionInternal):
+
+2019-09-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250401. rdar://problem/55770702
+
+    ContextMenu on a link in an email no longer shows web preview
+    https://bugs.webkit.org/show_bug.cgi?id=201120
+    <rdar://54353617>
+    
+    Reviewed by Wenson Hsieh.
+    
+    Source/WebKit:
+    
+    Only go down the image path if we are not also a link.
+    
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView continueContextMenuInteraction:]):
+    
+    Tools:
+    
+    Test context menus on a link that is also an image.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/ContextMenus.mm:
+    (contextMenuWebViewDriver):
+    (-[TestContextMenuImageWithoutConfigurationUIDelegate webView:contextMenuConfigurationForElement:completionHandler:]):
+    (-[TestContextMenuImageWithoutConfigurationUIDelegate webView:contextMenuWillPresentForElement:]):
+    (-[TestContextMenuImageWithoutConfigurationUIDelegate webView:contextMenuForElement:willCommitWithAnimator:]):
+    (-[TestContextMenuImageWithoutConfigurationUIDelegate webView:contextMenuDidEndForElement:]):
+    (TEST):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250401 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-26  Dean Jackson  <dino@apple.com>
+
+            ContextMenu on a link in an email no longer shows web preview
+            https://bugs.webkit.org/show_bug.cgi?id=201120
+            <rdar://54353617>
+
+            Reviewed by Wenson Hsieh.
+
+            Only go down the image path if we are not also a link.
+
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView continueContextMenuInteraction:]):
+
+2019-09-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250392. rdar://problem/55770703
+
+    [iOS 13] Tapping on a non-editable text selection should toggle callout bar visibility instead of clearing selection
+    https://bugs.webkit.org/show_bug.cgi?id=202254
+    <rdar://problem/54410263>
+    
+    Reviewed by Megan Gardner.
+    
+    Source/WebKit:
+    
+    In iOS 13, tapping a text selection should toggle callout bar visibility (i.e. "selection commands" in UIKit).
+    This currently does not work for non-editable text, since the synthetic click gesture simultaneously fires
+    alongside the text interaction assistant's non-editable tap gesture, which dispatches a click to the page which
+    then clears the selection.
+    
+    To remedy this and match platform behavior, we avoid recognizing clicks that occur over the text selection, but
+    only in the case where the bounding rect of the text selection doesn't cover a large portion of the visible
+    content rect of the web view. This ensures that the user doesn't get stuck in a state where it's impossible to
+    dismiss a very large text selection (e.g. after selecting all the content on the page).
+    
+    Tests:  editing/selection/ios/clear-selection-after-tap-in-large-selected-non-editable-text.html
+            editing/selection/ios/toggle-callout-bar-after-tap-in-selected-non-editable-text.html
+    
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView _shouldToggleSelectionCommandsAfterTapAt:]):
+    
+    Check the last known selection rects (on _lastSelectionDrawingInfo) to see if the tapped point lies within at
+    least one of the selection rects.
+    
+    (-[WKContentView gestureRecognizerShouldBegin:]):
+    
+    LayoutTests:
+    
+    * editing/selection/ios/clear-selection-after-tap-in-large-selected-non-editable-text-expected.txt: Added.
+    * editing/selection/ios/clear-selection-after-tap-in-large-selected-non-editable-text.html: Added.
+    
+    Add a new layout test to verify that when tapping in a text selection that encompasses the entire page, we allow
+    the tap to dismiss the selection instead of toggling callout bar visibility.
+    
+    * editing/selection/ios/toggle-callout-bar-after-tap-in-selected-non-editable-text-expected.txt: Added.
+    * editing/selection/ios/toggle-callout-bar-after-tap-in-selected-non-editable-text.html: Added.
+    
+    Add another layout test to verify that when tapping inside a text selection, the callout bar is toggled, and
+    when tapping outside the selected text, the selection is dismissed.
+    
+    * resources/ui-helper.js:
+    (window.UIHelper.async.waitForSelectionToAppear):
+    (window.UIHelper.async.waitForSelectionToDisappear):
+    
+    New helper methods to wait for selection rects to appear or disappear.
+    
+    (window.UIHelper):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250392 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-26  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iOS 13] Tapping on a non-editable text selection should toggle callout bar visibility instead of clearing selection
+            https://bugs.webkit.org/show_bug.cgi?id=202254
+            <rdar://problem/54410263>
+
+            Reviewed by Megan Gardner.
+
+            In iOS 13, tapping a text selection should toggle callout bar visibility (i.e. "selection commands" in UIKit).
+            This currently does not work for non-editable text, since the synthetic click gesture simultaneously fires
+            alongside the text interaction assistant's non-editable tap gesture, which dispatches a click to the page which
+            then clears the selection.
+
+            To remedy this and match platform behavior, we avoid recognizing clicks that occur over the text selection, but
+            only in the case where the bounding rect of the text selection doesn't cover a large portion of the visible
+            content rect of the web view. This ensures that the user doesn't get stuck in a state where it's impossible to
+            dismiss a very large text selection (e.g. after selecting all the content on the page).
+
+            Tests:  editing/selection/ios/clear-selection-after-tap-in-large-selected-non-editable-text.html
+                    editing/selection/ios/toggle-callout-bar-after-tap-in-selected-non-editable-text.html
+
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView _shouldToggleSelectionCommandsAfterTapAt:]):
+
+            Check the last known selection rects (on _lastSelectionDrawingInfo) to see if the tapped point lies within at
+            least one of the selection rects.
+
+            (-[WKContentView gestureRecognizerShouldBegin:]):
+
+2019-09-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250365. rdar://problem/55770710
+
+    Update selections after scrolling for iframes and hide selections while iframes and overflow scrolls are scrolling.
+    https://bugs.webkit.org/show_bug.cgi?id=202125
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    Test: editing/selection/ios/update-selection-after-iframe-scroll.html
+    
+    When we end scrolling, make sure that iframes get a final update to ensure that the
+    selection is in the correct position. Pipe that to WebKit/UIProcess via
+    frame specific plath.
+    
+    * loader/EmptyClients.cpp:
+    * page/EditorClient.h:
+    * page/scrolling/AsyncScrollingCoordinator.cpp:
+    (WebCore::AsyncScrollingCoordinator::updateScrollPositionAfterAsyncScroll):
+    
+    Source/WebKit:
+    
+    Add additional calls into UIKit differentiate between main frame scrolling and overflow/iframe scrolling.
+    Add piping for iframe specific scrolling.
+    
+    * Platform/spi/ios/UIKitSPI.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView _willStartScrollingOrZooming]):
+    (-[WKContentView _didEndScrollingOrZooming]):
+    * WebProcess/WebCoreSupport/WebEditorClient.cpp:
+    (WebKit::WebEditorClient::subFrameScrollPositionChanged):
+    * WebProcess/WebCoreSupport/WebEditorClient.h:
+    * WebProcess/WebCoreSupport/ios/WebEditorClientIOS.mm:
+    (WebKit::WebEditorClient::subFrameScrollPositionChanged):
+    
+    Source/WebKitLegacy/mac:
+    
+    Filling out unused functions needed for new fix.
+    
+    * WebCoreSupport/WebEditorClient.h:
+    
+    LayoutTests:
+    
+    Test that an iframe selection is updated after a scroll is completed.
+    
+    * editing/selection/ios/update-selection-after-iframe-scroll-expected.txt: Added.
+    * editing/selection/ios/update-selection-after-iframe-scroll.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250365 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-25  Megan Gardner  <megan_gardner@apple.com>
+
+            Update selections after scrolling for iframes and hide selections while iframes and overflow scrolls are scrolling.
+            https://bugs.webkit.org/show_bug.cgi?id=202125
+
+            Reviewed by Tim Horton.
+
+            Add additional calls into UIKit differentiate between main frame scrolling and overflow/iframe scrolling.
+            Add piping for iframe specific scrolling.
+
+            * Platform/spi/ios/UIKitSPI.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView _willStartScrollingOrZooming]):
+            (-[WKContentView _didEndScrollingOrZooming]):
+            * WebProcess/WebCoreSupport/WebEditorClient.cpp:
+            (WebKit::WebEditorClient::subFrameScrollPositionChanged):
+            * WebProcess/WebCoreSupport/WebEditorClient.h:
+            * WebProcess/WebCoreSupport/ios/WebEditorClientIOS.mm:
+            (WebKit::WebEditorClient::subFrameScrollPositionChanged):
+
+2019-09-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250361. rdar://problem/55770728
+
+    Page temporarily jumps to an excessively small viewport scale while loading usatoday.com
+    https://bugs.webkit.org/show_bug.cgi?id=202224
+    <rdar://problem/52906640>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    On some pages (e.g. usatoday.com), the content width of the page temporarily becomes very large during page
+    load. This causes a couple of viewport scaling behaviors (notably, the existing shrink-to-fit heuristic in
+    ViewportConfiguration::initialScaleFromSize, as well as the new iPad-specific content-aware shrink-to-fit
+    heuristic in WebPage::immediatelyShrinkToFitContent) to cause the page to shrink down excessively in an attempt
+    to fit all the content to the viewport. This causes a very ugly flash as the page appears zoomed out initially
+    during page load, before zooming back in.
+    
+    To fix this, we add some sanity checks to these viewport scaling heuristics. In ViewportConfiguration's
+    initialScaleFromSize method, in the codepath where an initial scale is not specified, we always scale to fit the
+    contents of the page; instead, detect the case where the content width is enormous (with a threshold arbitrarily
+    chosen to be 1920) and fall back to the scaling to fit the viewport's width, if such a width has been explicitly
+    set. This ensures that we avoid excessive shrinking in the case where content is extremely wide, but also that
+    we do scale the viewport down to fit all the content in the case where the content isn't extremely wide (e.g. on
+    daringfireball.com).
+    
+    See WebKit ChangeLog for more detail.
+    
+    Test: fast/viewport/ios/shrink-to-fit-large-content-width.html
+    
+    * page/ViewportConfiguration.cpp:
+    (WebCore::ViewportConfiguration::initialScaleFromSize const):
+    
+    Source/WebKit:
+    
+    Tweaks the content-aware shrink-to-fit algorithm to bail in the case where the content width is extremely large,
+    such that it bails instead of attempting to fit the entire content of the page. See WebCore ChangeLog for more
+    details.
+    
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::WebPage::immediatelyShrinkToFitContent):
+    
+    LayoutTests:
+    
+    Adds a new layout test to verify that when the content width of the page is excessively large and an explicit
+    viewport width is specified, we don't attempt to zoom out to fit the larger content width, and instead zoom to
+    fit the explicit viewport width.
+    
+    * fast/viewport/ios/shrink-to-fit-large-content-width-expected.txt: Added.
+    * fast/viewport/ios/shrink-to-fit-large-content-width.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250361 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-25  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Page temporarily jumps to an excessively small viewport scale while loading usatoday.com
+            https://bugs.webkit.org/show_bug.cgi?id=202224
+            <rdar://problem/52906640>
+
+            Reviewed by Tim Horton.
+
+            Tweaks the content-aware shrink-to-fit algorithm to bail in the case where the content width is extremely large,
+            such that it bails instead of attempting to fit the entire content of the page. See WebCore ChangeLog for more
+            details.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::immediatelyShrinkToFitContent):
+
+2019-09-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250315. rdar://problem/55770706
+
+    [iPadOs] The second click event is missing on double tap when dblclick handler is not present
+    https://bugs.webkit.org/show_bug.cgi?id=202006
+    <rdar://problem/51706828>
+    
+    Reviewed by Wenson Hsieh.
+    
+    Source/WebKit:
+    
+    While double tapping,
+    1. the first tap triggers a click event through the normal _singleTapIdentified/_singleTapRecognized codepath.
+    2. and the second tap should trigger either
+      a second single click event or
+      a second single click followed by a dblclick event when dblclick handler is present.
+    However the second click is dropped on the floor when the node under the cursor does not have a dblclick handler (see handleDoubleTapForDoubleClickAtPoint()) -so we end up sending one click event.
+    
+    This patch fixes this case by sending the second tap through the normal single tap flow when the dblclick handler is not present.
+    
+    * Shared/ios/InteractionInformationAtPosition.h:
+    * Shared/ios/InteractionInformationAtPosition.mm:
+    (WebKit::InteractionInformationAtPosition::encode const):
+    (WebKit::InteractionInformationAtPosition::decode):
+    * UIProcess/ios/WKContentViewInteraction.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView setupInteraction]):
+    (-[WKContentView gestureRecognizerShouldBegin:]):
+    (WebKit::WebPage::positionInformation):
+    (WebKit::WebPage::requestPositionInformation):
+    
+    LayoutTests:
+    
+    * fast/events/touch/ios/double-tap-for-two-clicks1-expected.txt: Added.
+    * fast/events/touch/ios/double-tap-for-two-clicks1.html: Added.
+    * fast/events/touch/ios/double-tap-for-two-clicks2-expected.txt: Added.
+    * fast/events/touch/ios/double-tap-for-two-clicks2.html: Added.
+    * fast/events/touch/ios/double-tap-for-two-clicks3-expected.txt: Added.
+    * fast/events/touch/ios/double-tap-for-two-clicks3.html: Added.
+    * fast/events/touch/ios/double-tap-for-two-clicks4-expected.txt: Added.
+    * fast/events/touch/ios/double-tap-for-two-clicks4.html: Added.
+    * fast/events/touch/ios/doubleclick.html: Added.
+    * fast/events/touch/resources/doubleClickContent.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250315 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-24  Zalan Bujtas  <zalan@apple.com>
+
+            [iPadOs] The second click event is missing on double tap when dblclick handler is not present
+            https://bugs.webkit.org/show_bug.cgi?id=202006
+            <rdar://problem/51706828>
+
+            Reviewed by Wenson Hsieh.
+
+            While double tapping,
+            1. the first tap triggers a click event through the normal _singleTapIdentified/_singleTapRecognized codepath.
+            2. and the second tap should trigger either
+              a second single click event or
+              a second single click followed by a dblclick event when dblclick handler is present.
+            However the second click is dropped on the floor when the node under the cursor does not have a dblclick handler (see handleDoubleTapForDoubleClickAtPoint()) -so we end up sending one click event.
+
+            This patch fixes this case by sending the second tap through the normal single tap flow when the dblclick handler is not present.
+
+            * Shared/ios/InteractionInformationAtPosition.h:
+            * Shared/ios/InteractionInformationAtPosition.mm:
+            (WebKit::InteractionInformationAtPosition::encode const):
+            (WebKit::InteractionInformationAtPosition::decode):
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView setupInteraction]):
+            (-[WKContentView gestureRecognizerShouldBegin:]):
+            (WebKit::WebPage::positionInformation):
+            (WebKit::WebPage::requestPositionInformation):
+
+2019-09-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250197. rdar://problem/55612001
+
+    Fix an assertion failure introduced in r250186.
+    
+    * UIProcess/Plugins/mac/PluginProcessProxyMac.mm:
+    (WebKit::PluginProcessProxy::platformGetLaunchOptionsWithAttributes): Corrected the
+      assertion.
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250197 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-21  Dan Bernstein  <mitz@apple.com>
+
+            Fix an assertion failure introduced in r250186.
+
+            * UIProcess/Plugins/mac/PluginProcessProxyMac.mm:
+            (WebKit::PluginProcessProxy::platformGetLaunchOptionsWithAttributes): Corrected the
+              assertion.
+
+2019-09-27  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250186. rdar://problem/55612001
+
+    Safari 13 may launch leftover 32-bit plug-in process from Safari 12’s WebKit, which crashes
+    https://bugs.webkit.org/show_bug.cgi?id=202077
+    <rdar://problem/55547063>
+    
+    Reviewed by Sam Weinig.
+    
+    * Shared/Plugins/Netscape/mac/NetscapePluginModuleMac.mm:
+    (WebKit::getPluginArchitecture): Removed support for i386 plug-ins.
+    
+    * UIProcess/Launcher/mac/ProcessLauncherMac.mm:
+    (WebKit::serviceName): Assert that the requested process type is not Plugin32.
+    
+    * UIProcess/Plugins/mac/PluginProcessProxyMac.mm:
+    (WebKit::PluginProcessProxy::platformGetLaunchOptionsWithAttributes): Assert that the
+      plug-in architecture is x86_64.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250186 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-21  Dan Bernstein  <mitz@apple.com>
+
+            Safari 13 may launch leftover 32-bit plug-in process from Safari 12’s WebKit, which crashes
+            https://bugs.webkit.org/show_bug.cgi?id=202077
+            <rdar://problem/55547063>
+
+            Reviewed by Sam Weinig.
+
+            * Shared/Plugins/Netscape/mac/NetscapePluginModuleMac.mm:
+            (WebKit::getPluginArchitecture): Removed support for i386 plug-ins.
+
+            * UIProcess/Launcher/mac/ProcessLauncherMac.mm:
+            (WebKit::serviceName): Assert that the requested process type is not Plugin32.
+
+            * UIProcess/Plugins/mac/PluginProcessProxyMac.mm:
+            (WebKit::PluginProcessProxy::platformGetLaunchOptionsWithAttributes): Assert that the
+              plug-in architecture is x86_64.
+
+2019-09-27  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/55608016
+
+    2019-09-27  Brent Fulgham  <bfulgham@apple.com>
+
+            Create InjectedBundle SPI to better support NSSecureCoding
+            https://bugs.webkit.org/show_bug.cgi?id=201810
+            <rdar://problem/55265713>
+
+            The encoding/decoding routines used by WebKit’s InjectedBundles are based on NSCoding.
+            While we have changed WebKit internals to use NSSecureCoding, there are a number of
+            injected bundles that need to serialize custom classes between the InjectedBundle and
+            the relevant WebKit UIProcess.
+
+            We need to lock down this communications channel by enforcing NSSecureCoding.
+
+            This patch creates new SPI to allow the UIProcess to specify classes that it will accept
+            in messages from the WebContet Process (and Injected Bundle).
+
+            It adds the following property to the WKProcessPoolConfiguration:
+
+                @property (nonatomic, copy) NSSet<Class> *customClassesForParameterCoder;
+
+            If no custom classes are specified, the standard serialization primitives are supported:
+                NSArray, NSData, NSDate, NSDictionary, NSNull, NSNumber, NSSet, NSString,
+                NSTimeZone, NSURL, and NSUUID.
+
+            Reviewed by Brady Eidson.
+
+            * UIProcess/API/APIProcessPoolConfiguration.cpp:
+            (API::ProcessPoolConfiguration::copy): Copy any custom classes.
+            * UIProcess/API/APIProcessPoolConfiguration.h:
+            * UIProcess/API/C/WKContextConfigurationRef.cpp:
+            (WKContextConfigurationCopyCustomClassesForParameterCoder): Added.
+            (WKContextConfigurationSetCustomClassesForParameterCoder): Added.
+            * UIProcess/API/C/WKContextConfigurationRef.h:
+            * UIProcess/API/Cocoa/WKProcessGroup.h:
+            * UIProcess/API/Cocoa/WKProcessGroup.mm:
+            (toStringVector): Added.
+            (-[WKProcessGroup initWithInjectedBundleURL:andCustomClassesForParameterCoder:]):
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView _setInputDelegate:]): Restrict serialization to allowed classes.
+            * UIProcess/API/Cocoa/_WKProcessPoolConfiguration.h:
+            * UIProcess/API/Cocoa/_WKProcessPoolConfiguration.mm:
+            (-[_WKProcessPoolConfiguration customClassesForParameterCoder]): Added.
+            (-[_WKProcessPoolConfiguration setCustomClassesForParameterCoder:]): Added.
+            * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+            (WebKit::WebProcessPool::platformInitialize): Register any custom classes
+            provided in the configuraton.
+            (WebKit::WebProcessPool::initializeClassesForParameterCoding): Added.
+            (WebKit::WebProcessPool::allowedClassesForParameterCoding const): Added.
+            * UIProcess/WebProcessPool.h:
+            * UIProcess/ios/PageClientImplIOS.mm:
+            (WebKit::PageClientImpl::elementDidFocus): Restrict serialization to allowed
+            classes only.
+
+2019-09-25  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250187. rdar://problem/55644650
+
+    Regression(iOS 13) web views do not deal properly with their window's UIScene changing
+    https://bugs.webkit.org/show_bug.cgi?id=202070
+    <rdar://problem/55580699>
+    
+    Reviewed by Tim Horton.
+    
+    Web views do not deal properly with their window's UIScene changing. If a Safari window is in the
+    background for 1 minute, its UIScene will be detached and the window will get a new UIScene if
+    the user later switches to this window. Our web views listen to UIScene notifications to determine
+    their visibility and currently stop receiving visibility updates once the window’s UIScene has
+    changed. This causes view freezes because our WebContent process does not know its view is visible
+    and keeps its layer tree frozen.
+    
+    Previously, when our view would be added to a window, we would get this window's UIScene and listen
+    for UISceneDidEnterBackgroundNotification / UISceneWillEnterForegroundNotification for this UIScene
+    object. Instead, we now listen to these notifications for ALL the application's UIScenes. Our handler
+    then checks if the notification's UIScene object matches the current window's UIScene before
+    forwarding the notification to the rest of WebKit.
+    
+    * UIProcess/ApplicationStateTracker.mm:
+    (WebKit::ApplicationStateTracker::ApplicationStateTracker):
+    (WebKit::ApplicationStateTracker::~ApplicationStateTracker):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250187 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-21  Chris Dumez  <cdumez@apple.com>
+
+            Regression(iOS 13) web views do not deal properly with their window's UIScene changing
+            https://bugs.webkit.org/show_bug.cgi?id=202070
+            <rdar://problem/55580699>
+
+            Reviewed by Tim Horton.
+
+            Web views do not deal properly with their window's UIScene changing. If a Safari window is in the
+            background for 1 minute, its UIScene will be detached and the window will get a new UIScene if
+            the user later switches to this window. Our web views listen to UIScene notifications to determine
+            their visibility and currently stop receiving visibility updates once the window’s UIScene has
+            changed. This causes view freezes because our WebContent process does not know its view is visible
+            and keeps its layer tree frozen.
+
+            Previously, when our view would be added to a window, we would get this window's UIScene and listen
+            for UISceneDidEnterBackgroundNotification / UISceneWillEnterForegroundNotification for this UIScene
+            object. Instead, we now listen to these notifications for ALL the application's UIScenes. Our handler
+            then checks if the notification's UIScene object matches the current window's UIScene before
+            forwarding the notification to the rest of WebKit.
+
+            * UIProcess/ApplicationStateTracker.mm:
+            (WebKit::ApplicationStateTracker::ApplicationStateTracker):
+            (WebKit::ApplicationStateTracker::~ApplicationStateTracker):
+
+2019-09-25  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250154. rdar://problem/55644650
+
+    ApplicationStateTracker::m_isBackground initialization does not account for UIScenes
+    https://bugs.webkit.org/show_bug.cgi?id=202048
+    
+    Reviewed by Geoffrey Garen.
+    
+    ApplicationStateTracker::m_isBackground initialization does not account for UIScenes, it merely checks
+    the visibility state of the whole app. It should instead check the visibility state of the window's
+    UIScene.
+    
+    This patch also refactors the code a little bit to reduce #ifdef'ing.
+    
+    * UIProcess/ApplicationStateTracker.mm:
+    (WebKit::ApplicationStateTracker::ApplicationStateTracker):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250154 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
     2019-09-20  Chris Dumez  <cdumez@apple.com>
 
-            Regression(r248832): Unable to quicklook HTML files in Mail
-            https://bugs.webkit.org/show_bug.cgi?id=202012
-            <rdar://problem/55285295>
+            ApplicationStateTracker::m_isBackground initialization does not account for UIScenes
+            https://bugs.webkit.org/show_bug.cgi?id=202048
 
-            Reviewed by Geoff Garen and Brent Fulgham.
+            Reviewed by Geoffrey Garen.
 
-            r248832 inadvertently reverted the fix for Mail that landed in r247400 by not using
-            the same logic to initialize the sandbox extension if the process had already
-            finished launching or not. In particular, the new code path that happens on process
-            launch unconditionally used '/' as resource directory for the sandbox extension if
-            the client did not provide one. The logic in maybeInitializeSandboxExtensionHandle()
-            would use the file URL's base URL as resource directory when creating a sandbox
-            extension for '/' would fail (which it often does).
+            ApplicationStateTracker::m_isBackground initialization does not account for UIScenes, it merely checks
+            the visibility state of the whole app. It should instead check the visibility state of the window's
+            UIScene.
 
-            To address the issue, have the logic that runs on process launch call
-            maybeInitializeSandboxExtensionHandle() so avoid duplicating code and make sure
-            both cases now have the Mail fix.
+            This patch also refactors the code a little bit to reduce #ifdef'ing.
 
-            * UIProcess/AuxiliaryProcessProxy.cpp:
-            (WebKit::AuxiliaryProcessProxy::didFinishLaunching):
-            * UIProcess/AuxiliaryProcessProxy.h:
-            (WebKit::AuxiliaryProcessProxy::isLaunching const):
+            * UIProcess/ApplicationStateTracker.mm:
+            (WebKit::ApplicationStateTracker::ApplicationStateTracker):
+
+2019-09-25  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250111. rdar://problem/55644650
+
+    Add better logging for when the view visibility state changes
+    https://bugs.webkit.org/show_bug.cgi?id=202008
+    
+    Reviewed by Geoffrey Garen.
+    
+    * UIProcess/ApplicationStateTracker.mm:
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::updateActivityState):
+    * UIProcess/ios/WebPageProxyIOS.mm:
+    (WebKit::WebPageProxy::applicationDidEnterBackground):
+    (WebKit::WebPageProxy::applicationWillEnterForeground):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250111 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-19  Chris Dumez  <cdumez@apple.com>
+
+            Add better logging for when the view visibility state changes
+            https://bugs.webkit.org/show_bug.cgi?id=202008
+
+            Reviewed by Geoffrey Garen.
+
+            * UIProcess/ApplicationStateTracker.mm:
             * UIProcess/WebPageProxy.cpp:
-            (WebKit::WebPageProxy::maybeInitializeSandboxExtensionHandle):
-            (WebKit::WebPageProxy::loadRequestWithNavigationShared):
-            (WebKit::WebPageProxy::loadFile):
+            (WebKit::WebPageProxy::updateActivityState):
+            * UIProcess/ios/WebPageProxyIOS.mm:
+            (WebKit::WebPageProxy::applicationDidEnterBackground):
+            (WebKit::WebPageProxy::applicationWillEnterForeground):
+
+2019-09-25  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r249933. rdar://problem/55461414
+
+    REGRESSION: iPad: Safari becomes unresponsive after context menu on 1-800-MY-APPLE phone number, tapping 'Add to Contacts'
+    https://bugs.webkit.org/show_bug.cgi?id=201816
+    <rdar://55105827>
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebCore/PAL:
+    
+    Expose kDataDetectorsSourceRectKey (and sort things while there).
+    
+    * pal/spi/ios/DataDetectorsUISPI.h:
+    
+    Source/WebKit:
+    
+    When generating the DataDetectorsContext for a position, we should
+    also provide the source rectangle for the link in root view coordinates.
+    This allows DataDetectors to show any modal dialogs in the right
+    position.
+    
+    * UIProcess/ios/WKContentViewInteraction.mm: Use either the bounds of the positionInformation
+    or the text bounding rectangle.
+    (-[WKContentView dataDetectionContextForPositionInformation:]):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249933 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-16  Dean Jackson  <dino@apple.com>
+
+            REGRESSION: iPad: Safari becomes unresponsive after context menu on 1-800-MY-APPLE phone number, tapping 'Add to Contacts'
+            https://bugs.webkit.org/show_bug.cgi?id=201816
+            <rdar://55105827>
+
+            Reviewed by Darin Adler.
+
+            When generating the DataDetectorsContext for a position, we should
+            also provide the source rectangle for the link in root view coordinates.
+            This allows DataDetectors to show any modal dialogs in the right
+            position.
+
+            * UIProcess/ios/WKContentViewInteraction.mm: Use either the bounds of the positionInformation
+            or the text bounding rectangle.
+            (-[WKContentView dataDetectionContextForPositionInformation:]):
+
+2019-09-24  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250256. rdar://problem/55644660
+
+    [iOS] Drop animation when dragging images from Photos to WebKit2 Mail compose is incorrect
+    https://bugs.webkit.org/show_bug.cgi?id=201674
+    <rdar://problem/51250952>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    Adds new helper methods on DragController to support the new image placeholder drop codepath. See WebKit
+    ChangeLog for more details.
+    
+    Tests:  WKAttachmentTestsIOS.TargetedPreviewsWhenDroppingImages
+            WKAttachmentTestsIOS.TargetedPreviewIsClippedWhenDroppingTallImage
+    
+    * editing/WebContentReader.h:
+    
+    Fix the Windows build after including WebContentReader.h in DragController.cpp.
+    
+    * html/HTMLImageElement.h:
+    (WebCore::HTMLImageElement::isDroppedImagePlaceholder const):
+    (WebCore::HTMLImageElement::setIsDroppedImagePlaceholder):
+    
+    Add a flag to HTMLImageElement, indicating whether it is a dropped image placeholder. If so, we have special
+    logic to remove some temporary inline style properties from the image after it has finished loading (see
+    finalizeDroppedImagePlaceholder).
+    
+    Note that this doesn't increase the size of HTMLImageElement.
+    
+    * page/DragController.cpp:
+    (WebCore::DragController::dragEnded):
+    
+    Clean up any stale placeholders after the drag ends.
+    
+    (WebCore::DragController::performDragOperation):
+    (WebCore::DragController::removeAllDroppedImagePlaceholders):
+    
+    Add a private helper to clean up any dropped image placeholders after failing to update dropped image
+    placeholders for any reason.
+    
+    (WebCore::DragController::tryToUpdateDroppedImagePlaceholders):
+    
+    Invoked when performing the drag operation, after image data has been loaded; this function attempts to update
+    the list of image placeholder elements tracked by DragController that were previously inserted using
+    insertDroppedImagePlaceholdersAtCaret, and updates the source attribute of each element (as well as any backed
+    attachment element, if attachment elements are enabled). It achieves this by reading the dropped data as web
+    content, and matching up the images in the resulting fragment against the placeholder images. If each image in
+    the fragment can correspond to exactly one placeholder, we update the source of each placeholder image,
+    migrate attachment elements over to the placeholder images if needed, and finally discard the fragment.
+    
+    A return value of false indicates that this process failed, in which case we clean up the placeholders and fall
+    back to handling the drop normally.
+    
+    (WebCore::DragController::insertDroppedImagePlaceholdersAtCaret):
+    
+    Invoked when handling the drop, before any image data has been loaded; this function takes a list of sizes
+    representing the preferred presentation sizes of each item provider that will be loaded as an image, and uses
+    ReplaceSelectionCommand to insert a list of (initially blank) placeholder images at the drop caret, sized
+    accordingly to each item provider's preferredPresentationSize.
+    
+    To make this compatible with Mail compose (and all other known internal clients that use the _editable SPI), we
+    additionally enforce a max-width of 100% on each image and preserve the aspect ratio of the image by adjusting
+    the height if needed.
+    
+    (WebCore::DragController::finalizeDroppedImagePlaceholder):
+    * page/DragController.h:
+    
+    Have DragController keep track of the list of dropped image placeholders (in DOM order), as well as the dropped
+    image placeholder range. This information is used once item provider data arrives and the drag operation is
+    being performed, to update the source of each dropped image placeholder.
+    
+    (WebCore::DragController::droppedImagePlaceholders const):
+    (WebCore::DragController::droppedImagePlaceholderRange const):
+    * platform/network/mac/UTIUtilities.h:
+    
+    Mark an existing helper function as WEBCORE_EXPORT.
+    
+    Source/WebKit:
+    
+    Our current logic for handling dropped content in editable elements on iOS works like this in the ideal case:
+    
+    (1)     UIKit asks us for a targeted preview for each UIDragItem. We don't know (and can't determine this
+            synchronously without blocking on the web process) so we simply retarget the preview to animate to the
+            last known caret location.
+    
+    (2)     Soonafter, UIKit hands us a drop preview update block, which may be used to retarget the drop preview
+            once, as long as the drop animation is less than 90% complete. We stash these update blocks for now.
+    
+    (3)     -dropInteraction:performDrop: is then called, and we start loading item provider data right away.
+    
+    (4)     When the data has finished loading, we perform the drop in the web process. After any inserted images
+            have finished loading, we take snapshots (of the dropped content as well as surrounding web content
+            minus the dropped content), and deliver these images to the UI process via TextIndicatorData.
+    
+    (5)     Upon receiving the TextIndicatorData sent in (4), we use the image data to create updated targeted drag
+            previews, and use these to invoke the preview update blocks we stored earlier in (2). We also obscure
+            the entire web view with a snapshot of the view minus any dropped content, such that the updated drop
+            previews may animate into place without also showing the final content.
+    
+    (6)     When the drop animation ends, we remove the unselected content snapshot view added in (5) simultaneously
+            as the targeted previews disappear, revealing the actual dropped content on the page. The drop is now
+            complete.
+    
+    However, note that the drag update block we invoke in (5) doesn't work if the drop animation is already more
+    than 90% complete. Since the lifecycle of the drop animation is distinct from that of item provider loading, if
+    the delay between (3) and (4) exceeds 90% of the total drop animation time, we'll fail to update the targeted
+    previews, such that the user only sees the initial drag preview fly on top of the caret and disappear. While we
+    typically win this race for data dragged from other WebKit apps, we almost always lose when dragging from Photos
+    and end up with a janky drop animation. This is especially true for any images that aren't locally available,
+    and need to be fetched from iCloud. An additional problem is that in step (5), we use the same final snapshot to
+    update the drop preview of every item, since we don't have a snapshot for the fragment corresponding to each
+    individual dropped item.
+    
+    To address these issues for Mail in the case where the user drops images with known sizes (i.e. -[NSItemProvider
+    preferredPresentationSize] is specified), we introduce an alternate codepath for handling dropped images that
+    performs the drop immediately upon receiving -dropInteraction:performDrop: in the UI process. Since the data has
+    yet to arrive, we instead handle the drop by inserting placeholder image elements at the drag caret position,
+    which initially have no source but are sized to fit their expected final image sizes. After doing so, we
+    snapshot the page (minus the dropped content range, as usual) and deliver this snapshot to the UI process, along
+    with the rects (in root view coordinates) of each placeholder image that was inserted. In the UI process, we
+    then take this snapshot and obscure the content view with it, and also use each of the placeholder rects to
+    provide an updated target for each drag preview, such that the drop previews now animate to their final
+    locations on the page.
+    
+    When the data eventually arrives, we handle the drop by detecting the placeholder elements we inserted earlier,
+    and using the dropped data to update the source attribute and attachment backing for each of these placeholder
+    elements instead of attempting to insert new content.
+    
+    Note that this codepath is currently only enabled for SPI clients that set -[WKWebView _editable] to YES, since
+    it involves us performing the editing action for the drop (thus changing the DOM) prior to the preventable drop
+    event, and prior to us having any data at all. However, the drop event can't come before the editing action,
+    since we need to have already loaded data from the item providers to expose it via the dataTransfer of the drop
+    event. This contradiction means that this image placeholder hack is only for _editable SPI clients that, at the
+    very least, will not require preventing default behavior when dropping only images with predetermined sizes.
+    
+    Covered by 2 new API tests. See comments below for more detail.
+    
+    * UIProcess/WebPageProxy.h:
+    * UIProcess/ios/DragDropInteractionState.h:
+    * UIProcess/ios/DragDropInteractionState.mm:
+    (WebKit::DragDropInteractionState::setDefaultDropPreview):
+    
+    Add a way to keep track of default drop previews that we observed during each call to
+    -dropInteraction:previewForDroppingItem:withDefault:. In the image placeholder drop scenario, we use these
+    default drop previews later on to create retargeted drop previews after the placeholders have been inserted.
+    
+    (WebKit::DragDropInteractionState::defaultDropPreview const):
+    (WebKit::DragDropInteractionState::deliverDelayedDropPreview):
+    
+    Add an alternate version of deliverDelayedDropPreview that is used when inserting image placeholders. Rather
+    than use text indicator data of the final dropped content on the page, use the root-view-coordinate rects of
+    each of the placeholder elements to reposition the default drop previews.
+    
+    There's additional logic here to handle the case where the final image is taller than the height of the
+    unobscured content rect, in which case we clip the drop preview using UIDragPreviewParameter's visiblePath to
+    prevent the drop preview from being shown outside of the bounds of the web view.
+    
+    * UIProcess/ios/WKContentViewInteraction.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView _deliverDelayedDropPreviewIfPossible:]):
+    (sizesOfPlaceholderElementsToInsertWhenDroppingItems):
+    
+    Collects the list of expected image sizes for the dropped item providers, or an empty list in the case where
+    any of the item providers may not be represented as inline images or do not have predetermined sizes.
+    
+    (-[WKContentView _handleDropByInsertingImagePlaceholders:session:]):
+    
+    If possible, handles the drop by inserting image placeholders instead of waiting for the data to finish loading
+    before dropping. Returns whether or not we decided to proceed with the image placeholder drop.
+    
+    (-[WKContentView dropInteraction:performDrop:]):
+    (-[WKContentView dropInteraction:item:willAnimateDropWithAnimator:]):
+    
+    Fixes a bug where the unselected content snapshot view could linger around on the web view forever after a drop
+    where the data doesn't load in time for the drop to finish by keeping track of whether there is an actively
+    animating drag item, and only applying the unselected content snapshot if so.
+    
+    (-[WKContentView dropInteraction:previewForDroppingItem:withDefault:]):
+    
+    Stash the default drop preview away here.
+    
+    * UIProcess/ios/WebPageProxyIOS.mm:
+    (WebKit::WebPageProxy::insertDroppedImagePlaceholders):
+    * WebProcess/WebPage/WebPage.h:
+    * WebProcess/WebPage/WebPage.messages.in:
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::WebPage::insertDroppedImagePlaceholders):
+    
+    See WebCore ChangeLog for more information.
+    
+    (WebKit::WebPage::didFinishLoadingImageForElement):
+    
+    If the image that finished loading is a dropped image placeholder, allow DragController to "finalize" it by
+    stripping away some styles that were temporarily added.
+    
+    Tools:
+    
+    Add a couple of new API tests to exercise the new image placeholder drop codepath, in addition to testing
+    infrastructure to simulate the timing of drop animation delegate calls.
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebKitCocoa/WKAttachmentTests.mm:
+    (-[NSArray _attachmentWithName:]):
+    (-[TestWKWebView allBoundingClientRects:]):
+    
+    Add some new API testing helper methods.
+    
+    (TestWebKitAPI::targetedImageDragPreview):
+    (TestWebKitAPI::TEST):
+    
+    Add two new tests, to:
+    (1) verify that images are dropped as attachment-backed placeholder image elements when the web view is editable
+        and enables attachment elements, and
+    (2) verify that when dropping an image taller than the web view, the bottom portion of the drop preview is
+        clipped using the targeted preview parameter's visiblePath.
+    
+    * TestWebKitAPI/Tests/ios/DragAndDropTestsIOS.mm:
+    (-[NSItemProvider registerDataRepresentationForTypeIdentifier:withData:]): Deleted.
+    * TestWebKitAPI/cocoa/DragAndDropSimulator.h:
+    * TestWebKitAPI/cocoa/NSItemProviderAdditions.h: Added.
+    * TestWebKitAPI/cocoa/NSItemProviderAdditions.mm: Added.
+    
+    Move some common helpers for registering data on a NSItemProvider to a separate file, so that it can be used in
+    both WKAttachmentTests and DragAndDropTests.
+    
+    (-[NSItemProvider registerDataRepresentationForTypeIdentifier:withData:]):
+    (-[NSItemProvider registerDataRepresentationForTypeIdentifier:withData:loadingDelay:]):
+    * TestWebKitAPI/ios/DragAndDropSimulatorIOS.mm:
+    (-[DragAndDropSimulator initWithWebView:]):
+    (-[DragAndDropSimulator _concludeDropAndPerformOperationIfNecessary]):
+    (-[DragAndDropSimulator clearExternalDragInformation]):
+    (-[DragAndDropSimulator setExternalItemProviders:defaultDropPreviews:]):
+    
+    Add a new method to allow tests to specify both a list of externally dragged item providers, as well as default
+    targeted previews for each of the corresponding items. These default previews are used when invoking the drop
+    interaction delegate's preview generation methods.
+    
+    (-[DragAndDropSimulator addAnimations:]):
+    
+    Not implemented yet; for now, this simply asserts.
+    
+    (-[DragAndDropSimulator addCompletion:]):
+    
+    Queues a completion handler, which is invoked when the drop animation for each item completes. Depending on the
+    value of DragAndDropSimulator's -dropAnimationTiming, this may occur either before or after handling the drop.
+    By default, these will be invoked after the drop completes, which represents the common case where data can be
+    loaded quickly relative to the drop animation.
+    
+    (-[DragAndDropSimulator _invokeDropAnimationCompletionBlocksAndConcludeDrop]):
+    (-[DragAndDropSimulator _webView:dataInteractionOperationWasHandled:forSession:itemProviders:]):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250256 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-23  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iOS] Drop animation when dragging images from Photos to WebKit2 Mail compose is incorrect
+            https://bugs.webkit.org/show_bug.cgi?id=201674
+            <rdar://problem/51250952>
+
+            Reviewed by Tim Horton.
+
+            Our current logic for handling dropped content in editable elements on iOS works like this in the ideal case:
+
+            (1)     UIKit asks us for a targeted preview for each UIDragItem. We don't know (and can't determine this
+                    synchronously without blocking on the web process) so we simply retarget the preview to animate to the
+                    last known caret location.
+
+            (2)     Soonafter, UIKit hands us a drop preview update block, which may be used to retarget the drop preview
+                    once, as long as the drop animation is less than 90% complete. We stash these update blocks for now.
+
+            (3)     -dropInteraction:performDrop: is then called, and we start loading item provider data right away.
+
+            (4)     When the data has finished loading, we perform the drop in the web process. After any inserted images
+                    have finished loading, we take snapshots (of the dropped content as well as surrounding web content
+                    minus the dropped content), and deliver these images to the UI process via TextIndicatorData.
+
+            (5)     Upon receiving the TextIndicatorData sent in (4), we use the image data to create updated targeted drag
+                    previews, and use these to invoke the preview update blocks we stored earlier in (2). We also obscure
+                    the entire web view with a snapshot of the view minus any dropped content, such that the updated drop
+                    previews may animate into place without also showing the final content.
+
+            (6)     When the drop animation ends, we remove the unselected content snapshot view added in (5) simultaneously
+                    as the targeted previews disappear, revealing the actual dropped content on the page. The drop is now
+                    complete.
+
+            However, note that the drag update block we invoke in (5) doesn't work if the drop animation is already more
+            than 90% complete. Since the lifecycle of the drop animation is distinct from that of item provider loading, if
+            the delay between (3) and (4) exceeds 90% of the total drop animation time, we'll fail to update the targeted
+            previews, such that the user only sees the initial drag preview fly on top of the caret and disappear. While we
+            typically win this race for data dragged from other WebKit apps, we almost always lose when dragging from Photos
+            and end up with a janky drop animation. This is especially true for any images that aren't locally available,
+            and need to be fetched from iCloud. An additional problem is that in step (5), we use the same final snapshot to
+            update the drop preview of every item, since we don't have a snapshot for the fragment corresponding to each
+            individual dropped item.
+
+            To address these issues for Mail in the case where the user drops images with known sizes (i.e. -[NSItemProvider
+            preferredPresentationSize] is specified), we introduce an alternate codepath for handling dropped images that
+            performs the drop immediately upon receiving -dropInteraction:performDrop: in the UI process. Since the data has
+            yet to arrive, we instead handle the drop by inserting placeholder image elements at the drag caret position,
+            which initially have no source but are sized to fit their expected final image sizes. After doing so, we
+            snapshot the page (minus the dropped content range, as usual) and deliver this snapshot to the UI process, along
+            with the rects (in root view coordinates) of each placeholder image that was inserted. In the UI process, we
+            then take this snapshot and obscure the content view with it, and also use each of the placeholder rects to
+            provide an updated target for each drag preview, such that the drop previews now animate to their final
+            locations on the page.
+
+            When the data eventually arrives, we handle the drop by detecting the placeholder elements we inserted earlier,
+            and using the dropped data to update the source attribute and attachment backing for each of these placeholder
+            elements instead of attempting to insert new content.
+
+            Note that this codepath is currently only enabled for SPI clients that set -[WKWebView _editable] to YES, since
+            it involves us performing the editing action for the drop (thus changing the DOM) prior to the preventable drop
+            event, and prior to us having any data at all. However, the drop event can't come before the editing action,
+            since we need to have already loaded data from the item providers to expose it via the dataTransfer of the drop
+            event. This contradiction means that this image placeholder hack is only for _editable SPI clients that, at the
+            very least, will not require preventing default behavior when dropping only images with predetermined sizes.
+
+            Covered by 2 new API tests. See comments below for more detail.
+
             * UIProcess/WebPageProxy.h:
+            * UIProcess/ios/DragDropInteractionState.h:
+            * UIProcess/ios/DragDropInteractionState.mm:
+            (WebKit::DragDropInteractionState::setDefaultDropPreview):
+
+            Add a way to keep track of default drop previews that we observed during each call to
+            -dropInteraction:previewForDroppingItem:withDefault:. In the image placeholder drop scenario, we use these
+            default drop previews later on to create retargeted drop previews after the placeholders have been inserted.
+
+            (WebKit::DragDropInteractionState::defaultDropPreview const):
+            (WebKit::DragDropInteractionState::deliverDelayedDropPreview):
+
+            Add an alternate version of deliverDelayedDropPreview that is used when inserting image placeholders. Rather
+            than use text indicator data of the final dropped content on the page, use the root-view-coordinate rects of
+            each of the placeholder elements to reposition the default drop previews.
+
+            There's additional logic here to handle the case where the final image is taller than the height of the
+            unobscured content rect, in which case we clip the drop preview using UIDragPreviewParameter's visiblePath to
+            prevent the drop preview from being shown outside of the bounds of the web view.
+
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView _deliverDelayedDropPreviewIfPossible:]):
+            (sizesOfPlaceholderElementsToInsertWhenDroppingItems):
+
+            Collects the list of expected image sizes for the dropped item providers, or an empty list in the case where
+            any of the item providers may not be represented as inline images or do not have predetermined sizes.
+
+            (-[WKContentView _handleDropByInsertingImagePlaceholders:session:]):
+
+            If possible, handles the drop by inserting image placeholders instead of waiting for the data to finish loading
+            before dropping. Returns whether or not we decided to proceed with the image placeholder drop.
+
+            (-[WKContentView dropInteraction:performDrop:]):
+            (-[WKContentView dropInteraction:item:willAnimateDropWithAnimator:]):
+
+            Fixes a bug where the unselected content snapshot view could linger around on the web view forever after a drop
+            where the data doesn't load in time for the drop to finish by keeping track of whether there is an actively
+            animating drag item, and only applying the unselected content snapshot if so.
+
+            (-[WKContentView dropInteraction:previewForDroppingItem:withDefault:]):
+
+            Stash the default drop preview away here.
+
+            * UIProcess/ios/WebPageProxyIOS.mm:
+            (WebKit::WebPageProxy::insertDroppedImagePlaceholders):
+            * WebProcess/WebPage/WebPage.h:
             * WebProcess/WebPage/WebPage.messages.in:
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::insertDroppedImagePlaceholders):
 
-2019-09-19  Kocsen Chung  <kocsen_chung@apple.com>
+            See WebCore ChangeLog for more information.
 
-        Cherry-pick r250069. rdar://problem/55524978
+            (WebKit::WebPage::didFinishLoadingImageForElement):
+
+            If the image that finished loading is a dropped image placeholder, allow DragController to "finalize" it by
+            stripping away some styles that were temporarily added.
+
+2019-09-23  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250183. rdar://problem/55608006
+
+    [Pointer Events] touch-action set to pan-x or pan-y alone should disable scrolling altogether if the intial gesture is in the disallowed direction
+    https://bugs.webkit.org/show_bug.cgi?id=202053
+    <rdar://problem/54542190>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebKit:
+    
+    Although the Pointer Events specification does not specify this clearly (see https://github.com/w3c/pointerevents/issues/303), setting "touch-action" to a value
+    that only allows scrolling a specific direction ("pan-x" or "pan-y") should disable scrolling in the specified direction if the panning gesture initially is directed
+    in the opposite direction. In practice, this means that setting "touch-action: pan-y" on an element should disable scrolling if the user initially pans horizontally,
+    even if later on in the gesture the user pans vertically. This allows for sites that want to offer a programmatic horizontal scroller to disable vertical scrolling
+    if the user pans horizontally.
+    
+    In order to support this, we add four UISwipeGestureRecognizers, one for each direction, and we selectively allows touches to be recognizer for them based on the
+    "touch-action" value specified at the initial touch location for a given gesture. In the case of "touch-action: pan-y" we only allow the left and right swipe recognizers
+    to be enabled, and in the case of "touch-action: pan-x" we only allow the up and down swipe recognizers to be enabled. If any of those gesture recognizers is recognized,
+    scrolling will be disabled for the duration of this gesture. If a UIScrollView panning gesture recognizer is recognized prior to a swipe, they won't have a chance to be
+    recognized.
+    
+    * UIProcess/ios/WKContentViewInteraction.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView setupInteraction]):
+    (-[WKContentView cleanupInteraction]):
+    (-[WKContentView _removeDefaultGestureRecognizers]):
+    (-[WKContentView _addDefaultGestureRecognizers]):
+    (-[WKContentView gestureRecognizer:shouldReceiveTouch:]):
+    
+    LayoutTests:
+    
+    Add new tests checking that setting "touch-action: pan-y" on an element and initiating a horizontal panning gesture will disallow scrolling vertically
+    if a vertical scrolling gesture follows. We test both the case where scrolling would apply to the whole page and the case where scrolling would apply
+    to an "overflow: scroll" element.
+    
+    * pointerevents/ios/touch-action-pan-y-horizontal-gesture-prevents-vertical-scrolling-expected.txt: Added.
+    * pointerevents/ios/touch-action-pan-y-horizontal-gesture-prevents-vertical-scrolling.html: Added.
+    * pointerevents/ios/touch-action-pan-y-in-overflow-scroll-horizontal-gesture-prevents-vertical-scrolling-expected.txt: Added.
+    * pointerevents/ios/touch-action-pan-y-in-overflow-scroll-horizontal-gesture-prevents-vertical-scrolling.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250183 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-21  Antoine Quint  <graouts@apple.com>
+
+            [Pointer Events] touch-action set to pan-x or pan-y alone should disable scrolling altogether if the intial gesture is in the disallowed direction
+            https://bugs.webkit.org/show_bug.cgi?id=202053
+            <rdar://problem/54542190>
+
+            Reviewed by Tim Horton.
+
+            Although the Pointer Events specification does not specify this clearly (see https://github.com/w3c/pointerevents/issues/303), setting "touch-action" to a value
+            that only allows scrolling a specific direction ("pan-x" or "pan-y") should disable scrolling in the specified direction if the panning gesture initially is directed
+            in the opposite direction. In practice, this means that setting "touch-action: pan-y" on an element should disable scrolling if the user initially pans horizontally,
+            even if later on in the gesture the user pans vertically. This allows for sites that want to offer a programmatic horizontal scroller to disable vertical scrolling
+            if the user pans horizontally.
+
+            In order to support this, we add four UISwipeGestureRecognizers, one for each direction, and we selectively allows touches to be recognizer for them based on the
+            "touch-action" value specified at the initial touch location for a given gesture. In the case of "touch-action: pan-y" we only allow the left and right swipe recognizers
+            to be enabled, and in the case of "touch-action: pan-x" we only allow the up and down swipe recognizers to be enabled. If any of those gesture recognizers is recognized,
+            scrolling will be disabled for the duration of this gesture. If a UIScrollView panning gesture recognizer is recognized prior to a swipe, they won't have a chance to be
+            recognized.
+
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView setupInteraction]):
+            (-[WKContentView cleanupInteraction]):
+            (-[WKContentView _removeDefaultGestureRecognizers]):
+            (-[WKContentView _addDefaultGestureRecognizers]):
+            (-[WKContentView gestureRecognizer:shouldReceiveTouch:]):
+
+2019-09-23  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250157. rdar://problem/55607994
+
+    Sanitize suggested filenames used for saving PDFs
+    https://bugs.webkit.org/show_bug.cgi?id=202034
+    <rdar://problem/53183075>
+    
+    Reviewed by Chris Dumez.
+    
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::didFinishLoadingDataForCustomContentProvider):
+    (WebKit::WebPageProxy::saveDataToFileInDownloadsFolder):
+    (WebKit::WebPageProxy::savePDFToFileInDownloadsFolder):
+    * UIProcess/WebPageProxy.h:
+    * UIProcess/ios/WebPageProxyIOS.mm:
+    (WebKit::WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplicationRaw): Deleted.
+    * UIProcess/mac/WebPageProxyMac.mm:
+    (WebKit::WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplication):
+    (WebKit::WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplicationRaw): Deleted.
+    Sanitize suggested filenames to ensure that they comprise only one path component
+    when concatenated with their destination directory.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250157 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-20  Tim Horton  <timothy_horton@apple.com>
+
+            Sanitize suggested filenames used for saving PDFs
+            https://bugs.webkit.org/show_bug.cgi?id=202034
+            <rdar://problem/53183075>
+
+            Reviewed by Chris Dumez.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::didFinishLoadingDataForCustomContentProvider):
+            (WebKit::WebPageProxy::saveDataToFileInDownloadsFolder):
+            (WebKit::WebPageProxy::savePDFToFileInDownloadsFolder):
+            * UIProcess/WebPageProxy.h:
+            * UIProcess/ios/WebPageProxyIOS.mm:
+            (WebKit::WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplicationRaw): Deleted.
+            * UIProcess/mac/WebPageProxyMac.mm:
+            (WebKit::WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplication):
+            (WebKit::WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplicationRaw): Deleted.
+            Sanitize suggested filenames to ensure that they comprise only one path component
+            when concatenated with their destination directory.
+
+2019-09-23  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250108. rdar://problem/55608024
+
+    macCatalyst apps crash under TextCheckingControllerProxy::replaceRelativeToSelection when spell checking
+    https://bugs.webkit.org/show_bug.cgi?id=202010
+    <rdar://problem/54974971>
+    
+    Reviewed by Beth Dakin.
+    
+    * WebProcess/WebPage/Cocoa/TextCheckingControllerProxy.mm:
+    (WebKit::TextCheckingControllerProxy::replaceRelativeToSelection):
+    relativeReplacementRange is in the coordinate space of the document's text,
+    not the replacement string. We need to adjust into replacement string
+    coordinates before slicing the replacement, or we'll throw an exception
+    trying to read past the end of the string, in the case where the
+    replacement string is shorter than the replaced string (by more than 2 characters).
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250108 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-19  Tim Horton  <timothy_horton@apple.com>
+
+            macCatalyst apps crash under TextCheckingControllerProxy::replaceRelativeToSelection when spell checking
+            https://bugs.webkit.org/show_bug.cgi?id=202010
+            <rdar://problem/54974971>
+
+            Reviewed by Beth Dakin.
+
+            * WebProcess/WebPage/Cocoa/TextCheckingControllerProxy.mm:
+            (WebKit::TextCheckingControllerProxy::replaceRelativeToSelection):
+            relativeReplacementRange is in the coordinate space of the document's text,
+            not the replacement string. We need to adjust into replacement string
+            coordinates before slicing the replacement, or we'll throw an exception
+            trying to read past the end of the string, in the case where the
+            replacement string is shorter than the replaced string (by more than 2 characters).
+
+2019-09-23  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250069. rdar://problem/55524981
 
     Eagerly create and add the m_layerHostingView to WKWebView.
     https://bugs.webkit.org/show_bug.cgi?id=201942
@@ -74,11 +1873,341 @@
             (WebKit::WebViewImpl::setAcceleratedCompositingRootLayer): Remove creation and removal of m_layerHostingView.
             Just set the sublayers of m_layerHostingView's layer here.
 
-2019-09-11  Alan Coon  <alancoon@apple.com>
+2019-09-23  Alan Coon  <alancoon@apple.com>
 
-        Apply patch. rdar://problem/55240886
+        Apply patch. rdar://problem/55608031
 
-    2019-09-11  Chris Dumez  <cdumez@apple.com>
+    Clean up handling of summary items and payment method updates https://bugs.webkit.org/show_bug.cgi?id=202018 <rdar://problem/55470632>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    Replaced the PaymentMethodUpdate struct with a class that knows how to convert from
+    ApplePayPaymentMethodUpdate structs to PKPaymentRequestPaymentMethodUpdate instances.
+    
+    Moved some scattered-around free functions for converting payment summary items into
+    PaymentSummaryItems{.h,Cocoa.mm}.
+    
+    * Modules/applepay/ApplePayPaymentMethodUpdate.h:
+    * Modules/applepay/ApplePaySession.cpp:
+    (WebCore::finishConverting):
+    (WebCore::convertAndValidateTotal):
+    (WebCore::convertAndValidate):
+    * Modules/applepay/ApplePaySessionPaymentRequest.h:
+    * Modules/applepay/PaymentCoordinator.h:
+    * Modules/applepay/PaymentCoordinatorClient.h:
+    * Modules/applepay/PaymentHeaders.h:
+    * Modules/applepay/PaymentMethodUpdate.h: Added.
+    * Modules/applepay/PaymentSummaryItems.h: Added.
+    * Modules/applepay/cocoa/PaymentMethodUpdateCocoa.mm: Added.
+    (WebCore::PaymentMethodUpdate::PaymentMethodUpdate):
+    (WebCore::PaymentMethodUpdate::totalAndLineItems const):
+    (WebCore::PaymentMethodUpdate::platformUpdate const):
+    * Modules/applepay/cocoa/PaymentSummaryItemsCocoa.mm: Added.
+    (WebCore::toDecimalNumber):
+    (WebCore::toPKPaymentSummaryItemType):
+    (WebCore::toPKPaymentSummaryItem):
+    (WebCore::platformSummaryItems):
+    * Modules/applepay/paymentrequest/ApplePayPaymentHandler.cpp:
+    (WebCore::ApplePayPaymentHandler::paymentMethodUpdated):
+    * SourcesCocoa.txt:
+    * WebCore.xcodeproj/project.pbxproj:
+    * testing/MockPaymentCoordinator.cpp:
+    (WebCore::MockPaymentCoordinator::completePaymentMethodSelection):
+    
+    Source/WebKit:
+    
+    Now that PaymentMethodUpdate knows how to convert itself to a
+    PKPaymentRequestPaymentMethodUpdate, PaymentAuthorizationPresenter can merely pass the
+    converted update directly to the platform delegate rather than passing the individual
+    components and relying on the delegate to instantiate the platform update itself. Added
+    FIXMEs for applying a similar treatment to ShippingContactUpdate and ShippingMethodUpdate.
+    
+    * Platform/cocoa/PaymentAuthorizationPresenter.h:
+    * Platform/cocoa/PaymentAuthorizationPresenter.mm:
+    (WebKit::PaymentAuthorizationPresenter::completePaymentMethodSelection):
+    (WebKit::PaymentAuthorizationPresenter::completeShippingContactSelection):
+    (WebKit::PaymentAuthorizationPresenter::completeShippingMethodSelection):
+    * Platform/cocoa/WKPaymentAuthorizationDelegate.h:
+    * Platform/cocoa/WKPaymentAuthorizationDelegate.mm:
+    (-[WKPaymentAuthorizationDelegate completePaymentMethodSelection:]):
+    (-[WKPaymentAuthorizationDelegate completeShippingContactSelection:]):
+    (-[WKPaymentAuthorizationDelegate completeShippingMethodSelection:]):
+    (-[WKPaymentAuthorizationDelegate _didSelectPaymentMethod:completion:]):
+    (-[WKPaymentAuthorizationDelegate _didSelectShippingContact:completion:]):
+    (-[WKPaymentAuthorizationDelegate _didSelectShippingMethod:completion:]):
+    (-[WKPaymentAuthorizationDelegate completeShippingContactSelection:summaryItems:shippingMethods:errors:]): Deleted.
+    * Shared/ApplePay/WebPaymentCoordinatorProxy.h:
+    * Shared/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.h:
+    * Shared/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.mm:
+    (WebKit::WebPaymentCoordinatorProxy::platformPaymentRequest):
+    (WebKit::toPKPaymentSummaryItemType): Deleted.
+    (WebKit::toPKPaymentSummaryItem): Deleted.
+    (WebKit::toPKPaymentSummaryItems): Deleted.
+    * Shared/Cocoa/WebCoreArgumentCodersCocoa.mm:
+    (IPC::ArgumentCoder<WebCore::PaymentMethodUpdate>::encode):
+    (IPC::ArgumentCoder<WebCore::PaymentMethodUpdate>::decode):
+
+    2019-09-19  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Clean up handling of summary items and payment method updates
+            https://bugs.webkit.org/show_bug.cgi?id=202018
+            <rdar://problem/55470632>
+
+            Reviewed by Tim Horton.
+
+            Now that PaymentMethodUpdate knows how to convert itself to a
+            PKPaymentRequestPaymentMethodUpdate, PaymentAuthorizationPresenter can merely pass the
+            converted update directly to the platform delegate rather than passing the individual
+            components and relying on the delegate to instantiate the platform update itself. Added
+            FIXMEs for applying a similar treatment to ShippingContactUpdate and ShippingMethodUpdate.
+
+            * Platform/cocoa/PaymentAuthorizationPresenter.h:
+            * Platform/cocoa/PaymentAuthorizationPresenter.mm:
+            (WebKit::PaymentAuthorizationPresenter::completePaymentMethodSelection):
+            (WebKit::PaymentAuthorizationPresenter::completeShippingContactSelection):
+            (WebKit::PaymentAuthorizationPresenter::completeShippingMethodSelection):
+            * Platform/cocoa/WKPaymentAuthorizationDelegate.h:
+            * Platform/cocoa/WKPaymentAuthorizationDelegate.mm:
+            (-[WKPaymentAuthorizationDelegate completePaymentMethodSelection:]):
+            (-[WKPaymentAuthorizationDelegate completeShippingContactSelection:]):
+            (-[WKPaymentAuthorizationDelegate completeShippingMethodSelection:]):
+            (-[WKPaymentAuthorizationDelegate _didSelectPaymentMethod:completion:]):
+            (-[WKPaymentAuthorizationDelegate _didSelectShippingContact:completion:]):
+            (-[WKPaymentAuthorizationDelegate _didSelectShippingMethod:completion:]):
+            (-[WKPaymentAuthorizationDelegate completeShippingContactSelection:summaryItems:shippingMethods:errors:]): Deleted.
+            * Shared/ApplePay/WebPaymentCoordinatorProxy.h:
+            * Shared/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.h:
+            * Shared/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.mm:
+            (WebKit::WebPaymentCoordinatorProxy::platformPaymentRequest):
+            (WebKit::toPKPaymentSummaryItemType): Deleted.
+            (WebKit::toPKPaymentSummaryItem): Deleted.
+            (WebKit::toPKPaymentSummaryItems): Deleted.
+            * Shared/Cocoa/WebCoreArgumentCodersCocoa.mm:
+            (IPC::ArgumentCoder<WebCore::PaymentMethodUpdate>::encode):
+            (IPC::ArgumentCoder<WebCore::PaymentMethodUpdate>::decode):
+
+2019-09-23  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/55608028
+
+    Tell websites why a session was cancelled https://bugs.webkit.org/show_bug.cgi?id=201912 Source/WebCore:
+    
+    Reviewed by Brady Eidson.
+    
+    Added ApplePayCancelEvent as the interface for ApplePaySession's cancel event. This event
+    object includes a `sessionError` attribute that exposes a Web-safe version of the PassKit
+    domain error we received from PKPaymentAuthorization(View)Controller. Currently, we report
+    all errors with code "unknown", but more codes will be added in future patches.
+    
+    Test: http/tests/ssl/applepay/ApplePayCancelEvent.https.html
+    
+    * DerivedSources-input.xcfilelist:
+    * DerivedSources-output.xcfilelist:
+    * DerivedSources.make:
+    * Modules/applepay/ApplePayCancelEvent.cpp: Copied from Source/WebCore/Modules/applepay/PaymentHeaders.h.
+    (WebCore::ApplePayCancelEvent::ApplePayCancelEvent):
+    (WebCore::ApplePayCancelEvent::sessionError const):
+    (WebCore::ApplePayCancelEvent::eventInterface const):
+    * Modules/applepay/ApplePayCancelEvent.h: Copied from Source/WebCore/Modules/applepay/PaymentHeaders.h.
+    (WebCore::ApplePayCancelEvent::create):
+    * Modules/applepay/ApplePayCancelEvent.idl: Copied from Source/WebCore/Modules/applepay/PaymentHeaders.h.
+    * Modules/applepay/ApplePaySession.cpp:
+    (WebCore::ApplePaySession::didCancelPaymentSession):
+    * Modules/applepay/ApplePaySession.h:
+    * Modules/applepay/ApplePaySessionError.h: Copied from Source/WebCore/Modules/applepay/PaymentHeaders.h.
+    * Modules/applepay/ApplePaySessionError.idl: Copied from Source/WebCore/Modules/applepay/PaymentHeaders.h.
+    * Modules/applepay/PaymentCoordinator.cpp:
+    (WebCore::PaymentCoordinator::didCancelPaymentSession):
+    * Modules/applepay/PaymentCoordinator.h:
+    * Modules/applepay/PaymentHeaders.h:
+    * Modules/applepay/PaymentSession.cpp:
+    * Modules/applepay/PaymentSession.h:
+    * Modules/applepay/PaymentSessionError.h: Copied from Source/WebCore/Modules/applepay/PaymentHeaders.h.
+    * Modules/applepay/cocoa/PaymentSessionErrorCocoa.mm: Copied from Source/WebCore/Modules/applepay/PaymentSession.h.
+    (WebCore::additionalError):
+    (WebCore::PaymentSessionError::PaymentSessionError):
+    (WebCore::PaymentSessionError::sessionError const):
+    (WebCore::PaymentSessionError::platformError const):
+    (WebCore::PaymentSessionError::unknownError const):
+    * Modules/applepay/paymentrequest/ApplePayPaymentHandler.cpp:
+    (WebCore::ApplePayPaymentHandler::didCancelPaymentSession):
+    * Modules/applepay/paymentrequest/ApplePayPaymentHandler.h:
+    * Modules/webgpu/WHLSL/WHLSLCheckTextureReferences.cpp:
+    * Modules/webgpu/WHLSL/WHLSLPropertyResolver.cpp:
+    * SourcesCocoa.txt:
+    * WebCore.xcodeproj/project.pbxproj:
+    * dom/EventNames.in:
+    * testing/MockPaymentCoordinator.cpp:
+    (WebCore::MockPaymentCoordinator::cancelPayment):
+    
+    Source/WebCore/PAL:
+    
+    <rdar://problem/55469706>
+    
+    Reviewed by Brady Eidson.
+    
+    Soft-linked PKPassKitErrorDomain and included PassKit headers more judiciously.
+    
+    * pal/cocoa/PassKitSoftLink.h:
+    * pal/cocoa/PassKitSoftLink.mm:
+    * pal/spi/cocoa/PassKitSPI.h:
+    
+    Source/WebKit:
+    
+    <rdar://problem/55469706>
+    
+    Reviewed by Brady Eidson.
+    
+    Remembered the error passed to -[WKPaymentAuthorizationDelegate _willFinishWithError:] and
+    sent it to the WebContent process in Messages::WebPaymentCoordinator::DidCancelPaymentSession.
+    
+    * Platform/cocoa/PaymentAuthorizationPresenter.h:
+    * Platform/cocoa/WKPaymentAuthorizationDelegate.mm:
+    (-[WKPaymentAuthorizationDelegate _didFinish]):
+    (-[WKPaymentAuthorizationDelegate _willFinishWithError:]):
+    * Shared/ApplePay/WebPaymentCoordinatorProxy.cpp:
+    (WebKit::WebPaymentCoordinatorProxy::didCancelPaymentSession):
+    (WebKit::WebPaymentCoordinatorProxy::presenterDidFinish):
+    * Shared/ApplePay/WebPaymentCoordinatorProxy.h:
+    (WebKit::WebPaymentCoordinatorProxy::didCancelPaymentSession):
+    * Shared/ApplePay/ios/WebPaymentCoordinatorProxyIOS.mm:
+    * Shared/Cocoa/WebCoreArgumentCodersCocoa.mm:
+    (IPC::ArgumentCoder<WebCore::PaymentSessionError>::encode):
+    (IPC::ArgumentCoder<WebCore::PaymentSessionError>::decode):
+    * Shared/WebCoreArgumentCoders.h:
+    * WebProcess/ApplePay/WebPaymentCoordinator.cpp:
+    (WebKit::WebPaymentCoordinator::networkProcessConnectionClosed):
+    (WebKit::WebPaymentCoordinator::didCancelPaymentSession):
+    * WebProcess/ApplePay/WebPaymentCoordinator.h:
+    * WebProcess/ApplePay/WebPaymentCoordinator.messages.in:
+    
+    LayoutTests:
+    
+    Reviewed by Brady Eidson.
+    
+    * http/tests/ssl/applepay/ApplePayCancelEvent.https-expected.txt: Added.
+    * http/tests/ssl/applepay/ApplePayCancelEvent.https.html: Added.
+
+    2019-09-18  Andy Estes  <aestes@apple.com>
+
+            [Apple Pay] Tell websites why a session was cancelled
+            https://bugs.webkit.org/show_bug.cgi?id=201912
+            <rdar://problem/55469706>
+
+            Reviewed by Brady Eidson.
+
+            Remembered the error passed to -[WKPaymentAuthorizationDelegate _willFinishWithError:] and
+            sent it to the WebContent process in Messages::WebPaymentCoordinator::DidCancelPaymentSession.
+
+            * Platform/cocoa/PaymentAuthorizationPresenter.h:
+            * Platform/cocoa/WKPaymentAuthorizationDelegate.mm:
+            (-[WKPaymentAuthorizationDelegate _didFinish]):
+            (-[WKPaymentAuthorizationDelegate _willFinishWithError:]):
+            * Shared/ApplePay/WebPaymentCoordinatorProxy.cpp:
+            (WebKit::WebPaymentCoordinatorProxy::didCancelPaymentSession):
+            (WebKit::WebPaymentCoordinatorProxy::presenterDidFinish):
+            * Shared/ApplePay/WebPaymentCoordinatorProxy.h:
+            (WebKit::WebPaymentCoordinatorProxy::didCancelPaymentSession):
+            * Shared/ApplePay/ios/WebPaymentCoordinatorProxyIOS.mm:
+            * Shared/Cocoa/WebCoreArgumentCodersCocoa.mm:
+            (IPC::ArgumentCoder<WebCore::PaymentSessionError>::encode):
+            (IPC::ArgumentCoder<WebCore::PaymentSessionError>::decode):
+            * Shared/WebCoreArgumentCoders.h:
+            * WebProcess/ApplePay/WebPaymentCoordinator.cpp:
+            (WebKit::WebPaymentCoordinator::networkProcessConnectionClosed):
+            (WebKit::WebPaymentCoordinator::didCancelPaymentSession):
+            * WebProcess/ApplePay/WebPaymentCoordinator.h:
+            * WebProcess/ApplePay/WebPaymentCoordinator.messages.in:
+
+2019-09-23  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/55608007
+
+    2019-09-23  Chris Dumez  <cdumez@apple.com>
+
+            Regression(r248832): Unable to quicklook HTML files in Mail
+            https://bugs.webkit.org/show_bug.cgi?id=202012
+            <rdar://problem/55285295>
+
+            Reviewed by Geoff Garen and Brent Fulgham.
+
+            r248832 inadvertently reverted the fix for Mail that landed in r247400 by not using
+            the same logic to initialize the sandbox extension if the process had already
+            finished launching or not. In particular, the new code path that happens on process
+            launch unconditionally used '/' as resource directory for the sandbox extension if
+            the client did not provide one. The logic in maybeInitializeSandboxExtensionHandle()
+            would use the file URL's base URL as resource directory when creating a sandbox
+            extension for '/' would fail (which it often does).
+
+            To address the issue, have the logic that runs on process launch call
+            maybeInitializeSandboxExtensionHandle() so avoid duplicating code and make sure
+            both cases now have the Mail fix.
+
+            * UIProcess/AuxiliaryProcessProxy.cpp:
+            (WebKit::AuxiliaryProcessProxy::didFinishLaunching):
+            * UIProcess/AuxiliaryProcessProxy.h:
+            (WebKit::AuxiliaryProcessProxy::isLaunching const):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::maybeInitializeSandboxExtensionHandle):
+            (WebKit::WebPageProxy::loadRequestWithNavigationShared):
+            (WebKit::WebPageProxy::loadFile):
+            * UIProcess/WebPageProxy.h:
+            * WebProcess/WebPage/WebPage.messages.in:
+
+2019-09-23  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250015. rdar://problem/55579794
+
+    Remove the "Show Link Previews" and "Hide Link Previews" action menus in the preview platter
+    https://bugs.webkit.org/show_bug.cgi?id=201864
+    <rdar://55190038>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebKit:
+    
+    * UIProcess/ios/WKActionSheetAssistant.mm: Remove the toggle action from the
+    default values.
+    (-[WKActionSheetAssistant defaultActionsForLinkSheet:]):
+    * UIProcess/ios/WKContentViewInteraction.mm: No longer try to add a toggle when
+    it isn't there.
+    (-[WKContentView assignLegacyDataForContextMenuInteraction]):
+    (menuWithShowLinkPreviewAction): Deleted.
+    
+    Tools:
+    
+    Test for the suggested actions.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/ContextMenus.mm:
+    (-[TestContextMenuSuggestedActionsUIDelegate webView:contextMenuConfigurationForElement:completionHandler:]):
+    (-[TestContextMenuSuggestedActionsUIDelegate webView:contextMenuWillPresentForElement:]):
+    (TEST):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250015 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-17  Dean Jackson  <dino@apple.com>
+
+            Remove the "Show Link Previews" and "Hide Link Previews" action menus in the preview platter
+            https://bugs.webkit.org/show_bug.cgi?id=201864
+            <rdar://55190038>
+
+            Reviewed by Simon Fraser.
+
+            * UIProcess/ios/WKActionSheetAssistant.mm: Remove the toggle action from the
+            default values.
+            (-[WKActionSheetAssistant defaultActionsForLinkSheet:]):
+            * UIProcess/ios/WKContentViewInteraction.mm: No longer try to add a toggle when
+            it isn't there.
+            (-[WKContentView assignLegacyDataForContextMenuInteraction]):
+            (menuWithShowLinkPreviewAction): Deleted.
+
+2019-09-17  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/55240888
+
+    2019-09-17  Chris Dumez  <cdumez@apple.com>
 
             Nullptr crash in Page::sessionID() via WebKit::WebFrameLoaderClient::detachedFromParent2()
             https://bugs.webkit.org/show_bug.cgi?id=201625
@@ -106,9 +2235,387 @@
             * WebProcess/WebPage/WebPage.cpp:
             (WebKit::WebPage::requestStorageAccess):
 
-2019-09-09  Alan Coon  <alancoon@apple.com>
+2019-09-17  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r249649. rdar://problem/55198064
+        Revert r249748. rdar://problem/55240888
+
+2019-09-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249815. rdar://problem/55427483
+
+    REGRESSION (iOS 13): Top fixed element on apple.com flickers in size while pinching in
+    https://bugs.webkit.org/show_bug.cgi?id=201668
+    rdar://problem/51934041
+    
+    Reviewed by Frédéric Wang.
+    
+    Source/WebCore:
+    
+    When computing the new layout viewport rect in ScrollingTreeFrameScrollingNode, use
+    "StickToDocumentBounds" mode, not "StickToViewportBounds", because otherwise we'll compute
+    a layout viewport that has negative top/left offsets which causes fixed elements to jump outside
+    the viewport. The only code that should be moving things outside the viewport (a temporary effect
+    that happens when pinching) is the 'isBelowMinimumScale' path in WebPageProxy::computeCustomFixedPositionRect().
+    
+    With this change ScrollingTreeFrameScrollingNode no longer needs m_behaviorForFixed; it can be removed later.
+    
+    Not currently testable, since it involves pinching in past minimum zoom and transients state.
+    
+    * page/scrolling/ScrollingTreeFrameScrollingNode.cpp:
+    (WebCore::ScrollingTreeFrameScrollingNode::layoutViewportForScrollPosition const):
+    
+    Source/WebKit:
+    
+    The UI process can have transient state that pushes scrolling-tree-managed layers into custom
+    locations while pinch-zooming. We have to apply this state both when the visible rects
+    in the UI process change (existing code in -[WKContentView didUpdateVisibleRect:...]) and when
+    we get new layers from the web process (added in RemoteLayerTreeDrawingAreaProxy::commitLayerTree()
+    in this patch).
+    
+    Move some code into WebPageProxy to create functions that we can call from both places.
+    
+    For manual testing, visit a page with fixed banners, pinch in slightly, then pinch out and,
+    while keeping your fingers down, move the contents around.
+    
+    * UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy.mm:
+    (WebKit::RemoteLayerTreeDrawingAreaProxy::commitLayerTree):
+    * UIProcess/WebPageProxy.h:
+    * UIProcess/ios/WKContentView.mm:
+    (-[WKContentView didUpdateVisibleRect:unobscuredRect:contentInsets:unobscuredRectInScrollViewCoordinates:obscuredInsets:unobscuredSafeAreaInsets:inputViewBounds:scale:minimumScale:inStableState:isChangingObscuredInsetsInteractively:enclosedInScrollableAncestorView:]):
+    * UIProcess/ios/WebPageProxyIOS.mm:
+    (WebKit::WebPageProxy::unconstrainedLayoutViewportRect const):
+    (WebKit::WebPageProxy::adjustLayersForLayoutViewport):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249815 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+            Cherry-pick r249770. rdar://problem/55427487
+
+        REGRESSION (245006): can't scroll in "read more" view in Eventbrite app
+        https://bugs.webkit.org/show_bug.cgi?id=201683
+        <rdar://problem/54582602>
+
+        Reviewed by Simon Fraser.
+
+        Source/WebCore:
+
+        * platform/RuntimeApplicationChecks.h:
+        * platform/cocoa/RuntimeApplicationChecksCocoa.mm:
+        (WebCore::IOSApplication::isEventbrite):
+
+        Source/WebKit:
+
+        Content <body> has 'overflow:hidden'.
+
+        * UIProcess/Cocoa/VersionChecks.h:
+        * UIProcess/RemoteLayerTree/RemoteScrollingCoordinatorProxy.cpp:
+        (WebKit::RemoteScrollingCoordinatorProxy::hasScrollableMainFrame const):
+
+        Fix by adding an app specific LinkedOnOrAfter quirk that always allows main frame scrolling.
+
+
+        git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249770 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+        2019-09-11  Antti Koivisto  <antti@apple.com>
+
+                REGRESSION (245006): can't scroll in "read more" view in Eventbrite app
+                https://bugs.webkit.org/show_bug.cgi?id=201683
+                <rdar://problem/54582602>
+
+                Reviewed by Simon Fraser.
+
+                Content <body> has 'overflow:hidden'.
+
+                * UIProcess/Cocoa/VersionChecks.h:
+                * UIProcess/RemoteLayerTree/RemoteScrollingCoordinatorProxy.cpp:
+                (WebKit::RemoteScrollingCoordinatorProxy::hasScrollableMainFrame const):
+
+                Fix by adding an app specific LinkedOnOrAfter quirk that always allows main frame scrolling.
+
+2019-09-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249757. rdar://problem/55427273
+
+    REGRESSION: Scrubbing on ted.com does not work well
+    https://bugs.webkit.org/show_bug.cgi?id=201635
+    <rdar://problem/51463649>
+    
+    Patch by Antoine Quint <graouts@apple.com> on 2019-09-11
+    Reviewed by Dean Jackson.
+    
+    This website uses custom media controls that simply don't work well on iOS when the User-Agent string is the desktop one, so we default to the mobile UA.
+    
+    * UIProcess/ios/WebPageProxyIOS.mm:
+    (WebKit::desktopClassBrowsingRecommendedForRequest):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249757 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-11  Antoine Quint  <graouts@apple.com>
+
+            REGRESSION: Scrubbing on ted.com does not work well
+            https://bugs.webkit.org/show_bug.cgi?id=201635
+            <rdar://problem/51463649>
+
+            Reviewed by Dean Jackson.
+
+            This website uses custom media controls that simply don't work well on iOS when the User-Agent string is the desktop one, so we default to the mobile UA.
+
+            * UIProcess/ios/WebPageProxyIOS.mm:
+            (WebKit::desktopClassBrowsingRecommendedForRequest):
+
+2019-09-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249754. rdar://problem/55427271
+
+    REGRESSION (r233780): After swiping to navigate back, pinching to zoom in on webcontent snaps back to zoomed out when letting go
+    https://bugs.webkit.org/show_bug.cgi?id=201671
+    <rdar://problem/50488372>
+    
+    Reviewed by Simon Fraser.
+    
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::didCommitLoad):
+    Reset m_lastTransactionIDWithScaleChange, since it is not guaranteed
+    to only march forward. Otherwise, we can get stuck with a very large
+    m_lastTransactionIDWithScaleChange, and will not allow stable-state
+    user-driven zooms until the current transactionID exceeds it.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249754 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-10  Tim Horton  <timothy_horton@apple.com>
+
+            REGRESSION (r233780): After swiping to navigate back, pinching to zoom in on webcontent snaps back to zoomed out when letting go
+            https://bugs.webkit.org/show_bug.cgi?id=201671
+            <rdar://problem/50488372>
+
+            Reviewed by Simon Fraser.
+
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::didCommitLoad):
+            Reset m_lastTransactionIDWithScaleChange, since it is not guaranteed
+            to only march forward. Otherwise, we can get stuck with a very large
+            m_lastTransactionIDWithScaleChange, and will not allow stable-state
+            user-driven zooms until the current transactionID exceeds it.
+
+2019-09-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249748. rdar://problem/55240888
+
+    Nullptr crash in Page::sessionID() via WebKit::WebFrameLoaderClient::detachedFromParent2()
+    https://bugs.webkit.org/show_bug.cgi?id=201625
+    
+    Reviewed by Ryosuke Niwa.
+    
+    This is based on a patch from Ryosuke Niwa.
+    
+    Source/WebCore:
+    
+    Drop setHasFrameSpecificStorageAccess() in WebCore and call it from the WebKit layer instead.
+    
+    * dom/DocumentStorageAccess.cpp:
+    (WebCore::DocumentStorageAccess::requestStorageAccess):
+    (WebCore::DocumentStorageAccess::setHasFrameSpecificStorageAccess): Deleted.
+    * dom/DocumentStorageAccess.h:
+    * loader/EmptyFrameLoaderClient.h:
+    * loader/FrameLoaderClient.h:
+    
+    Source/WebKit:
+    
+    The crash was caused by WebFrameLoaderClient::sessionID() calling WebPage::sessionID() without
+    checking the nullity of WebPage::m_page which can be null. Added a null check.
+    
+    Because passing a wrong session to RemoveStorageAccessForFrame could result in a leak, this patch
+    also replaces m_hasFrameSpecificStorageAccess boolean with an optioanl struct which stores
+    session ID, frame ID, and page ID even after WebCore::Frame or WebCore::Page had been cleared
+    or before WebFrameLoaderClient::m_frame is set.
+    
+    * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+    (WebKit::WebFrameLoaderClient::sessionID const):
+    (WebKit::WebFrameLoaderClient::setHasFrameSpecificStorageAccess):
+    (WebKit::WebFrameLoaderClient::detachedFromParent2):
+    (WebKit::WebFrameLoaderClient::dispatchWillChangeDocument):
+    * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+    * WebProcess/WebPage/WebFrame.h:
+    (WebKit::WebFrame::frameLoaderClient const):
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::requestStorageAccess):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249748 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-10  Chris Dumez  <cdumez@apple.com>
+
+            Nullptr crash in Page::sessionID() via WebKit::WebFrameLoaderClient::detachedFromParent2()
+            https://bugs.webkit.org/show_bug.cgi?id=201625
+
+            Reviewed by Ryosuke Niwa.
+
+            This is based on a patch from Ryosuke Niwa.
+
+            The crash was caused by WebFrameLoaderClient::sessionID() calling WebPage::sessionID() without
+            checking the nullity of WebPage::m_page which can be null. Added a null check.
+
+            Because passing a wrong session to RemoveStorageAccessForFrame could result in a leak, this patch
+            also replaces m_hasFrameSpecificStorageAccess boolean with an optioanl struct which stores
+            session ID, frame ID, and page ID even after WebCore::Frame or WebCore::Page had been cleared
+            or before WebFrameLoaderClient::m_frame is set.
+
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebKit::WebFrameLoaderClient::sessionID const):
+            (WebKit::WebFrameLoaderClient::setHasFrameSpecificStorageAccess):
+            (WebKit::WebFrameLoaderClient::detachedFromParent2):
+            (WebKit::WebFrameLoaderClient::dispatchWillChangeDocument):
+            * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
+            * WebProcess/WebPage/WebFrame.h:
+            (WebKit::WebFrame::frameLoaderClient const):
+            * WebProcess/WebPage/WebPage.cpp:
+            (WebKit::WebPage::requestStorageAccess):
+
+2019-09-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249723. rdar://problem/55291687
+
+    Hangs on Swiss.com due to the web process being blocked on StorageAreaMap::LoadValuesIfNeeded
+    https://bugs.webkit.org/show_bug.cgi?id=201644
+    <rdar://problem/54942761>
+    
+    Reviewed by Geoffrey Garen.
+    
+    Mark the StorageManagerSet::GetValues sync IPC from the WebContent process to the Network
+    process with a UnboundedSynchronousIPCScope so that it will process critical sync IPC
+    from the UIProcess (such as WebPage::GetPositionInformation) while waiting for a reply.
+    
+    * WebProcess/WebStorage/StorageAreaMap.cpp:
+    (WebKit::StorageAreaMap::loadValuesIfNeeded):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249723 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-10  Chris Dumez  <cdumez@apple.com>
+
+            Hangs on Swiss.com due to the web process being blocked on StorageAreaMap::LoadValuesIfNeeded
+            https://bugs.webkit.org/show_bug.cgi?id=201644
+            <rdar://problem/54942761>
+
+            Reviewed by Geoffrey Garen.
+
+            Mark the StorageManagerSet::GetValues sync IPC from the WebContent process to the Network
+            process with a UnboundedSynchronousIPCScope so that it will process critical sync IPC
+            from the UIProcess (such as WebPage::GetPositionInformation) while waiting for a reply.
+
+            * WebProcess/WebStorage/StorageAreaMap.cpp:
+            (WebKit::StorageAreaMap::loadValuesIfNeeded):
+
+2019-09-17  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249703. rdar://problem/55291692
+
+    [iOS] We sometimes attempt to use a terminated prewarmed WebContent process
+    https://bugs.webkit.org/show_bug.cgi?id=201614
+    <rdar://problem/54714507>
+    
+    Reviewed by Geoffrey Garen.
+    
+    On iOS, it is possible for our processes to get terminated (e.g. jetsammed) while the UIProcess
+    is suspended. Upon resuming, it takes a little while for the UIProcess to get the notification
+    that the mac connection to its child process has been severed and the UIProcess may try to use
+    it for a load. This is especially problematic for prewarmed process because the client will end
+    up showing a crash banner and reloading when we could have used a new process rather the prewarmed
+    one if we had known it was dead.
+    
+    This patch makes 2 improvements:
+    1. It makes AuxiliaryProcessProxy::state() return Terminated if we still have a connection but
+       the PID is not the PID of a running process. I also added a check in tryTakePrewarmedProcess()
+       to not use the prewarmed process if it state() is Terminated.
+    2. When the UIProcess is about to get suspended, have the process pools terminate their non-critical
+       processes (i.e. prewarmed + the ones used for PageCache). This makes WebKit friendlier with
+       other apps on the system when suspended with regards to memory. Also, it makes it less likely
+       useful WebContent processes will get jetsammed.
+    
+    * UIProcess/AuxiliaryProcessProxy.cpp:
+    (WebKit::AuxiliaryProcessProxy::state const):
+    (WebKit::AuxiliaryProcessProxy::isRunningProcessPID):
+    * UIProcess/AuxiliaryProcessProxy.h:
+    * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+    (WebKit::WebProcessPool::applicationIsAboutToSuspend):
+    * UIProcess/WebProcessPool.cpp:
+    (WebKit::WebProcessPool::tryTakePrewarmedProcess):
+    * UIProcess/WebProcessPool.h:
+    * UIProcess/ios/ProcessAssertionIOS.mm:
+    (-[WKProcessAssertionBackgroundTaskManager init]):
+    (-[WKProcessAssertionBackgroundTaskManager _releaseBackgroundTask]):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249703 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+2019-09-11  Simon Fraser  <simon.fraser@apple.com>
+
+        REGRESSION (iOS 13): Top fixed element on apple.com flickers in size while pinching in
+        https://bugs.webkit.org/show_bug.cgi?id=201668
+        rdar://problem/51934041
+
+        Reviewed by Frédéric Wang.
+
+        The UI process can have transient state that pushes scrolling-tree-managed layers into custom
+        locations while pinch-zooming. We have to apply this state both when the visible rects
+        in the UI process change (existing code in -[WKContentView didUpdateVisibleRect:...]) and when
+        we get new layers from the web process (added in RemoteLayerTreeDrawingAreaProxy::commitLayerTree()
+        in this patch).
+
+        Move some code into WebPageProxy to create functions that we can call from both places.
+
+        For manual testing, visit a page with fixed banners, pinch in slightly, then pinch out and,
+        while keeping your fingers down, move the contents around.
+
+        * UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy.mm:
+        (WebKit::RemoteLayerTreeDrawingAreaProxy::commitLayerTree):
+        * UIProcess/WebPageProxy.h:
+        * UIProcess/ios/WKContentView.mm:
+        (-[WKContentView didUpdateVisibleRect:unobscuredRect:contentInsets:unobscuredRectInScrollViewCoordinates:obscuredInsets:unobscuredSafeAreaInsets:inputViewBounds:scale:minimumScale:inStableState:isChangingObscuredInsetsInteractively:enclosedInScrollableAncestorView:]):
+        * UIProcess/ios/WebPageProxyIOS.mm:
+        (WebKit::WebPageProxy::unconstrainedLayoutViewportRect const):
+        (WebKit::WebPageProxy::adjustLayersForLayoutViewport):
+
+
+    2019-09-09  Chris Dumez  <cdumez@apple.com>
+
+            [iOS] We sometimes attempt to use a terminated prewarmed WebContent process
+            https://bugs.webkit.org/show_bug.cgi?id=201614
+            <rdar://problem/54714507>
+
+            Reviewed by Geoffrey Garen.
+
+            On iOS, it is possible for our processes to get terminated (e.g. jetsammed) while the UIProcess
+            is suspended. Upon resuming, it takes a little while for the UIProcess to get the notification
+            that the mac connection to its child process has been severed and the UIProcess may try to use
+            it for a load. This is especially problematic for prewarmed process because the client will end
+            up showing a crash banner and reloading when we could have used a new process rather the prewarmed
+            one if we had known it was dead.
+
+            This patch makes 2 improvements:
+            1. It makes AuxiliaryProcessProxy::state() return Terminated if we still have a connection but
+               the PID is not the PID of a running process. I also added a check in tryTakePrewarmedProcess()
+               to not use the prewarmed process if it state() is Terminated.
+            2. When the UIProcess is about to get suspended, have the process pools terminate their non-critical
+               processes (i.e. prewarmed + the ones used for PageCache). This makes WebKit friendlier with
+               other apps on the system when suspended with regards to memory. Also, it makes it less likely
+               useful WebContent processes will get jetsammed.
+
+            * UIProcess/AuxiliaryProcessProxy.cpp:
+            (WebKit::AuxiliaryProcessProxy::state const):
+            (WebKit::AuxiliaryProcessProxy::isRunningProcessPID):
+            * UIProcess/AuxiliaryProcessProxy.h:
+            * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+            (WebKit::WebProcessPool::applicationIsAboutToSuspend):
+            * UIProcess/WebProcessPool.cpp:
+            (WebKit::WebProcessPool::tryTakePrewarmedProcess):
+            * UIProcess/WebProcessPool.h:
+            * UIProcess/ios/ProcessAssertionIOS.mm:
+            (-[WKProcessAssertionBackgroundTaskManager init]):
+            (-[WKProcessAssertionBackgroundTaskManager _releaseBackgroundTask]):
+
+2019-09-09  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249649. rdar://problem/55198071
 
     [macOS] Pid is sometimes invalid when creating sandbox extensions by pid.
     https://bugs.webkit.org/show_bug.cgi?id=201543
@@ -174,9 +2681,312 @@
             * WebProcess/WebPage/WebPage.h:
             * WebProcess/WebPage/WebPage.messages.in:
 
-2019-09-09  Alan Coon  <alancoon@apple.com>
+2019-09-09  Kocsen Chung  <kocsen_chung@apple.com>
 
-        Cherry-pick r249454. rdar://problem/55198064
+        Cherry-pick r249624. rdar://problem/55202935
+
+    Marking up a note on iOS results in a PDF with no contents
+    https://bugs.webkit.org/show_bug.cgi?id=201530
+    <rdar://problem/53686019>
+    
+    Unreviewed follow-up.
+    
+    * UIProcess/ios/WKContentView.mm:
+    (-[WKContentView _waitForDrawToPDFCallback]):
+    Remove an ASSERT_NOT_REACHED that fires if the synchronous wait for printing
+    times out. This is a totally legitimite situation that can occur if the process
+    crashes; there's no need for an assert there.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249624 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-07  Tim Horton  <timothy_horton@apple.com>
+
+            Marking up a note on iOS results in a PDF with no contents
+            https://bugs.webkit.org/show_bug.cgi?id=201530
+            <rdar://problem/53686019>
+
+            Unreviewed follow-up.
+
+            * UIProcess/ios/WKContentView.mm:
+            (-[WKContentView _waitForDrawToPDFCallback]):
+            Remove an ASSERT_NOT_REACHED that fires if the synchronous wait for printing
+            times out. This is a totally legitimite situation that can occur if the process
+            crashes; there's no need for an assert there.
+
+2019-09-09  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249605. rdar://problem/55182896
+
+    Incorrect selection rect revealed after pasting images in a contenteditable element
+    https://bugs.webkit.org/show_bug.cgi?id=201549
+    <rdar://problem/50956429>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    Editor::replaceSelectionWithFragment currently scrolls to reveal the selection after inserting the given
+    DocumentFragment. However, this scrolling occurs before any inserted images have loaded yet, which causes the
+    wrong caret rect to be revealed, since all image elements inserted during paste will be empty.
+    
+    To fix this, we defer revealing the selection after inserting the fragment until after all images that have
+    been inserted are done loading. While waiting for images to load, if any layers which may be scrolled as a
+    result of revealing the selection are scrolled, we additionally cancel the deferred selection reveal. See
+    comments below for more detail.
+    
+    Tests: editing/pasteboard/do-not-reveal-selection-after-programmatic-scroll.html
+           editing/pasteboard/reveal-selection-after-pasting-images.html
+           PasteImage.RevealSelectionAfterPastingImage
+    
+    * editing/Editing.cpp:
+    (WebCore::visibleImageElementsInRangeWithNonLoadedImages):
+    
+    Add a new helper to iterate through a range and collect all image elements in that range, that contain cached
+    images that have not finished loading yet.
+    
+    * editing/Editing.h:
+    * editing/Editor.cpp:
+    (WebCore::Editor::replaceSelectionWithFragment):
+    
+    Instead of always immediately revealing the selection after applying the ReplaceSelectionCommand, collect the
+    image elements that were just inserted, and avoid immediately revealing the selection if any of these images
+    have non-null cached images, but are not loaded yet. Instead, hold on to these images in a set, remove them once
+    they finish loading using the new method below, and once all images are removed, reveal the selection.
+    
+    (WebCore::Editor::revealSelectionIfNeededAfterLoadingImageForElement):
+    (WebCore::Editor::renderLayerDidScroll):
+    
+    Called whenever a scrollable RenderLayer is scrolled (or in the case of FrameView, the root layer). In the case
+    where Editor is waiting to reveal the selection, we check to see if the scrolled layer is an ancestor of the
+    layer enclosing the start of the selection.
+    
+    (WebCore::Editor::respondToChangedSelection):
+    
+    If the selection changes between pasting and waiting for pasted images to load, just cancel waiting to reveal
+    the selection after pasting.
+    
+    * editing/Editor.h:
+    * editing/ReplaceSelectionCommand.cpp:
+    (WebCore::ReplaceSelectionCommand::insertedContentRange const):
+    
+    Add a helper method to grab the Range of content inserted after applying the command.
+    
+    * editing/ReplaceSelectionCommand.h:
+    * page/FrameView.cpp:
+    (WebCore::FrameView::scrollPositionChanged):
+    * page/FrameView.h:
+    * page/Page.cpp:
+    (WebCore::Page::didFinishLoadingImageForElement):
+    
+    Notify Editor after an image finishes loading.
+    
+    * rendering/RenderLayer.cpp:
+    (WebCore::RenderLayer::scrollTo):
+    
+    Source/WebKit:
+    
+    Tweak some existing logic to use the new visibleImageElementsInRangeWithNonLoadedImages helper function. See
+    WebCore for more details.
+    
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::WebPage::didConcludeEditDrag):
+    
+    Tools:
+    
+    Add an API test to exercise the scenario where we scroll to reveal the selection after pasting an image that was
+    directly written to the pasteboard.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/PasteImage.mm:
+    
+    LayoutTests:
+    
+    Add a couple of new layout tests.
+    
+    * editing/pasteboard/do-not-reveal-selection-after-programmatic-scroll-expected.txt: Added.
+    * editing/pasteboard/do-not-reveal-selection-after-programmatic-scroll.html: Added.
+    
+    This test verifies that we don't try to scroll to reveal the caret after pasting, if the scroll position was
+    changed before the images finished loading.
+    
+    * editing/pasteboard/reveal-selection-after-pasting-images-expected.txt: Added.
+    * editing/pasteboard/reveal-selection-after-pasting-images.html: Added.
+    * platform/ios/editing/pasteboard/reveal-selection-after-pasting-images-expected.txt: Added.
+    
+    This test verifies that we reveal the caret after loading multiple pasted images in a selection, and dispatch a
+    scroll event in the process.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249605 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-06  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Incorrect selection rect revealed after pasting images in a contenteditable element
+            https://bugs.webkit.org/show_bug.cgi?id=201549
+            <rdar://problem/50956429>
+
+            Reviewed by Simon Fraser.
+
+            Tweak some existing logic to use the new visibleImageElementsInRangeWithNonLoadedImages helper function. See
+            WebCore for more details.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::didConcludeEditDrag):
+
+2019-09-09  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249584. rdar://problem/55202935
+
+    Marking up a note on iOS results in a PDF with no contents
+    https://bugs.webkit.org/show_bug.cgi?id=201530
+    <rdar://problem/53686019>
+    
+    Reviewed by Andy Estes.
+    
+    Source/WebKit:
+    
+    * Platform/IPC/Connection.cpp:
+    (IPC::Connection::Connection):
+    (IPC::Connection::waitForMessage):
+    (IPC::Connection::connectionDidClose):
+    * Platform/IPC/Connection.h:
+    If the main thread is blocked when the Web Content process dies, and
+    something eventually calls waitForAndDispatchImmediately without
+    returning control to the main run loop, we will wait for the full timeout,
+    because a) the code to mark the connection invalid is dispatched
+    to the main thread, and b) the secondary thread that is informed of
+    the Web Content process dying did not yet have a "waiting for" message
+    to mark as interrupted (because it wasn't waiting yet).
+    
+    Fix this race by adding a bit that is set under the waitForMessage lock
+    on the secondary thread when the connection is invalidated, identically
+    to m_shouldWaitForSyncReplies, which solves the same problem for sync
+    messages.
+    
+    Read the new bit when we are about to start waiting, and bail if it is set.
+    It's OK to not read it inside the loop because we are guaranteed to have
+    waitForMessage set at that point, so the normal interruption bit will work.
+    
+    * UIProcess/ios/WKContentView.mm:
+    (-[WKContentView _processDidExit]):
+    Reset _isPrintingToPDF; the Web Content process is never going to get
+    back to us if it crashes.
+    
+    (-[WKContentView _wk_pageCountForPrintFormatter:]):
+    Do not bail from starting a printing operation if one is already occurring.
+    This fixes the original bug, because Markup ends up invalidating the page
+    count at least one extra time before asking for the printed document.
+    Instead of maintaining the fragile requirement that you cannot recompute
+    the page count while printing, just let it happen. In order to make this
+    work safely, synchronously wait for the previous printed result before
+    continuing with the next print.
+    
+    We could do more coalescing here if need be, but calls to -_recalcPageCount
+    are not high in volume.
+    
+    Tools:
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebKitCocoa/WKWebViewPrintFormatter.mm:
+    Add some tests for WKWebViewPrintFormatter; specifically that it is
+    possible to _recalcPageCount twice in quick succession, and that
+    we don't hang if we start painting the printed content immediately
+    after a Web Content process crash.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249584 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-06  Tim Horton  <timothy_horton@apple.com>
+
+            Marking up a note on iOS results in a PDF with no contents
+            https://bugs.webkit.org/show_bug.cgi?id=201530
+            <rdar://problem/53686019>
+
+            Reviewed by Andy Estes.
+
+            * Platform/IPC/Connection.cpp:
+            (IPC::Connection::Connection):
+            (IPC::Connection::waitForMessage):
+            (IPC::Connection::connectionDidClose):
+            * Platform/IPC/Connection.h:
+            If the main thread is blocked when the Web Content process dies, and
+            something eventually calls waitForAndDispatchImmediately without
+            returning control to the main run loop, we will wait for the full timeout,
+            because a) the code to mark the connection invalid is dispatched
+            to the main thread, and b) the secondary thread that is informed of
+            the Web Content process dying did not yet have a "waiting for" message
+            to mark as interrupted (because it wasn't waiting yet).
+
+            Fix this race by adding a bit that is set under the waitForMessage lock
+            on the secondary thread when the connection is invalidated, identically
+            to m_shouldWaitForSyncReplies, which solves the same problem for sync
+            messages.
+
+            Read the new bit when we are about to start waiting, and bail if it is set.
+            It's OK to not read it inside the loop because we are guaranteed to have
+            waitForMessage set at that point, so the normal interruption bit will work.
+
+            * UIProcess/ios/WKContentView.mm:
+            (-[WKContentView _processDidExit]):
+            Reset _isPrintingToPDF; the Web Content process is never going to get
+            back to us if it crashes.
+
+            (-[WKContentView _wk_pageCountForPrintFormatter:]):
+            Do not bail from starting a printing operation if one is already occurring.
+            This fixes the original bug, because Markup ends up invalidating the page
+            count at least one extra time before asking for the printed document.
+            Instead of maintaining the fragile requirement that you cannot recompute
+            the page count while printing, just let it happen. In order to make this
+            work safely, synchronously wait for the previous printed result before
+            continuing with the next print.
+
+            We could do more coalescing here if need be, but calls to -_recalcPageCount
+            are not high in volume.
+
+2019-09-09  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249514. rdar://problem/55182886
+
+    MobileSafari may crash when invoking the C++ lambda in -[WKContentView _shareForWebView:]
+    https://bugs.webkit.org/show_bug.cgi?id=201479
+    <rdar://problem/51511834>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebKit:
+    
+    Fix the crash by making -_shareForWebView: robust in the case where there are no selection rects
+    known in the UI process when -[WKContentView _share:] is invoked.
+    
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView _shareForWebView:]):
+    
+    Tools:
+    
+    Add a test to verify that the UI process doesn't crash when invoking `_share:` while there's no selection.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/WKContentViewEditingActions.mm:
+    * TestWebKitAPI/ios/UIKitSPI.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249514 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-04  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            MobileSafari may crash when invoking the C++ lambda in -[WKContentView _shareForWebView:]
+            https://bugs.webkit.org/show_bug.cgi?id=201479
+            <rdar://problem/51511834>
+
+            Reviewed by Tim Horton.
+
+            Fix the crash by making -_shareForWebView: robust in the case where there are no selection rects
+            known in the UI process when -[WKContentView _share:] is invoked.
+
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView _shareForWebView:]):
+
+2019-09-09  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249454. rdar://problem/55198071
 
     [macOS] Unable to open local file from favorites bar
     https://bugs.webkit.org/show_bug.cgi?id=201444
@@ -203,9 +3013,113 @@
             * UIProcess/WebPageProxy.cpp:
             (WebKit::WebPageProxy::maybeInitializeSandboxExtensionHandle):
 
+2019-09-09  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249444. rdar://problem/55093558
+
+    Null deref under -[WKWebView _addUpdateVisibleContentRectPreCommitHandler]'s handler block
+    https://bugs.webkit.org/show_bug.cgi?id=201436
+    <rdar://problem/40640475>
+    
+    Reviewed by Simon Fraser.
+    
+    * UIProcess/API/Cocoa/WKWebView.mm:
+    (-[WKWebView dealloc]):
+    (-[WKWebView _addUpdateVisibleContentRectPreCommitHandler]):
+    We crash sending a message to a deallocated WKWebView inside the handler block
+    passed to +[CATransaction addCommitHandler:]. This seems impossible, because
+    we carefully retain it, but it's possible that it could be the result of
+    the handler block being installed under -dealloc (in which case retaining
+    the WKWebView wouldn't actually extend its lifetime). -[WKWebView dealloc]
+    is fairly sizable, and it's hard to follow all paths from it, so instead
+    add a RELEASE_LOG_FAULT, so we'll get simulated crash logs, and bail,
+    so we'll stop actually crashing (if this is the cause).
+    
+    This is just a speculative fix, but a hopeful one, since intentionally calling
+    -_addUpdateVisibleContentRectPreCommitHandler: from dealloc yields a similar-looking
+    crash under the handler block.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249444 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-03  Tim Horton  <timothy_horton@apple.com>
+
+            Null deref under -[WKWebView _addUpdateVisibleContentRectPreCommitHandler]'s handler block
+            https://bugs.webkit.org/show_bug.cgi?id=201436
+            <rdar://problem/40640475>
+
+            Reviewed by Simon Fraser.
+
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView dealloc]):
+            (-[WKWebView _addUpdateVisibleContentRectPreCommitHandler]):
+            We crash sending a message to a deallocated WKWebView inside the handler block
+            passed to +[CATransaction addCommitHandler:]. This seems impossible, because
+            we carefully retain it, but it's possible that it could be the result of
+            the handler block being installed under -dealloc (in which case retaining
+            the WKWebView wouldn't actually extend its lifetime). -[WKWebView dealloc]
+            is fairly sizable, and it's hard to follow all paths from it, so instead
+            add a RELEASE_LOG_FAULT, so we'll get simulated crash logs, and bail,
+            so we'll stop actually crashing (if this is the cause).
+
+            This is just a speculative fix, but a hopeful one, since intentionally calling
+            -_addUpdateVisibleContentRectPreCommitHandler: from dealloc yields a similar-looking
+            crash under the handler block.
+
+2019-09-05  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Apply patch. rdar://problem/55001140
+
+    Treat a two-finger single tap as if the user tapped with the Cmd key pressed https://bugs.webkit.org/show_bug.cgi?id=201420 <rdar://problem/53207786>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebKit:
+    
+    Set the metaKey modifier to true when generating a click event based on a two-finger single tap. This is important so that sites like Google and DuckDuckGo
+    correctly open links in their search results page in a new tab in Safari on iOS. This currently doesn't work because those sites will call preventDefault()
+    if the metaKey flag isn't set on a "click" event, and if it is set, they let the browser handle the navigation themselves.
+    
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView _twoFingerSingleTapGestureRecognized:]):
+    
+    Tools:
+    
+    Add a new twoFingerSingleTapAtPoint() method to UIScriptController, which just calls into the existing (but unused)
+    -[HIDEventGenerator twoFingerTap:completionBlock:].
+    
+    * TestRunnerShared/UIScriptContext/Bindings/UIScriptController.idl:
+    * TestRunnerShared/UIScriptContext/UIScriptController.h:
+    (WTR::UIScriptController::twoFingerSingleTapAtPoint):
+    * WebKitTestRunner/ios/UIScriptControllerIOS.h:
+    * WebKitTestRunner/ios/UIScriptControllerIOS.mm:
+    (WTR::UIScriptControllerIOS::twoFingerSingleTapAtPoint):
+    
+    LayoutTests:
+    
+    Add a new event that checks that a two-finger single tap on a clickable element yields a "click" event with the metaKey flag set to true.
+    
+    * fast/events/ios/click-event-two-finger-single-tap-meta-key-expected.txt: Added.
+    * fast/events/ios/click-event-two-finger-single-tap-meta-key.html: Added.
+
+    2019-09-03  Antoine Quint  <graouts@apple.com>
+
+            [iOS] Treat a two-finger single tap as if the user tapped with the Cmd key pressed
+            https://bugs.webkit.org/show_bug.cgi?id=201420
+            <rdar://problem/53207786>
+
+            Reviewed by Simon Fraser.
+
+            Set the metaKey modifier to true when generating a click event based on a two-finger single tap. This is important so that sites like Google and DuckDuckGo
+            correctly open links in their search results page in a new tab in Safari on iOS. This currently doesn't work because those sites will call preventDefault()
+            if the metaKey flag isn't set on a "click" event, and if it is set, they let the browser handle the navigation themselves.
+
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView _twoFingerSingleTapGestureRecognized:]):
+
 2019-09-04  Kocsen Chung  <kocsen_chung@apple.com>
 
-        Cherry-pick r249430. rdar://problem/55031098
+        Cherry-pick r249430. rdar://problem/55027550
 
     [macOS] Correct sandbox violation in Flash plugin
     https://bugs.webkit.org/show_bug.cgi?id=201228
@@ -226,6 +3140,567 @@
             Reviewed by Alex Christensen.
 
             * PluginProcess/mac/com.apple.WebKit.plugin-common.sb.in:
+
+2019-09-04  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249368. rdar://problem/55001166
+
+    Long presses that interrupt accelerated scrolling dispatch clicks on apps linked against iOS 12 or earlier
+    https://bugs.webkit.org/show_bug.cgi?id=201346
+    <rdar://problem/54885784>
+    
+    Reviewed by Dean Jackson.
+    
+    Source/WebKit:
+    
+    For apps that are linked on or after iOS 13, we add a context menu interaction to the content view, which
+    requires us to disable (or avoid adding) the highlight long press gesture recognizer. However, for apps that are
+    linked on the iOS 12 SDK or prior, this gesture is still present, and fires when long pressing for (roughly) up
+    to 0.75 seconds if a tap gesture was not recognized instead. Firing this gesture sends a click event to the
+    page; this brings back some form of <rdar://problem/53889373>, but only when holding for slightly longer than a
+    normal tap, and also only in apps linked on iOS 12 or earlier. To fix this, we apply a similar solution as in
+    r248433 and detect whether a long press gesture interrupted scroll view deceleration in
+    -gestureRecognizerShouldBegin:. If so, we return NO to avoid clicking. See per-method comments below for more
+    details.
+    
+    Testing this bug as-is was tricky, since there's no way in layout tests to simulate being linked on or before a
+    given SDK version. Luckily, recall that:
+    1. This bug occurs when the highlight gesture recognizer is enabled and added to the content view.
+    2. The highlight gesture recognizer only needs to be disabled or removed when context menu interaction is added.
+    As such, we should be able to restore the highlight gesture recognizer by suppressing the context menu
+    interaction in an app linked-on-or-after iOS 13, by setting allowsLinkPreview to NO. Unfortunately, this doesn't
+    quite work, since we currently always avoid adding the highlight gesture recognizer if the app is linked on
+    iOS 13 or later.
+    
+    However, this means that the highlight gesture recognizer is absent from the content view in apps linked against
+    iOS 13 that disable link previews, even though its absence is not required. This means that long pressing a
+    clickable element in a web view that disables link previews does not show a tap highlight on iOS 13, whereas it
+    would on iOS 12; this is a regression, albeit a very subtle one. To fix this subtle issue and make it possible
+    to write a test for this bug, we refactor some logic for creating and configuring the highlight long press
+    gesture, such that we now unconditionally add the highlight gesture, but only enable it in apps linked on or
+    after iOS 13 if link previews (i.e. context menu interaction) are not allowed.
+    
+    Test: fast/scrolling/ios/click-events-after-long-press-during-momentum-scroll-in-overflow.html
+    
+    * SourcesCocoa.txt:
+    * UIProcess/API/Cocoa/WKWebView.mm:
+    (-[WKWebView setAllowsLinkPreview:]):
+    * UIProcess/ios/WKContentViewInteraction.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView setupInteraction]):
+    
+    Refactor our gesture setup logic to always create and add the long press and highlight long press gestures, but
+    conditionally disable them based on whether or not (1) the context menu is available, and (2) WKWebView's
+    allowsLinkPreview property.
+    
+    (-[WKContentView _didChangeLinkPreviewAvailability]):
+    (-[WKContentView _updateLongPressAndHighlightLongPressGestures]):
+    
+    Add a new helper to update the enabled state of the long press and highlight long press gestures, by consulting
+    -_shouldUseContextMenu and -allowsLinkPreview. This is called when setting up the gestures, as well as whenever
+    -allowsLinkPreview changes.
+    
+    (-[WKContentView gestureRecognizerShouldBegin:]):
+    
+    Factor out logic to ascend the view hierarchy in search of a UIScrollView that was interrupted while
+    decelerating into a local lambda function; use this for both the highlight gesture and the single tap gesture,
+    to determine whether they should begin.
+    
+    * UIProcess/ios/WKHighlightLongPressGestureRecognizer.h: Added.
+    * UIProcess/ios/WKHighlightLongPressGestureRecognizer.mm: Added.
+    
+    In order to remember the UIScrollView (if any) tracked by the highlight long press gesture, we subclass
+    _UIWebHighlightLongPressGestureRecognizer. While UILongPressGestureRecognizer does have SPI to ask for a list of
+    UITouches, by the time the gesture has been recognized and the gesture delegates are invoked, these UITouches
+    no longer correspond to UIViews. As such, the only time we have access to the list of UITouches with their
+    UIViews is during the touches* subclass hooks.
+    
+    (-[WKHighlightLongPressGestureRecognizer reset]):
+    
+    Clear out the tracked UIScrollView here, when the gesture is reset (i.e. after ending, or being canceled).
+    
+    (-[WKHighlightLongPressGestureRecognizer touchesBegan:withEvent:]):
+    
+    Remember the last touched UIScrollView here.
+    
+    (-[WKHighlightLongPressGestureRecognizer lastTouchedScrollView]):
+    * WebKit.xcodeproj/project.pbxproj:
+    
+    Tools:
+    
+    Add a new test option to allow tests to disable link previews.
+    
+    * WebKitTestRunner/TestController.cpp:
+    (WTR::updateTestOptionsFromTestHeader):
+    * WebKitTestRunner/TestOptions.h:
+    
+    Drive-by fix: also check enableLazyImageLoading when determining whether two TestOptions are the same.
+    
+    (WTR::TestOptions::hasSameInitializationOptions const):
+    * WebKitTestRunner/cocoa/TestControllerCocoa.mm:
+    (WTR::TestController::platformCreateWebView):
+    
+    LayoutTests:
+    
+    Add a couple of new layout tests to verify that using a long press gesture to interrupt momentum scrolling in a
+    web view that uses API to disable link previews does not result in a click.
+    
+    * fast/scrolling/ios/click-events-after-long-press-during-momentum-scroll-in-main-frame-expected.txt: Added.
+    * fast/scrolling/ios/click-events-after-long-press-during-momentum-scroll-in-main-frame.html: Added.
+    * fast/scrolling/ios/click-events-after-long-press-during-momentum-scroll-in-overflow-expected.txt: Added.
+    * fast/scrolling/ios/click-events-after-long-press-during-momentum-scroll-in-overflow.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249368 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-01  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Long presses that interrupt accelerated scrolling dispatch clicks on apps linked against iOS 12 or earlier
+            https://bugs.webkit.org/show_bug.cgi?id=201346
+            <rdar://problem/54885784>
+
+            Reviewed by Dean Jackson.
+
+            For apps that are linked on or after iOS 13, we add a context menu interaction to the content view, which
+            requires us to disable (or avoid adding) the highlight long press gesture recognizer. However, for apps that are
+            linked on the iOS 12 SDK or prior, this gesture is still present, and fires when long pressing for (roughly) up
+            to 0.75 seconds if a tap gesture was not recognized instead. Firing this gesture sends a click event to the
+            page; this brings back some form of <rdar://problem/53889373>, but only when holding for slightly longer than a
+            normal tap, and also only in apps linked on iOS 12 or earlier. To fix this, we apply a similar solution as in
+            r248433 and detect whether a long press gesture interrupted scroll view deceleration in
+            -gestureRecognizerShouldBegin:. If so, we return NO to avoid clicking. See per-method comments below for more
+            details.
+
+            Testing this bug as-is was tricky, since there's no way in layout tests to simulate being linked on or before a
+            given SDK version. Luckily, recall that:
+            1. This bug occurs when the highlight gesture recognizer is enabled and added to the content view.
+            2. The highlight gesture recognizer only needs to be disabled or removed when context menu interaction is added.
+            As such, we should be able to restore the highlight gesture recognizer by suppressing the context menu
+            interaction in an app linked-on-or-after iOS 13, by setting allowsLinkPreview to NO. Unfortunately, this doesn't
+            quite work, since we currently always avoid adding the highlight gesture recognizer if the app is linked on
+            iOS 13 or later.
+
+            However, this means that the highlight gesture recognizer is absent from the content view in apps linked against
+            iOS 13 that disable link previews, even though its absence is not required. This means that long pressing a
+            clickable element in a web view that disables link previews does not show a tap highlight on iOS 13, whereas it
+            would on iOS 12; this is a regression, albeit a very subtle one. To fix this subtle issue and make it possible
+            to write a test for this bug, we refactor some logic for creating and configuring the highlight long press
+            gesture, such that we now unconditionally add the highlight gesture, but only enable it in apps linked on or
+            after iOS 13 if link previews (i.e. context menu interaction) are not allowed.
+
+            Test: fast/scrolling/ios/click-events-after-long-press-during-momentum-scroll-in-overflow.html
+
+            * SourcesCocoa.txt:
+            * UIProcess/API/Cocoa/WKWebView.mm:
+            (-[WKWebView setAllowsLinkPreview:]):
+            * UIProcess/ios/WKContentViewInteraction.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView setupInteraction]):
+
+            Refactor our gesture setup logic to always create and add the long press and highlight long press gestures, but
+            conditionally disable them based on whether or not (1) the context menu is available, and (2) WKWebView's
+            allowsLinkPreview property.
+
+            (-[WKContentView _didChangeLinkPreviewAvailability]):
+            (-[WKContentView _updateLongPressAndHighlightLongPressGestures]):
+
+            Add a new helper to update the enabled state of the long press and highlight long press gestures, by consulting
+            -_shouldUseContextMenu and -allowsLinkPreview. This is called when setting up the gestures, as well as whenever
+            -allowsLinkPreview changes.
+
+            (-[WKContentView gestureRecognizerShouldBegin:]):
+
+            Factor out logic to ascend the view hierarchy in search of a UIScrollView that was interrupted while
+            decelerating into a local lambda function; use this for both the highlight gesture and the single tap gesture,
+            to determine whether they should begin.
+
+            * UIProcess/ios/WKHighlightLongPressGestureRecognizer.h: Added.
+            * UIProcess/ios/WKHighlightLongPressGestureRecognizer.mm: Added.
+
+            In order to remember the UIScrollView (if any) tracked by the highlight long press gesture, we subclass
+            _UIWebHighlightLongPressGestureRecognizer. While UILongPressGestureRecognizer does have SPI to ask for a list of
+            UITouches, by the time the gesture has been recognized and the gesture delegates are invoked, these UITouches
+            no longer correspond to UIViews. As such, the only time we have access to the list of UITouches with their
+            UIViews is during the touches* subclass hooks.
+
+            (-[WKHighlightLongPressGestureRecognizer reset]):
+
+            Clear out the tracked UIScrollView here, when the gesture is reset (i.e. after ending, or being canceled).
+
+            (-[WKHighlightLongPressGestureRecognizer touchesBegan:withEvent:]):
+
+            Remember the last touched UIScrollView here.
+
+            (-[WKHighlightLongPressGestureRecognizer lastTouchedScrollView]):
+            * WebKit.xcodeproj/project.pbxproj:
+
+2019-09-04  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249147. rdar://problem/55001178
+
+    Removing fullscreen element in rAF() callback after requestFullscreen() can leave fullscreen in inconsistent state.
+    https://bugs.webkit.org/show_bug.cgi?id=201101
+    <rdar://problem/54164587>
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore:
+    
+    Test: fullscreen/full-screen-request-removed-with-raf.html
+    
+    Add a new state variable, m_pendingFullscreenElement, to track which element is about to
+    become the fullscreen element, so that when elements are removed or cancelFullscreen() is
+    called, the state machine inside the fullscreen algorithm can cancel effectively.
+    
+    * dom/FullscreenManager.cpp:
+    (WebCore::FullscreenManager::requestFullscreenForElement):
+    (WebCore::FullscreenManager::cancelFullscreen):
+    (WebCore::FullscreenManager::exitFullscreen):
+    (WebCore::FullscreenManager::willEnterFullscreen):
+    (WebCore::FullscreenManager::willExitFullscreen):
+    (WebCore::FullscreenManager::didExitFullscreen):
+    (WebCore::FullscreenManager::adjustFullscreenElementOnNodeRemoval):
+    (WebCore::FullscreenManager::clear):
+    (WebCore::FullscreenManager::fullscreenElementRemoved): Deleted.
+    * dom/FullscreenManager.h:
+    
+    Source/WebKit:
+    
+    Add more state to track in which direction the animation is flowing to allow in-process
+    animations to be cancelled more gracefully.
+    
+    * UIProcess/ios/fullscreen/WKFullScreenWindowControllerIOS.mm:
+    (-[WKFullScreenWindowController enterFullScreen]):
+    (-[WKFullScreenWindowController beganEnterFullScreenWithInitialFrame:finalFrame:]):
+    (-[WKFullScreenWindowController requestExitFullScreen]):
+    (-[WKFullScreenWindowController exitFullScreen]):
+    * WebProcess/cocoa/VideoFullscreenManager.h:
+    (WebKit::VideoFullscreenInterfaceContext::animationState const):
+    (WebKit::VideoFullscreenInterfaceContext::setAnimationState):
+    (WebKit::VideoFullscreenInterfaceContext::isAnimating const): Deleted.
+    (WebKit::VideoFullscreenInterfaceContext::setIsAnimating): Deleted.
+    * WebProcess/cocoa/VideoFullscreenManager.mm:
+    (WebKit::VideoFullscreenManager::enterVideoFullscreenForVideoElement):
+    (WebKit::VideoFullscreenManager::exitVideoFullscreenForVideoElement):
+    (WebKit::VideoFullscreenManager::didEnterFullscreen):
+    (WebKit::VideoFullscreenManager::didCleanupFullscreen):
+    
+    LayoutTests:
+    
+    * fullscreen/full-screen-request-removed-with-raf-expected.txt: Added.
+    * fullscreen/full-screen-request-removed-with-raf.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249147 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-26  Jer Noble  <jer.noble@apple.com>
+
+            Removing fullscreen element in rAF() callback after requestFullscreen() can leave fullscreen in inconsistent state.
+            https://bugs.webkit.org/show_bug.cgi?id=201101
+            <rdar://problem/54164587>
+
+            Reviewed by Eric Carlson.
+
+            Add more state to track in which direction the animation is flowing to allow in-process
+            animations to be cancelled more gracefully.
+
+            * UIProcess/ios/fullscreen/WKFullScreenWindowControllerIOS.mm:
+            (-[WKFullScreenWindowController enterFullScreen]):
+            (-[WKFullScreenWindowController beganEnterFullScreenWithInitialFrame:finalFrame:]):
+            (-[WKFullScreenWindowController requestExitFullScreen]):
+            (-[WKFullScreenWindowController exitFullScreen]):
+            * WebProcess/cocoa/VideoFullscreenManager.h:
+            (WebKit::VideoFullscreenInterfaceContext::animationState const):
+            (WebKit::VideoFullscreenInterfaceContext::setAnimationState):
+            (WebKit::VideoFullscreenInterfaceContext::isAnimating const): Deleted.
+            (WebKit::VideoFullscreenInterfaceContext::setIsAnimating): Deleted.
+            * WebProcess/cocoa/VideoFullscreenManager.mm:
+            (WebKit::VideoFullscreenManager::enterVideoFullscreenForVideoElement):
+            (WebKit::VideoFullscreenManager::exitVideoFullscreenForVideoElement):
+            (WebKit::VideoFullscreenManager::didEnterFullscreen):
+            (WebKit::VideoFullscreenManager::didCleanupFullscreen):
+
+2019-09-03  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249339. rdar://problem/55001170
+
+    Caret does not appear in text field inside a transformed, overflow: hidden container
+    https://bugs.webkit.org/show_bug.cgi?id=201317
+    <rdar://problem/54859264>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    This patch refactors the heuristic for determining whether to suppress selection gestures and UI in a way that
+    fixes the corner case encountered in this bug. To understand why this test case fails with our existing
+    heuristic, consider the below test case.
+    
+    Let's say we have an input field inside an "overflow: hidden;" container, which is positioned in such a way that
+    it is completely clipped by its enclosing container which is also "overflow: hidden". Our existing logic would
+    appropriately identify this as a hidden editable element.
+    
+    However, let's now apply a transform to the input field's closest "overflow: hidden" ancestor, such that the
+    field is now visible. Since RenderLayer::offsetFromAncestor doesn't take transforms into account when we try to
+    find the offset of the "overflow: hidden" layer relative to the root view, we end up passing an offsetFromRoot
+    of (0, 100vw) to RenderLayer::calculateClipRects, which computes a background clip rect of (0, 0, 100vw, 100vh).
+    
+    This means that at the end of RenderLayer::calculateClipRects, we end up intersecting the background clip rect
+    (0, 0, 100vw, 100vh) against (100vw, 0, 100vw, 100vh), which results in the empty rect, and subsequently makes
+    us believe we're editing a hidden editable element.
+    
+    Instead of tacking on more logic to isTransparentOrFullyClippedRespectingParentFrames, we can fix this by using
+    RenderObject::computeVisibleRectInContainer instead, performing a similar walk up the render tree to compute the
+    visible rect of each focused element or subframe relative to its root. This is capable of taking transforms into
+    account. See comments below for more details.
+    
+    Test: editing/selection/ios/show-selection-in-transformed-container-2.html
+    
+    * rendering/RenderLayer.cpp:
+    (WebCore::RenderLayer::isTransparentRespectingParentFrames const):
+    
+    Split out isTransparentOrFullyClippedRespectingParentFrames into two methods: RenderLayer's
+    isTransparentRespectingParentFrames, and RenderObject's hasNonEmptyVisibleRectRespectingParentFrames. The
+    transparency check starts at the enclosing layer and walks up the layer tree, while the non-empty visible rect
+    check looks for renderers that are completely empty relative to their root views.
+    
+    * rendering/RenderLayer.h:
+    * rendering/RenderObject.cpp:
+    (WebCore::RenderObject::hasNonEmptyVisibleRectRespectingParentFrames const):
+    
+    Rewrite logic for detecting completely clipped editable areas (that formerly lived in
+    isTransparentOrFullyClippedRespectingParentFrames) to use computeVisibleRectInContainer instead.
+    
+    * rendering/RenderObject.h:
+    
+    Source/WebKit:
+    
+    Adjust isTransparentOrFullyClipped to use the new methods in RenderLayer and RenderObject. See WebCore ChangeLog
+    for more details.
+    
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::WebPage::isTransparentOrFullyClipped const):
+    
+    LayoutTests:
+    
+    Add a new layout test that covers this scenario. See WebCore ChangeLog for additional detail.
+    
+    * editing/selection/ios/show-selection-in-transformed-container-2-expected.txt: Added.
+    * editing/selection/ios/show-selection-in-transformed-container-2.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249339 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-30  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Caret does not appear in text field inside a transformed, overflow: hidden container
+            https://bugs.webkit.org/show_bug.cgi?id=201317
+            <rdar://problem/54859264>
+
+            Reviewed by Simon Fraser.
+
+            Adjust isTransparentOrFullyClipped to use the new methods in RenderLayer and RenderObject. See WebCore ChangeLog
+            for more details.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::isTransparentOrFullyClipped const):
+
+2019-09-03  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249296. rdar://problem/55001174
+
+    [iOS 13] Caret does not appear in text field if the body element is translated completely out of the viewport
+    https://bugs.webkit.org/show_bug.cgi?id=201287
+    <rdar://problem/54780864>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebKit:
+    
+    During EditorState computation, we use the hidden editable element heuristic to determine whether we should
+    begin suppressing selection gestures and UI. Currently, we use the editable root of the selection range to
+    determine where in the layer tree we should start our ascent, in search of a completely transparent or
+    completely clipped container.
+    
+    However, in the case where the selection is inside a focused text field, this causes us to walk up the layer
+    tree starting at the RenderLayer corresponding to the text field's inner contenteditable div, which is different
+    than the text field's enclosing RenderLayer in the case where the containing block is transformed, such that no
+    part of it is within the visible viewport. This scenario is exercised by the below test case, in which the caret
+    after transforming the body horizontally by -100vw is hidden due to a false positive in the hidden editable area
+    heuristic.
+    
+    Fix this by starting the layer tree ascent from the enclosing layer of the text form control if applicable,
+    instead of the inner editable area under the shadow root of the form control.
+    
+    Test: editing/selection/ios/show-selection-in-transformed-container.html
+    
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::WebPage::platformEditorState const):
+    
+    LayoutTests:
+    
+    Add a new layout test that covers this scenario. See WebKit ChangeLog for additional detail.
+    
+    * editing/selection/ios/show-selection-in-transformed-container-expected.txt: Added.
+    * editing/selection/ios/show-selection-in-transformed-container.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249296 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-29  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iOS 13] Caret does not appear in text field if the body element is translated completely out of the viewport
+            https://bugs.webkit.org/show_bug.cgi?id=201287
+            <rdar://problem/54780864>
+
+            Reviewed by Tim Horton.
+
+            During EditorState computation, we use the hidden editable element heuristic to determine whether we should
+            begin suppressing selection gestures and UI. Currently, we use the editable root of the selection range to
+            determine where in the layer tree we should start our ascent, in search of a completely transparent or
+            completely clipped container.
+
+            However, in the case where the selection is inside a focused text field, this causes us to walk up the layer
+            tree starting at the RenderLayer corresponding to the text field's inner contenteditable div, which is different
+            than the text field's enclosing RenderLayer in the case where the containing block is transformed, such that no
+            part of it is within the visible viewport. This scenario is exercised by the below test case, in which the caret
+            after transforming the body horizontally by -100vw is hidden due to a false positive in the hidden editable area
+            heuristic.
+
+            Fix this by starting the layer tree ascent from the enclosing layer of the text form control if applicable,
+            instead of the inner editable area under the shadow root of the form control.
+
+            Test: editing/selection/ios/show-selection-in-transformed-container.html
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::platformEditorState const):
+
+2019-09-03  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249230. rdar://problem/55001168
+
+    Reloading a web view with a fixed-width viewport and variable content width restores the previous page scale, shouldn't
+    https://bugs.webkit.org/show_bug.cgi?id=201256
+    <rdar://problem/54809509>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebKit:
+    
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::WebPage::restorePageState):
+    When restoring page state from a history item, if the saved scale was equal to the
+    initial scale at the time it was saved, ignore the saved scale and use the current
+    initial scale instead.
+    
+    Normally this doesn't matter because a given page's initial scale doesn't usually change
+    between loads, but it totally can! See the test for one example of a way an API client
+    might cause this; you could also imagine something similar happening if the actual
+    page content changed.
+    
+    Tools:
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebKit/long-email-viewport.html: Added.
+    * TestWebKitAPI/Tests/WebKitCocoa/ReloadWithDifferingInitialScale.mm: Added.
+    (TestWebKitAPI::TEST):
+    Add a test. I left many comments because I had a great deal of trouble
+    writing this test and wanted to document my findings.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249230 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-28  Tim Horton  <timothy_horton@apple.com>
+
+            Reloading a web view with a fixed-width viewport and variable content width restores the previous page scale, shouldn't
+            https://bugs.webkit.org/show_bug.cgi?id=201256
+            <rdar://problem/54809509>
+
+            Reviewed by Simon Fraser.
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::WebPage::restorePageState):
+            When restoring page state from a history item, if the saved scale was equal to the
+            initial scale at the time it was saved, ignore the saved scale and use the current
+            initial scale instead.
+
+            Normally this doesn't matter because a given page's initial scale doesn't usually change
+            between loads, but it totally can! See the test for one example of a way an API client
+            might cause this; you could also imagine something similar happening if the actual
+            page content changed.
+
+2019-09-03  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r248698. rdar://problem/55001378
+
+    Fix the build when ENABLE(APPLE_PAY) is false.
+    
+    * Shared/Cocoa/WebCoreArgumentCodersCocoa.mm:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@248698 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-14  Andy Estes  <aestes@apple.com>
+
+            Fix the build when ENABLE(APPLE_PAY) is false.
+
+            * Shared/Cocoa/WebCoreArgumentCodersCocoa.mm:
+
+2019-09-03  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r248692. rdar://problem/55001378
+
+    [Cocoa] Add some WKA extension points
+    https://bugs.webkit.org/show_bug.cgi?id=200506
+    <rdar://problem/51682474>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    * Modules/applepay/ApplePayPayment.h:
+    * Modules/applepay/ApplePayPaymentMethod.h:
+    * Modules/applepay/ApplePayRequestBase.cpp:
+    (WebCore::finishConverting):
+    (WebCore::convertAndValidate):
+    * Modules/applepay/ApplePayRequestBase.h:
+    * Modules/applepay/ApplePaySessionPaymentRequest.h:
+    * Modules/applepay/PaymentCoordinatorClient.cpp:
+    (WebCore::PaymentCoordinatorClient::supportsVersion):
+    * Modules/applepay/cocoa/PaymentCocoa.mm:
+    (WebCore::convert):
+    * Modules/applepay/cocoa/PaymentMethodCocoa.mm:
+    (WebCore::finishConverting):
+    (WebCore::convert):
+    
+    Source/WebKit:
+    
+    * Shared/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.mm:
+    (WebKit::finishCreating):
+    (WebKit::WebPaymentCoordinatorProxy::platformPaymentRequest):
+    * Shared/Cocoa/WebCoreArgumentCodersCocoa.mm:
+    (IPC::finishDecoding):
+    (IPC::finishEncoding):
+    (IPC::ArgumentCoder<ApplePaySessionPaymentRequest>::encode):
+    (IPC::ArgumentCoder<ApplePaySessionPaymentRequest>::decode):
+    * Shared/WebCoreArgumentCoders.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@248692 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-14  Andy Estes  <aestes@apple.com>
+
+            [Cocoa] Add some WKA extension points
+            https://bugs.webkit.org/show_bug.cgi?id=200506
+            <rdar://problem/51682474>
+
+            Reviewed by Tim Horton.
+
+            * Shared/ApplePay/cocoa/WebPaymentCoordinatorProxyCocoa.mm:
+            (WebKit::finishCreating):
+            (WebKit::WebPaymentCoordinatorProxy::platformPaymentRequest):
+            * Shared/Cocoa/WebCoreArgumentCodersCocoa.mm:
+            (IPC::finishDecoding):
+            (IPC::finishEncoding):
+            (IPC::ArgumentCoder<ApplePaySessionPaymentRequest>::encode):
+            (IPC::ArgumentCoder<ApplePaySessionPaymentRequest>::decode):
+            * Shared/WebCoreArgumentCoders.h:
 
 2019-08-28  Kocsen Chung  <kocsen_chung@apple.com>
 

@@ -147,3 +147,43 @@ bool do_preserve_dst_flags_test(const char *test_directory, __unused size_t bloc
 
 	return success ? EXIT_SUCCESS : EXIT_FAILURE;
 }
+
+bool do_preserve_dst_tracked_test(const char *test_directory, __unused size_t block_size) {
+	char file_src[BSIZE_B] = {0}, file_dst[BSIZE_B] = {0};
+	off_t src_fsize = 0x1000;
+	int test_file_id;
+	struct stat dst_stb;
+	bool success = true;
+
+	printf("START [preserve_dst_tracked]\n");
+
+	// Create source file
+	assert_with_errno(snprintf(file_src, BSIZE_B, "%s/" TEST_FILE_NAME, test_directory) > 0);
+	assert_no_err(close(open(file_src, O_CREAT|O_EXCL, 0644)));
+	assert_no_err(truncate(file_src, src_fsize));
+
+	// Create destination file
+	test_file_id = rand() % DEFAULT_NAME_MOD;
+	assert_with_errno(snprintf(file_dst, BSIZE_B, "%s/%s.%d", test_directory, TEST_FILE_NAME, test_file_id) > 0);
+	assert_no_err(close(open(file_dst, O_CREAT|O_EXCL, 0644)));
+
+	// Track destination file
+	assert_no_err(chflags(file_dst, UF_TRACKED));
+
+	// Try to copy src onto destination
+	assert_no_err(copyfile(file_src, file_dst, NULL, COPYFILE_DATA|COPYFILE_STAT|COPYFILE_PRESERVE_DST_TRACKED));
+
+	assert_no_err(stat(file_dst, &dst_stb));
+	success &= (dst_stb.st_size == src_fsize);
+	success &= (dst_stb.st_flags & UF_TRACKED);
+	if (success) {
+		printf("PASS  [preserve_dst_tracked]\n");
+	} else {
+		printf("FAIL  [preserve_dst_tracked]\n");
+	}
+
+	(void)unlink(file_src);
+	(void)unlink(file_dst);
+
+	return success ? EXIT_SUCCESS : EXIT_FAILURE;
+}

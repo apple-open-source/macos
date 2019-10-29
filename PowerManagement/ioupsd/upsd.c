@@ -956,6 +956,7 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
     CFNumberRef vid = NULL;
     CFNumberRef pid = NULL;
     CFNumberRef number = NULL;
+    CFNumberRef modelNum = NULL;
     IOReturn result = kIOReturnSuccess;
     int elementValue = 0;
     uint32_t psID = 0;
@@ -991,6 +992,8 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
         pid = (CFNumberRef) CFDictionaryGetValue(properties,
                                                  CFSTR(kIOPSProductIDKey));
         
+        modelNum = (CFNumberRef) CFDictionaryGetValue(properties,
+                                                      CFSTR(kIOPSModelNumber));
         CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSNameKey), upsName);
         CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSTransportTypeKey), transport);
         CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSIsPresentKey), kCFBooleanTrue);
@@ -1009,7 +1012,10 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef,
         if (pid) {
             CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSProductIDKey), pid);
         }
-        
+        if (modelNum) {
+            CFDictionarySetValue(upsStoreDict, CFSTR(kIOPSModelNumber), modelNum);
+        }
+
         psID = MAKE_UNIQ_SOURCE_ID(getpid(), upsDataRef->upsID);
         number = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType,
                                 &psID);

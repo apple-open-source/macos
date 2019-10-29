@@ -33,6 +33,29 @@ let tplogTrace = OSLog(subsystem: "com.apple.security.trustedpeers", category: "
 
 let egoIdentitiesAccessGroup = "com.apple.security.egoIdentities"
 
+extension ResetReason {
+    static func from(cuttlefishResetReason: CuttlefishResetReason) -> ResetReason {
+        switch cuttlefishResetReason {
+        case .unknown:
+            return ResetReason.unknown
+        case .userInitiatedReset:
+            return  ResetReason.userInitiatedReset
+        case .healthCheck:
+            return ResetReason.healthCheck
+        case .noBottleDuringEscrowRecovery:
+            return ResetReason.noBottleDuringEscrowRecovery
+        case .legacyJoinCircle:
+            return ResetReason.legacyJoinCircle
+        case .recoveryKey:
+            return ResetReason.recoveryKey
+        case .testGenerated:
+            return ResetReason.testGenerated
+        @unknown default:
+            fatalError()
+        }
+    }
+}
+
 public enum ContainerError: Error {
     case unableToCreateKeyPair
     case noPreparedIdentity
@@ -74,6 +97,7 @@ public enum ContainerError: Error {
     case failedToAssembleBottle
     case invalidPeerID
     case failedToStoreSecret(errorCode: Int)
+    case unknownSecurityFoundationError
 }
 
 extension ContainerError: LocalizedError {
@@ -159,6 +183,8 @@ extension ContainerError: LocalizedError {
             return "peerID is invalid"
         case .failedToStoreSecret(errorCode: let errorCode):
             return "failed to store the secret in the keychain \(errorCode)"
+        case .unknownSecurityFoundationError:
+            return "SecurityFoundation returned an unknown type"
         }
     }
 }
@@ -253,6 +279,8 @@ extension ContainerError: CustomNSError {
             return 41
         case .invalidPeerID:
             return 42
+        case .unknownSecurityFoundationError:
+            return 43
         }
     }
 
@@ -294,7 +322,7 @@ func saveSecret(_ secret: Data, label: String) throws {
         kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
         kSecUseDataProtectionKeychain: true,
         kSecAttrAccessGroup: "com.apple.security.octagon",
-        kSecAttrSynchronizable: kCFBooleanFalse,
+        kSecAttrSynchronizable: false,
         kSecAttrDescription: label,
         kSecAttrPath: label,
         kSecValueData: secret,
@@ -315,7 +343,7 @@ func saveSecret(_ secret: Data, label: String) throws {
         findQuery[kSecAttrAccessGroup]    = query[kSecAttrAccessGroup]
         findQuery[kSecAttrServer]         = query[kSecAttrDescription]
         findQuery[kSecAttrPath]           = query[kSecAttrPath]
-        findQuery[kSecUseDataProtectionKeychain] = query[kSecUseDataProtectionKeychain];
+        findQuery[kSecUseDataProtectionKeychain] = query[kSecUseDataProtectionKeychain]
 
         var updateQuery: [CFString: Any] = query
         updateQuery[kSecClass] = nil
@@ -339,7 +367,7 @@ func loadSecret(label: String) throws -> (Data?) {
         kSecAttrDescription: label,
         kSecReturnAttributes: true,
         kSecReturnData: true,
-        kSecAttrSynchronizable: kCFBooleanFalse,
+        kSecAttrSynchronizable: false,
         kSecMatchLimit: kSecMatchLimitOne,
         ]
 
@@ -385,6 +413,8 @@ func loadEgoKeyPair(identifier: String, resultHandler: @escaping (_SFECKeyPair?,
             resultHandler(nil, ContainerError.needsAuthentication)
         case .error:
             resultHandler(nil, result.error)
+        @unknown default:
+            resultHandler(nil, ContainerError.unknownSecurityFoundationError)
         }
     }
 }
@@ -419,7 +449,7 @@ func removeEgoKeysSync(peerID: String) throws -> Bool {
     let keychainManager = _SFKeychainManager.default()
 
     var retresultForSigningDeletion: Bool = false
-    var reterrorForSigningDeletion: Error? = nil
+    var reterrorForSigningDeletion: Error?
 
     //remove signing keys
     keychainManager.removeItem(withIdentifier: signingKeyIdentifier(peerID: peerID)) { result, error in
@@ -441,7 +471,7 @@ func removeEgoKeysSync(peerID: String) throws -> Bool {
     // now let's do the same thing with the encryption keys
     resultSema = DispatchSemaphore(value: 0)
     var retresultForEncryptionDeletion: Bool = false
-    var reterrorForEncryptionDeletion: Error? = nil
+    var reterrorForEncryptionDeletion: Error?
 
     keychainManager.removeItem(withIdentifier: encryptionKeyIdentifier(peerID: peerID)) { result, error in
         retresultForEncryptionDeletion = result
@@ -818,7 +848,7 @@ class Container: NSObject {
     }
 
     func onQueueDetermineLocalTrustStatus(reply: @escaping (TrustedPeersHelperEgoPeerStatus, Error?) -> Void) {
-        let peerCountsByModelID = self.model.peerCountsByModelID()
+        let viablePeerCountsByModelID = self.model.viablePeerCountsByModelID()
 
         if let egoPeerID = self.containerMO.egoPeerID {
             var status = self.model.statusOfPeer(withID: egoPeerID)
@@ -844,7 +874,7 @@ class Container: NSObject {
 
                     let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
                                                                     status: status,
-                                                                    peerCountsByModelID: peerCountsByModelID,
+                                                                    viablePeerCountsByModelID: viablePeerCountsByModelID,
                                                                     isExcluded: isExcluded,
                                                                     isLocked: isLocked)
                     reply(egoStatus, returnError)
@@ -856,7 +886,7 @@ class Container: NSObject {
                     os_log("trust status: No error but Ego Peer Keys are nil", log: tplogDebug, type: .default)
                     let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
                                                                     status: .excluded,
-                                                                    peerCountsByModelID: peerCountsByModelID,
+                                                                    viablePeerCountsByModelID: viablePeerCountsByModelID,
                                                                     isExcluded: true,
                                                                     isLocked: false)
 
@@ -866,7 +896,7 @@ class Container: NSObject {
 
                 let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
                                                                 status: status,
-                                                                peerCountsByModelID: peerCountsByModelID,
+                                                                viablePeerCountsByModelID: viablePeerCountsByModelID,
                                                                 isExcluded: isExcluded,
                                                                 isLocked: false)
                 reply(egoStatus, nil)
@@ -879,7 +909,7 @@ class Container: NSObject {
                 os_log("No existing peers in account", log: tplogDebug, type: .debug)
                 let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
                                                                 status: .unknown,
-                                                                peerCountsByModelID: peerCountsByModelID,
+                                                                viablePeerCountsByModelID: viablePeerCountsByModelID,
                                                                 isExcluded: false,
                                                                 isLocked: false)
                 reply(egoStatus, nil)
@@ -888,7 +918,7 @@ class Container: NSObject {
                 os_log("Existing peers in account, but we don't have a peer ID. We are excluded.", log: tplogDebug, type: .debug)
                 let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
                                                                 status: .excluded,
-                                                                peerCountsByModelID: peerCountsByModelID,
+                                                                viablePeerCountsByModelID: viablePeerCountsByModelID,
                                                                 isExcluded: true,
                                                                 isLocked: false)
                 reply(egoStatus, nil)
@@ -919,7 +949,7 @@ class Container: NSObject {
 
                         let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
                                                                         status: .unknown,
-                                                                        peerCountsByModelID: [:],
+                                                                        viablePeerCountsByModelID: [:],
                                                                         isExcluded: false,
                                                                         isLocked: false)
                         reply(egoStatus, fetchError)
@@ -955,14 +985,17 @@ class Container: NSObject {
                     return
                 }
 
-                let isPreapproved = self.model.hasPeerPreapprovingKey(permanentInfo.signingPubKey.spki())
+                let isPreapproved = self.model.hasPotentiallyTrustedPeerPreapprovingKey(permanentInfo.signingPubKey.spki())
                 os_log("fetchTrustState: ego peer is %@", log: tplogDebug, type: .default, isPreapproved ? "preapproved" : "not yet preapproved")
+
+                let egoStableInfo = self.model.getStableInfoForPeer(withID: egoPeerID)
 
                 let egoPeerStatus = TrustedPeersHelperPeerState(peerID: egoPeerID,
                                                                 isPreapproved: isPreapproved,
                                                                 status: self.model.statusOfPeer(withID: egoPeerID),
                                                                 memberChanges: false,
-                                                                unknownMachineIDs: self.onqueueFullIDMSListWouldBeHelpful())
+                                                                unknownMachineIDs: self.onqueueFullIDMSListWouldBeHelpful(),
+                                                                osVersion: egoStableInfo?.osVersion)
 
                 var tphPeers: [TrustedPeersHelperPeer] = []
 
@@ -990,7 +1023,7 @@ class Container: NSObject {
             } else {
                 // With no ego peer ID, there are no trusted peers
                 os_log("No peer ID => no trusted peers", log: tplogDebug, type: .debug)
-                reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: false, unknownMachineIDs: false), [], nil)
+                reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: false, unknownMachineIDs: false, osVersion: nil), [], nil)
             }
         }
     }
@@ -1029,6 +1062,8 @@ class Container: NSObject {
             let midList = self.onqueueCurrentMIDList()
             d["machineIDsAllowed"] = midList.machineIDs(in: .allowed).sorted()
             d["machineIDsDisallowed"] = midList.machineIDs(in: .disallowed).sorted()
+            d["modelRecoverySigningPublicKey"] = self.model.recoverySigningPublicKey()
+            d["modelRecoveryEncryptionPublicKey"] = self.model.recoveryEncryptionPublicKey()
 
             reply(d, nil)
         }
@@ -1117,7 +1152,7 @@ class Container: NSObject {
         }
     }
 
-    func reset(reply: @escaping (Error?) -> Void) {
+    func reset(resetReason: CuttlefishResetReason, reply: @escaping (Error?) -> Void) {
         self.semaphore.wait()
         let reply: (Error?) -> Void = {
             os_log("reset complete %@", log: tplogTrace, type: .info, traceError($0))
@@ -1126,7 +1161,10 @@ class Container: NSObject {
         }
 
         self.moc.performAndWait {
-            let request = ResetRequest()
+            let resetReason = ResetReason.from(cuttlefishResetReason: resetReason)
+            let request = ResetRequest.with {
+                $0.resetReason = resetReason
+            }
             self.cuttlefish.reset(request) { response, error in
                 os_log("Reset(%@): %@, error: %@", log: tplogDebug, "\(String(describing: request))", "\(String(describing: response))", "\(String(describing: error))")
                 guard let response = response, error == nil else {
@@ -1345,7 +1383,7 @@ class Container: NSObject {
         }
     }
 
-    func onqueueTTRUntrusted() -> Void {
+    func onqueueTTRUntrusted() {
         let ttr = SecTapToRadar(tapToRadar: "Device not IDMS trusted",
                                 description: "Device not IDMS trusted",
                                 radar: "52874119")
@@ -1487,7 +1525,7 @@ class Container: NSObject {
                                     // This is an odd error condition: we might be able to fetch again and be in a good state...
                                     os_log("fetch-after-establish failed: %@", log: tplogDebug, type: .default, (fetchError as CVarArg?) ?? "no error")
                                     reply(nil, keyHierarchyRecords, fetchError)
-                                    return;
+                                    return
                                 }
 
                                 os_log("fetch-after-establish succeeded", log: tplogDebug, type: .default)
@@ -1646,7 +1684,7 @@ class Container: NSObject {
         return !bmos.isEmpty
     }
 
-    func findBottleForEscrowRecordID(bottleID: String, reply: @escaping (BottleMO?, Error?) -> Void) {
+    func onqueueFindBottle(bottleID: String, reply: @escaping (BottleMO?, Error?) -> Void) {
 
         var bmo: BottleMO?
         var bottles: Set<BottleMO> = []
@@ -1681,7 +1719,7 @@ class Container: NSObject {
                     return
                 }
 
-                os_log("findBottleForEscrowRecordID found bottle: %@", log: tplogDebug, type: .default, newBottles)
+                os_log("onqueueFindBottle found bottle: %@", log: tplogDebug, type: .default, newBottles)
 
                 bottles = newBottles.filter {
                     $0.bottleID == bottleID
@@ -1760,6 +1798,29 @@ class Container: NSObject {
         }
     }
 
+    func preflightVouchWithBottle(bottleID: String,
+                                  reply: @escaping (String?, Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: (String?, Error?) -> Void = {
+            os_log("preflightVouchWithBottle complete: %@",
+                   log: tplogTrace, type: .info, traceError($1))
+            self.semaphore.signal()
+            reply($0, $1)
+        }
+
+        self.moc.performAndWait {
+            self.onqueueFindBottle(bottleID: bottleID) { bottleMO, error in
+                guard let bottleMO = bottleMO else {
+                    os_log("preflightVouchWithBottle found no bottle: %@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "")
+                    reply(nil, error)
+                    return
+                }
+
+                reply(bottleMO.peerID, nil)
+            }
+        }
+    }
+
     func vouchWithBottle(bottleID: String,
                          entropy: Data,
                          bottleSalt: String,
@@ -1780,7 +1841,7 @@ class Container: NSObject {
                 return
             }
 
-            self.findBottleForEscrowRecordID(bottleID: bottleID) { returnedBMO, error in
+            self.onqueueFindBottle(bottleID: bottleID) { returnedBMO, error in
                 self.moc.performAndWait {
                     guard error == nil else {
                         os_log("vouchWithBottle unable to find bottle for escrow record id: %@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "")
@@ -2248,13 +2309,13 @@ class Container: NSObject {
         self.moc.performAndWait {
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 os_log("fetchEscrowContents failed", log: tplogDebug, type: .default)
-                reply (nil, nil, nil, ContainerError.noPreparedIdentity)
+                reply(nil, nil, nil, ContainerError.noPreparedIdentity)
                 return
             }
 
             guard let bottles = self.containerMO.bottles as? Set<BottleMO> else {
                 os_log("fetchEscrowContents failed", log: tplogDebug, type: .default)
-                reply (nil, nil, nil, ContainerError.noBottleForPeer)
+                reply(nil, nil, nil, ContainerError.noBottleForPeer)
                 return
             }
 
@@ -2266,19 +2327,19 @@ class Container: NSObject {
             do {
                 guard let loaded = try loadSecret(label: egoPeerID) else {
                     os_log("fetchEscrowContents failed to load entropy", log: tplogDebug, type: .default)
-                    reply (nil, nil, nil, ContainerError.failedToFetchEscrowContents)
+                    reply(nil, nil, nil, ContainerError.failedToFetchEscrowContents)
                     return
                 }
                 entropy = loaded
             } catch {
                 os_log("fetchEscrowContents failed to load entropy: %@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                reply (nil, nil, nil, error)
+                reply(nil, nil, nil, error)
                 return
             }
 
             guard let signingPublicKey = bmo.escrowedSigningSPKI else {
                 os_log("fetchEscrowContents no escrow signing spki", log: tplogDebug, type: .default)
-                reply (nil, nil, nil, ContainerError.bottleDoesNotContainerEscrowKeySPKI)
+                reply(nil, nil, nil, ContainerError.bottleDoesNotContainerEscrowKeySPKI)
                 return
             }
             reply(entropy, bottleID, signingPublicKey, nil)
@@ -2321,12 +2382,12 @@ class Container: NSObject {
     func fetchViableBottlesWithSemaphore(reply: @escaping ([String]?, [String]?, Error?) -> Void) {
         os_log("beginning a fetchViableBottles", log: tplogDebug, type: .default)
 
-        let cachedBottles:TPCachedViableBottles = self.model.currentCachedViableBottlesSet()
+        let cachedBottles: TPCachedViableBottles = self.model.currentCachedViableBottlesSet()
         self.moc.performAndWait {
             if self.onqueueCachedBottlesContainEgoPeerBottle(cachedBottles: cachedBottles)
                 && (cachedBottles.viableBottles.count > 0 || cachedBottles.partialBottles.count > 0) {
                 os_log("returning from fetchViableBottles, using cached bottles", log: tplogDebug, type: .default)
-                reply (cachedBottles.viableBottles, cachedBottles.partialBottles, nil)
+                reply(cachedBottles.viableBottles, cachedBottles.partialBottles, nil)
                 return
             }
 
@@ -2423,7 +2484,7 @@ class Container: NSObject {
                     do {
                         try self.moc.save()
                         os_log("fetchViableBottles saved bottles", log: tplogDebug, type: .default)
-                        let cached = TPCachedViableBottles.init(viableBottles: viableBottleIDs, partialBottles: partialBottleIDs)
+                        let cached = TPCachedViableBottles(viableBottles: viableBottleIDs, partialBottles: partialBottleIDs)
                         self.model.setViableBottles(cached)
                         reply(viableBottleIDs, partialBottleIDs, nil)
                     } catch {
@@ -2973,7 +3034,7 @@ class Container: NSObject {
                 return
             }
 
-            guard self.model.hasPeerPreapprovingKey(egoPermanentInfo.signingPubKey.spki()) else {
+            guard self.model.hasPotentiallyTrustedPeerPreapprovingKey(egoPermanentInfo.signingPubKey.spki()) else {
                 os_log("preflightPreapprovedJoin: no peers preapprove our key", log: tplogDebug, type: .debug)
                 reply(false, ContainerError.noPeersPreapprovePreparedIdentity)
                 return
@@ -3048,7 +3109,7 @@ class Container: NSObject {
                         return
                     }
 
-                    guard self.model.hasPeerPreapprovingKey(egoPeerKeys.signingKey.publicKey().spki()) else {
+                    guard self.model.hasPotentiallyTrustedPeerPreapprovingKey(egoPeerKeys.signingKey.publicKey().spki()) else {
                         os_log("preapprovedJoin: no peers preapprove our key", log: tplogDebug, type: .debug)
                         reply(nil, [], ContainerError.noPeersPreapprovePreparedIdentity)
                         return
@@ -3464,6 +3525,7 @@ class Container: NSObject {
             if let error = error {
                 os_log("fetchChangesAndUpdateTrustIfNeeded: fetching failed: %@", log: tplogDebug, type: .default, error as CVarArg)
                 reply(nil, error)
+                return
             }
 
             self.updateTrustIfNeeded(stableChanges: stableChanges, changesPending: changesPending, reply: reply)
@@ -3486,24 +3548,25 @@ class Container: NSObject {
             guard let egoPeerID = self.containerMO.egoPeerID else {
                 // No identity, nothing to do
                 os_log("updateTrustIfNeeded: No identity.", log: tplogDebug, type: .default)
-                reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: changesPending, unknownMachineIDs: false), nil)
+                reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: changesPending, unknownMachineIDs: false, osVersion: nil), nil)
                 return
             }
             loadEgoKeyPair(identifier: signingKeyIdentifier(peerID: egoPeerID)) { signingKeyPair, error in
                 guard let signingKeyPair = signingKeyPair else {
                     os_log("updateTrustIfNeeded: no signing key pair: %@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
-                    reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: changesPending, unknownMachineIDs: false), error)
+                    reply(TrustedPeersHelperPeerState(peerID: nil, isPreapproved: false, status: .unknown, memberChanges: changesPending, unknownMachineIDs: false, osVersion: nil), error)
                     return
                 }
                 guard self.model.hasPeer(withID: egoPeerID) else {
                     // Not in circle, nothing to do
-                    let isPreapproved = self.model.hasPeerPreapprovingKey(signingKeyPair.publicKey().spki())
+                    let isPreapproved = self.model.hasPotentiallyTrustedPeerPreapprovingKey(signingKeyPair.publicKey().spki())
                     os_log("updateTrustIfNeeded: ego peer is not in model, is %@", log: tplogDebug, type: .default, isPreapproved ? "preapproved" : "not yet preapproved")
                     reply(TrustedPeersHelperPeerState(peerID: egoPeerID,
                                                       isPreapproved: isPreapproved,
                                                       status: .unknown,
                                                       memberChanges: changesPending,
-                                                      unknownMachineIDs: false),
+                                                      unknownMachineIDs: false,
+                                                      osVersion: nil),
                           nil)
                     return
                 }
@@ -3531,7 +3594,8 @@ class Container: NSObject {
                                                           isPreapproved: false,
                                                           status: self.model.statusOfPeer(withID: egoPeerID),
                                                           memberChanges: changesPending,
-                                                          unknownMachineIDs: false),
+                                                          unknownMachineIDs: false,
+                                                          osVersion: nil),
                               error)
                         return
                     }
@@ -3555,7 +3619,8 @@ class Container: NSObject {
                                                           isPreapproved: false,
                                                           status: self.model.statusOfPeer(withID: egoPeerID),
                                                           memberChanges: changesPending,
-                                                          unknownMachineIDs: self.onqueueFullIDMSListWouldBeHelpful()),
+                                                          unknownMachineIDs: self.onqueueFullIDMSListWouldBeHelpful(),
+                                                          osVersion: peer?.stableInfo?.osVersion),
                               nil)
                         return
                     }
@@ -3603,7 +3668,6 @@ class Container: NSObject {
         }
     }
 
-
     private func persist(changes: Changes) throws {
         // This is some nonsense: I can't figure out how to tell swift to throw an exception across performAndWait.
         // So, do it ourself
@@ -3636,7 +3700,7 @@ class Container: NSObject {
         if changes.differences.count > 0 {
             self.model.clearViableBottles()
         }
-        
+
         try changes.differences.forEach { peerDifference in
             if let operation = peerDifference.operation {
                 switch operation {
@@ -3647,7 +3711,7 @@ class Container: NSObject {
                     try self.addOrUpdate(peer: peer)
                     // Update containerMO ego data if it has changed.
                     if peer.peerID == self.containerMO.egoPeerID {
-                        guard let stableInfoAndSig:TPPeerStableInfo = peer.stableInfoAndSig.toStableInfo() else {
+                        guard let stableInfoAndSig: TPPeerStableInfo = peer.stableInfoAndSig.toStableInfo() else {
                             break
                         }
                         self.containerMO.egoPeerStableInfo = stableInfoAndSig.data
@@ -3913,7 +3977,7 @@ class Container: NSObject {
         }
 
         self.moc.performAndWait {
-            self.cuttlefish.pushHealthInquiry(HealthInquiryRequest()) { response, error in
+            self.cuttlefish.pushHealthInquiry(PushHealthInquiryRequest()) { response, error in
                 os_log("pushHealthInquiry(): %@, error: %@", log: tplogDebug, "\(String(describing: response))", "\(String(describing: error))")
                 guard error == nil else {
                     reply(error)

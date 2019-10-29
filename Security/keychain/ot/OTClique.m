@@ -61,10 +61,6 @@ SOFT_LINK_CONSTANT(CloudServices, kSecureBackupErrorDomain, NSErrorDomain);
 #pragma clang diagnostic pop
 #endif
 
-OTCliqueCFUType OTCliqueCFTypeRepair = @"typeRepair";
-OTCliqueCFUType OTCliqueCFTypePasscode = @"typePasscode";
-OTCliqueCFUType OTCliqueCFTypeUpgrade = @"typeUpgrade";
-
 OTCliqueCDPContextType OTCliqueCDPContextTypeNone = @"cdpContextTypeNone";
 OTCliqueCDPContextType OTCliqueCDPContextTypeSignIn = @"cdpContextTypeSignIn";
 OTCliqueCDPContextType OTCliqueCDPContextTypeRepair = @"cdpContextTypeRepair";
@@ -172,7 +168,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
 
 + (BOOL)platformSupportsSOS
 {
-    return OctagonPlatformSupportsSOS();
+    return (OctagonPlatformSupportsSOS() && OctagonIsSOSFeatureEnabled());
 }
 
 // defaults write com.apple.security.octagon enable -bool YES
@@ -237,7 +233,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
         secnotice("clique", "cliqueMemberIdentifier(octagon) received %@", retPeerID);
     }
 
-    if(OctagonPlatformSupportsSOS()) {
+    if([OTClique platformSupportsSOS]) {
         CFErrorRef error = NULL;
         SOSPeerInfoRef me = SOSCCCopyMyPeerInfo(&error);
         retPeerID =  (NSString*)CFBridgingRelease(CFRetainSafe(SOSPeerInfoGetPeerID(me)));
@@ -286,7 +282,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
     return success;
 }
 
-- (BOOL)resetAndEstablish:(NSError**)error
+- (BOOL)resetAndEstablish:(CuttlefishResetReason)resetReason error:(NSError**)error
 {
     secnotice("clique-resetandestablish", "resetAndEstablish started");
 
@@ -298,7 +294,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
 
     __block BOOL success = NO;
     __block NSError* localError = nil;
-    [control resetAndEstablish:nil context:self.ctx.context altDSID:self.ctx.altDSID reply:^(NSError * _Nullable operationError) {
+    [control resetAndEstablish:nil context:self.ctx.context altDSID:self.ctx.altDSID resetReason:resetReason reply:^(NSError * _Nullable operationError) {
 
         if(operationError) {
             secnotice("clique-resetandestablish", "resetAndEstablish returned an error: %@", operationError);
@@ -319,15 +315,20 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
 
 + (OTClique*)newFriendsWithContextData:(OTConfigurationContext*)data error:(NSError * __autoreleasing *)error
 {
+    return [OTClique newFriendsWithContextData:data resetReason:CuttlefishResetReasonUserInitiatedReset error:error];
+}
+
++ (OTClique*)newFriendsWithContextData:(OTConfigurationContext*)data resetReason:(CuttlefishResetReason)resetReason error:(NSError * __autoreleasing *)error
+{
 #if OCTAGON
     secnotice("clique-newfriends", "makeNewFriends invoked using context: %@, dsid: %@", data.context, data.dsid);
     bool result = false;
-
+    
     OTClique* clique = [[OTClique alloc] initWithContextData:data error:error];
 
     if(OctagonIsEnabled()) {
         NSError* localError = nil;
-        [clique resetAndEstablish:&localError];
+        [clique resetAndEstablish:resetReason error:&localError];
 
         if(localError) {
             secnotice("clique-newfriends", "account reset failed: %@", localError);
@@ -340,7 +341,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
         }
     }
 
-    if(OctagonPlatformSupportsSOS()) {
+    if([OTClique platformSupportsSOS]) {
         CFErrorRef resetError = NULL;
         NSData* analyticsData = nil;
         if(data.analytics) {
@@ -394,7 +395,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
     
     if(recoverError) {
         secnotice("clique-recovery", "sbd escrow recovery failed: %@", recoverError);
-        if(OctagonPlatformSupportsSOS()) {
+        if([OTClique platformSupportsSOS]) {
             if(recoverError.code == 17 /* kSecureBackupRestoringLegacyBackupKeychainError */ && [recoverError.domain isEqualToString:getkSecureBackupErrorDomain()]) { /* XXX */
                 secnotice("clique-recovery", "Can't restore legacy backup with no keybag. Resetting SOS to offering");
                 CFErrorRef blowItAwayError = NULL;
@@ -482,7 +483,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
     if(shouldResetOctagon) {
         secnotice("clique-recovery", "bottle %@ is not valid, resetting octagon", bottleID);
         NSError* resetError = nil;
-        [clique resetAndEstablish:&resetError];
+        [clique resetAndEstablish:CuttlefishResetReasonNoBottleDuringEscrowRecovery error:&resetError];
         if(resetError) {
             secnotice("clique-recovery", "failed to reset octagon: %@", resetError);
         } else{
@@ -576,7 +577,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
         }
     }
 
-    if(OctagonPlatformSupportsSOS()) {
+    if([OTClique platformSupportsSOS]) {
         CFErrorRef circleStatusError = NULL;
         sosStatus = kSOSCCError;
         if(configuration.useCachedAccountStatus){
@@ -701,7 +702,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
         }];
     }
 
-    if(OctagonPlatformSupportsSOS() && sosIdentifiers.count > 0) {
+    if([OTClique platformSupportsSOS] && sosIdentifiers.count >0) {
         CFErrorRef removeFriendError = NULL;
         NSData* analyticsData = nil;
 
@@ -764,7 +765,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
         result = !localError;
     }
 
-    if(OctagonPlatformSupportsSOS()) {
+    if([OTClique platformSupportsSOS]) {
         NSData* analyticsData = nil;
 
         if(self.ctx.analytics) {
@@ -831,7 +832,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
         secnotice("clique", "Received %lu Octagon peers", (unsigned long)localPeers.count);
     }
 
-    if(OctagonPlatformSupportsSOS()) {
+    if([OTClique platformSupportsSOS]) {
         CFErrorRef peerErrorRef = NULL;
         NSMutableDictionary<NSString*,NSString*>* peerMapping = [NSMutableDictionary dictionary];
         NSArray* arrayOfPeerRefs = CFBridgingRelease(SOSCCCopyPeerPeerInfo(&peerErrorRef));
@@ -862,36 +863,56 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
 - (BOOL)joinAfterRestore:(NSError * __autoreleasing *)error
 {
     secnotice("clique-recovery", "joinAfterRestore for context:%@, altdsid:%@", self.ctx.context, self.ctx.altDSID);
-    CFErrorRef restoreError = NULL;
+    if([OTClique platformSupportsSOS]) {
+        CFErrorRef restoreError = NULL;
 
-    bool res = SOSCCRequestToJoinCircleAfterRestore(&restoreError);
-    if (error) {
-        *error = (NSError*)CFBridgingRelease(restoreError);
+        bool res = SOSCCRequestToJoinCircleAfterRestore(&restoreError);
+        if (error) {
+            *error = (NSError*)CFBridgingRelease(restoreError);
+        } else {
+            CFBridgingRelease(restoreError);
+        }
+        secnotice("clique-recovery", "joinAfterRestore complete: %d %@", res, error ? *error : @"no error pointer provided");
+        return res;
     } else {
-        CFBridgingRelease(restoreError);
+        secnotice("clique-recovery", "SOS disabled for this platform, returning NO");
+        if(error){
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                     userInfo:@{NSLocalizedDescriptionKey: @"join after restore unimplemented"}];
+        }
+        return NO;
     }
-    secnotice("clique-recovery", "joinAfterRestore complete: %d %@", res, error ? *error : @"no error pointer provided");
-    return res;
 }
 
 - (BOOL)safariPasswordSyncingEnabled:(NSError **)error
 {
     secnotice("clique-safari", "safariPasswordSyncingEnabled for context:%@, altdsid:%@", self.ctx.context, self.ctx.altDSID);
 
-    CFErrorRef viewErrorRef = NULL;
+    if([OTClique platformSupportsSOS]) {
+        CFErrorRef viewErrorRef = NULL;
 
-    SOSViewResultCode result = SOSCCView(kSOSViewAutofillPasswords, kSOSCCViewQuery, &viewErrorRef);
+        SOSViewResultCode result = SOSCCView(kSOSViewAutofillPasswords, kSOSCCViewQuery, &viewErrorRef);
 
-    BOOL viewMember = result == kSOSCCViewMember;
-    if (error) {
-        *error = (NSError*)CFBridgingRelease(viewErrorRef);
+        BOOL viewMember = result == kSOSCCViewMember;
+        if (error) {
+            *error = (NSError*)CFBridgingRelease(viewErrorRef);
+        } else {
+            CFBridgingRelease(viewErrorRef);
+        }
+
+        secnotice("clique-safari", "safariPasswordSyncingEnabled complete: %@", viewMember ? @"YES" : @"NO");
+
+        return viewMember;
     } else {
-        CFBridgingRelease(viewErrorRef);
+        secnotice("clique-safari", "SOS disabled for this platform, returning NO");
+        if(error){
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                     userInfo:@{NSLocalizedDescriptionKey: @"safari password syncing enabled unimplemented"}];
+        }
+        return NO;
     }
-
-    secnotice("clique-safari", "safariPasswordSyncingEnabled complete: %@", viewMember ? @"YES" : @"NO");
-
-    return viewMember;
 }
 
 - (BOOL)isLastFriend:(NSError **)error
@@ -903,63 +924,89 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
 - (BOOL)waitForInitialSync:(NSError *__autoreleasing*)error
 {
     secnotice("clique-legacy", "waitForInitialSync for context:%@, altdsid:%@", self.ctx.context, self.ctx.altDSID);
-    CFErrorRef initialSyncErrorRef = NULL;
-    bool result = false;
-    if(self.ctx.analytics){
-        NSError* encodingError = nil;
-        NSData* analyticsData = [NSKeyedArchiver archivedDataWithRootObject:self.ctx.analytics requiringSecureCoding:YES error:&encodingError];
-        if(!encodingError && analyticsData){
-            result = SOSCCWaitForInitialSyncWithAnalytics((__bridge CFDataRef)analyticsData, &initialSyncErrorRef);
+    if([OTClique platformSupportsSOS]) {
+        CFErrorRef initialSyncErrorRef = NULL;
+        bool result = false;
+        if(self.ctx.analytics){
+            NSError* encodingError = nil;
+            NSData* analyticsData = [NSKeyedArchiver archivedDataWithRootObject:self.ctx.analytics requiringSecureCoding:YES error:&encodingError];
+            if(!encodingError && analyticsData){
+                result = SOSCCWaitForInitialSyncWithAnalytics((__bridge CFDataRef)analyticsData, &initialSyncErrorRef);
+            }else{
+                result = SOSCCWaitForInitialSync(&initialSyncErrorRef);
+            }
         }else{
             result = SOSCCWaitForInitialSync(&initialSyncErrorRef);
         }
-    }else{
-        result = SOSCCWaitForInitialSync(&initialSyncErrorRef);
-    }
-    
-    BOOL initialSyncResult = (result == true);
-    if (error) {
-        *error = (NSError*)CFBridgingRelease(initialSyncErrorRef);
+
+        BOOL initialSyncResult = (result == true);
+        if (error) {
+            *error = (NSError*)CFBridgingRelease(initialSyncErrorRef);
+        } else {
+            CFBridgingRelease(initialSyncErrorRef);
+        }
+        secnotice("clique-legacy", "waitForInitialSync waited: %d %@", initialSyncResult, error ? *error : @"no error pointer provided");
+        return initialSyncResult;
     } else {
-        CFBridgingRelease(initialSyncErrorRef);
+        secnotice("clique-legacy", "SOS disabled for this platform, returning NO");
+        if(error){
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                     userInfo:@{NSLocalizedDescriptionKey: @"wait for initial sync unimplemented"}];
+        }
+        return NO;
     }
-    secnotice("clique-legacy", "waitForInitialSync waited: %d %@", initialSyncResult, error ? *error : @"no error pointer provided");
-    return initialSyncResult;
 }
 
-- (NSArray*)copyViewUnawarePeerInfo:(NSError *__autoreleasing*)error
+- (NSArray* _Nullable)copyViewUnawarePeerInfo:(NSError *__autoreleasing*)error
 {
     secnotice("clique-legacy", "copyViewUnawarePeerInfo for context:%@, altdsid:%@", self.ctx.context, self.ctx.altDSID);
-    CFErrorRef copyViewUnawarePeerInfoErrorRef = NULL;
-    CFArrayRef peerListRef = SOSCCCopyViewUnawarePeerInfo(&copyViewUnawarePeerInfoErrorRef);
 
-    NSArray* peerList = (peerListRef ? (NSArray*)(CFBridgingRelease(peerListRef)) : nil);
-    if (error) {
-        *error = (NSError*)CFBridgingRelease(copyViewUnawarePeerInfoErrorRef);
+    if([OTClique platformSupportsSOS]) {
+        CFErrorRef copyViewUnawarePeerInfoErrorRef = NULL;
+        CFArrayRef peerListRef = SOSCCCopyViewUnawarePeerInfo(&copyViewUnawarePeerInfoErrorRef);
+
+        NSArray* peerList = (peerListRef ? (NSArray*)(CFBridgingRelease(peerListRef)) : nil);
+        if (error) {
+            *error = (NSError*)CFBridgingRelease(copyViewUnawarePeerInfoErrorRef);
+        } else {
+            CFBridgingRelease(copyViewUnawarePeerInfoErrorRef);
+        }
+        return peerList;
     } else {
-        CFBridgingRelease(copyViewUnawarePeerInfoErrorRef);
+        secnotice("clique-legacy", "SOS disabled for this platform, returning NULL");
+        if(error){
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                     userInfo:@{NSLocalizedDescriptionKey: @"copy view unaware peer info unimplemented"}];
+        }
+        return nil;
     }
-    return peerList;
 }
 
 - (BOOL)viewSet:(NSSet*)enabledViews disabledViews:(NSSet*)disabledViews
 {
     secnotice("clique-legacy", "viewSet for context:%@, altdsid:%@", self.ctx.context, self.ctx.altDSID);
-    bool result = false;
-    if(self.ctx.analytics){
-        NSError* encodingError = nil;
-        NSData* analyticsData = [NSKeyedArchiver archivedDataWithRootObject:self.ctx.analytics requiringSecureCoding:YES error:&encodingError];
-        if(!encodingError && analyticsData){
-            result = SOSCCViewSetWithAnalytics((__bridge CFSetRef)enabledViews, (__bridge CFSetRef)disabledViews, (__bridge CFDataRef)analyticsData);
+    if([OTClique platformSupportsSOS]) {
+        bool result = false;
+        if(self.ctx.analytics){
+            NSError* encodingError = nil;
+            NSData* analyticsData = [NSKeyedArchiver archivedDataWithRootObject:self.ctx.analytics requiringSecureCoding:YES error:&encodingError];
+            if(!encodingError && analyticsData){
+                result = SOSCCViewSetWithAnalytics((__bridge CFSetRef)enabledViews, (__bridge CFSetRef)disabledViews, (__bridge CFDataRef)analyticsData);
+            }else{
+                result = SOSCCViewSet((__bridge CFSetRef)enabledViews, (__bridge CFSetRef)disabledViews);
+            }
         }else{
             result = SOSCCViewSet((__bridge CFSetRef)enabledViews, (__bridge CFSetRef)disabledViews);
         }
-    }else{
-        result = SOSCCViewSet((__bridge CFSetRef)enabledViews, (__bridge CFSetRef)disabledViews);
-    }
 
-    BOOL viewSetResult = (result == true);
-    return viewSetResult;
+        BOOL viewSetResult = (result == true);
+        return viewSetResult;
+    } else {
+        secnotice("clique-legacy", "SOS disabled for this platform, returning NO");
+        return NO;
+    }
 }
 
 - (BOOL)setUserCredentialsAndDSID:(NSString*)userLabel
@@ -967,38 +1014,48 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
                             error:(NSError *__autoreleasing*)error
 {
     secnotice("clique-legacy", "setUserCredentialsAndDSID for context:%@, altdsid:%@", self.ctx.context, self.ctx.altDSID);
-    CFErrorRef setCredentialsErrorRef = NULL;
-    bool result = false;
-    if(self.ctx.analytics){
-        NSError* encodingError = nil;
-        NSData* analyticsData = [NSKeyedArchiver archivedDataWithRootObject:self.ctx.analytics requiringSecureCoding:YES error:&encodingError];
-        if(!encodingError && analyticsData){
-            result = SOSCCSetUserCredentialsAndDSIDWithAnalytics((__bridge CFStringRef)userLabel,
-                                                                 (__bridge CFDataRef)userPassword,
-                                                                 (__bridge CFStringRef)self.ctx.dsid,
-                                                                 (__bridge CFDataRef)analyticsData,
-                                                                 &setCredentialsErrorRef);
+    if([OTClique platformSupportsSOS]) {
+        CFErrorRef setCredentialsErrorRef = NULL;
+        bool result = false;
+        if(self.ctx.analytics){
+            NSError* encodingError = nil;
+            NSData* analyticsData = [NSKeyedArchiver archivedDataWithRootObject:self.ctx.analytics requiringSecureCoding:YES error:&encodingError];
+            if(!encodingError && analyticsData){
+                result = SOSCCSetUserCredentialsAndDSIDWithAnalytics((__bridge CFStringRef)userLabel,
+                                                                     (__bridge CFDataRef)userPassword,
+                                                                     (__bridge CFStringRef)self.ctx.dsid,
+                                                                     (__bridge CFDataRef)analyticsData,
+                                                                     &setCredentialsErrorRef);
+            }else{
+                result = SOSCCSetUserCredentialsAndDSID((__bridge CFStringRef)userLabel,
+                                                        (__bridge CFDataRef)userPassword,
+                                                        (__bridge CFStringRef)self.ctx.dsid,
+                                                        &setCredentialsErrorRef);
+            }
         }else{
             result = SOSCCSetUserCredentialsAndDSID((__bridge CFStringRef)userLabel,
                                                     (__bridge CFDataRef)userPassword,
                                                     (__bridge CFStringRef)self.ctx.dsid,
                                                     &setCredentialsErrorRef);
         }
-    }else{
-        result = SOSCCSetUserCredentialsAndDSID((__bridge CFStringRef)userLabel,
-                                                (__bridge CFDataRef)userPassword,
-                                                (__bridge CFStringRef)self.ctx.dsid,
-                                                &setCredentialsErrorRef);
-    }
 
-    BOOL setCredentialsResult = (result == true);
-    if (error) {
-        *error = (NSError*)CFBridgingRelease(setCredentialsErrorRef);
+        BOOL setCredentialsResult = (result == true);
+        if (error) {
+            *error = (NSError*)CFBridgingRelease(setCredentialsErrorRef);
+        } else {
+            CFBridgingRelease(setCredentialsErrorRef);
+        }
+        secnotice("clique-legacy", "setUserCredentialsAndDSID results: %d %@", setCredentialsResult, setCredentialsErrorRef);
+        return setCredentialsResult;
     } else {
-        CFBridgingRelease(setCredentialsErrorRef);
+        secnotice("clique-legacy", "SOS disabled for this platform, returning NO");
+        if(error){
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                     userInfo:@{NSLocalizedDescriptionKey: @"set user credentials unimplemented"}];
+        }
+        return NO;
     }
-    secnotice("clique-legacy", "setUserCredentialsAndDSID results: %d %@", setCredentialsResult, setCredentialsErrorRef);
-    return setCredentialsResult;
 }
 
 - (BOOL)tryUserCredentialsAndDSID:(NSString*)userLabel
@@ -1006,60 +1063,91 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
                             error:(NSError *__autoreleasing*)error
 {
     secnotice("clique-legacy", "tryUserCredentialsAndDSID for context:%@, altdsid:%@", self.ctx.context, self.ctx.altDSID);
-    CFErrorRef tryCredentialsErrorRef = NULL;
-    bool result = SOSCCTryUserCredentialsAndDSID((__bridge CFStringRef)userLabel,
-                                                 (__bridge CFDataRef)userPassword,
-                                                 (__bridge CFStringRef)self.ctx.dsid,
-                                                 &tryCredentialsErrorRef);
 
-    BOOL tryCredentialsResult = (result == true);
-    if (error) {
-        *error = (NSError*)CFBridgingRelease(tryCredentialsErrorRef);
+    if([OTClique platformSupportsSOS]) {
+        CFErrorRef tryCredentialsErrorRef = NULL;
+        bool result = SOSCCTryUserCredentialsAndDSID((__bridge CFStringRef)userLabel,
+                                                     (__bridge CFDataRef)userPassword,
+                                                     (__bridge CFStringRef)self.ctx.dsid,
+                                                     &tryCredentialsErrorRef);
+
+        BOOL tryCredentialsResult = (result == true);
+        if (error) {
+            *error = (NSError*)CFBridgingRelease(tryCredentialsErrorRef);
+        } else {
+            CFBridgingRelease(tryCredentialsErrorRef);
+        }
+        secnotice("clique-legacy", "tryUserCredentialsAndDSID results: %d %@", tryCredentialsResult, tryCredentialsErrorRef);
+        return tryCredentialsResult;
     } else {
-        CFBridgingRelease(tryCredentialsErrorRef);
+        secnotice("clique-legacy", "SOS disabled for this platform, returning NO");
+        if(error){
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                     userInfo:@{NSLocalizedDescriptionKey: @"try user credentials unimplemented"}];
+        }
+        return NO;
     }
-    secnotice("clique-legacy", "tryUserCredentialsAndDSID results: %d %@", tryCredentialsResult, tryCredentialsErrorRef);
-    return tryCredentialsResult;
-
 }
 
-- (NSArray*)copyPeerPeerInfo:(NSError *__autoreleasing*)error
+- (NSArray* _Nullable)copyPeerPeerInfo:(NSError *__autoreleasing*)error
 {
     secnotice("clique-legacy", "copyPeerPeerInfo for context:%@, altdsid:%@", self.ctx.context, self.ctx.altDSID);
-    CFErrorRef copyPeerErrorRef = NULL;
-    CFArrayRef result = SOSCCCopyPeerPeerInfo(&copyPeerErrorRef);
 
-    NSArray* peerList = (result ? (NSArray*)(CFBridgingRelease(result)) : nil);
+    if([OTClique platformSupportsSOS]) {
+        CFErrorRef copyPeerErrorRef = NULL;
+        CFArrayRef result = SOSCCCopyPeerPeerInfo(&copyPeerErrorRef);
 
-    if (error) {
-        *error = (NSError*)CFBridgingRelease(copyPeerErrorRef);
+        NSArray* peerList = (result ? (NSArray*)(CFBridgingRelease(result)) : nil);
+
+        if (error) {
+            *error = (NSError*)CFBridgingRelease(copyPeerErrorRef);
+        } else {
+            CFBridgingRelease(copyPeerErrorRef);
+        }
+        secnotice("clique-legacy", "copyPeerPeerInfo results: %@", peerList);
+
+        return peerList;
     } else {
-        CFBridgingRelease(copyPeerErrorRef);
+        secnotice("clique-legacy", "SOS disabled for this platform, returning NO");
+        if(error){
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                     userInfo:@{NSLocalizedDescriptionKey: @"copy peer peer info unimplemented"}];
+        }
+        return nil;
     }
-    secnotice("clique-legacy", "copyPeerPeerInfo results: %@", peerList);
-
-    return peerList;
-
 }
 
 - (BOOL)peersHaveViewsEnabled:(NSArray<NSString*>*)viewNames error:(NSError *__autoreleasing*)error
 {
     secnotice("clique-legacy", "peersHaveViewsEnabled for context:%@, altdsid:%@", self.ctx.context, self.ctx.altDSID);
-    CFErrorRef viewsEnabledErrorRef = NULL;
-    BOOL viewsEnabledResult = NO;
 
-    CFBooleanRef result = SOSCCPeersHaveViewsEnabled((__bridge CFArrayRef)viewNames, &viewsEnabledErrorRef);
-    if(result){
-        viewsEnabledResult = CFBooleanGetValue(result);
-    }
-    if (error) {
-        *error = (NSError*)CFBridgingRelease(viewsEnabledErrorRef);
+    if([OTClique platformSupportsSOS]) {
+        CFErrorRef viewsEnabledErrorRef = NULL;
+        BOOL viewsEnabledResult = NO;
+
+        CFBooleanRef result = SOSCCPeersHaveViewsEnabled((__bridge CFArrayRef)viewNames, &viewsEnabledErrorRef);
+        if(result){
+            viewsEnabledResult = CFBooleanGetValue(result);
+        }
+        if (error) {
+            *error = (NSError*)CFBridgingRelease(viewsEnabledErrorRef);
+        } else {
+            CFBridgingRelease(viewsEnabledErrorRef);
+        }
+        secnotice("clique-legacy", "peersHaveViewsEnabled results: %@", viewsEnabledResult ? @"YES" : @"NO");
+
+        return viewsEnabledResult;
     } else {
-        CFBridgingRelease(viewsEnabledErrorRef);
+        secnotice("clique-legacy", "SOS disabled for this platform, returning NO");
+        if(error){
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:errSecUnimplemented
+                                     userInfo:@{NSLocalizedDescriptionKey: @"peers have views enabled unimplemented"}];
+        }
+        return NO;
     }
-    secnotice("clique-legacy", "peersHaveViewsEnabled results: %@", viewsEnabledResult ? @"YES" : @"NO");
-
-    return viewsEnabledResult;
 }
 
 - (BOOL)requestToJoinCircle:(NSError *__autoreleasing*)error
@@ -1072,7 +1160,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
 
     if(OctagonIsEnabled()) {
         NSError* localError = nil;
-        [self resetAndEstablish:&localError];
+        [self resetAndEstablish:CuttlefishResetReasonLegacyJoinCircle error:&localError];
 
         if(localError) {
             secnotice("clique-legacy", "account reset failed: %@", localError);
@@ -1092,7 +1180,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
     }
 #endif // OCTAGON
 
-    if(OctagonPlatformSupportsSOS()) {
+    if([OTClique platformSupportsSOS]) {
         NSData* analyticsData = nil;
         if(self.ctx.analytics){
             NSError* encodingError = nil;
@@ -1119,11 +1207,17 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
 - (BOOL)accountUserKeyAvailable
 {
     secnotice("clique-legacy", "accountUserKeyAvailable for context:%@, altdsid:%@", self.ctx.context, self.ctx.altDSID);
-    BOOL canAuthenticate = (BOOL)SOSCCCanAuthenticate(NULL);
-    if (canAuthenticate == NO) {
-        secnotice("clique-legacy", "Security requires credentials...");
+
+    if([OTClique platformSupportsSOS]) {
+        BOOL canAuthenticate = (BOOL)SOSCCCanAuthenticate(NULL);
+        if (canAuthenticate == NO) {
+            secnotice("clique-legacy", "Security requires credentials...");
+        }
+        return canAuthenticate;
+    } else {
+        secnotice("clique-legacy", "SOS disabled for this platform, returning NO");
+        return NO;
     }
-    return canAuthenticate;
 }
 
 // MARK: SBD interfaces
@@ -1266,7 +1360,7 @@ CliqueStatus OTCliqueStatusFromString(NSString* str)
         reply(nil, retError);
         return;
     }
-    if(OctagonPlatformSupportsSOS()) {
+    if([OTClique platformSupportsSOS]) {
         CFErrorRef registerError = nil;
         if (!SecRKRegisterBackupPublicKey(rk, &registerError)) {
             secerror("octagon-setrecoverykey, SecRKRegisterBackupPublicKey() failed: %@", registerError);

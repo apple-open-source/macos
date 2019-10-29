@@ -10,5 +10,6 @@
 #include <stdlib.h>
 
 bool do_preserve_dst_flags_test(const char *test_directory, size_t block_size);
+bool do_preserve_dst_tracked_test(const char *test_directory, size_t block_size);
 
 #endif /* stat_test_h */

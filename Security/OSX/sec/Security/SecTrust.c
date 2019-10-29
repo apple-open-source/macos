@@ -65,7 +65,7 @@
 
 #include <ipc/securityd_client.h>
 
-#include <securityd/SecTrustServer.h>
+#include "trust/trustd/SecTrustServer.h"
 
 #pragma clang diagnostic ignored "-Wformat=2"
 

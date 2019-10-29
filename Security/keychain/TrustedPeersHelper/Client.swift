@@ -89,7 +89,7 @@ class Client: TrustedPeersHelperProtocol {
             container.trustStatus(reply: reply)
         } catch {
             os_log("Trust status failed for (%@, %@): %@", log: tplogDebug, type: .default, container, context, error as CVarArg)
-            reply(TrustedPeersHelperEgoPeerStatus(egoPeerID: nil, status: TPPeerStatus.unknown, peerCountsByModelID: [:], isExcluded: false, isLocked: false), CKXPCSuitableError(error))
+            reply(TrustedPeersHelperEgoPeerStatus(egoPeerID: nil, status: TPPeerStatus.unknown, viablePeerCountsByModelID: [:], isExcluded: false, isLocked: false), CKXPCSuitableError(error))
         }
     }
 
@@ -105,12 +105,12 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
-    func reset(withContainer container: String, context: String, reply: @escaping (Error?) -> Void) {
+    func reset(withContainer container: String, context: String, resetReason: CuttlefishResetReason, reply: @escaping (Error?) -> Void) {
         do {
             let containerName = ContainerName(container: container, context: context)
             os_log("Resetting for %@", log: tplogDebug, type: .default, containerName.description)
             let container = try self.containerMap.findOrCreate(name: containerName)
-            container.reset { error in
+            container.reset(resetReason: resetReason) { error in
                 self.logComplete(function: "Resetting", container: container.name, error: error)
                 reply(CKXPCSuitableError(error)) }
         } catch {
@@ -290,6 +290,23 @@ class Client: TrustedPeersHelperProtocol {
         }
     }
 
+    func preflightVouchWithBottle(withContainer container: String,
+                                  context: String,
+                                  bottleID: String,
+                                  reply: @escaping (String?, Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("Preflight Vouch With Bottle %@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+            container.preflightVouchWithBottle(bottleID: bottleID) { peerID, error in
+                self.logComplete(function: "Preflight Vouch With Bottle", container: container.name, error: error)
+                reply(peerID, CKXPCSuitableError(error)) }
+        } catch {
+            os_log("Preflighting Vouch With Bottle failed for (%@, %@): %@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(nil, CKXPCSuitableError(error))
+        }
+    }
+
     func vouchWithBottle(withContainer container: String,
                          context: String,
                          bottleID: String,
@@ -358,7 +375,7 @@ class Client: TrustedPeersHelperProtocol {
             let containerName = ContainerName(container: container, context: context)
             os_log("Attempting to preflight a preapproved join for %@", log: tplogDebug, type: .default, containerName.description)
             let container = try self.containerMap.findOrCreate(name: containerName)
-            container.preflightPreapprovedJoin() { success, error in reply(success, CKXPCSuitableError(error)) }
+            container.preflightPreapprovedJoin { success, error in reply(success, CKXPCSuitableError(error)) }
         } catch {
             reply(false, CKXPCSuitableError(error))
         }

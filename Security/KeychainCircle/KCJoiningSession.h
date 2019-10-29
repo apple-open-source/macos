@@ -138,7 +138,7 @@ NS_ASSUME_NONNULL_BEGIN
  @result
  Data blob contains tlks, icloud identities, and backupv0
  */
--(NSData*) circleGetInitialSyncViews: (NSError**) error;
+-(NSData*) circleGetInitialSyncViews:(SOSInitialSyncFlags)flags error:(NSError**) error;
 @end
 
 typedef enum {

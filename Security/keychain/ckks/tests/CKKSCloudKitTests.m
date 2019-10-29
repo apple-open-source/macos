@@ -27,9 +27,9 @@
 
 #import <Security/SecureObjectSync/SOSViews.h>
 #import <utilities/SecFileLocations.h>
-#import <securityd/SecItemServer.h>
+#import "keychain/securityd/SecItemServer.h"
 #if NO_SERVER
-#include <securityd/spi.h>
+#include "keychain/securityd/spi.h"
 #endif
 
 #import "keychain/ckks/CKKS.h"

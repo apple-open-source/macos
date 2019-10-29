@@ -75,7 +75,7 @@ do
 #               break
             fi
         else
-            if [ -d $d ] && /usr/libexec/makewhatis.local "-o /dev/stdout" $d | grep -"$grepopt1" "$grepopt2""$1"
+            if [ -d $d ] && /usr/libexec/makewhatis.local "-o /dev/fd/1" $d | grep -"$grepopt1" "$grepopt2""$1"
             then
                 found=1
 # Some people are satisfied with a single occurrence

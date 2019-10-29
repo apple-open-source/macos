@@ -57,12 +57,12 @@
 #include <AssertMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-#include <securityd/SecItemServer.h>    // TODO: We can't leave this here.
-#include <securityd/SOSCloudCircleServer.h> // TODO: We can't leave this here.
+#include "keychain/securityd/SecItemServer.h"    // TODO: We can't leave this here.
+#include "keychain/securityd/SOSCloudCircleServer.h" // TODO: We can't leave this here.
 #include <Security/SecItem.h>           // TODO: We can't leave this here.
 #include <Security/SecItemPriv.h>       // TODO: We can't leave this here.
-#include <securityd/SecItemSchema.h>
-#include <securityd/iCloudTrace.h>
+#include "keychain/securityd/SecItemSchema.h"
+#include "keychain/securityd/iCloudTrace.h"
 
 #include <keychain/ckks/CKKS.h>
 
@@ -1276,51 +1276,6 @@ static void SOSEngineSetNotifyPhaseBlock(SOSEngineRef engine) {
     });
 }
 
-#if 0 // TODO: update these checks
-static void SOSEngineCircleChanged_sanitycheck(SOSEngineRef engine, CFStringRef myPeerID, CFArrayRef trustedPeers, CFArrayRef untrustedPeers) {
-    // Logging code
-    CFMutableArrayRef addedPeers = CFArrayCreateDifference(kCFAllocatorDefault, trustedPeers, engine->peerIDs);
-    CFMutableArrayRef deletedPeers = CFArrayCreateDifference(kCFAllocatorDefault, engine->peerIDs, trustedPeers);
-    CFMutableArrayRef addedUntrustedPeers = CFArrayCreateDifference(kCFAllocatorDefault, untrustedPeers, engine->peerIDs);
-    CFMutableArrayRef deletedUntrustedPeers = CFArrayCreateDifference(kCFAllocatorDefault, engine->peerIDs, untrustedPeers);
-
-    CFStringRef tpDesc = SOSPeerIDArrayCreateString(trustedPeers);
-    CFStringRef apDesc = SOSPeerIDArrayCreateString(addedPeers);
-    CFStringRef dpDesc = SOSPeerIDArrayCreateString(deletedPeers);
-    CFStringRef aupDesc = SOSPeerIDArrayCreateString(addedUntrustedPeers);
-    CFStringRef dupDesc = SOSPeerIDArrayCreateString(deletedUntrustedPeers);
-    secnotice("engine", "trusted %@ added %@ removed %@ add ut: %@ rem ut: %@", tpDesc, apDesc, dpDesc, aupDesc, dupDesc);
-    CFReleaseSafe(dupDesc);
-    CFReleaseSafe(aupDesc);
-    CFReleaseSafe(dpDesc);
-    CFReleaseSafe(apDesc);
-    CFReleaseSafe(tpDesc);
-
-    // Assertions:
-    // Ensure SOSAccount isn't giving us the runaround.
-    // Assert that trustedPeers, untrustedPeers and myPeerId are disjoint sets
-    if (trustedPeers) {
-        CFMutableArrayRef allTrustedPeers = CFArrayCreateDifference(kCFAllocatorDefault, trustedPeers, untrustedPeers);
-        assert(CFEqual(trustedPeers, allTrustedPeers));
-        CFReleaseSafe(allTrustedPeers);
-        assert(!CFArrayContainsValue(trustedPeers, CFRangeMake(0, CFArrayGetCount(trustedPeers)), myPeerID));
-    }
-    if (untrustedPeers) {
-        CFMutableArrayRef allUntrustedPeers = CFArrayCreateDifference(kCFAllocatorDefault, untrustedPeers, trustedPeers);
-        assert(CFEqual(untrustedPeers, allUntrustedPeers));
-        CFReleaseSafe(allUntrustedPeers);
-        assert(!CFArrayContainsValue(untrustedPeers, CFRangeMake(0, CFArrayGetCount(trustedPeers)), myPeerID));
-    }
-
-    CFReleaseNull(deletedUntrustedPeers);
-    CFReleaseNull(addedUntrustedPeers);
-    CFReleaseNull(deletedPeers);
-    CFReleaseNull(addedPeers);
-
-    // End of logging and asertions, actual code here.
-}
-#endif
-
 static SOSChangeTrackerRef SOSReferenceAndGetChangeTracker(CFDictionaryRef lookup, CFMutableDictionaryRef referenced, CFSetRef viewNameSet) {
     SOSChangeTrackerRef ct = (SOSChangeTrackerRef)CFDictionaryGetValue(referenced, viewNameSet);
     if (!ct) {
@@ -2070,163 +2025,6 @@ L local
 C confirmed
 
 */
-#if 0
-static bool SOSAppendRemoveToPatch(CFTypeRef remove, CFMutableDictionaryRef patch, CFErrorRef *error) {
-}
-
-static bool SOSAppendAddToPatch(CFTypeRef add, CFMutableDictionaryRef patch, CFErrorRef *error) {
-}
-
-static bool SOSAppendDiffToPatch(CFTypeRef left, CFTypeRef right, CFMutableDictionaryRef patch, CFErrorRef *error) {
-    bool ok = true;
-    if (!left && right) {
-        SOSAppendAddToPatch(right, patch, error);
-    } else if (left && !right) {
-        SOSAppendRemoveToPatch(left, patch, error);
-    } else if (left && right) {
-        CFTypeID ltype = CFGetTypeID(left);
-        CFTypeID rtype = CFGetTypeID(right);
-        if (ltype == rtype) {
-            if (CFArrayGetTypeID() == ltype) {
-                ok = SecError(errSecParam, error, CFSTR("unsupported type array"), ltype);
-            } else if (CFBooleanGetTypeID == ltype) {
-                ok = SecError(errSecParam, error, CFSTR("unsupported type boolean"), ltype);
-            } else if (CFDataGetTypeID == ltype) {
-                ok = SecError(errSecParam, error, CFSTR("unsupported type data"), ltype);
-            } else if (CFDictionaryGetTypeID == ltype) {
-                __block CFMutableDictionaryRef leftnotright = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
-                __block CFMutableDictionaryRef rightnotleft = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, right);
-
-                CFDictionaryForEach(left, ^(const void *key, const void *lvalue) {
-                    const void *rvalue = NULL;
-                    if (CFDictionaryGetValueIfPresent(right, key, &rvalue)) {
-                        CFDictionaryRemoveValue(rightnotleft, key);
-
-                        CFMutableDictionaryRef subpatch = CFDictionaryCreateForCFTypes(kCFAllocatorDefault);
-                        CFDictionaryAddValue(patch, key, subpatch);
-                        SOSAppendDiffToPatch(lvalue, rvalue, subpatch, error);
-                        CFReleaseSafe(subpatch);
-                    } else {
-                        CFDictionaryAddValue(leftnotright, key, lvalue);
-                    }
-                });
-                // Proccess leftnotright and rightnotleft
-                CFReleaseSafe(leftnotright);
-                CFReleaseSafe(rightnotleft);
-            } else if (SOSManifestGetTypeID == ltype) {
-                SOSManifestRef removed = NULL, added = NULL;
-                ok &= SOSManifestDiff(left, right, &removed, &added, error);
-                if (SOSManifestGetCount(removed) || SOSManifestGetCount(added)) {
-                    SOSAppendDiffToPatch(lvalue, rvalue, subpatch, error);
-                    CFStringAppend(, <#CFStringRef appendedString#>)
-                }
-                CFReleaseSafe(removed);
-                CFReleaseSafe(added);
-            } else if (CFNumberGetTypeID == ltype) {
-                ok = SecError(errSecParam, error, CFSTR("unsupported type number"), ltype);
-            } else if (CFSetGetTypeID == ltype) {
-                ok = SecError(errSecParam, error, CFSTR("unsupported type set"), ltype);
-            } else if (CFStringGetTypeID == ltype) {
-                ok = SecError(errSecParam, error, CFSTR("unsupported type string"), ltype);
-            } else {
-                ok = SecError(errSecParam, error, CFSTR("unknown type %lu"), ltype);
-            }
-        }
-    } else if (!left && !right) {
-        // NOOP
-    }
-}
-#endif
-
-static __unused bool SOSEngineCheckPeerIntegrity(SOSEngineRef engine, SOSPeerRef peer, CFErrorRef *error) {
-#if 0
-    //static CFMutableDictionaryRef p2amtu;
-    if (!engine->p2amtu)
-        engine->p2amtu = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
-    CFDictionaryRef amtu = CFDictionaryGetValue(engine->p2amtu, SOSPeerGetID(peer));
-#endif
-
-    // Inputs
-    SOSManifestRef L = SOSEngineCopyLocalPeerManifest_locked(engine, peer, error);
-    SOSManifestRef T = SOSPeerGetPendingObjects(peer);
-    SOSManifestRef C = SOSPeerGetConfirmedManifest(peer);
-    SOSManifestRef U = SOSPeerGetUnwantedManifest(peer);
-
-    // Computed
-    SOSManifestRef CunionU = SOSManifestCreateUnion(C, U, error);
-    SOSManifestRef S = SOSManifestCreateIntersection(L, CunionU, error);
-
-    SOSManifestRef AunionT = NULL, MunionU = NULL;
-    SOSManifestDiff(L, C, &AunionT, &MunionU, error);
-
-    SOSManifestRef A = SOSManifestCreateComplement(T, AunionT, error);
-    SOSManifestRef M = SOSManifestCreateComplement(U, MunionU, error);
-
-    SOSManifestRef SunionAunionT = SOSManifestCreateUnion(S, AunionT, error);
-    SOSManifestRef SunionMunionU = SOSManifestCreateUnion(S, MunionU, error);
-
-    SOSManifestRef AintersectM = SOSManifestCreateIntersection(A, M, error);
-    SOSManifestRef AintersectS = SOSManifestCreateIntersection(A, S, error);
-    SOSManifestRef AintersectT = SOSManifestCreateIntersection(A, T, error);
-    SOSManifestRef AintersectU = SOSManifestCreateIntersection(A, U, error);
-    SOSManifestRef MintersectS = SOSManifestCreateIntersection(M, S, error);
-    SOSManifestRef MintersectT = SOSManifestCreateIntersection(M, T, error);
-    SOSManifestRef MintersectU = SOSManifestCreateIntersection(M, U, error);
-    SOSManifestRef SintersectT = SOSManifestCreateIntersection(S, T, error);
-    SOSManifestRef SintersectU = SOSManifestCreateIntersection(S, U, error);
-    SOSManifestRef TintersectU = SOSManifestCreateIntersection(T, U, error);
-
-#if 0
-    CFDictionaryRef newAmtu = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, CFSTR("A"), A, CFSTR("M"), M, CFSTR("T"), T, CFSTR("U") U, NULL);
-    CFDictionarySetValue(engine->p2amtu, SOSPeerGetID(peer), newAmtu);
-    CFMutableStringRef amtuChanges = CFStringCreateMutable(kCFAllocatorDefault, 0);
-    SOSAppendDiffToString(amtu, newAmtu, amtuChanges);
-    secnotice("engine", "%@: %@", SOSPeerGetID(peer), amtuChanges);
-#endif
-
-#define SOSASSERT(e)      (__builtin_expect(!(e), 0) ? secnotice("engine", "state-assertion %s", #e), assert(e) : (void)0)
-
-    SOSASSERT(L ? CFEqual(L, SunionAunionT) : SOSManifestGetCount(SunionAunionT) == 0);
-    SOSASSERT(C ? CFEqual(C, SunionMunionU) : SOSManifestGetCount(SunionMunionU) == 0);
-
-    SOSASSERT(SOSManifestGetCount(AintersectM) == 0);
-    SOSASSERT(SOSManifestGetCount(AintersectS) == 0);
-    SOSASSERT(SOSManifestGetCount(AintersectT) == 0);
-    SOSASSERT(SOSManifestGetCount(AintersectU) == 0);
-    SOSASSERT(SOSManifestGetCount(MintersectS) == 0);
-    SOSASSERT(SOSManifestGetCount(MintersectT) == 0);
-    SOSASSERT(SOSManifestGetCount(MintersectU) == 0);
-    SOSASSERT(SOSManifestGetCount(SintersectT) == 0);
-    SOSASSERT(SOSManifestGetCount(SintersectU) == 0);
-    SOSASSERT(SOSManifestGetCount(TintersectU) == 0);
-
-    CFReleaseSafe(AintersectM);
-    CFReleaseSafe(AintersectS);
-    CFReleaseSafe(AintersectT);
-    CFReleaseSafe(AintersectU);
-    CFReleaseSafe(MintersectS);
-    CFReleaseSafe(MintersectT);
-    CFReleaseSafe(MintersectU);
-    CFReleaseSafe(SintersectT);
-    CFReleaseSafe(SintersectU);
-    CFReleaseSafe(TintersectU);
-
-    CFReleaseSafe(AunionT);
-    CFReleaseSafe(MunionU);
-    CFReleaseSafe(CunionU);
-
-    CFReleaseNull(SunionAunionT);
-    CFReleaseNull(SunionMunionU);
-
-    CFReleaseSafe(A);
-    CFReleaseSafe(M);
-    CFReleaseSafe(S);
-    //CFReleaseSafe(T); // Get
-    //CFReleaseSafe(U); // Get
-    //CFReleaseSafe(C); // Get
-    CFReleaseSafe(L);
-    return true;
-}
 
 void SOSEngineSetSyncCompleteListener(SOSEngineRef engine, SOSEnginePeerInSyncBlock notify_block) {
     SOSEngineDoOnQueue(engine, ^{
@@ -2518,7 +2316,6 @@ CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef t
                     SOSPeerAddLocalManifest(pmsc2->peer, pmsc2->local);
                     SOSPeerAddProposedManifest(pmsc2->peer, pmsc2->proposed);
                     secnoticeq("engine", "send %@:%@ %@", pmsc2->engine->myID, SOSPeerGetID(pmsc2->peer), pmsc2->message);
-                    //SOSEngineCheckPeerIntegrity(engine, peer, NULL);
                 } else {
                     secerror("%@:%@ failed to send %@", pmsc2->engine->myID, SOSPeerGetID(pmsc2->peer), pmsc2->message);
                 }

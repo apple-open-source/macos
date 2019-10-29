@@ -5,6 +5,8 @@ typedef void (^OTPairingCompletionHandler)(bool success, NSError *error);
 
 @interface OTPairingService : NSObject <IDSServiceDelegate>
 
+@property (readonly) NSString *pairedDeviceNotificationName;
+
 + (instancetype)sharedService;
 
 #if TARGET_OS_WATCH

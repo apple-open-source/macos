@@ -38,6 +38,8 @@
 #include <limits.h>
 #include <unistd.h>
 
+#include <TargetConditionals.h>
+
 #include <dt_printf.h>
 #include <dt_string.h>
 #include <dt_impl.h>
@@ -1589,6 +1591,7 @@ dtrace_system(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 {
 #pragma unused(data)
 	int rval = dtrace_sprintf(dtp, fp, fmtdata, recp, nrecs, buf, len);
+	int ret;
 
 	if (rval == -1)
 		return (rval);
@@ -1600,8 +1603,10 @@ dtrace_system(dtrace_hdl_t *dtp, FILE *fp, void *fmtdata,
 	 */
 	(void) fflush(fp);
 
-	if (system(dtp->dt_sprintf_buf) == -1)
+	ret = dt_system(dtp->dt_sprintf_buf);
+	if (ret == -1) {
 		return (dt_set_errno(dtp, errno));
+	}
 
 	return (rval);
 }

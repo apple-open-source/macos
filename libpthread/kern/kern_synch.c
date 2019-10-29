@@ -686,7 +686,6 @@ again:
 		pthread_kern->psynch_wait_update_owner(kwq, kwq->kw_owner,
 				&kwq->kw_turnstile);
 		ksyn_wqunlock(kwq);
-		_kwq_cleanup_old_owner(&old_owner);
 		goto out;
 	}
 
@@ -723,9 +722,8 @@ again:
 		old_owner = _kwq_set_owner(kwq, current_thread(), 0);
 		pthread_kern->psynch_wait_update_owner(kwq, kwq->kw_owner,
 				&kwq->kw_turnstile);
-		
+
 		ksyn_wqunlock(kwq);
-		_kwq_cleanup_old_owner(&old_owner);
 		*retval = updatebits;
 		goto out;
 	}
@@ -769,6 +767,7 @@ again:
 		pthread_kern->thread_deallocate_safe(tid_th);
 		tid_th = THREAD_NULL;
 	}
+	assert(old_owner == THREAD_NULL);
 	error = ksyn_wait(kwq, KSYN_QUEUE_WRITE, mgen, ins_flags, 0, 0,
 			psynch_mtxcontinue, kThreadWaitPThreadMutex);
 	// ksyn_wait drops wait queue lock
@@ -777,6 +776,9 @@ out:
 	ksyn_wqrelease(kwq, 1, (KSYN_WQTYPE_INWAIT | KSYN_WQTYPE_MTX));
 	if (tid_th) {
 		thread_deallocate(tid_th);
+	}
+	if (old_owner) {
+		thread_deallocate(old_owner);
 	}
 	return error;
 }

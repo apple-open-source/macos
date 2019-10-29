@@ -4,6 +4,10 @@ mni{
     Languages{
         mni{"মৈতৈলোন্"}
     }
+    Scripts{
+        Beng{"বাংলা"}
+        Mtei{"মেইটেই মায়েক"}
+    }
     Version{"2.1.48.13"}
     localeDisplayPattern{
         keyTypePattern{"{0}: {1}"}

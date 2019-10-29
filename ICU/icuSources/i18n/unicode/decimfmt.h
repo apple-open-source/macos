@@ -2007,6 +2007,18 @@ class U_I18N_API DecimalFormat : public NumberFormat {
     void setSignificantDigitsUsed(UBool useSignificantDigits);
 
     /**
+     * Group-set several settings used for numbers in date formats.
+     * Avoids calls to touch for each separate setting.
+     * Equivalent to:
+     *    setGroupingUsed(FALSE);
+     *    setDecimalSeparatorAlwaysShown(FALSE);
+     *    setParseIntegerOnly(TRUE);
+     *    setMinimumFractionDigits(0);
+     * @internal
+     */
+    void setDateSettings(void) U_OVERRIDE;
+
+    /**
      * Sets the currency used to display currency
      * amounts.  This takes effect immediately, if this format is a
      * currency format.  If this format is not a currency format, then

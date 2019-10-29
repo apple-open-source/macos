@@ -989,7 +989,7 @@ _dispatch_ktrace_impl(uint32_t code, uint64_t a, uint64_t b,
 
 #ifndef VOUCHER_USE_PERSONA
 #if VOUCHER_USE_MACH_VOUCHER && defined(BANK_PERSONA_TOKEN) && \
-		!TARGET_OS_SIMULATOR
+		!TARGET_OS_SIMULATOR && !TARGET_CPU_ARM
 #define VOUCHER_USE_PERSONA 1
 #else
 #define VOUCHER_USE_PERSONA 0

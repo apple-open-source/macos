@@ -117,58 +117,51 @@
     }
 
     secnotice("octagon-ckks", "Beginning establish with keys: %@", viewKeySets);
-    [[self.operationDependencies.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-        [[CKKSAnalytics logger] logRecoverableError:error forEvent:OctagonEventEstablishIdentity withAttributes:NULL];
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+    [self.operationDependencies.cuttlefishXPCWrapper establishWithContainer:self.operationDependencies.containerName
+                                                                    context:self.operationDependencies.contextID
+                                                                   ckksKeys:viewKeySets
+                                                                  tlkShares:pendingTLKShares
+                                                            preapprovedKeys:publicSigningSPKIs
+                                                                      reply:^(NSString * _Nullable peerID, NSArray<CKRecord*>* _Nullable keyHierarchyRecords, NSError * _Nullable error) {
+            STRONGIFY(self);
 
-    }] establishWithContainer:self.operationDependencies.containerName
-                      context:self.operationDependencies.contextID
-                     ckksKeys:viewKeySets
-                    tlkShares:pendingTLKShares
-              preapprovedKeys:publicSigningSPKIs
-                        reply:^(NSString * _Nullable peerID, NSArray<CKRecord*>* _Nullable keyHierarchyRecords, NSError * _Nullable error) {
-        STRONGIFY(self);
+            [[CKKSAnalytics logger] logResultForEvent:OctagonEventEstablishIdentity hardFailure:true result:error];
+            if(error) {
+                secerror("octagon: Error calling establish: %@", error);
 
-        [[CKKSAnalytics logger] logResultForEvent:OctagonEventEstablishIdentity hardFailure:true result:error];
-        if(error) {
-            secerror("octagon: Error calling establish: %@", error);
+                if ([error isCuttlefishError:CuttlefishErrorKeyHierarchyAlreadyExists]) {
+                    secnotice("octagon-ckks", "A CKKS key hierarchy is out of date; moving to '%@'", self.ckksConflictState);
+                    self.nextState = self.ckksConflictState;
+                } else {
+                    self.error = error;
+                }
+                [self runBeforeGroupFinished:self.finishedOp];
+                return;
+            }
 
-            if ([error isCuttlefishError:CuttlefishErrorKeyHierarchyAlreadyExists]) {
-                secnotice("octagon-ckks", "A CKKS key hierarchy is out of date; moving to '%@'", self.ckksConflictState);
-                self.nextState = self.ckksConflictState;
+            self.peerID = peerID;
+
+            NSError* localError = nil;
+            BOOL persisted = [self.operationDependencies.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
+                    metadata.trustState = OTAccountMetadataClassC_TrustState_TRUSTED;
+                    metadata.peerID = peerID;
+                    return metadata;
+                } error:&localError];
+            if(!persisted || localError) {
+                secnotice("octagon", "Couldn't persist results: %@", localError);
+                self.error = localError;
             } else {
-                self.error = error;
+                self.nextState = self.intendedState;
+            }
+
+            // Tell CKKS about our shiny new records!
+            for (id key in self.operationDependencies.viewManager.views) {
+                CKKSKeychainView* view = self.operationDependencies.viewManager.views[key];
+                secnotice("octagon-ckks", "Providing records to %@", view);
+                [view receiveTLKUploadRecords: keyHierarchyRecords];
             }
             [self runBeforeGroupFinished:self.finishedOp];
-            return;
-        }
-
-        self.peerID = peerID;
-
-        NSError* localError = nil;
-        BOOL persisted = [self.operationDependencies.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
-                metadata.trustState = OTAccountMetadataClassC_TrustState_TRUSTED;
-                metadata.peerID = peerID;
-                return metadata;
-            } error:&localError];
-        if(!persisted || localError) {
-            secnotice("octagon", "Couldn't persist results: %@", localError);
-            self.error = localError;
-        } else {
-            self.nextState = self.intendedState;
-        }
-
-        // Tell CKKS about our shiny new records!
-        for (id key in self.operationDependencies.viewManager.views) {
-            CKKSKeychainView* view = self.operationDependencies.viewManager.views[key];
-            secnotice("octagon-ckks", "Providing records to %@", view);
-            [view receiveTLKUploadRecords: keyHierarchyRecords];
-        }
-        [self runBeforeGroupFinished:self.finishedOp];
-    }];
+        }];
 }
 
 @end

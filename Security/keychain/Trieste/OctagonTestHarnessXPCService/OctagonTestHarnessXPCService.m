@@ -29,29 +29,28 @@
 }
 
 - (void)octagonReset:(NSString *)altDSID complete:(void (^)(NSNumber *, NSError *))complete {
-    NSError *error = nil;
 
-    OTControl* rpc = [OTControl controlObject:true error:&error];
-    if (rpc == nil) {
-        complete(@NO, error);
-
-        return;
-    }
-
-    [rpc resetAndEstablish:NULL context:OTDefaultContext altDSID:altDSID reply:^(NSError * _Nullable e) {
-        complete([NSNumber numberWithBool:e != NULL], e);
+    [self.remoteDevice otReset:altDSID complete:^(bool success, NSError * _Nullable error) {
+        complete([NSNumber numberWithBool:success], error);
     }];
 }
 
-/* Oh, ObjC, you are my friend */
-- (void)forwardInvocation:(NSInvocation *)invocation {
-    struct objc_method_description desc = protocol_getMethodDescription(@protocol(SecRemoteDeviceProtocol), [invocation selector], true, true);
-    if (desc.name == NULL) {
-        [super forwardInvocation:invocation];
-    } else {
-        [invocation invokeWithTarget:self.remoteDevice];
-    }
+- (void)octagonPeerID:(NSString *)altDSID complete:(void (^)(NSString *, NSError *))complete {
+
+    [self.remoteDevice otPeerID:altDSID complete:^(NSString *peerID, NSError * _Nullable error) {
+        complete(peerID, error);
+    }];
 }
+
+- (void)octagonInCircle:(NSString *)altDSID complete:(void (^)(NSNumber *,  NSError *_Nullable error))complete
+{
+    [self.remoteDevice otInCircle:altDSID complete:^(bool inCircle, NSError * _Nullable error) {
+        complete(@(inCircle), error);
+    }];
+}
+
+
+
 
 @end
 

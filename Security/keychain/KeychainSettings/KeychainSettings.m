@@ -217,6 +217,7 @@
     [[KeychainSettings sharedOTControl] resetAndEstablish:nil
                                                   context:OTDefaultContext
                                                   altDSID:[self primaryiCloudAccountAltDSID]
+                                              resetReason:CuttlefishResetReasonUserInitiatedReset
                                                     reply:^(NSError * _Nullable error) {
                                                         if(error) {
 

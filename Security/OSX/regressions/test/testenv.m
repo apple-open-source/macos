@@ -62,7 +62,7 @@ int test_check_leaks = 0;
 char **test_skip_leaks_test = NULL;
 
 #ifdef NO_SERVER
-#include <securityd/spi.h>
+#include "keychain/securityd/spi.h"
 
 static int current_dir = -1;
 static char scratch_dir[50];

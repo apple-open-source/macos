@@ -18,8 +18,8 @@
 
 #include "keychain/ckks/CKKS.h"
 #include "keychain/ckks/CKKSLockStateTracker.h"
-#include "securityd/SecItemServer.h"
-#include "securityd/spi.h"
+#include "keychain/securityd/SecItemServer.h"
+#include "keychain/securityd/spi.h"
 #include "utilities/SecFileLocations.h"
 
 #include "tests/secdmockaks/mockaks.h"

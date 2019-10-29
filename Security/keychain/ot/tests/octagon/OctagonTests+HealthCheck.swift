@@ -10,27 +10,27 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
-        
+
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
             throw error
         }
-        
+
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
-        
+
         do {
             let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
             XCTAssertEqual(2, accountState.trustState.rawValue, "saved account should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
         }
-        
+
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
             XCTAssertNil(error, "error should be nil")
@@ -47,7 +47,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
             dumpCallback.fulfill()
         }
         self.wait(for: [dumpCallback], timeout: 10)
-        
+
         self.verifyDatabaseMocks()
         self.assertEnters(context: cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
     }
@@ -68,10 +68,17 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
+        #if os(tvOS)
         XCTAssertEqual(self.cuttlefishContext.postedRepairCFU, false, "Should not have posted a CFU on aTV")
+        #else
+        XCTAssertEqual(self.cuttlefishContext.postedRepairCFU, true, "Should have posted a CFU (due to being untrusted)")
+        #endif
 
         self.verifyDatabaseMocks()
         self.assertEnters(context: cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        // Reset flag for remainder of test
+        self.cuttlefishContext.setPostedBool(false)
 
         // Set the "have I attempted to join" bit; TVs should still not CFU, but other devices should
         try! self.cuttlefishContext.accountMetadataStore.persistOctagonJoinAttempt(.ATTEMPTED)
@@ -89,7 +96,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         XCTAssertEqual(self.cuttlefishContext.postedRepairCFU, true, "Should have posted a CFU")
         #endif
     }
-    
+
     func testHealthCheckSecurityDStateNOTTrusted() throws {
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
@@ -101,17 +108,17 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
             throw error
         }
-        
+
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
-        
+
         //now let's ruin account state, and say we are untrusted
         do {
             let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
@@ -121,14 +128,14 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         } catch {
             XCTFail("error loading account state: \(error)")
         }
-        
+
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         cuttlefishContext.checkOctagonHealth(false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
-        
+
         self.assertEnters(context: cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: cuttlefishContext)
 
@@ -146,11 +153,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
             dumpCallback.fulfill()
         }
         self.wait(for: [dumpCallback], timeout: 10)
-        
+
         self.verifyDatabaseMocks()
         self.assertEnters(context: cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
     }
-    
+
     func testHealthCheckTrustedPeersHelperStateNOTTrusted() throws {
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
@@ -162,7 +169,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -172,21 +179,21 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
-        
+
         do {
             let accountState = try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName)
             XCTAssertEqual(2, accountState.trustState.rawValue, "Saved account state should be trusted")
         } catch {
             XCTFail("error loading account state: \(error)")
         }
-        
+
         var healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         cuttlefishContext.checkOctagonHealth(false) { error in
             XCTAssertNil(error, "error should be nil")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
-        
+
         // now lets completely wipe cuttlefish state
         let resetCallback = self.expectation(description: "resetCallback callback occurs")
         self.tphClient.localReset(withContainer: containerName, context: contextName) { error in
@@ -194,7 +201,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
             resetCallback.fulfill()
         }
         self.wait(for: [resetCallback], timeout: 10)
-        
+
         healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         cuttlefishContext.checkOctagonHealth(false) { error in
             XCTAssertNotNil(error, "error should not be nil")
@@ -220,7 +227,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -269,22 +276,22 @@ class OctagonHealthCheckTests: OctagonTestsBase {
     func testCuttlefishResponseNoAction() throws {
         self.fakeCuttlefishServer.returnNoActionResponse = true
         let (cuttlefishContext, _) = try responseTestsSetup()
-        XCTAssertFalse(self.otFollowUpController.postedFollowUp, "should not have posted a CFU");
-        XCTAssertEqual(cuttlefishContext.postedRepairCFU, false, "should not have posted a CFU");
+        XCTAssertFalse(self.otFollowUpController.postedFollowUp, "should not have posted a CFU")
+        XCTAssertEqual(cuttlefishContext.postedRepairCFU, false, "should not have posted a CFU")
     }
 
     func testCuttlefishResponseRepairAccount() throws {
         self.fakeCuttlefishServer.returnRepairAccountResponse = true
         let (_, _) = try responseTestsSetup()
-        XCTAssertTrue(self.otFollowUpController.postedFollowUp, "should have posted a CFU");
+        XCTAssertTrue(self.otFollowUpController.postedFollowUp, "should have posted a CFU")
     }
 
     func testCuttlefishResponseRepairEscrow() throws {
         self.fakeCuttlefishServer.returnRepairEscrowResponse = true
         OTMockSecEscrowRequest.self.populateStatuses = false
         let (cuttlefishContext, _) = try responseTestsSetup()
-        XCTAssertTrue(self.otFollowUpController.postedFollowUp, "should have posted a CFU");
-        XCTAssertEqual(cuttlefishContext.postedEscrowRepairCFU, true, "should have posted an escrow CFU");
+        XCTAssertTrue(self.otFollowUpController.postedFollowUp, "should have posted a CFU")
+        XCTAssertEqual(cuttlefishContext.postedEscrowRepairCFU, true, "should have posted an escrow CFU")
     }
 
     func testCuttlefishResponseResetOctagon() throws {
@@ -315,12 +322,11 @@ class OctagonHealthCheckTests: OctagonTestsBase {
     }
 
     func testCuttlefishResponseError() throws {
-        let cuttlefishError = NSError(domain: CuttlefishErrorDomain, code: CuttlefishErrorCode.changeTokenExpired.rawValue, userInfo: nil)
-        self.fakeCuttlefishServer.returnRepairErrorResponse = NSError(domain: CKInternalErrorDomain, code: CKInternalErrorCode.errorInternalPluginError.rawValue, userInfo: [NSUnderlyingErrorKey: cuttlefishError])
+        self.fakeCuttlefishServer.returnRepairErrorResponse = FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired)
 
         let (cuttlefishContext, _) = try responseTestsSetup()
-        XCTAssertEqual(cuttlefishContext.postedRepairCFU, false, "should not have posted an account repair CFU");
-        XCTAssertEqual(cuttlefishContext.postedEscrowRepairCFU, false, "should not have posted an escrow repair CFU");
+        XCTAssertEqual(cuttlefishContext.postedRepairCFU, false, "should not have posted an account repair CFU")
+        XCTAssertEqual(cuttlefishContext.postedEscrowRepairCFU, false, "should not have posted an escrow repair CFU")
     }
 
     func testHealthCheckBeforeStateMachineStarts() throws {
@@ -328,19 +334,19 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         let containerName = OTCKContainerName
         let cuttlefishContext = self.manager.context(forContainerName: OTCKContainerName, contextID: contextName)
 
-        cuttlefishContext.stateMachine.setWatcherTimeout(2*NSEC_PER_SEC);
+        cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
             XCTAssertNotNil(error, "Should be an error calling 'healthCheck'")
             XCTAssertEqual(error!._domain, CKKSResultErrorDomain, "Error domain should be CKKSResultErrorDomain")
-            XCTAssertEqual(error!._code , CKKSResultTimedOut, "Error result should be CKKSResultTimedOut")
+            XCTAssertEqual(error!._code, CKKSResultTimedOut, "Error result should be CKKSResultTimedOut")
             healthCheckCallback.fulfill()
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
         self.startCKAccountStatusMock()
 
-        cuttlefishContext.stateMachine.setWatcherTimeout(60*NSEC_PER_SEC);
+        cuttlefishContext.stateMachine.setWatcherTimeout(60 * NSEC_PER_SEC)
 
         cuttlefishContext.startOctagonStateMachine()
 
@@ -353,7 +359,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         otcliqueContext.altDSID = self.mockAuthKit.altDSID!
         otcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -405,7 +411,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -454,10 +460,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         }
         self.wait(for: [healthCheckCallback], timeout: 10)
 
-
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -505,7 +510,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
 
         let cuttlefishContext = self.manager.context(forContainerName: containerName, contextID: contextName)
-        cuttlefishContext.stateMachine.setWatcherTimeout(2*NSEC_PER_SEC);
+        cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
@@ -530,7 +535,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -583,7 +588,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -709,7 +714,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         bottlerotcliqueContext.altDSID = self.mockAuthKit.altDSID!
         bottlerotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -745,9 +750,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         }
         self.wait(for: [fetchViableExpectation], timeout: 10)
 
-        let userInfo: Dictionary = ["NSLocalizedDescription" : "Reachability validation failed, graph is not reachable"]
-        let cuttlefishError = NSError(domain: CuttlefishErrorDomain, code: CuttlefishErrorCode.resultGraphNotFullyReachable.rawValue, userInfo: userInfo)
-        let ckError = NSError(domain: CKInternalErrorDomain, code: CKInternalErrorCode.errorInternalPluginError.rawValue, userInfo: [NSUnderlyingErrorKey: cuttlefishError])
+        let ckError = FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .resultGraphNotFullyReachable)
         self.fakeCuttlefishServer.nextJoinErrors.append(ckError)
 
         let joinListenerExpectation = self.expectation(description: "joinWithVoucherExpectation callback occurs")
@@ -773,13 +776,15 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [healthExpectation], timeout: 100)
         self.fakeCuttlefishServer.joinListener = nil
         self.fakeCuttlefishServer.healthListener = nil
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
     }
 
     func testCuttlefishDontPostEscrowCFUDueToPendingPrecord() throws {
         self.fakeCuttlefishServer.returnRepairEscrowResponse = true
         OTMockSecEscrowRequest.self.populateStatuses = true
         let (cuttlefishContext, _) = try responseTestsSetup()
-        XCTAssertEqual(cuttlefishContext.postedEscrowRepairCFU, false, "should NOT have posted an escrow CFU");
+        XCTAssertEqual(cuttlefishContext.postedEscrowRepairCFU, false, "should NOT have posted an escrow CFU")
     }
 
     func testHealthCheckWhileLocked() throws {
@@ -793,7 +798,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Project</key>
+	<string>bash</string>
+	<key>Tests</key>
+	<array>
+		<dict>
+			<key>Command</key>
+			<array>
+				<string>/bin/bash</string>
+				<string>sample_test.sh</string>
+			</array>
+			<key>TestName</key>
+			<string>bash.script.run_process</string>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/Tests/bash</string>
+		</dict>
+	</array>
+	<key>Timeout</key>
+	<integer>30</integer>
+</dict>
+</plist>

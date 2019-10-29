@@ -19,7 +19,6 @@ NS_ASSUME_NONNULL_BEGIN
 @interface SOSAccount (Transaction)
 
 + (void)performOnQuietAccountQueue:(void (^)(void))action;
-+ (void)performWhileHoldingAccountQueue:(void (^)(void))action;
 
 - (void) performTransaction: (void (^)(SOSAccountTransaction* txn)) action;
 - (void) performTransaction_Locked: (void (^)(SOSAccountTransaction* txn)) action;

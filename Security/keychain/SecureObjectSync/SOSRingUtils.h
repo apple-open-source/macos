@@ -135,19 +135,4 @@ SOSRingRef SOSRingCreateFromDER(CFErrorRef* error, const uint8_t** der_p, const 
 
 CFDictionaryRef SOSRingCreateRetirementTicket(SOSFullPeerInfoRef fpi, CFErrorRef *error);
 
-#if 0
-int SOSRingCountActivePeers(SOSCircleRef circle, SOSRingRef ring);
-int SOSRingCountActiveValidPeers(SOSCircleRef circle, SOSRingRef ring, SecKeyRef pubkey);
-int SOSRingCountRetiredPeers(SOSCircleRef circle, SOSRingRef ring);
-void SOSRingForEachPeer(SOSCircleRef circle, SOSRingRef ring, void (^action)(SOSPeerInfoRef peer));
-void SOSRingForEachRetiredPeer(SOSCircleRef circle, SOSRingRef ring, void (^action)(SOSPeerInfoRef peer));
-void SOSRingForEachActivePeer(SOSCircleRef circle, SOSRingRef ring, void (^action)(SOSPeerInfoRef peer));
-void SOSRingForEachActiveValidPeer(SOSCircleRef circle, SOSRingRef ring, SecKeyRef user_public_key, void (^action)(SOSPeerInfoRef peer));
-SOSPeerInfoRef SOSRingCopyPeerWithID(SOSCircleRef circle, SOSRingRef ring, CFStringRef peerid, CFErrorRef *error);
-bool SOSRingHasActivePeerWithID(SOSCircleRef circle, SOSRingRef ring, CFStringRef peerid, CFErrorRef *error);
-bool SOSRingHasActiveValidPeerWithID(SOSCircleRef circle, SOSRingRef ring, CFStringRef peerid, SecKeyRef user_public_key, CFErrorRef *error);
-void SOSRingForEachApplicant(SOSCircleRef circle, SOSRingRef ring, void (^action)(SOSPeerInfoRef peer));
-bool SOSRingResetToOffering_Internal(SOSCircleRef circle, SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error);
-#endif
-
 #endif /* defined(_sec_SOSRingUtils_) */

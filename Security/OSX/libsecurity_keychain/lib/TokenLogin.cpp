@@ -119,7 +119,7 @@ static CFDataRef getPubKeyHashWrap(CFDictionaryRef context)
 	return pubKeyHashWrap;
 }
 
-static OSStatus privKeyForPubKeyHash(CFDictionaryRef context, SecKeyRef *privKey, CFTypeRef *laCtx)
+static OSStatus privKeyForPubKeyHashWrap(CFDictionaryRef context, SecKeyRef *privKey, CFTypeRef *laCtx)
 {
     if (!context) {
         os_log_error(TL_LOG, "private key for pubkeyhash wrong params");
@@ -133,14 +133,14 @@ static OSStatus privKeyForPubKeyHash(CFDictionaryRef context, SecKeyRef *privKey
 	if (pin) {
 		CFRef<CFTypeRef> LAContext = LACreateNewContextWithACMContext(NULL, error.take());
 		if (!LAContext) {
-			os_log_error(TL_LOG, "Failed to LA Context: %@", error.get());
+			os_log_error(TL_LOG, "Failed to LA Context: %{public}@", error.get());
 			return errSecParam;
 		}
 		if (laCtx)
 			*laCtx = (CFTypeRef)CFRetain(LAContext);
         CFRef<CFDataRef> externalizedContext = LACopyACMContext(LAContext, error.take());
         if (!externalizedContext) {
-            os_log_error(TL_LOG, "Failed to get externalized context: %@", error.get());
+            os_log_error(TL_LOG, "Failed to get externalized context: %{public}@", error.get());
             return errSecParam;
         }
         CFDictionarySetValue(tokenAttributes, kSecUseCredentialReference, externalizedContext.get());
@@ -149,13 +149,13 @@ static OSStatus privKeyForPubKeyHash(CFDictionaryRef context, SecKeyRef *privKey
 
     CFRef<TKTokenRef> token = TKTokenCreate(tokenAttributes, error.take());
     if (!token) {
-        os_log_error(TL_LOG, "Failed to create token: %@", error.get());
+        os_log_error(TL_LOG, "Failed to create token: %{public}@", error.get());
         return errSecParam;
     }
 
     CFRef<CFArrayRef> identities = TKTokenCopyIdentities(token, TKTokenKeyUsageAny, error.take());
     if (!identities || !CFArrayGetCount(identities)) {
-        os_log_error(TL_LOG, "No identities found for token: %@", error.get());
+        os_log_error(TL_LOG, "No identities found for token: %{public}@", error.get());
         return errSecParam;
     }
 
@@ -218,12 +218,12 @@ OSStatus TokenLoginGetContext(const void *base64TokenLoginData, UInt32 base64Tok
 															 NULL,
 															 error.take());
 	if (!*context || CFGetTypeID(*context) != CFDictionaryGetTypeID()) {
-		os_log_error(TL_LOG, "Invalid token login data property list, %@", error.get());
+		os_log_error(TL_LOG, "Invalid token login data property list, %{public}@", error.get());
 		return errSecParam;
 	}
 
 	if (!getPin(*context) || !getTokenId(*context) || !getPubKeyHash(*context) || !getPubKeyHashWrap(*context)) {
-		os_log_error(TL_LOG, "Invalid token login data context, %@", error.get());
+		os_log_error(TL_LOG, "Invalid token login data context, %{public}@", error.get());
 		return errSecParam;
 	}
 
@@ -236,8 +236,8 @@ OSStatus TokenLoginGetUnlockKey(CFDictionaryRef context, CFDataRef *unlockKey)
         os_log_error(TL_LOG, "Get unlock key - wrong params");
         return errSecParam;
     }
-
-	CFRef<CFDictionaryRef> loginData;
+    
+    CFRef<CFDictionaryRef> loginData;
 	OSStatus result = TokenLoginGetLoginData(context, loginData.take());
 	if (result != errSecSuccess) {
 		os_log_error(TL_LOG, "Failed to get login data: %d", (int)result);
@@ -254,12 +254,23 @@ OSStatus TokenLoginGetUnlockKey(CFDictionaryRef context, CFDataRef *unlockKey)
 		os_log_error(TL_LOG, "Algorithm not found in unlock key data");
 		return errSecParam;
 	}
+    CFDataRef pubKeyHashWrapFromPlist = (CFDataRef)CFDictionaryGetValue(loginData, kSecAttrPublicKeyHash);
+    if (pubKeyHashWrapFromPlist == NULL) {
+        os_log_error(TL_LOG, "Failed to get wrapkey for unlock key data");
+        return errSecInternal;
+    }
 
+    CFRef<CFDictionaryRef> ctx = makeCFDictionary(3,
+                                                  kSecAttrTokenID,            getTokenId(context),
+                                                  kSecAttrService,            getPin(context),
+                                                  kSecAttrAccount,            pubKeyHashWrapFromPlist
+                                                  );
+    
 	CFRef<SecKeyRef> privKey;
 	CFRef<CFTypeRef> LAContext;
-	result = privKeyForPubKeyHash(context, privKey.take(), LAContext.take());
+    result = privKeyForPubKeyHashWrap(ctx, privKey.take(), LAContext.take());
 	if (result != errSecSuccess) {
-		os_log_error(TL_LOG, "Failed to get private key for public key hash: %d", (int)result);
+		os_log_error(TL_LOG, "Failed to get private key for public key hash %{public}@: %d", pubKeyHashWrapFromPlist, (int)result);
 		return result;
 	}
 
@@ -274,14 +285,14 @@ OSStatus TokenLoginGetUnlockKey(CFDictionaryRef context, CFDataRef *unlockKey)
 										   wrappedUnlockKey,
 										   error.take());
 	if (!*unlockKey) {
-		os_log_error(TL_LOG, "Failed to unwrap unlock key: %@", error.get());
+		os_log_error(TL_LOG, "Failed to unwrap unlock key: %{public}@", error.get());
 		return errSecDecode;
 	}
 
 	// we need to re-wrap already unwrapped data to avoid capturing and reusing communication with the smartcard
 	CFRef<CFDataRef> reWrappedUnlockKey = SecKeyCreateEncryptedData(pubKey, algorithm, *unlockKey, error.take());
 	if (!reWrappedUnlockKey) {
-		os_log_error(TL_LOG, "Failed to rewrap unlock key: %@", error.get());
+		os_log_error(TL_LOG, "Failed to rewrap unlock key: %{public}@", error.get());
 		TokenLoginDeleteUnlockData(getPubKeyHash(context));
 		return errSecParam;
 	}
@@ -319,7 +330,7 @@ OSStatus TokenLoginGetLoginData(CFDictionaryRef context, CFDictionaryRef *loginD
 															   NULL,
 															   error.take());
 	if (!*loginData || CFGetTypeID(*loginData) != CFDictionaryGetTypeID()) {
-		os_log_error(TL_LOG, "Failed to deserialize unlock key data: %@", error.get());
+		os_log_error(TL_LOG, "Failed to deserialize unlock key data: %{public}@", error.get());
 		return errSecParam;
 	}
 
@@ -366,9 +377,9 @@ OSStatus TokenLoginCreateLoginData(CFStringRef tokenId, CFDataRef pubKeyHash, CF
 												  kSecAttrAccount,			pubKeyHashWrap
 												  );
 	CFRef<SecKeyRef> privKey;
-	OSStatus result = privKeyForPubKeyHash(ctx, privKey.take(), NULL);
+	OSStatus result = privKeyForPubKeyHashWrap(ctx, privKey.take(), NULL);
 	if (result != errSecSuccess) {
-		os_log_error(TL_LOG, "Failed to get private key for public key hash: %d", (int) result);
+        os_log_error(TL_LOG, "Failed to get private key for public key hash %{public}@: %d", pubKeyHashWrap, (int)result);
 		return result;
 	}
 
@@ -407,7 +418,7 @@ OSStatus TokenLoginCreateLoginData(CFStringRef tokenId, CFDataRef pubKeyHash, CF
 	CFRef<CFErrorRef> error;
 	CFRef<CFDataRef> wrappedUnlockKey = SecKeyCreateEncryptedData(pubKey, algorithm, unlockKey, error.take());
 	if (!wrappedUnlockKey) {
-		os_log_error(TL_LOG, "Failed to wrap unlock key: %@", error.get());
+		os_log_error(TL_LOG, "Failed to wrap unlock key: %{public}@", error.get());
 		return errSecParam;
 	}
 
@@ -422,7 +433,7 @@ OSStatus TokenLoginCreateLoginData(CFStringRef tokenId, CFDataRef pubKeyHash, CF
 
 OSStatus TokenLoginStoreUnlockData(CFDictionaryRef context, CFDictionaryRef loginData)
 {
-    os_log(TL_LOG, "Storing unlock data");
+    os_log_debug(TL_LOG, "Storing unlock data");
 
 	CFRef<CFErrorRef> error;
 	CFRef<CFDataRef> data = CFPropertyListCreateData(kCFAllocatorDefault,
@@ -431,24 +442,24 @@ OSStatus TokenLoginStoreUnlockData(CFDictionaryRef context, CFDictionaryRef logi
 										   0,
 										   error.take());
 	if (!data) {
-		os_log_error(TL_LOG, "Failed to create unlock data: %@", error.get());
+		os_log_error(TL_LOG, "Failed to create unlock data: %{public}@", error.get());
 		return errSecInternal;
 	}
     CFRef<CFStringRef> pubKeyHashHex = cfDataToHex(getPubKeyHash(context));
-    os_log(TL_LOG, "Pubkeyhash %@", pubKeyHashHex.get());
+    os_log_debug(TL_LOG, "Pubkeyhash %@", pubKeyHashHex.get());
 
     CFPreferencesSetValue(pubKeyHashHex, data, kSecTokenLoginDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-    os_log(TL_LOG, "Pubkeyhash %@", pubKeyHashHex.get());
+    os_log_debug(TL_LOG, "Pubkeyhash %@", pubKeyHashHex.get());
 
 	CFPreferencesSynchronize(kSecTokenLoginDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
 	CFRef<CFDataRef> storedData = (CFDataRef)CFPreferencesCopyValue(pubKeyHashHex, kSecTokenLoginDomain, kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
-    os_log(TL_LOG, "Stored data %@", storedData.get());
+    os_log_debug(TL_LOG, "Stored data %@", storedData.get());
 
 	if (!storedData || !CFEqual(storedData, data)) {
         os_log_error(TL_LOG, "Failed to write token login plist");
         return errSecIO;
     }
-    os_log(TL_LOG, "Original data %@. Everything is OK", data.get());
+    os_log_debug(TL_LOG, "Original data %@. Everything is OK", data.get());
 
     return errSecSuccess;
 }
@@ -481,9 +492,9 @@ OSStatus TokenLoginGetScBlob(CFDataRef pubKeyHashWrap, CFStringRef tokenId, CFSt
 												  );
 
 	CFRef<SecKeyRef> privKey;
-	OSStatus retval = privKeyForPubKeyHash(ctx, privKey.take(), NULL);
+	OSStatus retval = privKeyForPubKeyHashWrap(ctx, privKey.take(), NULL);
 	if (retval != errSecSuccess) {
-		os_log_error(TL_LOG, "TokenLoginGetScBlob failed to get private key for public key hash: %d", (int) retval);
+        os_log_error(TL_LOG, "TokenLoginGetScBlob failed to get private key for public key hash %{public}@: %d", pubKeyHashWrap, (int)retval);
 		return retval;
 	}
 
@@ -556,25 +567,24 @@ OSStatus TokenLoginUnlockKeybag(CFDictionaryRef context, CFDictionaryRef loginDa
 		return errSecInternal;
 	}
 
-    CFDataRef pubKeyWrapFromPlist = (CFDataRef)CFDictionaryGetValue(loginData, kSecAttrPublicKeyHash);
-    if (pubKeyWrapFromPlist == NULL) {
+    CFDataRef pubKeyHashWrapFromPlist = (CFDataRef)CFDictionaryGetValue(loginData, kSecAttrPublicKeyHash);
+    if (pubKeyHashWrapFromPlist == NULL) {
         os_log_error(TL_LOG, "Failed to get wrapkey");
         return errSecInternal;
     }
 
-    CFRef<CFDictionaryRef> ctx = makeCFDictionary(4,
+    CFRef<CFDictionaryRef> ctx = makeCFDictionary(3,
                                                   kSecAttrTokenID,            getTokenId(context),
                                                   kSecAttrService,            getPin(context),
-                                                  kSecAttrPublicKeyHash,      getPubKeyHash(context),
-                                                  kSecAttrAccount,            pubKeyWrapFromPlist
+                                                  kSecAttrAccount,            pubKeyHashWrapFromPlist
                                                   );
 
 	CFRef<CFErrorRef> error;
 	CFRef<SecKeyRef> privKey;
 	CFRef<CFTypeRef> LAContext;
-	OSStatus retval = privKeyForPubKeyHash(ctx, privKey.take(), LAContext.take());
+	OSStatus retval = privKeyForPubKeyHashWrap(ctx, privKey.take(), LAContext.take());
 	if (retval != errSecSuccess) {
-		os_log_error(TL_LOG, "Failed to get private key for public key hash: %d", (int) retval);
+        os_log_error(TL_LOG, "Failed to get private key for public key hash %{public}@: %d", pubKeyHashWrapFromPlist, (int)retval);
 		return retval;
 	}
 

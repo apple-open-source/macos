@@ -30,8 +30,8 @@
 #import <OCMock/OCMock.h>
 
 #include <Security/SecItemPriv.h>
-#include <securityd/SecItemDb.h>
-#include <securityd/SecItemServer.h>
+#include "keychain/securityd/SecItemDb.h"
+#include "keychain/securityd/SecItemServer.h"
 #include <utilities/SecFileLocations.h>
 #include "keychain/SecureObjectSync/SOSInternal.h"
 
@@ -500,6 +500,8 @@
     NSString* account = @"account-delete-me";
 
     [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:10*NSEC_PER_SEC], @"key state should enter 'ready'");
+    [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     // We expect a single record to be uploaded.
     [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
@@ -1154,11 +1156,13 @@
 
     // Now, another device comes along and creates the hierarchy; we download it; and it and sends us the TLK
     [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.keychainZoneID];
     [self.keychainView notifyZoneChange:nil];
     [[self.keychainView.zoneChangeFetcher requestSuccessfulFetch:CKKSFetchBecauseTesting] waitUntilFinished];
 
     self.aksLockState = false;
     [self.lockStateTracker recheck];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], @"Key state should end up in waitfortlk");
 
     // After unlock, the TLK arrives
     [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
@@ -2096,6 +2100,23 @@
     [self checkGenericPassword:@"newpassword"  account:localDataChangedAccount];
     SecCKKSEnable();
 
+    // To make this more challenging, CK returns the refetch in multiple batches. This shouldn't affect the resync...
+    CKServerChangeToken* ck1 = self.keychainZone.currentChangeToken;
+    self.silentFetchesAllowed = false;
+    [self expectCKFetch];
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
+        // Assert that the fetch is happening with the change token we paused at before
+        CKServerChangeToken* changeToken = frzco.configurationsByRecordZoneID[self.keychainZoneID].previousServerChangeToken;
+        if(changeToken && [changeToken isEqual:ck1]) {
+            return YES;
+        } else {
+            return NO;
+        }
+    } runBeforeFinished:^{}];
+
+    self.keychainZone.limitFetchTo = ck1;
+    self.keychainZone.limitFetchError = [[CKPrettyError alloc] initWithDomain:CKErrorDomain code:CKErrorNetworkFailure userInfo:@{CKErrorRetryAfterKey : [NSNumber numberWithInt:4]}];
+
     // The sixth record gets magically added to CloudKit, but CKKS has never heard of it
     //  (emulates a lost record on the client, but that CloudKit already believes it's sent the record for)
     // Expected outcome: added to local keychain
@@ -2117,6 +2138,8 @@
     [resyncOperation waitUntilFinished];
 
     XCTAssertNil(resyncOperation.error, "No error during the resync operation");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // Now do some checking. Remember, we don't know which record we corrupted, so use the parsed account variables to check.
 

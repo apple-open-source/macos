@@ -1,4 +1,3 @@
-
 #if OCTAGON
 
 class OctagonErrorHandlingTests: OctagonTestsBase {
@@ -17,7 +16,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
                                  userInfo: [:])
         }
 
-        let _ = self.assertResetAndBecomeTrustedInDefaultContext()
+        _ = self.assertResetAndBecomeTrustedInDefaultContext()
         self.wait(for: [establishExpectation], timeout: 10)
     }
 
@@ -26,7 +25,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         let establishExpectation = self.expectation(description: "establishExpectation")
 
-        var t0: Date = Date.distantPast
+        var t0 = Date.distantPast
 
         self.fakeCuttlefishServer.establishListener = {  [unowned self] request in
             self.fakeCuttlefishServer.establishListener = nil
@@ -36,12 +35,40 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
             return FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .retryableServerFailure)
         }
 
-        let _ = self.assertResetAndBecomeTrustedInDefaultContext()
+        _ = self.assertResetAndBecomeTrustedInDefaultContext()
         self.wait(for: [establishExpectation], timeout: 10)
         let t1 = Date()
         let d = t0.distance(to: t1)
         XCTAssertGreaterThanOrEqual(d, 4)
-        XCTAssertLessThanOrEqual(d, 6)
+        // Let slower devices have a few extra seconds: we expect this after 5s, but sometimes they need a bit.
+        XCTAssertLessThanOrEqual(d, 8)
+    }
+
+    func testRecoverFromTransactionalErrorDuringJoinWithVoucher() throws {
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        var t0 = Date.distantPast
+
+        let joinExpectation = self.expectation(description: "joinExpectation")
+        self.fakeCuttlefishServer.joinListener = { [unowned self] _ in
+            self.fakeCuttlefishServer.joinListener = nil
+            joinExpectation.fulfill()
+
+            t0 = Date()
+            return FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .transactionalFailure)
+        }
+
+        let joiningContext = self.makeInitiatorContext(contextID: "joiner", authKitAdapter: self.mockAuthKit2)
+        _ = self.assertJoinViaEscrowRecovery(joiningContext: joiningContext, sponsor: self.cuttlefishContext)
+
+        self.wait(for: [joinExpectation], timeout: 10)
+        let t1 = Date()
+        let d = t0.distance(to: t1)
+        XCTAssertGreaterThanOrEqual(d, 4)
+        // Let slower devices have a few extra seconds: we expect this after 5s, but sometimes they need a bit.
+        XCTAssertLessThanOrEqual(d, 8)
     }
 
     func testReceiveUpdateWhileUntrustedAndLocked() {
@@ -66,7 +93,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
-            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -123,7 +150,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
-            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -134,9 +161,9 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
 
-        self.mockAuthKit.machineIDFetchErrors.append(CKPrettyError(domain:CKErrorDomain,
-                code:CKError.networkUnavailable.rawValue,
-                userInfo:[CKErrorRetryAfterKey: 2]))
+        self.mockAuthKit.machineIDFetchErrors.append(CKPrettyError(domain: CKErrorDomain,
+                code: CKError.networkUnavailable.rawValue,
+                userInfo: [CKErrorRetryAfterKey: 2]))
 
         self.sendContainerChange(context: self.cuttlefishContext)
 
@@ -155,7 +182,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
-            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -169,9 +196,9 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.aksLockState = true
         self.lockStateTracker.recheck()
 
-        self.mockAuthKit.machineIDFetchErrors.append(CKPrettyError(domain:CKErrorDomain,
-                code:CKError.networkUnavailable.rawValue,
-                userInfo:[CKErrorRetryAfterKey: 2]))
+        self.mockAuthKit.machineIDFetchErrors.append(CKPrettyError(domain: CKErrorDomain,
+                code: CKError.networkUnavailable.rawValue,
+                userInfo: [CKErrorRetryAfterKey: 2]))
 
         self.sendContainerChange(context: self.cuttlefishContext)
 
@@ -202,7 +229,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
-            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -215,18 +242,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         let pre = self.fakeCuttlefishServer.fetchChangesCalledCount
 
-
-        let cuttlefishError = NSError(domain:CuttlefishErrorDomain,
-                                      code:CuttlefishErrorCode.transactionalFailure.rawValue,
-                                      userInfo:nil)
-        let ckInternalError = NSError(domain:CKInternalErrorDomain,
-                                      code:CKInternalErrorCode.errorInternalPluginError.rawValue,
-                                      userInfo:[NSUnderlyingErrorKey: cuttlefishError])
-        let ckError = NSError(domain:CKErrorDomain,
-                              code:CKError.serverRejectedRequest.rawValue,
-                              userInfo:[NSUnderlyingErrorKey: ckInternalError])
-
-
+        let ckError = FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .transactionalFailure)
         self.fakeCuttlefishServer.nextFetchErrors.append(ckError)
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
@@ -241,7 +257,6 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         let post = self.fakeCuttlefishServer.fetchChangesCalledCount
         XCTAssertEqual(post, pre + 2, "should have fetched two times, the first response would have been a transaction error")
     }
-
 
     func testPreapprovedPushWhileLocked() throws {
         // Peer 1 becomes SOS+Octagon
@@ -344,9 +359,9 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
         self.cuttlefishContext.startOctagonStateMachine()
 
-        let clique : OTClique
+        let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -375,7 +390,6 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         let deviceBmockAuthKit = OTMockAuthKitAdapter(altDSID: self.otcliqueContext.altDSID,
                                                       machineID: "b-machine-id",
                                                       otherDevices: [self.mockAuthKit.currentMachineID])
-
 
         let bRestoreContext = self.manager.context(forContainerName: OTCKContainerName,
                                                    contextID: bNewOTCliqueContext.context!,
@@ -434,6 +448,68 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         self.wait(for: [updateTrustExpectation], timeout: 30)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testCKKSResetRecoverFromCKKSConflict() throws {
+        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
+        self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
+        // But do NOT add them to the keychain
+
+        // CKKS should get stuck in waitfortlk
+        self.startCKAccountStatusMock()
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        do {
+            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+        }
+
+        // Now, we should be in 'ready', and CKKS should be stuck
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLK, within: 10 * NSEC_PER_SEC)
+
+        // Now, CKKS decides to reset the world, but a conflict occurs on hierarchy upload
+        self.silentZoneDeletesAllowed = true
+        var tlkUUIDs : [CKRecordZone.ID:String] = [:]
+
+        self.silentFetchesAllowed = false
+        self.expectCKFetchAndRun(beforeFinished: {
+            self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
+            self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
+            self.silentFetchesAllowed = true
+
+            // Use the commented version below when multi-zone support is readded to the tets
+            tlkUUIDs[self.manateeZoneID!] = (self.keys![self.manateeZoneID!] as? ZoneKeys)?.tlk?.uuid
+            /*
+            for zoneID in self.ckksZones {
+                tlkUUIDs[zoneID as! CKRecordZone.ID] = (self.keys![zoneID] as? ZoneKeys)?.tlk?.uuid
+            }
+             */
+        })
+
+        let resetExepctation = self.expectation(description: "reset callback is called")
+        self.cuttlefishContext.viewManager!.rpcResetCloudKit(nil, reason: "unit-test") {
+            error in
+            XCTAssertNil(error, "should be no error resetting cloudkit")
+            resetExepctation.fulfill()
+        }
+
+        // Deletions should occur, then the fetches, then get stuck (as we don't have the TLK)
+        self.wait(for: [resetExepctation], timeout: 10)
+        self.verifyDatabaseMocks()
+
+        // all subCKKSes should get stuck in waitfortlk
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLK, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+
+        XCTAssertEqual(tlkUUIDs.count, self.ckksZones.count, "Should have the right number of conflicted TLKs")
+        for (zoneID,tlkUUID) in tlkUUIDs {
+            XCTAssertEqual(tlkUUID, (self.keys![zoneID] as? ZoneKeys)?.tlk?.uuid, "TLK should match conflicted version")
+        }
     }
 }
 

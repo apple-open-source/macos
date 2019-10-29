@@ -1221,9 +1221,9 @@ ro{
         temperature{
             celsius{
                 dnam{"°C"}
-                few{"{0} °C"}
-                one{"{0} °C"}
-                other{"{0} °C"}
+                few{"{0} °C"}
+                one{"{0} °C"}
+                other{"{0} °C"}
             }
         }
         volume{
@@ -1991,15 +1991,15 @@ ro{
         temperature{
             celsius{
                 dnam{"°C"}
-                few{"{0} °C"}
-                one{"{0} °C"}
-                other{"{0} °C"}
+                few{"{0} °C"}
+                one{"{0} °C"}
+                other{"{0} °C"}
             }
             fahrenheit{
                 dnam{"°F"}
-                few{"{0} °F"}
-                one{"{0} °F"}
-                other{"{0} °F"}
+                few{"{0} °F"}
+                one{"{0} °F"}
+                other{"{0} °F"}
             }
             generic{
                 dnam{"°"}

@@ -27,7 +27,7 @@
 #define SECURITY_OT_OTCONTROLPROTOCOL_H 1
 
 #import <Security/OTClique.h>
-
+#import <Security/OTConstants.h>
 @class SFECKeyPair;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -132,6 +132,7 @@ typedef void (^OTNextJoinCompleteBlock)(BOOL finished, NSData* _Nullable message
 - (void)resetAndEstablish:(NSString* _Nullable)container
                   context:(NSString*)context
                   altDSID:(NSString*)altDSID
+              resetReason:(CuttlefishResetReason)resetReason
                     reply:(void (^)(NSError* _Nullable error))reply;
 
 - (void)establish:(NSString * _Nullable)container

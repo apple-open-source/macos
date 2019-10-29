@@ -52,7 +52,7 @@ CKKSFetchBecause* const CKKSFetchBecauseMoreComing = (CKKSFetchBecause*) @"more-
 
 #pragma mark - CKKSZoneChangeFetchDependencyOperation
 @interface CKKSZoneChangeFetchDependencyOperation : CKKSResultOperation
-@property CKKSZoneChangeFetcher* owner;
+@property (weak) CKKSZoneChangeFetcher* owner;
 @property NSMutableArray<CKKSZoneChangeFetchDependencyOperation*>* chainDependents;
 - (void)chainDependency:(CKKSZoneChangeFetchDependencyOperation*)newDependency;
 @end
@@ -130,16 +130,17 @@ CKKSFetchBecause* const CKKSFetchBecauseMoreComing = (CKKSFetchBecause*) @"more-
 
         _newRequests = false;
 
-        // If we're testing, for the initial delay, use 0.2 second. Otherwise, 2s.
-        dispatch_time_t initialDelay = (SecCKKSReduceRateLimiting() ? 200 * NSEC_PER_MSEC : 2 * NSEC_PER_SEC);
+        // If we're testing, for the initial delay, use 0.25 second. Otherwise, 2s.
+        dispatch_time_t initialDelay = (SecCKKSReduceRateLimiting() ? 250 * NSEC_PER_MSEC : 2 * NSEC_PER_SEC);
 
-        // If we're testing, for the continuing delay, use 2 second. Otherwise, 30s.
-        dispatch_time_t continuingDelay = (SecCKKSReduceRateLimiting() ? 2 * NSEC_PER_SEC : 30 * NSEC_PER_SEC);
+        // If we're testing, for the maximum delay, use 6 second. Otherwise, 2m.
+        dispatch_time_t maximumDelay = (SecCKKSReduceRateLimiting() ? 6 * NSEC_PER_SEC : 120 * NSEC_PER_SEC);
 
         WEAKIFY(self);
         _fetchScheduler = [[CKKSNearFutureScheduler alloc] initWithName:@"zone-change-fetch-scheduler"
                                                            initialDelay:initialDelay
-                                                        continuingDelay:continuingDelay
+                                                       expontialBackoff:2
+                                                           maximumDelay:maximumDelay
                                                        keepProcessAlive:false
                                               dependencyDescriptionCode:CKKSResultDescriptionPendingZoneChangeFetchScheduling
                                                                   block:^{
@@ -308,25 +309,14 @@ CKKSFetchBecause* const CKKSFetchBecauseMoreComing = (CKKSFetchBecause*) @"more-
         dispatch_sync(self.queue, ^{
             self.lastCKFetchError = fetchAllChanges.error;
 
-            if(!fetchAllChanges.error) {
-                if (attemptAnotherFetch) {
-                    [dependency chainDependency:self.successfulFetchDependency];
-                    [self.operationQueue addOperation: dependency];
+            if(fetchAllChanges.error == nil) {
+                // success! notify the listeners.
+                [self.operationQueue addOperation: dependency];
+                self.currentFetch = nil;
 
-                    [self.currentFetchReasons unionSet:lastFetchReasons];
-                    [self.apnsPushes unionSet:lastAPNSPushes];
-
-                    self.newRequests = true;
+                // Did new people show up and want another fetch?
+                if(self.newRequests) {
                     [self.fetchScheduler trigger];
-                } else {
-                    // success! notify the listeners.
-                    [self.operationQueue addOperation: dependency];
-                    self.currentFetch = nil;
-
-                    // Did new people show up and want another fetch?
-                    if(self.newRequests) {
-                        [self.fetchScheduler trigger];
-                    }
                 }
             } else {
                 // The operation errored. Chain the dependency on the current one...

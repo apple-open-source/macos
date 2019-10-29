@@ -82,7 +82,9 @@ typedef struct {
 	GElf_Half	st_shndx;	/* SHN_... */
 	GElf_Addr	st_value;
 	GElf_Xword	st_size;
+#if defined(__arm__) || defined(__arm64__)
 	uint32_t	st_arch_subinfo;/* Needed for arm function info */		
+#endif
 } GElf_Sym;
 
 #include <TargetConditionals.h>

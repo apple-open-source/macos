@@ -1591,13 +1591,13 @@ pt{
         temperature{
             celsius{
                 dnam{"graus C"}
-                one{"{0} °C"}
-                other{"{0} °C"}
+                one{"{0} °C"}
+                other{"{0} °C"}
             }
             fahrenheit{
                 dnam{"graus F"}
-                one{"{0} °F"}
-                other{"{0} °F"}
+                one{"{0} °F"}
+                other{"{0} °F"}
             }
         }
         torque{

@@ -208,7 +208,7 @@ static int FILERECORD_FindClusterToCreateChainCacheEntry(bool* pbFoundLocation, 
 
 /* Assumption: Under write lock */
 static int
-FILERECORD_FillChainCacheEntryWithData(NodeRecord_s* psNodeRecord, uint32_t uFirstCluster,uint64_t uOffsetInFile,ClusterChainCacheEntry_s* psClusterChainEntry)
+FILERECORD_FillChainCacheEntryWithData(NodeRecord_s* psNodeRecord, uint32_t uFirstCluster, uint64_t uOffsetInFile, ClusterChainCacheEntry_s* psClusterChainEntry)
 {
     errno_t Error = 0;
     uint32_t uCluster = uFirstCluster;

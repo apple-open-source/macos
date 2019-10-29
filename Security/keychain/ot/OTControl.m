@@ -333,11 +333,12 @@
 - (void)resetAndEstablish:(NSString* _Nullable)container
                   context:(NSString*)context
                   altDSID:(NSString*)altDSID
+              resetReason:(CuttlefishResetReason)resetReason
                     reply:(void (^)(NSError* _Nullable error))reply
 {
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] resetAndEstablish:container context:context altDSID:altDSID reply:reply];
+    }] resetAndEstablish:container context:context altDSID:altDSID resetReason:resetReason reply:reply];
 }
 
 - (void)establish:(NSString* _Nullable)container

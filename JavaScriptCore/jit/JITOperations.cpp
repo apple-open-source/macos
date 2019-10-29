@@ -109,6 +109,15 @@ void JIT_OPERATION operationThrowStackOverflowError(ExecState* exec, CodeBlock* 
     throwStackOverflowError(exec, scope);
 }
 
+void JIT_OPERATION throwStackOverflowErrorFromThunk(VM* vm, ExecState* exec)
+{
+    auto scope = DECLARE_THROW_SCOPE(*vm);
+    NativeCallFrameTracer tracer(vm, exec);
+    throwStackOverflowError(exec, scope);
+    genericUnwind(vm, exec);
+    ASSERT(vm->targetMachinePCForThrow);
+}
+
 int32_t JIT_OPERATION operationCallArityCheck(ExecState* exec)
 {
     VM* vm = &exec->vm();
@@ -1139,7 +1148,7 @@ void JIT_OPERATION operationLinkDirectCall(ExecState* exec, CallLinkInfo* callLi
         EXCEPTION_ASSERT_UNUSED(throwScope, throwScope.exception() == error);
         if (UNLIKELY(error))
             return;
-        unsigned argumentStackSlots = callLinkInfo->maxNumArguments();
+        unsigned argumentStackSlots = callLinkInfo->maxArgumentCountIncludingThis();
         if (argumentStackSlots < static_cast<size_t>(codeBlock->numParameters()))
             codePtr = functionExecutable->entrypointFor(kind, MustCheckArity);
         else

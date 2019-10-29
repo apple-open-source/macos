@@ -9,9 +9,10 @@
                       sosAdapter:(id<OTSOSAdapter>)sosAdapter
                   octagonAdapter:(id<CKKSPeerProvider> _Nullable)octagonAdapter
                   authKitAdapter:(id<OTAuthKitAdapter>)authKitAdapter
+               deviceInfoAdapter:(id<OTDeviceInformationAdapter>)deviceInfoAdapter
                      viewManager:(CKKSViewManager*)viewManager
                 lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
-                   cuttlefishXPC:(id<NSXPCProxyCreating>)cuttlefishXPC
+            cuttlefishXPCWrapper:(CuttlefishXPCWrapper *)cuttlefishXPCWrapper
               escrowRequestClass:(Class<SecEscrowRequestable>)escrowRequestClass
 {
     if((self = [super init])) {
@@ -22,9 +23,10 @@
         _sosAdapter = sosAdapter;
         _octagonAdapter = octagonAdapter;
         _authKitAdapter = authKitAdapter;
+        _deviceInformationAdapter = deviceInfoAdapter;
         _viewManager = viewManager;
         _lockStateTracker = lockStateTracker;
-        _cuttlefishXPC = cuttlefishXPC;
+        _cuttlefishXPCWrapper = cuttlefishXPCWrapper;
         _escrowRequestClass = escrowRequestClass;
     }
     return self;

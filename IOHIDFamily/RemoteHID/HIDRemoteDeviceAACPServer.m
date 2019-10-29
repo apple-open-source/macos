@@ -230,7 +230,15 @@ exit:
 
 -(void) removeBTDevice:(BTDevice) device
 {
+    BTResult status;
+
     os_log (RemoteHIDLog (), "HID AACP device remove:%p", device);
+
+    // Disable TimeSync
+    status = BTAccessoryManagerRemoteTimeSyncEnable(_manager, device, BT_FALSE);
+    if (status != BT_SUCCESS) {
+        os_log_info(RemoteHIDLog(), "Couldn't disable timesync for device:%p status:%d", device, status);
+    }
     
     NSValue * endpoint = [NSValue valueWithPointer:device];
     [self disconnectEndpoint:endpoint];

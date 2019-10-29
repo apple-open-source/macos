@@ -159,11 +159,15 @@ class MockCuttlefishAPIAsyncClient: CuttlefishAPIAsync {
         print("MockCuttlefish: reportHealth called")
         completion(ReportHealthResponse(), nil)
     }
-    func pushHealthInquiry(_: HealthInquiryRequest, completion: @escaping (HealthInquiryResponse?, Error?) -> Void) {
-        completion(HealthInquiryResponse(), nil)
+    func pushHealthInquiry(_: PushHealthInquiryRequest, completion: @escaping (PushHealthInquiryResponse?, Error?) -> Void) {
+        completion(PushHealthInquiryResponse(), nil)
     }
     func getRepairAction(_: GetRepairActionRequest, completion: @escaping (GetRepairActionResponse?, Error?) -> Void) {
         completion(GetRepairActionResponse(), nil)
 
     }
+    func getSupportAppInfo(_: GetSupportAppInfoRequest, completion: @escaping (GetSupportAppInfoResponse?, Error?) -> Void) {
+        completion(GetSupportAppInfoResponse(), nil)
+    }
+
 }

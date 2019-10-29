@@ -160,7 +160,7 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
         state.trustState = .TRUSTED
         XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext), "saving to the keychain should work")
 
-        let deleted:Bool = try OTAccountMetadataClassC.deleteFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext)
+        let deleted: Bool = try OTAccountMetadataClassC.deleteFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext)
         XCTAssertTrue(deleted, "deleteFromKeychain should return true")
         XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext))
     }

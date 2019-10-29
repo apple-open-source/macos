@@ -128,6 +128,11 @@
     }];
 }
 
+- (nonnull CKKSPeerProviderState *)currentState {
+    return [CKKSPeerProviderState createFromProvider:self];
+}
+
+
 @end
 
 #endif

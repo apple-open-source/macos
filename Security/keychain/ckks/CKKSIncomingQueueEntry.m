@@ -30,8 +30,8 @@
 #import "CKKSKeychainView.h"
 
 #include <utilities/SecDb.h>
-#include <securityd/SecDbItem.h>
-#include <securityd/SecItemSchema.h>
+#include "keychain/securityd/SecDbItem.h"
+#include "keychain/securityd/SecItemSchema.h"
 
 #import <CloudKit/CloudKit.h>
 #import "CKKSIncomingQueueEntry.h"

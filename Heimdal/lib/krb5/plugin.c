@@ -40,6 +40,11 @@
 
 #if __APPLE__
 #include <sys/codesign.h>
+#if TARGET_OS_OSX
+#import <Security/Security.h>
+#else
+#import <Security/CodeSigning.h>
+#endif
 #endif
 
 
@@ -84,6 +89,10 @@ static const char *sysplugin_dirs[] =  {
     NULL
 };
 
+#ifdef __APPLE__
+krb5_boolean
+krb5_applesigned(krb5_context context, const char *path);
+#endif
 /*
  *
  */
@@ -106,9 +115,6 @@ _krb5_plugin_get_next(struct krb5_plugin *p)
 
 #ifdef HAVE_DLOPEN
 
-const char SystemSafeToLoad[] = "/System/";
-
-
 static krb5_error_code
 loadlib(krb5_context context, char *path)
 {
@@ -122,14 +128,16 @@ loadlib(krb5_context context, char *path)
     }
 
     /*
-     * If restricted, only load plugins from safe locations
+     * If restricted, only load plugins from apple
      */
-    if ((flags & CS_RESTRICT) &&
-	strncmp(path, SystemSafeToLoad, sizeof(SystemSafeToLoad) - 1) != 0)
+    if (path &&
+	(flags & CS_RESTRICT) &&  //current process is restricted
+	(!krb5_applesigned(context, path)))  //not apple signed
     {
 	_krb5_debugx(context, 2, "Since binary is restricted skipping plugin %s ", path);
 	free(path);
 	return 0;
+	
     }
 #endif
 
@@ -452,6 +460,67 @@ plug_dealloc(void *ptr)
 	dlclose(p->dsohandle);
 }
 
+#ifdef __APPLE__
+krb5_boolean
+krb5_applesigned(krb5_context context, const char *path)
+{
+    bool applesigned = false;
+    OSStatus result = noErr;
+    CFStringRef pathString = NULL;
+    CFURLRef pathURL =NULL;
+    SecStaticCodeRef codeRef = NULL;
+    SecRequirementRef secRequirementRef = NULL;
+    
+    if (path == NULL) {
+	_krb5_debugx(context, 2, "path cannot be null %s", path);
+	applesigned = false;
+	goto cleanup;
+    }
+    
+    result = SecRequirementCreateWithString(CFSTR("anchor apple"), kSecCSDefaultFlags, &secRequirementRef);
+    if (result || !secRequirementRef) {
+	_krb5_debugx(context, 2, "Error creating requirement %d ", result);
+	applesigned = false;
+	goto cleanup;
+    }
+    
+    pathString = CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8);
+    pathURL = CFURLCreateWithFileSystemPath(NULL, pathString, kCFURLPOSIXPathStyle, 0);
+    result = SecStaticCodeCreateWithPath(pathURL, kSecCSDefaultFlags, &codeRef);
+    if (result || !codeRef) {
+	_krb5_debugx(context, 2, "Error creating static code for %s: %d ", path, result);
+	applesigned = false;
+	goto cleanup;
+    }
+    
+    result = SecStaticCodeCheckValidity(codeRef, (SecCSFlags)kSecCSStrictValidate|kSecCSCheckAllArchitectures|kSecCSDoNotValidateResources, secRequirementRef);
+    if (result) {
+	_krb5_debugx(context, 2, "Error checking requirement for %s: %d ", path, result);
+	applesigned = false;
+	goto cleanup;
+    }
+    
+    applesigned = true;
+    
+cleanup:
+    
+    if (pathURL) {
+	CFStringRef pluginName = NULL;
+	pluginName = CFURLCopyLastPathComponent(pathURL);
+	const char *plugin = CFStringGetCStringPtr(pluginName, kCFStringEncodingUTF8);
+	_krb5_debugx(context, 2, "Plugin %s %s signed by Apple", plugin, (applesigned ? "is" : "is not"));
+	if (pluginName) CFRelease(pluginName);
+    }
+    
+    if (pathString) CFRelease(pathString);
+    if (pathURL) CFRelease(pathURL);
+    if (codeRef) CFRelease(codeRef);
+    if (secRequirementRef) CFRelease(secRequirementRef);
+
+    
+    return applesigned;
+}
+#endif
 
 void
 krb5_load_plugins(krb5_context context, const char *name, const char **paths)
@@ -486,6 +555,14 @@ krb5_load_plugins(krb5_context context, const char *name, const char **paths)
     }
     heim_release(s);
 
+    #if __APPLE__
+	int flags = 0;
+
+	if (csops(0, CS_OPS_STATUS, &flags, sizeof(flags)) != 0) {
+	    return;
+	}
+    #endif
+    
     for (di = paths; *di != NULL; di++) {
 	char *dir = NULL;
 
@@ -513,21 +590,33 @@ krb5_load_plugins(krb5_context context, const char *name, const char **paths)
 #ifdef __APPLE__
 	    { /* support loading bundles on MacOS */
 		size_t len = strlen(n);
-		if (len > 7 && strcmp(&n[len - 7],  ".bundle") == 0)
+		if (len > 7 && strcmp(&n[len - 7],  ".bundle") == 0) {
 #if TARGET_OS_OSX
 		    ret = asprintf(&path, "%s/%s/Contents/MacOS/%.*s", dir, n, (int)(len - 7), n);
 #else
 		    ret = asprintf(&path, "%s/%s/%.*s", dir, n, (int)(len - 7), n);
 #endif
-		    /*
-		     * Check if its a flat bundle
-		     */
-		    if (ret == 0 && access(path, X_OK) != 0) {
-			ret = errno;
-			free(path);
-			path = NULL;
-		    }
+		}
+		/*
+		 * Check if its a flat bundle
+		 */
+		if (ret == 0 && access(path, X_OK) != 0) {
+		    ret = errno;
+		    free(path);
+		    path = NULL;
+		}
 	    }
+    
+	    /*
+	     * If restricted, only load plugins from safe locations or if signed by apple
+	     */
+	    if (path &&
+		(flags & CS_RESTRICT) &&  //current process is restricted
+		(!krb5_applesigned(context, path)))  //not apple signed
+	    {
+		continue;  //skip this plugin
+	    }
+	    
 #endif
 	    if (ret < 0 || path == NULL)
 		ret = asprintf(&path, "%s/%s", dir, n);

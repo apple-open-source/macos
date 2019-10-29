@@ -55,6 +55,9 @@ static bool OctagonRecoveryKeyEnabledOverride = false;
 static bool OctagonAuthoritativeTrustEnabledOverrideSet = false;
 static bool OctagonAuthoritativeTrustEnabledOverride = false;
 
+static bool OctagonSOSFeatureIsEnabledOverrideSet = false;
+static bool OctagonSOSFeatureIsEnabledOverride = false;
+
 bool OctagonIsEnabled(void)
 {
     if(OctagonEnabledOverrideSet) {
@@ -182,4 +185,27 @@ void OctagonAuthoritativeTrustSetIsEnabled(BOOL value)
 {
     OctagonAuthoritativeTrustEnabledOverrideSet = true;
     OctagonAuthoritativeTrustEnabledOverride = value;
+}
+
+BOOL OctagonIsSOSFeatureEnabled(void)
+{
+    if(OctagonSOSFeatureIsEnabledOverrideSet) {
+        secnotice("octagon", "SOS Feature is %@ (overridden)", OctagonSOSFeatureIsEnabledOverride ? @"enabled" : @"disabled");
+        return OctagonSOSFeatureIsEnabledOverrideSet;
+    }
+
+    static bool sosEnabled = true;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sosEnabled = os_feature_enabled(Security, EnableSecureObjectSync);
+        secnotice("octagon", "SOS Feature is %@ (via feature flags)", sosEnabled ? @"enabled" : @"disabled");
+    });
+
+    return sosEnabled;
+}
+
+void OctagonSetSOSFeatureEnabled(BOOL value)
+{
+    OctagonSOSFeatureIsEnabledOverrideSet = true;
+    OctagonSOSFeatureIsEnabledOverride = value;
 }

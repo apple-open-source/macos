@@ -48,7 +48,7 @@
 #include "SecurityTool/sharedTool/print_cert.h"
 
 #if NO_SERVER
-#include <securityd/spi.h>
+#include "keychain/securityd/spi.h"
 #endif
 
 /* Set true when PR-3074739 is merged to TOT */

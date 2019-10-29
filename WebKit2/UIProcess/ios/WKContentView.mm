@@ -36,7 +36,6 @@
 #import "PageClientImplIOS.h"
 #import "PrintInfo.h"
 #import "RemoteLayerTreeDrawingAreaProxy.h"
-#import "RemoteScrollingCoordinatorProxy.h"
 #import "SmartMagnificationController.h"
 #import "UIKitSPI.h"
 #import "VersionChecks.h"
@@ -407,8 +406,6 @@ static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
         velocityData = { 0, 0, 0, timestamp };
     }
 
-    WebKit::RemoteScrollingCoordinatorProxy* scrollingCoordinator = _page->scrollingCoordinatorProxy();
-
     CGRect unobscuredContentRectRespectingInputViewBounds = [self _computeUnobscuredContentRectRespectingInputViewBounds:unobscuredContentRect inputViewBounds:inputViewBounds];
     WebCore::FloatRect fixedPositionRectForLayout = _page->computeCustomFixedPositionRect(unobscuredContentRect, unobscuredContentRectRespectingInputViewBounds, _page->customFixedPositionRect(), zoomScale, WebCore::FrameView::LayoutViewportConstraint::ConstrainedToDocumentRect);
 
@@ -433,12 +430,13 @@ static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
     LOG_WITH_STREAM(VisibleRects, stream << "-[WKContentView didUpdateVisibleRect]" << visibleContentRectUpdateInfo.dump());
 
     bool wasStableState = _page->inStableState();
+
     _page->updateVisibleContentRects(visibleContentRectUpdateInfo);
 
-    _sizeChangedSinceLastVisibleContentRectUpdate = NO;
+    auto layoutViewport = _page->unconstrainedLayoutViewportRect();
+    _page->adjustLayersForLayoutViewport(layoutViewport);
 
-    WebCore::FloatRect layoutViewport = _page->computeCustomFixedPositionRect(_page->unobscuredContentRect(), _page->unobscuredContentRectRespectingInputViewBounds(), _page->customFixedPositionRect(), zoomScale, WebCore::FrameView::LayoutViewportConstraint::Unconstrained);
-    scrollingCoordinator->viewportChangedViaDelegatedScrolling(_page->unobscuredContentRect().location(), layoutViewport, zoomScale);
+    _sizeChangedSinceLastVisibleContentRectUpdate = NO;
 
     drawingArea->updateDebugIndicator();
     
@@ -557,6 +555,8 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     [self _removeVisibilityPropagationView];
 #endif
+
+    _isPrintingToPDF = NO;
 }
 
 - (void)_processWillSwap
@@ -702,7 +702,7 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 - (NSUInteger)_wk_pageCountForPrintFormatter:(_WKWebViewPrintFormatter *)printFormatter
 {
     if (_isPrintingToPDF)
-        return 0;
+        [self _waitForDrawToPDFCallback];
 
     uint64_t frameID;
     if (_WKFrameHandle *handle = printFormatter.frameToPrint)
@@ -745,14 +745,19 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
     });
 }
 
+- (BOOL)_waitForDrawToPDFCallback
+{
+    if (!_page->process().connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DrawToPDFCallback>(_page->pageID(), Seconds::infinity()))
+        return false;
+    ASSERT(!_isPrintingToPDF);
+    return true;
+}
+
 - (CGPDFDocumentRef)_wk_printedDocument
 {
     if (_isPrintingToPDF) {
-        if (!_page->process().connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DrawToPDFCallback>(_page->pageID(), Seconds::infinity())) {
-            ASSERT_NOT_REACHED();
+        if (![self _waitForDrawToPDFCallback])
             return nullptr;
-        }
-        ASSERT(!_isPrintingToPDF);
     }
 
     return _printedDocument.get();

@@ -32,7 +32,7 @@
 #include "keychain/SecureObjectSync/SOSRing.h"
 #include "keychain/SecureObjectSync/SOSRingUtils.h"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
-#include <securityd/SOSCloudCircleServer.h>
+#include "keychain/securityd/SOSCloudCircleServer.h"
 #include "keychain/SecureObjectSync/SOSEngine.h"
 #include "keychain/SecureObjectSync/SOSPeer.h"
 #include "keychain/SecureObjectSync/SOSFullPeerInfo.h"

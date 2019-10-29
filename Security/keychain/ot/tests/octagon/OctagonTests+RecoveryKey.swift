@@ -5,7 +5,6 @@
         super.setUp()
     }
 
-
     func testSetRecoveryKey() throws {
         self.startCKAccountStatusMock()
         self.manager.setSOSEnabledForPlatformFlag(false)
@@ -17,7 +16,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -51,7 +50,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -157,7 +156,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -210,7 +209,7 @@
         // The first peer will upload TLKs for the new peer
         self.assertAllCKKSViewsUpload(tlkShares: 1)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10*NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
         let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
@@ -272,7 +271,7 @@
 
         self.verifyDatabaseMocks()
 
-        self.sendContainerChangeWaitForFetchForState(context: thirdPeerContext, state: OctagonStateReady)
+        self.sendContainerChangeWaitForFetch(context: thirdPeerContext)
         let thirdPeerStableInfoCheckDumpCallback = self.expectation(description: "thirdPeerStableInfoCheckDumpCallback callback occurs")
         self.tphClient.dump(withContainer: OTCKContainerName, context: thirdPeerContextID) {
             dump, _ in
@@ -325,7 +324,7 @@
         bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
         bottlerotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -354,14 +353,14 @@
         }
         self.wait(for: [createRecoveryExpectation], timeout: 10)
 
-        self.sendContainerChangeWaitForFetchForState(context: establishContext, state: OctagonStateReady)
+        self.sendContainerChangeWaitForFetch(context: establishContext)
 
         let recoveryContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
         recoveryContext.startOctagonStateMachine()
         self.assertEnters(context: recoveryContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        self.sendContainerChangeWaitForFetchForState(context: recoveryContext, state: OctagonStateUntrusted)
+        self.sendContainerChangeWaitForUntrustedFetch(context: recoveryContext)
 
         let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKey callback occurs")
         recoveryContext.join(withRecoveryKey: recoveryKey) { error in
@@ -441,7 +440,7 @@
         bottlerotcliqueContext.altDSID = self.mockAuthKit2.altDSID!
         bottlerotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: bottlerotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -464,7 +463,7 @@
         }
         self.wait(for: [createRecoveryExpectation], timeout: 10)
 
-        self.sendContainerChangeWaitForFetchForState(context: establishContext, state: OctagonStateReady)
+        self.sendContainerChangeWaitForFetch(context: establishContext)
 
         self.silentFetchesAllowed = false
         self.expectCKFetchAndRun(beforeFinished: {
@@ -477,7 +476,7 @@
         recoveryContext.startOctagonStateMachine()
         self.assertEnters(context: recoveryContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        self.sendContainerChangeWaitForFetchForState(context: recoveryContext, state: OctagonStateUntrusted)
+        self.sendContainerChangeWaitForUntrustedFetch(context: recoveryContext)
 
         let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKey callback occurs")
         recoveryContext.join(withRecoveryKey: recoveryKey) { error in
@@ -502,7 +501,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -537,7 +536,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -580,7 +579,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -652,8 +651,8 @@
         }
         self.wait(for: [setRecoveryKeyExpectationAgain], timeout: 10)
 
-        self.sendContainerChangeWaitForFetchForState(context: initiatorContext, state: OctagonStateReady)
-        self.sendContainerChangeWaitForFetchForState(context: self.cuttlefishContext, state: OctagonStateReady)
+        self.sendContainerChangeWaitForFetch(context: initiatorContext)
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
         var initiatorRecoverySigningKey: Data?
         var initiatorRecoveryEncryptionKey: Data?
@@ -736,7 +735,7 @@
         recoverykeyotcliqueContext.altDSID = self.mockAuthKit.altDSID!
         recoverykeyotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -775,7 +774,7 @@
         let newGuyContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
         newGuyContext.startOctagonStateMachine()
 
-        self.sendContainerChangeWaitForFetchForState(context: newGuyContext, state: OctagonStateUntrusted)
+        self.sendContainerChangeWaitForUntrustedFetch(context: newGuyContext)
 
         self.manager.setSOSEnabledForPlatformFlag(true)
         let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKeyExpectation callback occurs")
@@ -858,7 +857,7 @@
         self.manager.setSOSEnabledForPlatformFlag(true)
 
         let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKeyExpectation callback occurs")
-        TestsObjectiveC.recoverOctagon(usingData: newCliqueContext, recoveryKey:recoveryKey!) { error in
+        TestsObjectiveC.recoverOctagon(usingData: newCliqueContext, recoveryKey: recoveryKey!) { error in
             XCTAssertNil(error, "error should be nil")
             joinWithRecoveryKeyExpectation.fulfill()
         }
@@ -897,7 +896,7 @@
         self.manager.setSOSEnabledForPlatformFlag(false)
 
         self.startCKAccountStatusMock()
-        
+
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
@@ -905,7 +904,7 @@
 
         let clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: self.otcliqueContext)
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
@@ -948,7 +947,7 @@
         recoverykeyotcliqueContext.altDSID = self.mockAuthKit.altDSID!
         recoverykeyotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -994,7 +993,7 @@
         let newGuyContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
         newGuyContext.startOctagonStateMachine()
 
-        self.sendContainerChangeWaitForFetchForState(context: newGuyContext, state: OctagonStateUntrusted)
+        self.sendContainerChangeWaitForUntrustedFetch(context: newGuyContext)
 
         self.manager.setSOSEnabledForPlatformFlag(true)
         let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKeyExpectation callback occurs")
@@ -1023,7 +1022,7 @@
         recoverykeyotcliqueContext.altDSID = self.mockAuthKit.altDSID!
         recoverykeyotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -1062,7 +1061,7 @@
         let newGuyContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
         newGuyContext.startOctagonStateMachine()
 
-        self.sendContainerChangeWaitForFetchForState(context: newGuyContext, state: OctagonStateUntrusted)
+        self.sendContainerChangeWaitForUntrustedFetch(context: newGuyContext)
 
         self.manager.setSOSEnabledForPlatformFlag(true)
         let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKeyExpectation callback occurs")
@@ -1098,7 +1097,7 @@
         recoverykeyotcliqueContext.altDSID = self.mockAuthKit.altDSID!
         recoverykeyotcliqueContext.otControl = self.otControl
         do {
-            clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext, resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
             XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
         } catch {
@@ -1144,13 +1143,85 @@
         let newGuyContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
         newGuyContext.startOctagonStateMachine()
 
-        self.sendContainerChangeWaitForFetchForState(context: newGuyContext, state: OctagonStateUntrusted)
+        self.sendContainerChangeWaitForUntrustedFetch(context: newGuyContext)
 
         self.manager.setSOSEnabledForPlatformFlag(true)
         let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKeyExpectation callback occurs")
 
         OTClique.recoverOctagon(usingData: newCliqueContext, recoveryKey: recoveryKey!) { error in
             XCTAssertNil(error, "error should be nil")
+            joinWithRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 10)
+    }
+
+    func testMalformedRecoveryKey() throws {
+        OctagonRecoveryKeySetIsEnabled(true)
+        self.manager.setSOSEnabledForPlatformFlag(false)
+        self.startCKAccountStatusMock()
+
+        let establishContextID = "establish-context-id"
+        let establishContext = self.createEstablishContext(contextID: establishContextID)
+
+        establishContext.startOctagonStateMachine()
+        self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        let recoverykeyotcliqueContext = OTConfigurationContext()
+        recoverykeyotcliqueContext.context = establishContextID
+        recoverykeyotcliqueContext.dsid = "1234"
+        recoverykeyotcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        recoverykeyotcliqueContext.otControl = self.otControl
+        do {
+            clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: establishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: establishContext)
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
+        try self.putSelfTLKShareInCloudKit(context: establishContext, zoneID: self.manateeZoneID)
+
+        self.assertSelfTLKSharesInCloudKit(context: establishContext)
+
+        let recoveryKey = "malformedRecoveryKey"
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+
+        let createKeyExpectation = self.expectation(description: "createKeyExpectation returns")
+        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context ?? "defaultContext", recoveryKey: recoveryKey) { error in
+            XCTAssertNotNil(error, "error should NOT be nil")
+            XCTAssertEqual((error! as NSError).code, 41, "error code should be 41/malformed recovery key")
+            XCTAssertEqual((error! as NSError).domain, "com.apple.security.octagon", "error code domain should be com.apple.security.octagon")
+            createKeyExpectation.fulfill()
+        }
+        self.wait(for: [createKeyExpectation], timeout: 10)
+
+        let newCliqueContext = OTConfigurationContext()
+        newCliqueContext.context = OTDefaultContext
+        newCliqueContext.dsid = self.otcliqueContext.dsid
+        newCliqueContext.altDSID = self.mockAuthKit.altDSID!
+        newCliqueContext.otControl = self.otControl
+
+        let newGuyContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
+        newGuyContext.startOctagonStateMachine()
+
+        self.sendContainerChangeWaitForUntrustedFetch(context: newGuyContext)
+
+        self.manager.setSOSEnabledForPlatformFlag(true)
+        let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKeyExpectation callback occurs")
+
+        OTClique.recoverOctagon(usingData: newCliqueContext, recoveryKey: recoveryKey) { error in
+            XCTAssertNotNil(error, "error should NOT be nil")
+            XCTAssertEqual((error! as NSError).code, 41, "error code should be 41/malformed recovery key")
+            XCTAssertEqual((error! as NSError).domain, "com.apple.security.octagon", "error code domain should be com.apple.security.octagon")
             joinWithRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 10)

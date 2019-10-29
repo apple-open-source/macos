@@ -8,7 +8,9 @@
 #import <AuthKit/AuthKit.h>
 
 #import <KeychainCircle/KeychainCircle.h>
-#import <KeychainCircle/KCJoiningRequestSession+Internal.h>
+#import "KeychainCircle/KCJoiningSession.h"
+#import "KeychainCircle/KCJoiningRequestSession+Internal.h"
+#import "KeychainCircle/KCJoiningAcceptSession+Internal.h"
 #import <KeychainCircle/KCJoiningMessages.h>
 
 #import <TrustedPeers/TrustedPeers.h>
@@ -17,8 +19,8 @@
 #import "utilities/SecCFError.h"
 
 
-#import "securityd/SecItemServer.h"
-#import "securityd/spi.h"
+#import "keychain/securityd/SecItemServer.h"
+#import "keychain/securityd/spi.h"
 
 #import <Security/SecItemPriv.h>
 #import "keychain/ckks/CKKS.h"
@@ -35,6 +37,8 @@
 #import "keychain/ot/OTClique.h"
 #import "keychain/ot/OTControl.h"
 #import "keychain/ot/OTControlProtocol.h"
+#import "keychain/ot/OTManager.h"
+#import "keychain/ot/OTClientStateMachine.h"
 
 #import "keychain/ot/OTSOSAdapter.h"
 #import "keychain/ot/OTConstants.h"
@@ -45,7 +49,7 @@
 
 #import "keychain/ot/OTDeviceInformationAdapter.h"
 
-#import "keychain/ot/tests/OTTestsBase.h"
+#import "keychain/ckks/tests/CloudKitKeychainSyncingTestsBase.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 
 #import "keychain/ckks/CKKSKeychainBackedKey.h"

@@ -191,8 +191,8 @@ es_MX{
         }
         temperature{
             celsius{
-                one{"{0} °C"}
-                other{"{0} °C"}
+                one{"{0} °C"}
+                other{"{0} °C"}
             }
         }
     }
@@ -333,7 +333,7 @@ es_MX{
         }
         temperature{
             celsius{
-                one{"{0} °C"}
+                one{"{0} °C"}
             }
         }
         torque{

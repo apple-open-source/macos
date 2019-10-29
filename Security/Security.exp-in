@@ -324,6 +324,7 @@ _kSSLSessionConfig_anonymous
 /* end workaround */
 
 _SecAbsoluteTimeFromDateContent
+_SecAbsoluteTimeFromDateContentWithError
 
 /* Internal securityd RPC stuff */
 _CKKSSetupControlProtocol
@@ -343,9 +344,6 @@ _kSecEntitlementPrivateOctagonEscrow
 _OTCliqueStatusToString
 _OTCliqueStatusFromString
 
-_OTCliqueCFTypeRepair
-_OTCliqueCFTypePasscode
-_OTCliqueCFTypeUpgrade
 _OTCliqueCDPContextTypeNone
 _OTCliqueCDPContextTypeSignIn
 _OTCliqueCDPContextTypeRepair
@@ -375,6 +373,7 @@ _OTCKContainerName
 _CuttlefishTrustZone
 _CuttlefishErrorDomain
 _TrustedPeersHelperErrorDomain
+_CuttlefishErrorRetryAfterKey
 
 _OctagonPlatformSupportsSOS
 _OctagonSetPlatformSupportsSOS
@@ -386,6 +385,8 @@ _OctagonRecoveryKeyIsEnabled
 _OctagonRecoveryKeySetIsEnabled
 _OctagonAuthoritativeTrustIsEnabled
 _OctagonAuthoritativeTrustSetIsEnabled
+_OctagonIsSOSFeatureEnabled
+_OctagonSetSOSFeatureEnabled
 
 SEC_EXP_CLASS(OTJoiningConfiguration)
 SEC_EXP_CLASS(OTControl)
@@ -2032,6 +2033,7 @@ _ApplyScopeListForID
 _SecLogAPICreate
 ___security_simulatecrash
 ___security_simulatecrash_enable
+___security_simulatecrash_enabled
 ___security_stackshotreport
 _api_trace
 _secLogEnabled

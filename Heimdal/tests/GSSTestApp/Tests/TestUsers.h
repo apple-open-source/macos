@@ -8,4 +8,4 @@
 
 #include <Foundation/Foundation.h>
 
-extern NSString *passwordKtestuserQAD;
+extern NSString *passwordKtestuserCEAD;

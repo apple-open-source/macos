@@ -1,5 +1,51 @@
 PHP                                                                        NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+29 Aug 2019, PHP 7.3.9
+
+- Core:
+  . Fixed bug #78363 (Buffer overflow in zendparse). (Nikita)
+  . Fixed bug #78379 (Cast to object confuses GC, causes crash). (Dmitry)
+  . Fixed bug #78412 (Generator incorrectly reports non-releasable $this as GC
+    child). (Nikita)
+
+- Curl:
+  . Fixed bug #77946 (Bad cURL resources returned by curl_multi_info_read()).
+    (Abyr Valg)
+
+- Exif:
+  . Fixed bug #78333 (Exif crash (bus error) due to wrong alignment and
+    invalid cast). (Nikita)
+
+- FPM:
+  . Fixed bug #77185 (Use-after-free in FPM master event handling).
+    (Maksim Nikulin)
+
+- Iconv:
+  . Fixed bug #78342 (Bus error in configure test for iconv //IGNORE). (Rainer
+    Jung)
+
+- LiteSpeed:
+  . Updated to LiteSpeed SAPI V7.5 (Fixed clean shutdown). (George Wang)
+
+- MBString:
+  . Fixed bug #78380 (Oniguruma 6.9.3 fixes CVEs). (CVE-2019-13224) (Stas)
+
+- MySQLnd:
+  . Fixed bug #78179 (MariaDB server version incorrectly detected). (cmb)
+  . Fixed bug #78213 (Empty row pocket). (cmb)
+
+- Opcache:
+  . Fixed bug #77191 (Assertion failure in dce_live_ranges() when silencing is
+    used). (Nikita)
+
+- Standard:
+  . Fixed bug #69100 (Bus error from stream_copy_to_stream (file -> SSL stream)
+    with invalid length). (Nikita)
+  . Fixed bug #78282 (atime and mtime mismatch). (cmb)
+  . Fixed bug #78326 (improper memory deallocation on stream_get_contents()
+    with fixed length buffer). (Albert Casademont)
+  . Fixed bug #78346 (strip_tags no longer handling nested php tags). (cmb)
+
 01 Aug 2019, PHP 7.3.8
 
 - Core:
@@ -35,18 +81,18 @@ PHP                                                                        NEWS
     socket-to-stream). (Nikita)
 
 - Opcache:
-  . Fixed bug #78341 (Failure to detect smart branch in DFA pass). (Nikita)
   . Fixed bug #78189 (file cache strips last character of uname hash). (cmb)
   . Fixed bug #78202 (Opcache stats for cache hits are capped at 32bit NUM).
     (cmb)
   . Fixed bug #78271 (Invalid result of if-else). (Nikita)
   . Fixed bug #78291 (opcache_get_configuration doesn't list all directives).
     (Andrew Collington)
+  . Fixed bug #78341 (Failure to detect smart branch in DFA pass). (Nikita)
 
 - PCRE:
-  . Fixed bug #78338 (Array cross-border reading in PCRE). (cmb)
   . Fixed bug #78197 (PCRE2 version check in configure fails for "##.##-xxx"
     version strings). (pgnet, Peter Kokot)
+  . Fixed bug #78338 (Array cross-border reading in PCRE). (cmb)
 
 - PDO_Sqlite:
   . Fixed bug #78192 (SegFault when reuse statement after schema has changed).

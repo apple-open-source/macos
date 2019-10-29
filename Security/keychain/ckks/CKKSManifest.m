@@ -29,8 +29,8 @@
 #import "CKKSItem.h"
 #import "CKKSCurrentItemPointer.h"
 #import "utilities/der_plist.h"
-#import <securityd/SOSCloudCircleServer.h>
-#import <securityd/SecItemServer.h>
+#import "keychain/securityd/SOSCloudCircleServer.h"
+#import "keychain/securityd/SecItemServer.h"
 #import <Security/SecureObjectSync/SOSPeerInfo.h>
 #import <Security/SecureObjectSync/SOSCloudCircleInternal.h>
 #import <SecurityFoundation/SFSigningOperation.h>

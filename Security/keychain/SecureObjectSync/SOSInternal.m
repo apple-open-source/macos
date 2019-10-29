@@ -37,7 +37,7 @@
 #include <Security/SecKey.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecItem.h>
-#include <securityd/SecDbItem.h> // For SecError
+#include "keychain/securityd/SecDbItem.h" // For SecError
 #include "utilities/iOSforOSX.h"
 
 #include <Security/SecBase64.h>

@@ -430,6 +430,8 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
 - (void)testKeychainCorruptionAddOverCorruptedEntry
 {
+    __security_simulatecrash_enable(false);
+
     CFTypeRef foundItem = NULL;
     NSDictionary* item = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
@@ -460,6 +462,8 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
 - (void)testKeychainCorruptionUpdateCorruptedEntry
 {
+    __security_simulatecrash_enable(false);
+
     CFTypeRef foundItem = NULL;
     NSDictionary* item = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                             (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
@@ -594,6 +598,8 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
 - (void)testRecoverFromBadMetadataKey
 {
+    __security_simulatecrash_enable(false);
+
     // Disable caching, so we can change AKS encrypt/decrypt
     id mockSecDbKeychainMetadataKeyStore = OCMClassMock([SecDbKeychainMetadataKeyStore class]);
     OCMStub([mockSecDbKeychainMetadataKeyStore cachingEnabled]).andReturn(false);

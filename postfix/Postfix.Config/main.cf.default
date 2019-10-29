@@ -686,3 +686,4 @@ recipient_delimiter = +
 tls_random_source = dev:/dev/urandom
 smtpd_tls_ciphers = medium
 
+inet_interfaces = loopback-only

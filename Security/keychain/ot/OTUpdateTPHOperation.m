@@ -67,9 +67,6 @@
                 pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:self.retryFlag
                                                             conditions:OctagonPendingConditionsDeviceUnlocked];
                 fatal = false;
-            } else if ([self.error isCuttlefishError:CuttlefishErrorTransactionalFailure]) {
-                secnotice("octagon", "Transaction failure in cuttlefishm, retrying: %@", self.error);
-                fatal = false;
             } else {
                 // more CloudKit errors should trigger a retry here
                 secnotice("octagon", "Error is currently unknown, aborting: %@", self.error);
@@ -78,7 +75,13 @@
             if(!fatal) {
                 if(!pendingFlag) {
                     NSTimeInterval baseDelay = SecCKKSTestsEnabled() ? 2 : 30;
-                    NSTimeInterval delay = CKRetryAfterSecondsForError(self.error) ?: baseDelay;
+                    NSTimeInterval ckDelay = CKRetryAfterSecondsForError(self.error);
+                    NSTimeInterval cuttlefishDelay = [self.error cuttlefishRetryAfter];
+                    NSTimeInterval delay = MAX(ckDelay, cuttlefishDelay);
+                    if (delay == 0) {
+                        delay = baseDelay;
+                    }
+
                     pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:self.retryFlag
                                                             delayInSeconds:delay];
                 }
@@ -91,62 +94,56 @@
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
 
-    [[self.deps.cuttlefishXPC remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
-        STRONGIFY(self);
-        secerror("octagon: Can't talk with TrustedPeersHelper, update is lost: %@", error);
-        self.error = error;
-        [self runBeforeGroupFinished:self.finishedOp];
+    [self.deps.cuttlefishXPCWrapper updateWithContainer:self.deps.containerName
+                                                context:self.deps.contextID
+                                             deviceName:self.deps.deviceInformationAdapter.deviceName
+                                           serialNumber:self.deps.deviceInformationAdapter.serialNumber
+                                              osVersion:self.deps.deviceInformationAdapter.osVersion
+                                          policyVersion:nil
+                                          policySecrets:nil
+                                                  reply:^(TrustedPeersHelperPeerState* peerState, NSError* error) {
+            STRONGIFY(self);
+            if(error || !peerState) {
+                secerror("octagon: update errored: %@", error);
+                self.error = error;
 
-    }] updateWithContainer:self.deps.containerName
-                   context:self.deps.contextID
-                deviceName:nil
-              serialNumber:nil
-                 osVersion:nil
-             policyVersion:nil
-             policySecrets:nil
-                     reply:^(TrustedPeersHelperPeerState* peerState, NSError* error) {
-                         STRONGIFY(self);
-                         if(error || !peerState) {
-                             secerror("octagon: update errored: %@", error);
-                             self.error = error;
+                // On an error, for now, go back to the intended state
+                // <rdar://problem/50190005> Octagon: handle lock state errors in update()
+                self.nextState = self.intendedState;
+                [self runBeforeGroupFinished:self.finishedOp];
+                return;
+            }
 
-                             // On an error, for now, go back to the intended state
-                             // <rdar://problem/50190005> Octagon: handle lock state errors in update()
-                             self.nextState = self.intendedState;
-                             [self runBeforeGroupFinished:self.finishedOp];
-                             return;
-                         }
+            secnotice("octagon", "update complete: %@", peerState);
 
-                         secnotice("octagon", "update complete: %@", peerState);
+            if(peerState.identityIsPreapproved) {
+                secnotice("octagon-sos", "Self peer is now preapproved!");
+                [self.deps.flagHandler handleFlag:OctagonFlagEgoPeerPreapproved];
+            }
+            if (peerState.memberChanges) {
+                secnotice("octagon", "Member list changed");
+                [self.deps.octagonAdapter sendTrustedPeerSetChangedUpdate];
+            }
 
-                         if(peerState.identityIsPreapproved) {
-                             secnotice("octagon-sos", "Self peer is now preapproved!");
-                             [self.deps.flagHandler handleFlag:OctagonFlagEgoPeerPreapproved];
-                         }
-                         if (peerState.memberChanges) {
-                             secnotice("octagon", "Member list changed");
-                             [self.deps.octagonAdapter sendTrustedPeerSetChangedUpdate];
-                         }
+            if (peerState.unknownMachineIDsPresent) {
+                secnotice("octagon-authkit", "Unknown machine IDs are present; requesting fetch");
+                [self.deps.flagHandler handleFlag:OctagonFlagFetchAuthKitMachineIDList];
+            }
 
-                         if (peerState.unknownMachineIDsPresent) {
-                             secnotice("octagon-authkit", "Unknown machine IDs are present; requesting fetch");
-                             [self.deps.flagHandler handleFlag:OctagonFlagFetchAuthKitMachineIDList];
-                         }
+            if(peerState.peerStatus & TPPeerStatusExcluded) {
+                secnotice("octagon", "Self peer (%@) is excluded; moving to untrusted", peerState.peerID);
+                self.nextState = OctagonStateBecomeUntrusted;
 
-                         if(peerState.peerStatus & TPPeerStatusExcluded) {
-                             secnotice("octagon", "Self peer (%@) is excluded; moving to untrusted", peerState.peerID);
-                             self.nextState = OctagonStateBecomeUntrusted;
+            } else if(peerState.peerStatus & TPPeerStatusUnknown) {
+                secnotice("octagon", "Self peer (%@) is unknown; moving to untrusted", peerState.peerID);
+                self.nextState = OctagonStateBecomeUntrusted;
 
-                         } else if(peerState.peerStatus & TPPeerStatusUnknown) {
-                             secnotice("octagon", "Self peer (%@) is unknown; moving to untrusted", peerState.peerID);
-                             self.nextState = OctagonStateBecomeUntrusted;
+            } else {
+                self.nextState = self.intendedState;
+            }
 
-                         } else {
-                             self.nextState = self.intendedState;
-                         }
-
-                         [self runBeforeGroupFinished:self.finishedOp];
-         }];
+            [self runBeforeGroupFinished:self.finishedOp];
+        }];
 }
 
 @end

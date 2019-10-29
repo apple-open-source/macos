@@ -62,6 +62,7 @@
 #include "utilities/SecAKSWrappers.h"
 #include "utilities/SecCFWrappers.h"
 #include <utilities/SecXPCError.h>
+#import <os/variant_private.h>
 
 #import "CoreCDP/CDPFollowUpController.h"
 #import "CoreCDP/CDPFollowUpContext.h"
@@ -561,13 +562,21 @@ static NSString *getLocalizedApplicationReminder() {
 	return (__bridge_transfer NSString *) applicationReminder;
 }
 
+static bool isSOSInternalDevice(void) {
+    static dispatch_once_t onceToken;
+    static BOOL internal = NO;
+    dispatch_once(&onceToken, ^{
+        internal = os_variant_has_internal_diagnostics("com.apple.security");
+    });
+    return internal;
+}
 
 static void postApplicationReminderAlert(NSDate *nowish, PersistentState *state, unsigned int alertInterval)
 {
 	NSString *body		= getLocalizedApplicationReminder();
 	bool      has_iCSC	= iCloudResetAvailable();
 
-	if (CPIsInternalDevice() &&
+	if (isSOSInternalDevice() &&
 		state.defaultPendingApplicationReminderAlertInterval != state.pendingApplicationReminderAlertInterval) {
 #ifdef DEBUG
 		body = [body stringByAppendingFormat: @"〖debug interval %u; wait time %@〗",
@@ -686,7 +695,7 @@ static void postKickedOutAlert(enum DepartureReason reason)
 		break;
 	}
 
-	if (CPIsInternalDevice()) {
+	if (isSOSInternalDevice()) {
 		static const char *departureReasonStrings[] = {
 			"kSOSDepartureReasonError",
 			"kSOSNeverLeftCircle",
@@ -758,6 +767,22 @@ static void postKickedOutAlert(enum DepartureReason reason)
     debugState = @"pKOA Z";
 }
 
+static void askForCDPFollowup() {
+    doOnceInMain(^{
+        NSError *localError = nil;
+        CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
+        CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+        [cdpd postFollowUpWithContext:context error:&localError ];
+        if(localError){
+            secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
+        }
+        else{
+            secnotice("cjr", "CoreCDP handling follow up");
+            _hasPostedFollowupAndStillInError = true;
+        }
+    });
+}
+
 static bool processEvents()
 {
 	debugState = @"processEvents A";
@@ -805,49 +830,47 @@ static bool processEvents()
     }
 
     if(_isAccountICDP){
-        if((circleStatus == kSOSCCError || circleStatus == kSOSCCCircleAbsent || circleStatus == kSOSCCNotInCircle) && _hasPostedFollowupAndStillInError == false) {
-            if(circleStatus == kSOSCCError) {
-                secnotice("cjr", "error from SOSCCThisDeviceIsInCircle: %@", error);
-            }
-            
-            /*
-                You would think we could count on not being iCDP if the account was signed out.  Evidently that's wrong.
-                So we'll go based on the artifact that when the account object is reset (like by signing out) the
-                departureReason will be set to kSOSDepartureReasonError.  So we won't push to get back into a circle if that's
-                the current reason.  I've checked code for other ways we could be out.  If we boot and can't load the account
-                we'll end up with kSOSDepartureReasonError.  Then too if we end up in kSOSDepartureReasonError and reboot we end up
-                in the same place.  Leave it to cdpd to decide whether the user needs to sign in to an account.
-             */
-            if(departureReason != kSOSDepartureReasonError) {
-                secnotice("cjr", "iCDP: We need to get back into the circle");
-                doOnceInMain(^{
-                    NSError *localError = nil;
-                    CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
-                    CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
-                    [cdpd postFollowUpWithContext:context error:&localError ];
-                    if(localError){
-                        secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
-                    }
-                    else{
-                        secnotice("cjr", "CoreCDP handling follow up");
-                        _hasPostedFollowupAndStillInError = true;
-                    }
-                });
-            } else {
-                secnotice("cjr", "iCDP: We appear to not be associated with an iCloud account");
-            }
-            state.lastCircleStatus = circleStatus;
+        state.lastCircleStatus = circleStatus;
+        [state writeToStorage];
+        if(_hasPostedFollowupAndStillInError == true) {
+            secnotice("cjr", "followup not resolved");
             _executeProcessEventsOnce = true;
             return false;
         }
-        else if(circleStatus == kSOSCCInCircle){
+
+        switch(circleStatus) {
+        case kSOSCCInCircle:
             secnotice("cjr", "follow up should be resolved");
             _executeProcessEventsOnce = true;
             _hasPostedFollowupAndStillInError = false;
-        }
-        else{
-            secnotice("cjr", "followup not resolved");
+            break;
+        case kSOSCCError:
+            secnotice("cjr", "error from SOSCCThisDeviceIsInCircle: %@", error);
+            askForCDPFollowup();
             _executeProcessEventsOnce = true;
+            return false;
+        case kSOSCCCircleAbsent:
+        case kSOSCCNotInCircle:
+            /*
+             You would think we could count on not being iCDP if the account was signed out.  Evidently that's wrong.
+             So we'll go based on the artifact that when the account object is reset (like by signing out) the
+             departureReason will be set to kSOSDepartureReasonError.  So we won't push to get back into a circle if that's
+             the current reason.  I've checked code for other ways we could be out.  If we boot and can't load the account
+             we'll end up with kSOSDepartureReasonError.  Then too if we end up in kSOSDepartureReasonError and reboot we end up
+             in the same place.  Leave it to cdpd to decide whether the user needs to sign in to an account.
+             */
+            if(departureReason != kSOSDepartureReasonError) {
+                secnotice("cjr", "iCDP: We need to get back into the circle");
+                askForCDPFollowup();
+            } else {
+                secnotice("cjr", "iCDP: We appear to not be associated with an iCloud account");
+            }
+            _executeProcessEventsOnce = true;
+            return false;
+        case kSOSCCRequestPending:
+            break;
+        default:
+            secnotice("cjr", "Unknown circle status %d", circleStatus);
             return false;
         }
     } else if(circleStatus == kSOSCCError && state.lastCircleStatus != kSOSCCError && (departureReason == kSOSNeverLeftCircle)) {

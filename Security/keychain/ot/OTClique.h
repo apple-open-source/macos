@@ -42,6 +42,7 @@ typedef NS_ENUM(NSInteger, CliqueStatus) {
 #import <Security/SecureObjectSync/SOSCloudCircleInternal.h>
 #import <Security/SecureObjectSync/SOSPeerInfo.h>
 #import <Security/SecureObjectSync/SOSTypes.h>
+#import <Security/OTConstants.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -61,7 +62,6 @@ extern NSString* kSecEntitlementPrivateOctagonEscrow;
 @property (nonatomic, copy) NSString* dsid;
 @property (nonatomic, copy) NSString* altDSID;
 @property (nonatomic, strong, nullable) SFSignInAnalytics* analytics;
-
 
 // Use this to inject your own OTControl object. It must be configured as synchronous.
 @property (nullable, strong) OTControl* otControl;
@@ -85,11 +85,6 @@ extern NSString* kSecEntitlementPrivateOctagonEscrow;
 @property (nonatomic, assign) BOOL discretionaryNetwork;
 @property (nonatomic, assign) BOOL useCachedAccountStatus;
 @end
-
-typedef NSString* OTCliqueCFUType NS_STRING_ENUM;
-extern OTCliqueCFUType OTCliqueCFTypeRepair;
-extern OTCliqueCFUType OTCliqueCFTypePasscode;
-extern OTCliqueCFUType OTCliqueCFTypeUpgrade;
 
 typedef NSString* OTCliqueCDPContextType NS_STRING_ENUM;
 extern OTCliqueCDPContextType OTCliqueCDPContextTypeNone;
@@ -130,7 +125,20 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
  * @return  clique, returns a new clique instance
  * @param  error, error gets filled if something goes horribly wrong
  */
-+ (instancetype _Nullable)newFriendsWithContextData:(OTConfigurationContext*)data error:(NSError * __autoreleasing *)error;
++ (instancetype _Nullable)newFriendsWithContextData:(OTConfigurationContext*)data error:(NSError * __autoreleasing *)error __deprecated_msg("use newFriendsWithContextData:resetReason:error: instead");
+
+/* *
+* @abstract   Establish a new clique, reset protected data
+*   Reset the clique
+*   Delete backups
+*   Delete all CKKS data
+*
+* @param   ctx, context containing parameters to setup OTClique
+* @param    resetReason, a reason that drives cdp to perform a reset
+* @return  clique, returns a new clique instance
+* @param  error, error gets filled if something goes horribly wrong
+*/
++ (instancetype _Nullable)newFriendsWithContextData:(OTConfigurationContext*)data resetReason:(CuttlefishResetReason)resetReason error:(NSError * __autoreleasing *)error;
 
 /*
  * @abstract Perform a SecureBackup escrow/keychain recovery and attempt to use the information therein to join this account.
@@ -236,7 +244,7 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
 
 - (BOOL)waitForInitialSync:(NSError *__autoreleasing*)error;
 
-- (NSArray*)copyViewUnawarePeerInfo:(NSError *__autoreleasing*)error;
+- (NSArray* _Nullable)copyViewUnawarePeerInfo:(NSError *__autoreleasing*)error;
 
 - (BOOL)viewSet:(NSSet*)enabledViews disabledViews:(NSSet*)disabledViews;
 
@@ -248,7 +256,7 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
                                         password:(NSData*)userPassword
                                         error:(NSError *__autoreleasing*)error;
 
-- (NSArray*)copyPeerPeerInfo:(NSError *__autoreleasing*)error;
+- (NSArray* _Nullable)copyPeerPeerInfo:(NSError *__autoreleasing*)error;
 
 - (BOOL)peersHaveViewsEnabled:(NSArray<NSString*>*)viewNames error:(NSError *__autoreleasing*)error;
 

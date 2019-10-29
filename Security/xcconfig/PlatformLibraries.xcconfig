@@ -1,6 +1,4 @@
 	
-OTHER_LDFLAGS_AOSKIT_FRAMEWORK[sdk=macosx*] = -weak_framework AOSAccounts -weak_framework AOSAccountsLite
-
 OTHER_LDFLAGS_MOCK_AKS_LIBRARY = -laks_mock -framework SecurityFoundation
 OTHER_LDFLAGS_AKS_LIBRARY[sdk=macosx*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
 OTHER_LDFLAGS_AKS_LIBRARY[sdk=iphoneos*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
@@ -110,6 +108,7 @@ OTHER_LDFLAGS_CrashReporterSupport[sdk=appletv*] =
 OTHER_LDFLAGS_OCMOCK = -framework OCMock
 OTHER_LDFLAGS_OCMOCK[sdk=bridgeos*] =
 
-// NanoRegistry exists on other platforms, but in this case we only need it on watch
-OTHER_LDFLAGS_NANOREGISTRY_WATCH_ONLY[sdk=watchsimulator*] = -framework NanoRegistry
-OTHER_LDFLAGS_NANOREGISTRY_WATCH_ONLY[sdk=watchos*] = -framework NanoRegistry
+OTHER_LDFLAGS_SYMPTOMDIAGNOSTICREPORTER_1 = -weak_framework SymptomDiagnosticReporter
+OTHER_LDFLAGS_SYMPTOMDIAGNOSTICREPORTER_0 =
+OTHER_LDFLAGS_SYMPTOMDIAGNOSTICREPORTER_ =
+OTHER_LDFLAGS_SYMPTOMDIAGNOSTICREPORTER = $(OTHER_LDFLAGS_SYMPTOMDIAGNOSTICREPORTER_$(ABC_BUGCAPTURE_ON))

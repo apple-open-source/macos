@@ -8,6 +8,6 @@
 
 #import "TestUsers.h"
 
-NSString *passwordKtestuserQAD =
+NSString *passwordKtestuserCEAD =
     @"not in clear"
 ;

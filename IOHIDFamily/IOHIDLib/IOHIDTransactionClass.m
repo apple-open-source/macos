@@ -287,17 +287,20 @@ static IOReturn _commit(void *iunknown,
 - (IOReturn)commit
 {
     IOReturn ret = kIOReturnError;
-    uint64_t *cookies = NULL;
+    void *cookies = NULL;
+    size_t cookiesSize = 0;
     uint32_t count = (uint32_t)_elements.count;
     bool output = (_direction == kIOHIDTransactionDirectionTypeOutput);
     
     require(count, exit);
     
-    cookies = (uint64_t *)malloc(sizeof(uint64_t) * count);
+    cookiesSize = sizeof(uint32_t) * count;
+    
+    cookies = malloc(cookiesSize);
     
     for (uint32_t i = 0; i < count; i++) {
         HIDLibElement *element = [_elements objectAtIndex:i];
-        cookies[i] = element.elementCookie;
+        *((uint32_t*)cookies+i) = (uint32_t)element.elementCookie;
         
         if (output && element.valueRef) {
             [_device setValue:element.elementRef
@@ -310,13 +313,13 @@ static IOReturn _commit(void *iunknown,
     }
     
     if (output) {
-        ret = IOConnectCallScalarMethod(_device.connect,
+        ret = IOConnectCallStructMethod(_device.connect,
                                         kIOHIDLibUserClientPostElementValues,
-                                        cookies, count, 0, 0);
+                                        cookies, cookiesSize, 0, 0);
     } else {
-        ret = IOConnectCallScalarMethod(_device.connect,
-                                        kIOHIDLibUserClientUpdateElementValues,
-                                        cookies, count, 0, 0);
+        ret = IOConnectCallStructMethod(_device.connect,
+                                    kIOHIDLibUserClientUpdateElementValues,
+                                        cookies, cookiesSize, 0, 0);
         require_noerr(ret, exit);
         
         for (HIDLibElement *element in _elements) {

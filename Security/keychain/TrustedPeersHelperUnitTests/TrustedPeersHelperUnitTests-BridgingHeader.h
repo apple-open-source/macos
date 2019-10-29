@@ -7,8 +7,8 @@
 #import "utilities/SecCFError.h"
 
 
-#import "securityd/SecItemServer.h"
-#import "securityd/spi.h"
+#import "keychain/securityd/SecItemServer.h"
+#import "keychain/securityd/spi.h"
 
 #import <Security/SecItemPriv.h>
 #import "keychain/ckks/CKKS.h"

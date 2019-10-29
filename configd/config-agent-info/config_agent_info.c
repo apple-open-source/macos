@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2017, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,8 +36,9 @@ get_agent_uuid_if_OOB_data_required(xpc_object_t info, uuid_t uuid)
 	if (xpc_get_type(info) == XPC_TYPE_ARRAY) {
 		xpc_array_apply(info, ^bool(size_t index, xpc_object_t value) {
 #pragma unused(index)
-			if (value && xpc_get_type(value) == XPC_TYPE_DICTIONARY) {
-				agent_uuid = xpc_dictionary_get_value(info,
+			if ((value != NULL) &&
+			    (xpc_get_type(value) == XPC_TYPE_DICTIONARY)) {
+				agent_uuid = xpc_dictionary_get_value(value,
 								      kConfigAgentOutOfBandDataUUID);
 				if (agent_uuid != NULL) {
 					return false;
@@ -50,7 +51,9 @@ get_agent_uuid_if_OOB_data_required(xpc_object_t info, uuid_t uuid)
 						      kConfigAgentOutOfBandDataUUID);
 	}
 
-	if (agent_uuid != NULL) {
+	if ((agent_uuid != NULL) &&
+	    (xpc_get_type(agent_uuid) == XPC_TYPE_DATA) &&
+	    (xpc_data_get_length(agent_uuid) >= sizeof(uuid_t))) {
 		const void *bytes = xpc_data_get_bytes_ptr(agent_uuid);
 		uuid_copy(uuid, bytes);
 	} else {
@@ -152,7 +155,8 @@ done:
 xpc_object_t
 config_agent_get_dns_nameservers(xpc_object_t resolver)
 {
-	if (resolver == NULL) {
+	if ((resolver == NULL) ||
+	    (xpc_get_type(resolver) != XPC_TYPE_DICTIONARY)) {
 		return NULL;
 	}
 
@@ -162,7 +166,8 @@ config_agent_get_dns_nameservers(xpc_object_t resolver)
 xpc_object_t
 config_agent_get_dns_searchdomains(xpc_object_t resolver)
 {
-	if (resolver == NULL) {
+	if ((resolver == NULL) ||
+	    (xpc_get_type(resolver) != XPC_TYPE_DICTIONARY)) {
 		return NULL;
 	}
 

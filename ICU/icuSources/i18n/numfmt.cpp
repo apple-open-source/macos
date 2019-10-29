@@ -1172,6 +1172,19 @@ NumberFormat::setMinimumFractionDigits(int32_t newValue)
 }
 
 // -------------------------------------
+// Group-set several settings used for numbers in date formats. Apple rdar://50064762
+
+void
+NumberFormat::setDateSettings(void)
+{
+    fGroupingUsed = FALSE;
+    fParseIntegerOnly = TRUE;
+    fMinFractionDigits = 0;
+    if (fMaxFractionDigits < fMinFractionDigits)
+        fMaxFractionDigits = fMinFractionDigits;
+}
+
+// -------------------------------------
 
 void NumberFormat::setCurrency(const UChar* theCurrency, UErrorCode& ec) {
     if (U_FAILURE(ec)) {

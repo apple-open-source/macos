@@ -40,7 +40,7 @@
 #include <time.h>
 
 #ifdef NO_SERVER
-#include <securityd/spi.h>
+#include "keychain/securityd/spi.h"
 #endif
 
 static

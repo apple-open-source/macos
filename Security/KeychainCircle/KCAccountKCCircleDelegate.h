@@ -40,7 +40,7 @@
  */
 - (NSData*) circleJoinDataFor: (SOSPeerInfoRef) peer
                         error: (NSError**) error;
--(NSData*) circleGetInitialSyncViews: (NSError**) error;
+-(NSData*) circleGetInitialSyncViews:(SOSInitialSyncFlags)flags error:(NSError**) error;
     
 + (instancetype) delegate;
 

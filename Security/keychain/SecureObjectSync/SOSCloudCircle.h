@@ -69,6 +69,12 @@ enum {
 // Types
 //
 
+typedef CF_OPTIONS(uint32_t, SOSInitialSyncFlags) {
+    kSOSInitialSyncFlagTLKs = (1UL << 0),
+    kSOSInitialSyncFlagiCloudIdentity = (1UL << 1),
+};
+
+
 enum {
     kSOSCCInCircle          = 0,
     kSOSCCNotInCircle       = 1,
@@ -756,7 +762,7 @@ void SOSCCGhostBustTriggerTimed(SOSAccountGhostBustingOptions options, void (^co
 
 void SOSCCGhostBustInfo(void (^complete)(NSData *json, NSError *error));
 
-CFDataRef SOSCCCopyInitialSyncData(CFErrorRef *error);
+CFDataRef SOSCCCopyInitialSyncData(SOSInitialSyncFlags flags, CFErrorRef *error);
 
 NSString * SOSCCCircleHash(NSError **error);
 

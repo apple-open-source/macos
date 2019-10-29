@@ -55,7 +55,6 @@ struct SOSDataSourceFactory {
     CFStringRef      (*copy_name)(SOSDataSourceFactoryRef factory);
     SOSDataSourceRef (*create_datasource)(SOSDataSourceFactoryRef factory, CFStringRef dataSourceName, CFErrorRef *error);
     void             (*release)(SOSDataSourceFactoryRef factory);
-    void             (*circle_changed)(SOSDataSourceFactoryRef factory, CFStringRef myPeerID, CFArrayRef trustedPeerIDs, CFArrayRef untrustedPeerIDs);
 };
 
 static inline CFStringRef SOSDataSourceFactoryCopyName(SOSDataSourceFactoryRef dsf) {
@@ -70,11 +69,6 @@ static inline SOSDataSourceRef SOSDataSourceFactoryCreateDataSource(SOSDataSourc
 static inline void SOSDataSourceFactoryRelease(SOSDataSourceFactoryRef dsf) {
     dsf->release(dsf);
 }
-
-static inline void SOSDataSourceFactoryCircleChanged(SOSDataSourceFactoryRef dsf, CFStringRef myPeerID, CFArrayRef trustedPeerIDs, CFArrayRef untrustedPeerIDs) {
-    dsf->circle_changed(dsf, myPeerID, trustedPeerIDs, untrustedPeerIDs);
-}
-
 
 //
 // MARK: - SOSDataSource protocol

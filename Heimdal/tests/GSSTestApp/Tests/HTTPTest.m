@@ -104,7 +104,7 @@
 
 
 
-- (void)testHTTP_QAD {
+- (void)testHTTP_CEAD {
     gss_cred_id_t cred = NULL;
     
     self.sema = dispatch_semaphore_create(0);
@@ -114,10 +114,10 @@
     
     [self XTCDestroyCredential:GSS_C_NO_OID];
     
-    self.client = @"ktestuser@QAD.APPLE.COM";
+    self.client = @"heimdal001@CORP.CEAD.APPLE.COM";
 
     NSDictionary *options = @{
-        (id)kGSSICPassword : passwordKtestuserQAD
+        (id)kGSSICPassword : passwordKtestuserCEAD
     };
     
     cred = [self XTCAcquireCredential:self.client withOptions:options mech:GSS_KRB5_MECHANISM];
@@ -127,7 +127,7 @@
     
     CFRelease(cred);
     
-    NSURL *url = [NSURL URLWithString:@"http://dc01qad.qad.apple.com/negotiate/"];
+    NSURL *url = [NSURL URLWithString:@"http://negotiate.cead.apple.com/index.aspx"];
 
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
     NSURLConnection *conn = [[NSURLConnection alloc] initWithRequest: request delegate: self startImmediately:NO];
