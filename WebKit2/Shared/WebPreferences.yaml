@@ -762,7 +762,7 @@ InputEventsEnabled:
 
 WebAuthenticationEnabled:
   type: bool
-  defaultValue: DEFAULT_WEB_AUTHENTICATION_ENABLED
+  defaultValue: false
   humanReadableName: "Web Authentication"
   humanReadableDescription: "Enable Web Authentication support"
   webcoreBinding: RuntimeEnabledFeatures
@@ -1534,17 +1534,35 @@ FasterClicksEnabled:
   type: bool
   defaultValue: true
   condition: PLATFORM(IOS_FAMILY)
-  humanReadableName: "Faster clicks"
+  humanReadableName: "Fast clicks"
   humanReadableDescription: "Support faster clicks on zoomable pages"
   webcoreBinding: none
   category: internal
 
-FastClicksEverywhere:
+PreferFasterClickOverDoubleTap:
   type: bool
-  defaultValue: DEFAULT_FAST_CLICKS_EVERYWHERE
+  defaultValue: DEFAULT_PREFER_FASTER_CLICK_OVER_DOUBLE_TAP
   condition: PLATFORM(IOS_FAMILY)
-  humanReadableName: "Fast clicks everywhere"
-  humanReadableDescription: "Force fast clicks on all pages"
+  humanReadableName: "Fast clicks beat DTTZ"
+  humanReadableDescription: "Prefer a faster click over a double tap"
+  webcoreBinding: none
+  category: internal
+
+ZoomOnDoubleTapWhenRoot:
+  type: bool
+  defaultValue: false
+  condition: PLATFORM(IOS_FAMILY)
+  humanReadableName: "DTTZ also when root"
+  humanReadableDescription: "Double taps zoom, even if we dispatched a click on the root nodes"
+  webcoreBinding: none
+  category: internal
+
+AlwaysZoomOnDoubleTap:
+  type: bool
+  defaultValue: false
+  condition: PLATFORM(IOS_FAMILY)
+  humanReadableName: "DTTZ always"
+  humanReadableDescription: "Double taps zoom, even if we dispatched a click anywhere"
   webcoreBinding: none
   category: internal
 
@@ -1704,6 +1722,13 @@ IsNSURLSessionWebSocketEnabled:
   category: internal
   webcoreBinding: RuntimeEnabledFeatures
   condition: HAVE(NSURLSESSION_WEBSOCKET)
+
+IsThirdPartyCookieBlockingOnSitesWithoutUserInteractionEnabled:
+  type: bool
+  defaultValue: true
+  humanReadableName: "Block 3rd-Party Cookies On Sites Without Interaction (ITP)"
+  humanReadableDescription: "Block all third-party cookies on websites without user interaction"
+  category: internal
 
 # Deprecated
 

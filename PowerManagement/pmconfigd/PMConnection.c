@@ -56,6 +56,7 @@
 #include "Platform.h"
 #include "Platform.h"
 #include "StandbyTimer.h"
+#include "pmconfigd.h"
 
 
 /************************************************************************************/
@@ -1591,6 +1592,11 @@ __private_extern__ bool isA_FullWake()
 
 }
 
+__private_extern__ bool isCapabilityChangeDone()
+{
+    return gCapabilityChangeDone;
+}
+
 __private_extern__ void cancelPowerNapStates( )
 {
 
@@ -2381,7 +2387,7 @@ static void PMConnectionPowerCallBack(
             gCapabilityChangeDone = true;
             gCurrentWakeTime = 0;
             updateWakeTime();
-
+            evaluateDWThermalMsg();
 
         } else if (IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityCPU))
         {
@@ -2487,6 +2493,7 @@ static void PMConnectionPowerCallBack(
             gCapabilityChangeDone = true;
             gCurrentWakeTime = 0;
             updateWakeTime();
+            evaluateDWThermalMsg();
 
         }
 

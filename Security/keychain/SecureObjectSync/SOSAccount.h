@@ -169,6 +169,9 @@ CF_RETURNS_RETAINED CFMutableSetRef SOSAccountSyncWithPeers(SOSAccountTransactio
 CFSetRef SOSAccountSyncWithPeersOverKVS(SOSAccountTransaction* txn,  CFSetRef peers);
 bool SOSAccountInflateTransports(SOSAccount* account, CFStringRef circleName, CFErrorRef *error);
 
+void
+SOSAccountTriggerSyncWithBackupPeer(CFStringRef peer);
+
 //
 // MARK: Outgoing/Sync functions
 //      

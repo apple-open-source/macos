@@ -46,7 +46,7 @@ hu{
         arc{"arámi"}
         arn{"mapucse"}
         arp{"arapaho"}
-        ars{"nedzsdi arab"}
+        ars{"arab, nedzsdi"}
         arw{"aravak"}
         as{"asszámi"}
         asa{"asu"}
@@ -106,7 +106,7 @@ hu{
         chp{"csipevé"}
         chr{"cseroki"}
         chy{"csejen"}
-        ckb{"közép-ázsiai kurd"}
+        ckb{"kurd, szoráni"}
         co{"korzikai"}
         cop{"kopt"}
         cr{"krí"}

@@ -237,7 +237,7 @@ eap_print(netdissect_options *ndo,
             case EAP_TYPE_TLS:
                 ND_TCHECK_8BITS(tptr + 5);
                 if (subtype == EAP_TYPE_TTLS)
-                ND_PRINT((ndo, " TTLSv%u",
+                    ND_PRINT((ndo, " TTLSv%u",
                            EAP_TTLS_VERSION(*(tptr + 5))));
                 ND_PRINT((ndo, " flags [%s] 0x%02x,",
                        bittok2str(eap_tls_flags_values, "none", *(tptr+5)),

@@ -55,7 +55,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (CKKSResultOperation*)requestSuccessfulFetch:(CKKSFetchBecause*)why;
 - (CKKSResultOperation*)requestSuccessfulFetchForManyReasons:(NSSet<CKKSFetchBecause*>*)why;
-- (CKKSResultOperation*)requestSuccessfulFetchDueToAPNS:(CKRecordZoneNotification*)notification;
+
+// let server know we seen this push and if zones are ready actually perform a fetch
+- (CKKSResultOperation* _Nullable)requestFetchDueToAPNS:(CKRecordZoneNotification*)notification;
 
 // We don't particularly care what this does, as long as it finishes
 - (void)holdFetchesUntil:(CKKSResultOperation* _Nullable)holdOperation;

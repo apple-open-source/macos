@@ -777,7 +777,7 @@ pimv2_print(netdissect_options *ndo,
 				if (olen != 2) {
 					ND_PRINT((ndo, "ERROR: Option Length != 2 Bytes (%u)", olen));
 				} else {
-				unsigned_relts_print(ndo, EXTRACT_16BITS(bp));
+					unsigned_relts_print(ndo, EXTRACT_16BITS(bp));
 				}
 				break;
 
@@ -815,7 +815,7 @@ pimv2_print(netdissect_options *ndo,
 				if (olen != 4) {
 					ND_PRINT((ndo, "ERROR: Option Length != 4 Bytes (%u)", olen));
 				} else {
-				ND_PRINT((ndo, "0x%08x", EXTRACT_32BITS(bp)));
+					ND_PRINT((ndo, "0x%08x", EXTRACT_32BITS(bp)));
 				}
 				break;
 
@@ -823,14 +823,14 @@ pimv2_print(netdissect_options *ndo,
 				if (olen != 4) {
 					ND_PRINT((ndo, "ERROR: Option Length != 4 Bytes (%u)", olen));
 				} else {
-				ND_PRINT((ndo, "v%d", *bp));
-				if (*(bp+1) != 0) {
-					ND_PRINT((ndo, ", interval "));
-					unsigned_relts_print(ndo, *(bp+1));
-				}
-				if (EXTRACT_16BITS(bp+2) != 0) {
-					ND_PRINT((ndo, " ?0x%04x?", EXTRACT_16BITS(bp+2)));
-				}
+					ND_PRINT((ndo, "v%d", *bp));
+					if (*(bp+1) != 0) {
+						ND_PRINT((ndo, ", interval "));
+						unsigned_relts_print(ndo, *(bp+1));
+					}
+					if (EXTRACT_16BITS(bp+2) != 0) {
+						ND_PRINT((ndo, " ?0x%04x?", EXTRACT_16BITS(bp+2)));
+					}
 				}
 				break;
 

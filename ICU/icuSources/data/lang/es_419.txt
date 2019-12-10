@@ -14,7 +14,6 @@ es_419{
         ady{"adigeo"}
         alt{"altái del sur"}
         arp{"arapajó"}
-        ars{"árabe de Néyed"}
         bla{"siksiká"}
         ccp{"chakma"}
         eu{"vasco"}

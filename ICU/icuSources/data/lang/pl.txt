@@ -123,7 +123,7 @@ pl{
         chp{"czipewiański"}
         chr{"czirokeski"}
         chy{"czejeński"}
-        ckb{"sorani"}
+        ckb{"kurdyjski sorani"}
         co{"korsykański"}
         cop{"koptyjski"}
         cps{"capiznon"}

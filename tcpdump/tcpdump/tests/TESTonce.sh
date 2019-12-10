@@ -11,18 +11,20 @@ input="$2"
 output="$3"
 options="$4"
 
-echo "$ tcpdump -n -t -r $input $options" >>verbose-outputs.txt
+echo "$ tcpdump --apple-arp-plain -n -t -r $input $options" >>verbose-outputs.txt
 
 #use eval otherwise $option may contain double quotes '"'
-eval tcpdump 2>>verbose-outputs.txt -n -t -r $input $options >NEW/$output
+eval tcpdump 2>>verbose-outputs.txt --apple-arp-plain -n -t -r $input $options >NEW/$output
 r=$?
+status=$r
+coredump=0
 # emulate the return values of the perl system function
 if [ $r -lt 128 ]; then
     let "r = r << 8"
 fi
 if [ $r -ne 0 ]; then
     # this means tcpdump failed.
-    printf "EXIT CODE %08x\n" $r >> NEW/$output
+    printf "\nEXIT CODE %08x: dump:%d code: %d\n" $r $coredump $status >> NEW/$output
     r=0
 fi
 

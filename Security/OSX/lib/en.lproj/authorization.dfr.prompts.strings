@@ -56,7 +56,7 @@
 
 "com.apple.docset.install" = "Touch ID to Update the Developer Documentation.";
 
-"com.apple.Safari.parental-controls" = "Touch ID to Modify the Parental Controls Settings for Safari.";
+"com.apple.Safari.parental-controls" = "Touch ID to Modify the Screen Time Settings for Safari.";
 
 "com.apple.Safari.allow-unsigned-app-extensions" = "Touch ID to Allow Unsigned Extensions.";
 
@@ -86,7 +86,7 @@
 
 "system.preferences.sharing" = "Touch ID to Unlock the Sharing Preferences.";
 
-"system.preferences.parental-controls" = "Touch ID to Unlock Parental Controls Preferences.";
+"system.preferences.parental-controls" = "Touch ID to Unlock Screen Time Preferences.";
 
 "system.preferences.security" = "Touch ID to Unlock Security & Privacy Preferences.";
 
@@ -144,7 +144,7 @@
 
 "com.apple.AOSNotification.FindMyMac.remove" = "Touch ID to Turn Off Find My Mac.";
 
-"com.apple.iBooksX.ParentalControl" = "Touch ID to Unlock Your Parental Controls Preferences.";
+"com.apple.iBooksX.ParentalControl" = "Touch ID to Unlock Your Screen Time Preferences.";
 
 "system.services.networkextension.vpn" = "Touch ID to Modify the VPN Configuration.";
 

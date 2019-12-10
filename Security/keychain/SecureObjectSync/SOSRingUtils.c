@@ -740,7 +740,9 @@ static CFStringRef CreateCommaSeparatedPeerIDs(CFSetRef peers) {
         if (addSeparator) {
             CFStringAppendCString(result, ", ", kCFStringEncodingUTF8);
         }
-        CFStringAppend(result, peerID);
+        CFStringRef spid = CFStringCreateTruncatedCopy(peerID, 8);
+        CFStringAppend(result, spid);
+        CFReleaseNull(spid);
 
         addSeparator = true;
     });
@@ -769,9 +771,11 @@ CFDictionaryRef SOSRingCopyPeerIDList(SOSRingRef ring) {
    CFMutableStringRef signers = CFStringCreateMutable(ALLOCATOR, 0);
     CFDictionaryForEach(ring->signatures, ^(const void *key, const void *value) {
         CFStringRef peerID = (CFStringRef) key;
+        CFStringRef spid = CFStringCreateTruncatedCopy(peerID, 8);
         if (addSeparator)
             CFStringAppendCString(signers, ", ", kCFStringEncodingUTF8);
-        CFStringAppend(signers, peerID);
+        CFStringAppend(signers, spid);
+        CFReleaseNull(spid);
         addSeparator = true;
     });
     return signers;
@@ -784,29 +788,17 @@ static CFStringRef SOSRingCopyFormatDescription(CFTypeRef aObj, CFDictionaryRef 
 
     CFDictionaryRef peers = SOSRingCopyPeerIDList(ring);
     CFStringRef signers = SOSRingCopySignerList(ring);
-
-    CFDataRef payload = SOSRingGetPayload(ring, NULL);
-
     CFStringRef gcString = SOSGenerationCountCopyDescription(SOSRingGetGeneration(ring));
 
     CFMutableStringRef description = CFStringCreateMutable(kCFAllocatorDefault, 0);
 
-    CFStringAppendFormat(description, formatOpts, CFSTR("<SOSRing@%p: '%@', Version %u, "), ring, SOSRingGetName(ring), SOSRingGetVersion(ring));
-    CFStringAppendFormat(description, formatOpts, CFSTR("UUID: %@, "), SOSRingGetIdentifier(ring));
+    CFStringAppendFormat(description, formatOpts, CFSTR("<SOSRing: '%@'"), SOSRingGetName(ring));
     SOSGenerationCountWithDescription(SOSRingGetGeneration(ring), ^(CFStringRef gcString) {
         CFStringAppendFormat(description, formatOpts, CFSTR("Gen: %@, "), gcString);
     });
-    CFStringAppendFormat(description, formatOpts, CFSTR("Mod: %@, "), SOSRingGetLastModifier(ring));
-    
-    CFStringAppendFormat(description, formatOpts, CFSTR("D: %ld "), payload ? CFDataGetLength(payload) : 0);
-
-    SOSBackupSliceKeyBagRef payloadAsBSKB = SOSRingCopyBackupSliceKeyBag(ring, NULL);
-
-    if (payloadAsBSKB) {
-        CFStringAppendFormat(description, formatOpts, CFSTR("%@ "), payloadAsBSKB);
-    }
-
-    CFReleaseSafe(payloadAsBSKB);
+    CFStringRef modifierID = CFStringCreateTruncatedCopy(SOSRingGetLastModifier(ring), 8);
+    CFStringAppendFormat(description, formatOpts, CFSTR("Mod: %@, "), modifierID);
+    CFReleaseNull(modifierID);
 
     CFStringAppendFormat(description, formatOpts, CFSTR("P: [%@], "), CFDictionaryGetValue(peers, CFSTR("MEMBER")));
     CFStringAppendFormat(description, formatOpts, CFSTR("A: [%@], "), CFDictionaryGetValue(peers, CFSTR("APPLICANTS")));

@@ -1,0 +1,323 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 50;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		7E43E96D23317CFB000D28DD /* HIDTalkd.mm in Sources */ = {isa = PBXBuildFile; fileRef = 7E43E96B23317CFB000D28DD /* HIDTalkd.mm */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7E43E94D23317B3D000D28DD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		7E43E94F23317B3D000D28DD /* hidtalkd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hidtalkd; sourceTree = BUILT_PRODUCTS_DIR; };
+		7E43E96823317CFB000D28DD /* HIDTalkDaemon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HIDTalkDaemon.h; sourceTree = "<group>"; };
+		7E43E96923317CFB000D28DD /* com.apple.internal.hidtalkd-bridge.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "com.apple.internal.hidtalkd-bridge.plist"; sourceTree = "<group>"; };
+		7E43E96A23317CFB000D28DD /* HIDTalkd-entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "HIDTalkd-entitlements.plist"; sourceTree = "<group>"; };
+		7E43E96B23317CFB000D28DD /* HIDTalkd.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = HIDTalkd.mm; sourceTree = "<group>"; };
+		7E43E96C23317CFB000D28DD /* com.apple.internal.hidtalkd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.internal.hidtalkd.plist; sourceTree = "<group>"; };
+		7E9E86C4233181290000006B /* hidtalkd.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = hidtalkd.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7E43E94C23317B3D000D28DD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		7E43E94623317B3D000D28DD = {
+			isa = PBXGroup;
+			children = (
+				7E9E86C4233181290000006B /* hidtalkd.xcconfig */,
+				7E43E96623317CFB000D28DD /* hidtalkd */,
+				7E43E95023317B3D000D28DD /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		7E43E95023317B3D000D28DD /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7E43E94F23317B3D000D28DD /* hidtalkd */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7E43E96623317CFB000D28DD /* hidtalkd */ = {
+			isa = PBXGroup;
+			children = (
+				7E43E96723317CFB000D28DD /* HIDTalk */,
+				7E43E96923317CFB000D28DD /* com.apple.internal.hidtalkd-bridge.plist */,
+				7E43E96A23317CFB000D28DD /* HIDTalkd-entitlements.plist */,
+				7E43E96B23317CFB000D28DD /* HIDTalkd.mm */,
+				7E43E96C23317CFB000D28DD /* com.apple.internal.hidtalkd.plist */,
+			);
+			path = hidtalkd;
+			sourceTree = "<group>";
+		};
+		7E43E96723317CFB000D28DD /* HIDTalk */ = {
+			isa = PBXGroup;
+			children = (
+				7E43E96823317CFB000D28DD /* HIDTalkDaemon.h */,
+			);
+			path = HIDTalk;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		7E43E94E23317B3D000D28DD /* hidtalkd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7E43E95623317B3D000D28DD /* Build configuration list for PBXNativeTarget "hidtalkd" */;
+			buildPhases = (
+				7E43E94B23317B3D000D28DD /* Sources */,
+				7E43E94C23317B3D000D28DD /* Frameworks */,
+				7E43E94D23317B3D000D28DD /* CopyFiles */,
+				7E43E97D23317EDE000D28DD /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = hidtalkd;
+			productName = hidtalkd;
+			productReference = 7E43E94F23317B3D000D28DD /* hidtalkd */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7E43E94723317B3D000D28DD /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1100;
+				ORGANIZATIONNAME = "Apple Inc.";
+				TargetAttributes = {
+					7E43E94E23317B3D000D28DD = {
+						CreatedOnToolsVersion = 11.0;
+					};
+				};
+			};
+			buildConfigurationList = 7E43E94A23317B3D000D28DD /* Build configuration list for PBXProject "hidtalkd" */;
+			compatibilityVersion = "Xcode 9.3";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 7E43E94623317B3D000D28DD;
+			productRefGroup = 7E43E95023317B3D000D28DD /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7E43E94E23317B3D000D28DD /* hidtalkd */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		7E43E97D23317EDE000D28DD /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "echo \"Plist Path [${LAUNCHD_PLIST_PATH}]\"\necho \"Plist File [${LAUNCHD_PLIST_FILE}]\"\n\nif [ ! -d \"${INSTALL_ROOT}/${LAUNCHD_PLIST_PATH}\" ] ; then\n    mkdir -p ${INSTALL_ROOT}/${LAUNCHD_PLIST_PATH}\nfi\n\n# Check if we are being built by BNI.\nif [ -z \"${RC_ProjectName}\" ]; then\n    PLIST_SRC_DIR=\"hidtalkd\"\nelse\n    PLIST_SRC_DIR=\"hidtalkd/hidtalkd\"\nfi\n\necho \"${RC_ProjectName}\"\n\ncp ${SRCROOT}/${PLIST_SRC_DIR}/${LAUNCHD_PLIST_FILE}  ${INSTALL_ROOT}/${LAUNCHD_PLIST_PATH}/com.apple.internal.hidtalkd.plist\n\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7E43E94B23317B3D000D28DD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7E43E96D23317CFB000D28DD /* HIDTalkd.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		7E43E95423317B3D000D28DD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx.internal;
+			};
+			name = Debug;
+		};
+		7E43E95523317B3D000D28DD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx.internal;
+			};
+			name = Release;
+		};
+		7E43E95723317B3D000D28DD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7E9E86C4233181290000006B /* hidtalkd.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "hidtalkd/HIDTalkd-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		7E43E95823317B3D000D28DD /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7E9E86C4233181290000006B /* hidtalkd.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "hidtalkd/HIDTalkd-entitlements.plist";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7E43E94A23317B3D000D28DD /* Build configuration list for PBXProject "hidtalkd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7E43E95423317B3D000D28DD /* Debug */,
+				7E43E95523317B3D000D28DD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7E43E95623317B3D000D28DD /* Build configuration list for PBXNativeTarget "hidtalkd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7E43E95723317B3D000D28DD /* Debug */,
+				7E43E95823317B3D000D28DD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7E43E94723317B3D000D28DD /* Project object */;
+}

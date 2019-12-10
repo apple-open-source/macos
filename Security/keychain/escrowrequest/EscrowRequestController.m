@@ -38,9 +38,10 @@ OctagonState* const EscrowRequestStateWaitForUnlock = (OctagonState*)@"wait_for_
 
         _stateMachine = [[OctagonStateMachine alloc] initWithName:@"escrowrequest"
                                                            states:[NSSet setWithArray:@[EscrowRequestStateNothingToDo,
-                                                                                          EscrowRequestStateTriggerCloudServices,
-                                                                                          EscrowRequestStateAttemptEscrowUpload,
-                                                                                          EscrowRequestStateWaitForUnlock]]
+                                                                                        EscrowRequestStateTriggerCloudServices,
+                                                                                        EscrowRequestStateAttemptEscrowUpload,
+                                                                                        EscrowRequestStateWaitForUnlock]]
+                                                            flags: [NSSet setWithArray:@[OctagonFlagEscrowRequestInformCloudServicesOperation]]
                                                      initialState:EscrowRequestStateNothingToDo
                                                             queue:_queue
                                                       stateEngine:self

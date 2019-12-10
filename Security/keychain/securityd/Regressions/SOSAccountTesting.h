@@ -776,38 +776,49 @@ static inline void showActiveValidPeers(SOSAccount* account) {
 #define ok_or_quit(COND,MESSAGE,LABEL) ok(COND, MESSAGE); if(!(COND)) goto LABEL
 
 static inline bool testAccountPersistence(SOSAccount* account) {
+
+    __block bool retval = false;
+    __block NSData* accountDER = NULL;
+
     SOSDataSourceFactoryRef test_factory = SOSTestDataSourceFactoryCreate();
     SOSDataSourceRef test_source = SOSTestDataSourceCreate();
     SOSTestDataSourceFactorySetDataSource(test_factory, CFSTR("TestType"), test_source);
-    NSError* error = nil;
-
-    bool retval = false;
-    SOSAccount* reinflatedAccount = NULL;
-    NSData* accountDER = NULL;
 
     SOSAccountCheckHasBeenInSync_wTxn(account);
 
-    // DER encode account to accountData - this allows checking discreet DER functions
-    size_t size = [account.trust getDEREncodedSize:account err:&error];
-    error = nil;
-    uint8_t buffer[size];
-    uint8_t* start = [account.trust encodeToDER:account err:&error start:buffer end:buffer + sizeof(buffer)];
-    error = nil;
+    [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        NSError* error = nil;
 
-    ok_or_quit(start, "successful encoding", errOut);
-    ok_or_quit(start == buffer, "Used whole buffer", errOut);
+        // DER encode account to accountData - this allows checking discreet DER functions
+        size_t size = [account.trust getDEREncodedSize:account err:&error];
+        error = nil;
+        uint8_t buffer[size];
+        uint8_t* start = [account.trust encodeToDER:account err:&error start:buffer end:buffer + sizeof(buffer)];
+        error = nil;
 
-    accountDER = [NSData dataWithBytes:buffer length:size];
-    ok_or_quit(accountDER, "Made CFData for Account", errOut);
+        ok_or_quit(start, "successful encoding", errOut);
+        ok_or_quit(start == buffer, "Used whole buffer", errOut);
 
+        accountDER = [NSData dataWithBytes:buffer length:size];
+        ok_or_quit(accountDER, "Made CFData for Account", errOut);
+
+        retval = true;
+    errOut:
+        do {} while(0);
+    }];
+
+    SOSAccount* reinflatedAccount = NULL;
+    NSError* error = nil;
+
+    require(retval, errOut);
 
     // Re-inflate to "inflated"
     reinflatedAccount = [SOSAccount accountFromData:accountDER
                                             factory:test_factory
                                               error:&error];
+    ok(reinflatedAccount, "inflated: %@", error);
     error = nil;
 
-    ok(reinflatedAccount, "inflated");
     ok(CFEqualSafe((__bridge CFTypeRef)reinflatedAccount, (__bridge CFTypeRef)account), "Compares");
 
     // Repeat through SOSAccountCopyEncodedData() interface - this is the normally called combined interface
@@ -817,10 +828,10 @@ static inline bool testAccountPersistence(SOSAccount* account) {
     ok(reinflatedAccount, "inflated2: %@", error);
     ok(CFEqual((__bridge CFTypeRef)account, (__bridge CFTypeRef)reinflatedAccount), "Compares");
 
-    error = nil;
     retval = true;
-
 errOut:
+    error = nil;
+
     return retval;
 }
 

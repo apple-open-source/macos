@@ -89,7 +89,13 @@ class Client: TrustedPeersHelperProtocol {
             container.trustStatus(reply: reply)
         } catch {
             os_log("Trust status failed for (%@, %@): %@", log: tplogDebug, type: .default, container, context, error as CVarArg)
-            reply(TrustedPeersHelperEgoPeerStatus(egoPeerID: nil, status: TPPeerStatus.unknown, viablePeerCountsByModelID: [:], isExcluded: false, isLocked: false), CKXPCSuitableError(error))
+            reply(TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
+                                                  status: TPPeerStatus.unknown,
+                                                  viablePeerCountsByModelID: [:],
+                                                  peerCountsByMachineID: [:],
+                                                  isExcluded: false,
+                                                  isLocked: false),
+                  CKXPCSuitableError(error))
         }
     }
 
@@ -185,6 +191,21 @@ class Client: TrustedPeersHelperProtocol {
         } catch {
             os_log("Removing allowed machineID failed for (%@, %@): %@", log: tplogDebug, type: .default, container, context, error as CVarArg)
             reply(CKXPCSuitableError(error))
+        }
+    }
+
+    func fetchAllowedMachineIDs(withContainer container: String, context: String, reply: @escaping (Set<String>?, Error?) -> Void) {
+        do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("Fetching allowed machineIDs for %@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+            container.fetchAllowedMachineIDs() { mids, error in
+                self.logComplete(function: "Fetched allowed machineIDs", container: container.name, error: error)
+                reply(mids, CKXPCSuitableError(error))
+            }
+        } catch {
+            os_log("Fetching allowed machineIDs failed for (%@, %@): %@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(nil, CKXPCSuitableError(error))
         }
     }
 
@@ -630,5 +651,20 @@ class Client: TrustedPeersHelperProtocol {
             os_log("Health Check! failed for (%@, %@): %@", log: tplogDebug, type: .default, container, context, error as CVarArg)
             reply(false, false, false, CKXPCSuitableError(error))
         }
+    }
+
+    func getSupportAppInfo(withContainer container: String, context: String, reply: @escaping (Data?, Error?) -> Void) {
+                do {
+            let containerName = ContainerName(container: container, context: context)
+            os_log("getSupportInfo %d for %@", log: tplogDebug, type: .default, containerName.description)
+            let container = try self.containerMap.findOrCreate(name: containerName)
+            container.getSupportAppInfo { info, error in
+                reply(info, CKXPCSuitableError(error))
+            }
+        } catch {
+            os_log("getSupportInfo failed for (%@, %@): %@", log: tplogDebug, type: .default, container, context, error as CVarArg)
+            reply(nil, CKXPCSuitableError(error))
+        }
+
     }
 }

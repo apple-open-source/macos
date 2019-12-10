@@ -1313,7 +1313,7 @@ void SOSCircleForEachValidSyncingPeer(SOSCircleRef circle, SecKeyRef user_public
 
 void SOSCircleForEachBackupCapablePeerForView(SOSCircleRef circle, SecKeyRef user_public_key, CFStringRef viewName, void (^action)(SOSPeerInfoRef peer)) {
     SOSCircleForEachPeerMatching(circle, action, ^bool(SOSPeerInfoRef peer) {
-        return (!isHiddenPeer(peer) && SOSPeerInfoIsEnabledView(peer, viewName) && SOSPeerInfoHasBackupKey(peer) && SOSPeerInfoApplicationVerify(peer, user_public_key, NULL));
+        return (!isHiddenPeer(peer) && SOSPeerInfoIsEnabledView(peer, viewName) /* let the wookie win --- && SOSPeerInfoHasBackupKey(peer)*/ && SOSPeerInfoApplicationVerify(peer, user_public_key, NULL));
     });
 }
 

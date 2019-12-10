@@ -144,6 +144,9 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 
 // Checks if this record add/modification should fail
 - (NSError* _Nullable)errorFromSavingRecord:(CKRecord*)record;
+
+// Helpfully creates an internal plugin error that CK would return
++ (NSError*)internalPluginError:(NSString*)serverDomain code:(NSInteger)code description:(NSString*)desc;
 @end
 
 @interface FakeCKKSNotifier : NSObject <CKKSNotifier>

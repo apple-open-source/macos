@@ -726,11 +726,12 @@ void ResourceLoadStatisticsDatabaseStore::hasStorageAccess(const SubFrameDomain&
     case CookieTreatmentResult::BlockAndPurge:
         completionHandler(false);
         return;
-    case CookieTreatmentResult::BlockAndKeep:
-        completionHandler(true);
-        return;
     case CookieTreatmentResult::Allow:
-        // Do nothing
+        // We should only return true if the context has asked for and been granted access.
+        completionHandler(false);
+        return;
+    case CookieTreatmentResult::BlockAndKeep:
+        // Do nothing. The below dispatch will complete the task.
         break;
     };
 
@@ -1318,7 +1319,8 @@ void ResourceLoadStatisticsDatabaseStore::clear(CompletionHandler<void()>&& comp
     removeAllStorageAccess([callbackAggregator = callbackAggregator.copyRef()] { });
 
     auto primaryDomainsToBlock = ensurePrevalentResourcesForDebugMode();
-    updateCookieBlockingForDomains(primaryDomainsToBlock, [callbackAggregator = callbackAggregator.copyRef()] { });
+    RegistrableDomainsToBlockCookiesFor domainsToBlock { primaryDomainsToBlock, { } };
+    updateCookieBlockingForDomains(domainsToBlock, [callbackAggregator = callbackAggregator.copyRef()] { });
 }
 
 ResourceLoadStatisticsDatabaseStore::CookieTreatmentResult ResourceLoadStatisticsDatabaseStore::cookieTreatmentForOrigin(const RegistrableDomain& domain) const
@@ -1382,8 +1384,12 @@ void ResourceLoadStatisticsDatabaseStore::updateCookieBlocking(CompletionHandler
     if (debugLoggingEnabled() && !domainsToBlock.isEmpty())
         debugLogDomainsInBatches("block", domainsToBlock);
 
-    RunLoop::main().dispatch([weakThis = makeWeakPtr(*this), store = makeRef(store()), domainsToBlock = crossThreadCopy(domainsToBlock), completionHandler = WTFMove(completionHandler)] () mutable {
-        store->callUpdatePrevalentDomainsToBlockCookiesForHandler(domainsToBlock, [weakThis = WTFMove(weakThis), store = store.copyRef(), completionHandler = WTFMove(completionHandler)]() mutable {
+    // Note that this does not properly forward information about which domains have
+    // received user interaction. But the database store is not used on the branch.
+    RegistrableDomainsToBlockCookiesFor toBlock { domainsToBlock, { } };
+
+    RunLoop::main().dispatch([weakThis = makeWeakPtr(*this), store = makeRef(store()), toBlock = crossThreadCopy(toBlock), completionHandler = WTFMove(completionHandler)] () mutable {
+        store->callUpdatePrevalentDomainsToBlockCookiesForHandler(toBlock, [weakThis = WTFMove(weakThis), store = store.copyRef(), completionHandler = WTFMove(completionHandler)]() mutable {
             store->statisticsQueue().dispatch([weakThis = WTFMove(weakThis), completionHandler = WTFMove(completionHandler)]() mutable {
                 completionHandler();
                 if (!weakThis)

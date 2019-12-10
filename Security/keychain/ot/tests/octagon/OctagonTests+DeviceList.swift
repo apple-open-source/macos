@@ -104,6 +104,32 @@ class OctagonDeviceListTests: OctagonTestsBase {
                      "peer 1 should distrust peer 2 after update")
     }
 
+    func testNumberOfPeersInModel() throws {
+        self.startCKAccountStatusMock()
+
+        XCTAssert(self.mockAuthKit.currentDeviceList().contains(self.mockAuthKit2.currentMachineID), "AuthKit should already have device 2 on the list")
+
+        _ = self.assertResetAndBecomeTrustedInDefaultContext()
+
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+
+        do {
+            let number = try self.cuttlefishContext.numberOfPeersInModel(withMachineID: self.mockAuthKit.currentMachineID)
+            XCTAssertEqual(number.intValue, 1, "Should have a one peer for numberOfPeersInModel after an initial join")
+        } catch {
+            XCTFail("Should not have failed fetching the number of peers with a mid: \(error)")
+        }
+
+        do {
+            let number = try self.cuttlefishContext.numberOfPeersInModel(withMachineID: "not-a-real-machine-id")
+            XCTAssertEqual(number.intValue, 0, "Should have a zero peers for an invalid MID")
+        } catch {
+            XCTFail("Should not have failed fetching the number of peers with a mid: \(error)")
+        }
+    }
+
     func testRemovePeerWhenRemovedFromDeviceListViaIncompleteNotification() throws {
         self.startCKAccountStatusMock()
 
@@ -491,13 +517,13 @@ class OctagonDeviceListTests: OctagonTestsBase {
 
         sleep(1)
 
-        XCTAssertTrue(self.cuttlefishContext.stateMachine.possiblePendingFlags().contains("recd_push"), "Should have recd_push pending flag")
+        XCTAssertTrue(self.cuttlefishContext.stateMachine.possiblePendingFlags().contains(OctagonFlagCuttlefishNotification), "Should have recd_push pending flag")
 
         // Now, peer should unlock and receive an Octagon push
         self.aksLockState = false
         self.lockStateTracker.recheck()
 
-        sleep(1)
+        self.assertPendingFlagHandled(context: self.cuttlefishContext, pendingFlag: OctagonFlagCuttlefishNotification, within: 10 * NSEC_PER_SEC)
         XCTAssertEqual(self.cuttlefishContext.stateMachine.possiblePendingFlags(), [], "Should have 0 pending flags")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 

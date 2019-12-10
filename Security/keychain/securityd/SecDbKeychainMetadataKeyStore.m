@@ -38,10 +38,13 @@ static void initializeSharedMetadataStoreQueue(void) {
     });
 }
 
-@implementation SecDbKeychainMetadataKeyStore {
-    NSMutableDictionary* _keysDict;
-    dispatch_queue_t _queue;
-}
+@interface SecDbKeychainMetadataKeyStore ()
+@property dispatch_queue_t queue;
+@property NSMutableDictionary* keysDict;
+@property int keybagNotificationToken;
+@end
+
+@implementation SecDbKeychainMetadataKeyStore
 
 + (void)resetSharedStore
 {
@@ -81,9 +84,10 @@ static void initializeSharedMetadataStoreQueue(void) {
     if (self = [super init]) {
         _keysDict = [[NSMutableDictionary alloc] init];
         _queue = dispatch_queue_create("SecDbKeychainMetadataKeyStore", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
-        int token = 0;
+        _keybagNotificationToken = NOTIFY_TOKEN_INVALID;
+
         __weak __typeof(self) weakSelf = self;
-        notify_register_dispatch(kUserKeybagStateChangeNotification, &token, _queue, ^(int inToken) {
+        notify_register_dispatch(kUserKeybagStateChangeNotification, &_keybagNotificationToken, _queue, ^(int inToken) {
             bool locked = true;
             CFErrorRef error = NULL;
             if (!SecAKSGetIsLocked(&locked, &error)) {
@@ -98,6 +102,13 @@ static void initializeSharedMetadataStoreQueue(void) {
     }
 
     return self;
+}
+
+- (void)dealloc {
+    if (_keybagNotificationToken != NOTIFY_TOKEN_INVALID) {
+        notify_cancel(_keybagNotificationToken);
+        _keybagNotificationToken = NOTIFY_TOKEN_INVALID;
+    }
 }
 
 - (void)dropClassAKeys

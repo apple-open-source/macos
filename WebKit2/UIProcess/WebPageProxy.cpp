@@ -54,6 +54,7 @@
 #include "APIWebsitePolicies.h"
 #include "AuthenticationChallengeProxy.h"
 #include "AuthenticationDecisionListener.h"
+#include "AuthenticatorManager.h"
 #include "DataReference.h"
 #include "DownloadProxy.h"
 #include "DrawingAreaMessages.h"
@@ -4053,6 +4054,10 @@ void WebPageProxy::didStartProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& 
         m_loaderClient->didStartProvisionalLoadForFrame(*this, *frame, navigation.get(), process->transformHandlesToObjects(userData.object()).get());
     else if (frame->isMainFrame())
         m_navigationClient->didStartProvisionalNavigation(*this, navigation.get(), process->transformHandlesToObjects(userData.object()).get());
+
+#if ENABLE(WEB_AUTHN)
+    m_websiteDataStore->authenticatorManager().cancelRequest(m_pageID, frameID);
+#endif
 }
 
 void WebPageProxy::didExplicitOpenForFrame(uint64_t frameID, URL&& url)
@@ -7125,6 +7130,10 @@ void WebPageProxy::resetState(ResetStateReason resetStateReason)
 #if ENABLE(SPEECH_SYNTHESIS)
     resetSpeechSynthesizer();
 #endif
+
+#if ENABLE(WEB_AUTHN)
+    m_websiteDataStore->authenticatorManager().cancelRequest(m_pageID, WTF::nullopt);
+#endif
 }
 
 void WebPageProxy::resetStateAfterProcessExited(ProcessTerminationReason terminationReason)
@@ -8275,7 +8284,9 @@ void WebPageProxy::updatePlayingMediaDidChange(MediaProducer::MediaStateFlags ne
 #if ENABLE(MEDIA_STREAM)
     if (oldMediaCaptureState != newMediaCaptureState) {
         m_uiClient->mediaCaptureStateDidChange(m_mediaState);
-        m_userMediaPermissionRequestManager->captureStateChanged(oldMediaCaptureState, newMediaCaptureState);
+        ASSERT(m_userMediaPermissionRequestManager);
+        if (m_userMediaPermissionRequestManager)
+            m_userMediaPermissionRequestManager->captureStateChanged(oldMediaCaptureState, newMediaCaptureState);
     }
 #endif
 
@@ -9141,6 +9152,13 @@ void WebPageProxy::removeDataDetectedLinks(CompletionHandler<void(const DataDete
 
 #endif
 
+#if USE(SYSTEM_PREVIEW)
+void WebPageProxy::systemPreviewActionTriggered(const WebCore::SystemPreviewInfo& previewInfo, const String& message) const
+{
+    m_process->send(Messages::WebPage::SystemPreviewActionTriggered(previewInfo, message), m_pageID);
+}
+#endif
+
 void WebPageProxy::dumpAdClickAttribution(CompletionHandler<void(const String&)>&& completionHandler)
 {
     if (auto* networkProcess = m_process->processPool().networkProcess()) {
@@ -9349,6 +9367,13 @@ void WebPageProxy::configureLoggingChannel(const String& channelName, WTFLogChan
 void WebPageProxy::decidePolicyForSOAuthorizationLoad(const String& extension, CompletionHandler<void(SOAuthorizationLoadPolicy)>&& completionHandler)
 {
     m_navigationClient->decidePolicyForSOAuthorizationLoad(*this, SOAuthorizationLoadPolicy::Allow, extension, WTFMove(completionHandler));
+}
+#endif
+
+#if ENABLE(WEB_AUTHN)
+void WebPageProxy::setMockWebAuthenticationConfiguration(MockWebAuthenticationConfiguration&& configuration)
+{
+    m_websiteDataStore->setMockWebAuthenticationConfiguration(WTFMove(configuration));
 }
 #endif
 

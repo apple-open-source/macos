@@ -53,6 +53,7 @@
 #import "keychain/SecureObjectSync/SOSAccountTrustClassic+Expansion.h"
 #import "keychain/SecureObjectSync/SOSAuthKitHelpers.h"
 #import "keychain/ot/OTManager.h"
+#import "keychain/SigninMetrics/OctagonSignPosts.h"
 #import "NSError+UsefulConstructors.h"
 
 #include <utilities/SecADWrapper.h>
@@ -256,6 +257,8 @@ static SOSAccount* SOSKeychainAccountCreateSharedAccount(CFDictionaryRef our_ges
         if (!account)
             secerror("Got NULL creating account");
     }
+
+    [account startStateMachine];
 
 done:
     CFReleaseNull(savedAccount);
@@ -818,11 +821,13 @@ SOSViewResultCode SOSCCView_Server(CFStringRef viewname, SOSViewActionCode actio
 
 bool SOSCCViewSetWithAnalytics_Server(CFSetRef enabledViews, CFSetRef disabledViews, CFDataRef parentEvent) {
     __block bool status = false;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCViewSet);
 
     do_with_account_if_after_first_unlock(NULL, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         status = [txn.account.trust updateViewSetsWithAnalytics:txn.account enabled:enabledViews disabled:disabledViews parentEvent:(__bridge NSData*)parentEvent];
         return true;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCViewSet, OctagonSignpostNumber1(SOSSignpostNameSOSCCViewSet), (int)status);
     return status;
 }
 
@@ -833,7 +838,9 @@ bool SOSCCViewSet_Server(CFSetRef enabledViews, CFSetRef disabledViews) {
 
 
 void sync_the_last_data_to_kvs(CFTypeRef account, bool waitForeverForSynchronization){
-    
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSyncTheLastDataToKVS);
+    __block CFErrorRef localError = NULL;
+
     dispatch_semaphore_t wait_for = dispatch_semaphore_create(0);
 
     secnoticeq("force-push", "calling SOSCloudKeychainSynchronizeAndWait");
@@ -841,6 +848,7 @@ void sync_the_last_data_to_kvs(CFTypeRef account, bool waitForeverForSynchroniza
     SOSCloudKeychainSynchronizeAndWait(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(CFDictionaryRef returnedValues, CFErrorRef sync_error) {
         if (sync_error) {
             secerrorq("SOSCloudKeychainSynchronizeAndWait: %@", sync_error);
+            localError = sync_error;
         } else {
             secnoticeq("force-push", "returned from call; in callback to SOSCloudKeychainSynchronizeAndWait: results: %@", returnedValues);
         }
@@ -854,11 +862,15 @@ void sync_the_last_data_to_kvs(CFTypeRef account, bool waitForeverForSynchroniza
         dispatch_semaphore_wait(wait_for, dispatch_time(DISPATCH_TIME_NOW, 60ull * NSEC_PER_SEC));
     
     wait_for = nil;
+    bool subTaskSuccess = (localError == NULL) ? true : false;
+    OctagonSignpostEnd(signPost, SOSSignpostNameSyncTheLastDataToKVS, OctagonSignpostNumber1(SOSSignpostNameSyncTheLastDataToKVS), (int)subTaskSuccess);
 }
 
 #define kWAIT2MINID "EFRESH"
 
 static bool SyncKVSAndWait(CFErrorRef *error) {
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSyncKVSAndWait);
+
     dispatch_semaphore_t wait_for = dispatch_semaphore_create(0);
 
     __block bool success = false;
@@ -881,12 +893,14 @@ static bool SyncKVSAndWait(CFErrorRef *error) {
         dispatch_semaphore_wait(wait_for, DISPATCH_TIME_FOREVER);
         secnotice("fresh", "EFP complete: %s %@", success ? "success" : "failure", error ? *error : NULL);
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSyncKVSAndWait, OctagonSignpostNumber1(SOSSignpostNameSyncKVSAndWait), (int)success);
 
     return success;
 }
 
 static bool Flush(CFErrorRef *error) {
     __block bool success = false;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameFlush);
 
     dispatch_semaphore_t wait_for = dispatch_semaphore_create(0);
     secnotice("flush", "Starting");
@@ -904,11 +918,14 @@ static bool Flush(CFErrorRef *error) {
 
     secnotice("flush", "Returned %s", success? "Success": "Failure");
 
+    OctagonSignpostEnd(signPost, SOSSignpostNameFlush, OctagonSignpostNumber1(SOSSignpostNameFlush), (int)success);
+
     return success;
 }
 
 bool SOSCCTryUserCredentials_Server(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error) {
     secnotice("updates", "Trying credentials and dsid (%@) for %@", dsid, user_label);
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCTryUserCredentials);
 
     bool result = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         if (dsid != NULL && CFStringCompare(dsid, CFSTR(""), 0) != 0) {
@@ -930,11 +947,15 @@ bool SOSCCTryUserCredentials_Server(CFStringRef user_label, CFDataRef user_passw
     require_quiet(Flush(error), done);
 
 done:
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCTryUserCredentials, OctagonSignpostNumber1(SOSSignpostNameSOSCCTryUserCredentials), (int)result);
+
     return result;
 }
 
 static bool SOSCCAssertUserCredentialsAndOptionalDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error) {
     secnotice("updates", "Setting credentials and dsid (%@) for %@", dsid, user_label);
+
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameAssertUserCredentialsAndOptionalDSID);
 
     bool result = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         if (dsid != NULL && CFStringCompare(dsid, CFSTR(""), 0) != 0) {
@@ -962,11 +983,13 @@ static bool SOSCCAssertUserCredentialsAndOptionalDSID(CFStringRef user_label, CF
     secnotice("updates", "Complete credentials and dsid (%@) for %@: %d %@",
               dsid, user_label, result, error ? *error : NULL);
 done:
+    OctagonSignpostEnd(signPost, SOSSignpostNameAssertUserCredentialsAndOptionalDSID, OctagonSignpostNumber1(SOSSignpostNameAssertUserCredentialsAndOptionalDSID), (int)result);
     return result;
 }
 
 static bool SOSCCAssertUserCredentialsAndOptionalDSIDWithAnalytics(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, NSData* parentEvent, CFErrorRef *error) {
     secnotice("updates", "Setting credentials and dsid (%@) for %@", dsid, user_label);
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameAssertUserCredentialsAndOptionalDSID);
 
     NSError* localError = nil;
     SFSignInAnalytics* parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentEvent error:&localError];
@@ -1024,6 +1047,8 @@ done:
     secnotice("updates", "Complete credentials and dsid (%@) for %@: %d %@",
               dsid, user_label, result, error ? *error : NULL);
 
+    OctagonSignpostEnd(signPost, SOSSignpostNameAssertUserCredentialsAndOptionalDSID, OctagonSignpostNumber1(SOSSignpostNameAssertUserCredentialsAndOptionalDSID), (int)result);
+
     return result;
 }
 
@@ -1044,6 +1069,8 @@ bool SOSCCSetUserCredentials_Server(CFStringRef user_label, CFDataRef user_passw
 
 bool SOSCCCanAuthenticate_Server(CFErrorRef *error)
 {
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCanAuthenticate);
+
     bool result = do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         // If we reply that yes we can authenticate, then let's make sure we can authenticate for a while yet.
         // <rdar://problem/32732066>
@@ -1057,6 +1084,8 @@ bool SOSCCCanAuthenticate_Server(CFErrorRef *error)
             CFReleaseNull(*error);
         }
     }
+
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCCanAuthenticate, OctagonSignpostNumber1(SOSSignpostNameSOSCCCanAuthenticate), (int)result);
 
     return result;
 }
@@ -1083,21 +1112,28 @@ SOSCCStatus SOSCCThisDeviceIsInCircle_Server(CFErrorRef *error)
 bool SOSCCRequestToJoinCircle_Server(CFErrorRef* error)
 {
     __block bool result = true;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRequestToJoinCircle);
 
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+    bool joined = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         result = SOSAccountJoinCircles(txn, block_error);
         return result;
     });
+
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRequestToJoinCircle, OctagonSignpostNumber1(SOSSignpostNameSOSCCRequestToJoinCircle), (int)joined);
+    return joined;
 }
 
 bool SOSCCRequestToJoinCircleWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error)
 {
     __block bool result = true;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRequestToJoinCircle);
 
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+    bool requested = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         result = SOSAccountJoinCirclesWithAnalytics(txn, (__bridge NSData*)parentEvent, block_error);
         return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRequestToJoinCircle, OctagonSignpostNumber1(SOSSignpostNameSOSCCRequestToJoinCircle), (int)requested);
+    return requested;
 }
 
 bool SOSCCAccountHasPublicKey_Server(CFErrorRef *error)
@@ -1135,11 +1171,13 @@ bool SOSCCRequestToJoinCircleAfterRestore_Server(CFErrorRef* error)
 {
     __block bool result = true;
     bool returned = false;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore);
     returned = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         SOSAccountEnsurePeerRegistration(txn.account, block_error);
         result = SOSAccountJoinCirclesAfterRestore(txn, block_error);
         return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore, OctagonSignpostNumber1(SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore), (int)result);
     return returned;
 
 }
@@ -1148,6 +1186,7 @@ bool SOSCCRequestToJoinCircleAfterRestoreWithAnalytics_Server(CFDataRef parentEv
 {
     __block bool result = true;
     bool returned = false;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore);
     returned = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         NSError* localError = nil;
         SFSignInAnalytics* parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:(__bridge NSData*)parentEvent error:&localError];
@@ -1165,6 +1204,7 @@ bool SOSCCRequestToJoinCircleAfterRestoreWithAnalytics_Server(CFDataRef parentEv
         result = SOSAccountJoinCirclesAfterRestoreWithAnalytics(txn, (__bridge NSData*)parentEvent, block_error);
         return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore, OctagonSignpostNumber1(SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore), (int)result);
     return returned;
 
 }
@@ -1272,68 +1312,113 @@ bool SOSCCAccountSetToNew_Server(CFErrorRef *error)
 
 bool SOSCCResetToOffering_Server(CFErrorRef* error)
 {
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        SecKeyRef user_key = SOSAccountGetPrivateCredential(txn.account, error);
-        if (!user_key)
-            return false;
-        return [txn.account.trust resetToOffering:txn key:user_key err:block_error];
-    });
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCResetToOffering);
 
+    bool resetResult = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        bool result = false;
+
+        SecKeyRef user_key = SOSAccountGetPrivateCredential(txn.account, error);
+        if (!user_key) {
+            return result;
+        }
+        result = [txn.account.trust resetToOffering:txn key:user_key err:block_error];
+        return result;
+    });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCResetToOffering, OctagonSignpostNumber1(SOSSignpostNameSOSCCResetToOffering), (int)resetResult);
+    return resetResult;
 }
 
 bool SOSCCResetToEmpty_Server(CFErrorRef* error)
 {
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        if (!SOSAccountHasPublicKey(txn.account, error))
-            return false;
-        return [txn.account.trust resetAccountToEmpty:txn.account transport:txn.account.circle_transport err:block_error];
-    });
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCResetToEmpty);
 
+    bool resetResult = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        bool result = false;
+
+        if (!SOSAccountHasPublicKey(txn.account, error)) {
+            return result;
+        }
+        result = [txn.account.trust resetAccountToEmpty:txn.account transport:txn.account.circle_transport err:block_error];
+        return result;
+    });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCResetToEmpty, OctagonSignpostNumber1(SOSSignpostNameSOSCCResetToEmpty), (int)resetResult);
+    return resetResult;
 }
 
 bool SOSCCResetToEmptyWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error)
 {
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        if (!SOSAccountHasPublicKey(txn.account, error))
-            return false;
-        return [txn.account.trust resetAccountToEmptyWithAnalytics:txn.account transport:txn.account.circle_transport parentEvent:(__bridge NSData*)parentEvent err:block_error];
-    });
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCResetToEmpty);
 
+    bool resetResult = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        bool result = false;
+
+        if (!SOSAccountHasPublicKey(txn.account, error)) {
+            return result;
+        }
+        result =  [txn.account.trust resetAccountToEmptyWithAnalytics:txn.account transport:txn.account.circle_transport parentEvent:(__bridge NSData*)parentEvent err:block_error];
+        return result;
+    });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCResetToEmpty, OctagonSignpostNumber1(SOSSignpostNameSOSCCResetToEmpty), (int)resetResult);
+    return resetResult;
 }
 
 bool SOSCCRemoveThisDeviceFromCircleWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error)
 {
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        return [txn.account.trust leaveCircleWithAccount:txn.account withAnalytics:(__bridge NSData*)parentEvent err:error];
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRemoveThisDeviceFromCircle);
+
+    bool removeResult = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        bool result = [txn.account.trust leaveCircleWithAccount:txn.account withAnalytics:(__bridge NSData*)parentEvent err:error];
+        return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRemoveThisDeviceFromCircle, OctagonSignpostNumber1(SOSSignpostNameSOSCCRemoveThisDeviceFromCircle), (int)removeResult);
+
+    return removeResult;
 }
 
 bool SOSCCRemoveThisDeviceFromCircle_Server(CFErrorRef* error)
 {
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        return [txn.account.trust leaveCircle:txn.account err:block_error];
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRemoveThisDeviceFromCircle);
+
+    bool removeResult = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        bool result = [txn.account.trust leaveCircle:txn.account err:block_error];
+        return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRemoveThisDeviceFromCircle, OctagonSignpostNumber1(SOSSignpostNameSOSCCRemoveThisDeviceFromCircle), (int)removeResult);
+    return removeResult;
 }
 
 bool SOSCCRemovePeersFromCircle_Server(CFArrayRef peers, CFErrorRef* error)
 {
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        return SOSAccountRemovePeersFromCircle(txn.account, peers, block_error);
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRemovePeersFromCircle);
+
+    bool removeResult =  do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        bool result = SOSAccountRemovePeersFromCircle(txn.account, peers, block_error);
+        return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRemovePeersFromCircle, OctagonSignpostNumber1(SOSSignpostNameSOSCCRemovePeersFromCircle), (int)removeResult);
+    return removeResult;
 }
 
 bool SOSCCRemovePeersFromCircleWithAnalytics_Server(CFArrayRef peers, CFDataRef parentEvent, CFErrorRef* error)
 {
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        return SOSAccountRemovePeersFromCircleWithAnalytics(txn.account, peers, (__bridge NSData*)parentEvent, block_error);
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRemovePeersFromCircle);
+
+    bool removeResult = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        bool result = SOSAccountRemovePeersFromCircleWithAnalytics(txn.account, peers, (__bridge NSData*)parentEvent, block_error);
+        return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRemovePeersFromCircle, OctagonSignpostNumber1(SOSSignpostNameSOSCCRemovePeersFromCircle), (int)removeResult);
+    return removeResult;
 }
 
 bool SOSCCLoggedOutOfAccount_Server(CFErrorRef *error)
 {
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCLoggedOutOfAccount);
+
+    bool loggedOutResult = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         secnotice("circleOps", "Signed out of account!");
-        
+
+
         bool waitForeverForSynchronization = true;
         
         bool result = [txn.account.trust leaveCircle:txn.account err:block_error];
@@ -1344,8 +1429,11 @@ bool SOSCCLoggedOutOfAccount_Server(CFErrorRef *error)
 
         SOSAccountSetToNew(txn.account);
 
+
         return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCLoggedOutOfAccount, OctagonSignpostNumber1(SOSSignpostNameSOSCCLoggedOutOfAccount), (int)loggedOutResult);
+    return loggedOutResult;
 }
 
 bool SOSCCBailFromCircle_Server(uint64_t limit_in_seconds, CFErrorRef* error)
@@ -1368,10 +1456,14 @@ CFArrayRef SOSCCCopyApplicantPeerInfo_Server(CFErrorRef* error)
 {
     __block CFArrayRef result = NULL;
 
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCopyApplicantPeerInfo);
+
     (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         result = SOSAccountCopyApplicants(txn.account, block_error);
         return result != NULL;
     });
+
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCCopyApplicantPeerInfo, OctagonSignpostNumber1(SOSSignpostNameSOSCCCopyApplicantPeerInfo), (int)(result != NULL));
 
     return result;
 }
@@ -1391,6 +1483,7 @@ CFArrayRef SOSCCCopyGenerationPeerInfo_Server(CFErrorRef* error)
 CFArrayRef SOSCCCopyValidPeerPeerInfo_Server(CFErrorRef* error)
 {
     __block CFArrayRef result = NULL;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCopyValidPeerPeerInfo);
 
     @autoreleasepool {
 
@@ -1401,6 +1494,7 @@ CFArrayRef SOSCCCopyValidPeerPeerInfo_Server(CFErrorRef* error)
         return result != NULL;
     });
     }
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCCopyValidPeerPeerInfo, OctagonSignpostNumber1(SOSSignpostNameSOSCCCopyValidPeerPeerInfo), (int)(result != NULL));
 
     return result;
 }
@@ -1408,12 +1502,14 @@ CFArrayRef SOSCCCopyValidPeerPeerInfo_Server(CFErrorRef* error)
 bool SOSCCValidateUserPublic_Server(CFErrorRef* error)
 {
     __block bool result = NULL;
-    
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCValidateUserPublic);
+
     (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         result = SOSValidateUserPublic(txn.account, block_error);
         return result;
     });
-    
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCValidateUserPublic, OctagonSignpostNumber1(SOSSignpostNameSOSCCValidateUserPublic), (int)result);
+
     return result;
 }
 
@@ -1444,11 +1540,13 @@ CFArrayRef SOSCCCopyRetirementPeerInfo_Server(CFErrorRef* error)
 CFArrayRef SOSCCCopyViewUnawarePeerInfo_Server(CFErrorRef* error)
 {
     __block CFArrayRef result = NULL;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCopyViewUnawarePeerInfo);
 
     (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         result = SOSAccountCopyViewUnaware(txn.account, block_error);
         return result != NULL;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCCopyViewUnawarePeerInfo, OctagonSignpostNumber1(SOSSignpostNameSOSCCCopyViewUnawarePeerInfo), (int)(result != NULL));
 
     return result;
 }
@@ -1502,6 +1600,7 @@ bool SOSCCWaitForInitialSyncWithAnalytics_Server(CFDataRef parentEvent, CFErrorR
     __block time_t start;
     __block CFBooleanRef shouldUseInitialSyncV0 = false;
     SFSignInAnalytics* syncingEvent = nil;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCWaitForInitialSync);
 
     NSError* localError = nil;
     SFSignInAnalytics* parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:(__bridge NSData*)parentEvent error:&localError];
@@ -1580,6 +1679,8 @@ bool SOSCCWaitForInitialSyncWithAnalytics_Server(CFDataRef parentEvent, CFErrorR
 
 fail:
     CFReleaseNull(inSyncCallID);
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCWaitForInitialSync, OctagonSignpostNumber1(SOSSignpostNameSOSCCWaitForInitialSync), (int)result);
+
     return result;
 }
 
@@ -1592,6 +1693,7 @@ bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
     __block CFStringRef inSyncCallID = NULL;
     __block time_t start;
     __block CFBooleanRef shouldUseInitialSyncV0 = false;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCWaitForInitialSync);
 
     secnotice("initial sync", "Wait for initial sync start!");
     
@@ -1657,6 +1759,8 @@ bool SOSCCWaitForInitialSync_Server(CFErrorRef* error) {
 
 fail:
     CFReleaseNull(inSyncCallID);
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCWaitForInitialSync, OctagonSignpostNumber1(SOSSignpostNameSOSCCWaitForInitialSync), (int)result);
+
     return result;
 }
 
@@ -1876,17 +1980,26 @@ bool SOSCCSetEscrowRecord_Server(CFStringRef escrow_label, uint64_t tries, CFErr
 
 bool SOSCCAcceptApplicants_Server(CFArrayRef applicants, CFErrorRef* error)
 {
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        return SOSAccountAcceptApplicants(txn.account, applicants, block_error);
-    });
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCAcceptApplicants);
 
+    bool acceptResult = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        bool result =  SOSAccountAcceptApplicants(txn.account, applicants, block_error);
+        return result;
+    });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCAcceptApplicants, OctagonSignpostNumber1(SOSSignpostNameSOSCCAcceptApplicants), (int)acceptResult);
+    return acceptResult;
 }
 
 bool SOSCCRejectApplicants_Server(CFArrayRef applicants, CFErrorRef* error)
 {
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        return SOSAccountRejectApplicants(txn.account, applicants, block_error);
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCAcceptApplicants);
+
+    bool rejectResult = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        bool result = SOSAccountRejectApplicants(txn.account, applicants, block_error);
+        return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCAcceptApplicants, OctagonSignpostNumber1(SOSSignpostNameSOSCCAcceptApplicants), (int)rejectResult);
+    return rejectResult;
 }
 
 CFArrayRef SOSCCCopyPeerPeerInfo_Server(CFErrorRef* error)
@@ -1904,11 +2017,13 @@ CFArrayRef SOSCCCopyPeerPeerInfo_Server(CFErrorRef* error)
 CFArrayRef SOSCCCopyConcurringPeerPeerInfo_Server(CFErrorRef* error)
 {
     __block CFArrayRef result = NULL;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCopyConcurringPeerPeerInfo);
 
     (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         result = SOSAccountCopyConcurringPeers(txn.account, block_error);
         return result != NULL;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCCopyConcurringPeerPeerInfo, OctagonSignpostNumber1(SOSSignpostNameSOSCCCopyConcurringPeerPeerInfo), (int)(result != NULL));
 
     return result;
 }
@@ -1916,12 +2031,14 @@ CFArrayRef SOSCCCopyConcurringPeerPeerInfo_Server(CFErrorRef* error)
 SOSPeerInfoRef SOSCCCopyMyPeerInfo_Server(CFErrorRef* error)
 {
     __block SOSPeerInfoRef result = NULL;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCopyMyPeerInfo);
 
     (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         // Create a copy to be DERed/sent back to client
         result = SOSPeerInfoCreateCopy(kCFAllocatorDefault, txn.account.peerInfo, block_error);
         return result != NULL;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCCopyMyPeerInfo, OctagonSignpostNumber1(SOSSignpostNameSOSCCCopyMyPeerInfo), (int)(result != NULL));
 
     return result;
 }
@@ -1982,6 +2099,7 @@ bool SOSCCDeleteEngineState_Server(CFErrorRef* error)
 
 SOSPeerInfoRef SOSCCSetNewPublicBackupKey_Server(CFDataRef newPublicBackup, CFErrorRef *error){
     __block SOSPeerInfoRef result = NULL;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCSetNewPublicBackupKey);
 
     secnotice("devRecovery", "SOSCCSetNewPublicBackupKey_Server acquiring account lock");
     (void) do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
@@ -2001,13 +2119,19 @@ SOSPeerInfoRef SOSCCSetNewPublicBackupKey_Server(CFDataRef newPublicBackup, CFEr
         return result != NULL;
     });
 
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCSetNewPublicBackupKey, OctagonSignpostNumber1(SOSSignpostNameSOSCCSetNewPublicBackupKey), (int)(result != NULL));
     return result;
 }
 
 bool SOSCCRegisterSingleRecoverySecret_Server(CFDataRef aks_bag, bool setupV0Only, CFErrorRef *error){
-    return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        return SOSAccountSetBSKBagForAllSlices(txn.account, aks_bag, setupV0Only, error);
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRegisterSingleRecoverySecret);
+
+    bool registerResult = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        bool result =  SOSAccountSetBSKBagForAllSlices(txn.account, aks_bag, setupV0Only, error);
+        return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRegisterSingleRecoverySecret, OctagonSignpostNumber1(SOSSignpostNameSOSCCRegisterSingleRecoverySecret), (int)registerResult);
+    return registerResult;
 }
 
 CFStringRef SOSCCCopyIncompatibilityInfo_Server(CFErrorRef* error)
@@ -2051,13 +2175,20 @@ bool SOSCCSetLastDepartureReason_Server(enum DepartureReason reason, CFErrorRef 
 bool SOSCCProcessEnsurePeerRegistration_Server(CFErrorRef* error)
 {
     secnotice("updates", "Request for registering peers");
-    return do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-        return SOSAccountEnsurePeerRegistration(txn.account, error);
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCProcessEnsurePeerRegistration);
+
+    bool processResult = do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
+        bool result = SOSAccountEnsurePeerRegistration(txn.account, error);
+        return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCProcessEnsurePeerRegistration, OctagonSignpostNumber1(SOSSignpostNameSOSCCProcessEnsurePeerRegistration), (int)processResult);
+    return processResult;
 }
 
 CF_RETURNS_RETAINED CFSetRef SOSCCProcessSyncWithPeers_Server(CFSetRef peers, CFSetRef backupPeers, CFErrorRef *error) {
     __block CFSetRef result = NULL;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCProcessSyncWithPeers);
+
     if (!do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
         result = SOSAccountProcessSyncWithPeers(txn, peers, backupPeers, error);
         return result != NULL;
@@ -2065,6 +2196,7 @@ CF_RETURNS_RETAINED CFSetRef SOSCCProcessSyncWithPeers_Server(CFSetRef peers, CF
         // Be sure we don't return a result if we got an error
         CFReleaseNull(result);
     }
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCProcessSyncWithPeers, OctagonSignpostNumber1(SOSSignpostNameSOSCCProcessSyncWithPeers), (int)(result != NULL));
 
     return result;
 }
@@ -2076,6 +2208,7 @@ SyncWithAllPeersReason SOSCCProcessSyncWithAllPeers_Server(CFErrorRef* error)
      #define kIOReturnLockedWrite     iokit_common_err(0x2c4) // device write locked
     */
     __block SyncWithAllPeersReason result = kSyncWithAllPeersSuccess;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCProcessSyncWithAllPeers);
 
     CFErrorRef action_error = NULL;
     
@@ -2094,6 +2227,8 @@ SyncWithAllPeersReason SOSCCProcessSyncWithAllPeers_Server(CFErrorRef* error)
 
         SecErrorPropagate(action_error, error);
     }
+
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCProcessSyncWithAllPeers, OctagonSignpostNumber1(SOSSignpostNameSOSCCProcessSyncWithAllPeers), (int)result);
 
     return result;
 }
@@ -2131,6 +2266,8 @@ void SOSCCRequestSyncWithPeers(CFSetRef /*SOSPeerInfoRef/CFStringRef*/ peerIDs) 
 
 void SOSCCRequestSyncWithPeersList(CFArrayRef /*CFStringRef*/ peerIDs) {
     os_activity_initiate("CloudCircle RequestSyncWithPeersList", OS_ACTIVITY_FLAG_DEFAULT, ^(void) {
+        OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRequestSyncWithPeersList);
+
         CFArrayRef empty = CFArrayCreateForCFTypes(kCFAllocatorDefault, NULL);
 
         CFStringArrayPerformWithDescription(peerIDs, ^(CFStringRef description) {
@@ -2140,23 +2277,26 @@ void SOSCCRequestSyncWithPeersList(CFArrayRef /*CFStringRef*/ peerIDs) {
         SOSCloudKeychainRequestSyncWithPeers(peerIDs, empty,
                                              dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
         CFReleaseNull(empty);
+        OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRequestSyncWithPeersList, OctagonSignpostNumber1(SOSSignpostNameSOSCCRequestSyncWithPeersList), (int)true);
     });
 }
 
-void SOSCCRequestSyncWithBackupPeer(CFStringRef backupPeerId) {
-    os_activity_initiate("CloudCircle SOSCCRequestSyncWithBackupPeer", OS_ACTIVITY_FLAG_DEFAULT, ^(void) {
-        CFArrayRef empty = CFArrayCreateForCFTypes(kCFAllocatorDefault, NULL);
-        CFArrayRef backupPeerList = CFArrayCreateForCFTypes(kCFAllocatorDefault, backupPeerId, NULL);
+void SOSCCRequestSyncWithBackupPeerList(CFArrayRef /* CFStringRef */ backupPeerIDs) {
+    os_activity_initiate("CloudCircle SOSCCRequestSyncWithBackupPeerList", OS_ACTIVITY_FLAG_DEFAULT, ^(void) {
+        OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRequestSyncWithBackupPeerList);
 
-        CFStringArrayPerformWithDescription(backupPeerList, ^(CFStringRef description) {
+        CFArrayRef empty = CFArrayCreateForCFTypes(kCFAllocatorDefault, NULL);
+
+        CFStringArrayPerformWithDescription(backupPeerIDs, ^(CFStringRef description) {
             secnotice("syncwith", "Request backup sync With: %@", description);
         });
 
-        SOSCloudKeychainRequestSyncWithPeers(empty, backupPeerList,
+        SOSCloudKeychainRequestSyncWithPeers(empty, backupPeerIDs,
                                              dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
 
         CFReleaseNull(empty);
-        CFReleaseNull(backupPeerList);
+        OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRequestSyncWithBackupPeerList, OctagonSignpostNumber1(SOSSignpostNameSOSCCRequestSyncWithBackupPeerList), (int)true);
+
     });
 }
 
@@ -2167,27 +2307,37 @@ bool SOSCCIsSyncPendingFor(CFStringRef peerID, CFErrorRef *error) {
 void SOSCCEnsurePeerRegistration(void)
 {
     os_activity_initiate("CloudCircle EnsurePeerRegistration", OS_ACTIVITY_FLAG_DEFAULT, ^(void) {
-
+        OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCEnsurePeerRegistration);
         SOSCloudKeychainRequestEnsurePeerRegistration(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), NULL);
+        OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCEnsurePeerRegistration, OctagonSignpostNumber1(SOSSignpostNameSOSCCEnsurePeerRegistration), (int)true);
 
     });
 }
 
 CF_RETURNS_RETAINED CFArrayRef SOSCCHandleUpdateMessage(CFDictionaryRef updates)
 {
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCHandleUpdateMessage);
+
     CFArrayRef result = NULL;
     SOSAccount* account = (__bridge SOSAccount *)(SOSKeychainAccountGetSharedAccount());   //HACK to make sure itemsChangedBlock is set
 
-    (account) ? (result = SOSCloudKeychainHandleUpdateMessage(updates)) : (result = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault));
+    result = account ? SOSCloudKeychainHandleUpdateMessage(updates) : CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCHandleUpdateMessage, OctagonSignpostNumber1(SOSSignpostNameSOSCCHandleUpdateMessage), (int)(result != NULL));
+
     return result;
 }
 
 SOSPeerInfoRef SOSCCCopyApplication_Server(CFErrorRef *error) {
     __block SOSPeerInfoRef application = NULL;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCopyApplication);
+
     do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
         application = SOSAccountCopyApplication(txn.account, error);
         return application != NULL;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCCopyApplication, OctagonSignpostNumber1(SOSSignpostNameSOSCCCopyApplication), (int)(application != NULL));
+
     return application;
 }
 
@@ -2211,33 +2361,48 @@ bool SOSCCTestPopulateKVSWithBadKeys_Server(CFErrorRef *error)
 }
 CFDataRef SOSCCCopyCircleJoiningBlob_Server(SOSPeerInfoRef applicant, CFErrorRef *error) {
     __block CFDataRef pbblob = NULL;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCopyCircleJoiningBlob);
+
     do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
         pbblob = SOSAccountCopyCircleJoiningBlob(txn.account, applicant, error);
         return pbblob != NULL;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCCopyCircleJoiningBlob, OctagonSignpostNumber1(SOSSignpostNameSOSCCCopyCircleJoiningBlob), (int)(pbblob != NULL));
+
     return pbblob;
 }
 
 CFDataRef SOSCCCopyInitialSyncData_Server(SOSInitialSyncFlags flags, CFErrorRef *error) {
     __block CFDataRef pbblob = NULL;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCopyInitialSyncData);
+
     do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
         pbblob = SOSAccountCopyInitialSyncData(txn.account, flags, error);
         return pbblob != NULL;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCCopyInitialSyncData, OctagonSignpostNumber1(SOSSignpostNameSOSCCCopyInitialSyncData), (int)(pbblob != NULL));
+
     return pbblob;
 }
 
 bool SOSCCJoinWithCircleJoiningBlob_Server(CFDataRef joiningBlob, PiggyBackProtocolVersion version, CFErrorRef *error) {
-    return do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-        return SOSAccountJoinWithCircleJoiningBlob(txn.account, joiningBlob, version, error);
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCJoinWithCircleJoiningBlob);
+
+    bool joinResult = do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
+        bool result = SOSAccountJoinWithCircleJoiningBlob(txn.account, joiningBlob, version, error);
+        return result;
     });
 
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCJoinWithCircleJoiningBlob, OctagonSignpostNumber1(SOSSignpostNameSOSCCJoinWithCircleJoiningBlob), (int)joinResult);
+    return joinResult;
 }
 
 CFBooleanRef SOSCCPeersHaveViewsEnabled_Server(CFArrayRef viewNames, CFErrorRef *error) {
     __block CFBooleanRef result = NULL;
     do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
+        OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCPeersHaveViewsEnabled);
         result = SOSAccountPeersHaveViewsEnabled(txn.account, viewNames, error);
+        OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCPeersHaveViewsEnabled, OctagonSignpostNumber1(SOSSignpostNameSOSCCPeersHaveViewsEnabled), (int)(result != NULL));
         return result != NULL;
     });
 
@@ -2245,35 +2410,54 @@ CFBooleanRef SOSCCPeersHaveViewsEnabled_Server(CFArrayRef viewNames, CFErrorRef 
 }
 
 bool SOSCCRegisterRecoveryPublicKey_Server(CFDataRef recovery_key, CFErrorRef *error){
-    return do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-        if(recovery_key != NULL && CFDataGetLength(recovery_key) != 0)
-            return SOSAccountRegisterRecoveryPublicKey(txn, recovery_key, error);
-        else
-            return SOSAccountClearRecoveryPublicKey(txn, recovery_key, error);
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRegisterRecoveryPublicKey);
+
+    bool registerResult = do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
+        bool result = false;
+        if(recovery_key != NULL && CFDataGetLength(recovery_key) != 0) {
+            result = SOSAccountRegisterRecoveryPublicKey(txn, recovery_key, error);
+        }
+        else {
+            result = SOSAccountClearRecoveryPublicKey(txn, recovery_key, error);
+        }
+        return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRegisterRecoveryPublicKey, OctagonSignpostNumber1(SOSSignpostNameSOSCCRegisterRecoveryPublicKey), (int)registerResult);
+    return registerResult;
 }
 
 CFDataRef SOSCCCopyRecoveryPublicKey_Server(CFErrorRef *error){
 
     __block CFDataRef result = NULL;
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCopyRecoveryPublicKey);
     do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
         result = SOSAccountCopyRecoveryPublicKey(txn, error);
         return result != NULL;
     });
-
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCCopyRecoveryPublicKey, OctagonSignpostNumber1(SOSSignpostNameSOSCCCopyRecoveryPublicKey), (int)(result != NULL));
     return result;
 }
 
 bool SOSCCMessageFromPeerIsPending_Server(SOSPeerInfoRef peer, CFErrorRef *error) {
-    return do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-        return SOSAccountMessageFromPeerIsPending(txn, peer, error);
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCMessageFromPeerIsPending);
+
+    bool pendingResult = do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
+        bool result = SOSAccountMessageFromPeerIsPending(txn, peer, error);
+        return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCMessageFromPeerIsPending, OctagonSignpostNumber1(SOSSignpostNameSOSCCMessageFromPeerIsPending), (int)pendingResult);
+    return pendingResult;
 }
 
 bool SOSCCSendToPeerIsPending_Server(SOSPeerInfoRef peer, CFErrorRef *error) {
-    return do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-        return SOSAccountSendToPeerIsPending(txn, peer, error);
+    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCSendToPeerIsPending);
+
+    bool sendResult = do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
+        bool result = SOSAccountSendToPeerIsPending(txn, peer, error);
+        return result;
     });
+    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCSendToPeerIsPending, OctagonSignpostNumber1(SOSSignpostNameSOSCCSendToPeerIsPending), (int)sendResult);
+    return sendResult;
 }
 
 void SOSCCResetOTRNegotiation_Server(CFStringRef peerid)
@@ -2569,3 +2753,17 @@ void SOSCCPerformWithPeerID(void (^action)(CFStringRef peerID, CFErrorRef error)
     });
     CFReleaseNull(cfAccountError);
 }
+
+void
+SOSCCAccountTriggerSyncWithBackupPeer_server(CFStringRef peer)
+{
+#if OCTAGON
+    secnotice("syncwith", "SOSCCAccountTriggerSyncWithBackupPeer_server: %@", peer);
+    if (peer == NULL) {
+        return;
+    }
+    SOSAccount* account = (__bridge SOSAccount*)GetSharedAccountRef();
+    [account triggerBackupForPeers:@[(__bridge NSString *)peer]];
+#endif
+}
+

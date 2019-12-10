@@ -134,6 +134,28 @@ os_assert_sprintf(int ret, size_t buff_size)
 }
 
 /*!
+ * @function os_assert_asprintf
+ * A routine to assert the result of a call to {v}asprintf(3).
+ *
+ * @param ret
+ * The return value from {v}asnprintf(3).
+ *
+ * @discussion
+ * If ret is less than zero, the routine will abort the caller with a message
+ * indicating the nature of the failure in the Application Specific Information
+ * section of the resulting crash log.
+ */
+API_AVAILABLE(macos(10.15.2), ios(13.3), tvos(13.3), watchos(6.1.1))
+OS_ALWAYS_INLINE OS_COLD
+static inline void
+os_assert_asprintf(int ret)
+{
+	if (ret < 0) {
+		os_crash("error printing buffer: %s", strerror(errno));
+	}
+}
+
+/*!
  * @function os_assert_malloc
  * A routine to assert the result of allocations which may fail.
  *

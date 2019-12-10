@@ -32,6 +32,10 @@
 #include <os/api.h>
 #include <sys/cdefs.h>
 
+#if DARWIN_TAPI
+#include "tapi.h"
+#endif
+
 __BEGIN_DECLS;
 
 /*!
@@ -92,6 +96,21 @@ DARWIN_API_AVAILABLE_20170407
 OS_EXPORT OS_COLD OS_WARN_RESULT OS_PURE
 const char *
 strerror_np(int code);
+
+/*!
+ * @function strexit_np
+ * Returns a human-readable string for the given sysexits(3) code.
+ *
+ * @param code
+ * The exit code for which to obtain the string.
+ *
+ * @result
+ * A human-readable string describing the exit condition.
+ */
+DARWIN_API_AVAILABLE_20190830
+OS_EXPORT OS_COLD OS_WARN_RESULT OS_PURE
+const char *
+strexit_np(int code);
 
 /*!
  * @function symerror_np

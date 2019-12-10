@@ -25,6 +25,7 @@
 #import <Security/SecItemPriv.h>
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSKeychainView.h"
+#import "keychain/ckks/CKKSResultOperation.h"
 
 #import <SecurityFoundation/SFKeychain.h>
 #import <SecurityFoundation/SFIdentity.h>
@@ -46,6 +47,7 @@
 #import "keychain/ot/OTStates.h"
 #import "keychain/ot/OTCuttlefishContext.h"
 #import "keychain/ot/OctagonStateMachine.h"
+#import "keychain/ot/OctagonStateMachineHelpers.h"
 
 #import "keychain/ot/OTDeviceInformationAdapter.h"
 

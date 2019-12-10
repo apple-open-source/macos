@@ -29,6 +29,18 @@ void SecABCTrigger(CFStringRef type,
 
 + (void)triggerAutoBugCaptureWithType:(NSString *)type
                               subType:(NSString *)subType
+{
+    [self triggerAutoBugCaptureWithType: type
+                                subType: subType
+                         subtypeContext: nil
+                                 events: nil
+                                payload: nil
+                        detectedProcess: nil];
+}
+
+
++ (void)triggerAutoBugCaptureWithType:(NSString *)type
+                              subType:(NSString *)subType
                        subtypeContext:(NSString *)subtypeContext
                                events:(NSArray *)events
                               payload:(NSDictionary *)payload
@@ -56,7 +68,7 @@ void SecABCTrigger(CFStringRef type,
     }
 
     (void)[diagnosticReporter snapshotWithSignature:signature
-                                                   duration:30.0
+                                                   duration:5.0
                                                      events:events
                                                     payload:payload
                                                     actions:NULL

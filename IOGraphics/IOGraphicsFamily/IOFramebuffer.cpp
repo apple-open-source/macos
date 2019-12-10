@@ -2679,34 +2679,28 @@ IOReturn IOFramebuffer::extGetCurrentDisplayMode(
     IOFramebuffer * inst = (IOFramebuffer *) target;
     IODisplayModeID displayMode = 0;
     IOIndex         depth = 0;
-    bool            vendor = false;
-    IOReturn        err;
-
-    err = inst->extEntry(false, kIOGReportAPIState_GetCurrentDisplayMode);
-    if (err) {
+    
+    IOReturn err;
+    
+    if ((err = inst->extEntry(false, kIOGReportAPIState_GetCurrentDisplayMode)))
+    {
         IOFB_END(extGetCurrentDisplayMode,err,__LINE__,0);
         return (err);
     }
 
-    if (kIODisplayModeIDInvalid != inst->__private->aliasMode) {
+    if (kIODisplayModeIDInvalid != inst->__private->aliasMode)
+    {
         displayMode = inst->__private->aliasMode;
         depth       = inst->__private->currentDepth;
-    } else {
+    }
+    else
+    {
         FB_START(getCurrentDisplayMode,0,__LINE__,0);
         err = inst->getCurrentDisplayMode(&displayMode, &depth);
         FB_END(getCurrentDisplayMode,err,__LINE__,0);
-        vendor = true;
-        constexpr IODisplayModeID kMuxModeID =
-            (kIODisplayModeIDAliasBase | kIODisplayModeIDReservedBase);
-        if (!err && (displayMode == kMuxModeID)) {
-            IOLog("%s %#llx bad mode kIOReturnInternalError\n",
-                inst->thisName, inst->__private->regID);
-            displayMode = kIODisplayModeIDInvalid;
-            err = kIOReturnInternalError;
-        }
     }
 
-#if 0 // too noisy
+#if 0
     IOG_KTRACE(DBG_IOG_GET_CURRENT_DISPLAY_MODE,
                DBG_FUNC_NONE,
                0, DBG_IOG_SOURCE_EXT_GET_CURRENT_DISPLAY_MODE,
@@ -2714,10 +2708,8 @@ IOReturn IOFramebuffer::extGetCurrentDisplayMode(
                0, GPACKUINT32T(1, depth) | GPACKUINT32T(0, displayMode),
                0, err);
 #endif
-
-    DEBG(inst->thisName, " displayMode 0x%08x %s, depth %d, aliasMode 0x%08x\n",
-        displayMode, vendor ? "(vendor)" : "(IOG alias)",
-        depth, inst->__private->aliasMode);
+    DEBG(inst->thisName, " displayMode 0x%08x, depth %d, aliasMode 0x%08x\n",
+        displayMode, depth, inst->__private->aliasMode);
 
     inst->extExit(err, kIOGReportAPIState_GetCurrentDisplayMode);
     
@@ -2725,7 +2717,7 @@ IOReturn IOFramebuffer::extGetCurrentDisplayMode(
     args->scalarOutput[1] = depth;
     
     IOFB_END(extGetCurrentDisplayMode,err,0,0);
-    return err;
+    return (err);
 }
 
 IOReturn IOFramebuffer::extSetStartupDisplayMode(
@@ -4828,6 +4820,7 @@ bool IOFramebuffer::start( IOService * provider )
     // attach into the power management hierarchy
     setProperty("IOPMStrictTreeOrder", kOSBooleanTrue);
     provider->joinPMtree(this);
+    temporaryPowerClampOn();
 
     {
         SYSGATEGUARD(sysgated);
@@ -7527,7 +7520,8 @@ IOReturn IOFramebuffer::extProcessConnectionChange(void)
         }
 
         clearEvent(kIOFBEventEnableClamshell);
-        if (kIOPMDisableClamshell != gIOFBClamshellState)
+        if ((kIOPMDisableClamshell != gIOFBClamshellState) &&
+            !gIOFBIsMuxSwitching)
         {
             gIOFBClamshellState = kIOPMDisableClamshell;
             IOG_KTRACE(DBG_IOG_RECEIVE_POWER_NOTIFICATION, DBG_FUNC_NONE,

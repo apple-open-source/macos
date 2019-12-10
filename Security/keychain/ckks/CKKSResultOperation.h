@@ -66,8 +66,8 @@ enum {
 
 // Convenience constructor.
 + (instancetype)operationWithBlock:(void (^)(void))block;
-+ (instancetype)named:(NSString*)name withBlock:(void (^)(void))block;
-+ (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSResultOperation* op))block;
++ (instancetype)named:(NSString*)name withBlock:(void (^)(void))block NS_SWIFT_NAME(init(name:block:));
++ (instancetype)named:(NSString*)name withBlockTakingSelf:(void(^)(CKKSResultOperation* op))block NS_SWIFT_NAME(init(name:blockTakingSelf:));
 
 // Determine if all these operations were successful, and set this operation's result if not.
 - (bool)allSuccessful:(NSArray<CKKSResultOperation*>*)operations;

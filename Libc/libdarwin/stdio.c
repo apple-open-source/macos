@@ -66,6 +66,63 @@ dup_np(os_fd_t fd)
 	return dfd;
 }
 
+os_fd_t
+claimfd_np(os_fd_t *fdp, const guardid_t *gdid, u_int gdflags)
+{
+	int ret = -1;
+	int fd = *fdp;
+
+	if (gdid) {
+		ret = change_fdguard_np(fd, NULL, 0, gdid, gdflags, NULL);
+		if (ret) {
+			os_crash("change_fdguard_np: %{darwin.errno}d", errno);
+		}
+	}
+
+	*fdp = -1;
+	return fd;
+}
+
+os_fd_t
+xferfd_np(os_fd_t *fdp, const guardid_t *gdid, u_int gdflags)
+{
+	int ret = -1;
+	int fd = *fdp;
+
+	ret = change_fdguard_np(fd, gdid, gdflags, NULL, 0, NULL);
+	if (ret) {
+		os_crash("change_fdguard_np: %{darwin.errno}d", errno);
+	}
+
+	*fdp = -1;
+	return fd;
+}
+
+void
+close_drop_np(os_fd_t *fdp, const guardid_t *gdid)
+{
+	int ret = -1;
+	int fd = *fdp;
+
+	if (gdid) {
+		ret = guarded_close_np(fd, gdid);
+	} else {
+		ret = close(fd);
+	}
+
+	posix_assert_zero(ret);
+	*fdp = -1;
+}
+
+void
+close_drop_optional_np(os_fd_t *fdp, const guardid_t *gdid)
+{
+	if (!os_fd_valid(*fdp)) {
+		return;
+	}
+	close_drop_np(fdp, gdid);
+}
+
 size_t
 zsnprintf_np(char *buff, size_t len, const char *fmt, ...)
 {

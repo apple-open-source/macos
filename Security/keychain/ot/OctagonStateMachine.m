@@ -6,7 +6,7 @@
 #import "keychain/ot/ObjCImprovements.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
 #import "keychain/ckks/CKKS.h"
-
+#import "keychain/ot/OTStates.h"
 #import "utilities/debugging.h"
 
 #define statemachinelog(scope, format, ...)                                                                        \
@@ -55,6 +55,7 @@ format,                                                                         
 
 - (instancetype)initWithName:(NSString*)name
                       states:(NSSet<OctagonState*>*)possibleStates
+                       flags:(NSSet<OctagonFlag*>*)possibleFlags
                 initialState:(OctagonState*)initialState
                        queue:(dispatch_queue_t)queue
                  stateEngine:(id<OctagonStateMachineEngine>)stateEngine
@@ -72,7 +73,7 @@ format,                                                                         
 
         _queue = queue;
         _operationQueue = [[NSOperationQueue alloc] init];
-        _currentFlags = [[OctagonFlags alloc] initWithQueue:queue];
+        _currentFlags = [[OctagonFlags alloc] initWithQueue:queue flags:possibleFlags];
 
         _stateEngine = stateEngine;
 
@@ -302,6 +303,8 @@ format,                                                                         
     // Overwrite any existing pending flag!
     self.pendingFlags[pendingFlag.flag] = pendingFlag;
 
+    self.currentFlags.flagConditions[pendingFlag.flag] = [[CKKSCondition alloc]init];
+    
     // Do we need to recheck any conditions? Anything which is currently the state of the world needs checking
     OctagonPendingConditions recheck = pendingFlag.conditions & self.currentConditions;
     if(recheck != 0x0) {
@@ -324,7 +327,7 @@ format,                                                                         
     __block NSMutableDictionary<NSString*, NSString*>* d = [NSMutableDictionary dictionary];
     dispatch_sync(self.queue, ^{
         for(OctagonFlag* flag in [self.pendingFlags allKeys]) {
-            d[flag] = [self.pendingFlags[flag] description];;
+            d[flag] = [self.pendingFlags[flag] description];
         }
     });
 
@@ -531,10 +534,23 @@ format,                                                                         
 {
     statemachinelog("state-rpc", "Beginning a '%@' rpc", name);
 
+    CKKSResultOperation<OctagonStateTransitionOperationProtocol>* initialTransitionOp
+        = [OctagonStateTransitionOperation named:[NSString stringWithFormat:@"intial-transition-%@", name]
+                                        entering:path.initialState];
+
+    // Note that this has an initial timeout of 10s, and isn't configurable.
+    OctagonStateTransitionRequest* request = [[OctagonStateTransitionRequest alloc] init:name
+                                                                            sourceStates:sourceStates
+                                                                             serialQueue:self.queue
+                                                                                 timeout:10 * NSEC_PER_SEC
+                                                                            transitionOp:initialTransitionOp];
+
     OctagonStateTransitionWatcher* watcher = [[OctagonStateTransitionWatcher alloc] initNamed:[NSString stringWithFormat:@"watcher-%@", name]
                                                                                   serialQueue:self.queue
-                                                                                         path:path];
+                                                                                         path:path
+                                                                               initialRequest:request];
     [watcher timeout:self.timeout?:120*NSEC_PER_SEC];
+
     [self registerStateTransitionWatcher:watcher];
 
     WEAKIFY(self);
@@ -548,15 +564,6 @@ format,                                                                         
     [self.operationQueue addOperation:replyOp];
 
 
-    CKKSResultOperation<OctagonStateTransitionOperationProtocol>* initialTransitionOp
-    = [OctagonStateTransitionOperation named:[NSString stringWithFormat:@"intial-transition-%@", name]
-                                    entering:path.initialState];
-
-    OctagonStateTransitionRequest* request = [[OctagonStateTransitionRequest alloc] init:name
-                                                                            sourceStates:sourceStates
-                                                                             serialQueue:self.queue
-                                                                                timeout:10*NSEC_PER_SEC
-                                                                            transitionOp:initialTransitionOp];
     [self handleExternalRequest:request];
 }
 

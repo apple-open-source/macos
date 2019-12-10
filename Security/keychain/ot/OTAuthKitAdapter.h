@@ -17,7 +17,7 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol OTAuthKitAdapter
 
 // Returns nil if there is no such primary account
-- (NSString* _Nullable)primaryiCloudAccountAltDSID;
+- (NSString* _Nullable)primaryiCloudAccountAltDSID:(NSError **)error;
 
 - (BOOL)accountIsHSA2ByAltDSID:(NSString*)altDSID;
 

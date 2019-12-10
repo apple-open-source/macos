@@ -863,11 +863,11 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
     
 #if TARGET_OS_OSX
     if (keyboardDevice) {
-        OSDictionary *escKeyProperties = OSDictionary::withCapacity(0);
-        if (escKeyProperties) {
-            escKeyProperties->setObject(kIOHIDKeyboardSupportsEscKey, OSBoolean::withBoolean(escKeySupported));
-            setProperties(escKeyProperties);
-            escKeyProperties->release();
+        
+        // multitouch should report absence of esc key on specific keyboards
+        // we should act only if given key is not published
+        if (!getProperty(kIOHIDKeyboardSupportsEscKey)) {
+            setProperty(kIOHIDKeyboardSupportsEscKey, escKeySupported ? kOSBooleanTrue : kOSBooleanFalse);
         }
     }
 #endif

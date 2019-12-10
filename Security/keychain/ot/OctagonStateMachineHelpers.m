@@ -51,7 +51,6 @@ OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
 + (instancetype)named:(NSString*)name
             intending:(OctagonState*)intendedState
            errorState:(OctagonState*)errorState
-              timeout:(dispatch_time_t)timeout
   withBlockTakingSelf:(void(^)(OctagonStateTransitionOperation* op))block
 {
     OctagonStateTransitionOperation* op = [[self alloc] initIntending:intendedState
@@ -62,7 +61,6 @@ OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
         block(op);
     }];
     op.name = name;
-    [op timeout:timeout];
     return op;
 }
 
@@ -74,6 +72,7 @@ OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
     op.name = name;
     return op;
 }
+
 @end
 
 @interface OctagonStateTransitionRequest ()

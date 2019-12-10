@@ -179,6 +179,7 @@ typedef CF_OPTIONS(uint8_t, TAValidStatus) {
 
 typedef struct {
     uint64_t start_time;
+    bool suspected_mitm;
     // Certificate Transparency
     TA_SCTSource sct_sources;
     uint32_t number_scts;

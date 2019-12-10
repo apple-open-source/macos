@@ -87,7 +87,6 @@ cfstring2cstring(CFStringRef string)
 }
 
 static char *HeimCredImpersonateBundle = NULL;
-static pid_t HeimCredImpersonatePID = 0;
 
 void
 HeimCredSetImpersonateBundle(CFStringRef bundle)
@@ -110,25 +109,10 @@ HeimCredGetImpersonateBundle(void)
 static void
 UpdateImpersonateBundle(xpc_object_t message)
 {
-    if (HeimCredImpersonateBundle) {
+    if (HeimCredImpersonateBundle)
 	xpc_dictionary_set_string(message, "impersonate", HeimCredImpersonateBundle);
-    }
-    if (HeimCredImpersonatePID) {
-	xpc_dictionary_set_int64(message, "impersonate_pid", (long long)HeimCredImpersonatePID);
-    }
 }
 
-void
-HeimCredSetImpersonatePID(pid_t pid)
-{
-    HeimCredImpersonatePID = pid;
-}
-
-pid_t
-HeimCredGetImpersonatePID(void)
-{
-    return HeimCredImpersonatePID;
-}
 
 /*
  *

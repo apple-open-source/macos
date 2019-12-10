@@ -1188,6 +1188,8 @@ static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, C
 
     SecAccessControlRef access_control = (SecAccessControlRef)CFDictionaryGetValue(attrs->dictionary, kSecAttrAccessControl);
     if (access_control != NULL) {
+        require_action_quiet(CFGetTypeID(access_control) == SecAccessControlGetTypeID(), out,
+                             SecError(errSecParam, error, CFSTR("Unexpected type of kSecAttrAccessControl attribute")));
         require_action_quiet(ac_data = SecAccessControlCopyData(access_control), out,
                              SecError(errSecParam, error, CFSTR("unsupported kSecAttrAccessControl in query")));
         CFDictionarySetValue(SecCFDictionaryCOWGetMutable(attrs), kSecAttrAccessControl, ac_data);
@@ -1421,12 +1423,14 @@ bool SecItemAuthDoQuery(SecCFDictionaryCOW *query, SecCFDictionaryCOW *attribute
                                    bool (^perform)(TKTokenRef token, CFDictionaryRef query, CFDictionaryRef attributes, CFDictionaryRef auth_params, CFErrorRef *error)) {
     bool ok = false;
     __block SecCFDictionaryCOW auth_params = { NULL };
-    SecAccessControlRef access_control = NULL;
     __block TKTokenRef token = NULL;
 
+    CFDictionaryRef dict = attributes ? attributes->dictionary : query->dictionary;
+    SecAccessControlRef access_control = (SecAccessControlRef)CFDictionaryGetValue(dict, kSecAttrAccessControl);
+    require_action_quiet(access_control == NULL || CFGetTypeID(access_control) == SecAccessControlGetTypeID(), out,
+                         SecError(errSecParam, error, CFSTR("Unexpected type of kSecAttrAccessControl attribute")));
+
     if (secItemOperation == SecItemAdd || secItemOperation == SecItemUpdate) {
-        CFDictionaryRef dict = attributes ? attributes->dictionary : query->dictionary;
-        access_control = (SecAccessControlRef)CFDictionaryGetValue(dict, kSecAttrAccessControl);
         if (access_control && SecAccessControlGetConstraints(access_control) &&
             CFEqualSafe(CFDictionaryGetValue(dict, kSecAttrSynchronizable), kCFBooleanTrue))
             require_quiet(SecError(errSecParam, error, CFSTR("item with kSecAttrAccessControl is not synchronizable")), out);

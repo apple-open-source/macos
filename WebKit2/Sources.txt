@@ -315,6 +315,7 @@ UIProcess/API/APIURLSchemeTask.cpp
 UIProcess/API/APIUserContentWorld.cpp
 UIProcess/API/APIUserScript.cpp
 UIProcess/API/APIUserStyleSheet.cpp
+UIProcess/API/APIWebAuthenticationPanel.cpp
 UIProcess/API/APIWebsiteDataStore.cpp
 UIProcess/API/APIWebsitePolicies.cpp
 UIProcess/API/APIWindowFeatures.cpp
@@ -402,9 +403,12 @@ UIProcess/Plugins/PluginProcessProxy.cpp
 UIProcess/UserContent/WebScriptMessageHandler.cpp
 UIProcess/UserContent/WebUserContentControllerProxy.cpp
 
-UIProcess/WebAuthentication/fido/CtapHidAuthenticator.cpp
+UIProcess/WebAuthentication/fido/CtapAuthenticator.cpp
 UIProcess/WebAuthentication/fido/CtapHidDriver.cpp
-UIProcess/WebAuthentication/fido/U2fHidAuthenticator.cpp
+UIProcess/WebAuthentication/fido/CtapNfcDriver.cpp
+UIProcess/WebAuthentication/fido/FidoAuthenticator.cpp
+UIProcess/WebAuthentication/fido/FidoService.cpp
+UIProcess/WebAuthentication/fido/U2fAuthenticator.cpp
 
 UIProcess/WebAuthentication/Mock/MockAuthenticatorManager.cpp
 UIProcess/WebAuthentication/Mock/MockHidConnection.cpp

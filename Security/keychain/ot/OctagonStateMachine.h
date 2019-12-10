@@ -43,6 +43,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) id<OctagonFlagContainer> flags;
 
 @property NSMutableDictionary<OctagonState*, CKKSCondition*>* stateConditions;
+
 @property (readonly) CKKSCondition* paused;
 
 @property (readonly) NSSet* allowableStates;
@@ -54,10 +55,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithName:(NSString*)name
                       states:(NSSet<OctagonState*>*)possibleStates
+                       flags:(NSSet<OctagonFlag*>*)possibleFlags
                 initialState:(OctagonState*)initialState
                        queue:(dispatch_queue_t)queue
                  stateEngine:(id<OctagonStateMachineEngine>)stateEngine
-            lockStateTracker:(CKKSLockStateTracker* _Nullable)lockStateTracker;
+            lockStateTracker:(CKKSLockStateTracker*)lockStateTracker;
 
 - (void)startOperation;
 - (void)haltOperation;

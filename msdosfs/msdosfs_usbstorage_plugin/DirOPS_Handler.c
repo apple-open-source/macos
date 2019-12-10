@@ -2581,12 +2581,12 @@ DIROPS_LookForDirEntryByName (NodeRecord_s* psFolderNode, const char *pcUTF8Name
         goto exit;
     }
     
+    CONV_Unistr255ToLowerCase( psSearchName );
     LF_TableEntry_t* psTableEntry = ht_LookupByName(psFolderNode->sExtraData.sDirData.sHT, psSearchName, NULL);
     if (psTableEntry == NULL)
     {
         if (psFolderNode->sExtraData.sDirData.sHT->bIncomplete)
         {
-            CONV_Unistr255ToLowerCase( psSearchName );
             goto lookup_OldSchool;
         }
         else
@@ -2604,7 +2604,6 @@ DIROPS_LookForDirEntryByName (NodeRecord_s* psFolderNode, const char *pcUTF8Name
     bool bAlreadyCheckedClusterIsValid = false;
 
     DirEntryStatus_e eStatus = DIR_ENTRY_START;
-    CONV_Unistr255ToLowerCase( psSearchName );
     do {
         // First time through the loop, don't check entries that aren't in our
         // current cluster.  If we don't find it, then we go ahead and do an

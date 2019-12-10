@@ -71,6 +71,7 @@ LF_TableEntry_t* ht_LookupByName(LF_HashTable_t* psHT, struct unistr255* psName,
 LF_TableEntry_t* ht_LookupByEntry(LF_HashTable_t* psHT, struct unistr255* psName, uint64_t uEntry, LF_TableEntry_t** ppsPrevTE, uint32_t* puKey)
 {
     MultiReadSingleWrite_LockRead(&psHT->sHTLck);
+    CONV_Unistr255ToLowerCase( psName );
     LF_TableEntry_t* psTE = ht_LookupByName(psHT, psName, puKey);
     LF_TableEntry_t* psPrevTE = NULL;
 

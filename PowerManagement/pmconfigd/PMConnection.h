@@ -74,6 +74,7 @@ __private_extern__ bool isA_DarkWakeState(void);
 __private_extern__ bool isA_NotificationDisplayWake(void);
 __private_extern__ void set_NotificationDisplayWake(void);
 __private_extern__ void cancel_NotificationDisplayWake(void);
+__private_extern__ bool isCapabilityChangeDone(void);
 
 __private_extern__ void InternalEvalConnections(void);
 __private_extern__ kern_return_t getPlatformSleepType(uint32_t *sleepType, uint32_t *standbyTimer);

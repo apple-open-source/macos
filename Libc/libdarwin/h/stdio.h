@@ -33,12 +33,18 @@
 #include <sys/cdefs.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <unistd.h>
+#include <sys/types.h>
 
-// TAPI and the compiler don't agree about header search paths, so if TAPI found
-// our header in the SDK, help it out.
-#if DARWIN_TAPI && DARWIN_API_VERSION < 20180727
-#define DARWIN_API_AVAILABLE_20180727
+#if __has_include(<sys/guarded.h>)
+#include <sys/guarded.h>
+#else
+typedef uint64_t guardid_t;
+#endif
+
+#if DARWIN_TAPI
+#include "tapi.h"
 #endif
 
 __BEGIN_DECLS;
@@ -66,6 +72,24 @@ static inline bool
 os_fd_valid(os_fd_t fd)
 {
 	return (fd >= STDIN_FILENO);
+}
+
+/*!
+ * @function os_guardid_from_ptr
+ * Converts the given pointer to a guardid_t.
+ *
+ * @param p
+ * The pointer to convert.
+ *
+ * @result
+ * The pointer as a guardid_t.
+ */
+DARWIN_API_AVAILABLE_20190830
+OS_ALWAYS_INLINE OS_WARN_RESULT
+static inline guardid_t
+os_guardid_from_ptr(const void *p)
+{
+	return (guardid_t)(uintptr_t)p;
 }
 
 /*!
@@ -115,6 +139,97 @@ DARWIN_API_AVAILABLE_20180727
 OS_EXPORT OS_WARN_RESULT
 os_fd_t
 dup_np(os_fd_t fd);
+
+/*!
+ * @function claimfd_np
+ * Claims the given file descriptor for the caller's exclusive use by applying a
+ * guard and invalidating the given storage.
+ *
+ * @param fdp
+ * A pointer to the storage for the descriptor to claim. Upon return, a known-
+ * invalid value is written into this memory.
+ *
+ * @param gdid
+ * The optional guard value to enforce the caller's claim on the descriptor.
+ *
+ * @param gdflags
+ * The guard flags to enforce the caller's claim on the descriptor.
+ *
+ * @result
+ * The given descriptor with the guard applied.
+ */
+DARWIN_API_AVAILABLE_20190830
+OS_EXPORT OS_WARN_RESULT OS_NONNULL1
+os_fd_t
+claimfd_np(os_fd_t *fdp, const guardid_t *gdid, u_int gdflags);
+
+/*!
+ * @function xferfd_np
+ * Transfers ownership from the given file descriptor back to the general public
+ * by clearing the guard associated with it.
+ *
+ * @param fdp
+ * A pointer to the storage for the descriptor to claim. Upon return, a known-
+ * invalid value is written into this memory.
+ *
+ * @param gdid
+ * The optional guard value to reliquish ownership on the descriptor.
+ *
+ * @param gdflags
+ * The guard flags to relinquish.
+ *
+ * @result
+ * The given descriptor with the guard cleared. This descriptor is suitable for
+ * claiming with {@link claimfd_np}.
+ */
+DARWIN_API_AVAILABLE_20190830
+OS_EXPORT OS_WARN_RESULT OS_NONNULL1
+os_fd_t
+xferfd_np(os_fd_t *fdp, const guardid_t *gdid, u_int gdflags);
+
+/*!
+ * @function close_drop_np
+ * Variant of close(2) which transfers ownership from the caller and performs
+ * the close(2) operation. These semantics are useful for ensuring that a
+ * descriptor is not erroneously re-used after it has been closed. To achieve
+ * these semantics, this variant will clear the memory in which the descriptor
+ * resides and replace it with a known-invalid value before returning.
+ *
+ * @param fdp
+ * A pointer to the storage for the descriptor to close. Upon return, a known-
+ * invalid value is written into this memory.
+ *
+ * @param gdid
+ * The optional guard. If the descriptor is not guarded, pass NULL.
+ *
+ * @discussion
+ * If the implementation encounters a failure to close a valid descriptor
+ * number, the caller will be terminated.
+ */
+OS_EXPORT OS_NONNULL1
+void
+close_drop_np(os_fd_t *fdp, const guardid_t *gdid);
+
+/*!
+ * @function close_drop_optional_np
+ * Variant of {@link close_drop} which will not attempt to close an invalid
+ * descriptor. Otherwise all semantics are the same.
+ *
+ * @param fdp
+ * A pointer to the storage for the descriptor to close. Upon return, a known-
+ * invalid value is written into this memory.
+ *
+ * @param gdid
+ * The optional guard. If the descriptor is not guarded, pass NULL.
+ *
+ * @discussion
+ * If the implementation encounters a failure to close a valid descriptor
+ * number, the caller will be terminated. The implementation will not attempt to
+ * close the descriptor if its value is -1.
+ */
+OS_EXPORT OS_NONNULL1
+void
+close_drop_optional_np(os_fd_t *fdp, const guardid_t *gdid);
 
 /*!
  * @function zsnprintf_np

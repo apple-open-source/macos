@@ -125,8 +125,10 @@ CF_RETURNS_RETAINED CFArrayRef SOSCCHandleUpdateMessage(CFDictionaryRef updates)
 void SOSCCRequestSyncWithPeer(CFStringRef peerID);
 void SOSCCRequestSyncWithPeers(CFSetRef /*SOSPeerInfoRef/CFStringRef*/ peerIDs);
 void SOSCCRequestSyncWithPeersList(CFArrayRef /*CFStringRef*/ peerIDs);
-void SOSCCRequestSyncWithBackupPeer(CFStringRef backupPeerId);
+void SOSCCRequestSyncWithBackupPeerList(CFArrayRef /* CFStringRef */ backupPeerIDs);
 bool SOSCCIsSyncPendingFor(CFStringRef peerID, CFErrorRef *error);
+
+void SOSCCAccountTriggerSyncWithBackupPeer_server(CFStringRef peer);
 
 void SOSCCEnsurePeerRegistration(void);
 typedef void (^SOSAccountSyncablePeersBlock)(CFArrayRef trustedPeers, CFArrayRef addedPeers, CFArrayRef removedPeers);

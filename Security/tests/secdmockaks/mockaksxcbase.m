@@ -49,6 +49,7 @@ NSString* homeDirUUID;
 #if OCTAGON
     SecCKKSTestSetDisableSOS(true);
 #endif
+
     // Give this test run a UUID within which each test has a directory
     homeDirUUID = [[NSUUID UUID] UUIDString];
 }

@@ -37,7 +37,11 @@ OTHER_TAPI_FLAGS_SOS = -extra-public-header $(PROJECT_DIR)/keychain/SecureObject
 
 // This isn't OTHER_TAPI_FLAGS because we'll mess up other, non-Security.framework frameworks in the project
 // Please don't add any more headers here.
-OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK = --verify-api-error-as-warning -D SECURITY_PROJECT_TAPI_HACKS=1 -extra-private-header $(PROJECT_DIR)/OSX/sec/Security/SecTrustInternal.h $(OTHER_TAPI_FLAGS_SOS)
+OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK_COMMON = --verify-api-error-as-warning -D SECURITY_PROJECT_TAPI_HACKS=1 -extra-private-header $(PROJECT_DIR)/OSX/sec/Security/SecTrustInternal.h $(OTHER_TAPI_FLAGS_SOS) -extra-private-header $(PROJECT_DIR)/OSX/libsecurity_codesigning/lib/SecCodePriv.h -extra-private-header $(PROJECT_DIR)/Analytics/SQLite/SFSQLite.h -extra-private-header $(PROJECT_DIR)/OSX/libsecurity_ssl/lib/sslDeprecated.h -extra-private-header $(PROJECT_DIR)/OSX/libsecurity_asn1/lib/secport-tapi.h -extra-private-header $(PROJECT_DIR)/OSX/libsecurity_smime/lib/cms-tapi.h -extra-private-header $(PROJECT_DIR)/OSX/utilities/SecAppleAnchor-tapi.h -extra-private-header $(PROJECT_DIR)/OSX/sec/Security/SecRSAKey.h -extra-private-header $(PROJECT_DIR)/OSX/sec/Security/SecPolicy-tapi.h -extra-private-header $(PROJECT_DIR)/OSX/sec/Security/SecEC-tapi.h -extra-private-header $(PROJECT_DIR)/OSX/sec/Security/Security-tapi.h
+
+OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK_PLATFORM[sdk=macos*] = $(OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK_COMMON) -extra-private-header $(PROJECT_DIR)/OSX/libsecurity_transform/lib/SecCollectTransform.h -extra-private-header $(PROJECT_DIR)/OSX/libsecurity_transform/lib/SecMaskGenerationFunctionTransform.h -extra-private-header $(PROJECT_DIR)/OSX/libsecurity_transform/lib/SecTransformValidator.h
+OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK_PLATFORM[sdk=embedded*] = $(OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK_COMMON)
+OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK = $(OTHER_TAPI_FLAGS_SECURITY_FRAMEWORK_PLATFORM)
 
 SECURITY_XCTEST_DIRECTORY = /AppleInternal/XCTests/com.apple.security
 

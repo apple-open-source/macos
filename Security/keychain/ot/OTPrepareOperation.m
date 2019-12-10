@@ -71,10 +71,15 @@
     
     NSString* bottleSalt = nil;
 
-    if(self.deps.authKitAdapter.primaryiCloudAccountAltDSID){
-        bottleSalt = self.deps.authKitAdapter.primaryiCloudAccountAltDSID;
+    NSError *authKitError = nil;
+    NSString *altDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:&authKitError];
+
+    if (altDSID) {
+        bottleSalt = altDSID;
     }
     else {
+        secnotice("octagon-sos", "AuthKit doesn't know about the altDSID: %@", authKitError);
+
         NSError* accountError = nil;
         OTAccountMetadataClassC* account = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
 

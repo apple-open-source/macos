@@ -38,6 +38,10 @@
 #include <wtf/RunLoop.h>
 #include <wtf/Vector.h>
 
+namespace API {
+class WebAuthenticationPanel;
+}
+
 namespace WebKit {
 
 class AuthenticatorManager : public AuthenticatorTransportService::Observer, public Authenticator::Observer {
@@ -47,6 +51,7 @@ public:
     using Respond = Variant<WebCore::PublicKeyCredentialData, WebCore::ExceptionData>;
     using Callback = CompletionHandler<void(Respond&&)>;
     using TransportSet = HashSet<WebCore::AuthenticatorTransport, WTF::IntHash<WebCore::AuthenticatorTransport>, WTF::StrongEnumHashTraits<WebCore::AuthenticatorTransport>>;
+    using FrameIdentifier = uint64_t;
 
     using AuthenticatorTransportService::Observer::weakPtrFactory;
     using WeakValueType = AuthenticatorTransportService::Observer::WeakValueType;
@@ -54,24 +59,27 @@ public:
     AuthenticatorManager();
     virtual ~AuthenticatorManager() = default;
 
-    void makeCredential(const Vector<uint8_t>& hash, const WebCore::PublicKeyCredentialCreationOptions&, Callback&&);
-    void getAssertion(const Vector<uint8_t>& hash, const WebCore::PublicKeyCredentialRequestOptions&, Callback&&);
+    void handleRequest(WebAuthenticationRequestData&&, Callback&&);
+    void cancelRequest(const WebCore::PageIdentifier&, const Optional<FrameIdentifier>&); // Called from WebPageProxy/WebProcessProxy.
+    void cancelRequest(const API::WebAuthenticationPanel&); // Called from panel clients.
 
     virtual bool isMock() const { return false; }
 
 protected:
-    Callback& pendingCompletionHandler() { return m_pendingCompletionHandler; }
     RunLoop::Timer<AuthenticatorManager>& requestTimeOutTimer() { return m_requestTimeOutTimer; }
     void clearStateAsync(); // To void cyclic dependence.
     void clearState();
+    void invokePendingCompletionHandler(Respond&&);
 
 private:
     // AuthenticatorTransportService::Observer
     void authenticatorAdded(Ref<Authenticator>&&) final;
+    void serviceStatusUpdated(WebAuthenticationStatus) final;
 
     // Authenticator::Observer
     void respondReceived(Respond&&) final;
     void downgrade(Authenticator* id, Ref<Authenticator>&& downgradedAuthenticator) final;
+    void authenticatorStatusUpdated(WebAuthenticationStatus) final;
 
     // Overriden by MockAuthenticatorManager.
     virtual UniqueRef<AuthenticatorTransportService> createService(WebCore::AuthenticatorTransport, AuthenticatorTransportService::Observer&) const;
@@ -81,10 +89,13 @@ private:
     void startDiscovery(const TransportSet&);
     void initTimeOutTimer(const Optional<unsigned>& timeOutInMs);
     void timeOutTimerFired();
+    void runPanel();
+    void startRequest();
+    void restartDiscovery();
 
     // Request: We only allow one request per time. A new request will cancel any pending ones.
     WebAuthenticationRequestData m_pendingRequestData;
-    Callback m_pendingCompletionHandler;
+    Callback m_pendingCompletionHandler; // Should not be invoked directly, use invokePendingCompletionHandler.
     RunLoop::Timer<AuthenticatorManager> m_requestTimeOutTimer;
 
     Vector<UniqueRef<AuthenticatorTransportService>> m_services;

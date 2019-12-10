@@ -43,6 +43,7 @@ enum Command {
     case vouch(String, Data, Data, Data, Data)
     case vouchWithBottle(String, Data, String)
     case allow(Set<String>, Bool)
+    case supportApp
 }
 
 func printUsage() {
@@ -61,6 +62,7 @@ func printUsage() {
     print("  local-reset               Resets the local cuttlefish database, and ignores all previous information. Does not change anything off-device")
     print("  prepare [--modelid MODELID] [--machineid MACHINEID] [--epoch EPOCH] [--bottlesalt BOTTLESALT]")
     print("                            Creates a new identity and returns its attributes. If not provided, modelid and machineid will be given some defaults (ignoring the local device)")
+    print("  supportApp                Get SupportApp information from Cuttlefish")
     print("  update                    Fetch new information from Cuttlefish, and perform any actions this node deems necessary")
     print("  validate                  Vvalidate SOS and Octagon data structures from server side")
     print("  viable-bottles            Show bottles in preference order of server")
@@ -314,6 +316,9 @@ while let arg = argIterator.next() {
 
     case "update":
         commands.append(.update)
+
+    case "supportApp":
+        commands.append(.supportApp)
 
     case "validate":
         commands.append(.validate)
@@ -580,6 +585,27 @@ for command in commands {
 
             os_log("local-reset (%@, %@): successful", log: tplogDebug, type: .default, container, context)
             print("Local reset successful")
+        }
+
+    case .supportApp:
+        os_log("supportApp (%@, %@)", log: tplogDebug, type: .default, container, context)
+
+        tpHelper.getSupportAppInfo(withContainer: container, context: context) { data, error in
+            guard error == nil else {
+                print("Error getting supportApp:", error!)
+                return
+            }
+
+            if let data = data {
+                do {
+                    let string = try GetSupportAppInfoResponse(serializedData: data).jsonString()
+                    print("\(string)")
+                } catch {
+                    print("Error decoding protobuf: \(error)")
+                }
+            } else {
+                print("Error: no results, but no error either?")
+            }
         }
 
     case .prepare:

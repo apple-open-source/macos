@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>subversion</string>
+		<key>OpenSourceVersion</key>
+		<string>1.10.6</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://subversion.apache.org/</string>
+		<key>OpenSourceURL</key>
+		<string>https://archive.apache.org/dist/subversion/subversion-1.10.6.tar.bz2</string>
+		<key>OpenSourceSHA256</key>
+		<string>18c8e72691e6d2e7d3137ae4ad98b9f8977cca5eb2504fab48d55e584b10eca7</string>
+		<key>OpenSourceImportDate</key>
+		<string>2019-10-23</string>
+		<key>OpenSourceLicense</key>
+		<string>apache</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>subversion.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2019-09-08</string>
+		<key>OpenSourceLicense</key>
+		<string>GPL</string>
+		<key>OpenSourceProject</key>
+		<string>git</string>
+		<key>OpenSourceVersion</key>
+		<string>2.23.0-rc2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://git-scm.com</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Remove LoadCPAN stub</string>
+		</array>
+	</dict>
+</array>
+</plist>

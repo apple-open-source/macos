@@ -2326,110 +2326,6 @@ cleanup:
 }
 
 /*
- * Verify Escrow Service policy options.
- *
- * -- Chain length must be exactly 2.
- * -- Must be issued by known escrow root.
- * -- Key usage in leaf certificate must be Key Encipherment.
- * -- Leaf has CSSMOID_APPLE_EXTENSION_ESCROW_SERVICE_MARKER extension
- *		(1.2.840.113635.100.6.23.1)
- */
-static CSSM_RETURN tp_verifyEscrowServiceCommon(TPCertGroup &certGroup,
-											 const CSSM_DATA *fieldOpts,
-											 const iSignCertInfo *certInfo,		// all certs, size certGroup.numCerts()
-											 SecCertificateEscrowRootType rootType)
-{
-	unsigned numCerts = certGroup.numCerts();
-	const iSignCertInfo *isCertInfo;
-	TPCertInfo *tpCert;
-	CE_KeyUsage ku;
-	CSSM_RETURN crtn = CSSM_OK;
-
-	isCertInfo = &certInfo[0];
-	tpCert = certGroup.certAtIndex(0);
-
-	/* Check that KU extension is present */
-	if (!isCertInfo->keyUsage.present) {
-		tpPolicyError("tp_verifyEscrowServiceCommon: no keyUsage in leaf");
-		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
-		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
-		goto cleanup;
-	}
-
-	/* Check that KU contains Key Encipherment usage */
-	ku = isCertInfo->keyUsage.extnData->keyUsage;
-	if (!(ku & CE_KU_KeyEncipherment)) {
-		tpPolicyError("tp_verifyEscrowServiceCommon: KeyEncipherment usage not found");
-		tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE);
-		crtn = CSSMERR_APPLETP_INVALID_KEY_USAGE;
-		goto cleanup;
-	}
-
-	/* Check that Escrow Service marker extension is present */
-	if (!(isCertInfo->foundEscrowServiceMarker == CSSM_TRUE)) {
-		tpPolicyError("tp_verifyEscrowServiceCommon: no Escrow Service extension in leaf");
-		tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION);
-		crtn = CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
-		goto cleanup;
-	}
-
-	/* Check that cert chain length is 2 */
-	if (numCerts != 2) {
-		tpPolicyError("tp_verifyEscrowServiceCommon: numCerts %u", numCerts);
-		crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
-		goto cleanup;
-	}
-
-	/* Check that cert chain is anchored by a known root */
-	{
-		tpCert = certGroup.certAtIndex(numCerts-1);
-		const CSSM_DATA *certData = tpCert->itemData();
-		bool anchorMatch = false;
-		SecCertificateRef anchor = NULL;
-		OSStatus status = SecCertificateCreateFromData(certData, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER, &anchor);
-		if (!status) {
-			CFArrayRef anchors = SecCertificateCopyEscrowRoots(rootType);
-			CFIndex idx, count = (anchors) ? CFArrayGetCount(anchors) : 0;
-			for (idx = 0; idx < count; idx++) {
-				SecCertificateRef cert = (SecCertificateRef) CFArrayGetValueAtIndex(anchors, idx);
-				if (cert && CFEqual(cert, anchor)) {
-					anchorMatch = true;
-					break;
-				}
-			}
-			if (anchors)
-				CFRelease(anchors);
-		}
-		if (anchor)
-			CFRelease(anchor);
-
-		if (!anchorMatch) {
-			tpPolicyError("tp_verifyEscrowServiceCommon: invalid anchor for policy");
-			tpCert->addStatusCode(CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH);
-			crtn = CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
-			goto cleanup;
-		}
-	}
-
-cleanup:
-	return crtn;
-}
-
-static CSSM_RETURN tp_verifyEscrowServiceSigningOpts(TPCertGroup &certGroup,
-											 const CSSM_DATA *fieldOpts,
-											 const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
-{
-	return tp_verifyEscrowServiceCommon(certGroup, fieldOpts, certInfo, kSecCertificateProductionEscrowRoot);
-}
-
-static CSSM_RETURN tp_verifyPCSEscrowServiceSigningOpts(TPCertGroup &certGroup,
-											 const CSSM_DATA *fieldOpts,
-											 const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()
-{
-	return tp_verifyEscrowServiceCommon(certGroup, fieldOpts, certInfo, kSecCertificateProductionPCSEscrowRoot);
-}
-
-/*
  * Verify Provisioning Profile Signing policy options.
  *
  * -- Do basic cert validation (OCSP-based certs)
@@ -3169,7 +3065,7 @@ CSSM_RETURN tp_policyVerify(
 			policyError = tp_verifyMobileStoreSigningOpts(*certGroup, policyFieldData, certInfo, true);
 			break;
 		case kTP_EscrowService:
-			policyError = tp_verifyEscrowServiceSigningOpts(*certGroup, policyFieldData, certInfo);
+			policyFail = CSSM_TRUE;
 			break;
 		case kTP_ProfileSigning:
 			policyError = tp_verifyProfileSigningOpts(*certGroup, policyFieldData, certInfo, false);
@@ -3178,7 +3074,7 @@ CSSM_RETURN tp_policyVerify(
 			policyError = tp_verifyProfileSigningOpts(*certGroup, policyFieldData, certInfo, true);
 			break;
 		case kTP_PCSEscrowService:
-			policyError = tp_verifyPCSEscrowServiceSigningOpts(*certGroup, policyFieldData, certInfo);
+			policyFail = CSSM_TRUE;
 			break;
 		case kTP_ProvisioningProfileSigning:
 			policyError = tp_verifyProvisioningProfileSigningOpts(*certGroup, policyFieldData, certInfo);

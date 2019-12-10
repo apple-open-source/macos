@@ -1499,7 +1499,7 @@ isis_print_mt_port_cap_subtlv(netdissect_options *ndo,
       }
 
       default:
-          break;
+        break;
     }
     tptr += stlv_len;
     len -= stlv_len;
@@ -2287,37 +2287,37 @@ isis_print(netdissect_options *ndo,
                ndo->ndo_eflag ? "" : ", ",
                tok2str(isis_pdu_values, "unknown PDU-Type %u", pdu_type)));
     } else {
-    /* ok they seem to want to know everything - lets fully decode it */
-    ND_PRINT((ndo, "%slength %u", ndo->ndo_eflag ? "" : ", ", length));
+        /* ok they seem to want to know everything - lets fully decode it */
+        ND_PRINT((ndo, "%slength %u", ndo->ndo_eflag ? "" : ", ", length));
 
-    ND_PRINT((ndo, "\n\t%s, hlen: %u, v: %u, pdu-v: %u, sys-id-len: %u (%u), max-area: %u (%u)",
-           tok2str(isis_pdu_values,
-                   "unknown, type %u",
-                   pdu_type),
-           isis_header->fixed_len,
-           isis_header->version,
-           isis_header->pdu_version,
-	   id_length,
-	   isis_header->id_length,
-           max_area,
-           isis_header->max_area));
+        ND_PRINT((ndo, "\n\t%s, hlen: %u, v: %u, pdu-v: %u, sys-id-len: %u (%u), max-area: %u (%u)",
+               tok2str(isis_pdu_values,
+                       "unknown, type %u",
+                       pdu_type),
+               isis_header->fixed_len,
+               isis_header->version,
+               isis_header->pdu_version,
+               id_length,
+               isis_header->id_length,
+               max_area,
+               isis_header->max_area));
 
-    if (ndo->ndo_vflag > 1) {
-        if (!print_unknown_data(ndo, optr, "\n\t", 8)) /* provide the _o_riginal pointer */
-            return(0);                         /* for optionally debugging the common header */
-    }
+        if (ndo->ndo_vflag > 1) {
+            if (!print_unknown_data(ndo, optr, "\n\t", 8)) /* provide the _o_riginal pointer */
+                return (0);                         /* for optionally debugging the common header */
+        }
     }
 
     switch (pdu_type) {
 
     case ISIS_PDU_L1_LAN_IIH:
     case ISIS_PDU_L2_LAN_IIH:
-	if (isis_header->fixed_len != (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_LAN_HEADER_SIZE)) {
-	    ND_PRINT((ndo, ", bogus fixed header length %u should be %lu",
+        if (isis_header->fixed_len != (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_LAN_HEADER_SIZE)) {
+            ND_PRINT((ndo, ", bogus fixed header length %u should be %lu",
                      isis_header->fixed_len, (unsigned long)(ISIS_COMMON_HEADER_SIZE+ISIS_IIH_LAN_HEADER_SIZE)));
-	    return (0);
-	}
-	ND_TCHECK(*header_iih_lan);
+            return (0);
+        }
+        ND_TCHECK(*header_iih_lan);
         if (length < ISIS_COMMON_HEADER_SIZE+ISIS_IIH_LAN_HEADER_SIZE)
             goto trunc;
         if (ndo->ndo_vflag == 0) {
@@ -2329,40 +2329,40 @@ isis_print(netdissect_options *ndo,
             ND_PRINT((ndo, ", length %u", length));
             return (1);
         }
-	pdu_len=EXTRACT_16BITS(header_iih_lan->pdu_len);
-	if (packet_len>pdu_len) {
-            packet_len=pdu_len; /* do TLV decoding as long as it makes sense */
-            length=pdu_len;
-	}
+        pdu_len=EXTRACT_16BITS(header_iih_lan->pdu_len);
+        if (packet_len>pdu_len) {
+           packet_len=pdu_len; /* do TLV decoding as long as it makes sense */
+           length=pdu_len;
+        }
 
-	ND_PRINT((ndo, "\n\t  source-id: %s,  holding time: %us, Flags: [%s]",
-               isis_print_id(header_iih_lan->source_id,SYSTEM_ID_LEN),
-               EXTRACT_16BITS(header_iih_lan->holding_time),
-               tok2str(isis_iih_circuit_type_values,
-                       "unknown circuit type 0x%02x",
-                       header_iih_lan->circuit_type)));
+        ND_PRINT((ndo, "\n\t  source-id: %s,  holding time: %us, Flags: [%s]",
+                  isis_print_id(header_iih_lan->source_id,SYSTEM_ID_LEN),
+                  EXTRACT_16BITS(header_iih_lan->holding_time),
+                  tok2str(isis_iih_circuit_type_values,
+                          "unknown circuit type 0x%02x",
+                          header_iih_lan->circuit_type)));
 
-	ND_PRINT((ndo, "\n\t  lan-id:    %s, Priority: %u, PDU length: %u",
-               isis_print_id(header_iih_lan->lan_id, NODE_ID_LEN),
-               (header_iih_lan->priority) & ISIS_LAN_PRIORITY_MASK,
-               pdu_len));
+        ND_PRINT((ndo, "\n\t  lan-id:    %s, Priority: %u, PDU length: %u",
+                  isis_print_id(header_iih_lan->lan_id, NODE_ID_LEN),
+                  (header_iih_lan->priority) & ISIS_LAN_PRIORITY_MASK,
+                  pdu_len));
 
-	if (ndo->ndo_vflag > 1) {
-		if (!print_unknown_data(ndo, pptr, "\n\t  ", ISIS_IIH_LAN_HEADER_SIZE))
-			return(0);
-	}
+        if (ndo->ndo_vflag > 1) {
+            if (!print_unknown_data(ndo, pptr, "\n\t  ", ISIS_IIH_LAN_HEADER_SIZE))
+                return (0);
+        }
 
-	packet_len -= (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_LAN_HEADER_SIZE);
-	pptr = p + (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_LAN_HEADER_SIZE);
-	break;
+        packet_len -= (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_LAN_HEADER_SIZE);
+        pptr = p + (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_LAN_HEADER_SIZE);
+        break;
 
     case ISIS_PDU_PTP_IIH:
-	if (isis_header->fixed_len != (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_PTP_HEADER_SIZE)) {
-	    ND_PRINT((ndo, ", bogus fixed header length %u should be %lu",
+        if (isis_header->fixed_len != (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_PTP_HEADER_SIZE)) {
+            ND_PRINT((ndo, ", bogus fixed header length %u should be %lu",
                       isis_header->fixed_len, (unsigned long)(ISIS_COMMON_HEADER_SIZE+ISIS_IIH_PTP_HEADER_SIZE)));
-	    return (0);
-	}
-	ND_TCHECK(*header_iih_ptp);
+            return (0);
+        }
+        ND_TCHECK(*header_iih_ptp);
         if (length < ISIS_COMMON_HEADER_SIZE+ISIS_IIH_PTP_HEADER_SIZE)
             goto trunc;
         if (ndo->ndo_vflag == 0) {
@@ -2370,40 +2370,40 @@ isis_print(netdissect_options *ndo,
             ND_PRINT((ndo, ", length %u", length));
             return (1);
         }
-	pdu_len=EXTRACT_16BITS(header_iih_ptp->pdu_len);
-	if (packet_len>pdu_len) {
+        pdu_len=EXTRACT_16BITS(header_iih_ptp->pdu_len);
+        if (packet_len>pdu_len) {
             packet_len=pdu_len; /* do TLV decoding as long as it makes sense */
             length=pdu_len;
-	}
+        }
 
-	ND_PRINT((ndo, "\n\t  source-id: %s, holding time: %us, Flags: [%s]",
-               isis_print_id(header_iih_ptp->source_id,SYSTEM_ID_LEN),
-               EXTRACT_16BITS(header_iih_ptp->holding_time),
-               tok2str(isis_iih_circuit_type_values,
-                       "unknown circuit type 0x%02x",
-                       header_iih_ptp->circuit_type)));
+        ND_PRINT((ndo, "\n\t  source-id: %s, holding time: %us, Flags: [%s]",
+                  isis_print_id(header_iih_ptp->source_id,SYSTEM_ID_LEN),
+                  EXTRACT_16BITS(header_iih_ptp->holding_time),
+                  tok2str(isis_iih_circuit_type_values,
+                          "unknown circuit type 0x%02x",
+                          header_iih_ptp->circuit_type)));
 
-	ND_PRINT((ndo, "\n\t  circuit-id: 0x%02x, PDU length: %u",
-               header_iih_ptp->circuit_id,
-               pdu_len));
+        ND_PRINT((ndo, "\n\t  circuit-id: 0x%02x, PDU length: %u",
+                  header_iih_ptp->circuit_id,
+                  pdu_len));
 
-	if (ndo->ndo_vflag > 1) {
-		if (!print_unknown_data(ndo, pptr, "\n\t  ", ISIS_IIH_PTP_HEADER_SIZE))
-			return(0);
-	}
+        if (ndo->ndo_vflag > 1) {
+            if (!print_unknown_data(ndo, pptr, "\n\t  ", ISIS_IIH_PTP_HEADER_SIZE))
+                return (0);
+        }
 
-	packet_len -= (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_PTP_HEADER_SIZE);
-	pptr = p + (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_PTP_HEADER_SIZE);
-	break;
+        packet_len -= (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_PTP_HEADER_SIZE);
+        pptr = p + (ISIS_COMMON_HEADER_SIZE+ISIS_IIH_PTP_HEADER_SIZE);
+        break;
 
     case ISIS_PDU_L1_LSP:
     case ISIS_PDU_L2_LSP:
-	if (isis_header->fixed_len != (ISIS_COMMON_HEADER_SIZE+ISIS_LSP_HEADER_SIZE)) {
-	    ND_PRINT((ndo, ", bogus fixed header length %u should be %lu",
-		   isis_header->fixed_len, (unsigned long)ISIS_LSP_HEADER_SIZE));
-	    return (0);
-	}
-	ND_TCHECK(*header_lsp);
+        if (isis_header->fixed_len != (ISIS_COMMON_HEADER_SIZE+ISIS_LSP_HEADER_SIZE)) {
+            ND_PRINT((ndo, ", bogus fixed header length %u should be %lu",
+                   isis_header->fixed_len, (unsigned long)ISIS_LSP_HEADER_SIZE));
+            return (0);
+        }
+        ND_TCHECK(*header_lsp);
         if (length < ISIS_COMMON_HEADER_SIZE+ISIS_LSP_HEADER_SIZE)
             goto trunc;
         if (ndo->ndo_vflag == 0) {
@@ -2414,54 +2414,54 @@ isis_print(netdissect_options *ndo,
             ND_PRINT((ndo, ", length %u", length));
             return (1);
         }
-	pdu_len=EXTRACT_16BITS(header_lsp->pdu_len);
-	if (packet_len>pdu_len) {
+        pdu_len=EXTRACT_16BITS(header_lsp->pdu_len);
+        if (packet_len>pdu_len) {
             packet_len=pdu_len; /* do TLV decoding as long as it makes sense */
             length=pdu_len;
-	}
+        }
 
-	ND_PRINT((ndo, "\n\t  lsp-id: %s, seq: 0x%08x, lifetime: %5us\n\t  chksum: 0x%04x",
+        ND_PRINT((ndo, "\n\t  lsp-id: %s, seq: 0x%08x, lifetime: %5us\n\t  chksum: 0x%04x",
                isis_print_id(header_lsp->lsp_id, LSP_ID_LEN),
                EXTRACT_32BITS(header_lsp->sequence_number),
                EXTRACT_16BITS(header_lsp->remaining_lifetime),
                EXTRACT_16BITS(header_lsp->checksum)));
 
         osi_print_cksum(ndo, (const uint8_t *)header_lsp->lsp_id,
-                            EXTRACT_16BITS(header_lsp->checksum),
+                        EXTRACT_16BITS(header_lsp->checksum),
                         12, length-12);
 
-	ND_PRINT((ndo, ", PDU length: %u, Flags: [ %s",
+        ND_PRINT((ndo, ", PDU length: %u, Flags: [ %s",
                pdu_len,
                ISIS_MASK_LSP_OL_BIT(header_lsp->typeblock) ? "Overload bit set, " : ""));
 
-	if (ISIS_MASK_LSP_ATT_BITS(header_lsp->typeblock)) {
-	    ND_PRINT((ndo, "%s", ISIS_MASK_LSP_ATT_DEFAULT_BIT(header_lsp->typeblock) ? "default " : ""));
-	    ND_PRINT((ndo, "%s", ISIS_MASK_LSP_ATT_DELAY_BIT(header_lsp->typeblock) ? "delay " : ""));
-	    ND_PRINT((ndo, "%s", ISIS_MASK_LSP_ATT_EXPENSE_BIT(header_lsp->typeblock) ? "expense " : ""));
-	    ND_PRINT((ndo, "%s", ISIS_MASK_LSP_ATT_ERROR_BIT(header_lsp->typeblock) ? "error " : ""));
-	    ND_PRINT((ndo, "ATT bit set, "));
-	}
-	ND_PRINT((ndo, "%s", ISIS_MASK_LSP_PARTITION_BIT(header_lsp->typeblock) ? "P bit set, " : ""));
-	ND_PRINT((ndo, "%s ]", tok2str(isis_lsp_istype_values, "Unknown(0x%x)",
-	          ISIS_MASK_LSP_ISTYPE_BITS(header_lsp->typeblock))));
+        if (ISIS_MASK_LSP_ATT_BITS(header_lsp->typeblock)) {
+            ND_PRINT((ndo, "%s", ISIS_MASK_LSP_ATT_DEFAULT_BIT(header_lsp->typeblock) ? "default " : ""));
+            ND_PRINT((ndo, "%s", ISIS_MASK_LSP_ATT_DELAY_BIT(header_lsp->typeblock) ? "delay " : ""));
+            ND_PRINT((ndo, "%s", ISIS_MASK_LSP_ATT_EXPENSE_BIT(header_lsp->typeblock) ? "expense " : ""));
+            ND_PRINT((ndo, "%s", ISIS_MASK_LSP_ATT_ERROR_BIT(header_lsp->typeblock) ? "error " : ""));
+            ND_PRINT((ndo, "ATT bit set, "));
+        }
+        ND_PRINT((ndo, "%s", ISIS_MASK_LSP_PARTITION_BIT(header_lsp->typeblock) ? "P bit set, " : ""));
+        ND_PRINT((ndo, "%s ]", tok2str(isis_lsp_istype_values, "Unknown(0x%x)",
+                  ISIS_MASK_LSP_ISTYPE_BITS(header_lsp->typeblock))));
 
-	if (ndo->ndo_vflag > 1) {
-		if (!print_unknown_data(ndo, pptr, "\n\t  ", ISIS_LSP_HEADER_SIZE))
-			return(0);
-	}
+        if (ndo->ndo_vflag > 1) {
+            if (!print_unknown_data(ndo, pptr, "\n\t  ", ISIS_LSP_HEADER_SIZE))
+                return (0);
+        }
 
-	packet_len -= (ISIS_COMMON_HEADER_SIZE+ISIS_LSP_HEADER_SIZE);
-	pptr = p + (ISIS_COMMON_HEADER_SIZE+ISIS_LSP_HEADER_SIZE);
-	break;
+        packet_len -= (ISIS_COMMON_HEADER_SIZE+ISIS_LSP_HEADER_SIZE);
+        pptr = p + (ISIS_COMMON_HEADER_SIZE+ISIS_LSP_HEADER_SIZE);
+        break;
 
     case ISIS_PDU_L1_CSNP:
     case ISIS_PDU_L2_CSNP:
-	if (isis_header->fixed_len != (ISIS_COMMON_HEADER_SIZE+ISIS_CSNP_HEADER_SIZE)) {
-	    ND_PRINT((ndo, ", bogus fixed header length %u should be %lu",
+        if (isis_header->fixed_len != (ISIS_COMMON_HEADER_SIZE+ISIS_CSNP_HEADER_SIZE)) {
+            ND_PRINT((ndo, ", bogus fixed header length %u should be %lu",
                       isis_header->fixed_len, (unsigned long)(ISIS_COMMON_HEADER_SIZE+ISIS_CSNP_HEADER_SIZE)));
-	    return (0);
-	}
-	ND_TCHECK(*header_csnp);
+            return (0);
+        }
+        ND_TCHECK(*header_csnp);
         if (length < ISIS_COMMON_HEADER_SIZE+ISIS_CSNP_HEADER_SIZE)
             goto trunc;
         if (ndo->ndo_vflag == 0) {
@@ -2469,37 +2469,37 @@ isis_print(netdissect_options *ndo,
             ND_PRINT((ndo, ", length %u", length));
             return (1);
         }
-	pdu_len=EXTRACT_16BITS(header_csnp->pdu_len);
-	if (packet_len>pdu_len) {
+        pdu_len=EXTRACT_16BITS(header_csnp->pdu_len);
+        if (packet_len>pdu_len) {
             packet_len=pdu_len; /* do TLV decoding as long as it makes sense */
             length=pdu_len;
-	}
+        }
 
-	ND_PRINT((ndo, "\n\t  source-id:    %s, PDU length: %u",
+        ND_PRINT((ndo, "\n\t  source-id:    %s, PDU length: %u",
                isis_print_id(header_csnp->source_id, NODE_ID_LEN),
                pdu_len));
-	ND_PRINT((ndo, "\n\t  start lsp-id: %s",
+        ND_PRINT((ndo, "\n\t  start lsp-id: %s",
                isis_print_id(header_csnp->start_lsp_id, LSP_ID_LEN)));
-	ND_PRINT((ndo, "\n\t  end lsp-id:   %s",
+        ND_PRINT((ndo, "\n\t  end lsp-id:   %s",
                isis_print_id(header_csnp->end_lsp_id, LSP_ID_LEN)));
 
-	if (ndo->ndo_vflag > 1) {
-		if (!print_unknown_data(ndo, pptr, "\n\t  ", ISIS_CSNP_HEADER_SIZE))
-			return(0);
-	}
+        if (ndo->ndo_vflag > 1) {
+            if (!print_unknown_data(ndo, pptr, "\n\t  ", ISIS_CSNP_HEADER_SIZE))
+                return (0);
+        }
 
-	packet_len -= (ISIS_COMMON_HEADER_SIZE+ISIS_CSNP_HEADER_SIZE);
-	pptr = p + (ISIS_COMMON_HEADER_SIZE+ISIS_CSNP_HEADER_SIZE);
+        packet_len -= (ISIS_COMMON_HEADER_SIZE+ISIS_CSNP_HEADER_SIZE);
+        pptr = p + (ISIS_COMMON_HEADER_SIZE+ISIS_CSNP_HEADER_SIZE);
         break;
 
     case ISIS_PDU_L1_PSNP:
     case ISIS_PDU_L2_PSNP:
-	if (isis_header->fixed_len != (ISIS_COMMON_HEADER_SIZE+ISIS_PSNP_HEADER_SIZE)) {
-	    ND_PRINT((ndo, "- bogus fixed header length %u should be %lu",
+        if (isis_header->fixed_len != (ISIS_COMMON_HEADER_SIZE+ISIS_PSNP_HEADER_SIZE)) {
+            ND_PRINT((ndo, "- bogus fixed header length %u should be %lu",
                    isis_header->fixed_len, (unsigned long)(ISIS_COMMON_HEADER_SIZE+ISIS_PSNP_HEADER_SIZE)));
-	    return (0);
-	}
-	ND_TCHECK(*header_psnp);
+            return (0);
+        }
+        ND_TCHECK(*header_psnp);
         if (length < ISIS_COMMON_HEADER_SIZE+ISIS_PSNP_HEADER_SIZE)
             goto trunc;
         if (ndo->ndo_vflag == 0) {
@@ -2507,24 +2507,24 @@ isis_print(netdissect_options *ndo,
             ND_PRINT((ndo, ", length %u", length));
             return (1);
         }
-	pdu_len=EXTRACT_16BITS(header_psnp->pdu_len);
-	if (packet_len>pdu_len) {
+        pdu_len=EXTRACT_16BITS(header_psnp->pdu_len);
+        if (packet_len>pdu_len) {
             packet_len=pdu_len; /* do TLV decoding as long as it makes sense */
             length=pdu_len;
-	}
+        }
 
-	ND_PRINT((ndo, "\n\t  source-id:    %s, PDU length: %u",
+        ND_PRINT((ndo, "\n\t  source-id:    %s, PDU length: %u",
                isis_print_id(header_psnp->source_id, NODE_ID_LEN),
                pdu_len));
 
-	if (ndo->ndo_vflag > 1) {
-		if (!print_unknown_data(ndo, pptr, "\n\t  ", ISIS_PSNP_HEADER_SIZE))
-			return(0);
-	}
+        if (ndo->ndo_vflag > 1) {
+            if (!print_unknown_data(ndo, pptr, "\n\t  ", ISIS_PSNP_HEADER_SIZE))
+                return (0);
+        }
 
-	packet_len -= (ISIS_COMMON_HEADER_SIZE+ISIS_PSNP_HEADER_SIZE);
-	pptr = p + (ISIS_COMMON_HEADER_SIZE+ISIS_PSNP_HEADER_SIZE);
-	break;
+        packet_len -= (ISIS_COMMON_HEADER_SIZE+ISIS_PSNP_HEADER_SIZE);
+        pptr = p + (ISIS_COMMON_HEADER_SIZE+ISIS_PSNP_HEADER_SIZE);
+        break;
 
     default:
         if (ndo->ndo_vflag == 0) {

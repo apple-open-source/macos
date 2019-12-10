@@ -934,30 +934,30 @@ nb{
             }
             day{
                 dnam{"døgn"}
-                one{"{0}d"}
-                other{"{0}d"}
+                one{"{0} d"}
+                other{"{0} d"}
                 per{"{0}/d"}
             }
             hour{
                 dnam{"time"}
-                one{"{0}t"}
-                other{"{0}t"}
+                one{"{0} t"}
+                other{"{0} t"}
                 per{"{0}/t"}
             }
             microsecond{
                 dnam{"μs"}
-                one{"{0}μs"}
-                other{"{0}μs"}
+                one{"{0} μs"}
+                other{"{0} μs"}
             }
             millisecond{
                 dnam{"ms"}
-                one{"{0}ms"}
-                other{"{0}ms"}
+                one{"{0} ms"}
+                other{"{0} ms"}
             }
             minute{
                 dnam{"min"}
-                one{"{0}m"}
-                other{"{0}m"}
+                one{"{0} m"}
+                other{"{0} m"}
                 per{"{0}/m"}
             }
             month{
@@ -968,13 +968,13 @@ nb{
             }
             nanosecond{
                 dnam{"ns"}
-                one{"{0}ns"}
-                other{"{0}ns"}
+                one{"{0} ns"}
+                other{"{0} ns"}
             }
             second{
                 dnam{"sek"}
-                one{"{0}s"}
-                other{"{0}s"}
+                one{"{0} s"}
+                other{"{0} s"}
                 per{"{0}/s"}
             }
             week{

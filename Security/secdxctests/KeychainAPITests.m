@@ -134,6 +134,24 @@ void* testlist = NULL;
 #endif
 }
 
+- (void)testBadTypeInParams
+{
+    NSMutableDictionary *attrs = @{
+        (id)kSecClass: (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain: @YES,
+        (id)kSecAttrLabel: @"testentry",
+    }.mutableCopy;
+
+    SecItemDelete((CFDictionaryRef)attrs);
+    XCTAssertEqual(errSecSuccess, SecItemAdd((CFDictionaryRef)attrs, NULL));
+    XCTAssertEqual(errSecSuccess, SecItemDelete((CFDictionaryRef)attrs));
+
+    // We try to fool SecItem API with unexpected type of kSecAttrAccessControl attribute in query and it should not crash.
+    attrs[(id)kSecAttrAccessControl] = @"string, no SecAccessControlRef!";
+    XCTAssertEqual(errSecParam, SecItemAdd((CFDictionaryRef)attrs, NULL));
+    XCTAssertEqual(errSecParam, SecItemDelete((CFDictionaryRef)attrs));
+}
+
 #pragma mark - Corruption Tests
 
 const uint8_t keychain_data[] = {

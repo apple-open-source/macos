@@ -38,7 +38,7 @@
 
 #include "pcap-int.h"
 #include "pcap-common.h"
-#include "sf-pcap-ng.h"
+#include "sf-pcapng.h"
 #include "pcap-util.h"
 
 /*

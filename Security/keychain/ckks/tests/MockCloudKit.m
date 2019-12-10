@@ -716,6 +716,21 @@
 
 - (NSError * _Nullable)errorFromSavingRecord:(CKRecord*) record {
     CKRecord* existingRecord = self.currentDatabase[record.recordID];
+
+    // First, implement CKKS-specific server-side checks
+    if([record.recordType isEqualToString:SecCKRecordCurrentKeyType]) {
+        CKReference* parentKey = record[SecCKRecordParentKeyRefKey];
+
+        CKRecord* existingParentKey = self.currentDatabase[parentKey.recordID];
+
+        if(!existingParentKey) {
+            ckksnotice("fakeck", self.zoneID, "bad sync key reference! Fail the write: %@ %@", record, existingRecord);
+
+            return [FakeCKZone internalPluginError:@"CloudkitKeychainService" code:CKKSServerMissingRecord description:@"synckey record: record not found"];
+        }
+    }
+    //
+
     if(existingRecord && ![existingRecord.recordChangeTag isEqualToString: record.recordChangeTag]) {
         ckksnotice("fakeck", self.zoneID, "change tag mismatch! Fail the write: %@ %@", record, existingRecord);
 
@@ -774,6 +789,32 @@
             [self.fetchErrors removeObjectAtIndex:0];
         }
     }
+    return error;
+}
+
++ (NSError*)internalPluginError:(NSString*)serverDomain code:(NSInteger)code description:(NSString*)desc
+{
+    // Note: uses SecCKKSContainerName, but that's probably okay
+    NSError* extensionError = [[CKPrettyError alloc] initWithDomain:serverDomain
+                                                               code:code
+                                                           userInfo:@{
+                                                                      CKErrorServerDescriptionKey: desc,
+                                                                      NSLocalizedDescriptionKey: desc,
+                                                                      }];
+    NSError* internalError = [[CKPrettyError alloc] initWithDomain:CKInternalErrorDomain
+                                                              code:CKErrorInternalPluginError
+                                                          userInfo:@{CKErrorServerDescriptionKey: desc,
+                                                                     NSLocalizedDescriptionKey: desc,
+                                                                     NSUnderlyingErrorKey: extensionError,
+                                                                     }];
+    NSError* error = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
+                                                      code:CKErrorServerRejectedRequest
+                                                  userInfo:@{NSUnderlyingErrorKey: internalError,
+                                                             CKErrorServerDescriptionKey: desc,
+                                                             NSLocalizedDescriptionKey: desc,
+                                                             CKContainerIDKey: SecCKKSContainerName,
+                                                             }];
+
     return error;
 }
 @end

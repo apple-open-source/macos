@@ -50,6 +50,7 @@
 #import "RemoteScrollingCoordinatorProxy.h"
 #import "UIKitSPI.h"
 #import "UserData.h"
+#import "VersionChecks.h"
 #import "VideoFullscreenManagerProxy.h"
 #import "ViewUpdateDispatcherMessages.h"
 #import "WKBrowsingContextControllerInternal.h"
@@ -1082,9 +1083,9 @@ void WebPageProxy::disableDoubleTapGesturesDuringTapIfNecessary(uint64_t request
     pageClient().disableDoubleTapGesturesDuringTapIfNecessary(requestID);
 }
 
-void WebPageProxy::handleSmartMagnificationInformationForPotentialTap(uint64_t requestID, const WebCore::FloatRect& renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale)
+void WebPageProxy::handleSmartMagnificationInformationForPotentialTap(uint64_t requestID, const WebCore::FloatRect& renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale, bool nodeIsRootLevel)
 {
-    pageClient().handleSmartMagnificationInformationForPotentialTap(requestID, renderRect, fitEntireRect, viewportMinimumScale, viewportMaximumScale);
+    pageClient().handleSmartMagnificationInformationForPotentialTap(requestID, renderRect, fitEntireRect, viewportMinimumScale, viewportMaximumScale, nodeIsRootLevel);
 }
 
 uint32_t WebPageProxy::computePagesForPrintingAndDrawToPDF(uint64_t frameID, const PrintInfo& printInfo, DrawToPDFCallback::CallbackFunction&& callback)
@@ -1451,7 +1452,7 @@ WebContentMode WebPageProxy::effectiveContentModeAfterAdjustingPolicies(API::Web
         break;
     }
 
-    m_allowsFastClicksEverywhere = false;
+    m_preferFasterClickOverDoubleTap = false;
 
     if (!useDesktopBrowsingMode) {
         policies.setAllowContentChangeObserverQuirk(true);
@@ -1476,7 +1477,7 @@ WebContentMode WebPageProxy::effectiveContentModeAfterAdjustingPolicies(API::Web
         policies.setMediaSourcePolicy(WebsiteMediaSourcePolicy::Enable);
         policies.setSimulatedMouseEventsDispatchPolicy(WebsiteSimulatedMouseEventsDispatchPolicy::Allow);
         policies.setLegacyOverflowScrollingTouchPolicy(WebsiteLegacyOverflowScrollingTouchPolicy::Disable);
-        m_allowsFastClicksEverywhere = true;
+        m_preferFasterClickOverDoubleTap = true;
     }
 
     return WebContentMode::Desktop;

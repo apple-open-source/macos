@@ -78,7 +78,7 @@ struct  arp_pkthdr {
 	u_char	ar_tha[];	/* target hardware address */
 	u_char	ar_tpa[];	/* target protocol address */
 #endif
-#define ar_sha(ap)	(((const u_char *)((ap)+1))+0)
+#define ar_sha(ap)	(((const u_char *)((ap)+1))+  0)
 #define ar_spa(ap)	(((const u_char *)((ap)+1))+  (ap)->ar_hln)
 #define ar_tha(ap)	(((const u_char *)((ap)+1))+  (ap)->ar_hln+(ap)->ar_pln)
 #define ar_tpa(ap)	(((const u_char *)((ap)+1))+2*(ap)->ar_hln+(ap)->ar_pln)
@@ -415,10 +415,11 @@ arp_print(netdissect_options *ndo,
                 goto out;
             }
 	}
-    
+
         /* print operation */
 #ifdef __APPLE__
-    if (op == ARPOP_REQUEST && PROTO_LEN(ap) == sizeof(struct in_addr)) {
+    if (ndo->ndo_arp_plain == 0 &&
+		op == ARPOP_REQUEST && PROTO_LEN(ap) == sizeof(struct in_addr)) {
         announcement = memcmp((const char *)SPA(ap), (const char *)TPA(ap), PROTO_LEN(ap)) == 0 ? 1 : 0;
 		probe = isnonzero((const u_char *)SPA(ap), HRD_LEN(ap)) == 0 ? 1 : 0;
     }

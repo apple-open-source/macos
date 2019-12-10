@@ -1039,21 +1039,6 @@ static CFStringRef SecTrustCopyChainSummary(SecTrustRef trust) {
     return summary;
 }
 
-typedef enum {
-    kSecTrustErrorSubTypeBlocked,
-    kSecTrustErrorSubTypeRevoked,
-    kSecTrustErrorSubTypeKeySize,
-    kSecTrustErrorSubTypeWeakHash,
-    kSecTrustErrorSubTypeDenied,
-    kSecTrustErrorSubTypeCompliance,
-    kSecTrustErrorSubTypePinning,
-    kSecTrustErrorSubTypeTrust,
-    kSecTrustErrorSubTypeUsage,
-    kSecTrustErrorSubTypeName,
-    kSecTrustErrorSubTypeExpired,
-    kSecTrustErrorSubTypeInvalid,
-} SecTrustErrorSubType;
-
 #define SecCopyTrustString(KEY) SecFrameworkCopyLocalizedString(KEY, CFSTR("Trust"))
 
 struct checkmap_entry_s {
@@ -1065,18 +1050,6 @@ typedef struct checkmap_entry_s checkmap_entry_t;
 
 const checkmap_entry_t checkmap[] = {
 #undef POLICYCHECKMACRO
-#define __PC_SUBTYPE_   kSecTrustErrorSubTypeInvalid
-#define __PC_SUBTYPE_N  kSecTrustErrorSubTypeName
-#define __PC_SUBTYPE_E  kSecTrustErrorSubTypeExpired
-#define __PC_SUBTYPE_S  kSecTrustErrorSubTypeKeySize
-#define __PC_SUBTYPE_H  kSecTrustErrorSubTypeWeakHash
-#define __PC_SUBTYPE_U  kSecTrustErrorSubTypeUsage
-#define __PC_SUBTYPE_P  kSecTrustErrorSubTypePinning
-#define __PC_SUBTYPE_V  kSecTrustErrorSubTypeRevoked
-#define __PC_SUBTYPE_T  kSecTrustErrorSubTypeTrust
-#define __PC_SUBTYPE_C  kSecTrustErrorSubTypeCompliance
-#define __PC_SUBTYPE_D  kSecTrustErrorSubTypeDenied
-#define __PC_SUBTYPE_B  kSecTrustErrorSubTypeBlocked
 #define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, CSSMERR, OSSTATUS) \
 { __PC_SUBTYPE_##SUBTYPE , OSSTATUS, SEC_TRUST_ERROR_##NAME },
 #include "SecPolicyChecks.list"

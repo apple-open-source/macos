@@ -1,0 +1,12 @@
+
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+option objc_class_visibility = "hidden";
+
+package SOS;
+
+message AccountConfiguration {
+    repeated string pendingBackupPeers = 1;
+    optional bool ringUpdateFlag = 2;
+}

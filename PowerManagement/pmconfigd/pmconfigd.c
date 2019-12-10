@@ -53,7 +53,7 @@ static mach_port_t              serverPort                          = MACH_PORT_
 static dispatch_mach_t          gListener;
 static bool                     gSMCSupportsWakeupTimer             = true;
 static int                      _darkWakeThermalEventCount          = 0;
-static dispatch_source_t        gDWTMsgDispatch; /* Darkwake thermal emergency message handler dispatch */
+static bool                     gEvaluateDWThermalEmergency = false;
 
 
 
@@ -1578,6 +1578,14 @@ static void handleDWThermalMsg(CFStringRef wakeType)
     }
 }
 
+__private_extern__ void evaluateDWThermalMsg(void)
+{
+    if (gEvaluateDWThermalEmergency) {
+        gEvaluateDWThermalEmergency = false;
+        handleDWThermalMsg(NULL);
+    }
+}
+
 
 static void
 RootDomainInterest(
@@ -1623,31 +1631,13 @@ RootDomainInterest(
         _darkWakeThermalEventCount++;
 
         getPlatformWakeReason(&wakeReason, &wakeType);
-        if (CFEqual(wakeReason, CFSTR("")) && CFEqual(wakeType, CFSTR("")))
+        if ((CFEqual(wakeReason, CFSTR("")) && CFEqual(wakeType, CFSTR(""))) || !isCapabilityChangeDone())
         {
             // Thermal emergency msg is received too early before wake type is
-            // determined. Delay the handler for a short handler until we know
-            // the wake type
-            if (gDWTMsgDispatch)
-                dispatch_suspend(gDWTMsgDispatch);
-            else {
-                gDWTMsgDispatch = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0,
-                        0, _getPMMainQueue());
-                dispatch_source_set_event_handler(gDWTMsgDispatch, ^{
-                    handleDWThermalMsg(NULL);
-                });
+            // determined. Delay the handler until capability changes are done
+            //
+            gEvaluateDWThermalEmergency = true;
 
-                dispatch_source_set_cancel_handler(gDWTMsgDispatch, ^{
-                    if (gDWTMsgDispatch) {
-                        dispatch_release(gDWTMsgDispatch);
-                        gDWTMsgDispatch = 0;
-                    }
-                });
-            }
-
-            dispatch_source_set_timer(gDWTMsgDispatch,
-                    dispatch_walltime(NULL, kDWTMsgHandlerDelay * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 0);
-            dispatch_resume(gDWTMsgDispatch);
         }
         else
         {

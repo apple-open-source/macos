@@ -45,7 +45,6 @@
 
 @property NSDate* predictedNextFireTime;
 @property bool liveRequest;
-@property CKKSCondition* liveRequestReceived; // Triggered when liveRequest goes to true.
 
 @property dispatch_source_t timer;
 @property dispatch_queue_t queue;

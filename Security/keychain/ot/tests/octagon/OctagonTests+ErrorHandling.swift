@@ -122,13 +122,12 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.sendContainerChange(context: self.cuttlefishContext)
 
         sleep(1)
-        XCTAssertTrue(self.cuttlefishContext.stateMachine.possiblePendingFlags().contains("recd_push"), "Should have recd_push pending flag")
+        XCTAssertTrue(self.cuttlefishContext.stateMachine.possiblePendingFlags().contains(OctagonFlagCuttlefishNotification), "Should have recd_push pending flag")
 
         let waitForUnlockStateCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateWaitForUnlock] as! CKKSCondition
         XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC), "state machine should pause")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
-        sleep(1)
         // Check that we haven't been spinning
         let sameWaitForUnlockStateCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateWaitForUnlock] as! CKKSCondition
         XCTAssert(waitForUnlockStateCondition == sameWaitForUnlockStateCondition, "Conditions should be the same (as the state machine should be halted)")
@@ -136,7 +135,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.aksLockState = false
         self.lockStateTracker.recheck()
 
-        sleep(1)
+        self.assertPendingFlagHandled(context: self.cuttlefishContext, pendingFlag: OctagonFlagCuttlefishNotification, within: 10 * NSEC_PER_SEC)
 
         XCTAssertEqual(self.cuttlefishContext.stateMachine.possiblePendingFlags(), [], "Should have 0 pending flags")
 
@@ -211,12 +210,12 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         sleep(1)
 
-        XCTAssertTrue(self.cuttlefishContext.stateMachine.possiblePendingFlags().contains("recd_push"), "Should have recd_push pending flag")
+        XCTAssertTrue(self.cuttlefishContext.stateMachine.possiblePendingFlags().contains(OctagonFlagCuttlefishNotification), "Should have recd_push pending flag")
 
         self.aksLockState = false
         self.lockStateTracker.recheck()
 
-        sleep(1)
+        self.assertPendingFlagHandled(context: self.cuttlefishContext, pendingFlag: OctagonFlagCuttlefishNotification, within: 10 * NSEC_PER_SEC)
 
         XCTAssertEqual(self.cuttlefishContext.stateMachine.possiblePendingFlags(), [], "Should have 0 pending flags")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -247,13 +246,12 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
 
-        sleep(5)
-
         XCTAssertEqual(0, self.cuttlefishContext.stateMachine.paused.wait(10 * NSEC_PER_SEC), "state machine should pause")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
         XCTAssertEqual(self.cuttlefishContext.stateMachine.possiblePendingFlags(), [], "Should have zero pending flags after retry")
 
+        sleep(5)
         let post = self.fakeCuttlefishServer.fetchChangesCalledCount
         XCTAssertEqual(post, pre + 2, "should have fetched two times, the first response would have been a transaction error")
     }
@@ -335,12 +333,10 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: peer2, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         sleep(1)
 
-        XCTAssertTrue(peer2.stateMachine.possiblePendingFlags().contains("recd_push"), "Should have recd_push pending flag")
+        XCTAssertTrue(peer2.stateMachine.possiblePendingFlags().contains(OctagonFlagCuttlefishNotification), "Should have recd_push pending flag")
 
         self.aksLockState = false
         self.lockStateTracker.recheck()
-
-        sleep(1)
 
         XCTAssertEqual(self.cuttlefishContext.stateMachine.possiblePendingFlags(), [], "Should have 0 pending flags")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
@@ -474,7 +470,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         // Now, CKKS decides to reset the world, but a conflict occurs on hierarchy upload
         self.silentZoneDeletesAllowed = true
-        var tlkUUIDs : [CKRecordZone.ID:String] = [:]
+        var tlkUUIDs: [CKRecordZone.ID: String] = [:]
 
         self.silentFetchesAllowed = false
         self.expectCKFetchAndRun(beforeFinished: {
@@ -507,7 +503,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
 
         XCTAssertEqual(tlkUUIDs.count, self.ckksZones.count, "Should have the right number of conflicted TLKs")
-        for (zoneID,tlkUUID) in tlkUUIDs {
+        for (zoneID, tlkUUID) in tlkUUIDs {
             XCTAssertEqual(tlkUUID, (self.keys![zoneID] as? ZoneKeys)?.tlk?.uuid, "TLK should match conflicted version")
         }
     }

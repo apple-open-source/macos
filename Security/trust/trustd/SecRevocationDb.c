@@ -906,6 +906,7 @@ static bool SecValidUpdateSchedule(bool updateEnabled, CFStringRef server, CFInd
 
     /* If update not permitted return */
     if (!updateEnabled) {
+        secnotice("validupdate", "skipping update");
         return false;
     }
 
@@ -1208,8 +1209,11 @@ static bool _SecRevocationDbCheckNextUpdate(void) {
     }
 
     // determine whether update fetching is enabled
-#if (__MAC_OS_X_VERSION_MIN_REQUIRED >= 101300 || __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
-    bool updateEnabled = true; // macOS 10.13 or iOS 11.0
+#if !TARGET_OS_WATCH && !TARGET_OS_BRIDGE
+    // Valid update fetching was initially enabled on macOS 10.13 and iOS 11.0.
+    // This conditional has been changed to include every platform and version
+    // except for those where the db should not be updated over the air.
+    bool updateEnabled = true;
 #else
     bool updateEnabled = false;
 #endif

@@ -1,0 +1,46 @@
+--- Makefile.in.orig	2018-02-15 20:00:12.000000000 -0800
++++ Makefile.in	2018-04-29 22:52:28.000000000 -0700
+@@ -266,6 +266,8 @@ COMPILE_CXXHL_GOOGLEMOCK_CXX = $(LT_COMP
+ 
+ LINK = $(LIBTOOL) $(LTFLAGS) --mode=link $(CC) $(LT_LDFLAGS) $(CFLAGS) $(LDFLAGS) -rpath $(libdir)
+ LINK_LIB = $(LINK) $(LT_SO_VERSION)
++LINKVERS = $(LIBTOOL) $(LTFLAGS) --mode=link $(CC) $(LT_LDFLAGS) $(CFLAGS) $(LDFLAGS) -rpath $(RPATHVERS)
++LINKVERS_LIB = $(LINKVERS) $(LT_SO_VERSION)
+ LINK_CXX = $(LIBTOOL) $(LTCXXFLAGS) --mode=link $(CXX) $(LT_LDFLAGS) $(CXXFLAGS) $(LDFLAGS) -rpath $(libdir)
+ LINK_CXX_LIB = $(LINK_CXX) $(LT_SO_VERSION)
+ 
+@@ -864,7 +866,7 @@ $(SWIG_PL_DIR)/native/Makefile.PL: $(SWI
+ 	./config.status subversion/bindings/swig/perl/native/Makefile.PL
+ 
+ $(SWIG_PL_DIR)/native/Makefile: libsvn_swig_perl $(SWIG_PL_DIR)/native/Makefile.PL
+-	cd $(SWIG_PL_DIR)/native; $(PERL) Makefile.PL PREFIX=$(prefix)
++	cd $(SWIG_PL_DIR)/native; $(PERL) Makefile.PL PREFIX=$(prefix) $(PLARGS)
+ 
+ # There is a "readlink -f" command on some systems for the same purpose,
+ # but it's not as portable (e.g. Mac OS X doesn't have it).  These should
+@@ -880,13 +882,13 @@ swig-pl: autogen-swig-pl $(SWIG_PL_DIR)/
+ 	    fi; \
+ 	  done; \
+ 	fi
+-	cd $(SWIG_PL_DIR)/native; $(MAKE) OPTIMIZE="" OTHERLDFLAGS="$(SWIG_LDFLAGS)"
++	cd $(SWIG_PL_DIR)/native; $(MAKE) OPTIMIZE="" OTHERLDFLAGS="$(SWIG_LDFLAGS)" $(MAKEARGS)
+ 
+ check-swig-pl: swig-pl swig-pl-lib
+-	cd $(SWIG_PL_DIR)/native; $(MAKE) test
++	cd $(SWIG_PL_DIR)/native; $(MAKE) test $(MAKEARGS)
+ 
+ install-swig-pl: swig-pl install-swig-pl-lib
+-	cd $(SWIG_PL_DIR)/native; $(MAKE) install
++	cd $(SWIG_PL_DIR)/native; $(MAKE) install $(MAKEARGS)
+ 
+ EXTRACLEAN_SWIG_PL=rm -f $(SWIG_PL_SRC_DIR)/native/svn_*.c \
+                          $(SWIG_PL_SRC_DIR)/native/core.c
+@@ -904,7 +906,7 @@ clean-swig-pl:
+ 	  rm -rf *.lo *.la *.o .libs; \
+ 	done
+ 	if [ -f "$(SWIG_PL_DIR)/native/Makefile" ]; then \
+-	  cd $(SWIG_PL_DIR)/native; $(MAKE) clean; \
++	  cd $(SWIG_PL_DIR)/native; $(MAKE) clean $(MAKEARGS); \
+ 	fi
+ 
+ extraclean-swig-pl: clean-swig-pl

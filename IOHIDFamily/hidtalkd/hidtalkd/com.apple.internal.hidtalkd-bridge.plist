@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>RemoteServices</key>
+	<dict>
+		<key>com.apple.HIDClientRemote</key>
+		<dict>
+			<key>RequireEntitlement</key>
+			<string>AppleInternal</string>
+			<key>ServiceProperties</key>
+			<dict>
+				<key>UsesRemoteXPC</key>
+				<true/>
+			</dict>
+		</dict>
+		<key>com.apple.HIDDeviceRemote</key>
+		<dict>
+			<key>RequireEntitlement</key>
+			<string>AppleInternal</string>
+			<key>ServiceProperties</key>
+			<dict>
+				<key>UsesRemoteXPC</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	<key>Label</key>
+	<string>com.apple.internal.hidtalkd</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/hidtalkd</string>
+		<string>--bridged</string>
+	</array>
+	<key>POSIXSpawnType</key>
+	<string>Interactive</string>
+</dict>
+</plist>

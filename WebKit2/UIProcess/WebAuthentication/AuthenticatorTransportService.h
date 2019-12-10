@@ -27,15 +27,18 @@
 
 #if ENABLE(WEB_AUTHN)
 
+#include "WebAuthenticationFlags.h"
 #include <WebCore/AuthenticatorTransport.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakPtr.h>
 
+namespace WebCore {
+struct MockWebAuthenticationConfiguration;
+}
+
 namespace WebKit {
 
 class Authenticator;
-
-struct MockWebAuthenticationConfiguration;
 
 class AuthenticatorTransportService : public CanMakeWeakPtr<AuthenticatorTransportService> {
     WTF_MAKE_FAST_ALLOCATED;
@@ -46,15 +49,17 @@ public:
         virtual ~Observer() = default;
 
         virtual void authenticatorAdded(Ref<Authenticator>&&) = 0;
+        virtual void serviceStatusUpdated(WebAuthenticationStatus) = 0;
     };
 
     static UniqueRef<AuthenticatorTransportService> create(WebCore::AuthenticatorTransport, Observer&);
-    static UniqueRef<AuthenticatorTransportService> createMock(WebCore::AuthenticatorTransport, Observer&, const MockWebAuthenticationConfiguration&);
+    static UniqueRef<AuthenticatorTransportService> createMock(WebCore::AuthenticatorTransport, Observer&, const WebCore::MockWebAuthenticationConfiguration&);
 
     virtual ~AuthenticatorTransportService() = default;
 
-    // This operation is guaranteed to execute asynchronously.
+    // These operations are guaranteed to execute asynchronously.
     void startDiscovery();
+    void restartDiscovery();
 
 protected:
     explicit AuthenticatorTransportService(Observer&);
@@ -63,6 +68,9 @@ protected:
 
 private:
     virtual void startDiscoveryInternal() = 0;
+    // NFC service's polling is one shot. It halts after the first tags are detected.
+    // Therefore, a restart process is needed to resume polling after exceptions.
+    virtual void restartDiscoveryInternal() { };
 
     WeakPtr<Observer> m_observer;
 };

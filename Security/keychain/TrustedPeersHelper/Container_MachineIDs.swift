@@ -293,6 +293,24 @@ extension Container {
         }
     }
 
+    func fetchAllowedMachineIDs(reply: @escaping (Set<String>?, Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: (Set<String>?, Error?) -> Void = {
+            os_log("fetchAllowedMachineIDs complete: %@", log: tplogTrace, type: .info, traceError($1))
+            self.semaphore.signal()
+            reply($0, $1)
+        }
+
+        os_log("Fetching allowed machine IDs", log: tplogDebug, type: .default)
+
+        self.moc.performAndWait {
+            let knownMachines = containerMO.machines as? Set<MachineMO> ?? Set()
+            let allowedMachineIDs = knownMachines.filter { $0.status == Int64(TPMachineIDStatus.allowed.rawValue) }.compactMap({ $0.machineID })
+
+            reply(Set(allowedMachineIDs), nil)
+        }
+    }
+
     func onqueueMachineIDAllowedByIDMS(machineID: String) -> Bool {
         // For Demo accounts, if the list is entirely empty, then everything is allowed
         let machines = containerMO.machines as? Set<MachineMO> ?? Set()

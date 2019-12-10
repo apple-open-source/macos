@@ -36,10 +36,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @protocol SecRemoteDeviceProtocol <NSObject>
 
-// Local Keychain
-- (void)secItemAdd:(NSDictionary *)input complete:(void (^)(OSStatus, NSDictionary * _Nullable))reply;
-- (void)secItemCopyMatching:(NSDictionary *)input complete:(void (^)(OSStatus, NSArray<NSDictionary *>* _Nullable))replyreply;
-
 // SOS trust
 - (void)setUserCredentials:(NSString *)username password:(NSString *)password complete:(void (^)(bool success, NSError *error))complete;
 - (void)setupSOSCircle:(NSString *)username password:(NSString *)password complete:(void (^)(bool success,  NSError *_Nullable error))complete;
@@ -72,9 +68,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)diagnosticsLeaks:(void(^)(bool success, NSString *_Nullable outout, NSError * _Nullable error))complete;
 - (void)diagnosticsCPUUsage:(void(^)(bool success, uint64_t user_usec, uint64_t sys_usec, NSError *_Nullable error))complete;
 - (void)diagnosticsDiskUsage:(void(^)(bool success, uint64_t usage, NSError * _Nullable error))complete;
-
-// CKKS
-- (void)selfPeersForView:(NSString *)view complete:(void (^)(NSArray<NSDictionary *> *result, NSError *error))complete;
 
 // Octagon
 - (void)otReset:(NSString *)altDSID complete:(void (^)(bool success,  NSError *_Nullable error))complete;

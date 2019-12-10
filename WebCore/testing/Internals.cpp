@@ -76,6 +76,7 @@
 #include "FormController.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClient.h"
 #include "FrameView.h"
 #include "FullscreenManager.h"
 #include "GCObservation.h"
@@ -2459,6 +2460,23 @@ uint64_t Internals::documentIdentifier(const Document& document) const
 bool Internals::isDocumentAlive(uint64_t documentIdentifier) const
 {
     return Document::allDocumentsMap().contains(makeObjectIdentifier<DocumentIdentifierType>(documentIdentifier));
+}
+
+uint64_t Internals::elementIdentifier(Element& element) const
+{
+    return element.document().identifierForElement(element).toUInt64();
+}
+
+uint64_t Internals::frameIdentifier(const Document& document) const
+{
+    if (auto* page = document.page())
+        return page->mainFrame().loader().client().frameID().valueOr(0);
+    return 0;
+}
+
+uint64_t Internals::pageIdentifier(const Document& document) const
+{
+    return document.pageID().valueOr(PageIdentifier { }).toUInt64();
 }
 
 bool Internals::isAnyWorkletGlobalScopeAlive() const
@@ -5151,5 +5169,18 @@ Internals::TextIndicatorInfo Internals::textIndicatorForRange(const Range& range
     auto indicator = TextIndicator::createWithRange(range, options.core(), TextIndicatorPresentationTransition::None);
     return indicator->data();
 }
+
+#if ENABLE(WEB_AUTHN)
+void Internals::setMockWebAuthenticationConfiguration(const MockWebAuthenticationConfiguration& configuration)
+{
+    auto* document = contextDocument();
+    if (!document)
+        return;
+    auto* page = document->page();
+    if (!page)
+        return;
+    page->chrome().client().setMockWebAuthenticationConfiguration(configuration);
+}
+#endif
 
 } // namespace WebCore

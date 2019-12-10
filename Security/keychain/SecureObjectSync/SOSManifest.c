@@ -217,7 +217,7 @@ void SOSManifestForEach(SOSManifestRef m, void(^block)(CFDataRef e, bool *stop))
     bool stop = false;
     for (p = SOSManifestGetBytePtr(m), q = p + SOSManifestGetSize(m);
          !stop && p + SOSDigestSize <= q; p += SOSDigestSize) {
-        e = CFDataCreateWithBytesNoCopy(0, p, SOSDigestSize, kCFAllocatorNull);
+        e = CFDataCreate(kCFAllocatorDefault, p, SOSDigestSize);
         if (e) {
             block(e, &stop);
             CFRelease(e);

@@ -983,31 +983,6 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     }
 }
 
-- (void)test_sec_protocol_options_matches_config_with_mismatch_ciphersuites {
-    sec_protocol_options_t options = [self create_sec_protocol_options];
-
-    sec_protocol_options_append_tls_ciphersuite(options, 1);
-
-    xpc_object_t config = sec_protocol_options_create_config(options);
-    XCTAssertTrue(config != NULL);
-    if (config != NULL) {
-        // Flip a value in the config, and expect the match to fail
-        __block const char *ciphersuites_key = "ciphersuites";
-        xpc_object_t mismatched_config = xpc_dictionary_create(NULL, NULL, 0);
-        xpc_dictionary_apply(config, ^bool(const char * _Nonnull key, xpc_object_t  _Nonnull value) {
-            if (strncmp(key, ciphersuites_key, strlen(ciphersuites_key)) != 0) {
-                xpc_dictionary_set_value(mismatched_config, key, value);
-            } else {
-                xpc_object_t ciphersuites = xpc_array_create(NULL, 0);
-                xpc_array_set_uint64(ciphersuites, XPC_ARRAY_APPEND, 2);
-                xpc_dictionary_set_value(mismatched_config, key, ciphersuites);
-            }
-            return true;
-        });
-        XCTAssertFalse(sec_protocol_options_matches_config(options, mismatched_config));
-    }
-}
-
 - (void)test_protocol_version_map {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -1105,6 +1080,76 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
         XCTAssertTrue(sec_protocol_helper_dispatch_data_equal(identity, psk_identity_data), @"Expected PSK identity data match");
     });
     XCTAssertTrue(accessed, @"Expected sec_protocol_metadata_access_pre_shared_keys to traverse PSK list");
+}
+
+- (void)test_sec_protocol_experiment_identifier {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertTrue(content->experiment_identifier == NULL);
+        return true;
+    });
+
+    const char *identifier = "first_experiment";
+    sec_protocol_options_set_experiment_identifier(options, identifier);
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertTrue(content->experiment_identifier != NULL);
+        XCTAssertTrue(strncmp(identifier, content->experiment_identifier, strlen(identifier)) == 0);
+        return true;
+    });
+
+    sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
+    XCTAssertTrue(sec_protocol_metadata_get_experiment_identifier(metadata) == NULL);
+
+    (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+        sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        content->experiment_identifier = strdup(identifier);
+        return true;
+    });
+
+    XCTAssertTrue(strncmp(identifier, sec_protocol_metadata_get_experiment_identifier(metadata), strlen(identifier)) == 0);
+}
+
+- (void)test_sec_protocol_connection_id {
+    sec_protocol_options_t options = [self create_sec_protocol_options];
+
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        uuid_t zeroes = {};
+        XCTAssertTrue(memcmp(zeroes, content->connection_id, sizeof(zeroes)) == 0);
+        return true;
+    });
+
+    uuid_t uuid = {};
+    __block uint8_t *uuid_ptr = uuid;
+    __block size_t uuid_len = sizeof(uuid);
+    (void)SecRandomCopyBytes(NULL, sizeof(uuid), uuid);
+    sec_protocol_options_set_connection_id(options, uuid);
+    (void)sec_protocol_options_access_handle(options, ^bool(void *handle) {
+        sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        XCTAssertTrue(memcmp(content->connection_id, uuid_ptr, uuid_len) == 0);
+        return true;
+    });
+
+    sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
+    (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
+        sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
+        SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
+        memcpy(content->connection_id, uuid_ptr, uuid_len);
+        return true;
+    });
+
+    uuid_t copied_metadata = {};
+    sec_protocol_metadata_copy_connection_id(metadata, copied_metadata);
+
+    XCTAssertTrue(memcmp(uuid, copied_metadata, sizeof(copied_metadata)) == 0);
 }
 
 @end

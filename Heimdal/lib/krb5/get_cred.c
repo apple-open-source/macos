@@ -164,7 +164,6 @@ get_cred_kdc(krb5_context context,
     {
 	krb5_sendto_ctx stctx;
 	const char *delegate_bundle;
-	pid_t pid;
 
 	ret = krb5_sendto_ctx_alloc(context, &stctx);
 	if (ret)
@@ -180,7 +179,6 @@ get_cred_kdc(krb5_context context,
 	 * Gross hack to make AppVPN to work
 	 */
 	delegate_bundle = HeimCredGetImpersonateBundle();
-	pid = HeimCredGetImpersonatePID();
 	if (delegate_bundle) {
 	    //ONLY set the delegate identifier when it doesn't match the current process.
 	    CFBundleRef appBundle = CFBundleGetMainBundle();
@@ -191,7 +189,7 @@ get_cred_kdc(krb5_context context,
 		    if (CFEqual(currentBundleIdentifier, delegateBundleIdentifier)) {
 			_krb5_debugx(context, 5, "Bundle identifiers match, not setting delegate");
 		    } else {
-			krb5_sendto_set_delegated_app(NULL, stctx, NULL, pid, delegate_bundle);
+			krb5_sendto_set_delegated_app(NULL, stctx, NULL, delegate_bundle);
 		    }
 		}
 		if (delegateBundleIdentifier) {

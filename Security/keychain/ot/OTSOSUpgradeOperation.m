@@ -167,9 +167,11 @@
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     NSString* bottleSalt = nil;
+    NSError *authKitError = nil;
 
-    if(self.deps.authKitAdapter.primaryiCloudAccountAltDSID){
-        bottleSalt = self.deps.authKitAdapter.primaryiCloudAccountAltDSID;
+    NSString *altDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:&authKitError];
+    if(altDSID){
+        bottleSalt = altDSID;
     }
     else {
         NSError* accountError = nil;

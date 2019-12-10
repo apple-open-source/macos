@@ -70,6 +70,7 @@ verify_cert(int argc, char * const *argv)
 	CFMutableArrayRef	roots = NULL;
 	CFMutableArrayRef	keychains = NULL;
 	CFMutableArrayRef	policies = NULL;
+	CFMutableDictionaryRef	properties = NULL;
 	const CSSM_OID		*policy = &CSSMOID_APPLE_X509_BASIC;
 	SecKeychainRef		kcRef = NULL;
 	int					ourRtn = 0;
@@ -89,12 +90,9 @@ verify_cert(int argc, char * const *argv)
 	const char			*sslHost = NULL;
 	const char			*name = NULL;
 	const char			*url = NULL;
-	CSSM_APPLE_TP_SSL_OPTIONS	sslOpts;
-	CSSM_APPLE_TP_SMIME_OPTIONS	smimeOpts;
 	CSSM_APPLE_TP_ACTION_FLAGS actionFlags = 0;
 	bool				forceActionFlags = false;
 	CSSM_APPLE_TP_ACTION_DATA	actionData;
-	CSSM_DATA			optionData;
 	CFDataRef			cfActionData = NULL;
 	SecTrustResultType	resultType;
 	OSStatus			ocrtn;
@@ -162,7 +160,7 @@ verify_cert(int argc, char * const *argv)
 				*/
 				char *o = argv[optind];
 				if (o && o[0] != '-') {
-					name = optarg;
+					name = o;
 					++optind;
 					break;
 				}
@@ -256,56 +254,52 @@ verify_cert(int argc, char * const *argv)
 	}
 
 	/* cook up a SecPolicyRef */
-	ortn = SecPolicySearchCreate(CSSM_CERT_X_509v3,
-		policy,
-		NULL,				// policy opts
-		&searchRef);
-	if(ortn) {
-		cssmPerror("SecPolicySearchCreate", ortn);
+	properties = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+			&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	if (!properties) {
+		cssmPerror("CFDictionaryCreateMutable", errSecMemoryError);
 		ourRtn = 1;
 		goto errOut;
-	}
-	ortn = SecPolicySearchCopyNext(searchRef, &policyRef);
-	if(ortn) {
-		cssmPerror("SecPolicySearchCopyNext", ortn);
-		ourRtn = 1;
-		goto errOut;
-	}
-
-	/* per-policy options */
-	if(compareOids(policy, &CSSMOID_APPLE_TP_SSL) || compareOids(policy, &CSSMOID_APPLE_TP_APPLEID_SHARING)) {
-		const char *nameStr = (name) ? name : ((sslHost) ? sslHost : NULL);
-		if(nameStr) {
-			memset(&sslOpts, 0, sizeof(sslOpts));
-			sslOpts.Version = CSSM_APPLE_TP_SSL_OPTS_VERSION;
-			sslOpts.ServerName = nameStr;
-			sslOpts.ServerNameLen = (uint32) strlen(nameStr);
-			sslOpts.Flags = (client) ? CSSM_APPLE_TP_SSL_CLIENT : 0;
-			optionData.Data = (uint8 *)&sslOpts;
-			optionData.Length = sizeof(sslOpts);
-			ortn = SecPolicySetValue(policyRef, &optionData);
-			if(ortn) {
-				cssmPerror("SecPolicySetValue", ortn);
-				ourRtn = 1;
-				goto errOut;
-			}
+	} else {
+		/* if a policy name was specified to match, set it in the dictionary */
+		const char *nameStr = name;
+		if (!nameStr) { nameStr = (sslHost) ? sslHost : ((emailAddrs) ? emailAddrs : NULL); }
+		CFStringRef nameRef = (nameStr) ?  CFStringCreateWithBytes(NULL,
+			(const UInt8 *)nameStr, (CFIndex)strlen(nameStr), kCFStringEncodingUTF8, false) : NULL;
+		if (nameRef) {
+			CFDictionarySetValue(properties, kSecPolicyName, nameRef);
+			CFRELEASE(nameRef);
+		}
+		CFStringRef policyID = NULL;
+		if (compareOids(policy, &CSSMOID_APPLE_TP_SSL)) {
+			policyID = kSecPolicyAppleSSL;
+		} else if (compareOids(policy, &CSSMOID_APPLE_TP_EAP)) {
+			policyID = kSecPolicyAppleEAP;
+		} else if (compareOids(policy, &CSSMOID_APPLE_TP_APPLEID_SHARING)) {
+			policyID = kSecPolicyAppleIDValidation;
+		} else if (compareOids(policy, &CSSMOID_APPLE_TP_SMIME)) {
+			policyID = kSecPolicyAppleSMIME;
+		}
+		if (policyID) {
+			policyRef = SecPolicyCreateWithProperties(policyID, properties);
 		}
 	}
-	if(compareOids(policy, &CSSMOID_APPLE_TP_SMIME)) {
-		const char *nameStr = (name) ? name : ((emailAddrs) ? emailAddrs : NULL);
-		if(nameStr) {
-			memset(&smimeOpts, 0, sizeof(smimeOpts));
-			smimeOpts.Version = CSSM_APPLE_TP_SMIME_OPTS_VERSION;
-			smimeOpts.SenderEmail = nameStr;
-			smimeOpts.SenderEmailLen = (uint32) strlen(nameStr);
-			optionData.Data = (uint8 *)&smimeOpts;
-			optionData.Length = sizeof(smimeOpts);
-			ortn = SecPolicySetValue(policyRef, &optionData);
-			if(ortn) {
-				cssmPerror("SecPolicySetValue", ortn);
-				ourRtn = 1;
-				goto errOut;
-			}
+	if (!policyRef) {
+		/* all other policies not handled above */
+		ortn = SecPolicySearchCreate(CSSM_CERT_X_509v3,
+			policy,
+			NULL,				// policy opts
+			&searchRef);
+		if(ortn) {
+			cssmPerror("SecPolicySearchCreate", ortn);
+			ourRtn = 1;
+			goto errOut;
+		}
+		ortn = SecPolicySearchCopyNext(searchRef, &policyRef);
+		if(ortn) {
+			cssmPerror("SecPolicySearchCopyNext", ortn);
+			ourRtn = 1;
+			goto errOut;
 		}
 	}
 
@@ -439,6 +433,7 @@ errOut:
 	CFRELEASE(certs);
 	CFRELEASE(roots);
 	CFRELEASE(keychains);
+	CFRELEASE(properties);
 	CFRELEASE(policies);
 	CFRELEASE(revPolicyRef);
 	CFRELEASE(dateRef);

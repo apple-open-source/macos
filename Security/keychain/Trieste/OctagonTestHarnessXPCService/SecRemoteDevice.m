@@ -109,42 +109,6 @@
 
 @implementation SecRemoteDevice
 
-- (void)secItemAdd:(NSDictionary *)input complete:(void (^)(OSStatus, NSDictionary *))reply
-{
-    NSMutableDictionary *attributes = [input mutableCopy];
-    CFTypeRef data = NULL;
-
-    attributes[(__bridge NSString *)kSecReturnAttributes] = @YES;
-    attributes[(__bridge NSString *)kSecReturnPersistentRef] = @YES;
-    attributes[(__bridge NSString *)kSecReturnData] = @YES;
-
-    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)attributes, &data);
-    NSDictionary *returnData = CFBridgingRelease(data);
-    
-    reply(status, returnData);
-}
-
-- (void)secItemCopyMatching:(NSDictionary *)input complete:(void (^)(OSStatus, NSArray<NSDictionary *>*))reply
-{
-    NSMutableDictionary *attributes = [input mutableCopy];
-    CFTypeRef data = NULL;
-
-    attributes[(__bridge NSString *)kSecReturnAttributes] = @YES;
-    attributes[(__bridge NSString *)kSecReturnData] = @YES;
-    attributes[(__bridge NSString *)kSecReturnPersistentRef] = @YES;
-    attributes[(__bridge NSString *)kSecMatchLimit] = (__bridge id)kSecMatchLimitAll;
-
-    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)attributes, &data);
-    NSArray<NSDictionary *>* array = CFBridgingRelease(data);
-    NSMutableArray *result = [NSMutableArray array];
-    for (NSDictionary *d in array) {
-        NSMutableDictionary *r = [d mutableCopy];
-        r[@"accc"] = nil;
-        [result addObject:r];
-    }
-
-    reply(status, result);
-}
 
 - (void)setUserCredentials:(NSString *)username password:(NSString *)password complete:(void (^)(bool success, NSError *error))complete
 {
@@ -367,16 +331,7 @@
 }
 
 - (void) deviceInfo:(nonnull void (^)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))complete {
-#if SECD_SERVER
-    __block NSString *deviceSerial = @"";
-    [self sosPeerSerial:^(NSString * _Nullable peerSerial) {
-        deviceSerial = peerSerial;
-    }];
-    complete([SOSAuthKitHelpers machineID], deviceSerial, NULL);
-#else
     complete(@"", @"", NULL);
-#endif
-
 }
 
 
@@ -414,12 +369,6 @@
     } else {
         complete(false, 0, NULL);
     }
-}
-
-// MARK: - CKKS
-- (void)selfPeersForView:(NSString *)view complete:(void (^)(NSArray<NSDictionary *> *result, NSError *error))complete
-{
-    complete(@[], NULL);
 }
 
 // MARK: - Octagon

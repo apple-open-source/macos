@@ -107,6 +107,8 @@ class TextTrackCueGeneric;
 class ServiceWorker;
 #endif
 
+struct MockWebAuthenticationConfiguration;
+
 class Internals final : public RefCounted<Internals>, private ContextDestructionObserver
 #if ENABLE(MEDIA_STREAM)
     , private RealtimeMediaSource::Observer
@@ -404,6 +406,10 @@ public:
 
     uint64_t documentIdentifier(const Document&) const;
     bool isDocumentAlive(uint64_t documentIdentifier) const;
+
+    uint64_t elementIdentifier(Element&) const;
+    uint64_t frameIdentifier(const Document&) const;
+    uint64_t pageIdentifier(const Document&) const;
 
     bool isAnyWorkletGlobalScopeAlive() const;
 
@@ -867,6 +873,10 @@ public:
     };
 
     TextIndicatorInfo textIndicatorForRange(const Range&, TextIndicatorOptions);
+
+#if ENABLE(WEB_AUTHN)
+    void setMockWebAuthenticationConfiguration(const MockWebAuthenticationConfiguration&);
+#endif
 
 private:
     explicit Internals(Document&);

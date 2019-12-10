@@ -303,6 +303,30 @@
         return matches;
     }]]);
 
+    OCMStub([self.mockDatabase addOperation: [OCMArg checkWithBlock:^BOOL(id obj) {
+        __strong __typeof(self) strongSelf = weakSelf;
+        BOOL matches = NO;
+        if ([obj isKindOfClass: [FakeCKModifyRecordZonesOperation class]]) {
+            FakeCKModifyRecordZonesOperation *frzco = (FakeCKModifyRecordZonesOperation *)obj;
+            [frzco addNullableDependency:strongSelf.ckModifyRecordZonesHoldOperation];
+            [strongSelf.operationQueue addOperation: frzco];
+            matches = YES;
+        }
+        return matches;
+    }]]);
+
+    OCMStub([self.mockDatabase addOperation: [OCMArg checkWithBlock:^BOOL(id obj) {
+        __strong __typeof(self) strongSelf = weakSelf;
+        BOOL matches = NO;
+        if ([obj isKindOfClass: [FakeCKModifySubscriptionsOperation class]]) {
+            FakeCKModifySubscriptionsOperation *frzco = (FakeCKModifySubscriptionsOperation *)obj;
+            [frzco addNullableDependency:strongSelf.ckModifySubscriptionsHoldOperation];
+            [strongSelf.operationQueue addOperation: frzco];
+            matches = YES;
+        }
+        return matches;
+    }]]);
+
     self.testZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"testzone" ownerName:CKCurrentUserDefaultName];
 
     // We don't want to use class mocks here, because they don't play well with partial mocks
@@ -541,6 +565,30 @@
 -(void)releaseCloudKitFetchHold {
     if([self.ckFetchHoldOperation isPending]) {
         [self.operationQueue addOperation: self.ckFetchHoldOperation];
+    }
+}
+
+-(void)holdCloudKitModifyRecordZones {
+    XCTAssertFalse([self.ckModifyRecordZonesHoldOperation isPending], "Shouldn't already be a pending cloudkit zone create hold operation");
+    self.ckModifyRecordZonesHoldOperation = [NSBlockOperation blockOperationWithBlock:^{
+        secnotice("ckks", "Released CloudKit zone create hold.");
+    }];
+}
+-(void)releaseCloudKitModifyRecordZonesHold {
+    if([self.ckModifyRecordZonesHoldOperation isPending]) {
+        [self.operationQueue addOperation: self.ckModifyRecordZonesHoldOperation];
+    }
+}
+
+-(void)holdCloudKitModifySubscription {
+    XCTAssertFalse([self.ckModifySubscriptionsHoldOperation isPending], "Shouldn't already be a pending cloudkit subscription hold operation");
+    self.ckModifySubscriptionsHoldOperation = [NSBlockOperation blockOperationWithBlock:^{
+        secnotice("ckks", "Released CloudKit zone create hold.");
+    }];
+}
+-(void)releaseCloudKitModifySubscriptionHold {
+    if([self.ckModifySubscriptionsHoldOperation isPending]) {
+        [self.operationQueue addOperation: self.ckModifySubscriptionsHoldOperation];
     }
 }
 
@@ -1098,26 +1146,7 @@
 }
 
 - (NSError*)ckInternalServerExtensionError:(NSInteger)code description:(NSString*)desc {
-    NSError* extensionError = [[CKPrettyError alloc] initWithDomain:@"CloudkitKeychainService"
-                                                               code:code
-                                                           userInfo:@{
-                                                                      CKErrorServerDescriptionKey: desc,
-                                                                      NSLocalizedDescriptionKey: desc,
-                                                                      }];
-    NSError* internalError = [[CKPrettyError alloc] initWithDomain:CKInternalErrorDomain
-                                                              code:CKErrorInternalPluginError
-                                                          userInfo:@{CKErrorServerDescriptionKey: desc,
-                                                                     NSLocalizedDescriptionKey: desc,
-                                                                     NSUnderlyingErrorKey: extensionError,
-                                                                     }];
-    NSError* error = [[CKPrettyError alloc] initWithDomain:CKErrorDomain
-                                                      code:CKErrorServerRejectedRequest
-                                                  userInfo:@{NSUnderlyingErrorKey: internalError,
-                                                             CKErrorServerDescriptionKey: desc,
-                                                             NSLocalizedDescriptionKey: desc,
-                                                             CKContainerIDKey: SecCKKSContainerName,
-                                                             }];
-    return error;
+    return [FakeCKZone internalPluginError:@"CloudkitKeychainService" code:code description:desc];
 }
 
 @end

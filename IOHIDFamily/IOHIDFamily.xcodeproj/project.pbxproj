@@ -350,6 +350,7 @@
 				D83B3DE31FB2413A00DB1962 /* CopyFiles */,
 			);
 			dependencies = (
+				7E9E86C6233181B80000006B /* PBXTargetDependency */,
 				D83B3DDB1FB2401A00DB1962 /* PBXTargetDependency */,
 			);
 			name = "executables-bridgeos";
@@ -738,6 +739,7 @@
 		72518C58220BBEFB0003EB98 /* IOHIDDisplaySessionFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 72518C57220BBEFB0003EB98 /* IOHIDDisplaySessionFilter.m */; };
 		72518C5A220BBFB20003EB98 /* HID.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0F311B9E215C449400C3FB77 /* HID.framework */; };
 		72518C60220BC8BC0003EB98 /* TestHIDDisplaySessionFilter.m in Sources */ = {isa = PBXBuildFile; fileRef = 72518C5F220BC8BC0003EB98 /* TestHIDDisplaySessionFilter.m */; };
+		72563E9A2353D2D800F59E6A /* TestHIDUPSElements.m in Sources */ = {isa = PBXBuildFile; fileRef = 72563E992353D2D800F59E6A /* TestHIDUPSElements.m */; };
 		7259564D21AF3E2900B4FA45 /* CoreAnalytics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7259564C21AF3E2800B4FA45 /* CoreAnalytics.framework */; };
 		725D564F224DAF81000EAA70 /* HIDDisplayPresetInterface.m in Sources */ = {isa = PBXBuildFile; fileRef = 725D564E224DAF81000EAA70 /* HIDDisplayPresetInterface.m */; };
 		725D5651224E962B000EAA70 /* HIDDisplayPresetInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 725D564D224DAF71000EAA70 /* HIDDisplayPresetInterface.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -1805,6 +1807,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 72E3695221ADF9C4007191F4;
 			remoteInfo = HIDAnalytics;
+		};
+		7E9E86C2233180D80000006B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7E9E86BE233180D80000006B /* hidtalkd.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 7E43E94F23317B3D000D28DD;
+			remoteInfo = hidtalkd;
+		};
+		7E9E86C5233181B80000006B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7E9E86BE233180D80000006B /* hidtalkd.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 7E43E94E23317B3D000D28DD;
+			remoteInfo = hidtalkd;
 		};
 		84061D711606BF89003855D6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -3122,6 +3138,7 @@
 		72518C56220BBEE90003EB98 /* IOHIDDisplaySessionFilter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOHIDDisplaySessionFilter.h; sourceTree = "<group>"; };
 		72518C57220BBEFB0003EB98 /* IOHIDDisplaySessionFilter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = IOHIDDisplaySessionFilter.m; sourceTree = "<group>"; };
 		72518C5F220BC8BC0003EB98 /* TestHIDDisplaySessionFilter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDDisplaySessionFilter.m; sourceTree = "<group>"; };
+		72563E992353D2D800F59E6A /* TestHIDUPSElements.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDUPSElements.m; sourceTree = "<group>"; };
 		7259564C21AF3E2800B4FA45 /* CoreAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAnalytics.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/PrivateFrameworks/CoreAnalytics.framework; sourceTree = DEVELOPER_DIR; };
 		725D564D224DAF71000EAA70 /* HIDDisplayPresetInterface.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayPresetInterface.h; sourceTree = "<group>"; };
 		725D564E224DAF81000EAA70 /* HIDDisplayPresetInterface.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayPresetInterface.m; sourceTree = "<group>"; };
@@ -3169,6 +3186,16 @@
 		72FA385821AF675B006F4D73 /* TestHIDAnalyticsFramework.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestHIDAnalyticsFramework.m; sourceTree = "<group>"; };
 		72FA385F21AF9D5A006F4D73 /* HIDAnalytics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = HIDAnalytics.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/AppleInternal/Library/Frameworks/HIDAnalytics.framework; sourceTree = DEVELOPER_DIR; };
 		74E71AE61540A25F00D5C0B3 /* Info-IOHIDFamily-Embedded-eOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOHIDFamily-Embedded-eOS.plist"; sourceTree = "<group>"; };
+		7E9E86BE233180D80000006B /* hidtalkd.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = hidtalkd.xcodeproj; path = hidtalkd/hidtalkd.xcodeproj; sourceTree = "<group>"; };
+		7EE71E77233136E100520E8C /* HIDTalkDaemon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDTalkDaemon.h; sourceTree = "<group>"; };
+		7EE71E792331525100520E8C /* hidtalkd.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = hidtalkd.xcconfig; sourceTree = "<group>"; };
+		7EEB35112330A7C200F7459E /* com.apple.iohid.hidtalkd-bridge.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "com.apple.iohid.hidtalkd-bridge.plist"; sourceTree = "<group>"; };
+		7EEB35122330A7C200F7459E /* HIDTalkd-entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "HIDTalkd-entitlements.plist"; path = "hidtalkd/HIDTalkd-entitlements.plist"; sourceTree = SOURCE_ROOT; };
+		7EEB35132330A7C200F7459E /* hidtalkd_man.pod */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hidtalkd_man.pod; sourceTree = "<group>"; };
+		7EEB35142330A7C200F7459E /* HIDTalkd.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = HIDTalkd.mm; sourceTree = "<group>"; };
+		7EEB35152330A7C200F7459E /* com.apple.iohid.hidtalkd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.iohid.hidtalkd.plist; sourceTree = "<group>"; };
+		7EEB35222330A97400F7459E /* RemoteServiceDiscovery.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RemoteServiceDiscovery.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/PrivateFrameworks/RemoteServiceDiscovery.framework; sourceTree = DEVELOPER_DIR; };
+		7EEB35242330A97900F7459E /* RemoteXPC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RemoteXPC.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/PrivateFrameworks/RemoteXPC.framework; sourceTree = DEVELOPER_DIR; };
 		84061D5C1606AF8C003855D6 /* IOHIDEventSystemMonitor.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = IOHIDEventSystemMonitor.c; path = tools/IOHIDEventSystemMonitor.c; sourceTree = "<group>"; };
 		84061D621606B1E3003855D6 /* hidEventSystemMonitor */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hidEventSystemMonitor; sourceTree = BUILT_PRODUCTS_DIR; };
 		8416F41C174BD88F000D1277 /* IOHIDEventSystemStatistics.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOHIDEventSystemStatistics.cpp; sourceTree = "<group>"; };
@@ -4178,6 +4205,7 @@
 		089C166AFE841209C02AAC07 /* IOHIDFamily */ = {
 			isa = PBXGroup;
 			children = (
+				7E9E86BE233180D80000006B /* hidtalkd.xcodeproj */,
 				6654082C20572B7D00689D0B /* kext.xcconfig */,
 				D850DC0F202CBBF900427731 /* LoggingProfiles */,
 				D85D07931F9FA22D00418989 /* DataCollection */,
@@ -4194,6 +4222,7 @@
 				84735CA2103AF70700F542C5 /* Tools */,
 				D80DEA4B1C11F2170044375A /* IOHIDEventTranslation */,
 				D8ACE9181DBA6D3C00F34E42 /* IOHIDFamilyUnitTests */,
+				7EEB35102330A7C200F7459E /* hidtalkd */,
 				D8ACE9261DBA6E6000F34E42 /* hidxctest */,
 				6C288FC81FB26BB800245AE7 /* HID */,
 				D88E7F71200C511A00D0CFFD /* RemoteHID */,
@@ -4501,6 +4530,36 @@
 			path = IOHIDEventLogSessionFilter;
 			sourceTree = "<group>";
 		};
+		7E9E86BF233180D80000006B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7E9E86C3233180D80000006B /* hidtalkd */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7EEB35102330A7C200F7459E /* hidtalkd */ = {
+			isa = PBXGroup;
+			children = (
+				7EEB35272330A9FE00F7459E /* HIDTalk */,
+				7EEB35112330A7C200F7459E /* com.apple.iohid.hidtalkd-bridge.plist */,
+				7EEB35122330A7C200F7459E /* HIDTalkd-entitlements.plist */,
+				7EEB35132330A7C200F7459E /* hidtalkd_man.pod */,
+				7EEB35142330A7C200F7459E /* HIDTalkd.mm */,
+				7EEB35152330A7C200F7459E /* com.apple.iohid.hidtalkd.plist */,
+				7EE71E792331525100520E8C /* hidtalkd.xcconfig */,
+			);
+			path = hidtalkd;
+			sourceTree = "<group>";
+		};
+		7EEB35272330A9FE00F7459E /* HIDTalk */ = {
+			isa = PBXGroup;
+			children = (
+				7EE71E77233136E100520E8C /* HIDTalkDaemon.h */,
+			);
+			path = HIDTalk;
+			sourceTree = "<group>";
+		};
 		8416F41B174BD88F000D1277 /* IOHIDEventSystemPlugIns */ = {
 			isa = PBXGroup;
 			children = (
@@ -4803,6 +4862,8 @@
 		98B9F0521AB00DBB003B3C24 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				7EEB35242330A97900F7459E /* RemoteXPC.framework */,
+				7EEB35222330A97400F7459E /* RemoteServiceDiscovery.framework */,
 				666704EB2203899000BF1570 /* TimeSync.framework */,
 				72B7BEDB21E9242100786D6D /* HIDDisplay.framework */,
 				D8EABF2F21D0BB8C00356870 /* DriverKit.framework */,
@@ -5219,6 +5280,7 @@
 				720220562269892600450861 /* TestElementTransactionOrder.m */,
 				723E3CC5226E3ADF00F8C876 /* TestIOReportingHIDDevice.m */,
 				0F37C03F22A828E90057C599 /* TestPublicHIDUserDevice.m */,
+				72563E992353D2D800F59E6A /* TestHIDUPSElements.m */,
 			);
 			path = IOHIDFamilyUnitTests;
 			sourceTree = "<group>";
@@ -7206,6 +7268,10 @@
 					ProductGroup = 0F7A4EE82242EC6C00D655AB /* Products */;
 					ProjectRef = 0F7A4EE72242EC6C00D655AB /* AppleUserHIDDrivers.xcodeproj */;
 				},
+				{
+					ProductGroup = 7E9E86BF233180D80000006B /* Products */;
+					ProjectRef = 7E9E86BE233180D80000006B /* hidtalkd.xcodeproj */;
+				},
 			);
 			projectRoot = "";
 			targets = (
@@ -7305,6 +7371,13 @@
 			fileType = wrapper.cfbundle;
 			path = AppleUserHIDDrivers.dext;
 			remoteRef = 0F7A4EEB2242EC6C00D655AB /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		7E9E86C3233180D80000006B /* hidtalkd */ = {
+			isa = PBXReferenceProxy;
+			fileType = "compiled.mach-o.executable";
+			path = hidtalkd;
+			remoteRef = 7E9E86C2233180D80000006B /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */
@@ -8482,6 +8555,7 @@
 				D894CA7A213115C2005248B2 /* TestIOHIDEventDriver_GCFormFitted.m in Sources */,
 				D8F3855621250A1A0096957A /* IOHIDEventDriverTestCase.m in Sources */,
 				D81A990D1DBFA00F00B35A3A /* TestDigitizerCollection.m in Sources */,
+				72563E9A2353D2D800F59E6A /* TestHIDUPSElements.m in Sources */,
 				486EE5291E5D05A300C0A7C1 /* TestProperty.m in Sources */,
 				6C93BF361FD5F5BF0026F8F5 /* TestQueueClass.m in Sources */,
 				6C28900A1FB26D4600245AE7 /* TestHIDManagerDQ.m in Sources */,
@@ -8923,6 +8997,11 @@
 			isa = PBXTargetDependency;
 			target = 72E3695221ADF9C4007191F4 /* HIDAnalytics */;
 			targetProxy = 72FA386521AF9D81006F4D73 /* PBXContainerItemProxy */;
+		};
+		7E9E86C6233181B80000006B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = hidtalkd;
+			targetProxy = 7E9E86C5233181B80000006B /* PBXContainerItemProxy */;
 		};
 		84061D721606BF89003855D6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;

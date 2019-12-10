@@ -35,6 +35,7 @@
 #import "CKKSReencryptOutgoingItemsOperation.h"
 #import "CKKSManifest.h"
 #import "CKKSAnalytics.h"
+#import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ot/ObjCImprovements.h"
 
 #include "keychain/securityd/SecItemServer.h"
@@ -343,6 +344,12 @@
                             ckksnotice("ckksoutgoing", strongCKKS, "Error is simply due to current key pointers changing; marking all records as 'needs reencrypt'");
                             [self _onqueueModifyAllRecords:failedRecords.allKeys as:SecCKKSStateReencrypt];
                             askForReencrypt = true;
+
+                        } else if([self _onqueueIsErrorMissingSyncKey:ckerror]) {
+                            ckksnotice("ckksoutgoing", strongCKKS, "Error is due to the key records missing. Marking all as 'needs reencrypt'");
+                            [self _onqueueModifyAllRecords:failedRecords.allKeys as:SecCKKSStateReencrypt];
+                            askForReencrypt = true;
+
                         } else {
                             // Iterate all failures, and reset each item
                             for(CKRecordID* recordID in failedRecords) {
@@ -614,6 +621,23 @@
     if([state isEqualToString:SecCKKSStateReencrypt]) {
         SecADAddValueForScalarKey((__bridge CFStringRef) SecCKKSAggdItemReencryption, count);
     }
+}
+
+- (BOOL)_onqueueIsErrorMissingSyncKey:(NSError*)ckerror {
+    if([ckerror.domain isEqualToString:CKErrorDomain] && (ckerror.code == CKErrorPartialFailure)) {
+        NSMutableDictionary<CKRecordID*, NSError*>* failedRecords = ckerror.userInfo[CKPartialErrorsByItemIDKey];
+
+        for(CKRecordID* recordID in failedRecords) {
+            NSError* recordError = failedRecords[recordID];
+
+            if([recordError isCKKSServerPluginError:CKKSServerMissingRecord]) {
+                secnotice("ckksoutgoing", "Error is a 'missing record' error: %@", recordError);
+                return YES;
+            }
+        }
+    }
+
+    return NO;
 }
 
 - (bool)_onqueueIsErrorBadEtagOnKeyPointersOnly:(NSError*)ckerror {

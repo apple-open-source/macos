@@ -146,6 +146,7 @@ pthread_set_qos_class_np(pthread_t thread, qos_class_t qc, int relpri)
 		 */
 		return EPERM;
 	}
+	_pthread_validate_signature(thread);
 	return pthread_set_qos_class_self_np(qc, relpri);
 }
 
@@ -218,6 +219,8 @@ _pthread_set_properties_self(_pthread_set_flags_t flags,
 	pthread_t self = pthread_self();
 	_pthread_set_flags_t kflags = flags;
 	int rv = 0;
+
+	_pthread_validate_signature(self);
 
 	if (self->wq_outsideqos && (flags & _PTHREAD_SET_SELF_OUTSIDE_QOS_SKIP)) {
 		// A number of properties cannot be altered if we are a workloop

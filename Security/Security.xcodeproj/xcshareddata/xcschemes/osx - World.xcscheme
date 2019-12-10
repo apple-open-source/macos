@@ -117,6 +117,16 @@
                ReferencedContainer = "container:Security.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "DC3502B41E0208BE00BC0587"
+               BuildableName = "CKKSTests.xctest"
+               BlueprintName = "CKKSTests"
+               ReferencedContainer = "container:Security.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

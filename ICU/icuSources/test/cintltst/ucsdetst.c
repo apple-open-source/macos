@@ -657,6 +657,8 @@ static const SampleTextAndEncoding mailSampleTests[] = {
     { "../testdata/encodingSamples/mailExample_Latin1Esc_7.txt", "iso-8859-1" },
     { "../testdata/encodingSamples/mailExample_Latin1Esc_8.txt", "iso-8859-1" },
     { "../testdata/encodingSamples/mailExample_Latin1Esc_9.txt", "iso-8859-1" },
+    // additions for <rdar://problem/56373519>
+    { "../testdata/encodingSamples/mailExample_Latin1_11.txt",  "iso-8859-1" },
     { NULL, NULL }
 };
 
@@ -684,11 +686,12 @@ static void TestMailFilterCSS(void) {
                     } else {
                         const char *icuName = ucsdet_getName(highestMatch, &status);
                         int32_t confidence = ucsdet_getConfidence(highestMatch, &status);
+                        const char *langCode = ucsdet_getLanguage(highestMatch, &status);
                         if (U_FAILURE(status) || icuName==NULL) {
                             log_err("ucsdet_getName and/or ucsdet_getConfidence fails for text file %s: %s\n", testPtr->sampleTextPath, u_errorName(status));
                         } else {
-                            log_info("For text file %s: expect %s; get %s with confidence %d, text length %ld\n",
-                                    testPtr->sampleTextPath, testPtr->encodingName, icuName, confidence, sampleTextLen);
+                            log_info("For text file %s: expect %s; get %s with confidence %d, langCode %s; text length %ld\n",
+                                    testPtr->sampleTextPath, testPtr->encodingName, icuName, confidence, langCode, sampleTextLen);
                         }
                     }
                 }

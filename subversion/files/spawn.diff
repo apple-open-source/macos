@@ -1,0 +1,30 @@
+--- subversion/libsvn_ra_svn/client.c.orig	2016-05-11 10:23:46.000000000 -0700
++++ subversion/libsvn_ra_svn/client.c	2016-05-11 10:22:59.000000000 -0700
+@@ -71,6 +71,15 @@
+ #define DEPTH_TO_RECURSE(d)    \
+         ((d) == svn_depth_unknown || (d) > svn_depth_files)
+ 
++#ifdef __APPLE__
++extern apr_status_t apr_proc_spawn(apr_proc_t *new_proc,
++                                          const char *progname,
++                                          const char * const *args,
++                                          const char * const *env, 
++                                          apr_procattr_t *attr, 
++                                          apr_pool_t *pool);
++#endif
++
+ typedef struct ra_svn_commit_callback_baton_t {
+   svn_ra_svn__session_baton_t *sess_baton;
+   apr_pool_t *pool;
+@@ -496,7 +505,11 @@
+     status = apr_procattr_child_errfn_set(attr, handle_child_process_error);
+   proc = apr_palloc(pool, sizeof(*proc));
+   if (status == APR_SUCCESS)
++#ifdef __APPLE__
++    status = apr_proc_spawn(proc, *args, args, NULL, attr, pool);
++#else
+     status = apr_proc_create(proc, *args, args, NULL, attr, pool);
++#endif
+   if (status != APR_SUCCESS)
+     return svn_error_create(SVN_ERR_RA_CANNOT_CREATE_TUNNEL,
+                             svn_error_wrap_apr(status,

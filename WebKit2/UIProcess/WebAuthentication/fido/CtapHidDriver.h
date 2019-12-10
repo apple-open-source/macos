@@ -25,28 +25,20 @@
 
 #pragma once
 
-#if ENABLE(WEB_AUTHN) && PLATFORM(MAC)
+#if ENABLE(WEB_AUTHN)
 
+#include "CtapDriver.h"
 #include "HidConnection.h"
-#include <WebCore/FidoConstants.h>
 #include <WebCore/FidoHidMessage.h>
-#include <wtf/CompletionHandler.h>
-#include <wtf/Forward.h>
-#include <wtf/Noncopyable.h>
 #include <wtf/UniqueRef.h>
-#include <wtf/WeakPtr.h>
 
 namespace WebKit {
 
 // The following implements the CTAP HID protocol:
 // https://fidoalliance.org/specs/fido-v2.0-ps-20170927/fido-client-to-authenticator-protocol-v2.0-ps-20170927.html#usb
 // FSM: Idle => AllocateChannel => Ready
-class CtapHidDriver : public CanMakeWeakPtr<CtapHidDriver> {
-    WTF_MAKE_FAST_ALLOCATED;
-    WTF_MAKE_NONCOPYABLE(CtapHidDriver);
+class CtapHidDriver final : public CtapDriver {
 public:
-    using ResponseCallback = Function<void(Vector<uint8_t>&&)>;
-
     enum class State : uint8_t {
         Idle,
         AllocateChannel,
@@ -57,8 +49,8 @@ public:
 
     explicit CtapHidDriver(UniqueRef<HidConnection>&&);
 
-    void setProtocol(fido::ProtocolVersion protocol) { m_protocol = protocol; }
-    void transact(Vector<uint8_t>&& data, ResponseCallback&&);
+    void transact(Vector<uint8_t>&& data, ResponseCallback&&) final;
+    void cancel() final;
 
 private:
     // Worker is the helper that maintains the transaction.
@@ -80,11 +72,13 @@ private:
         ~Worker();
 
         void transact(fido::FidoHidMessage&&, MessageCallback&&);
+        void cancel(fido::FidoHidMessage&&);
 
     private:
         void write(HidConnection::DataSent);
         void read(const Vector<uint8_t>&);
-        void returnMessage(Optional<fido::FidoHidMessage>&&);
+        void returnMessage();
+        void reset();
 
         UniqueRef<HidConnection> m_connection;
         State m_state { State::Idle };
@@ -96,6 +90,7 @@ private:
     void continueAfterChannelAllocated(Optional<fido::FidoHidMessage>&&);
     void continueAfterResponseReceived(Optional<fido::FidoHidMessage>&&);
     void returnResponse(Vector<uint8_t>&&);
+    void reset();
 
     UniqueRef<Worker> m_worker;
     State m_state { State::Idle };
@@ -104,9 +99,8 @@ private:
     Vector<uint8_t> m_requestData;
     ResponseCallback m_responseCallback;
     Vector<uint8_t> m_nonce;
-    fido::ProtocolVersion m_protocol { fido::ProtocolVersion::kCtap };
 };
 
 } // namespace WebKit
 
-#endif // ENABLE(WEB_AUTHN) && PLATFORM(MAC)
+#endif // ENABLE(WEB_AUTHN)

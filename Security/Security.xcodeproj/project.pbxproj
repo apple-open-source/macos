@@ -738,7 +738,7 @@
 			buildConfigurationList = EB9C1DAF1BDFD4DF00F89272 /* Build configuration list for PBXAggregateTarget "SecurityBatsTests" */;
 			buildPhases = (
 				EB9C1DB41BDFD4F200F89272 /* Install BATS plist */,
-				EBC15E801BE29A8C001C0C5B /* Chown BATS plist */,
+				EBC15E801BE29A8C001C0C5B /* Generate and Chown BATS plist */,
 				EBA12514225E55C200138070 /* Check for SYSTEM_FRAMEWORK_SEARCH_PATHS */,
 			);
 			dependencies = (
@@ -879,6 +879,7 @@
 		0C8884012154C4E80053224D /* OTJoiningConfiguration.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C8FD549214AECD70098E3FB /* OTJoiningConfiguration.m */; };
 		0C8884042154C4EA0053224D /* OTJoiningConfiguration.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C8FD549214AECD70098E3FB /* OTJoiningConfiguration.m */; };
 		0C8FD52521483EF20098E3FB /* OT.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CCCC7C820261D310024405E /* OT.m */; };
+		0C97867D235A77230040A867 /* com.apple.security.signposts.plist in Copy System logging profile */ = {isa = PBXBuildFile; fileRef = 0C97867C235A76E70040A867 /* com.apple.security.signposts.plist */; };
 		0C98122821ACCC9300784441 /* OTClique.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C2F336A20DD643B0031A92D /* OTClique.m */; };
 		0C9AEEAF20783FBB00BF6237 /* SFSignInAnalyticsTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CF405F42072E2BF003D6A7F /* SFSignInAnalyticsTests.m */; };
 		0C9AEEBB20783FF900BF6237 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC1789041D77980500B50D50 /* Security.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
@@ -938,6 +939,10 @@
 		0CD5797A21498F8200C43496 /* OctagonPairingTests+Piggybacking.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CD5797721498F7700C43496 /* OctagonPairingTests+Piggybacking.swift */; };
 		0CD8CB051ECA50780076F37F /* SOSPeerOTRTimer.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CD8CB041ECA50780076F37F /* SOSPeerOTRTimer.m */; };
 		0CD8CB0B1ECA50920076F37F /* SOSPeerOTRTimer.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CD8CB041ECA50780076F37F /* SOSPeerOTRTimer.m */; };
+		0CD9E34323592DD7002995DE /* OctagonSignPosts.h in Headers */ = {isa = PBXBuildFile; fileRef = 0CD9E33E235928D1002995DE /* OctagonSignPosts.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0CD9E34423592DD7002995DE /* OctagonSignPosts.h in Headers */ = {isa = PBXBuildFile; fileRef = 0CD9E33E235928D1002995DE /* OctagonSignPosts.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		0CD9E34523592EA6002995DE /* OctagonSignPosts.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CD9E340235928E9002995DE /* OctagonSignPosts.m */; };
+		0CD9E34623592EA7002995DE /* OctagonSignPosts.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CD9E340235928E9002995DE /* OctagonSignPosts.m */; };
 		0CDD6F79226E83F6009094C2 /* OTTriggerEscrowUpdateOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CDD6F76226E62AD009094C2 /* OTTriggerEscrowUpdateOperation.m */; };
 		0CE079F41FEA15B20040A3F1 /* SFBehavior.m in Sources */ = {isa = PBXBuildFile; fileRef = EB82A2A51FAFF26900CA64A9 /* SFBehavior.m */; };
 		0CE15E2C222DF63600B7EAA4 /* RecoveryKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CE15E2A222DF63500B7EAA4 /* RecoveryKey.swift */; };
@@ -980,6 +985,9 @@
 		18F7F67914D77F4400F88A12 /* NtlmGenerator.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C999BA10AB5F0BB0010451D /* NtlmGenerator.c */; };
 		18F7F67A14D77F4400F88A12 /* ntlmBlobPriv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C999BA30AB5F0BB0010451D /* ntlmBlobPriv.c */; };
 		1B0CDF64231C9E0E004401F0 /* ContainerMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE9F8D18206C4AD300B53D16 /* ContainerMap.swift */; };
+		1B2BD395235E050E009A8624 /* SecEC-tapi.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B2BD391235E050D009A8624 /* SecEC-tapi.h */; };
+		1B2BD396235E050E009A8624 /* SecPolicy-tapi.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B2BD393235E050E009A8624 /* SecPolicy-tapi.h */; };
+		1B2BD397235E050E009A8624 /* Security-tapi.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B2BD394235E050E009A8624 /* Security-tapi.h */; };
 		1B4AE38722400A22002188E1 /* TPDictionaryMatchingRules.m in Sources */ = {isa = PBXBuildFile; fileRef = DC8846802237431400738068 /* TPDictionaryMatchingRules.m */; };
 		1B4C444B223AE65500C6F97F /* TPPBPolicyKeyViewMapping.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B4C4448223AE65400C6F97F /* TPPBPolicyKeyViewMapping.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		1B4C444C223AE65500C6F97F /* TPPBPolicyKeyViewMapping.m in Sources */ = {isa = PBXBuildFile; fileRef = 1B4C444A223AE65400C6F97F /* TPPBPolicyKeyViewMapping.m */; };
@@ -987,7 +995,6 @@
 		1B5EAADD2252ABCD008D27E7 /* OTFetchViewsOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = 1B5EAADB2252ABCC008D27E7 /* OTFetchViewsOperation.m */; };
 		1B8341B92239AD3A002BF18A /* TPPBPolicyKeyViewMapping.proto in Sources */ = {isa = PBXBuildFile; fileRef = 1B8341B72239AD39002BF18A /* TPPBPolicyKeyViewMapping.proto */; };
 		1B8D2D96226E1FA500C94238 /* SetValueTransformer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CE15E2A222DF63500B7EAA5 /* SetValueTransformer.swift */; };
-		1B916CCE223FFED7006657FD /* libprotobuf_source_generation.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DCF216D721ADD5B10029CCC1 /* libprotobuf_source_generation.a */; };
 		1B916CD0223FFF25006657FD /* ProtocolBuffer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C0B0C441E2537CC007F95E5 /* ProtocolBuffer.framework */; };
 		1B995259226681FA00A2D6CD /* PolicyReporter.h in Sources */ = {isa = PBXBuildFile; fileRef = 1B995256226681ED00A2D6CD /* PolicyReporter.h */; };
 		1B99525A226681FA00A2D6CD /* PolicyReporter.m in Sources */ = {isa = PBXBuildFile; fileRef = 1B995258226681EE00A2D6CD /* PolicyReporter.m */; };
@@ -996,6 +1003,12 @@
 		1BC6F79C21C9955F005ED67A /* util.h in Headers */ = {isa = PBXBuildFile; fileRef = 1BC6F79821C9955E005ED67A /* util.h */; };
 		1BDEBEF92252DEB1009AD3D6 /* policy_dryrun.m in Sources */ = {isa = PBXBuildFile; fileRef = 1BDEBEF72252DEB1009AD3D6 /* policy_dryrun.m */; };
 		1BDEBEFD2253E6D9009AD3D6 /* policy_dryrun.m in Sources */ = {isa = PBXBuildFile; fileRef = 1BDEBEF72252DEB1009AD3D6 /* policy_dryrun.m */; };
+		1BE85ECF235CEB620051E1D8 /* cms-tapi.h in Headers */ = {isa = PBXBuildFile; fileRef = 1BE85ECD235CEB610051E1D8 /* cms-tapi.h */; };
+		1BE85ED0235CEB620051E1D8 /* cms-tapi.h in Headers */ = {isa = PBXBuildFile; fileRef = 1BE85ECD235CEB610051E1D8 /* cms-tapi.h */; };
+		1BE85ED2235CEBB40051E1D8 /* secport-tapi.h in Headers */ = {isa = PBXBuildFile; fileRef = 1BE85ED1235CEBB30051E1D8 /* secport-tapi.h */; };
+		1BE85ED3235CEBB40051E1D8 /* secport-tapi.h in Headers */ = {isa = PBXBuildFile; fileRef = 1BE85ED1235CEBB30051E1D8 /* secport-tapi.h */; };
+		1BE85ED5235CEC250051E1D8 /* sslDeprecated.h in Headers */ = {isa = PBXBuildFile; fileRef = 1BE85ED4235CEC250051E1D8 /* sslDeprecated.h */; };
+		1BE85ED6235CEC250051E1D8 /* sslDeprecated.h in Headers */ = {isa = PBXBuildFile; fileRef = 1BE85ED4235CEC250051E1D8 /* sslDeprecated.h */; };
 		1BF640EF222EEB6C002D0FCB /* TPPolicyTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 1BF640EE222EEB6C002D0FCB /* TPPolicyTests.m */; };
 		1F631C5422387F27005920D8 /* legacydevid.h in Headers */ = {isa = PBXBuildFile; fileRef = 1F631C5222387F27005920D8 /* legacydevid.h */; };
 		1F631C5622387FFE005920D8 /* legacydevid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1F631C5122387F27005920D8 /* legacydevid.cpp */; };
@@ -1049,11 +1062,6 @@
 		22E337DA1E37FD66001D5637 /* libsecurity_codesigning_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 225394B41E3080A600D3CD9B /* libsecurity_codesigning_ios.a */; };
 		24CBF8751E9D4E6100F09F0E /* kc-44-secrecoverypassword.c in Sources */ = {isa = PBXBuildFile; fileRef = 24CBF8731E9D4E4500F09F0E /* kc-44-secrecoverypassword.c */; };
 		3D55EA832242F50B008E7459 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D82BD316A5EADA0078DFE5 /* Security.framework */; };
-		3D58394F21891061000ACA44 /* SecExperimentTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 3D7AA28E2187AD0000F1575C /* SecExperimentTests.m */; };
-		3D680BE42241BC0000C04821 /* SecExperiment.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD852B02177FF72009E705D /* SecExperiment.m */; };
-		3D680BE72241C16E00C04821 /* SecExperiment.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD852B02177FF72009E705D /* SecExperiment.m */; };
-		3D909E372195042C00205F8C /* SecExperimentPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 3DA3384421658AA8008C0CE1 /* SecExperimentPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		3D909E382195042C00205F8C /* SecExperimentPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 3DA3384421658AA8008C0CE1 /* SecExperimentPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		3DD1FF92201FC4EA0086D049 /* SecureTransportTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD1FE7E201AA50F0086D049 /* SecureTransportTests.m */; };
 		3DD1FF93201FC4EF0086D049 /* STLegacyTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD1FE8C201AA5150086D049 /* STLegacyTests.m */; };
 		3DD1FF94201FC4F40086D049 /* STLegacyTests+ciphers.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD1FE89201AA5140086D049 /* STLegacyTests+ciphers.m */; };
@@ -1103,8 +1111,6 @@
 		3DD2589F20478CF900F5DA78 /* STLegacyTests+session.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD2589820478CCE00F5DA78 /* STLegacyTests+session.m */; };
 		3DD258A020478CFA00F5DA78 /* STLegacyTests+session.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD2589820478CCE00F5DA78 /* STLegacyTests+session.m */; };
 		3DD258AC2051F10300F5DA78 /* STLegacyTests+sni.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD1FE7F201AA50F0086D049 /* STLegacyTests+sni.m */; };
-		3DD852B12177FF72009E705D /* SecExperiment.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD852B02177FF72009E705D /* SecExperiment.m */; };
-		3DE8F6C121829EFF006041DA /* SecExperiment.m in Sources */ = {isa = PBXBuildFile; fileRef = 3DD852B02177FF72009E705D /* SecExperiment.m */; };
 		433E519E1B66D5F600482618 /* AppSupport.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 433E519D1B66D5F600482618 /* AppSupport.framework */; };
 		4381603A1B4DCE8F00C54D58 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E71F3E3016EA69A900FAF9B4 /* SystemConfiguration.framework */; };
 		4381603B1B4DCEFF00C54D58 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B368BD179891FC004C37CE /* AggregateDictionary.framework */; };
@@ -1165,7 +1171,6 @@
 		4718AE27205B39620068EC3F /* com.apple.securityd.plist in Launchd plists */ = {isa = PBXBuildFile; fileRef = DCEE1E851D93424D00DC0EB7 /* com.apple.securityd.plist */; };
 		4718AE29205B39620068EC3F /* com.apple.securityd.plist in Copy Logging Files */ = {isa = PBXBuildFile; fileRef = DCE4E80D1D7A4E3A00AFB96E /* com.apple.securityd.plist */; };
 		4718AE35205B39C40068EC3F /* CKKSSQLDatabaseObject.m in Sources */ = {isa = PBXBuildFile; fileRef = DC797E131DD3F88300CC9E42 /* CKKSSQLDatabaseObject.m */; };
-		4718AE36205B39C40068EC3F /* CKKSRateLimiter.m in Sources */ = {isa = PBXBuildFile; fileRef = 6CC185981E24E87D009657D8 /* CKKSRateLimiter.m */; };
 		4718AE37205B39C40068EC3F /* CKKSAccountStateTracker.m in Sources */ = {isa = PBXBuildFile; fileRef = DCFB12C41E95A4C000510F5F /* CKKSAccountStateTracker.m */; };
 		4718AE38205B39C40068EC3F /* SecCDKeychain.m in Sources */ = {isa = PBXBuildFile; fileRef = 470D96701FCDE55B0065FE90 /* SecCDKeychain.m */; };
 		4718AE3A205B39C40068EC3F /* CKKSGroupOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DCCD88E71E42622200F5AA71 /* CKKSGroupOperation.m */; };
@@ -1686,12 +1691,21 @@
 		5A061198229ED8F3006AF14A /* NSDate+SFAnalytics.h in Headers */ = {isa = PBXBuildFile; fileRef = 5A061190229ED60C006AF14A /* NSDate+SFAnalytics.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5A061199229ED8F4006AF14A /* NSDate+SFAnalytics.h in Headers */ = {isa = PBXBuildFile; fileRef = 5A061190229ED60C006AF14A /* NSDate+SFAnalytics.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		5A0F84A522AEAF5B0097AEEA /* NSDate+SFAnalyticsTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5A1A1C2122A71D2A00CB8D1D /* NSDate+SFAnalyticsTests.m */; };
-		5A2551F32229F41300512FAE /* SecExperimentInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 5A2551F12229F40800512FAE /* SecExperimentInternal.h */; };
-		5A2551F52229F41500512FAE /* SecExperimentInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 5A2551F12229F40800512FAE /* SecExperimentInternal.h */; };
 		5A43A083225FA39C005450E4 /* SecProtocolHelperTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 5A43A07F225FA38D005450E4 /* SecProtocolHelperTest.m */; };
 		5A43A084225FA3A5005450E4 /* SecProtocolTest.m in Sources */ = {isa = PBXBuildFile; fileRef = AA44E0B3202E3451001EA371 /* SecProtocolTest.m */; };
 		5A43A085225FA3A5005450E4 /* SecProtocolHelperTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 5A43A07F225FA38D005450E4 /* SecProtocolHelperTest.m */; };
 		5A43A08A226112DB005450E4 /* SecProtocolConfigurationTest.m in Sources */ = {isa = PBXBuildFile; fileRef = AADD4A2B215E83140054FC6D /* SecProtocolConfigurationTest.m */; };
+		5A442F8A233C330F00918373 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D82BD316A5EADA0078DFE5 /* Security.framework */; };
+		5A442FA5233C34FE00918373 /* SecExperimentPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 5A442F98233C34C000918373 /* SecExperimentPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		5A442FA6233C34FE00918373 /* SecExperimentInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 5A442F9B233C34C000918373 /* SecExperimentInternal.h */; };
+		5A442FA7233C34FF00918373 /* SecExperimentPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 5A442F98233C34C000918373 /* SecExperimentPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		5A442FA8233C34FF00918373 /* SecExperimentInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 5A442F9B233C34C000918373 /* SecExperimentInternal.h */; };
+		5A442FA9233C351000918373 /* SecExperiment.m in Sources */ = {isa = PBXBuildFile; fileRef = 5A442F9C233C34C000918373 /* SecExperiment.m */; };
+		5A442FAA233C351100918373 /* SecExperiment.m in Sources */ = {isa = PBXBuildFile; fileRef = 5A442F9C233C34C000918373 /* SecExperiment.m */; };
+		5A442FAB233C351300918373 /* SecExperiment.m in Sources */ = {isa = PBXBuildFile; fileRef = 5A442F9C233C34C000918373 /* SecExperiment.m */; };
+		5A442FAC233C351500918373 /* SecExperiment.m in Sources */ = {isa = PBXBuildFile; fileRef = 5A442F9C233C34C000918373 /* SecExperiment.m */; };
+		5A442FAD233C351C00918373 /* SecExperimentTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 5A442F9A233C34C000918373 /* SecExperimentTests.m */; };
+		5A442FAE233C352200918373 /* experimentTool.m in Sources */ = {isa = PBXBuildFile; fileRef = 5A442F9F233C34C000918373 /* experimentTool.m */; };
 		5A47FFB3228F5E5500F781B8 /* KCInitialMessageData.proto in Sources */ = {isa = PBXBuildFile; fileRef = 5A47FFB1228F5DF700F781B8 /* KCInitialMessageData.proto */; };
 		5A47FFB9228F5F2A00F781B8 /* KCInitialMessageData.m in Sources */ = {isa = PBXBuildFile; fileRef = 5A47FFB5228F5E9000F781B8 /* KCInitialMessageData.m */; };
 		5A47FFBA228F60DF00F781B8 /* KCInitialMessageData.h in Headers */ = {isa = PBXBuildFile; fileRef = 5A47FFB4228F5E9000F781B8 /* KCInitialMessageData.h */; };
@@ -2064,7 +2078,6 @@
 		BE61F5AF1EB0060C00556CCF /* TrustedPeers.h in Headers */ = {isa = PBXBuildFile; fileRef = BEF88C641EB0005F00357577 /* TrustedPeers.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BE6215BE1DB6E69100961E15 /* si-84-sectrust-allowlist.m in Sources */ = {isa = PBXBuildFile; fileRef = BE6215BD1DB6E69100961E15 /* si-84-sectrust-allowlist.m */; };
 		BE64A7FA22AF006F001209F3 /* SecurityFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 474B5FBF1E662E21007546F8 /* SecurityFoundation.framework */; };
-		BE64A7FB22AF0084001209F3 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DCE4E8141D7A4E6F00AFB96E /* CFNetwork.framework */; };
 		BE64A7FC22AF008D001209F3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7D848541C6C1D9C0025BB44 /* Foundation.framework */; };
 		BE64A80022AF010B001209F3 /* trusted_cert_ssl.m in Sources */ = {isa = PBXBuildFile; fileRef = BE64A7FE22AF010A001209F3 /* trusted_cert_ssl.m */; };
 		BE70899D1F9AB03E001ACC20 /* TPPBVoucher.h in Headers */ = {isa = PBXBuildFile; fileRef = BE70899A1F9AAFF7001ACC20 /* TPPBVoucher.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -2102,6 +2115,7 @@
 		BEC373B420D8160100DBDF5B /* TPPBAncientEpoch.h in Headers */ = {isa = PBXBuildFile; fileRef = BEC373AF20D815E200DBDF5B /* TPPBAncientEpoch.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BEC373CB20D822DA00DBDF5B /* TPPBDispositionEntry.h in Headers */ = {isa = PBXBuildFile; fileRef = BEC373CA20D822CE00DBDF5B /* TPPBDispositionEntry.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BEC373D020D87B4D00DBDF5B /* SecFramework.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E4F1D8085FC00865A7C /* SecFramework.c */; };
+		BEC6A9162331992900080069 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEC6A9142331992800080069 /* Network.framework */; };
 		BECEC11220A508F600E97255 /* TPVoucher.h in Headers */ = {isa = PBXBuildFile; fileRef = BECEC11020A508F600E97255 /* TPVoucher.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BECEC11320A508F600E97255 /* TPVoucher.m in Sources */ = {isa = PBXBuildFile; fileRef = BECEC11120A508F600E97255 /* TPVoucher.m */; };
 		BECEC11C20A634E000E97255 /* ProtocolBuffer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C0B0C441E2537CC007F95E5 /* ProtocolBuffer.framework */; };
@@ -2221,6 +2235,8 @@
 		D41D36711EB14D87007FA978 /* libDiagnosticMessagesClient.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D41D36701EB14D87007FA978 /* libDiagnosticMessagesClient.tbd */; };
 		D425EC1D1DD3C3CF00DE5DEC /* SecInternalRelease.c in Sources */ = {isa = PBXBuildFile; fileRef = DC0BCC761D8C68CF00070CB0 /* SecInternalRelease.c */; };
 		D425EC231DD3FFF200DE5DEC /* SecInternalRelease.c in Sources */ = {isa = PBXBuildFile; fileRef = DC0BCC761D8C68CF00070CB0 /* SecInternalRelease.c */; };
+		D4267BD123440F8900B54678 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CF730310EF9CDE300E17471 /* CFNetwork.framework */; };
+		D4267BD323440F9900B54678 /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CF730310EF9CDE300E17471 /* CFNetwork.framework */; };
 		D42C837C21158ACC008D3D83 /* cmscinfo.c in Sources */ = {isa = PBXBuildFile; fileRef = D44D1F8521158AAC00E76E1A /* cmscinfo.c */; };
 		D42C837D21158ACC008D3D83 /* cmsdigest.c in Sources */ = {isa = PBXBuildFile; fileRef = D44D1F8821158AAE00E76E1A /* cmsdigest.c */; };
 		D42C837E21158ACC008D3D83 /* cmsencode.c in Sources */ = {isa = PBXBuildFile; fileRef = D44D1F8A21158AAF00E76E1A /* cmsencode.c */; };
@@ -2425,7 +2441,17 @@
 		D479F6E31F981FD600388D28 /* OID.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4C198F1F0ACDB4BF00AAB142 /* OID.strings */; };
 		D479F6E41F981FD600388D28 /* Certificate.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4C198F1D0ACDB4BF00AAB142 /* Certificate.strings */; };
 		D479F6E51F981FD600388D28 /* Trust.strings in Resources */ = {isa = PBXBuildFile; fileRef = D479F6DF1F980F8F00388D28 /* Trust.strings */; };
+		D47AB2CB2356AD72005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		D47AB2CC2356AD7C005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; };
+		D47AB2CD2356AD8B005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; };
+		D47AB2CE2356AD95005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; };
+		D47AB2CF2356B2ED005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; };
+		D47AB2D02356B2F6005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; };
+		D47AB2D12356B2FE005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; };
+		D47AB2D22356B325005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; };
+		D47AB2D62357955F005A3801 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D47AB2CA2356AD72005A3801 /* Network.framework */; };
 		D47CA65D1EB036450038E2BB /* libMobileGestalt.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D47CA65C1EB036450038E2BB /* libMobileGestalt.dylib */; };
+		D47DCCB523427C7D00B80E37 /* md.m in Sources */ = {isa = PBXBuildFile; fileRef = D47DCCB423427C7D00B80E37 /* md.m */; };
 		D47E69401E92F75D002C8CF6 /* si-61-pkcs12.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DD91D8085FC00865A7C /* si-61-pkcs12.c */; };
 		D47F514C1C3B812500A7CEFE /* SecCFAllocator.h in Headers */ = {isa = PBXBuildFile; fileRef = D47F514B1C3B812500A7CEFE /* SecCFAllocator.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		D487B9821DFA28DB000410A1 /* SecInternalReleasePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = DC0BCC771D8C68CF00070CB0 /* SecInternalReleasePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -3938,7 +3964,6 @@
 		DC5B391720C08B38005B09F6 /* SecFramework.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E4F1D8085FC00865A7C /* SecFramework.c */; };
 		DC5B391820C08B39005B09F6 /* SecFramework.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E4F1D8085FC00865A7C /* SecFramework.c */; };
 		DC5B391A20C08B70005B09F6 /* SecBase.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC5860220BF8A98005C7269 /* SecBase.c */; };
-		DC5B391B20C08BDC005B09F6 /* SecFramework.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E4F1D8085FC00865A7C /* SecFramework.c */; };
 		DC5BB4FA1E0C90DE0010F836 /* CKKSIncomingQueueOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC5BB4F11E0C86800010F836 /* CKKSIncomingQueueOperation.m */; };
 		DC5BB4FE1E0C98320010F836 /* CKKSOutgoingQueueOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC5BB4FC1E0C98320010F836 /* CKKSOutgoingQueueOperation.h */; };
 		DC5BB5001E0C98320010F836 /* CKKSOutgoingQueueOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC5BB4FD1E0C98320010F836 /* CKKSOutgoingQueueOperation.m */; };
@@ -5919,6 +5944,12 @@
 		EB0BC93A1C3C791500785842 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
 		EB0BC9671C3C798600785842 /* secedumodetest.m in Sources */ = {isa = PBXBuildFile; fileRef = EB0BC9661C3C794700785842 /* secedumodetest.m */; };
 		EB0DB37D1DCBC99100EAB6AE /* Keychain Circle Notification.8 in Install man8 page */ = {isa = PBXBuildFile; fileRef = EB76B75A1DCB0CDA00C43FBC /* Keychain Circle Notification.8 */; };
+		EB0E1ACB2353A702002B6037 /* CKKSPBFileStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = EB973650234E8F4B00518B2B /* CKKSPBFileStorage.m */; };
+		EB0E1ACD2353A704002B6037 /* CKKSRateLimiter.m in Sources */ = {isa = PBXBuildFile; fileRef = 6CC185981E24E87D009657D8 /* CKKSRateLimiter.m */; };
+		EB0E1ACE2353A704002B6037 /* CKKSPBFileStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = EB973650234E8F4B00518B2B /* CKKSPBFileStorage.m */; };
+		EB0E1ADA2357627F002B6037 /* CKKSPBFileStorageTests.m in Sources */ = {isa = PBXBuildFile; fileRef = EB0E1AD723576273002B6037 /* CKKSPBFileStorageTests.m */; };
+		EB0E1B912358FAC6002B6037 /* SOSAccountConfiguration.proto in Sources */ = {isa = PBXBuildFile; fileRef = EB0E1AC72352A81E002B6037 /* SOSAccountConfiguration.proto */; };
+		EB0E1B942358FAF3002B6037 /* SOSAccountConfiguration.m in Sources */ = {isa = PBXBuildFile; fileRef = EB0E1B932358FADE002B6037 /* SOSAccountConfiguration.m */; };
 		EB0F4A2C22F7D3DC009E855B /* OCMock.framework in Embedd OCMock */ = {isa = PBXBuildFile; fileRef = 47D1838B1FB3827700CFCD89 /* OCMock.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		EB1055791E14DF570003C309 /* SecCertificateFuzzer.c in Sources */ = {isa = PBXBuildFile; fileRef = EB10556B1E14DC0F0003C309 /* SecCertificateFuzzer.c */; };
 		EB1055831E14E1F90003C309 /* Digisign-Server-ID-Enrich-GTETrust-Cert.crt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7947431C146214E500D638A3 /* Digisign-Server-ID-Enrich-GTETrust-Cert.crt */; };
@@ -6011,6 +6042,10 @@
 		EB59D6731E95F01600997EAC /* libcompression.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = EB59D66B1E95EF2900997EAC /* libcompression.dylib */; };
 		EB5E3BCC2003C67A00F1631B /* SecSignpost.h in Headers */ = {isa = PBXBuildFile; fileRef = EB5E3BC62003C66300F1631B /* SecSignpost.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EB5E3BCD2003C67B00F1631B /* SecSignpost.h in Headers */ = {isa = PBXBuildFile; fileRef = EB5E3BC62003C66300F1631B /* SecSignpost.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB627A73233E339200F32437 /* MockAKSOptionalParameters.proto in Sources */ = {isa = PBXBuildFile; fileRef = EB627A6F233E323600F32437 /* MockAKSOptionalParameters.proto */; };
+		EB627A79233E375A00F32437 /* MockAKSOptionalParameters.proto in Sources */ = {isa = PBXBuildFile; fileRef = EB627A6F233E323600F32437 /* MockAKSOptionalParameters.proto */; };
+		EB627A7E233E3C1300F32437 /* MockAKSOptionalParameters.m in Sources */ = {isa = PBXBuildFile; fileRef = EB627A77233E342B00F32437 /* MockAKSOptionalParameters.m */; };
+		EB627A7F233E3C1600F32437 /* MockAKSRefKey.m in Sources */ = {isa = PBXBuildFile; fileRef = EB627A75233E342800F32437 /* MockAKSRefKey.m */; };
 		EB6667C7204CD69F000B404F /* testPlistDER.m in Sources */ = {isa = PBXBuildFile; fileRef = EB6667BE204CD65E000B404F /* testPlistDER.m */; };
 		EB6928C51D9C9C6E00062A18 /* SecRecoveryKey.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6928BE1D9C9C5900062A18 /* SecRecoveryKey.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EB6928C61D9C9C6F00062A18 /* SecRecoveryKey.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6928BE1D9C9C5900062A18 /* SecRecoveryKey.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -6096,6 +6131,7 @@
 		EB7E91212194849900B1FA21 /* SECC2MPMetric.m in Sources */ = {isa = PBXBuildFile; fileRef = EB7E91052193F97400B1FA21 /* SECC2MPMetric.m */; };
 		EB7E91222194849900B1FA21 /* SECC2MPNetworkEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = EB7E91072193F97500B1FA21 /* SECC2MPNetworkEvent.m */; };
 		EB7E91232194849900B1FA21 /* SECC2MPServerInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = EB7E910B2193F97700B1FA21 /* SECC2MPServerInfo.m */; };
+		EB7ECF9623467FB400CE2D3C /* Cuttlefish.pb.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE9F4F8B2072D881004A52C2 /* Cuttlefish.pb.swift */; };
 		EB80DE162195EDA4005B10FA /* SecC2DeviceInfo.m in Sources */ = {isa = PBXBuildFile; fileRef = EB7E91102193FB7E00B1FA21 /* SecC2DeviceInfo.m */; };
 		EB80DE38219600A8005B10FA /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D4119E72202BDF2B0048587B /* libz.tbd */; };
 		EB80DE54219600B4005B10FA /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D4119E72202BDF2B0048587B /* libz.tbd */; };
@@ -6143,16 +6179,17 @@
 		EB8908B921F1953100F0DDDB /* CheckV12DevEnabled.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C4AEF83218A09210012C5DA /* CheckV12DevEnabled.m */; };
 		EB8908BA21F1957300F0DDDB /* SecAKSObjCWrappers.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C4AEF9D218A16F80012C5DA /* SecAKSObjCWrappers.m */; };
 		EB8908BE21F2181600F0DDDB /* SFKeychainControlManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 473337781FDAFBCC00E19F30 /* SFKeychainControlManager.m */; };
+		EB8A9381233C900D0015A794 /* CloudServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C8A38C817B93DF10001B4C0 /* CloudServices.framework */; };
+		EB973651234E8F4B00518B2B /* CKKSPBFileStorage.h in Headers */ = {isa = PBXBuildFile; fileRef = EB97364F234E8F4A00518B2B /* CKKSPBFileStorage.h */; };
+		EB973652234E8F4B00518B2B /* CKKSPBFileStorage.m in Sources */ = {isa = PBXBuildFile; fileRef = EB973650234E8F4B00518B2B /* CKKSPBFileStorage.m */; };
 		EB9795B522FE9256002BDBFB /* SecItemTests.m in Sources */ = {isa = PBXBuildFile; fileRef = EB6D1D5322FE8D3000205E83 /* SecItemTests.m */; };
 		EB9B283321C7755700173DC2 /* OTDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C8BBE971FC9DA5A00580909 /* OTDefines.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EB9B283421C7755800173DC2 /* OTDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 0C8BBE971FC9DA5A00580909 /* OTDefines.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EB9B285721C77C8D00173DC2 /* OTDefines.m in Sources */ = {isa = PBXBuildFile; fileRef = EBCE06E521C6E26000FB1493 /* OTDefines.m */; };
 		EB9B285821C77C8D00173DC2 /* OTDefines.m in Sources */ = {isa = PBXBuildFile; fileRef = EBCE06E521C6E26000FB1493 /* OTDefines.m */; };
-		EB9B285921C77E7400173DC2 /* OTDefines.m in Sources */ = {isa = PBXBuildFile; fileRef = EBCE06E521C6E26000FB1493 /* OTDefines.m */; };
 		EB9C02481E8A15B40040D3C6 /* secd-37-pairing-initial-sync.m in Sources */ = {isa = PBXBuildFile; fileRef = EB9C02421E8A112A0040D3C6 /* secd-37-pairing-initial-sync.m */; };
 		EB9C1D7B1BDFD0E000F89272 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
 		EB9C1D7E1BDFD0E100F89272 /* secbackupntest.m in Sources */ = {isa = PBXBuildFile; fileRef = EB9C1D7D1BDFD0E100F89272 /* secbackupntest.m */; };
-		EB9C1DB51BDFD50100F89272 /* Security.plist in Install BATS plist */ = {isa = PBXBuildFile; fileRef = EB9C1DAD1BDFD49400F89272 /* Security.plist */; };
 		EBA689031E74732700FF90A7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
 		EBA9AA811CE30E58004E2B68 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D82BD316A5EADA0078DFE5 /* Security.framework */; };
 		EBA9AA821CE30E58004E2B68 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
@@ -6173,7 +6210,6 @@
 		EBC1024422EBF93E0083D356 /* CKKSTests+LockStateTracker.m in Sources */ = {isa = PBXBuildFile; fileRef = EBC1023022EBF8AC0083D356 /* CKKSTests+LockStateTracker.m */; };
 		EBC15B1D1DB432F800126882 /* com.apple.secd.sb in Copy Sandbox profile */ = {isa = PBXBuildFile; fileRef = EBC15B1B1DB4306C00126882 /* com.apple.secd.sb */; };
 		EBC73F2020993F8600AE3350 /* SFAnalyticsSQLiteStore.m in Sources */ = {isa = PBXBuildFile; fileRef = 6C69518D1F75A7DB00F68F91 /* SFAnalyticsSQLiteStore.m */; };
-		EBC73F2620993FA800AE3350 /* client_endpoint.m in Sources */ = {isa = PBXBuildFile; fileRef = DC844AEC1E81F315007AAB71 /* client_endpoint.m */; };
 		EBC73F2720993FC900AE3350 /* SFAnalyticsMultiSampler.m in Sources */ = {isa = PBXBuildFile; fileRef = 6CDB5FED1FA78CB400410924 /* SFAnalyticsMultiSampler.m */; };
 		EBC73F2820993FDA00AE3350 /* SFAnalyticsSampler.m in Sources */ = {isa = PBXBuildFile; fileRef = 6CDF8DE61F95562B00140B54 /* SFAnalyticsSampler.m */; };
 		EBC73F29209966AF00AE3350 /* SFSQLite.m in Sources */ = {isa = PBXBuildFile; fileRef = 4723C9BC1F152EB10082882F /* SFSQLite.m */; };
@@ -6187,6 +6223,8 @@
 		EBD531772198AF19003A57E6 /* Accounts.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CF4C19C171E0EA600877419 /* Accounts.framework */; };
 		EBDAA7E920EC4838003EA6E5 /* SecurityLocalKeychain.plist in Install BATS plist */ = {isa = PBXBuildFile; fileRef = EBDAA7E320EC46CF003EA6E5 /* SecurityLocalKeychain.plist */; };
 		EBDAF15D21C75FF200EAE89F /* NSXPCConnectionMock.h in Headers */ = {isa = PBXBuildFile; fileRef = EBDAF15B21C75FF200EAE89F /* NSXPCConnectionMock.h */; };
+		EBDCC001233DD3E000806566 /* MockAKSRefKey.proto in Sources */ = {isa = PBXBuildFile; fileRef = EBDCBFFE233DD31700806566 /* MockAKSRefKey.proto */; };
+		EBDCC002233DD45700806566 /* MockAKSRefKey.proto in Sources */ = {isa = PBXBuildFile; fileRef = EBDCBFFE233DD31700806566 /* MockAKSRefKey.proto */; };
 		EBDE5E0E22BA3DE900A229C8 /* CKKSMockOctagonAdapter.m in Sources */ = {isa = PBXBuildFile; fileRef = EBDE5DFA22BA3D5D00A229C8 /* CKKSMockOctagonAdapter.m */; };
 		EBDE5E0F22BA3DEA00A229C8 /* CKKSMockOctagonAdapter.m in Sources */ = {isa = PBXBuildFile; fileRef = EBDE5DFA22BA3D5D00A229C8 /* CKKSMockOctagonAdapter.m */; };
 		EBE2026B20908C7100B48020 /* tpctl.8 in install man8 page */ = {isa = PBXBuildFile; fileRef = EBE2026420908A8A00B48020 /* tpctl.8 */; };
@@ -6318,13 +6356,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = DC0BCC211D8C684F00070CB0;
 			remoteInfo = utilities;
-		};
-		0C604F0121B8E5090036C175 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DCF216D621ADD5B10029CCC1;
-			remoteInfo = protobuf_source_generation;
 		};
 		0C78CCE41FCC97E7008B4B24 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -9266,13 +9297,6 @@
 			remoteGlobalIDString = DC52E8BE1D80C25800B0A59C;
 			remoteInfo = SecureObjectSync;
 		};
-		DC74799F22272361001E0E8C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DCF216D621ADD5B10029CCC1;
-			remoteInfo = protobuf_source_generation;
-		};
 		DC7FC45121EE9208003C39B8 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
@@ -9819,27 +9843,6 @@
 			remoteGlobalIDString = DCDA5E4F2124B9C5009B11B2;
 			remoteInfo = aks_support;
 		};
-		DCE0775B21ADD6A0002662FD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DCF216D621ADD5B10029CCC1;
-			remoteInfo = protobuf_source_generation;
-		};
-		DCE0777D21ADEADA002662FD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DCF216D621ADD5B10029CCC1;
-			remoteInfo = protobuf_source_generation;
-		};
-		DCE0778321ADEDDA002662FD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DCF216D621ADD5B10029CCC1;
-			remoteInfo = protobuf_source_generation;
-		};
 		DCE4E8D71D7F37F200AFB96E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
@@ -9902,83 +9905,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = DCF788AB1D88CD2400E694BB;
 			remoteInfo = security_apple_x509_tp;
-		};
-		E058E54A21626583002CA574 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = "TriesteKit::CloudDeviceTest::Product";
-			remoteInfo = CloudDeviceTest;
-		};
-		E058E54C21626583002CA574 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = "TriesteKit::CoreDeviceAutomation::Product";
-			remoteInfo = CoreDeviceAutomation;
-		};
-		E058E54E21626583002CA574 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = "TriesteKit::CoreDeviceAutomationFrameworkFacade::Product";
-			remoteInfo = CoreDeviceAutomationFrameworkFacade;
-		};
-		E058E55021626583002CA574 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = "OctagonTestHarnessXPCServiceProtocol::OctagonTestHarnessXPCServiceProtocol::Product";
-			remoteInfo = OctagonTestHarnessXPCServiceProtocol;
-		};
-		E058E55221626583002CA574 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = "OctagonTrieste::OctagonTrieste::Product";
-			remoteInfo = OctagonTrieste;
-		};
-		E058E55421626583002CA574 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = "OctagonTrieste::OctagonTriesteTests::Product";
-			remoteInfo = OctagonTriesteTests;
-		};
-		E058E55621626583002CA574 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = "SwiftHTTP::OpenSSLThreadLock::Product";
-			remoteInfo = OpenSSLThreadLock;
-		};
-		E058E55A21626583002CA574 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = "SSEClient::SSEClient::Product";
-			remoteInfo = SSEClient;
-		};
-		E058E55C21626583002CA574 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = "SwiftHTTP::SwiftHTTP::Product";
-			remoteInfo = SwiftHTTP;
-		};
-		E058E55E21626583002CA574 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = "SwiftLog::SwiftLog::Product";
-			remoteInfo = SwiftLog;
-		};
-		E058E56021626583002CA574 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-			proxyType = 2;
-			remoteGlobalIDString = "TriesteKit::os_activity::Product";
-			remoteInfo = os_activity;
 		};
 		E060D1AA212478100025B833 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -10330,13 +10256,6 @@
 			remoteGlobalIDString = EBB851EB22F7912400424FD0;
 			remoteInfo = SecurityUtilitiesTests;
 		};
-		EBBC11B22200D3BB00F95738 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = DCF216D621ADD5B10029CCC1;
-			remoteInfo = protobuf_source_generation;
-		};
 		EBCF743E1CE593A700BED7CA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
@@ -10453,6 +10372,17 @@
 				EB1C319D2215ED3500A188BB /* otctl.1 in Install man1 pages */,
 			);
 			name = "Install man1 pages";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		0C97867A235A766B0040A867 /* Copy System logging profile */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/Preferences/Logging/Subsystems;
+			dstSubfolderSpec = 0;
+			files = (
+				0C97867D235A77230040A867 /* com.apple.security.signposts.plist in Copy System logging profile */,
+			);
+			name = "Copy System logging profile";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		0C9AEEB320783FBB00BF6237 /* Embed OCMock */ = {
@@ -11579,7 +11509,6 @@
 			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
 			dstSubfolderSpec = 0;
 			files = (
-				EB9C1DB51BDFD50100F89272 /* Security.plist in Install BATS plist */,
 				EB3A8DFF1BEEC66F001A89AA /* Security_edumode.plist in Install BATS plist */,
 				EB3D1FBA2092CB030049EF95 /* SecurityInduceLowDisk.plist in Install BATS plist */,
 				EBDAA7E920EC4838003EA6E5 /* SecurityLocalKeychain.plist in Install BATS plist */,
@@ -11740,6 +11669,7 @@
 		0C8BBF101FCB486B00580909 /* OTManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTManager.h; sourceTree = "<group>"; };
 		0C8FD546214AEC650098E3FB /* OTJoiningConfiguration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTJoiningConfiguration.h; sourceTree = "<group>"; };
 		0C8FD549214AECD70098E3FB /* OTJoiningConfiguration.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OTJoiningConfiguration.m; sourceTree = "<group>"; };
+		0C97867C235A76E70040A867 /* com.apple.security.signposts.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.security.signposts.plist; sourceTree = "<group>"; };
 		0C9AE289214054F4003BFDB5 /* OTSponsorToApplicantRound1M2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTSponsorToApplicantRound1M2.h; sourceTree = "<group>"; };
 		0C9AE28A214054F5003BFDB5 /* OTSponsorToApplicantRound2M2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTSponsorToApplicantRound2M2.h; sourceTree = "<group>"; };
 		0C9AE28B214054F5003BFDB5 /* OTApplicantToSponsorRound2M1.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTApplicantToSponsorRound2M1.h; sourceTree = "<group>"; };
@@ -11789,6 +11719,8 @@
 		0CD8CB041ECA50780076F37F /* SOSPeerOTRTimer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SOSPeerOTRTimer.m; sourceTree = "<group>"; };
 		0CD8CB0C1ECA50D10076F37F /* SOSPeerOTRTimer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSPeerOTRTimer.h; sourceTree = "<group>"; };
 		0CD8D654207D6E65005CDBE8 /* SFAnalytics+Signin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "SFAnalytics+Signin.h"; sourceTree = "<group>"; };
+		0CD9E33E235928D1002995DE /* OctagonSignPosts.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OctagonSignPosts.h; sourceTree = "<group>"; };
+		0CD9E340235928E9002995DE /* OctagonSignPosts.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OctagonSignPosts.m; sourceTree = "<group>"; };
 		0CDBCD8620AD03FB007F8EA7 /* OTClique.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTClique.h; sourceTree = "<group>"; };
 		0CDD6F76226E62AD009094C2 /* OTTriggerEscrowUpdateOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OTTriggerEscrowUpdateOperation.m; sourceTree = "<group>"; };
 		0CDD6F78226E62BC009094C2 /* OTTriggerEscrowUpdateOperation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTTriggerEscrowUpdateOperation.h; sourceTree = "<group>"; };
@@ -11822,6 +11754,9 @@
 		107226D10D91DB32003CF14F /* SecTask.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecTask.h; path = sectask/SecTask.h; sourceTree = "<group>"; };
 		107227350D91FE89003CF14F /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = usr/lib/libbsm.dylib; sourceTree = SDKROOT; };
 		18351B8F14CB65870097860E /* SecBase64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecBase64.h; sourceTree = "<group>"; };
+		1B2BD391235E050D009A8624 /* SecEC-tapi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "SecEC-tapi.h"; path = "OSX/sec/Security/SecEC-tapi.h"; sourceTree = "<group>"; };
+		1B2BD393235E050E009A8624 /* SecPolicy-tapi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "SecPolicy-tapi.h"; path = "OSX/sec/Security/SecPolicy-tapi.h"; sourceTree = "<group>"; };
+		1B2BD394235E050E009A8624 /* Security-tapi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "Security-tapi.h"; path = "OSX/sec/Security/Security-tapi.h"; sourceTree = "<group>"; };
 		1B4C4448223AE65400C6F97F /* TPPBPolicyKeyViewMapping.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TPPBPolicyKeyViewMapping.h; sourceTree = "<group>"; };
 		1B4C444A223AE65400C6F97F /* TPPBPolicyKeyViewMapping.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TPPBPolicyKeyViewMapping.m; sourceTree = "<group>"; };
 		1B5EAAD92252ABCC008D27E7 /* OTFetchViewsOperation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OTFetchViewsOperation.h; sourceTree = "<group>"; };
@@ -11835,6 +11770,9 @@
 		1BC6F79821C9955E005ED67A /* util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = util.h; sourceTree = "<group>"; };
 		1BDEBEF72252DEB1009AD3D6 /* policy_dryrun.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = policy_dryrun.m; sourceTree = "<group>"; };
 		1BDEBEFA2252E1DD009AD3D6 /* policy_dryrun.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = policy_dryrun.h; sourceTree = "<group>"; };
+		1BE85ECD235CEB610051E1D8 /* cms-tapi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "cms-tapi.h"; path = "OSX/libsecurity_smime/lib/cms-tapi.h"; sourceTree = "<group>"; };
+		1BE85ED1235CEBB30051E1D8 /* secport-tapi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "secport-tapi.h"; sourceTree = "<group>"; };
+		1BE85ED4235CEC250051E1D8 /* sslDeprecated.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sslDeprecated.h; path = OSX/libsecurity_ssl/lib/sslDeprecated.h; sourceTree = "<group>"; };
 		1BF640EE222EEB6C002D0FCB /* TPPolicyTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TPPolicyTests.m; sourceTree = "<group>"; };
 		1F631C5122387F27005920D8 /* legacydevid.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = legacydevid.cpp; sourceTree = "<group>"; usesTabs = 0; };
 		1F631C5222387F27005920D8 /* legacydevid.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = legacydevid.h; sourceTree = "<group>"; };
@@ -11842,12 +11780,7 @@
 		225394B41E3080A600D3CD9B /* libsecurity_codesigning_ios.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_codesigning_ios.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		2281820D17B4686C0067C9C9 /* BackgroundTaskAgent.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = BackgroundTaskAgent.framework; path = System/Library/PrivateFrameworks/BackgroundTaskAgent.framework; sourceTree = SDKROOT; };
 		24CBF8731E9D4E4500F09F0E /* kc-44-secrecoverypassword.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kc-44-secrecoverypassword.c"; path = "regressions/kc-44-secrecoverypassword.c"; sourceTree = "<group>"; };
-		3D1A57412166931B009C24FD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		3D421458216C0A2400D62870 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		3D58394D21890FFB000ACA44 /* SecExperimentTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SecExperimentTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		3D6C25BA216C00D800AB2A71 /* TLSConfig.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = TLSConfig.plist; sourceTree = "<group>"; };
-		3D7AA28E2187AD0000F1575C /* SecExperimentTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SecExperimentTests.m; sourceTree = "<group>"; };
-		3DA3384421658AA8008C0CE1 /* SecExperimentPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecExperimentPriv.h; sourceTree = "<group>"; };
 		3DD1FE78201AA50C0086D049 /* STLegacyTests+clientauth41.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "STLegacyTests+clientauth41.m"; sourceTree = "<group>"; };
 		3DD1FE79201AA50D0086D049 /* SecureTransport_macosTests.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = SecureTransport_macosTests.plist; sourceTree = "<group>"; };
 		3DD1FE7A201AA50D0086D049 /* STLegacyTests-Entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "STLegacyTests-Entitlements.plist"; sourceTree = "<group>"; };
@@ -11874,7 +11807,6 @@
 		3DD1FFA9201FC5C30086D049 /* libcoretls_cfhelpers.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libcoretls_cfhelpers.tbd; path = usr/lib/libcoretls_cfhelpers.tbd; sourceTree = SDKROOT; };
 		3DD1FFD0201FDB1D0086D049 /* SecureTransport_ios_tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SecureTransport_ios_tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3DD2589820478CCE00F5DA78 /* STLegacyTests+session.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "STLegacyTests+session.m"; sourceTree = "<group>"; };
-		3DD852B02177FF72009E705D /* SecExperiment.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SecExperiment.m; sourceTree = "<group>"; };
 		433E519D1B66D5F600482618 /* AppSupport.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppSupport.framework; path = System/Library/PrivateFrameworks/AppSupport.framework; sourceTree = SDKROOT; };
 		4381690C1B4EDCBD00C54D58 /* SOSCCAuthPlugin.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SOSCCAuthPlugin.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		4381690F1B4EDCBD00C54D58 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -12174,8 +12106,14 @@
 		5A06118D229ED5EB006AF14A /* NSDate+SFAnalytics.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSDate+SFAnalytics.m"; sourceTree = "<group>"; };
 		5A061190229ED60C006AF14A /* NSDate+SFAnalytics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSDate+SFAnalytics.h"; sourceTree = "<group>"; };
 		5A1A1C2122A71D2A00CB8D1D /* NSDate+SFAnalyticsTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSDate+SFAnalyticsTests.m"; sourceTree = "<group>"; };
-		5A2551F12229F40800512FAE /* SecExperimentInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecExperimentInternal.h; sourceTree = "<group>"; };
 		5A43A07F225FA38D005450E4 /* SecProtocolHelperTest.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = SecProtocolHelperTest.m; path = protocol/SecProtocolHelperTest.m; sourceTree = "<group>"; };
+		5A442F90233C330F00918373 /* experimentTool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = experimentTool; sourceTree = BUILT_PRODUCTS_DIR; };
+		5A442F98233C34C000918373 /* SecExperimentPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecExperimentPriv.h; sourceTree = "<group>"; };
+		5A442F9A233C34C000918373 /* SecExperimentTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SecExperimentTests.m; sourceTree = "<group>"; };
+		5A442F9B233C34C000918373 /* SecExperimentInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecExperimentInternal.h; sourceTree = "<group>"; };
+		5A442F9C233C34C000918373 /* SecExperiment.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SecExperiment.m; sourceTree = "<group>"; };
+		5A442F9E233C34C000918373 /* experimentTool-Entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "experimentTool-Entitlements.plist"; sourceTree = "<group>"; };
+		5A442F9F233C34C000918373 /* experimentTool.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = experimentTool.m; sourceTree = "<group>"; };
 		5A47FFB1228F5DF700F781B8 /* KCInitialMessageData.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; path = KCInitialMessageData.proto; sourceTree = "<group>"; };
 		5A47FFB4228F5E9000F781B8 /* KCInitialMessageData.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KCInitialMessageData.h; path = generated_source/KCInitialMessageData.h; sourceTree = "<group>"; };
 		5A47FFB5228F5E9000F781B8 /* KCInitialMessageData.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KCInitialMessageData.m; path = generated_source/KCInitialMessageData.m; sourceTree = "<group>"; };
@@ -12454,6 +12392,7 @@
 		BEC373C120D8224A00DBDF5B /* TPPBDispositionEntry.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; path = TPPBDispositionEntry.proto; sourceTree = "<group>"; };
 		BEC373C920D822CD00DBDF5B /* TPPBDispositionEntry.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TPPBDispositionEntry.m; sourceTree = "<group>"; };
 		BEC373CA20D822CE00DBDF5B /* TPPBDispositionEntry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TPPBDispositionEntry.h; sourceTree = "<group>"; };
+		BEC6A9142331992800080069 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		BECEC0FD20A3B94C00E97255 /* TrustedPeersHelperUnitTests-BridgingHeader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "TrustedPeersHelperUnitTests-BridgingHeader.h"; sourceTree = "<group>"; };
 		BECEC11020A508F600E97255 /* TPVoucher.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TPVoucher.h; sourceTree = "<group>"; };
 		BECEC11120A508F600E97255 /* TPVoucher.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TPVoucher.m; sourceTree = "<group>"; };
@@ -12702,10 +12641,13 @@
 		D4707A2B2114B31A005BCFDA /* SecCmsContentInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecCmsContentInfo.h; path = CMS/SecCmsContentInfo.h; sourceTree = "<group>"; };
 		D4707A2E2114C30A005BCFDA /* SecCmsDigestContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecCmsDigestContext.h; path = CMS/SecCmsDigestContext.h; sourceTree = "<group>"; };
 		D479F6E01F980F8F00388D28 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = en.lproj/Trust.strings; sourceTree = "<group>"; };
+		D47AB2CA2356AD72005A3801 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		D47C56AB1DCA831C00E18518 /* lib_ios_x64.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = lib_ios_x64.xcconfig; path = xcconfig/lib_ios_x64.xcconfig; sourceTree = "<group>"; };
 		D47C56AF1DCA841D00E18518 /* lib_ios_x64_shim.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = lib_ios_x64_shim.xcconfig; path = xcconfig/lib_ios_x64_shim.xcconfig; sourceTree = "<group>"; };
 		D47C56FB1DCA8F4900E18518 /* all_arches.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = all_arches.xcconfig; path = xcconfig/all_arches.xcconfig; sourceTree = "<group>"; };
 		D47CA65C1EB036450038E2BB /* libMobileGestalt.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libMobileGestalt.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS11.0.Internal.sdk/usr/lib/libMobileGestalt.dylib; sourceTree = DEVELOPER_DIR; };
+		D47DCCB423427C7D00B80E37 /* md.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = md.m; sourceTree = "<group>"; };
+		D47DCCB723427C8D00B80E37 /* md.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = md.h; sourceTree = "<group>"; };
 		D47F514B1C3B812500A7CEFE /* SecCFAllocator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCFAllocator.h; sourceTree = "<group>"; };
 		D48BD193206C47530075DDC9 /* si-35-cms-expiration-time.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "si-35-cms-expiration-time.m"; sourceTree = "<group>"; };
 		D48BD195206C476B0075DDC9 /* si-35-cms-expiration-time.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "si-35-cms-expiration-time.h"; sourceTree = "<group>"; };
@@ -15624,7 +15566,6 @@
 		DCFF82702162834C00D54B02 /* OctagonTestsXPCConnections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OctagonTestsXPCConnections.swift; sourceTree = "<group>"; };
 		DCFF82722162876400D54B02 /* OTResetOperation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTResetOperation.h; sourceTree = "<group>"; };
 		DCFF82732162876400D54B02 /* OTResetOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OTResetOperation.m; sourceTree = "<group>"; };
-		E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = OctagonTrieste.xcodeproj; path = OctagonTriesteTests/OctagonTrieste.xcodeproj; sourceTree = "<group>"; };
 		E060D19C2124780E0025B833 /* OctagonTestHarness.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = OctagonTestHarness.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E060D19E2124780F0025B833 /* OctagonTestHarness.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OctagonTestHarness.h; sourceTree = "<group>"; };
 		E060D19F2124780F0025B833 /* OctagonTestHarnessXPCService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OctagonTestHarnessXPCService.h; sourceTree = "<group>"; };
@@ -15726,6 +15667,10 @@
 		EB0BC93E1C3C791500785842 /* secedumodetest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = secedumodetest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB0BC9651C3C794700785842 /* secedumodetest.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = secedumodetest.entitlements; path = secedumodetest/secedumodetest.entitlements; sourceTree = "<group>"; };
 		EB0BC9661C3C794700785842 /* secedumodetest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = secedumodetest.m; path = secedumodetest/secedumodetest.m; sourceTree = "<group>"; };
+		EB0E1AC72352A81E002B6037 /* SOSAccountConfiguration.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; path = SOSAccountConfiguration.proto; sourceTree = "<group>"; };
+		EB0E1AD723576273002B6037 /* CKKSPBFileStorageTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSPBFileStorageTests.m; sourceTree = "<group>"; };
+		EB0E1B922358FADE002B6037 /* SOSAccountConfiguration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSAccountConfiguration.h; sourceTree = "<group>"; };
+		EB0E1B932358FADE002B6037 /* SOSAccountConfiguration.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SOSAccountConfiguration.m; sourceTree = "<group>"; };
 		EB10556B1E14DC0F0003C309 /* SecCertificateFuzzer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecCertificateFuzzer.c; sourceTree = "<group>"; };
 		EB1055751E14DF430003C309 /* libSecCertificateFuzzer.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libSecCertificateFuzzer.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB10557A1E14DF640003C309 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/Security.framework; sourceTree = DEVELOPER_DIR; };
@@ -15774,6 +15719,11 @@
 		EB4E0CD51FF36A1900CDCACC /* CKKSReachabilityTracker.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSReachabilityTracker.m; sourceTree = "<group>"; };
 		EB59D66B1E95EF2900997EAC /* libcompression.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcompression.dylib; path = usr/lib/libcompression.dylib; sourceTree = SDKROOT; };
 		EB5E3BC62003C66300F1631B /* SecSignpost.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = SecSignpost.h; path = base/SecSignpost.h; sourceTree = "<group>"; };
+		EB627A6F233E323600F32437 /* MockAKSOptionalParameters.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; path = MockAKSOptionalParameters.proto; sourceTree = "<group>"; };
+		EB627A75233E342800F32437 /* MockAKSRefKey.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MockAKSRefKey.m; sourceTree = "<group>"; };
+		EB627A76233E342900F32437 /* MockAKSRefKey.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MockAKSRefKey.h; sourceTree = "<group>"; };
+		EB627A77233E342B00F32437 /* MockAKSOptionalParameters.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MockAKSOptionalParameters.m; sourceTree = "<group>"; };
+		EB627A78233E342B00F32437 /* MockAKSOptionalParameters.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MockAKSOptionalParameters.h; sourceTree = "<group>"; };
 		EB6667BE204CD65E000B404F /* testPlistDER.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = testPlistDER.m; sourceTree = "<group>"; };
 		EB6928BE1D9C9C5900062A18 /* SecRecoveryKey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecRecoveryKey.h; sourceTree = "<group>"; };
 		EB6928BF1D9C9C5900062A18 /* SecRecoveryKey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SecRecoveryKey.m; sourceTree = "<group>"; };
@@ -15838,6 +15788,8 @@
 		EB89088621F17D3C00F0DDDB /* recovery_securityd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = recovery_securityd; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB8908BB21F20E0200F0DDDB /* com.apple.recovery_securityd.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.recovery_securityd.plist; sourceTree = "<group>"; };
 		EB89111020E3C15D00DE533F /* UserManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserManagement.framework; path = System/Library/PrivateFrameworks/UserManagement.framework; sourceTree = SDKROOT; };
+		EB97364F234E8F4A00518B2B /* CKKSPBFileStorage.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = CKKSPBFileStorage.h; path = keychain/ckks/CKKSPBFileStorage.h; sourceTree = SOURCE_ROOT; };
+		EB973650234E8F4B00518B2B /* CKKSPBFileStorage.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = CKKSPBFileStorage.m; path = keychain/ckks/CKKSPBFileStorage.m; sourceTree = SOURCE_ROOT; };
 		EB9795B422FE90E6002BDBFB /* SecurityUnitTests.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SecurityUnitTests.entitlements; sourceTree = "<group>"; };
 		EB9C02421E8A112A0040D3C6 /* secd-37-pairing-initial-sync.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "secd-37-pairing-initial-sync.m"; sourceTree = "<group>"; };
 		EB9C1D7A1BDFD0E000F89272 /* secbackupntest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = secbackupntest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -15869,6 +15821,7 @@
 		EBDAA7E320EC46CF003EA6E5 /* SecurityLocalKeychain.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = SecurityLocalKeychain.plist; sourceTree = "<group>"; };
 		EBDAF15B21C75FF200EAE89F /* NSXPCConnectionMock.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NSXPCConnectionMock.h; sourceTree = "<group>"; };
 		EBDAF15C21C75FF200EAE89F /* NSXPCConnectionMock.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = NSXPCConnectionMock.m; sourceTree = "<group>"; };
+		EBDCBFFE233DD31700806566 /* MockAKSRefKey.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; path = MockAKSRefKey.proto; sourceTree = "<group>"; };
 		EBDE5DF922BA3D5D00A229C8 /* CKKSMockOctagonAdapter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSMockOctagonAdapter.h; sourceTree = "<group>"; };
 		EBDE5DFA22BA3D5D00A229C8 /* CKKSMockOctagonAdapter.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSMockOctagonAdapter.m; sourceTree = "<group>"; };
 		EBE2026420908A8A00B48020 /* tpctl.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = tpctl.8; sourceTree = "<group>"; };
@@ -15905,6 +15858,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D47AB2D22356B325005A3801 /* Network.framework in Frameworks */,
 				DCF46572220114E400BA6EEA /* CloudServices.framework in Frameworks */,
 				EB80DE55219600BF005B10FA /* libz.tbd in Frameworks */,
 				DC9C066E2149E35F00C6F7B8 /* AuthKit.framework in Frameworks */,
@@ -16280,6 +16234,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D47AB2D12356B2FE005A3801 /* Network.framework in Frameworks */,
 				DC4A76AD22126A17006F2D8F /* CloudServices.framework in Frameworks */,
 				0C6C0FD621F14D3900CD5B9E /* CoreCDP.framework in Frameworks */,
 				EB80DE5B219600FC005B10FA /* libz.tbd in Frameworks */,
@@ -16386,6 +16341,14 @@
 				5328C0521738903F00708984 /* Security.framework in Frameworks */,
 				5346481F17332F9C00FE9172 /* Accounts.framework in Frameworks */,
 				5346480217331E1200FE9172 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5A442F89233C330F00918373 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5A442F8A233C330F00918373 /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -16732,7 +16695,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1B916CCE223FFED7006657FD /* libprotobuf_source_generation.a in Frameworks */,
 				DC730E2922401F5E0051DD48 /* ProtocolBuffer.framework in Frameworks */,
 				DC730E2522401E310051DD48 /* TrustedPeers.framework in Frameworks */,
 				1B916CD0223FFF25006657FD /* ProtocolBuffer.framework in Frameworks */,
@@ -16747,6 +16709,7 @@
 				D46246AA1F9AE6CA00D63882 /* libDER.a in Frameworks */,
 				D41258011E94230400781F23 /* IOKit.framework in Frameworks */,
 				D41257E01E94136000781F23 /* libz.dylib in Frameworks */,
+				D47AB2CB2356AD72005A3801 /* Network.framework in Frameworks */,
 				D41257DF1E94133600781F23 /* CFNetwork.framework in Frameworks */,
 				D41257DE1E94132900781F23 /* libsqlite3.dylib in Frameworks */,
 				D41257DB1E9412E700781F23 /* libutilities.a in Frameworks */,
@@ -16783,6 +16746,8 @@
 				D4428B36212262F800EB8448 /* libASN1.a in Frameworks */,
 				D453A4B62122236D00850A26 /* libtrustd.a in Frameworks */,
 				D4EF32172156B025000A31A5 /* Security.framework in Frameworks */,
+				D47AB2CE2356AD95005A3801 /* Network.framework in Frameworks */,
+				D4267BD323440F9900B54678 /* CFNetwork.framework in Frameworks */,
 				D453A4B82122236D00850A26 /* CoreFoundation.framework in Frameworks */,
 				D453A4B92122236D00850A26 /* Foundation.framework in Frameworks */,
 				D453A4BA2122236D00850A26 /* IOKit.framework in Frameworks */,
@@ -16819,6 +16784,8 @@
 				D4B68C5B211A7D29009FED69 /* libutilities.a in Frameworks */,
 				D4B68C44211A3DCC009FED69 /* libtrustd.a in Frameworks */,
 				D453A4A32122235700850A26 /* Security.framework in Frameworks */,
+				D4267BD123440F8900B54678 /* CFNetwork.framework in Frameworks */,
+				D47AB2CD2356AD8B005A3801 /* Network.framework in Frameworks */,
 				D4B68C60211A80BC009FED69 /* CoreFoundation.framework in Frameworks */,
 				D4B68C61211A80C4009FED69 /* Foundation.framework in Frameworks */,
 				D4B68C63211A80DA009FED69 /* IOKit.framework in Frameworks */,
@@ -17276,8 +17243,8 @@
 				DCD22D591D8CC200001C9B81 /* libsecurity_cdsa_client.a in Frameworks */,
 				DCD22D5A1D8CC205001C9B81 /* libsecurity_cdsa_utilities.a in Frameworks */,
 				DCD22D5B1D8CC20D001C9B81 /* libsecurity_cdsa_utils.a in Frameworks */,
-				BE64A7FB22AF0084001209F3 /* CFNetwork.framework in Frameworks */,
 				BE64A7FC22AF008D001209F3 /* Foundation.framework in Frameworks */,
+				BEC6A9162331992900080069 /* Network.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -17314,6 +17281,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D47AB2D62357955F005A3801 /* Network.framework in Frameworks */,
 				DCF46573220114F000BA6EEA /* CloudServices.framework in Frameworks */,
 				0C4D96A621F24E5700617E60 /* CoreCDP.framework in Frameworks */,
 				EB80DE56219600C6005B10FA /* libz.tbd in Frameworks */,
@@ -17605,6 +17573,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D47AB2D02356B2F6005A3801 /* Network.framework in Frameworks */,
 				09EF431B21A5A8CC0066CF20 /* libaks_acl.a in Frameworks */,
 				D4C6C5CD1FB3B423007EA57E /* libarchive.tbd in Frameworks */,
 				D46246B71F9AE76500D63882 /* libDER.a in Frameworks */,
@@ -17699,6 +17668,7 @@
 				D40B6A831E2B5F5B00CD6EE5 /* libASN1.a in Frameworks */,
 				D40B6A9D1E2B6A2700CD6EE5 /* login.framework in Frameworks */,
 				D4ADA3311E2B43450031CEA3 /* CFNetwork.framework in Frameworks */,
+				D47AB2CC2356AD7C005A3801 /* Network.framework in Frameworks */,
 				D4ADA3301E2B433B0031CEA3 /* Security.framework in Frameworks */,
 				D4ADA32E1E2B43220031CEA3 /* CoreFoundation.framework in Frameworks */,
 				D4ADA32F1E2B43220031CEA3 /* Foundation.framework in Frameworks */,
@@ -17823,6 +17793,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB8A9381233C900D0015A794 /* CloudServices.framework in Frameworks */,
 				EBFF95EF214C823F0021CD14 /* KeychainCircle.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -17831,6 +17802,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D47AB2CF2356B2ED005A3801 /* Network.framework in Frameworks */,
 				DC4A76A62212691F006F2D8F /* CloudServices.framework in Frameworks */,
 				0C6C0FCF21F1457600CD5B9E /* CoreCDP.framework in Frameworks */,
 				EB80DE5C2196010F005B10FA /* libz.tbd in Frameworks */,
@@ -18174,6 +18146,8 @@
 			isa = PBXGroup;
 			children = (
 				0C9FB40120D8729A00864612 /* CoreCDP.framework */,
+				DCD067E71D8CDF7E007602F1 /* SecCodeHostLib.h */,
+				DCD067E81D8CDF7E007602F1 /* SecCodeHostLib.c */,
 			);
 			name = "Recovered References";
 			sourceTree = "<group>";
@@ -18307,16 +18281,18 @@
 			name = RecoveryKey;
 			sourceTree = "<group>";
 		};
-		0CF0E2DD1F8EE37C00BD18E4 /* Signin Metrics */ = {
+		0CF0E2DD1F8EE37C00BD18E4 /* SigninMetrics */ = {
 			isa = PBXGroup;
 			children = (
 				0CF405FB2072E351003D6A7F /* Resources */,
+				0CD9E33E235928D1002995DE /* OctagonSignPosts.h */,
+				0CD9E340235928E9002995DE /* OctagonSignPosts.m */,
 				0CF0E2E71F8EE40700BD18E4 /* SFSignInAnalytics.h */,
 				0CF0E2E31F8EE3B000BD18E4 /* SFSignInAnalytics.m */,
 				0C108C4B208A677100E8CF70 /* SFSignInAnalytics+Internal.h */,
 				0CF405F32072E295003D6A7F /* tests */,
 			);
-			path = "Signin Metrics";
+			path = SigninMetrics;
 			sourceTree = "<group>";
 		};
 		0CF405F32072E295003D6A7F /* tests */ = {
@@ -18330,6 +18306,7 @@
 		0CF405FB2072E351003D6A7F /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				0C97867C235A76E70040A867 /* com.apple.security.signposts.plist */,
 				0CF405FC2072E352003D6A7F /* SFTMTests-Info.plist */,
 			);
 			path = Resources;
@@ -18344,36 +18321,6 @@
 			);
 			name = sectask;
 			path = ../../../sectask;
-			sourceTree = "<group>";
-		};
-		3D1A573E21669291009C24FD /* TLSAssets */ = {
-			isa = PBXGroup;
-			children = (
-				3D1A57412166931B009C24FD /* Info.plist */,
-				3D6C25BA216C00D800AB2A71 /* TLSConfig.plist */,
-				3D421458216C0A2400D62870 /* Makefile */,
-			);
-			path = TLSAssets;
-			sourceTree = "<group>";
-		};
-		3D7AA28D2187ACD500F1575C /* test */ = {
-			isa = PBXGroup;
-			children = (
-				3D7AA28E2187AD0000F1575C /* SecExperimentTests.m */,
-			);
-			path = test;
-			sourceTree = "<group>";
-		};
-		3DA3384121658755008C0CE1 /* SecExperiment */ = {
-			isa = PBXGroup;
-			children = (
-				3DA3384421658AA8008C0CE1 /* SecExperimentPriv.h */,
-				5A2551F12229F40800512FAE /* SecExperimentInternal.h */,
-				3DD852B02177FF72009E705D /* SecExperiment.m */,
-				3D7AA28D2187ACD500F1575C /* test */,
-				3D1A573E21669291009C24FD /* TLSAssets */,
-			);
-			path = SecExperiment;
 			sourceTree = "<group>";
 		};
 		3DD1FE72201AA38A0086D049 /* SecureTransportTests */ = {
@@ -18521,7 +18468,6 @@
 		47B3A90B21027D71001F4281 /* Trieste */ = {
 			isa = PBXGroup;
 			children = (
-				E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */,
 				E060D19D2124780F0025B833 /* OctagonTestHarness */,
 				E060D1BD212478120025B833 /* OctagonTestHarnessXPCService */,
 				E060D23E21247C680025B833 /* OctagonTestHarnessXPCServiceProtocol */,
@@ -18791,6 +18737,7 @@
 				EB6952B9223B75C300F02C1C /* secitemd */,
 				DA41FE0E2241ADC000838FB3 /* otpaird */,
 				EBB851EC22F7912400424FD0 /* SecurityUtilitiesTests.xctest */,
+				5A442F90233C330F00918373 /* experimentTool */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -18875,6 +18822,7 @@
 		4C922CB2097F1984004CEEBD /* Security */ = {
 			isa = PBXGroup;
 			children = (
+				1BE85ECD235CEB610051E1D8 /* cms-tapi.h */,
 				5F00F95A230614A200B832E0 /* SecImportExportPriv.h */,
 				D44D08B420AB890E0023C439 /* Security.apinotes */,
 				D4707A1021137525005BCFDA /* CMSDecoder.h */,
@@ -18998,6 +18946,35 @@
 				EBB8521A22F7943700424FD0 /* Info.plist */,
 			);
 			path = test;
+			sourceTree = "<group>";
+		};
+		5A442F97233C34C000918373 /* experiment */ = {
+			isa = PBXGroup;
+			children = (
+				5A442F98233C34C000918373 /* SecExperimentPriv.h */,
+				5A442F9B233C34C000918373 /* SecExperimentInternal.h */,
+				5A442F9C233C34C000918373 /* SecExperiment.m */,
+				5A442F99233C34C000918373 /* test */,
+				5A442F9D233C34C000918373 /* tool */,
+			);
+			path = experiment;
+			sourceTree = "<group>";
+		};
+		5A442F99233C34C000918373 /* test */ = {
+			isa = PBXGroup;
+			children = (
+				5A442F9A233C34C000918373 /* SecExperimentTests.m */,
+			);
+			path = test;
+			sourceTree = "<group>";
+		};
+		5A442F9D233C34C000918373 /* tool */ = {
+			isa = PBXGroup;
+			children = (
+				5A442F9E233C34C000918373 /* experimentTool-Entitlements.plist */,
+				5A442F9F233C34C000918373 /* experimentTool.m */,
+			);
+			path = tool;
 			sourceTree = "<group>";
 		};
 		5A47FFAF228F5DAB00F781B8 /* Protocol Buffers */ = {
@@ -20331,6 +20308,7 @@
 		DC0BC9D01D8B825900070CB0 /* ssl */ = {
 			isa = PBXGroup;
 			children = (
+				1BE85ED4235CEC250051E1D8 /* sslDeprecated.h */,
 				DC1786FD1D778F5000B50D50 /* SecureTransportPriv.h */,
 				DC1786FB1D778F3C00B50D50 /* sslTypes.h */,
 				DC1785A31D778D0D00B50D50 /* CipherSuite.h */,
@@ -21088,6 +21066,7 @@
 				DCF158C52064895C00B87B6D /* OctagonAPSReceiverTests.h */,
 				DCE7F2081F21726500DDB0F7 /* OctagonAPSReceiverTests.m */,
 				DC9C95951F748D0B000D19E5 /* CKKSServerValidationRecoveryTests.m */,
+				EB0E1AD723576273002B6037 /* CKKSPBFileStorageTests.m */,
 			);
 			name = "Tests (Local)";
 			path = tests;
@@ -21178,7 +21157,7 @@
 		DC59E9AA1D91C9BE001BDDF5 /* Security.framework (Shared) */ = {
 			isa = PBXGroup;
 			children = (
-				3DA3384121658755008C0CE1 /* SecExperiment */,
+				5A442F97233C34C000918373 /* experiment */,
 				5AF593FD1FA0EE2C00A5C1EC /* Protocol */,
 				DCC78E4F1D8085FC00865A7C /* SecFramework.c */,
 				4723C9B51F152E8E0082882F /* Analytics */,
@@ -21836,7 +21815,7 @@
 				BED01530206F050F0027A2B4 /* README.txt */,
 				DCC78D911D8085F200865A7C /* SecureObjectSync */,
 				47C51B851EEA657D0032D9E5 /* SecurityUnitTests */,
-				0CF0E2DD1F8EE37C00BD18E4 /* Signin Metrics */,
+				0CF0E2DD1F8EE37C00BD18E4 /* SigninMetrics */,
 				DC0EF8F0208697C600AB9E95 /* tpctl */,
 				BECFA42F20F91AFE00B11002 /* tppolicy */,
 				47B3A90B21027D71001F4281 /* Trieste */,
@@ -21888,6 +21867,7 @@
 		DC8834501D8A21AA00CE0ACA /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				1BE85ED1235CEBB30051E1D8 /* secport-tapi.h */,
 				DC88340A1D8A21AA00CE0ACA /* SecAsn1Coder.c */,
 				DC88340C1D8A21AA00CE0ACA /* SecAsn1Templates.c */,
 				DC88340F1D8A21AA00CE0ACA /* certExtensionTemplates.c */,
@@ -22050,6 +22030,8 @@
 				DC1ED8BA1DD51883002BDCFA /* CKKSItemEncrypter.m */,
 				6CC185971E24E87D009657D8 /* CKKSRateLimiter.h */,
 				6CC185981E24E87D009657D8 /* CKKSRateLimiter.m */,
+				EB97364F234E8F4A00518B2B /* CKKSPBFileStorage.h */,
+				EB973650234E8F4B00518B2B /* CKKSPBFileStorage.m */,
 				6CA2B9431E9F9F5700C43444 /* RateLimiter.h */,
 				6CC7F5B31E9F99EE0014AE63 /* RateLimiter.m */,
 				DC9C95B21F79CFD1000D19E5 /* CKKSControl.h */,
@@ -23085,6 +23067,7 @@
 		DCC78D911D8085F200865A7C /* SecureObjectSync */ = {
 			isa = PBXGroup;
 			children = (
+				EB0E1B902358FA4B002B6037 /* generated_source */,
 				CD1D64461DD386C9006D4139 /* AccountTrust */,
 				DCC78D2D1D8085F200865A7C /* Account */,
 				DCC78D4E1D8085F200865A7C /* Circle */,
@@ -23111,6 +23094,7 @@
 				48FE668F20E6E69B00FAEF17 /* SOSAuthKitHelpers.m */,
 				480C03D621459CD70034570E /* SOSTrustedDeviceAttributes.h */,
 				480C03D321459CD60034570E /* SOSTrustedDeviceAttributes.m */,
+				EB0E1AC72352A81E002B6037 /* SOSAccountConfiguration.proto */,
 			);
 			name = SecureObjectSync;
 			path = keychain/SecureObjectSync;
@@ -24111,6 +24095,8 @@
 				D4BEECE61E93093A00F76D1A /* trustd.c */,
 				D4B68C64211A8186009FED69 /* trustd_spi.h */,
 				D4B68C65211A8186009FED69 /* trustd_spi.c */,
+				D47DCCB423427C7D00B80E37 /* md.m */,
+				D47DCCB723427C8D00B80E37 /* md.h */,
 				D43DBED71E99D17100C04AEA /* nameconstraints.c */,
 				D43DBED81E99D17100C04AEA /* nameconstraints.h */,
 				D43DBED91E99D17100C04AEA /* OTATrustUtilities.m */,
@@ -24934,24 +24920,6 @@
 			name = "dispatch Support";
 			sourceTree = "<group>";
 		};
-		E058E53321626583002CA574 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				E058E54B21626583002CA574 /* CloudDeviceTest.framework */,
-				E058E54D21626583002CA574 /* CoreDeviceAutomation.framework */,
-				E058E54F21626583002CA574 /* CoreDeviceAutomationFrameworkFacade.framework */,
-				E058E55121626583002CA574 /* OctagonTestHarnessXPCServiceProtocol.framework */,
-				E058E55321626583002CA574 /* OctagonTrieste.framework */,
-				E058E55521626583002CA574 /* OctagonTriesteTests.xctest */,
-				E058E55721626583002CA574 /* OpenSSLThreadLock.framework */,
-				E058E55B21626583002CA574 /* SSEClient.framework */,
-				E058E55D21626583002CA574 /* SwiftHTTP.framework */,
-				E058E55F21626583002CA574 /* SwiftLog.framework */,
-				E058E56121626583002CA574 /* os_activity.framework */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
 		E060D19D2124780F0025B833 /* OctagonTestHarness */ = {
 			isa = PBXGroup;
 			children = (
@@ -25052,6 +25020,9 @@
 			isa = PBXGroup;
 			children = (
 				4C922CB2097F1984004CEEBD /* Security */,
+				1B2BD391235E050D009A8624 /* SecEC-tapi.h */,
+				1B2BD393235E050E009A8624 /* SecPolicy-tapi.h */,
+				1B2BD394235E050E009A8624 /* Security-tapi.h */,
 			);
 			name = Headers;
 			sourceTree = "<group>";
@@ -25156,6 +25127,8 @@
 		E7FCBE401314471B000DE34E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				BEC6A9142331992800080069 /* Network.framework */,
+				D47AB2CA2356AD72005A3801 /* Network.framework */,
 				0C6C2B6C2258295D00C53C96 /* UIKitCore.framework */,
 				0C6C2B682258211800C53C96 /* AppleAccount.framework */,
 				DC4A76A92212698B006F2D8F /* CloudServices.framework */,
@@ -25336,6 +25309,15 @@
 			name = secedumodetest;
 			sourceTree = "<group>";
 		};
+		EB0E1B902358FA4B002B6037 /* generated_source */ = {
+			isa = PBXGroup;
+			children = (
+				EB0E1B922358FADE002B6037 /* SOSAccountConfiguration.h */,
+				EB0E1B932358FADE002B6037 /* SOSAccountConfiguration.m */,
+			);
+			path = generated_source;
+			sourceTree = "<group>";
+		};
 		EB1055641E14DB370003C309 /* secfuzzer */ = {
 			isa = PBXGroup;
 			children = (
@@ -25414,6 +25396,7 @@
 		EB49B2AF202D8780003F34A0 /* secdmockaks */ = {
 			isa = PBXGroup;
 			children = (
+				EB627A74233E33A300F32437 /* generated_source */,
 				72D1E5F3202FE43C003A38C5 /* secdmock_db_version_10_5.h */,
 				EBE700FE204676E700E00A87 /* secdmock_db_version_11_1.h */,
 				EB49B2B0202D8780003F34A0 /* mockaksKeychain.m */,
@@ -25423,12 +25406,25 @@
 				EB6667BE204CD65E000B404F /* testPlistDER.m */,
 				EB49B303202FB8DE003F34A0 /* mockaks.h */,
 				EB49B2E4202DFE7F003F34A0 /* mockaks.m */,
+				EBDCBFFE233DD31700806566 /* MockAKSRefKey.proto */,
+				EB627A6F233E323600F32437 /* MockAKSOptionalParameters.proto */,
 				EB49B2B2202D8780003F34A0 /* Info.plist */,
 				DC311E782124B8EF002F5EAE /* aks_real_witness.h */,
 				DC311E792124B8EF002F5EAE /* aks_real_witness.c */,
 			);
 			name = secdmockaks;
 			path = tests/secdmockaks;
+			sourceTree = "<group>";
+		};
+		EB627A74233E33A300F32437 /* generated_source */ = {
+			isa = PBXGroup;
+			children = (
+				EB627A78233E342B00F32437 /* MockAKSOptionalParameters.h */,
+				EB627A77233E342B00F32437 /* MockAKSOptionalParameters.m */,
+				EB627A76233E342900F32437 /* MockAKSRefKey.h */,
+				EB627A75233E342800F32437 /* MockAKSRefKey.m */,
+			);
+			path = generated_source;
 			sourceTree = "<group>";
 		};
 		EB74CC182207E48000F1BBAD /* KeychainSettings */ = {
@@ -25676,10 +25672,12 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1B2BD395235E050E009A8624 /* SecEC-tapi.h in Headers */,
 				4C32C1030A4976BF002891BD /* certextensions.h in Headers */,
 				4C32C1240A4976BF002891BD /* SecBase.h in Headers */,
 				4C32C1250A4976BF002891BD /* SecCertificate.h in Headers */,
 				4C32C1260A4976BF002891BD /* SecTrust.h in Headers */,
+				EB973651234E8F4B00518B2B /* CKKSPBFileStorage.h in Headers */,
 				4CF0484C0A5D988F00268236 /* SecItem.h in Headers */,
 				6CE3654F1FA100F10012F6AB /* SFAnalyticsDefines.h in Headers */,
 				D4707A292113EF68005BCFDA /* SecCmsMessage.h in Headers */,
@@ -25705,9 +25703,9 @@
 				D47079F321128C74005BCFDA /* SecCMS.h in Headers */,
 				4C12828D0BB4957D00985BB0 /* SecTrustSettingsPriv.h in Headers */,
 				DCD45355209A5B260086CBFC /* si-cms-signing-identity-p12.h in Headers */,
+				1BE85ED5235CEC250051E1D8 /* sslDeprecated.h in Headers */,
 				CDDE9BD11729ABFA0013B0E8 /* SecPasswordGenerate.h in Headers */,
 				4C7072860AC9EA4F007CC205 /* SecKey.h in Headers */,
-				5A2551F32229F41300512FAE /* SecExperimentInternal.h in Headers */,
 				D4B3B1CC2115150D00A43409 /* SecCmsDigestedData.h in Headers */,
 				476541651F339F6300413F65 /* SecdWatchdog.h in Headers */,
 				D47079FB211355C9005BCFDA /* CMSEncoder.h in Headers */,
@@ -25729,7 +25727,6 @@
 				4C4296320BB0A68200491999 /* SecTrustSettings.h in Headers */,
 				4CBA0E880BB33C0000E72B55 /* SecPolicy.h in Headers */,
 				D4B3B1D52115195900A43409 /* SecCmsRecipientInfo.h in Headers */,
-				3D909E372195042C00205F8C /* SecExperimentPriv.h in Headers */,
 				4C6416D50BB34F00001C83FD /* SecPolicyPriv.h in Headers */,
 				78F92F11195128D70023B54B /* SecECKeyPriv.h in Headers */,
 				4CD3BA621106FF4D00BE8B75 /* SecECKey.h in Headers */,
@@ -25741,10 +25738,12 @@
 				DC3C7AB81D838C6F00F6A832 /* oidsalg.h in Headers */,
 				B61F67561F1FCFCA00E2FDBB /* SecPaddingConfigurationsPriv.h in Headers */,
 				4C2F81D50BF121D2003C4F77 /* SecRandom.h in Headers */,
+				0CD9E34323592DD7002995DE /* OctagonSignPosts.h in Headers */,
 				ACBAF6EE1E941AE00007BA2F /* transform_regressions.h in Headers */,
 				7940D4130C3ACF9000FDB5D8 /* SecDH.h in Headers */,
 				478014791FBF5D2000C4043D /* SecKeyProxy.h in Headers */,
 				790850F70CA88AE10083CC4D /* securityd_client.h in Headers */,
+				1BE85ECF235CEB620051E1D8 /* cms-tapi.h in Headers */,
 				795CA9CE0D38435E00BAE6A2 /* p12pbegen.h in Headers */,
 				D4B3B1CF211516A000A43409 /* SecCmsEncryptedData.h in Headers */,
 				79EF5B730D3D6AFE009F5270 /* p12import.h in Headers */,
@@ -25766,6 +25765,7 @@
 				DC2C5F4B1F0D935200FEBDA7 /* CKKSControlProtocol.h in Headers */,
 				107226D30D91DB32003CF14F /* SecTask.h in Headers */,
 				4C7CE5700DC7DC6600AE53FC /* SecEntitlements.h in Headers */,
+				1BE85ED2235CEBB40051E1D8 /* secport-tapi.h in Headers */,
 				6CE365551FA101730012F6AB /* SFAnalyticsSQLiteStore.h in Headers */,
 				791766DE0DD0162C00F3B974 /* SecCertificateRequest.h in Headers */,
 				4C7416040F1D71A2008E0E4D /* SecSCEP.h in Headers */,
@@ -25796,6 +25796,7 @@
 				D4707A262113EBC1005BCFDA /* SecCmsDecoder.h in Headers */,
 				DC3C7ABA1D838C9F00F6A832 /* sslTypes.h in Headers */,
 				6CE3654B1FA100D00012F6AB /* SFAnalytics.h in Headers */,
+				5A442FA6233C34FE00918373 /* SecExperimentInternal.h in Headers */,
 				4AF7000515AFB73800B9D400 /* SecOTRSession.h in Headers */,
 				D4707A2C2114C1E5005BCFDA /* SecCmsContentInfo.h in Headers */,
 				D487B9821DFA28DB000410A1 /* SecInternalReleasePriv.h in Headers */,
@@ -25806,9 +25807,11 @@
 				D46CD4C72267949C00E2C4D7 /* certExtensionTemplates.h in Headers */,
 				D46CD4C82267949C00E2C4D7 /* nameTemplates.h in Headers */,
 				D46CD4C92267949C00E2C4D7 /* X509Templates.h in Headers */,
+				5A442FA5233C34FE00918373 /* SecExperimentPriv.h in Headers */,
 				8E02FA6B1107BE460043545E /* pbkdf2.h in Headers */,
 				AA7C71B62185429800EB314F /* SecProtocolTypesPriv.h in Headers */,
 				8ED6F6CA110904E300D2B368 /* SecPBKDF.h in Headers */,
+				1B2BD396235E050E009A8624 /* SecPolicy-tapi.h in Headers */,
 				5F00F95B230614AC00B832E0 /* SecImportExportPriv.h in Headers */,
 				22A23B3A1E3AAC9800C41830 /* CodeSigning.h in Headers */,
 				5A6D1B9520810EAD0057CAC8 /* SecProtocolMetadata.h in Headers */,
@@ -25821,6 +25824,7 @@
 				DC9C95BE1F79DC5F000D19E5 /* CKKSControl.h in Headers */,
 				0CBFEACC200FCD33009A60E9 /* SFSignInAnalytics.h in Headers */,
 				DC3C7AB61D838C2D00F6A832 /* SecAsn1Types.h in Headers */,
+				1B2BD397235E050E009A8624 /* Security-tapi.h in Headers */,
 				D43D8B2D20AB8A54005BEEC4 /* Security.apinotes in Headers */,
 				DC3C73551D837B2C00F6A832 /* SOSPeerInfoPriv.h in Headers */,
 				D46246A31F9AE59E00D63882 /* oids.h in Headers */,
@@ -26368,6 +26372,7 @@
 				DC1785241D7789AF00B50D50 /* AuthorizationTags.h in Headers */,
 				EBF252252155E911000204D6 /* OTJoiningConfiguration.h in Headers */,
 				EB5E3BCD2003C67B00F1631B /* SecSignpost.h in Headers */,
+				0CD9E34423592DD7002995DE /* OctagonSignPosts.h in Headers */,
 				DC1787601D7790E500B50D50 /* AuthorizationTagsPriv.h in Headers */,
 				D47079FA211355C5005BCFDA /* CMSEncoder.h in Headers */,
 				AA5B121C2164671000A6AB81 /* SecProtocolConfiguration.h in Headers */,
@@ -26382,7 +26387,6 @@
 				DC17854F1D778ACD00B50D50 /* SecACL.h in Headers */,
 				DC17854E1D778ACD00B50D50 /* SecAccess.h in Headers */,
 				DC1785921D778BE400B50D50 /* SecAccessControl.h in Headers */,
-				5A2551F52229F41500512FAE /* SecExperimentInternal.h in Headers */,
 				DC1787751D77916000B50D50 /* SecAccessControlPriv.h in Headers */,
 				DC1787351D77903700B50D50 /* SecAccessPriv.h in Headers */,
 				DC1785181D77895A00B50D50 /* SecAsn1Coder.h in Headers */,
@@ -26396,6 +26400,7 @@
 				5F00F95C230614AD00B832E0 /* SecImportExportPriv.h in Headers */,
 				DC1787741D77915500B50D50 /* SecBreadcrumb.h in Headers */,
 				6CB420AB2051FDE000FF2D44 /* LocalKeychainAnalytics.h in Headers */,
+				1BE85ED0235CEB620051E1D8 /* cms-tapi.h in Headers */,
 				DC1787761D77916600B50D50 /* SecCFAllocator.h in Headers */,
 				DC0C343A21FA7DEB00417D04 /* SecEscrowRequest.h in Headers */,
 				DC17859F1D778C8D00B50D50 /* SecCertificate.h in Headers */,
@@ -26412,6 +26417,7 @@
 				DC1787521D7790A500B50D50 /* SecCodeSigner.h in Headers */,
 				DC1785301D778A0100B50D50 /* SecCustomTransform.h in Headers */,
 				0CBFEACD200FCD33009A60E9 /* SFSignInAnalytics.h in Headers */,
+				5A442FA8233C34FF00918373 /* SecExperimentInternal.h in Headers */,
 				DC1787771D77916A00B50D50 /* SecDH.h in Headers */,
 				DC1785311D778A0100B50D50 /* SecDecodeTransform.h in Headers */,
 				6CE365561FA101740012F6AB /* SFAnalyticsSQLiteStore.h in Headers */,
@@ -26446,10 +26452,12 @@
 				DC1785541D778ACD00B50D50 /* SecKeychainSearch.h in Headers */,
 				DC17873C1D77903700B50D50 /* SecKeychainSearchPriv.h in Headers */,
 				DC1787261D778FDE00B50D50 /* SecManifest.h in Headers */,
+				5A442FA7233C34FF00918373 /* SecExperimentPriv.h in Headers */,
 				DCA9D84221FFE62A00B27421 /* EscrowRequestXPCProtocol.h in Headers */,
 				DC1786F91D778F2500B50D50 /* SecNullTransform.h in Headers */,
 				DC17873D1D77903700B50D50 /* SecPassword.h in Headers */,
 				DC1787791D77917700B50D50 /* SecPasswordGenerate.h in Headers */,
+				1BE85ED6235CEC250051E1D8 /* sslDeprecated.h in Headers */,
 				F6EEF77521675EF000FB7F79 /* AuthorizationTrampolinePriv.h in Headers */,
 				DC1785941D778BF400B50D50 /* SecPolicy.h in Headers */,
 				D43718C921168D7D00EA350A /* SecSMIME.h in Headers */,
@@ -26505,7 +26513,6 @@
 				D4707A272113EBC1005BCFDA /* SecCmsDecoder.h in Headers */,
 				D4707A212113AC34005BCFDA /* SecCmsBase.h in Headers */,
 				6CBF65401FA1480C00A68667 /* SFAnalyticsActivityTracker.h in Headers */,
-				3D909E382195042C00205F8C /* SecExperimentPriv.h in Headers */,
 				DC17856E1D778B4A00B50D50 /* cssmapi.h in Headers */,
 				DC1785991D778C5300B50D50 /* cssmapple.h in Headers */,
 				DC1787431D77906C00B50D50 /* cssmapplePriv.h in Headers */,
@@ -26529,6 +26536,7 @@
 				DC1785791D778B4A00B50D50 /* eisl.h in Headers */,
 				DC17857A1D778B4A00B50D50 /* emmspi.h in Headers */,
 				D4707A2A2113EF68005BCFDA /* SecCmsMessage.h in Headers */,
+				1BE85ED3235CEBB40051E1D8 /* secport-tapi.h in Headers */,
 				6C8CE6C21FA248DB0032ADF0 /* SFAnalyticsActivityTracker+Internal.h in Headers */,
 				D4B3B1DC21152AD300A43409 /* SecCmsSignerInfo.h in Headers */,
 				DC17857B1D778B4A00B50D50 /* emmtype.h in Headers */,
@@ -28240,12 +28248,12 @@
 				4C32C0AC0A4975F6002891BD /* Sources */,
 				4C32C0AD0A4975F6002891BD /* Frameworks */,
 				F3384FD12165A025004A2171 /* Install Ariadne Signposts Plist */,
+				0C97867A235A766B0040A867 /* Copy System logging profile */,
 			);
 			buildRules = (
 				E7B006FF170B56E700B27966 /* PBXBuildRule */,
 			);
 			dependencies = (
-				DCE0778421ADEDDA002662FD /* PBXTargetDependency */,
 				DCDA5E5A2124BA2F009B11B2 /* PBXTargetDependency */,
 				DCD22D7D1D8CCA18001C9B81 /* PBXTargetDependency */,
 				D42C83A5211636A3008D3D83 /* PBXTargetDependency */,
@@ -28406,6 +28414,22 @@
 			productName = KeychainSyncAccountNotification;
 			productReference = 5346480117331E1200FE9172 /* KeychainSyncAccountNotification.bundle */;
 			productType = "com.apple.product-type.bundle";
+		};
+		5A442F81233C330F00918373 /* experimentTool */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5A442F8D233C330F00918373 /* Build configuration list for PBXNativeTarget "experimentTool" */;
+			buildPhases = (
+				5A442F82233C330F00918373 /* Sources */,
+				5A442F89233C330F00918373 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = experimentTool;
+			productName = ckksctl;
+			productReference = 5A442F90233C330F00918373 /* experimentTool */;
+			productType = "com.apple.product-type.tool";
 		};
 		5E10992419A5E55800A60E2B /* ISACLProtectedItems */ = {
 			isa = PBXNativeTarget;
@@ -28739,7 +28763,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				EBBC11B32200D3BB00F95738 /* PBXTargetDependency */,
 				BED01526206EEC710027A2B4 /* PBXTargetDependency */,
 			);
 			name = TrustedPeersHelper;
@@ -28816,7 +28839,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				DCE0775C21ADD6A0002662FD /* PBXTargetDependency */,
 				D437C33121EBF8A000DD1E06 /* PBXTargetDependency */,
 			);
 			name = TrustedPeers;
@@ -29502,7 +29524,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				DC7479A022272361001E0E8C /* PBXTargetDependency */,
 			);
 			name = tpctl;
 			productName = tpctl;
@@ -29658,7 +29679,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				DCE0777E21ADEADA002662FD /* PBXTargetDependency */,
 			);
 			name = libsecurityd_ios;
 			productName = libsecurity;
@@ -30786,7 +30806,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				0C604F0221B8E5090036C175 /* PBXTargetDependency */,
 				DC65E7221D8CB27900152EF0 /* PBXTargetDependency */,
 			);
 			name = KeychainCircle;
@@ -31564,10 +31583,6 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = E058E53321626583002CA574 /* Products */;
-					ProjectRef = E058E53221626582002CA574 /* OctagonTrieste.xcodeproj */;
-				},
-				{
 					ProductGroup = DC5AC0AE1D83533400CF422C /* Products */;
 					ProjectRef = DC5AC0AD1D83533400CF422C /* securityd_service.xcodeproj */;
 				},
@@ -31607,6 +31622,7 @@
 				D4F47B3822270B6E003483E9 /* Security_all_watchos */,
 				D4F47B3C22270B89003483E9 /* Security_all_tvos */,
 				D4F47B4022270B97003483E9 /* Security_all_bridge */,
+				DCF216D621ADD5B10029CCC1 /* protobuf_source_generation */,
 				DC8E04991D7F6D9C006D80EB /* ====== Frameworks ======== */,
 				4C32C0AE0A4975F6002891BD /* Security_ios */,
 				DC1789031D77980500B50D50 /* Security_osx */,
@@ -31629,6 +31645,9 @@
 				BEAA002A202A832500E51F45 /* TrustedPeersHelper */,
 				DA41FE0D2241ADC000838FB3 /* otpaird */,
 				DC8E04B11D7F6EC9006D80EB /* ======= Libraries ========= */,
+				DCDA5E4F2124B9C5009B11B2 /* aks_support */,
+				DC36895D21235F42003A3735 /* aks_mock */,
+				DC311E6E2124B8A8002F5EAE /* aks_real_witness */,
 				DCC78EA81D8088E200865A7C /* security */,
 				DC52E7731D80BC8000B0A59C /* libsecurityd_ios */,
 				4718AE2E205B39C40068EC3F /* libsecurityd_bridge */,
@@ -31655,9 +31674,6 @@
 				225394AC1E3080A600D3CD9B /* security_codesigning_ios */,
 				DC8834011D8A218F00CE0ACA /* ASN1 */,
 				D44D1F652115893000E76E1A /* CMS */,
-				DCDA5E4F2124B9C5009B11B2 /* aks_support */,
-				DC36895D21235F42003A3735 /* aks_mock */,
-				DC311E6E2124B8A8002F5EAE /* aks_real_witness */,
 				DCF782BA1D88B44300E694BB /* ==== macOS Libraries ====== */,
 				DCF7830A1D88B4DE00E694BB /* security_apple_csp */,
 				DCF785021D88B95500E694BB /* security_apple_cspdl */,
@@ -31778,7 +31794,6 @@
 				DCD067561D8CDCF3007602F1 /* codesigning_DTrace */,
 				DCD0675B1D8CDD6D007602F1 /* codesigning_SystemPolicy */,
 				BECFA42D20F91AFE00B11002 /* tppolicy */,
-				DCF216D621ADD5B10029CCC1 /* protobuf_source_generation */,
 				DC8E04AD1D7F6E76006D80EB /* ======= misc ========= */,
 				DC7FC44721EE914C003C39B8 /* FeatureFlagsPlist */,
 				E7B01BBD166594AB000485F1 /* SyncDevTest2 */,
@@ -31809,6 +31824,7 @@
 				E060D1B6212478110025B833 /* OctagonTestHarnessXPCService */,
 				EB7E90F12193F90700B1FA21 /* Build C2 Metrics */,
 				3D58392D21890FFB000ACA44 /* SecExperimentTests */,
+				5A442F81233C330F00918373 /* experimentTool */,
 			);
 		};
 /* End PBXProject section */
@@ -31840,83 +31856,6 @@
 			fileType = wrapper.cfbundle;
 			path = com.apple.KeyStore.plugin;
 			remoteRef = DC5AC0BA1D83533400CF422C /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E058E54B21626583002CA574 /* CloudDeviceTest.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = CloudDeviceTest.framework;
-			remoteRef = E058E54A21626583002CA574 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E058E54D21626583002CA574 /* CoreDeviceAutomation.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = CoreDeviceAutomation.framework;
-			remoteRef = E058E54C21626583002CA574 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E058E54F21626583002CA574 /* CoreDeviceAutomationFrameworkFacade.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = CoreDeviceAutomationFrameworkFacade.framework;
-			remoteRef = E058E54E21626583002CA574 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E058E55121626583002CA574 /* OctagonTestHarnessXPCServiceProtocol.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = OctagonTestHarnessXPCServiceProtocol.framework;
-			remoteRef = E058E55021626583002CA574 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E058E55321626583002CA574 /* OctagonTrieste.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = OctagonTrieste.framework;
-			remoteRef = E058E55221626583002CA574 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E058E55521626583002CA574 /* OctagonTriesteTests.xctest */ = {
-			isa = PBXReferenceProxy;
-			fileType = file;
-			path = OctagonTriesteTests.xctest;
-			remoteRef = E058E55421626583002CA574 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E058E55721626583002CA574 /* OpenSSLThreadLock.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = OpenSSLThreadLock.framework;
-			remoteRef = E058E55621626583002CA574 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E058E55B21626583002CA574 /* SSEClient.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = SSEClient.framework;
-			remoteRef = E058E55A21626583002CA574 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E058E55D21626583002CA574 /* SwiftHTTP.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = SwiftHTTP.framework;
-			remoteRef = E058E55C21626583002CA574 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E058E55F21626583002CA574 /* SwiftLog.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = SwiftLog.framework;
-			remoteRef = E058E55E21626583002CA574 /* PBXContainerItemProxy */;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		E058E56121626583002CA574 /* os_activity.framework */ = {
-			isa = PBXReferenceProxy;
-			fileType = wrapper.framework;
-			path = os_activity.framework;
-			remoteRef = E058E56021626583002CA574 /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */
@@ -32808,7 +32747,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "[ \"$(whoami)\" == \"root\" ] || exit 0\n OTTESTS_DIR=${SRCROOT}/keychain/ot/tests\n \n python ${OTTESTS_DIR}/gen_test_plist.py ${OTTESTS_DIR} ${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/Octagon.plist\n chown -f root:wheel ${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/*.plist\n";
+			shellScript = "OTTESTS_DIR=${SRCROOT}/keychain/ot/tests\npython ${OTTESTS_DIR}/gen_test_plist.py ${OTTESTS_DIR} ${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/Octagon.plist\n\n[ \"$(whoami)\" == \"root\" ] || exit 0\nchown -f root:wheel ${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/*.plist\n";
 		};
 		E7E0C6D11C90E87D00E69A21 /* chmod BATS Tests */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -32878,19 +32817,19 @@
 			shellPath = /bin/sh;
 			shellScript = "# Don't use SYSTEM_FRAMEWORK_SEARCH_PATHS, its implicit with internal SDK, if added you warnings from system headers as they where problems in our headers\ngrep -e '^\\s*SYSTEM_FRAMEWORK_SEARCH_PATHS =' ${SRCROOT}/Security.xcodeproj/project.pbxproj >/dev/null 2>&1\ntest $? != 0\n";
 		};
-		EBC15E801BE29A8C001C0C5B /* Chown BATS plist */ = {
+		EBC15E801BE29A8C001C0C5B /* Generate and Chown BATS plist */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
 			);
-			name = "Chown BATS plist";
+			name = "Generate and Chown BATS plist";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "[ \"$(whoami)\" == \"root\" ] || exit 0\nchown root:wheel ${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/*.plist\n";
+			shellScript = "${SRCROOT}/RegressionTests/PreprocessPlist.sh ${SRCROOT}/RegressionTests/Security.plist ${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/Security.plist\n\n[ \"$(whoami)\" == \"root\" ] || exit 0\nchown root:wheel ${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/*.plist\n";
 			showEnvVarsInLog = 0;
 		};
 		EBC73F4B209A0C3400AE3350 /* Install OCMock framework */ = {
@@ -33058,8 +32997,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3D680BE72241C16E00C04821 /* SecExperiment.m in Sources */,
-				3D58394F21891061000ACA44 /* SecExperimentTests.m in Sources */,
+				5A442FAD233C351C00918373 /* SecExperimentTests.m in Sources */,
+				5A442FAC233C351500918373 /* SecExperiment.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33154,7 +33093,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				4718AE35205B39C40068EC3F /* CKKSSQLDatabaseObject.m in Sources */,
-				4718AE36205B39C40068EC3F /* CKKSRateLimiter.m in Sources */,
 				4718AE37205B39C40068EC3F /* CKKSAccountStateTracker.m in Sources */,
 				4718AE38205B39C40068EC3F /* SecCDKeychain.m in Sources */,
 				4718AE3A205B39C40068EC3F /* CKKSGroupOperation.m in Sources */,
@@ -33174,6 +33112,7 @@
 				4718AE4B205B39C40068EC3F /* CKKSHealKeyHierarchyOperation.m in Sources */,
 				4718AE4C205B39C40068EC3F /* CKKSCurrentItemPointer.m in Sources */,
 				6C4AEF97218A12810012C5DA /* SecDbKeychainMetadataKeyStore.m in Sources */,
+				EB0E1ACD2353A704002B6037 /* CKKSRateLimiter.m in Sources */,
 				4718AE4D205B39C40068EC3F /* CKKSLocalSynchronizeOperation.m in Sources */,
 				4718AE4E205B39C40068EC3F /* OTManager.m in Sources */,
 				4718AE50205B39C40068EC3F /* CKKSCurrentKeyPointer.m in Sources */,
@@ -33247,6 +33186,7 @@
 				4718AE92205B39C40068EC3F /* CKKSSIV.m in Sources */,
 				4718AE96205B39C40068EC3F /* CKKSZoneChangeFetcher.m in Sources */,
 				4718AE97205B39C40068EC3F /* CKKSCondition.m in Sources */,
+				EB0E1ACE2353A704002B6037 /* CKKSPBFileStorage.m in Sources */,
 				4718AE98205B39C40068EC3F /* CKKSZone.m in Sources */,
 				4718AE99205B39C40068EC3F /* SFKeychainServer.m in Sources */,
 				4718AE9B205B39C40068EC3F /* swcagent_client.c in Sources */,
@@ -33345,11 +33285,12 @@
 				5A06118E229ED5EB006AF14A /* NSDate+SFAnalytics.m in Sources */,
 				0C8884012154C4E80053224D /* OTJoiningConfiguration.m in Sources */,
 				0CBD55B31FE883F200A8CE21 /* SFBehavior.m in Sources */,
-				3DD852B12177FF72009E705D /* SecExperiment.m in Sources */,
 				6C814A4D2050B4B600CB391B /* LocalKeychainAnalytics.m in Sources */,
 				220179E91E3BF03200EFB6F3 /* dummy.cpp in Sources */,
+				5A442FA9233C351000918373 /* SecExperiment.m in Sources */,
 				DC926F091F33FA8D0012A315 /* CKKSControlProtocol.m in Sources */,
 				4723C9CC1F152ED30082882F /* SFSQLiteStatement.m in Sources */,
+				0CD9E34523592EA6002995DE /* OctagonSignPosts.m in Sources */,
 				DCC5860020BF8A7E005C7269 /* SecFramework.c in Sources */,
 				DCA85B931E8D97E400BA7241 /* client.c in Sources */,
 				DCA9D84621FFE7CF00B27421 /* EscrowRequestXPCProtocol.m in Sources */,
@@ -33374,6 +33315,7 @@
 				6CE365531FA101080012F6AB /* SFAnalyticsSampler.m in Sources */,
 				AA9FD59C2152AFD70045A07A /* SecProtocolConfiguration.m in Sources */,
 				6C73F48A2006B839003D5D63 /* SOSAnalytics.m in Sources */,
+				EB973652234E8F4B00518B2B /* CKKSPBFileStorage.m in Sources */,
 				5A04BAFA22976A15001848A0 /* OTClique.m in Sources */,
 				6CE365571FA1017D0012F6AB /* SFAnalyticsSQLiteStore.m in Sources */,
 				EB9B285721C77C8D00173DC2 /* OTDefines.m in Sources */,
@@ -33482,6 +33424,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				5346481E173322BD00FE9172 /* KeychainSyncAccountNotification.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5A442F82233C330F00918373 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5A442FAE233C352200918373 /* experimentTool.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -34080,6 +34030,7 @@
 				D43DBF081E99D1CA00C04AEA /* SecPolicyServer.c in Sources */,
 				D43DBF091E99D1CA00C04AEA /* SecRevocationDb.c in Sources */,
 				D43DBF0A1E99D1CA00C04AEA /* SecRevocationServer.c in Sources */,
+				D47DCCB523427C7D00B80E37 /* md.m in Sources */,
 				D43DBF0B1E99D1CA00C04AEA /* SecTrustLoggingServer.m in Sources */,
 				D4961BC42079424200F16DA7 /* TrustURLSessionDelegate.m in Sources */,
 				D43DBF0C1E99D1CA00C04AEA /* SecTrustServer.c in Sources */,
@@ -34551,6 +34502,7 @@
 				DC747999222722B2001E0E8C /* CKKSConstants.m in Sources */,
 				DC7479982227229D001E0E8C /* CKKSTLKShare.m in Sources */,
 				DC0EF8F2208697C600AB9E95 /* main.swift in Sources */,
+				EB7ECF9623467FB400CE2D3C /* Cuttlefish.pb.swift in Sources */,
 				DCD48BFE20BF3D83009A3224 /* tpctl-objc.m in Sources */,
 				DCFFE9692277DEAF0092069C /* TrustedPeersHelperProtocol.m in Sources */,
 			);
@@ -34582,6 +34534,7 @@
 				6CAA8CFE1F83E800007B6E03 /* SFSQLite.m in Sources */,
 				DC9C95C01F79DC89000D19E5 /* CKKSControl.m in Sources */,
 				5AF594001FA0EE5300A5C1EC /* SecProtocol.c in Sources */,
+				5A442FAA233C351100918373 /* SecExperiment.m in Sources */,
 				0C8884042154C4EA0053224D /* OTJoiningConfiguration.m in Sources */,
 				0C0E60E020D033E400E654F2 /* OTControl.m in Sources */,
 				6CB420A52051FDD500FF2D44 /* LocalKeychainAnalytics.m in Sources */,
@@ -34594,8 +34547,8 @@
 				DC1789A21D779DF400B50D50 /* SecBreadcrumb.c in Sources */,
 				78ADC62C1FA0FACE001EB8B6 /* SecProtocolTypes.m in Sources */,
 				0CE079F41FEA15B20040A3F1 /* SFBehavior.m in Sources */,
-				3DE8F6C121829EFF006041DA /* SecExperiment.m in Sources */,
 				6CBF65411FA1481100A68667 /* SFAnalyticsActivityTracker.m in Sources */,
+				0CD9E34623592EA7002995DE /* OctagonSignPosts.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -34640,6 +34593,7 @@
 				EBB0315822223AAF007241CB /* CKKSLaunchSequenceTests.m in Sources */,
 				DC752F1F21C1B98000216089 /* SFObjCType.m in Sources */,
 				DC9C98C722E264F30021E29F /* CKKSFetchTests.m in Sources */,
+				EB0E1ADA2357627F002B6037 /* CKKSPBFileStorageTests.m in Sources */,
 				DC9C75161E4BCE1800F1CA0D /* CKKSOperationTests.m in Sources */,
 				DC8D238D2064649400E163C8 /* CKKSAPSHandlingTests.m in Sources */,
 				EBC1024422EBF93E0083D356 /* CKKSTests+LockStateTracker.m in Sources */,
@@ -34662,8 +34616,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB627A7F233E3C1600F32437 /* MockAKSRefKey.m in Sources */,
 				DC5999752232FA3700A9F1A3 /* SecKeybagSupport.c in Sources */,
 				DC36896221235F99003A3735 /* mockaks.m in Sources */,
+				EB627A7E233E3C1300F32437 /* MockAKSOptionalParameters.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -34821,6 +34777,7 @@
 				DC52E7D61D80BD2800B0A59C /* SecuritydXPC.c in Sources */,
 				0C4F4DE221153E9E007F7E20 /* OTEpochOperation.m in Sources */,
 				47922D561FAA7E0D0008F7E0 /* SecDbKeychainSerializedItemV7.m in Sources */,
+				EB0E1ACB2353A702002B6037 /* CKKSPBFileStorage.m in Sources */,
 				DC7A17EF1E36ABC200EF14CE /* CKKSProcessReceivedKeysOperation.m in Sources */,
 				DC7341F51F8447AB00AB9BDF /* CKKSTLKShareRecord.m in Sources */,
 				0C5960811FB369C50095BA29 /* CKKSHealTLKSharesOperation.m in Sources */,
@@ -34873,6 +34830,7 @@
 				DC2670F51F3E711400816EED /* SOSAccountCloudParameters.m in Sources */,
 				DCDCC7E51D9B5526006487E8 /* SOSAccountSync.m in Sources */,
 				DC2670F81F3E723B00816EED /* SOSAccountDer.m in Sources */,
+				EB0E1B942358FAF3002B6037 /* SOSAccountConfiguration.m in Sources */,
 				DC59245520E470070073D284 /* SOSRingRecovery.m in Sources */,
 				DC52E8F71D80C34000B0A59C /* SOSAccountCredentials.m in Sources */,
 				DC59245420E46FDE0073D284 /* SOSRingBasic.m in Sources */,
@@ -35777,7 +35735,7 @@
 				DCC78EC01D808A1C00865A7C /* SecTrust.c in Sources */,
 				DCC78EBE1D808A0E00865A7C /* SecTrustStore.c in Sources */,
 				DCC78EBD1D808A0400865A7C /* SecuritydXPC.c in Sources */,
-				3D680BE42241BC0000C04821 /* SecExperiment.m in Sources */,
+				5A442FAB233C351300918373 /* SecExperiment.m in Sources */,
 				DCC78EBB1D8089C200865A7C /* p12import.c in Sources */,
 				D425EC1D1DD3C3CF00DE5DEC /* SecInternalRelease.c in Sources */,
 				DCC78EBA1D8089BD00865A7C /* p12pbegen.c in Sources */,
@@ -36153,6 +36111,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EBDCC002233DD45700806566 /* MockAKSRefKey.proto in Sources */,
 				0CE15E39222DF67800B7EAA4 /* OTRecovery.proto in Sources */,
 				DCE0775621ADD665002662FD /* OTPrivateKey.proto in Sources */,
 				DCE0775321ADD65E002662FD /* OTAuthenticatedCiphertext.proto in Sources */,
@@ -36182,9 +36141,11 @@
 				DCE0774321ADD635002662FD /* TPPBPeerDynamicInfo.proto in Sources */,
 				DCE0775721ADD669002662FD /* SecDbKeychainSerializedItemV7.proto in Sources */,
 				DCE0775821ADD66B002662FD /* SecDbKeychainSerializedAKSWrappedKey.proto in Sources */,
+				EB627A73233E339200F32437 /* MockAKSOptionalParameters.proto in Sources */,
 				DC90A4C721F279D4001300EB /* SecEscrowPendingRecord.proto in Sources */,
 				DCE0775921ADD66E002662FD /* SecDbKeychainSerializedMetadata.proto in Sources */,
 				DCE0775A21ADD671002662FD /* SecDbKeychainSerializedSecretData.proto in Sources */,
+				EB0E1B912358FAC6002B6037 /* SOSAccountConfiguration.proto in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -36552,7 +36513,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EB9B285921C77E7400173DC2 /* OTDefines.m in Sources */,
 				6C32BB9920EAE6B00042DF59 /* LocalKeychainAnalytics.m in Sources */,
 				EB1E069D211E16260088F0B1 /* mockaksxcbase.m in Sources */,
 				0CC3771320A222BC00B58D2D /* SFSignInAnalytics.m in Sources */,
@@ -36561,10 +36521,10 @@
 				EBC73F2020993F8600AE3350 /* SFAnalyticsSQLiteStore.m in Sources */,
 				EBC73F2720993FC900AE3350 /* SFAnalyticsMultiSampler.m in Sources */,
 				EB49B2D8202DF1F7003F34A0 /* server_xpc.m in Sources */,
-				EBC73F2620993FA800AE3350 /* client_endpoint.m in Sources */,
 				EB49B2D9202DF1F7003F34A0 /* server_security_helpers.m in Sources */,
 				EBC73F2B2099785900AE3350 /* SFObjCType.m in Sources */,
 				480ADDB22155A0CE00318FC6 /* SOSAnalytics.m in Sources */,
+				EB627A79233E375A00F32437 /* MockAKSOptionalParameters.proto in Sources */,
 				EB49B2E0202DF5D7003F34A0 /* server_entitlement_helpers.c in Sources */,
 				5A061196229ED6E8006AF14A /* NSDate+SFAnalytics.m in Sources */,
 				EBC73F2A20996AD400AE3350 /* SFSQLiteStatement.m in Sources */,
@@ -36573,11 +36533,11 @@
 				EB49B2D5202DF1D8003F34A0 /* SecTask.c in Sources */,
 				EB49B2D3202DF1AC003F34A0 /* SecdWatchdog.m in Sources */,
 				EB49B2B1202D8780003F34A0 /* mockaksKeychain.m in Sources */,
-				DC5B391B20C08BDC005B09F6 /* SecFramework.c in Sources */,
 				EB1E069F211E17C00088F0B1 /* mockaksWatchDog.m in Sources */,
 				EB49B2D1202DF15F003F34A0 /* SFAnalyticsActivityTracker.m in Sources */,
 				EB49B2D0202DF14D003F34A0 /* SFAnalytics.m in Sources */,
 				EBC73F2820993FDA00AE3350 /* SFAnalyticsSampler.m in Sources */,
+				EBDCC001233DD3E000806566 /* MockAKSRefKey.proto in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -36754,11 +36714,6 @@
 			isa = PBXTargetDependency;
 			target = DC0BCC211D8C684F00070CB0 /* utilities */;
 			targetProxy = 0C5663ED20BE2E1A0035F362 /* PBXContainerItemProxy */;
-		};
-		0C604F0221B8E5090036C175 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DCF216D621ADD5B10029CCC1 /* protobuf_source_generation */;
-			targetProxy = 0C604F0121B8E5090036C175 /* PBXContainerItemProxy */;
 		};
 		0C78CCE51FCC97E7008B4B24 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -38840,11 +38795,6 @@
 			target = DC52E8BE1D80C25800B0A59C /* SecureObjectSyncServer */;
 			targetProxy = DC71DA0C1D95DD670065FB93 /* PBXContainerItemProxy */;
 		};
-		DC7479A022272361001E0E8C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DCF216D621ADD5B10029CCC1 /* protobuf_source_generation */;
-			targetProxy = DC74799F22272361001E0E8C /* PBXContainerItemProxy */;
-		};
 		DC7FC45221EE9208003C39B8 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DC7FC44721EE914C003C39B8 /* FeatureFlagsPlist */;
@@ -39235,21 +39185,6 @@
 			target = DCDA5E4F2124B9C5009B11B2 /* aks_support */;
 			targetProxy = DCDA5E632124BCA9009B11B2 /* PBXContainerItemProxy */;
 		};
-		DCE0775C21ADD6A0002662FD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DCF216D621ADD5B10029CCC1 /* protobuf_source_generation */;
-			targetProxy = DCE0775B21ADD6A0002662FD /* PBXContainerItemProxy */;
-		};
-		DCE0777E21ADEADA002662FD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DCF216D621ADD5B10029CCC1 /* protobuf_source_generation */;
-			targetProxy = DCE0777D21ADEADA002662FD /* PBXContainerItemProxy */;
-		};
-		DCE0778421ADEDDA002662FD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DCF216D621ADD5B10029CCC1 /* protobuf_source_generation */;
-			targetProxy = DCE0778321ADEDDA002662FD /* PBXContainerItemProxy */;
-		};
 		DCE4E8D81D7F37F200AFB96E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DCE4E8931D7F34F600AFB96E /* authd */;
@@ -39544,11 +39479,6 @@
 			isa = PBXTargetDependency;
 			target = EBB851EB22F7912400424FD0 /* SecurityUtilitiesTests */;
 			targetProxy = EBB8521722F793EF00424FD0 /* PBXContainerItemProxy */;
-		};
-		EBBC11B32200D3BB00F95738 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = DCF216D621ADD5B10029CCC1 /* protobuf_source_generation */;
-			targetProxy = EBBC11B22200D3BB00F95738 /* PBXContainerItemProxy */;
 		};
 		EBCF743F1CE593A700BED7CA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -41877,6 +41807,47 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				VALIDATE_PRODUCT = YES;
 				WRAPPER_EXTENSION = bundle;
+			};
+			name = Release;
+		};
+		5A442F8E233C330F00918373 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_ENTITLEMENTS = "experiment/tool/experimentTool-Entitlements.plist";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				INSTALL_PATH = /usr/sbin;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		5A442F8F233C330F00918373 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_ENTITLEMENTS = "experiment/tool/experimentTool-Entitlements.plist";
+				COPY_PHASE_STRIP = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				INSTALL_PATH = /usr/sbin;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -52974,6 +52945,15 @@
 			buildConfigurations = (
 				5346480B17331E1200FE9172 /* Debug */,
 				5346480C17331E1200FE9172 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5A442F8D233C330F00918373 /* Build configuration list for PBXNativeTarget "experimentTool" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5A442F8E233C330F00918373 /* Debug */,
+				5A442F8F233C330F00918373 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

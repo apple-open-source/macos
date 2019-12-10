@@ -954,7 +954,7 @@ ikev1_attrmap_print(netdissect_options *ndo,
 		if (!rawprint(ndo, (const uint8_t *)&p[4], totlen - 4)) {
 			ND_PRINT((ndo,")"));
 			goto trunc;
-	}
+		}
 	}
 	ND_PRINT((ndo,")"));
 	return p + totlen;
@@ -997,7 +997,7 @@ ikev1_attr_print(netdissect_options *ndo, const u_char *p, const u_char *ep2)
 		if (!rawprint(ndo, (const uint8_t *)&p[4], totlen - 4)) {
 			ND_PRINT((ndo,")"));
 			goto trunc;
-	}
+		}
 	}
 	ND_PRINT((ndo,")"));
 	return p + totlen;
@@ -1630,14 +1630,14 @@ ikev1_nonce_print(netdissect_options *ndo, u_char tpay _U_,
 	ND_PRINT((ndo," n len=%u", ntohs(e.len) - 4));
 	if (ntohs(e.len) > 4) {
 		if (ndo->ndo_vflag > 2) {
-		ND_PRINT((ndo," "));
-		if (!rawprint(ndo, (const uint8_t *)(ext + 1), ntohs(e.len) - 4))
-			goto trunc;
+			ND_PRINT((ndo, " "));
+			if (!rawprint(ndo, (const uint8_t *)(ext + 1), ntohs(e.len) - 4))
+				goto trunc;
 		} else if (ndo->ndo_vflag > 1) {
-		ND_PRINT((ndo," "));
+			ND_PRINT((ndo, " "));
 			if (!ike_show_somedata(ndo, (const u_char *)(ext + 1), ep))
-			goto trunc;
-	}
+				goto trunc;
+		}
 	}
 	return (const u_char *)ext + ntohs(e.len);
 trunc:
@@ -1762,13 +1762,14 @@ ikev1_n_print(netdissect_options *ndo, u_char tpay _U_,
 				if (cp == NULL) {
 					ND_PRINT((ndo,")"));
 					goto trunc;
-			}
+				}
 			}
 			ND_PRINT((ndo,")"));
 			break;
 		    }
 		case IPSECDOI_NTYPE_REPLAY_STATUS:
 			ND_PRINT((ndo," status=("));
+			ND_TCHECK_32BITS(cp);
 			ND_PRINT((ndo,"replay detection %sabled",
 				  EXTRACT_32BITS(cp) ? "en" : "dis"));
 			ND_PRINT((ndo,")"));
@@ -1782,11 +1783,11 @@ ikev1_n_print(netdissect_options *ndo, u_char tpay _U_,
 				ND_PRINT((ndo," data=("));
 				if (!rawprint(ndo, (const uint8_t *)(cp), ep - cp))
 					goto trunc;
-		ND_PRINT((ndo,")"));
+				ND_PRINT((ndo,")"));
 			} else {
 				if (!ike_show_somedata(ndo, cp, ep))
 					goto trunc;
-	}
+			}
 			break;
 		}
 	}
@@ -2323,14 +2324,14 @@ ikev2_auth_print(netdissect_options *ndo, u_char tpay,
 		  STR_OR_ID(a.auth_method, v2_auth)));
 	if (len > 4) {
 		if (ndo->ndo_vflag > 1) {
-		ND_PRINT((ndo," authdata=("));
-		if (!rawprint(ndo, (const uint8_t *)authdata, len - sizeof(a)))
-			goto trunc;
-		ND_PRINT((ndo,") "));
+			ND_PRINT((ndo, " authdata=("));
+			if (!rawprint(ndo, (const uint8_t *)authdata, len - sizeof(a)))
+				goto trunc;
+			ND_PRINT((ndo, ") "));
 		} else if (ndo->ndo_vflag) {
 			if (!ike_show_somedata(ndo, authdata, ep))
 				goto trunc;
-	}
+		}
 	}
 
 	return (const u_char *)ext + len;
@@ -2556,15 +2557,15 @@ ikev2_n_print(netdissect_options *ndo, u_char tpay _U_,
 
 	if (cp < ep) {
 		if (ndo->ndo_vflag > 3 || (showsomedata && ep-cp < 30)) {
-		ND_PRINT((ndo," data=("));
-		if (!rawprint(ndo, (const uint8_t *)(cp), ep - cp))
-			goto trunc;
+			ND_PRINT((ndo," data=("));
+			if (!rawprint(ndo, (const uint8_t *)(cp), ep - cp))
+				goto trunc;
 
-		ND_PRINT((ndo,")"));
+			ND_PRINT((ndo,")"));
 		} else if (showsomedata) {
 			if (!ike_show_somedata(ndo, cp, ep))
 				goto trunc;
-	}
+		}
 	}
 
 	return (const u_char *)ext + item_len;

@@ -554,7 +554,7 @@ yue{
         speed{
             kilometer-per-hour{
                 dnam{"公里/小時"}
-                other{"每小時 {0} 公里"}
+                other{"{0}公里/小時"}
             }
             knot{
                 dnam{"節"}
@@ -562,7 +562,7 @@ yue{
             }
             meter-per-second{
                 dnam{"米/秒"}
-                other{"每秒 {0} 米"}
+                other{"{0}米/秒"}
             }
             mile-per-hour{
                 dnam{"英里/小時"}
@@ -1064,10 +1064,10 @@ yue{
         speed{
             kilometer-per-hour{
                 dnam{"公里/小時"}
-                other{"{0}公里/小時"}
+                other{"{0}公里/時"}
             }
             meter-per-second{
-                other{"{0}m/s"}
+                other{"{0}米/秒"}
             }
             mile-per-hour{
                 other{"{0}英里/小時"}
@@ -1704,7 +1704,7 @@ yue{
         speed{
             kilometer-per-hour{
                 dnam{"公里/小時"}
-                other{"每小時{0}公里"}
+                other{"{0}公里/時"}
             }
             knot{
                 dnam{"節"}
@@ -1712,7 +1712,7 @@ yue{
             }
             meter-per-second{
                 dnam{"米/秒"}
-                other{"每秒{0}米"}
+                other{"{0}米/秒"}
             }
             mile-per-hour{
                 dnam{"英里/小時"}

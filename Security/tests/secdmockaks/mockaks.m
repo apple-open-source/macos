@@ -48,6 +48,9 @@
 #import <LocalAuthentication/LACFSupport.h>
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import "mockaks.h"
+#import "utilities/der_plist.h"
+#import "tests/secdmockaks/generated_source/MockAKSRefKey.h"
+#import "tests/secdmockaks/generated_source/MockAKSOptionalParameters.h"
 
 bool hwaes_key_available(void)
 {
@@ -66,7 +69,7 @@ bool hwaes_key_available(void)
 static NSMutableDictionary* _lockedStates = nil;
 static dispatch_queue_t _mutabilityQueue = nil;
 static keybag_state_t _keybag_state = keybag_state_unlocked | keybag_state_been_unlocked;
-
+static NSMutableArray<NSError *>* _decryptRefKeyErrors = nil;
 /*
  * Method that limit where this rather in-secure version of AKS can run
  */
@@ -195,6 +198,30 @@ static keybag_state_t _keybag_state = keybag_state_unlocked | keybag_state_been_
         SET_FLAG_ON(self.keybag_state, keybag_state_been_unlocked);
     });
 }
+
++ (void)failNextDecryptRefKey: (NSError* _Nonnull) decryptRefKeyError {
+    if (_decryptRefKeyErrors == NULL) {
+        _decryptRefKeyErrors = [NSMutableArray array];
+    }
+    @synchronized(_decryptRefKeyErrors) {
+        [_decryptRefKeyErrors addObject: decryptRefKeyError];
+    }
+}
+
++ (NSError * _Nullable)popDecryptRefKeyFailure {
+    NSError* error = nil;
+    if (_decryptRefKeyErrors == NULL) {
+        return nil;
+    }
+    @synchronized(_decryptRefKeyErrors) {
+        if(_decryptRefKeyErrors.count > 0) {
+            error = _decryptRefKeyErrors[0];
+            [_decryptRefKeyErrors removeObjectAtIndex:0];
+        }
+    }
+    return error;
+}
+
 
 @end
 
@@ -342,19 +369,92 @@ aks_unwrap_key(const void * wrapped_key, int wrapped_key_size, keyclass_t key_cl
     return kAKSReturnSuccess;
 }
 
-int
-aks_ref_key_create(keybag_handle_t handle, keyclass_t cls, aks_key_type_t type, const uint8_t *params, size_t params_len, aks_ref_key_t *ot)
+@interface MockAKSRefKeyObject: NSObject
+@property NSData *keyData;
+@property SFAESKey *key;
+@property NSData *acmHandle;
+@property NSData *externalData;
+
+@property NSData *blob; // blob is exteralized format
+
+- (instancetype)init NS_UNAVAILABLE;
+- (instancetype)initWithKeyData:(NSData *)keyData parameters:(NSData *)parameters error:(NSError **)error;
+
+@end
+@implementation MockAKSRefKeyObject
+
+- (instancetype)initWithKeyData:(NSData *)keyData
+                     parameters:(NSData *)parameters
+                          error:(NSError **)error
 {
-    [SecMockAKS trapdoor];
+    if ((self = [super init]) != NULL) {
 
-    // For now, mock AKS keys are all the same key
-    NSData* keyData = [NSData dataWithBytes:"1234567890123456789012345678901" length:32];
-    SFAESKeySpecifier* keySpecifier = [[SFAESKeySpecifier alloc] initWithBitSize:SFAESKeyBitSize256];
-    NSError* error = nil;
-    SFAESKey* key = [[SFAESKey alloc] initWithData:keyData specifier:keySpecifier error:&error];
+        self.keyData = [keyData copy];
+        SFAESKeySpecifier* keySpecifier = [[SFAESKeySpecifier alloc] initWithBitSize: SFAESKeyBitSize256];
+        @try {
+            self.key = [[SFAESKey alloc] initWithData:self.keyData specifier:keySpecifier error:error];
+            if (self.key == NULL) {
+                return NULL;
+            }
+        } @catch (NSException *exception) {
+            *error = [NSError errorWithDomain:@"foo" code:kAKSReturnBadArgument userInfo:nil];
+            return NULL;
+        }
 
-    if(error) {
-        return kAKSReturnError;
+        MockAKSOptionalParameters *params = [[MockAKSOptionalParameters alloc] initWithData:parameters];
+
+        // enforce that the extra data is DER like
+        if (params.externalData) {
+            CFTypeRef cf = NULL;
+            CFErrorRef cferror = NULL;
+            uint8_t *der = (uint8_t *)params.externalData.bytes;
+            der_decode_plist(NULL, false, &cf, &cferror, der, der + params.externalData.length);
+            if (cf == NULL) {
+                *error = [NSError errorWithDomain:@"foo" code:kAKSReturnBadArgument userInfo:nil];
+                return NULL;
+            }
+            CFReleaseNull(cf);
+        }
+
+
+        self.externalData = params.externalData;
+        self.acmHandle = params.acmHandle;
+
+        MockAKSRefKey *blob = [[MockAKSRefKey alloc] init];
+        blob.key = self.keyData;
+        blob.optionalParams = parameters;
+        self.blob = blob.data;
+    }
+    return self;
+}
+
+@end
+
+int
+aks_ref_key_create(keybag_handle_t handle, keyclass_t key_class, aks_key_type_t type, const uint8_t *params, size_t params_len, aks_ref_key_t *ot)
+{
+    MockAKSRefKeyObject *key;
+    @autoreleasepool {
+        [SecMockAKS trapdoor];
+        NSError *error = NULL;
+
+        if ([SecMockAKS isLocked:key_class]) {
+            return kAKSReturnNoPermission;
+        }
+
+        NSData *keyData = [NSData dataWithBytes:"1234567890123456789012345678901" length:32];
+        NSData *parameters = NULL;
+        if (params && params_len != 0) {
+            parameters = [NSData dataWithBytes:params length:params_len];
+        }
+
+        key = [[MockAKSRefKeyObject alloc] initWithKeyData:keyData parameters:parameters error:&error];
+        if(key == NULL) {
+            if (error) {
+                return (int)error.code;
+            }
+            return kAKSReturnError;
+        }
     }
 
     *ot = (__bridge_retained aks_ref_key_t)key;
@@ -373,17 +473,16 @@ aks_ref_key_encrypt(aks_ref_key_t handle,
     NSError* error = nil;
     NSData* nsdata = [NSData dataWithBytes:data length:data_len];
 
-    SFAESKey* key =  (__bridge SFAESKey*)handle;
-    SFAuthenticatedEncryptionOperation* op = [[SFAuthenticatedEncryptionOperation alloc] initWithKeySpecifier:key.keySpecifier authenticationMode:SFAuthenticatedEncryptionModeGCM];
+    MockAKSRefKeyObject *key = (__bridge MockAKSRefKeyObject*)handle;
+
+    SFAuthenticatedEncryptionOperation* op = [[SFAuthenticatedEncryptionOperation alloc] initWithKeySpecifier:key.key.keySpecifier authenticationMode:SFAuthenticatedEncryptionModeGCM];
 
 
-    SFAuthenticatedCiphertext* ciphertext = [op encrypt:nsdata withKey:key error:&error];
+    SFAuthenticatedCiphertext* ciphertext = [op encrypt:nsdata withKey:key.key error:&error];
 
     if(error || !ciphertext || !out_der || !out_der_len) {
         return kAKSReturnError;
     }
-
-    //[NSKeyedUnarchiver unarchivedObjectOfClass:[SFAuthenticatedCiphertext class] fromData:_serializedHolder.ciphertext error:&error];
 
     NSData* cipherBytes = [NSKeyedArchiver archivedDataWithRootObject:ciphertext requiringSecureCoding:YES error:&error];
     if(error || !cipherBytes) {
@@ -400,41 +499,88 @@ aks_ref_key_encrypt(aks_ref_key_t handle,
 
 int
 aks_ref_key_decrypt(aks_ref_key_t handle,
-                        const uint8_t *der_params, size_t der_params_len,
-                        const void * data, size_t data_len,
-                        void ** out_der, size_t * out_der_len)
+                    const uint8_t *der_params, size_t der_params_len,
+                    const void * data, size_t data_len,
+                    void ** out_der, size_t * out_der_len)
 {
-    [SecMockAKS trapdoor];
+    @autoreleasepool {
+        [SecMockAKS trapdoor];
 
-    if (!out_der || !out_der_len || !data) {
-        return kAKSReturnError;
+        NSError *error = [SecMockAKS popDecryptRefKeyFailure];
+        if (error) {
+            return (int)error.code;
+        }
+
+        if (!out_der || !out_der_len || !data) {
+            return kAKSReturnError;
+        }
+
+        if (der_params) {
+            NSData *paramsData = [NSData dataWithBytes:der_params length:der_params_len];
+            MockAKSOptionalParameters *params = [[MockAKSOptionalParameters alloc] initWithData:paramsData];
+
+            if (params.hasExternalData && !params.hasAcmHandle) {
+                return kSKSReturnPolicyInvalid;
+            }
+            (void)params; /* check ACM context if the item uses policy */
+        }
+
+
+        NSData* nsdata = [NSData dataWithBytes:data length:data_len];
+
+        MockAKSRefKeyObject* key =  (__bridge MockAKSRefKeyObject*)handle;
+
+        SFAuthenticatedCiphertext* ciphertext = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFAuthenticatedCiphertext class] fromData:nsdata error:&error];
+
+        if(error || !ciphertext) {
+            return kAKSReturnDecodeError;
+        }
+
+        // this should not be needed...
+        if (![ciphertext isKindOfClass:[SFAuthenticatedCiphertext class]]) {
+            return kAKSReturnDecodeError;
+        }
+        if (![ciphertext.ciphertext isKindOfClass:[NSData class]]) {
+            return kAKSReturnDecodeError;
+        }
+        if (![ciphertext.authenticationCode isKindOfClass:[NSData class]]) {
+            return kAKSReturnDecodeError;
+        }
+        if (![ciphertext.initializationVector isKindOfClass:[NSData class]]) {
+            return kAKSReturnDecodeError;
+        }
+
+        NSData* plaintext = NULL;
+
+        SFAuthenticatedEncryptionOperation* op = [[SFAuthenticatedEncryptionOperation alloc] initWithKeySpecifier:key.key.keySpecifier authenticationMode:SFAuthenticatedEncryptionModeGCM];
+        plaintext = [op decrypt:ciphertext withKey:key.key error:&error];
+
+        if(error || !plaintext) {
+            return kAKSReturnDecodeError;
+        }
+
+        /*
+         * AAAAAAAAHHHHHHHHH
+         * The output of aks_ref_key_encrypt is not the decrypted data, it's a DER blob that contains an octet string of the data....
+         */
+
+        CFErrorRef cfError = NULL;
+        NSData* derData = (__bridge_transfer NSData*)CFPropertyListCreateDERData(NULL, (__bridge CFTypeRef)plaintext, &cfError);
+        CFReleaseNull(cfError);
+        if (derData == NULL) {
+            return kAKSReturnDecodeError;
+        }
+
+        *out_der = calloc(1, derData.length);
+        if (*out_der == NULL) {
+            abort();
+        }
+
+        memcpy(*out_der, derData.bytes, derData.length);
+        *out_der_len = derData.length;
+
+        return kAKSReturnSuccess;
     }
-
-    NSError* error = nil;
-    NSData* nsdata = [NSData dataWithBytes:data length:data_len];
-
-    SFAESKey* key =  (__bridge SFAESKey*)handle;
-
-    NSKeyedUnarchiver* unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:nsdata error:&error];
-    SFAuthenticatedCiphertext* ciphertext = [unarchiver decodeObjectOfClass:[SFAuthenticatedCiphertext class] forKey:NSKeyedArchiveRootObjectKey];
-
-    if(error || !ciphertext) {
-        return kAKSReturnError;
-    }
-
-    SFAuthenticatedEncryptionOperation* op = [[SFAuthenticatedEncryptionOperation alloc] initWithKeySpecifier:key.keySpecifier authenticationMode:SFAuthenticatedEncryptionModeGCM];
-    NSData* plaintext = [op decrypt:ciphertext withKey:key error:&error];
-
-    if(error || !plaintext) {
-        return kAKSReturnDecodeError;
-    }
-
-    *out_der = calloc(1, plaintext.length);
-
-    memcpy(*out_der, plaintext.bytes, plaintext.length);
-    *out_der_len = plaintext.length;
-
-    return kAKSReturnSuccess;
 }
 
 int aks_ref_key_wrap(aks_ref_key_t handle,
@@ -467,39 +613,87 @@ aks_ref_key_delete(aks_ref_key_t handle, const uint8_t *der_params, size_t der_p
 int
 aks_operation_optional_params(const uint8_t * access_groups, size_t access_groups_len, const uint8_t * external_data, size_t external_data_len, const void * acm_handle, int acm_handle_len, void ** out_der, size_t * out_der_len)
 {
-    // ugh. Let's at least pretend we're doing something here.
-    assert((out_der && out_der_len) || !(out_der || out_der_len));
-    if (out_der) {
-        *out_der = calloc(1, 150);
-        memset(*out_der, 'A', 150);
-        *out_der_len = 150;
-    }
+    @autoreleasepool {
+        [SecMockAKS trapdoor];
 
-    return kAKSReturnSuccess;
+        MockAKSOptionalParameters* params = [[MockAKSOptionalParameters alloc] init];
+
+        if (access_groups) {
+            params.accessGroups = [NSData dataWithBytes:access_groups length:access_groups_len];
+        }
+        if (external_data) {
+            params.externalData = [NSData dataWithBytes:external_data length:external_data_len];
+        }
+        if (acm_handle) {
+            params.acmHandle = [NSData dataWithBytes:acm_handle length:acm_handle_len];
+        }
+
+        NSData *result = params.data;
+        *out_der = malloc(result.length);
+        memcpy(*out_der, result.bytes, result.length);
+        *out_der_len = result.length;
+        return kAKSReturnSuccess;
+    }
 }
 
 int aks_ref_key_create_with_blob(keybag_handle_t keybag, const uint8_t *ref_key_blob, size_t ref_key_blob_len, aks_ref_key_t* handle)
 {
-    aks_ref_key_create(keybag, 0, 0, NULL, 0, handle);
+    NSError *error = NULL;
+    MockAKSRefKeyObject *key = NULL;
+
+    @autoreleasepool {
+        [SecMockAKS trapdoor];
+        NSData *data = [NSData dataWithBytes:ref_key_blob length:ref_key_blob_len];
+        
+        MockAKSRefKey *blob = [[MockAKSRefKey alloc] initWithData:data];
+        if (blob == NULL) {
+            return kAKSReturnBadData;
+        }
+        if (!blob.hasKey || blob.key.length == 0) {
+            return kAKSReturnBadData;
+        }
+
+        key = [[MockAKSRefKeyObject alloc] initWithKeyData:blob.key parameters:blob.optionalParams error:&error];
+    }
+    if (key == NULL) {
+        *handle = (aks_ref_key_t)-1;
+        if (error.code) {
+            return (int)error.code;
+        }
+        return kAKSReturnError;
+    }
+
+    *handle = (__bridge_retained aks_ref_key_t)key;
     return kAKSReturnSuccess;
 }
 
 const uint8_t * aks_ref_key_get_blob(aks_ref_key_t refkey, size_t *out_blob_len)
 {
-    *out_blob_len = 2;
-    return (const uint8_t *)"20";
+    MockAKSRefKeyObject *key = (__bridge MockAKSRefKeyObject*)refkey;
+
+    *out_blob_len = key.blob.length;
+    return (const uint8_t *)key.blob.bytes;
 }
+
 int
-aks_ref_key_free(aks_ref_key_t* key)
+aks_ref_key_free(aks_ref_key_t* refkey)
 {
+    if (*refkey != NULL) {
+        MockAKSRefKeyObject *key = (__bridge MockAKSRefKeyObject*)*refkey;
+        CFTypeRef cfkey = CFBridgingRetain(key);
+        CFRelease(cfkey);
+        *refkey = NULL;
+    }
     return kAKSReturnSuccess;
 }
 
 const uint8_t *
 aks_ref_key_get_external_data(aks_ref_key_t refkey, size_t *out_external_data_len)
 {
-    *out_external_data_len = 2;
-    return (const uint8_t *)"21";
+    MockAKSRefKeyObject *key = (__bridge MockAKSRefKeyObject*)refkey;
+
+    *out_external_data_len = key.externalData.length;
+    return (const uint8_t *)key.externalData.bytes;
 }
 
 kern_return_t

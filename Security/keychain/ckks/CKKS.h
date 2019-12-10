@@ -362,7 +362,7 @@ typedef CF_ENUM(CFIndex, CKKSResultDescriptionErrorCode) {
 typedef CF_ENUM(CFIndex, CKKSServerExtensionErrorCode) {
     // Generic Errors
     //CKKSServerMissingField = 1,
-    //CKKSServerMissingRecord = 2,
+    CKKSServerMissingRecord = 2,
     //CKKSServerUnexpectedFieldType = 3,
     //CKKSServerUnexpectedRecordType = 4,
     //CKKSServerUnepxectedRecordID = 5,

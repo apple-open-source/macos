@@ -6968,7 +6968,7 @@ void NumberFormatTest::TestExplicitParents() {
     {"es_CO", "1250,75" },
     {"es_ES", "1250,75" },
     {"es_GQ", "1250,75" },
-    {"es_MX", "1250.75" },
+    {"es_MX", "1,250.75" },
     {"es_US", "1250.75" },
     {"es_VE", "1250,75" },
     };

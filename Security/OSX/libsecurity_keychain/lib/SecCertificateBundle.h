@@ -70,6 +70,13 @@ OSStatus SecCertificateBundleExport(
         CSSM_CERT_BUNDLE_ENCODING encodingType,
         CSSM_DATA* data) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
+/* misspelled version of above */
+OSStatus SecCertifcateBundleExport(
+        CFArrayRef itemList,
+        CSSM_CERT_BUNDLE_TYPE type,
+        CSSM_CERT_BUNDLE_ENCODING encodingType,
+        CSSM_DATA* data) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
 #if defined(__cplusplus)
 }
 #endif

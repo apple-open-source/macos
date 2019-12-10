@@ -1604,6 +1604,10 @@ getPathExtension(const char * pathPtr)
     CFURLRef            pathURL         = NULL; // must release
     CFStringRef         tmpCFString     = NULL; // must release
 
+    if (pathPtr == NULL) {
+        goto finish;
+    }
+
     pathURL = CFURLCreateFromFileSystemRepresentation(
                                                       NULL,
                                                       (const UInt8 *)pathPtr,

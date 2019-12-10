@@ -46,7 +46,7 @@ da{
         arc{"aramæisk"}
         arn{"mapudungun"}
         arp{"arapaho"}
-        ars{"Najd-arabisk"}
+        ars{"arabisk, najdi"}
         arw{"arawak"}
         as{"assamesisk"}
         asa{"asu"}
@@ -105,7 +105,7 @@ da{
         chp{"chipewyan"}
         chr{"cherokee"}
         chy{"cheyenne"}
-        ckb{"sorani"}
+        ckb{"kurdisk, sorani"}
         co{"korsikansk"}
         cop{"koptisk"}
         cr{"cree"}

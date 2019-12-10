@@ -197,6 +197,10 @@ preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
 - (void)postConfirmPasscodeCFU:(NSError**)error;
 - (void)postRecoveryKeyCFU:(NSError**)error;
 
+// For reporting
+- (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error NS_SWIFT_NOTHROW;
+- (NSNumber* _Nullable)numberOfPeersInModelWithMachineID:(NSString*)machineID error:(NSError**)error;
+
 @end
 
 NS_ASSUME_NONNULL_END

@@ -248,4 +248,28 @@ OctagonFlag* const OctagonFlagUnlocked = (OctagonFlag*)@"unlocked";
 OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals = (OctagonFlag*)@"attempt_sos_update_preapprovals";
 OctagonFlag* const OctagonFlagAttemptSOSConsistency = (OctagonFlag*)@"attempt_sos_consistency";
 OctagonFlag* const OctagonFlagEscrowRequestInformCloudServicesOperation = (OctagonFlag*)@"escrowrequest_inform_cloudservices";
+
+NSSet<OctagonFlag *>* AllOctagonFlags(void)
+{
+    static NSSet<OctagonFlag*>* f = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSMutableSet* flags = [NSMutableSet set];
+
+        [flags addObject:OctagonFlagIDMSLevelChanged];
+        [flags addObject:OctagonFlagEgoPeerPreapproved];
+        [flags addObject:OctagonFlagCKKSRequestsTLKUpload];
+        [flags addObject:OctagonFlagCuttlefishNotification];
+        [flags addObject:OctagonFlagAccountIsAvailable];
+        [flags addObject:OctagonFlagAttemptSOSUpgrade];
+        [flags addObject:OctagonFlagFetchAuthKitMachineIDList];
+        [flags addObject:OctagonFlagUnlocked];
+        [flags addObject:OctagonFlagAttemptSOSUpdatePreapprovals];
+        [flags addObject:OctagonFlagAttemptSOSConsistency];
+
+        f = flags;
+    });
+    return f;
+}
+
 #endif // OCTAGON

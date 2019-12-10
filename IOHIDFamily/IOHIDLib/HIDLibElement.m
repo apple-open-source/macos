@@ -141,6 +141,15 @@
 
 -(void)setValueRef:(IOHIDValueRef)valueRef
 {
+    
+    // what if valueRef == _value,
+    // in that case underline value is already
+    // released
+    
+    if (_value == valueRef) {
+        return;
+    }
+    
     if (_value) {
         CFRelease(_value);
         _value = NULL;

@@ -152,6 +152,7 @@
 #include <WebCore/DragData.h>
 #include <WebCore/Editing.h>
 #include <WebCore/Editor.h>
+#include <WebCore/ElementContext.h>
 #include <WebCore/ElementIterator.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/EventNames.h>
@@ -6633,6 +6634,21 @@ void WebPage::simulateDeviceOrientationChange(double alpha, double beta, double 
 #endif
 }
 
+#if USE(SYSTEM_PREVIEW)
+void WebPage::systemPreviewActionTriggered(WebCore::SystemPreviewInfo previewInfo, const String& message)
+{
+    auto* document = Document::allDocumentsMap().get(previewInfo.element.documentIdentifier);
+    if (!document)
+        return;
+
+    auto pageID = document->pageID();
+    if (!pageID || previewInfo.element.webPageIdentifier != pageID.value())
+        return;
+
+    document->dispatchSystemPreviewActionEvent(previewInfo, message);
+}
+#endif
+
 #if ENABLE(SPEECH_SYNTHESIS)
 void WebPage::speakingErrorOccurred()
 {
@@ -6818,6 +6834,19 @@ Element* WebPage::elementForTextInputContext(const TextInputContext& textInputCo
         return nullptr;
 
     return document->searchForElementByIdentifier(textInputContext.elementIdentifier);
+}
+
+Optional<WebCore::ElementContext> WebPage::contextForElement(WebCore::Element& element) const
+{
+    auto& document = element.document();
+    if (!m_page || document.page() != m_page.get())
+        return WTF::nullopt;
+
+    auto frame = document.frame();
+    if (!frame)
+        return WTF::nullopt;
+
+    return WebCore::ElementContext { elementRectInRootViewCoordinates(element, *frame), m_pageID, document.identifier(), document.identifierForElement(element) };
 }
 
 void WebPage::configureLoggingChannel(const String& channelName, WTFLogChannelState state, WTFLogLevel level)

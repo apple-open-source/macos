@@ -158,6 +158,7 @@ _pthread_exit_if_canceled(int error)
 	if (((error & 0xff) == EINTR) && __unix_conforming && (__pthread_canceled(0) == 0)) {
 		pthread_t self = pthread_self();
 
+		_pthread_validate_signature(self);
 		self->cancel_error = error;
 		self->canceled = true;
 		pthread_exit(PTHREAD_CANCELED);
@@ -179,6 +180,7 @@ _pthread_testcancel(int isconforming)
 {
 	pthread_t self = pthread_self();
 	if (_pthread_is_canceled(self)) {
+		_pthread_validate_signature(self);
 		// 4597450: begin
 		self->canceled = (isconforming != PTHREAD_CONFORM_DARWIN_LEGACY);
 		// 4597450: end
@@ -217,6 +219,8 @@ static inline int
 _pthread_setcancelstate_internal(int state, int *oldstateptr, int conforming)
 {
 	pthread_t self = pthread_self();
+
+	_pthread_validate_signature(self);
 
 	switch (state) {
 	case PTHREAD_CANCEL_ENABLE:
@@ -276,6 +280,7 @@ pthread_setcanceltype(int type, int *oldtype)
 	    (type != PTHREAD_CANCEL_ASYNCHRONOUS))
 		return EINVAL;
 	self = pthread_self();
+	_pthread_validate_signature(self);
 	int oldstate = _pthread_update_cancel_state(self, _PTHREAD_CANCEL_TYPE_MASK, type);
 	if (oldtype) {
 		*oldtype = oldstate & _PTHREAD_CANCEL_TYPE_MASK;
@@ -448,6 +453,7 @@ _pthread_join(pthread_t thread, void **value_ptr, int conforming)
 	if (!_pthread_validate_thread_and_list_lock(thread)) {
 		return ESRCH;
 	}
+	_pthread_validate_signature(self);
 
 	if (!thread->tl_joinable || (thread->tl_join_ctx != NULL)) {
 		res = EINVAL;

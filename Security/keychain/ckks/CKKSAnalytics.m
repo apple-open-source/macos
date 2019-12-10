@@ -50,6 +50,7 @@ NSString* const CKKSAnalyticsLastInCircle = @"lastInCircle";
 NSString* const OctagonAnalyticsStateMachineState = @"OASMState";
 NSString* const OctagonAnalyticIcloudAccountState = @"OAiC";
 NSString* const OctagonAnalyticsTrustState = @"OATrust";
+NSString* const OctagonAnalyticsAttemptedJoin = @"OAAttemptedJoin";
 NSString* const OctagonAnalyticsLastHealthCheck = @"OAHealthCheck";
 NSString* const OctagonAnalyticsSOSStatus = @"OASOSStatus";
 NSString* const OctagonAnalyticsDateOfLastPreflightPreapprovedJoin = @"OALastPPJ";
@@ -60,6 +61,10 @@ NSString* const OctagonAnalyticsCoreFollowupFailureCount = @"OACFUTFailureCount"
 NSString* const OctagonAnalyticsCoreFollowupLastFailureTime = @"OACFULastFailureTime";
 NSString* const OctagonAnalyticsPrerecordPending = @"OAPrerecordPending";
 NSString* const OctagonAnalyticsCDPStateRun = @"OACDPStateRun";
+
+NSString* const OctagonAnalyticsHaveMachineID = @"OAMIDPresent";
+NSString* const OctagonAnalyticsMIDOnMemoizedList = @"OAMIDOnList";
+NSString* const OctagonAnalyticsPeersWithMID = @"OAPeersWithMID";
 
 NSString* const CKKSAnalyticsLastCKKSPush = @"lastCKKSPush";
 NSString* const CKKSAnalyticsLastOctagonPush = @"lastOctagonPush";
@@ -153,6 +158,8 @@ CKKSAnalyticsSignpostEvent* const CKKSEventMissingLocalItemsFound = (CKKSAnalyti
 CKKSAnalyticsSignpostEvent* const CKKSEventReachabilityTimerExpired = (CKKSAnalyticsSignpostEvent *)@"CKKSEventReachabilityTimerExpired";
 
 CKKSAnalyticsFailableEvent* const OctagonEventTPHHealthCheckStatus = (CKKSAnalyticsFailableEvent*)@"OctagonEventTPHHealthCheckStatus";
+
+CKKSAnalyticsFailableEvent* const OctagonEventAuthKitDeviceList = (CKKSAnalyticsFailableEvent *)@"OctagonEventAuthKitDeviceList";
 
 CKKSAnalyticsActivity* const CKKSActivityOTFetchRampState = (CKKSAnalyticsActivity *)@"CKKSActivityOTFetchRampState";
 CKKSAnalyticsActivity* const CKKSActivityOctagonPreflightBottle = (CKKSAnalyticsActivity *)@"CKKSActivityOctagonPreflightBottle";

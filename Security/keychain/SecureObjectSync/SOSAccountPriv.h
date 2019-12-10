@@ -125,8 +125,10 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 
 
 
--(id) init;
+-(id) init NS_UNAVAILABLE;
 -(id) initWithGestalt:(CFDictionaryRef)gestalt factory:(SOSDataSourceFactoryRef)factory;
+
+- (void)startStateMachine;
 
 void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
                                     CFStringRef ds_name,
@@ -140,6 +142,11 @@ void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
 -(void) ghostBustSchedule;
 + (SOSAccountGhostBustingOptions) ghostBustGetRampSettings;
 - (bool) ghostBustCheckDate;
+
+#if OCTAGON
+- (void)triggerBackupForPeers:(NSArray<NSString*>*)backupPeer;
+- (void)triggerRingUpdate;
+#endif
 
 
 void SOSAccountSetToNew(SOSAccount*  a);
@@ -198,8 +205,6 @@ bool SOSAccountHandleCircleMessage(SOSAccount* account,
 
 CF_RETURNS_RETAINED
 CFDictionaryRef SOSAccountHandleRetirementMessages(SOSAccount* account, CFDictionaryRef circle_retirement_messages, CFErrorRef *error);
-
-void SOSAccountRecordRetiredPeersInCircle(SOSAccount* account);
 
 bool SOSAccountHandleUpdateCircle(SOSAccount* account,
                                   SOSCircleRef prospective_circle,
@@ -270,7 +275,6 @@ bool sosAccountLeaveRing(SOSAccount*  account, SOSRingRef ring, CFErrorRef* erro
 bool SOSAccountForEachRing(SOSAccount* account, SOSRingRef (^action)(CFStringRef name, SOSRingRef ring));
 bool SOSAccountUpdateBackUp(SOSAccount* account, CFStringRef viewname, CFErrorRef *error);
 void SOSAccountEnsureRecoveryRing(SOSAccount* account);
-bool SOSAccountEnsureInBackupRings(SOSAccount* account);
 
 bool SOSAccountEnsurePeerRegistration(SOSAccount* account, CFErrorRef *error);
 

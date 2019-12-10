@@ -41,6 +41,7 @@ extern NSString* const CKKSAnalyticsLastInCircle;
 extern NSString* const OctagonAnalyticsStateMachineState;
 extern NSString* const OctagonAnalyticIcloudAccountState;
 extern NSString* const OctagonAnalyticsTrustState;
+extern NSString* const OctagonAnalyticsAttemptedJoin;
 extern NSString* const OctagonAnalyticsLastHealthCheck;
 extern NSString* const OctagonAnalyticsSOSStatus;
 extern NSString* const OctagonAnalyticsDateOfLastPreflightPreapprovedJoin;
@@ -50,6 +51,10 @@ extern NSString* const OctagonAnalyticsCoreFollowupFailureCount;
 extern NSString* const OctagonAnalyticsCoreFollowupLastFailureTime;
 extern NSString* const OctagonAnalyticsPrerecordPending;
 extern NSString* const OctagonAnalyticsCDPStateRun;
+
+extern NSString* const OctagonAnalyticsHaveMachineID;
+extern NSString* const OctagonAnalyticsMIDOnMemoizedList;
+extern NSString* const OctagonAnalyticsPeersWithMID;
 
 extern NSString* const CKKSAnalyticsLastCKKSPush;
 extern NSString* const CKKSAnalyticsLastOctagonPush;
@@ -158,6 +163,8 @@ extern CKKSAnalyticsFailableEvent* const OctagonEventCompanionPairing;
 
 /* trust state from trusted peers helper*/
 extern CKKSAnalyticsFailableEvent* const OctagonEventTPHHealthCheckStatus;
+
+extern CKKSAnalyticsFailableEvent* const OctagonEventAuthKitDeviceList;
 
 @protocol CKKSAnalyticsSignpostEvent <NSObject>
 @end

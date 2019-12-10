@@ -31,7 +31,7 @@
 #import "keychain/ot/OTConstants.h"
 #import "utilities/debugging.h"
 
-NSString* const OctagonErrorDomain = @"com.apple.security.octagon";
+NSErrorDomain const OctagonErrorDomain = @"com.apple.security.octagon";
 
 NSString* OTDefaultContext = @"defaultContext";
 NSString* OTDefaultsDomain = @"com.apple.security.octagon";

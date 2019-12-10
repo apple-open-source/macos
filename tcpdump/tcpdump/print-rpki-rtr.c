@@ -324,17 +324,17 @@ rpki_rtr_pdu_print (netdissect_options *ndo, const u_char *tptr, const u_int len
 		 * to keep things simple this implementation decodes only the two
 		 * outermost layers of PDUs and makes bounds checks in the outer and
 		 * the inner PDU independently.
-	     */
+		 */
 		if (pdu_len < tlen + encapsulated_pdu_length)
 		    goto invalid;
 		if (! recurse) {
 		    ND_TCHECK2(*tptr, tlen + encapsulated_pdu_length);
 		}
 		else {
-		ND_PRINT((ndo, "%s-----encapsulated PDU-----", indent_string(indent+4)));
+		    ND_PRINT((ndo, "%s-----encapsulated PDU-----", indent_string(indent+4)));
 		    rpki_rtr_pdu_print(ndo, tptr + tlen,
 			encapsulated_pdu_length, 0, indent + 2);
-	    }
+		}
 		tlen += encapsulated_pdu_length;
 	    }
 
@@ -397,10 +397,10 @@ rpki_rtr_print(netdissect_options *ndo, register const u_char *pptr, register u_
 	u_int pdu_len = rpki_rtr_pdu_print(ndo, pptr, len, 1, 8);
 	len -= pdu_len;
 	pptr += pdu_len;
-        }
-        }
+    }
+}
 
-	/*
+/*
  * Local Variables:
  * c-style: whitesmith
  * c-basic-offset: 4

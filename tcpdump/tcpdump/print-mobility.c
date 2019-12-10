@@ -284,14 +284,14 @@ mobility_print(netdissect_options *ndo,
 		ND_TCHECK_16BITS(&bp[hlen]);
 		if (bp[hlen] & 0xf0) {
 			ND_PRINT((ndo, " "));
-		if (bp[hlen] & 0x80)
-			ND_PRINT((ndo, "A"));
-		if (bp[hlen] & 0x40)
-			ND_PRINT((ndo, "H"));
-		if (bp[hlen] & 0x20)
-			ND_PRINT((ndo, "L"));
-		if (bp[hlen] & 0x10)
-			ND_PRINT((ndo, "K"));
+			if (bp[hlen] & 0x80)
+				ND_PRINT((ndo, "A"));
+			if (bp[hlen] & 0x40)
+				ND_PRINT((ndo, "H"));
+			if (bp[hlen] & 0x20)
+				ND_PRINT((ndo, "L"));
+			if (bp[hlen] & 0x10)
+				ND_PRINT((ndo, "K"));
 		}
 		/* Reserved (4bits) */
 		hlen += 1;

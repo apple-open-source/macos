@@ -207,6 +207,7 @@ struct ExceptionDetails;
 struct FileChooserSettings;
 struct GlobalWindowIdentifier;
 struct MediaStreamRequest;
+struct MockWebAuthenticationConfiguration;
 struct PrewarmInformation;
 struct SecurityOriginData;
 struct ShareData;
@@ -477,6 +478,7 @@ public:
 
 #if USE(SYSTEM_PREVIEW)
     SystemPreviewController* systemPreviewController() { return m_systemPreviewController.get(); }
+    void systemPreviewActionTriggered(const WebCore::SystemPreviewInfo&, const String&) const;
 #endif
 
 #if ENABLE(CONTEXT_MENUS)
@@ -516,7 +518,7 @@ public:
 
     bool hasCommittedAnyProvisionalLoads() const { return m_hasCommittedAnyProvisionalLoads; }
 
-    bool allowsFastClicksEverywhere() const { return m_allowsFastClicksEverywhere; }
+    bool preferFasterClickOverDoubleTap() const { return m_preferFasterClickOverDoubleTap; }
 
     void setIsUsingHighPerformanceWebGL(bool value) { m_isUsingHighPerformanceWebGL = value; }
     bool isUsingHighPerformanceWebGL() const { return m_isUsingHighPerformanceWebGL; }
@@ -710,7 +712,7 @@ public:
     void didNotHandleTapAsClick(const WebCore::IntPoint&);
     void didCompleteSyntheticClick();
     void disableDoubleTapGesturesDuringTapIfNecessary(uint64_t requestID);
-    void handleSmartMagnificationInformationForPotentialTap(uint64_t requestID, const WebCore::FloatRect& renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale);
+    void handleSmartMagnificationInformationForPotentialTap(uint64_t requestID, const WebCore::FloatRect& renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale, bool nodeIsRootLevel);
     void contentSizeCategoryDidChange(const String& contentSizeCategory);
     void getSelectionContext(WTF::Function<void(const String&, const String&, const String&, CallbackBase::Error)>&&);
     void handleTwoFingerTapAtPoint(const WebCore::IntPoint&, OptionSet<WebKit::WebEvent::Modifier>, uint64_t requestID);
@@ -1571,6 +1573,10 @@ public:
 #endif
 
     void maybeInitializeSandboxExtensionHandle(WebProcessProxy&, const URL&, const URL& resourceDirectoryURL, SandboxExtension::Handle&);
+
+#if ENABLE(WEB_AUTHN)
+    void setMockWebAuthenticationConfiguration(WebCore::MockWebAuthenticationConfiguration&&);
+#endif
 
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, WebCore::PageIdentifier, Ref<API::PageConfiguration>&&);
@@ -2500,7 +2506,7 @@ private:
     bool m_isUsingHighPerformanceWebGL { false };
     bool m_openedByDOM { false };
     bool m_hasCommittedAnyProvisionalLoads { false };
-    bool m_allowsFastClicksEverywhere { false };
+    bool m_preferFasterClickOverDoubleTap { false };
 
     HashMap<String, Ref<WebURLSchemeHandler>> m_urlSchemeHandlersByScheme;
     HashMap<uint64_t, Ref<WebURLSchemeHandler>> m_urlSchemeHandlersByIdentifier;

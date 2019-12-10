@@ -107,7 +107,7 @@ pt{
         chp{"chipewyan"}
         chr{"cheroqui"}
         chy{"cheiene"}
-        ckb{"curdo central"}
+        ckb{"curdo sorâni"}
         co{"corso"}
         cop{"copta"}
         cr{"cree"}

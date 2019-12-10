@@ -85,6 +85,7 @@
 /* Code Signing */
 #include <Security/SecStaticCode.h>
 #include <Security/SecCode.h>
+#include <Security/SecCodeHost.h>
 #include <Security/SecRequirement.h>
 #include <Security/SecTask.h>
 

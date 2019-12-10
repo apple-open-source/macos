@@ -71,12 +71,16 @@
     if(self.bottleSalt != nil) {
         secnotice("octagon", "using passed in altdsid, altdsid is: %@", self.bottleSalt);
     } else{
-        NSString* altDSID = self.deps.authKitAdapter.primaryiCloudAccountAltDSID;
+        NSError *error = nil;
+
+        NSString* altDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:&error];
         if(altDSID){
             secnotice("octagon", "fetched altdsid is: %@", altDSID);
             self.bottleSalt = altDSID;
         }
         else {
+            secnotice("octagon", "authkit doesn't know about the altdsid, using stored value: %@", error);
+
             NSError* accountError = nil;
             OTAccountMetadataClassC* account = [self.deps.stateHolder loadOrCreateAccountMetadata:&accountError];
 

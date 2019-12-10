@@ -92,6 +92,22 @@
     return 0;
 }
 
+
+- (BOOL)isCKKSServerPluginError:(NSInteger)code
+{
+    NSError* underlyingError = self.userInfo[NSUnderlyingErrorKey];
+    NSError* thirdLevelError = underlyingError.userInfo[NSUnderlyingErrorKey];
+
+    return ([self.domain isEqualToString:CKErrorDomain] &&
+            self.code == CKErrorServerRejectedRequest &&
+            underlyingError &&
+            [underlyingError.domain isEqualToString:CKInternalErrorDomain] &&
+            underlyingError.code == CKErrorInternalPluginError &&
+            thirdLevelError &&
+            [thirdLevelError.domain isEqualToString:@"CloudkitKeychainService"] &&
+            thirdLevelError.code == code);
+}
+
 @end
 
 @implementation CKAccountInfo (CKKS)

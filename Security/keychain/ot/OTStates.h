@@ -147,6 +147,7 @@ NSDictionary<NSNumber*, OctagonState*>* OctagonStateInverseMap(void);
 // <rdar://problem/54094162> Octagon: ensure Octagon operations can't occur on SA accounts
 NSSet<OctagonState*>* OctagonInAccountStates(void);
 NSSet<OctagonState *>* OctagonHealthSourceStates(void);
+NSSet<OctagonFlag *>* AllOctagonFlags(void);
 
 ////// State machine flags
 extern OctagonFlag* const OctagonFlagIDMSLevelChanged;
@@ -156,7 +157,8 @@ extern OctagonFlag* const OctagonFlagEgoPeerPreapproved;
 extern OctagonFlag* const OctagonFlagCKKSRequestsTLKUpload;
 
 // We've received a change notification from cuttlefish; we should probably see what's new
-extern OctagonFlag* const OctagonFlagCuttlefishNotification;
+extern OctagonFlag* const OctagonFlagCuttlefishNotification NS_SWIFT_NAME(OctagonFlagCuttlefishNotification);
+
 
 extern OctagonFlag* const OctagonFlagFetchAuthKitMachineIDList;
 

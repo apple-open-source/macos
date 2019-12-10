@@ -32,117 +32,109 @@
  *
  * The user may define each subcommand taken by the utility as:
  *
- *     static const os_subcommand_t _foo_cmd = {
- *         .osc_version = OS_SUBCOMMAND_VERSION,
+ *     static const struct option _template_opts[] = {
+ *         [0] = {
+ *             .name = "bar",
+ *             .has_arg = required_argument,
+ *             .flag = NULL,
+ *             .val = 'f',
+ *         }, {
+ *             .name = "baz",
+ *             .has_arg = optional_argument,
+ *             .flag = NULL,
+ *             .val = 'b',
+ *         }, {
+ *             .name = NULL,
+ *             .has_arg = 0,
+ *             .flag = NULL,
+ *             .val = 0,
+ *         },
+ *     };
+ *
+ *     static const os_subcommand_option_t _template_required[] = {
+ *         [0] = {
+ *             .osco_template = OS_SUBCOMMAND_OPTION_VERSION,
+ *             .osco_flags = 0,
+ *             .osco_option = &_template_opts[0],
+ *             .osco_argument_usage = "thing-to-bar",
+ *             .osco_argument_human = "The thing to bar. May be specified as a "
+ *             "bar that has a baz. This baz should have a shnaz.",
+ *         },
+ *         OS_SUBCOMMAND_OPTION_TERMINATOR,
+ *     };
+ *
+ *     static const os_subcommand_option_t _template_optional[] = {
+ *         [0] = {
+ *             .osco_template = OS_SUBCOMMAND_OPTION_VERSION,
+ *             .osco_flags = 0,
+ *             .osco_option = &_template_opts[1],
+ *             .osco_argument_usage = "thing-to-baz",
+ *             .osco_argument_human = "The baz of which to propagate a foo.",
+ *         },
+ *         OS_SUBCOMMAND_OPTION_TERMINATOR,
+ *     };
+ *
+ *     static const os_subcommand_option_t _template_positional[] = {
+ *         [0] = {
+ *             .osco_template = OS_SUBCOMMAND_OPTION_VERSION,
+ *             .osco_flags = 0,
+ *             .osco_option = NULL,
+ *             .osco_argument_usage = "positional-baz",
+ *             .osco_argument_human = "A baz specified by position.",
+ *         },
+ *         OS_SUBCOMMAND_OPTION_TERMINATOR,
+ *     };
+ *
+ *     static const os_subcommand_t _template_cmd = {
+ *         .osc_template = OS_SUBCOMMAND_VERSION,
  *         .osc_flags = 0,
  *         .osc_name = "foo",
- *         .osc_desc = "does a foo",
- *         .osc_optstring = NULL,
- *         .osc_options = NULL,
- *         .osc_info = NULL,
+ *         .osc_desc = "foo a bar or maybe baz",
+ *         .osc_optstring = "f:b:",
+ *         .osc_options = _foo_opts,
+ *         .osc_required = _foo_required,
+ *         .osc_optional = _foo_optional,
+ *         .osc_positional = _template_positional,
  *         .osc_invoke = &_foo_invoke,
- *     };
- *     OS_SUBCOMMAND_REGISTER(_foo_cmd);
- *
- *     static const os_subcommand_t _bar_cmd = {
- *         .osc_version = OS_SUBCOMMAND_VERSION,
- *         .osc_flags = 0,
- *         .osc_name = "bar",
- *         .osc_desc = "bars a foo",
- *         .osc_optstring = "x:q",
- *         .osc_options = _bar_opts,
- *         .osc_info = &_bar_optinfo,
- *         .osc_invoke = &_bar_invoke,
- *     };
- *     OS_SUBCOMMAND_REGISTER(_bar_cmd);
- * };
- *
- * Where the "bar" subcommand's option information is returned by the routine:
- *
- * static void
- * _bar_optinfo(const os_subcommand_t *osc,
- *         os_subcommand_optarg_format_t format, const struct option *opt,
- *         os_subcommand_option_t *scopt)
- * {
- *     switch (format) {
- *     case OS_SUBCOMMAND_OPTARG_USAGE:
- *         switch (opt->val) {
- *         case 'x':
- *             scopt->osco_flags |= OS_SUBCOMMAND_OPTION_FLAG_OPTIONAL;
- *             scopt->osco_argdesc = "x-argument";
- *             break;
- *         case 'q':
- *             scopt->osco_argdesc = "q-argument";
- *             break;
- *         default:
- *             __builtin_unreachable();
- *         }
- *         break;
- *     case OS_SUBCOMMAND_OPTARG_HUMAN:
- *         switch (opt->val) {
- *         case 'x':
- *             scopt->osco_flags |= OS_SUBCOMMAND_OPTION_FLAG_OPTIONAL;
- *             scopt->osco_argdesc = "argument describing x";
- *             break;
- *         case 'q':
- *             scopt->osco_argdesc = "Lorem ipsum dolor sit amet, consectetur "
- *             "adipiscing elit. Nullam a maximus lectus. Curabitur ornare "
- *             "convallis turpis, in porttitor augue tempus laoreet. Maecenas "
- *             "auctor mauris tortor, et tempor libero maximus id. Donec ac "
- *             "nunc et elit sagittis commodo. Donec tincidunt libero vehicula "
- *             "ex eleifend sagittis. Suspendisse consectetur cursus elit. "
- *             "Proin neque metus, commodo id rhoncus eu, cursus hendrerit ex. "
- *             "Etiam in fringilla nulla, vitae mollis eros.";
- *             break;
- *         default:
- *             __builtin_unreachable();
- *         }
- *         break;
  *     }
- * }
+ *     OS_SUBCOMMAND_REGISTER(_foo_cmd);
+ * };
  *
  * When {@link os_subcommand_main} is called, the tool's "help" subcommand will
  * display approximately the following:
  *
  * $ tool help
- * usage: playground <subcommand> [...] | help [subcommand]
+ * usage: tool <subcommand>
  *
  * subcommands:
- *     foo             does a foo
- *     bar             bars a foo
+ *     foo             foo a bar or maybe baz
+ *     help            Prints helpful information
  *
  * $ tool help foo
- * usage: tool foo
+ * usage: tool foo [options] --bar=<thing-to-bar> <positional-baz>
  *
- * $ tool help bar
- * usage: tool bar [--xarg] --qarg[=q-argument]
- *     --xarg                  argument describing x
- *     --qarg[=q-argument]     Lorem ipsum dolor sit amet, consectetur
- *                             adipiscing elit. Nullam a maximus lectus.
- *                             Curabitur ornare convallis turpis, in porttitor
- *                             augue tempus laoreet. Maecenas auctor mauris
- *                             tortor, et tempor libero maximus id. Donec ac
- *                             nunc et elit sagittis commodo. Donec tincidunt
- *                             libero vehicula ex eleifend sagittis. Suspendisse
- *                             consectetur cursus elit. Proin neque metus,
- *                             commodo id rhoncus eu, cursus hendrerit ex. Etiam
- *                             in fringilla nulla, vitae mollis eros.
+ * required options:
+ *     --bar=<thing-to-bar>    The thing to bar. May be specified as a bar that
+ *                             has a baz. This baz should have a shnaz.
+ *
+ *     positional-baz          A baz specified by position.
+ *
+ * optional options:
+ *     --baz[=thing-to-baz]    The baz of which to propagate a foo.
  */
 #ifndef __DARWIN_CTL_H
 #define __DARWIN_CTL_H
 
 #include <os/base.h>
 #include <os/api.h>
-
-#if DARWIN_TAPI
-#define LINKER_SET_ENTRY(_x, _y)
-#else
 #include <os/linker_set.h>
-#endif
-
 #include <sys/cdefs.h>
 #include <stdio.h>
 #include <getopt.h>
+
+#if DARWIN_TAPI
+#include "tapi.h"
+#endif
 
 __BEGIN_DECLS;
 
@@ -170,97 +162,95 @@ typedef struct _os_subcommand os_subcommand_t;
 #define OS_SUBCOMMAND_OPTION_VERSION ((os_struct_version_t)0)
 
 /*!
- * @typedef os_subcommand_optarg_format_t
- * A type describing a usage format for the argument taken by an option.
- *
- * @const OS_SUBCOMMAND_OPTION_USAGE
- * The short-form name of the argument given to the option. For example, if the
- * subcommand takes a "--file" option with a required argument, this might be
- * "file-path" and will be displayed as
- *
- *     --file=<file-path>
- *
- * @const OS_SUBCOMMAND_OPTION_HUMAN
- * The long-form description of the argument given to the option. Extending the
- * above example, this might be "The path to a file to take as input. This path
- * must be absolute; relative paths are not supported." and will be displayed as
- *
- *     --file     The path to a file to take as input. This path must be
- *                absolute; relative paths are not supported.
- */
-DARWIN_API_AVAILABLE_20181020
-OS_CLOSED_ENUM(os_subcommand_optarg_format, uint64_t,
-	OS_SUBCOMMAND_OPTARG_USAGE,
-	OS_SUBCOMMAND_OPTARG_HUMAN,
-);
-
-/*!
  * @typedef os_subcommand_option_flags_t
  * Flags describing an option for a subcommand.
  *
  * @const OS_SUBCOMMAND_OPTION_FLAG_INIT
  * No flags set. This value is suitable for initialization purposes.
  *
- * @const OS_SUBCOMMAND_OPTION_FLAG_OPTIONAL
- * The option does not need to be present in the subcommand invocation. By
- * default, options are considered required.
+ * @const OS_SUBCOMMAND_OPTION_FLAG_TERMINATOR
+ * The option terminates an array of {@link os_subcommand_option_t} structures
+ * and does not contain any useful information.
+ *
+ * @const OS_SUBCOMMAND_OPTION_FLAG_OPTIONAL_POS
+ * The option is a positional option (that is, not identified by a long or short
+ * flag) and is not required for the subcommand to execute successfully.
  */
 DARWIN_API_AVAILABLE_20181020
 OS_CLOSED_ENUM(os_subcommand_option_flags, uint64_t,
 	OS_SUBCOMMAND_OPTION_FLAG_INIT = 0,
-	OS_SUBCOMMAND_OPTION_FLAG_OPTIONAL = (1 << 0),
+	OS_SUBCOMMAND_OPTION_FLAG_TERMINATOR = (1 << 0),
+	OS_SUBCOMMAND_OPTION_FLAG_OPTIONAL_POS = (1 << 1),
 );
 
 /*!
  * @typedef os_subcommand_option_t
  * A structure describing human-readable information about a particular option
  * taken by a subcommand. This structure is to be returned when the
- * implementation queries about a command's options individually. This is done
- * when the implementation is synthesizing a usage string.
+ * implementation invokes a {@link os_subcommand_option_info_t} function to
+ * query about a command's options individually. This is done when the
+ * implementation is synthesizing a usage string.
  *
  * @field osco_version
  * The version of the structure. Initialize to
  * {@link OS_SUBCOMMAND_OPTION_VERSION}.
  *
  * @field osco_flags
- * On return from a {@link os_subcommand_option_info_t} function, a set of flags
- * describing information about the option.
+ * A set of flags describing information about the option.
  *
- * @field osco_argdesc
- * On return from a {@link os_subcommand_option_info_t} function, this should
- * point to a constant string describing the argument to the option.
+ * @field osco_option
+ * A pointer to the option structure ingested by getopt_long(3) which
+ * corresponds to this option.
+ *
+ * @field osco_argument_usage
+ * The short-form name of the argument given to the option, appropriate for
+ * display in a usage specifier. For example, if the subcommand takes a "--file"
+ * option with a required argument, this might be the string "FILE-PATH", and
+ * the resulting usage specifier would be
+ *
+ *     --file=<FILE-PATH>
+ *
+ * @field osco_argument_human
+ * The long-form description of the argument given to the option. Extending the
+ * above example, this might be the string "The path to a file to take as input.
+ * This path must be absolute; relative paths are not supported." and the
+ * resulting usage specifier would be
+ *
+ *     --file=<FILE-PATH> The path to a file to take as input. This path must be
+ *                        absolute; relative paths are not supported.
  */
-DARWIN_API_AVAILABLE_20181020
+DARWIN_API_AVAILABLE_20191015
 typedef struct _os_subcommand_option {
 	const os_struct_version_t osco_version;
 	os_subcommand_option_flags_t osco_flags;
-	const char *osco_argdesc;
+	const struct option *osco_option;
+	const char *osco_argument_usage;
+	const char *osco_argument_human;
 } os_subcommand_option_t;
 
 /*!
- * @typedef os_subcommand_option_info_t
- * A type describing a function which returns option information.
- *
- * @param osc
- * The subcommand to which the option belongs.
- *
- * @param format
- * The format of usage information required.
- *
- * @param opt
- * A pointer to the option structure for which to retrieve information.
- *
- * @param scopt
- * A pointer to a subcommand option structure to be populated with information
- * pertaining to the option. When passed to the callee, this structure is zero-
- * filled.
+ * @const OS_SUBCOMMAND_OPTION_TERMINATOR
+ * A convenience terminator for an array of {@link os_subcommand_option_t}
+ * structures.
  */
-DARWIN_API_AVAILABLE_20181020
-typedef void (*os_subcommand_option_info_t)(
-		const os_subcommand_t *osc,
-		os_subcommand_optarg_format_t format,
-		const struct option *opt,
-		os_subcommand_option_t *scopt);
+#define OS_SUBCOMMAND_OPTION_TERMINATOR (os_subcommand_option_t){ \
+	.osco_version = OS_SUBCOMMAND_OPTION_VERSION, \
+	.osco_flags = OS_SUBCOMMAND_OPTION_FLAG_TERMINATOR, \
+	.osco_option = NULL, \
+	.osco_argument_usage = NULL, \
+	.osco_argument_human = NULL, \
+}
+
+/*!
+* @const OS_SUBCOMMAND_GETOPT_TERMINATOR
+* A convenience terminator for an array of getopt(3) option structures.
+*/
+#define OS_SUBCOMMAND_GETOPT_TERMINATOR (struct option){ \
+	.name = NULL, \
+	.has_arg = 0, \
+	.flag = NULL, \
+	.val = 0, \
+}
 
 /*!
  * @const OS_SUBCOMMAND_VERSION
@@ -288,6 +278,21 @@ typedef void (*os_subcommand_option_info_t)(
  *
  * @const OS_SUBCOMMAND_FLAG_HIDDEN
  * This subcommand should not be displayed in the list of subcommands.
+ *
+ * @const OS_SUBCOMMAND_FLAG_MAIN
+ * This subcommand is the "main" subcommand. Designating a main subcommand
+ * allows the program to specify and parse global options using an
+ * {@link os_subcommand_t} object and {@link os_subcommand_main}.
+ *
+ * This flag implies the behavior of {@link OS_SUBCOMMAND_FLAG_HIDDEN}.
+ *
+ * If the program specifies a main subcommand, that subcommand's invocation
+ * routine is unconditionally called before calling the subcommand invocation,
+ * if the user provided a subcommand. The invocation function for the main
+ * subcommand should not exit on success and should instead return 0.
+ *
+ * If multiple subcommands in the same program set
+ * {@link OS_SUBCOMMAND_FLAG_MAIN}, the implementation's behavior is undefined.
  */
 DARWIN_API_AVAILABLE_20181020
 OS_CLOSED_OPTIONS(os_subcommand_flags, uint64_t,
@@ -295,6 +300,7 @@ OS_CLOSED_OPTIONS(os_subcommand_flags, uint64_t,
 	OS_SUBCOMMAND_FLAG_REQUIRE_ROOT = (1 << 0),
 	OS_SUBCOMMAND_FLAG_TTYONLY = (1 << 1),
 	OS_SUBCOMMAND_FLAG_HIDDEN = (1 << 2),
+	OS_SUBCOMMAND_FLAG_MAIN = (1 << 3),
 );
 
 /*!
@@ -312,17 +318,21 @@ OS_CLOSED_OPTIONS(os_subcommand_flags, uint64_t,
  * subcommand.
  *
  * @result
- * An exit code, preferably from sysexits(3). Note that exit codes should not
- * intersect with POSIX error codes from errno.h (cf. intro(2)).
+ * An exit code, preferably from sysexits(3). Do not return a POSIX error code
+ * directly from this routine.
  *
  * @discussion
- * You may exit directly from within the routine if you wish.
+ * You may exit directly on success or failure from this routine if desired. If
+ * the routine is the invocation for a main subcommand, then on success, the
+ * routine should return zero to the caller rather than exiting so that the
+ * implementation may continue parsing the command line arguments.
  */
 DARWIN_API_AVAILABLE_20181020
 typedef int (*os_subcommand_invoke_t)(
-		const os_subcommand_t *osc,
-		int argc,
-		const char *argv[]);
+	const os_subcommand_t *osc,
+	int argc,
+	const char *argv[]
+);
 
 /*!
  * @struct os_subcommand_t
@@ -361,7 +371,34 @@ typedef int (*os_subcommand_invoke_t)(
  *
  * @field osc_options
  * A pointer to an array of option structures describing the long options
- * recognized by the subcommand (cf. getopt_long(3)).
+ * recognized by the subcommand. This array must be terminated by a NULL entry
+ * as expected by getopt_long(3).
+ *
+ * @field osc_required
+ * A pointer to an array of subcommand option descriptors. The options described
+ * in this array are required for the subcommand to execute successfully. This
+ * array should be terminated with {@link OS_SUBCOMMAND_OPTION_TERMINATOR}.
+ *
+ * This array is consulted when printing usage information.
+ *
+ * @field osc_optional
+ * A pointer to an array of subcommand option descriptors. The options described
+ * in this array are parsed by the subcommand but not required for it to execute
+ * successfully. This array should be terminated with
+ * {@link OS_SUBCOMMAND_OPTION_TERMINATOR}.
+ *
+ * This array is consulted when printing usage information.
+ *
+ * @field osc_positional
+ * A pointer to an array of subcommand option descriptors. The options described
+ * in this array are expected to follow the required and optional arguments in
+ * the command line invocation, in the order given in this array. This array
+ * should be terminated with {@link OS_SUBCOMMAND_OPTION_TERMINATOR}.
+ *
+ * These options are expected to have their {@link osco_option} fields set to
+ * NULL.
+ *
+ * This array is consulted when printing usage information.
  *
  * @field osc_info
  * A pointer to a function which returns information about the subcommand's
@@ -370,7 +407,7 @@ typedef int (*os_subcommand_invoke_t)(
  * @field osc_invoke
  * The implementation for the subcommand.
  */
-DARWIN_API_AVAILABLE_20181020
+DARWIN_API_AVAILABLE_20191015
 struct _os_subcommand {
 	const os_struct_version_t osc_version;
 	const os_subcommand_flags_t osc_flags;
@@ -378,9 +415,22 @@ struct _os_subcommand {
 	const char *const osc_desc;
 	const char *osc_optstring;
 	const struct option *osc_options;
-	const os_subcommand_option_info_t osc_info;
+	const os_subcommand_option_t *osc_required;
+	const os_subcommand_option_t *osc_optional;
+	const os_subcommand_option_t *osc_positional;
 	const os_subcommand_invoke_t osc_invoke;
 };
+
+/*!
+ * @typedef os_subcommand_main_flags_t
+ * Flags modifying the behavior of {@link os_subcommand_main}.
+ *
+ * @const OS_SUBCOMMAND_MAIN_FLAG_INIT
+ * No flags set. This value is suitable for initialization purposes.
+ */
+OS_CLOSED_OPTIONS(os_subcommand_main_flags, uint64_t,
+	OS_SUBCOMMAND_MAIN_FLAG_INIT,
+);
 
 /*!
  * @function os_subcommand_main
@@ -393,6 +443,9 @@ struct _os_subcommand {
  *
  * @param argv
  * The argument vector supplied to main().
+ *
+ * @param flags
+ * Flags modifying the behavior of the implementation.
  *
  * @result
  * The exit status from the subcommand's invocation function or an exit status
@@ -420,10 +473,70 @@ struct _os_subcommand {
  *
  * This routine implicitly implements a "help" subcommand.
  */
-DARWIN_API_AVAILABLE_20181020
+DARWIN_API_AVAILABLE_20191015
 OS_EXPORT OS_WARN_RESULT OS_NONNULL2
 int
-os_subcommand_main(int argc, const char *argv[]);
+os_subcommand_main(int argc, const char *argv[],
+		os_subcommand_main_flags_t flags);
+
+/*!
+ * @function os_subcommand_fprintf
+ * Prints a message in the context of a subcommand to the given output stream.
+ *
+ * @param osc
+ * The subcommand which represents the context of the message.
+ *
+ * @param f
+ * The stream to which the message shall be printed. If NULL, will be printed to
+ * stderr(4).
+ *
+ * @param fmt
+ * A printf(3)-style format string.
+ *
+ * @param ...
+ * The arguments corresponding to {@link fmt}.
+ *
+ * @discussion
+ * This routine provides a uniform method for printing messages in the context
+ * of a subcommand. It will ensure that the message is prefixed appropriately
+ * (e.g. with the program name and/or subcommand name).
+ *
+ * This routine should be used for printing messages intended for humans to
+ * read; the implementation makes no guarantees about the output format's
+ * stability. If any output is intended to be machine-parseable, it should be
+ * written with fprintf(3) et al.
+ */
+DARWIN_API_AVAILABLE_20191015
+OS_EXPORT OS_NONNULL3 OS_FORMAT_PRINTF(3, 4)
+void
+os_subcommand_fprintf(const os_subcommand_t *osc, FILE *f,
+		const char *fmt, ...);
+
+/*!
+ * @function os_subcommand_vfprintf
+ * Prints a message in the context of a subcommand to the given output stream.
+ *
+ * @param osc
+ * The subcommand which represents the context of the message.
+ *
+ * @param f
+ * The stream to which the message shall be printed. If NULL, will be printed to
+ * stderr(4).
+ *
+ * @param fmt
+ * A printf(3)-style format string.
+ *
+ * @param ap
+ * The argument list corresponding to {@link fmt}.
+ *
+ * @discussion
+ * See discussion for {@link os_subcommand_fprintf}.
+ */
+DARWIN_API_AVAILABLE_20191015
+OS_EXPORT OS_NONNULL3
+void
+os_subcommand_vfprintf(const os_subcommand_t *osc, FILE *f,
+		const char *fmt, va_list ap);
 
 __END_DECLS;
 

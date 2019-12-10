@@ -14,6 +14,8 @@
 				<string>/usr/local/bin/keystorectl</string>
 				<string>get-lock-state</string>
 			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_keystorectl_get_lock_state</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -22,6 +24,8 @@
 			<array>
 				<string>/usr/libexec/security-sysdiagnose</string>
 			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_security_sysdiagnose</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -30,6 +34,8 @@
 			<array>
 				<string>/AppleInternal/CoreOS/tests/Security/secedumodetest</string>
 			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_EduModeTest</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -38,6 +44,8 @@
 			<array>
 				<string>/AppleInternal/CoreOS/tests/Security/seckeychainnetworkextensionstest</string>
 			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_keychainnetworkextensionsharing_1</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -46,6 +54,8 @@
 			<array>
 				<string>/AppleInternal/CoreOS/tests/Security/seckeychainnetworkextensionsystemdaemontest</string>
 			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_keychainnetworkextensionsharing_2</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -54,6 +64,8 @@
 			<array>
 				<string>/AppleInternal/CoreOS/tests/Security/seckeychainnetworkextensionunauthorizedaccesstest</string>
 			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_keychainnetworkextensionsharing_3</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -66,6 +78,8 @@
 				<string>-t</string>
 				<string>KCPairingTests</string>
 			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_KCPairingTest</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -74,8 +88,8 @@
 			<array>
 				<string>/AppleInternal/CoreOS/tests/Security/authdtest</string>
 			</array>
-			<key>EligibleResource</key>
-			<string>type != &apos;CAMEmbeddedDeviceResource&apos;</string>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_AuthorizationTest</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -87,6 +101,8 @@
 				<string>BATS_XCTEST_CMD</string>
 				<string>/AppleInternal/XCTests/com.apple.security/KeychainAnalyticsTests.xctest</string>
 			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_KeychainAnalyticsTests</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -98,6 +114,8 @@
 				<string>BATS_XCTEST_CMD</string>
 				<string>/AppleInternal/XCTests/com.apple.security/secdmockaks.xctest</string>
 			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_KeychainMockAKSTests</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -109,8 +127,8 @@
 				<string>BATS_XCTEST_CMD</string>
 				<string>/AppleInternal/XCTests/com.apple.security/secdxctests_mac.xctest</string>
 			</array>
-			<key>EligibleResource</key>
-			<string>type != &apos;CAMEmbeddedDeviceResource&apos;</string>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_KeychainSecd_macOS</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -122,8 +140,8 @@
 				<string>BATS_XCTEST_CMD</string>
 				<string>/AppleInternal/XCTests/com.apple.security/secdxctests_ios.xctest</string>
 			</array>
-			<key>EligibleResource</key>
-			<string>type == &apos;CAMEmbeddedDeviceResource&apos;</string>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_KeychainSecd_iOS</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -135,6 +153,8 @@
 				<string>BATS_XCTEST_CMD</string>
 				<string>/AppleInternal/XCTests/com.apple.security/SecurityUtilitiesTests.xctest</string>
 			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_SecurityUtiltitesTests</string>
 		</dict>
 	</array>
 </dict>

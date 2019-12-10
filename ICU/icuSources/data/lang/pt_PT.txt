@@ -18,7 +18,6 @@ pt_PT{
         ang{"inglês antigo"}
         ar_001{"árabe moderno padrão"}
         arn{"mapuche"}
-        ars{"árabe do Négede"}
         av{"avaric"}
         bax{"bamun"}
         bbj{"ghomala"}
@@ -28,7 +27,7 @@ pt_PT{
         chn{"jargão chinook"}
         chr{"cherokee"}
         chy{"cheyenne"}
-        ckb{"sorani curdo"}
+        ckb{"curdo sorani"}
         co{"córsico"}
         crs{"francês crioulo seselwa"}
         cs{"checo"}

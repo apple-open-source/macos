@@ -262,6 +262,7 @@ public:
     void setCrossSiteLoadWithLinkDecorationForTesting(PAL::SessionID, const RegistrableDomain& fromDomain, const RegistrableDomain& toDomain, CompletionHandler<void()>&&);
     void resetCrossSiteLoadsWithLinkDecorationForTesting(PAL::SessionID, CompletionHandler<void()>&&);
     void setShouldDowngradeReferrerForTesting(bool, CompletionHandler<void()>&&);
+    void setShouldBlockThirdPartyCookiesForTesting(PAL::SessionID, bool, CompletionHandler<void()>&&);
 #endif
 
     using CacheStorageRootPathCallback = CompletionHandler<void(String&&)>;
@@ -343,6 +344,10 @@ public:
 
     void addKeptAliveLoad(Ref<NetworkResourceLoader>&&);
     void removeKeptAliveLoad(NetworkResourceLoader&);
+
+    void setServiceWorkerFetchTimeoutForTesting(Seconds, CompletionHandler<void()>&&);
+    void resetServiceWorkerFetchTimeoutForTesting(CompletionHandler<void()>&&);
+    Seconds serviceWorkerFetchTimeout() const { return m_serviceWorkerFetchTimeout; }
 
 private:
     void platformInitializeNetworkProcess(const NetworkProcessCreationParameters&);
@@ -566,6 +571,9 @@ private:
     uint32_t m_downloadMonitorSpeedMultiplier { 1 };
 
     HashMap<IPC::Connection::UniqueID, PAL::SessionID> m_sessionByConnection;
+
+    static const Seconds defaultServiceWorkerFetchTimeout;
+    Seconds m_serviceWorkerFetchTimeout { defaultServiceWorkerFetchTimeout };
 };
 
 } // namespace WebKit

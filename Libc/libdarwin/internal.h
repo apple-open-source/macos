@@ -90,22 +90,4 @@
 #include "h/stdlib.h"
 #include "h/string.h"
 
-#if DARWIN_TAPI
-#undef os_assert_mach
-#undef os_assert_mach_port_status
-
-// Duplicate declarations to make TAPI happy. This header is included in the
-// TAPI build as an extra public header.
-API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
-OS_EXPORT OS_NONNULL1
-void
-(os_assert_mach)(const char *op, kern_return_t kr);
-
-API_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0))
-OS_EXPORT
-void
-os_assert_mach_port_status(const char *desc, mach_port_t p,
-		mach_port_status_t *expected);
-#endif
-
 #endif //__DARWIN_INTERNAL_H

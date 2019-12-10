@@ -94,6 +94,7 @@ es_MX{
                 }
             }
         }
+        minimumGroupingDigits{"1"}
     }
     Version{"2.1.47.96"}
     calendar{
@@ -156,14 +157,6 @@ es_MX{
             }
         }
         gregorian{
-            AmPmMarkers{
-                "a. m.",
-                "p. m.",
-            }
-            AmPmMarkersAbbr{
-                "a. m.",
-                "p. m.",
-            }
             DateTimePatterns{
                 "H:mm:ss zzzz",
                 "H:mm:ss z",

@@ -31,7 +31,6 @@
 #import "keychain/SecureObjectSync/SOSControlHelper.h"
 #import "keychain/SecureObjectSync/SOSAuthKitHelpers.h"
 
-
 #import "keychain/SecureObjectSync/SOSAccountTrust.h"
 #import "keychain/SecureObjectSync/SOSAccountTrustClassic.h"
 #import "keychain/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
@@ -44,12 +43,20 @@
 #if OCTAGON
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSLockStateTracker.h"
+#import "keychain/ckks/CKKSNearFutureScheduler.h"
+#import "keychain/ckks/CKKSPBFileStorage.h"
+
 #import "keychain/ot/OTManager.h"
+#import "keychain/ot/ObjCImprovements.h"
+#import "keychain/ot/OctagonStateMachine.h"
+#import "keychain/ot/OctagonStateMachineHelpers.h"
 #endif
 #include <Security/SecItemInternal.h>
 #include <Security/SecEntitlements.h>
-#include "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
 #include "keychain/securityd/SecItemServer.h"
+
+#include "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
+#include "keychain/SecureObjectSync/generated_source/SOSAccountConfiguration.h"
 
 
 #import "SecdWatchdog.h"
@@ -57,6 +64,7 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecADWrapper.h>
+#include <utilities/SecFileLocations.h>
 
 #include <os/activity.h>
 #include <os/state_private.h>
@@ -66,6 +74,7 @@
 #include <utilities/der_plist.h>
 #include <utilities/der_plist_internal.h>
 #include <corecrypto/ccder.h>
+
 
 const CFStringRef kSOSAccountName = CFSTR("AccountName");
 const CFStringRef kSOSEscrowRecord = CFSTR("EscrowRecord");
@@ -94,62 +103,32 @@ const uint64_t max_packet_size_over_idms = 500;
 #define DATE_LENGTH 25
 const CFStringRef kSOSAccountDebugScope = CFSTR("Scope");
 
+#if OCTAGON
+static NSDictionary<OctagonState*, NSNumber*>* SOSStateMap(void);
+
+@interface SOSAccount () <OctagonStateMachineEngine>
+@property dispatch_queue_t stateMachineQueue;
+@property (readwrite) OctagonStateMachine* stateMachine;
+
+@property (readwrite) CKKSPBFileStorage<SOSAccountConfiguration*>* accountConfiguration;
+
+@property CKKSNearFutureScheduler *performBackups;
+@property CKKSNearFutureScheduler *performRingUpdates;
+@end
+#endif
+
 @implementation SOSAccount
-
-// Auto synthesis for most fields works great.
-// A few CF fields need retention work when assigning.
-
--(id) init
-{
-    self = [super init];
-    if(self){
-        self.gestalt = [NSMutableDictionary dictionary];
-        self.backup_key = nil;
-        self.deviceID = nil;
-
-        self.trust = [SOSAccountTrustClassic trustClassic];
-
-        self.queue = NULL;
-        self.user_private_timer = NULL;
-        self.factory = NULL;
-
-        self._password_tmp = nil;
-        self.isListeningForSync = false;
-        self.lock_notification_token = -1;
-
-        self.circle_transport = NULL;
-        
-        self.circle_rings_retirements_need_attention = false;
-        self.engine_peer_state_needs_repair = false;
-        self.key_interests_need_updating = false;
-        
-        self.change_blocks = [NSMutableArray array];
-
-        self.waitForInitialSync_blocks = [NSMutableDictionary dictionary];
-        
-        self.accountKeyIsTrusted = false;
-        self.accountKeyDerivationParamters = nil;
-
-        self.accountKey = NULL;
-        self.accountPrivateKey = NULL;
-        self.previousAccountKey = NULL;
-        
-        self.saveBlock = nil;
-
-        self.notifyCircleChangeOnExit = false;
-        self.notifyViewChangeOnExit = false;
-        self.notifyBackupOnExit = false;
-
-        self.settings =  [[NSUserDefaults alloc] initWithSuiteName:SOSAccountUserDefaultsSuite];
-    }
-    return self;
-}
 
 - (void)dealloc {
     if(self) {
         CFReleaseNull(self->_accountKey);
         CFReleaseNull(self->_accountPrivateKey);
         CFReleaseNull(self->_previousAccountKey);
+#if OCTAGON
+        [self.performBackups cancel];
+        [self.performRingUpdates cancel];
+        [self.stateMachine haltOperation];
+#endif
     }
 }
 
@@ -191,16 +170,11 @@ const CFStringRef kSOSAccountDebugScope = CFSTR("Scope");
 
 -(bool) ensureFactoryCircles
 {
-    if (!self){
+    if (self.factory == nil){
         return false;
     }
 
-    if (!self.factory){
-        return false;
-    }
-
-    NSString* circle_name = (__bridge_transfer NSString*)SOSDataSourceFactoryCopyName(self.factory);
-
+    NSString* circle_name = CFBridgingRelease(SOSDataSourceFactoryCopyName(self.factory));
     if (!circle_name){
         return false;
     }
@@ -241,7 +215,6 @@ const CFStringRef kSOSAccountDebugScope = CFSTR("Scope");
         self.lock_notification_token = NOTIFY_TOKEN_INVALID;
 
         self.change_blocks = [NSMutableArray array];
-        self.waitForInitialSync_blocks = NULL;
 
         self.key_transport = nil;
         self.circle_transport = NULL;
@@ -262,8 +235,24 @@ const CFStringRef kSOSAccountDebugScope = CFSTR("Scope");
         self.previousAccountKey = NULL;
 
         self.saveBlock = nil;
+
+        self.settings =  [[NSUserDefaults alloc] initWithSuiteName:SOSAccountUserDefaultsSuite];
+
+        [self ensureFactoryCircles];
+        SOSAccountEnsureUUID(self);
+
+#if OCTAGON
+        [self setupStateMachine];
+#endif
     }
     return self;
+}
+
+- (void)startStateMachine
+{
+#if OCTAGON
+    [self.stateMachine startOperation];
+#endif
 }
 
 -(BOOL)isEqual:(id) object
@@ -737,7 +726,7 @@ static bool Flush(CFErrorRef *error) {
     CFReleaseNull(error);
 }
 
-- (void)triggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
+- (void)rpcTriggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
 {
     __block CFErrorRef localError = NULL;
     __block bool res = false;
@@ -760,6 +749,31 @@ static bool Flush(CFErrorRef *error) {
     });
     complete(res, (__bridge NSError *)localError);
     CFReleaseNull(localError);
+}
+
+- (void)rpcTriggerBackup:(NSArray<NSString *>* _Nullable)backupPeers complete:(void (^)(NSError *error))complete
+{
+    __block CFErrorRef localError = NULL;
+
+    if (backupPeers.count == 0) {
+        SOSEngineRef engine = (SOSEngineRef) [self.kvs_message_transport SOSTransportMessageGetEngine];
+        backupPeers = CFBridgingRelease(SOSEngineCopyBackupPeerNames(engine, &localError));
+    }
+
+#if OCTAGON
+    [self triggerBackupForPeers:backupPeers];
+#endif
+
+    complete((__bridge NSError *)localError);
+    CFReleaseNull(localError);
+}
+
+- (void)rpcTriggerRingUpdate:(void (^)(NSError *error))complete
+{
+#if OCTAGON
+    [self triggerRingUpdate];
+#endif
+    complete(NULL);
 }
 
 - (void)getWatchdogParameters:(void (^)(NSDictionary* parameters, NSError* error))complete
@@ -867,10 +881,10 @@ SOSAccount*  SOSAccountCreate(CFAllocatorRef allocator,
                                SOSDataSourceFactoryRef factory) {
 
     SOSAccount* a = [[SOSAccount alloc] initWithGestalt:gestalt factory:factory];
-    [a ensureFactoryCircles];
-    SOSAccountEnsureUUID(a);
-    secnotice("circleop", "Setting account.key_interests_need_updating to true in SOSAccountCreate");
-    a.key_interests_need_updating = true;
+    dispatch_sync(a.queue, ^{
+        secnotice("circleop", "Setting account.key_interests_need_updating to true in SOSAccountCreate");
+        a.key_interests_need_updating = true;
+    });
     
     return a;
 }
@@ -1421,26 +1435,28 @@ bool SOSAccountRemoveIncompleteiCloudIdentities(SOSAccount*  account, SOSCircleR
 //
 
 
-bool SOSAccountEnsureInBackupRings(SOSAccount*  account) {
+- (bool)_onQueueEnsureInBackupRings {
     __block bool result = false;
     __block CFErrorRef error = NULL;
     secnotice("backup", "Ensuring in rings");
 
-    if(!account.backup_key){
+    dispatch_assert_queue(self.queue);
+
+    if(!self.backup_key){
         return true;
     }
 
-    if(!SOSBSKBIsGoodBackupPublic((__bridge CFDataRef)account.backup_key, &error)){
+    if(!SOSBSKBIsGoodBackupPublic((__bridge CFDataRef)self.backup_key, &error)){
         secnotice("backupkey", "account backup key isn't valid: %@", error);
-        account.backup_key = nil;
+        self.backup_key = nil;
         CFReleaseNull(error);
         return false;
     }
 
-    NSData *peerBackupKey = (__bridge_transfer NSData*)SOSPeerInfoCopyBackupKey(account.peerInfo);
-    if(![peerBackupKey isEqual:account.backup_key]) {
-        result = SOSAccountUpdatePeerInfo(account, CFSTR("Backup public key"), &error, ^bool(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
-            return SOSFullPeerInfoUpdateBackupKey(fpi, (__bridge CFDataRef)(account.backup_key), error);
+    NSData *peerBackupKey = (__bridge_transfer NSData*)SOSPeerInfoCopyBackupKey(self.peerInfo);
+    if(![peerBackupKey isEqual:self.backup_key]) {
+        result = SOSAccountUpdatePeerInfo(self, CFSTR("Backup public key"), &error, ^bool(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
+            return SOSFullPeerInfoUpdateBackupKey(fpi, (__bridge CFDataRef)(self.backup_key), error);
         });
         if (!result) {
             secnotice("backupkey", "Failed to setup backup public key in peerInfo from account: %@", error);
@@ -1457,12 +1473,12 @@ bool SOSAccountEnsureInBackupRings(SOSAccount*  account) {
     CFReleaseNull(localError);
 
     // Setup backups the new way.
-    SOSAccountForEachBackupView(account, ^(const void *value) {
+    SOSAccountForEachBackupView(self, ^(const void *value) {
         CFStringRef viewName = asString(value, NULL);
-        bool resetRing = SOSAccountValidateBackupRingForView(account, viewName, NULL);
+        bool resetRing = SOSAccountValidateBackupRingForView(self, viewName, NULL);
         if(resetRing) {
-            SOSAccountUpdateBackupRing(account, viewName, NULL, ^SOSRingRef(SOSRingRef existing, CFErrorRef *error) {
-                SOSRingRef newRing = SOSAccountCreateBackupRingForView(account, viewName, error);
+            SOSAccountUpdateBackupRing(self, viewName, NULL, ^SOSRingRef(SOSRingRef existing, CFErrorRef *error) {
+                SOSRingRef newRing = SOSAccountCreateBackupRingForView(self, viewName, error);
                 return newRing;
             });
         }
@@ -1993,7 +2009,7 @@ bool SOSAccountEnsurePeerRegistration(SOSAccount*  account, CFErrorRef *error) {
             SOSEngineInitializePeerCoder((SOSEngineRef)[account.kvs_message_transport SOSTransportMessageGetEngine], trust.fullPeerInfo, peer, &localError);
             if (localError)
                 secnotice("updates", "can't initialize transport for peer %@ with %@ (%@)", peer, trust.fullPeerInfo, localError);
-            CFReleaseSafe(localError);
+            CFReleaseNull(localError);
         }
     });
     
@@ -2043,13 +2059,16 @@ bool SOSAccountAddEscrowToPeerInfo(SOSAccount*  account, SOSFullPeerInfoRef myPe
     return success;
 }
 
-void SOSAccountRecordRetiredPeersInCircle(SOSAccount* account) {
-    if (![account isInCircle:NULL]) {
+- (void)_onQueueRecordRetiredPeersInCircle {
+
+    dispatch_assert_queue(self.queue);
+
+    if (![self isInCircle:NULL]) {
         return;
     }
     __block bool updateRings = false;
-    SOSAccountTrustClassic *trust = account.trust;
-    [trust modifyCircle:account.circle_transport err:NULL action:^bool (SOSCircleRef circle) {
+    SOSAccountTrustClassic *trust = self.trust;
+    [trust modifyCircle:self.circle_transport err:NULL action:^bool (SOSCircleRef circle) {
         __block bool updated = false;
         CFSetForEach((__bridge CFMutableSetRef)trust.retirees, ^(CFTypeRef element){
             SOSPeerInfoRef retiree = asSOSPeerInfo(element);
@@ -2058,7 +2077,7 @@ void SOSAccountRecordRetiredPeersInCircle(SOSAccount* account) {
                 updated = true;
                 secnotice("retirement", "Updated retired peer %@ in %@", retiree, circle);
                 CFErrorRef cleanupError = NULL;
-                if (![account.trust cleanupAfterPeer:account.kvs_message_transport circleTransport:account.circle_transport seconds:RETIREMENT_FINALIZATION_SECONDS circle:circle cleanupPeer:retiree err:&cleanupError])
+                if (![self.trust cleanupAfterPeer:self.kvs_message_transport circleTransport:self.circle_transport seconds:RETIREMENT_FINALIZATION_SECONDS circle:circle cleanupPeer:retiree err:&cleanupError])
                     secerror("Error cleanup up after peer (%@): %@", retiree, cleanupError);
                 CFReleaseSafe(cleanupError);
                 updateRings = true;
@@ -2067,7 +2086,7 @@ void SOSAccountRecordRetiredPeersInCircle(SOSAccount* account) {
         return updated;
     }];
     if(updateRings) {
-        SOSAccountProcessBackupRings(account, NULL);
+        SOSAccountProcessBackupRings(self, NULL);
     }
 }
 
@@ -2899,6 +2918,258 @@ void SOSAccountTimerFiredSendNextMessage(SOSAccountTransaction* txn, NSString* p
     }
     CFReleaseNull(error);
 }
+
+#if OCTAGON
+
+/*
+ * State machine
+ */
+
+OctagonFlag* SOSFlagTriggerBackup = (OctagonFlag*)@"trigger_backup";
+OctagonFlag* SOSFlagTriggerRingUpdate = (OctagonFlag*)@"trigger_ring_update";
+
+OctagonState* SOSStateReady = (OctagonState*)@"ready";
+OctagonState* SOSStateError = (OctagonState*)@"error";
+OctagonState* SOSStatePerformBackup = (OctagonState*)@"perform_backup";
+OctagonState* SOSStatePerformRingUpdate = (OctagonState*)@"perform_ring_update";
+
+static NSDictionary<OctagonState*, NSNumber*>* SOSStateMap(void) {
+    static NSDictionary<OctagonState*, NSNumber*>* map = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        map = @{
+            SOSStateReady:                              @0U,
+            SOSStateError:                              @1U,
+            SOSStatePerformBackup:                      @2U,
+            SOSStatePerformRingUpdate:                  @3U,
+        };
+    });
+    return map;
+}
+
+static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
+    static NSSet<OctagonFlag*>* set = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        set = [NSSet setWithArray:@[
+            SOSFlagTriggerBackup,
+            SOSFlagTriggerRingUpdate,
+        ]];
+    });
+    return set;
+}
+
+
+
++ (NSURL *)urlForSOSAccountSettings {
+    return (__bridge NSURL *)SecCopyURLForFileInKeychainDirectory(CFSTR("SOSAccountSettings.pb"));
+}
+
+
+- (void)setupStateMachine {
+    WEAKIFY(self);
+
+    self.accountConfiguration = [[CKKSPBFileStorage alloc] initWithStoragePath:[[self class] urlForSOSAccountSettings]
+                                                                   storageClass:[SOSAccountConfiguration class]];
+
+    NSAssert(self.stateMachine == nil, @"cant bootstrap more the once");
+
+    self.stateMachineQueue = dispatch_queue_create("SOS-statemachine", NULL);
+
+    self.stateMachine = [[OctagonStateMachine alloc] initWithName:@"sosaccount"
+                                                           states:[NSSet setWithArray:[SOSStateMap() allKeys]]
+                                                            flags:SOSFlagsSet()
+                                                     initialState:SOSStateReady
+                                                            queue:self.stateMachineQueue
+                                                      stateEngine:self
+                                                 lockStateTracker:[CKKSLockStateTracker globalTracker]];
+
+
+    self.performBackups = [[CKKSNearFutureScheduler alloc] initWithName:@"performBackups"
+                                                           initialDelay:5*NSEC_PER_SEC
+                                                        continuingDelay:30*NSEC_PER_SEC
+                                                       keepProcessAlive:YES
+                                              dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                  block:^{
+        STRONGIFY(self);
+        [self addBackupFlag];
+    }];
+
+    self.performRingUpdates = [[CKKSNearFutureScheduler alloc] initWithName:@"performRingUpdates"
+                                                               initialDelay:5*NSEC_PER_SEC
+                                                           expontialBackoff:2.0
+                                                               maximumDelay:15*60*NSEC_PER_SEC
+                                                           keepProcessAlive:YES
+                                                  dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                      block:^{
+        STRONGIFY(self);
+        [self addRingUpdateFlag];
+    }];
+
+    SOSAccountConfiguration *conf = self.accountConfiguration.storage;
+
+    if (conf.pendingBackupPeers.count) {
+        [self addBackupFlag];
+    }
+    if (conf.ringUpdateFlag) {
+        [self addRingUpdateFlag];
+    }
+}
+
+
+/*
+ * Flag adding to state machine
+ */
+
+- (void)addBackupFlag {
+    OctagonPendingFlag *pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:SOSFlagTriggerBackup
+                                                                    conditions:OctagonPendingConditionsDeviceUnlocked];
+    [self.stateMachine handlePendingFlag:pendingFlag];
+}
+
+- (void)addRingUpdateFlag {
+    OctagonPendingFlag *pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:SOSFlagTriggerRingUpdate
+                                                                    conditions:OctagonPendingConditionsDeviceUnlocked];
+    [self.stateMachine handlePendingFlag:pendingFlag];
+}
+
+//Mark: -- Set up state for state machine
+
+
+- (void)triggerBackupForPeers:(NSArray<NSString*>*)backupPeers
+{
+    NSMutableSet *pending = [NSMutableSet set];
+    if (backupPeers) {
+        [pending addObjectsFromArray:backupPeers];
+    }
+
+    WEAKIFY(self);
+    dispatch_async(self.stateMachineQueue, ^{
+        STRONGIFY(self);
+
+        SOSAccountConfiguration *storage = self.accountConfiguration.storage;
+
+        if (storage.pendingBackupPeers) {
+            [pending addObjectsFromArray:storage.pendingBackupPeers];
+        }
+        storage.pendingBackupPeers = [[pending allObjects] mutableCopy];
+        [self.accountConfiguration setStorage:storage];
+        [self.performBackups trigger];
+        secnotice("sos-sm", "trigger backup for peers: %@ at %@",
+                  backupPeers, self.performBackups.nextFireTime);
+    });
+}
+
+- (void)triggerRingUpdate
+{
+
+    WEAKIFY(self);
+    dispatch_async(self.stateMachineQueue, ^{
+        STRONGIFY(self);
+        SOSAccountConfiguration *storage = self.accountConfiguration.storage;
+        storage.ringUpdateFlag = YES;
+        [self.accountConfiguration setStorage:storage];
+        [self.performRingUpdates trigger];
+        secnotice("sos-sm", "trigger ring update at %@",
+                  self.performRingUpdates.nextFireTime);
+    });
+}
+
+//Mark: -- State machine and opertions
+
+- (OctagonStateTransitionOperation *)performBackup {
+
+    WEAKIFY(self);
+    return [OctagonStateTransitionOperation named:@"perform-backup-state"
+                                        intending:SOSStateReady
+                                       errorState:SOSStateError
+                              withBlockTakingSelf:^void(OctagonStateTransitionOperation * _Nonnull op) {
+        STRONGIFY(self);
+        SOSAccountConfiguration *storage = self.accountConfiguration.storage;
+
+        secnotice("sos-sm", "performing backup for %@", storage.pendingBackupPeers);
+
+        if (storage.pendingBackupPeers.count) {
+            SOSCCRequestSyncWithBackupPeerList((__bridge CFArrayRef)storage.pendingBackupPeers);
+            [storage clearPendingBackupPeers];
+        }
+        [self.accountConfiguration setStorage:storage];
+
+        op.nextState = SOSStateReady;
+    }];
+}
+
+- (OctagonStateTransitionOperation *)performRingUpdate {
+
+    WEAKIFY(self);
+    return [OctagonStateTransitionOperation named:@"perform-ring-update"
+                                        intending:SOSStateReady
+                                       errorState:SOSStateError
+                              withBlockTakingSelf:^void(OctagonStateTransitionOperation * _Nonnull op) {
+        STRONGIFY(self);
+
+        SOSAccountConfiguration *storage = self.accountConfiguration.storage;
+        storage.ringUpdateFlag = NO;
+        [self.accountConfiguration setStorage:storage];
+
+        [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+
+            [self _onQueueRecordRetiredPeersInCircle];
+
+            SOSAccountEnsureRecoveryRing(self);
+            [self _onQueueEnsureInBackupRings];
+
+            CFErrorRef localError = NULL;
+            if(![self.circle_transport flushChanges:&localError]){
+                secerror("flush circle failed %@", localError);
+            }
+            CFReleaseNull(localError);
+
+            if(!SecCKKSTestDisableSOS()) {
+                SOSAccountNotifyEngines(self);
+            }
+        }];
+
+        op.nextState = SOSStateReady;
+    }];
+
+}
+
+
+- (CKKSResultOperation<OctagonStateTransitionOperationProtocol>* _Nullable)_onqueueNextStateMachineTransition:(OctagonState*)currentState
+                                                                                                        flags:(nonnull OctagonFlags *)flags
+                                                                                                 pendingFlags:(nonnull id<OctagonStateOnqueuePendingFlagHandler>)pendingFlagHandler
+{
+    dispatch_assert_queue(self.stateMachineQueue);
+
+    secnotice("sos-sm", "Entering state: %@ [flags: %@]", currentState, flags);
+
+    if ([currentState isEqualToString:SOSStateReady]) {
+        if([flags _onqueueContains:SOSFlagTriggerBackup]) {
+            [flags _onqueueRemoveFlag:SOSFlagTriggerBackup];
+            return [OctagonStateTransitionOperation named:@"perform-backup-flag"
+                                                 entering:SOSStatePerformBackup];
+        }
+
+        if ([flags _onqueueContains:SOSFlagTriggerRingUpdate]) {
+            [flags _onqueueRemoveFlag:SOSFlagTriggerRingUpdate];
+            return [OctagonStateTransitionOperation named:@"perform-ring-update-flag"
+                                                 entering:SOSStatePerformRingUpdate];
+        }
+        return nil;
+
+    } else if ([currentState isEqualToString:SOSStateError]) {
+        return nil;
+    } else if ([currentState isEqualToString:SOSStatePerformRingUpdate]) {
+        return [self performRingUpdate];
+
+    } else if ([currentState isEqualToString:SOSStatePerformBackup]) {
+        return [self performBackup];
+    }
+
+    return nil;
+}
+#endif
 
 @end
 

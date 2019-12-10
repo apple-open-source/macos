@@ -169,6 +169,27 @@ static const SingleUnitFormat cs_singFmt[] = {
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
+static const SingleUnitFormat nl_singFmt[] = {
+//    unit                                 value   wide_2                       wide_0                  shrt_X                   shrt_1                 narr_0        numr_0       wide_0  narr_0
+    { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37,20 graden Celsius",      "37 graden Celsius",    "37,203\\u00A0\\u00B0C", "37,2\\u00A0\\u00B0C", "37\\u00B0",  "37\\u00B0", 0,2,    0,2 },
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20 graden Fahrenheit",   "37 graden Fahrenheit", "37,203\\u00A0\\u00B0F", "37,2\\u00A0\\u00B0F", "37\\u00B0F", "37\\u00B0", 0,2,    0,2 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static const SingleUnitFormat it_singFmt[] = {
+//    unit                                 value   wide_2                       wide_0                  shrt_X                   shrt_1                 narr_0        numr_0       wide_0  narr_0
+    { UAMEASUNIT_DURATION_HOUR,            37.203, "37,20 ore",                 "37 ore",               "37,203 h",              "37,2 h", 				"37 h",       "37 h",      0,2,    0,2 },
+    { UAMEASUNIT_DURATION_MINUTE,          37.203, "37,20 minuti",              "37 minuti",            "37,203 min",            "37,2 min",            "37 min",     "37 min",    0,2,    0,2 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static const SingleUnitFormat nb_singFmt[] = {
+//    unit                                 value   wide_2                       wide_0                  shrt_X                   shrt_1                 narr_0        numr_0       wide_0  narr_0
+    { UAMEASUNIT_DURATION_HOUR,            37.203, "37,20 timer",               "37 timer",             "37,203 t",              "37,2 t", 				"37 t",       "37 t",      0,2,    0,2 },
+    { UAMEASUNIT_DURATION_MINUTE,          37.203, "37,20 minutter",            "37 minutter",          "37,203 min",            "37,2 min",            "37 m",       "37 m",      0,2,    0,2 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
 static const SingleUnitName en_singNam[] = {
 //    unit                                 wide                   shrt         narr
     { UAMEASUNIT_DURATION_MINUTE,          "minutes",             "min",       "min"       },
@@ -328,11 +349,11 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     { "hr",         NULL,            NULL,            NULL,            NULL            }, // hr: try plural cases for 1, 2, 5
     { "hu",         NULL,            NULL,            NULL,            NULL            }, // hu: try plural cases for 1, other
     { "id",         NULL,            NULL,            NULL,            NULL            }, // id: try plural cases for other only
-    { "it",         NULL,            NULL,            NULL,            NULL            }, // it: try plural cases for 1, other
+    { "it",         it_singFmt,      NULL,            NULL,            NULL            }, // it: try plural cases for 1, other
     { "ko",         NULL,            NULL,            NULL,            NULL            }, // ko: try plural cases for other only
     { "ms",         NULL,            NULL,            NULL,            NULL            }, // ms: try plural cases for other only
-    { "nb",         NULL,            NULL,            NULL,            NULL            }, // nb: try plural cases for 1, other
-    { "nl",         NULL,            NULL,            NULL,            NULL            }, // nl: try plural cases for 1, other
+    { "nb",         nb_singFmt,      NULL,            NULL,            NULL            }, // nb: try plural cases for 1, other
+    { "nl",         nl_singFmt,      NULL,            NULL,            NULL            }, // nl: try plural cases for 1, other
     { "pl",         NULL,            NULL,            NULL,            NULL            }, // pl: try plural cases for 1, 2, 5, 8.5
     { "pt",         NULL,            NULL,            NULL,            NULL            }, // pt: try plural cases for 1, other
     { "pt_PT",      NULL,            NULL,            NULL,            NULL            },

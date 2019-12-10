@@ -5,6 +5,8 @@
 #import <objc/runtime.h>
 #import <Security/CKKSControlProtocol.h>
 #import <Security/SecAccessControlPriv.h>
+#import <CloudServices/CloudServices.h>
+
 #import "SecDbKeychainItem.h"
 #import "SecRemoteDevice.h"
 #import "OTControl.h"
@@ -15,6 +17,22 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wprotocol"
+
+@interface NSError (OctagonTestHarnessXPCService)
+- (NSDictionary*)errorAsDictionary;
+@end
+
+
+@implementation NSError (OctagonTestHarnessXPCService)
+
+- (NSDictionary*)errorAsDictionary {
+    return @{
+        @"domain": self.domain,
+        @"code": @(self.code),
+    };
+}
+@end
+
 
 @implementation OctagonTestHarnessXPCService
 
@@ -50,7 +68,100 @@
 }
 
 
+//MARK: Keychain
 
+
+- (void)secItemAdd:(NSDictionary *)input complete:(void (^)(NSNumber *, NSDictionary * _Nullable))reply
+{
+    NSMutableDictionary *attributes = [input mutableCopy];
+    CFTypeRef data = NULL;
+
+    attributes[(__bridge NSString *)kSecReturnAttributes] = @YES;
+    attributes[(__bridge NSString *)kSecReturnPersistentRef] = @YES;
+    attributes[(__bridge NSString *)kSecReturnData] = @YES;
+
+    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)attributes, &data);
+    NSDictionary *returnData = CFBridgingRelease(data);
+
+    reply(@(status), returnData);
+
+}
+- (void)secItemCopyMatching:(NSDictionary *)input complete:(void (^)(NSNumber *, NSArray<NSDictionary *>* _Nullable))reply
+{
+    NSMutableDictionary *attributes = [input mutableCopy];
+    CFTypeRef data = NULL;
+
+    attributes[(__bridge NSString *)kSecReturnAttributes] = @YES;
+    attributes[(__bridge NSString *)kSecReturnData] = @YES;
+    attributes[(__bridge NSString *)kSecReturnPersistentRef] = @YES;
+    attributes[(__bridge NSString *)kSecMatchLimit] = (__bridge id)kSecMatchLimitAll;
+
+    OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)attributes, &data);
+    NSArray<NSDictionary *>* array = CFBridgingRelease(data);
+    NSMutableArray *result = [NSMutableArray array];
+    for (NSDictionary *d in array) {
+        NSMutableDictionary *r = [d mutableCopy];
+        r[@"accc"] = nil;
+        [result addObject:r];
+    }
+
+    reply(@(status), result);
+
+}
+- (void)secItemDelete:(NSDictionary *)input complete:(void (^)(NSNumber *))reply
+{
+    NSMutableDictionary *attributes = [input mutableCopy];
+
+    attributes[(__bridge NSString *)kSecReturnAttributes] = @YES;
+    attributes[(__bridge NSString *)kSecReturnPersistentRef] = @YES;
+    attributes[(__bridge NSString *)kSecReturnData] = @YES;
+
+    OSStatus status = SecItemDelete((__bridge CFDictionaryRef)attributes);
+
+    reply(@(status));
+}
+
+//MARK: CloudServices
+
+- (void)csAccountInfo:(NSDictionary *)info complete:(void (^)(NSDictionary * _Nullable, NSDictionary * _Nullable))reply
+{
+    SecureBackup *sb = [[SecureBackup alloc] init];
+
+    [sb getAccountInfoWithInfo:info completionBlock:^(NSDictionary *results, NSError *error) {
+        reply(results, [error errorAsDictionary]);
+     }];
+}
+
+- (void)csEnableInfo:(NSDictionary *)info complete:(void (^)(NSDictionary * _Nullable, NSDictionary * _Nullable))reply
+{
+    SecureBackup *sb = [[SecureBackup alloc] init];
+
+    [sb enableWithInfo:info completionBlock:^(NSError *error) {
+        reply(@{}, [error errorAsDictionary]);
+    }];
+}
+- (void)csUpdateInfo:(NSDictionary *)info complete:(void (^)(NSDictionary * _Nullable, NSDictionary * _Nullable))reply
+{
+    SecureBackup *sb = [[SecureBackup alloc] init];
+    [sb updateMetadataWithInfo:info completionBlock:^(NSError *error) {
+        reply(@{}, [error errorAsDictionary]);
+    }];
+}
+- (void)csDisableInfo:(NSDictionary *)info complete:(void (^)(NSDictionary * _Nullable, NSDictionary * _Nullable))reply
+{
+    SecureBackup *sb = [[SecureBackup alloc] init];
+    [sb disableWithInfo:info completionBlock:^(NSError *error) {
+        reply(@{}, [error errorAsDictionary]);
+    }];
+}
+
+- (void)csRecoverInfo:(NSDictionary *)info complete:(void (^)(NSDictionary * _Nullable, NSDictionary * _Nullable))reply
+{
+    SecureBackup *sb = [[SecureBackup alloc] init];
+    [sb recoverWithInfo:info completionBlock:^(NSDictionary *results, NSError *error) {
+        reply(results, [error errorAsDictionary]);
+    }];
+}
 
 @end
 

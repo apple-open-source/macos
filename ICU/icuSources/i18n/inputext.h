@@ -47,6 +47,7 @@ public:
     //   Value is rounded up, so zero really means zero occurences. 
     int16_t  *fByteStats;
     UBool     fC1Bytes;          // True if any bytes in the range 0x80 - 0x9F are in the input;false by default
+    UBool     fOnlyTypicalASCII; // True if has only byte values that are typical for ASCII // rdar://56373519
     char     *fDeclaredEncoding;
 
     const uint8_t           *fRawInput;     // Original, untouched input bytes.

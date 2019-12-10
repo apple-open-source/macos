@@ -29,6 +29,7 @@
 #include "PageIdentifier.h"
 #include "RegistrableDomain.h"
 #include <pal/SessionID.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/Function.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -135,6 +136,7 @@ public:
     WEBCORE_EXPORT void deleteCookiesForHostnames(const Vector<String>& cookieHostNames, IncludeHttpOnlyCookies);
     WEBCORE_EXPORT Vector<Cookie> getAllCookies();
     WEBCORE_EXPORT Vector<Cookie> getCookies(const URL&);
+    WEBCORE_EXPORT void hasCookies(const RegistrableDomain&, CompletionHandler<void(bool)>&&) const;
     WEBCORE_EXPORT bool getRawCookies(const URL& firstParty, const SameSiteInfo&, const URL&, Optional<uint64_t> frameID, Optional<PageIdentifier>, Vector<Cookie>&) const;
     WEBCORE_EXPORT void flushCookieStore();
     WEBCORE_EXPORT void getHostnamesWithCookies(HashSet<String>& hostnames);
@@ -146,7 +148,9 @@ public:
     WEBCORE_EXPORT bool shouldBlockCookies(const ResourceRequest&, Optional<uint64_t> frameID, Optional<PageIdentifier>) const;
     WEBCORE_EXPORT bool shouldBlockCookies(const URL& firstPartyForCookies, const URL& resource, Optional<uint64_t> frameID, Optional<PageIdentifier>) const;
     WEBCORE_EXPORT bool shouldBlockThirdPartyCookies(const RegistrableDomain&) const;
+    WEBCORE_EXPORT bool hasHadUserInteractionAsFirstParty(const RegistrableDomain&) const;
     WEBCORE_EXPORT void setPrevalentDomainsToBlockCookiesFor(const Vector<RegistrableDomain>&);
+    WEBCORE_EXPORT void setDomainsWithUserInteractionAsFirstParty(const Vector<RegistrableDomain>&);
     WEBCORE_EXPORT void setAgeCapForClientSideCookies(Optional<Seconds>);
     WEBCORE_EXPORT void removePrevalentDomains(const Vector<RegistrableDomain>& domains);
     WEBCORE_EXPORT bool hasStorageAccess(const RegistrableDomain& resourceDomain, const RegistrableDomain& firstPartyDomain, Optional<uint64_t> frameID, PageIdentifier) const;
@@ -160,6 +164,7 @@ public:
     WEBCORE_EXPORT Optional<Seconds> maxAgeCacheCap(const ResourceRequest&);
     WEBCORE_EXPORT void didCommitCrossSiteLoadWithDataTransferFromPrevalentResource(const RegistrableDomain& toDomain, PageIdentifier);
     WEBCORE_EXPORT void resetCrossSiteLoadsWithLinkDecorationForTesting();
+    void setIsThirdPartyCookieBlockingOnSitesWithoutUserInteractionEnabled(bool enabled) { m_isThirdPartyCookieBlockingOnSitesWithoutUserInteractionEnabled = enabled; }
 #endif
 
 private:
@@ -185,6 +190,7 @@ private:
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     Optional<Seconds> clientSideCookieCap(const RegistrableDomain& firstParty, Optional<PageIdentifier>) const;
     HashSet<RegistrableDomain> m_registrableDomainsToBlockCookieFor;
+    HashSet<RegistrableDomain> m_registrableDomainsWithUserInteractionAsFirstParty;
     HashMap<PageIdentifier, HashMap<uint64_t, RegistrableDomain, DefaultHash<uint64_t>::Hash, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>> m_framesGrantedStorageAccess;
     HashMap<PageIdentifier, HashMap<RegistrableDomain, RegistrableDomain>> m_pagesGrantedStorageAccess;
     Optional<Seconds> m_cacheMaxAgeCapForPrevalentResources { };
@@ -192,6 +198,7 @@ private:
     Optional<Seconds> m_ageCapForClientSideCookiesShort { };
     HashMap<WebCore::PageIdentifier, RegistrableDomain> m_navigatedToWithLinkDecorationByPrevalentResource;
     bool m_navigationWithLinkDecorationTestMode = false;
+    bool m_isThirdPartyCookieBlockingOnSitesWithoutUserInteractionEnabled = true;
 #endif
 
 #if PLATFORM(COCOA)

@@ -2809,8 +2809,14 @@
         return nil;
     }
 
+    CKKSResultOperation *fetchOp = [self.zoneChangeFetcher requestFetchDueToAPNS:notification];
+    if (fetchOp == nil) {
+        ckksnotice("ckks", self, "Skipping push induced processCKChanges due to zones are not ready");
+        return nil;
+    }
+
     // We fetched some changes; try to process them!
-    return [self processIncomingQueue:false after:[self.zoneChangeFetcher requestSuccessfulFetchDueToAPNS:notification]];
+    return [self processIncomingQueue:false after:fetchOp];
 }
 
 // Lets the view know about a failed CloudKit write. If the error is "already have one of these records", it will
@@ -2875,6 +2881,13 @@
                     // Issue a key hierarchy fetch and see what's what.
                     ckkserror("ckks", self, "CKKS Server extension has told us about %@ for record %@; requesting refetch and reprocess of key hierarchy", thirdLevelError, recordID);
                     [self _onqueueKeyStateMachineRequestFetch];
+
+                } else if(thirdLevelError.code == CKKSServerMissingRecord) {
+                    // The server is concerned that there's a missing record somewhere.
+                    // Issue a key hierarchy fetch and see what's happening
+                    ckkserror("ckks", self, "CKKS Server extension has told us about %@ for record %@; requesting refetch and reprocess of key hierarchy", thirdLevelError, recordID);
+                    [self _onqueueKeyStateMachineRequestFetch];
+
                 } else {
                     ckkserror("ckks", self, "CKKS Server extension has told us about %@ for record %@, but we don't currently handle this error", thirdLevelError, recordID);
                 }
@@ -3807,19 +3820,39 @@
 
 #pragma mark - CKKSChangeFetcherClient
 
+- (BOOL)zoneIsReadyForFetching
+{
+    __block BOOL ready = NO;
+
+    [self dispatchSync: ^bool {
+        ready = (bool)[self _onQueueZoneIsReadyForFetching];
+        return ready;
+    }];
+
+    return ready;
+}
+
+- (BOOL)_onQueueZoneIsReadyForFetching
+{
+    if(self.accountStatus != CKKSAccountStatusAvailable) {
+        ckksnotice("ckksfetch", self, "Not participating in fetch: not logged in");
+        return NO;
+    }
+
+    if(!self.zoneCreated) {
+        ckksnotice("ckksfetch", self, "Not participating in fetch: zone not created yet");
+        return NO;
+    }
+    return YES;
+}
+
 - (CKKSCloudKitFetchRequest*)participateInFetch
 {
     __block CKKSCloudKitFetchRequest* request = [[CKKSCloudKitFetchRequest alloc] init];
-    [self dispatchSync: ^bool {
-        if(self.accountStatus != CKKSAccountStatusAvailable) {
-            ckksnotice("ckksfetch", self, "Not participating in fetch: not logged in");
-            request.participateInFetch = false;
-            return false;
-        }
 
-        if(!self.zoneCreated) {
-            ckksnotice("ckksfetch", self, "Not participating in fetch: zone not created yet");
-            request.participateInFetch = false;
+    [self dispatchSync: ^bool {
+        if (![self _onQueueZoneIsReadyForFetching]) {
+            ckksnotice("ckksfetch", self, "skipping fetch since zones are not ready");
             return false;
         }
 
@@ -3962,6 +3995,9 @@
         [self dispatchSyncWithAccountKeys:^bool{
             NSError* error = nil;
             [self _onqueueResetLocalData:&error];
+
+            // We need to rescan the local keychain once we return to a good state
+            self.droppedItems = true;
 
             if(error) {
                 ckksnotice("ckksreset", self, "CloudKit-inspired local reset of %@ ended with error: %@", self.zoneID, error);

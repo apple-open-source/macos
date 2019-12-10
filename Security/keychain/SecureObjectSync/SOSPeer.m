@@ -738,7 +738,7 @@ void SOSPeerKeyBagDidChange(SOSPeerRef peer) {
         // Attempt to write a reset (ignoring failures since it will
         // be pended stickily if it fails).
         SOSPeerWriteReset(peer, NULL);
-        SOSCCRequestSyncWithBackupPeer(SOSPeerGetID(peer));
+        SOSCCAccountTriggerSyncWithBackupPeer_server(SOSPeerGetID(peer));
     }
 }
 
@@ -1063,7 +1063,8 @@ bool SOSPeerDataSourceWillChange(SOSPeerRef peer, SOSDataSourceRef dataSource, S
 
     if (!ok) {
         // We were unable to stream everything out neatly
-        SOSCCRequestSyncWithBackupPeer(SOSPeerGetID(peer));
+        NSArray<NSString *> *backupPeerList = @[ (__bridge NSString *)SOSPeerGetID(peer) ];
+        SOSCCRequestSyncWithBackupPeerList((__bridge CFArrayRef)backupPeerList);
     }
     return ok;
 }

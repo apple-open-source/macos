@@ -1806,6 +1806,57 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
+- (void)testAcceptKeyHierarchyResetAndUploadReencryptedItem {
+    // Test starts with nothing in CloudKit. CKKS uploads a key hierarchy, then it's silently replaced.
+    // CKKS should notice the replacement, and reupload the item.
+
+    [self startCKKSSubsystem];
+
+    [self performOctagonTLKUpload:self.ckksViews];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"key state should enter 'ready'");
+
+    // We expect a single record to be uploaded.
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID checkItem: [self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+
+    [self addGenericPassword: @"data" account: @"account-delete-me"];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    // A new peer arrives and resets the world! It sends us a share, though.
+    CKKSSOSSelfPeer* remotePeer1 = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"remote-peer1"
+                                                                encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                   signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
+                                                                     viewList:self.managedViewList];
+    [self.mockSOSAdapter.trustedPeers addObject:remotePeer1];
+
+    NSString* classCUUID = self.keychainZoneKeys.classC.uuid;
+
+    self.zones[self.keychainZoneID] = [[FakeCKZone alloc] initZone:self.keychainZoneID];
+    self.keys[self.keychainZoneID] = nil;
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:remotePeer1 zoneID:self.keychainZoneID];
+
+    XCTAssertNotEqual(classCUUID, self.keychainZoneKeys.classC.uuid, @"Class C UUID should have changed");
+
+    // Upon adding an item, we expect a failed OQO, then another OQO with the two items (encrypted correctly)
+    [self expectCKAtomicModifyItemRecordsUpdateFailure:self.keychainZoneID];
+
+    [self expectCKModifyItemRecords:2
+           currentKeyPointerRecords:1
+                             zoneID:self.keychainZoneID
+                          checkItem:[self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+
+    // We also expect a self share upload, once CKKS figures out the right key hierarchy
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+
+    [self addGenericPassword: @"data" account: @"account-delete-me-after-reset"];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
 - (void)testRecoverFromRequestKeyRefetchWithoutRolling {
     // Simply requesting a key state refetch shouldn't roll the key hierarchy.
 
@@ -4272,6 +4323,31 @@
             return true;
         }];
     }];
+}
+
+- (void)testReceiveNotificationDuringLaunch {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+
+    [self holdCloudKitModifyRecordZones];
+
+    // Spin up CKKS subsystem.
+    [self startCKKSSubsystem];
+
+    CKKSCondition* fetcherCondition = self.keychainView.zoneChangeFetcher.fetchScheduler.liveRequestReceived;
+
+    [self saveTLKMaterialToKeychainSimulatingSOS:self.keychainZoneID];
+
+    [self.keychainView notifyZoneChange:nil];
+
+    XCTAssertNotEqual(0, [fetcherCondition wait:(3 * NSEC_PER_SEC)], "not supposed to get a fetch data");
+
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+    self.silentFetchesAllowed = false;
+    [self expectCKFetch];
+    [self releaseCloudKitModifyRecordZonesHold];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered ready");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 @end

@@ -232,6 +232,16 @@ CF_ENUM(uint32_t) {
 	kSecCSStrictValidateStructure = 1 << 13,
 };
 
+#if TARGET_OS_OSX
+/* Here just to make TAPI happy. */
+extern int GKBIS_DS_Store_Present;
+extern int GKBIS_Dot_underbar_Present;
+extern int GKBIS_Num_localizations;
+extern int GKBIS_Num_files;
+extern int GKBIS_Num_dirs;
+extern int GKBIS_Num_symlinks;
+#endif /* TARGET_OS_OSX */
+
 #ifdef __cplusplus
 }
 #endif

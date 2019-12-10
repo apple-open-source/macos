@@ -29,6 +29,7 @@
 #import <AssertMacros.h>
 #import "IOHIDLibUserClient.h"
 #import <IOKit/hid/IOHIDLibPrivate.h>
+#import <os/assumes.h>
 
 @implementation IOHIDTransactionClass
 
@@ -265,7 +266,7 @@ static IOReturn _getValue(void *iunknown,
     } else {
         *pValueRef = element.valueRef;
     }
-    
+
     ret = kIOReturnSuccess;
     
 exit:
@@ -303,12 +304,13 @@ static IOReturn _commit(void *iunknown,
         *((uint32_t*)cookies+i) = (uint32_t)element.elementCookie;
         
         if (output && element.valueRef) {
-            [_device setValue:element.elementRef
-                        value:element.valueRef
-                      timeout:0
-                     callback:nil
-                      context:nil
-                      options:kHIDSetElementValuePendEvent];
+            ret = [_device setValue:element.elementRef
+                              value:element.valueRef
+                            timeout:0
+                           callback:nil
+                            context:nil
+                            options:kHIDSetElementValuePendEvent];
+            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass:setValue ...:%x", ret));
         }
     }
     
@@ -320,16 +322,17 @@ static IOReturn _commit(void *iunknown,
         ret = IOConnectCallStructMethod(_device.connect,
                                     kIOHIDLibUserClientUpdateElementValues,
                                         cookies, cookiesSize, 0, 0);
-        require_noerr(ret, exit);
+        require_noerr_action(ret, exit, HIDLogError("kIOHIDLibUserClientUpdateElementValues:%x", ret));
         
         for (HIDLibElement *element in _elements) {
-            IOHIDValueRef value;
-            [_device getValue:element.elementRef
-                        value:&value
-                      timeout:0
-                     callback:nil
-                      context:nil
-                      options:kHIDGetElementValuePreventPoll];
+            IOHIDValueRef value = NULL;
+            ret = [_device getValue:element.elementRef
+                              value:&value
+                            timeout:0
+                           callback:nil
+                            context:nil
+                            options:kHIDGetElementValuePreventPoll];
+            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass:getValue ...:%x", ret));
             [element setValueRef:value];
         }
     }

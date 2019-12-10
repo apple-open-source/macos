@@ -1186,6 +1186,10 @@ nl{
                 one{"{0}°"}
                 other{"{0}°"}
             }
+            fahrenheit{
+                dnam{"°F"}
+                other{"{0}°F"}
+            }
         }
         torque{
             newton-meter{
@@ -1658,6 +1662,16 @@ nl{
                 dnam{"kt"}
                 one{"{0} kt"}
                 other{"{0} kt"}
+            }
+        }
+        temperature{
+            celsius{
+                dnam{"°C"}
+                other{"{0} °C"}
+            }
+            fahrenheit{
+                dnam{"°F"}
+                other{"{0} °F"}
             }
         }
         torque{

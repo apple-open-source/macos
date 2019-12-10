@@ -158,3 +158,26 @@ realpath_np(os_fd_t fd, char buff[static PATH_MAX])
 
 	return error;
 }
+
+errno_t
+memdup_np(void **_new, const void *src, size_t len)
+{
+	void *mynew = NULL;
+
+	mynew = malloc(len);
+	if (!mynew) {
+		return errno;
+	}
+
+	memcpy(mynew, src, len);
+	*_new = mynew;
+	return 0;
+}
+
+void *
+memdup2_np(const void *src, size_t len)
+{
+	void *_new = os_malloc(len);
+	memcpy(_new, src, len);
+	return _new;
+}

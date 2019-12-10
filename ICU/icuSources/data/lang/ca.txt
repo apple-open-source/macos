@@ -114,7 +114,7 @@ ca{
         chp{"chipewyan"}
         chr{"cherokee"}
         chy{"xeiene"}
-        ckb{"kurd central"}
+        ckb{"kurd sorani"}
         co{"cors"}
         cop{"copte"}
         cr{"cree"}

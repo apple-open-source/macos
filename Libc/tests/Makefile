@@ -9,7 +9,7 @@ endif
 
 include $(DEVELOPER_DIR)/AppleInternal/Makefiles/darwintest/Makefile.common
 
-ifeq ($(PLATFORM),BridgeOS)
+ifneq ($(PLATFORM),MacOSX)
 EXCLUDED_SOURCES += locale.c
 endif
 
@@ -20,7 +20,7 @@ WARNING_CFLAGS := -Weverything \
 	-Wno-partial-availability -Wno-used-but-marked-unused \
 	-Wno-reserved-id-macro -fmacro-backtrace-limit=0 \
 	-Wno-c++98-compat -Wno-extra-semi -Wno-language-extension-token
-OTHER_CFLAGS := -DDARWINTEST --std=gnu11 $(FRAMEWORK_CFLAGS) $(WARNING_CFLAGS)
+OTHER_CFLAGS := -DDARWINTEST --std=gnu11 $(FRAMEWORK_CFLAGS) $(WARNING_CFLAGS) -I$(SDK_SYSTEM_FRAMEWORK_HEADERS)
 DT_LDFLAGS += -ldarwintest_utils
 ASAN_DYLIB_PATH := /usr/local/lib/sanitizers/
 

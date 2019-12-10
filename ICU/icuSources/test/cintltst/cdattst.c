@@ -606,7 +606,7 @@ static void TestRelativeDateFormat()
 /*Testing udat_getSymbols() and udat_setSymbols() and udat_countSymbols()*/
 static void TestSymbols()
 {
-    UDateFormat *def, *fr, *zhChiCal;
+    UDateFormat *def, *fr, *zhChiCal, *esMX;
     UErrorCode status = U_ZERO_ERROR;
     UChar *value=NULL;
     UChar *result = NULL;
@@ -642,6 +642,15 @@ static void TestSymbols()
     if(U_FAILURE(status))
     {
         log_data_err("error in creating the dateformat using full date, no time, locale zh@calendar=chinese -> %s (Are you missing data?)\n",
+            myErrorName(status) );
+        return;
+    }
+    /*creating a dateformat with es_MX locale */
+    log_verbose("\ncreating a date format with es_MX locale\n");
+    esMX = udat_open(UDAT_SHORT, UDAT_NONE, "es_MX", NULL, 0, NULL, 0, &status);
+    if(U_FAILURE(status))
+    {
+        log_data_err("error in creating the dateformat using no date, short time, locale es_MX -> %s (Are you missing data?)\n",
             myErrorName(status) );
         return;
     }
@@ -714,6 +723,8 @@ static void TestSymbols()
     VerifygetSymbols(zhChiCal, UDAT_CYCLIC_YEARS_NARROW, 59, "\\u7678\\u4EA5");
     VerifygetSymbols(zhChiCal, UDAT_ZODIAC_NAMES_ABBREVIATED, 0, "\\u9F20");
     VerifygetSymbols(zhChiCal, UDAT_ZODIAC_NAMES_WIDE, 11, "\\u732A");
+    VerifygetSymbols(esMX, UDAT_AM_PMS, 0, "a.m."); // see <rdar://problem/52923924>
+    VerifygetSymbols(esMX, UDAT_AM_PMS, 1, "p.m."); // see <rdar://problem/52923924>
 #if UDAT_HAS_PATTERN_CHAR_FOR_TIME_SEPARATOR
     VerifygetSymbols(def,UDAT_LOCALIZED_CHARS, 0, "GyMdkHmsSEDFwWahKzYeugAZvcLQqVUOXxrbB:");
 #else
@@ -854,6 +865,7 @@ free(pattern);
     udat_close(fr);
     udat_close(def);
     udat_close(zhChiCal);
+    udat_close(esMX);
     if(result != NULL) {
         free(result);
         result = NULL;
@@ -3029,6 +3041,258 @@ static const char * remapResults_es_PR_japanese[] = { // rdar://52461062
     NULL
 };
 
+static const char * remapResults_en_IN[] = { // rdar://56309604
+    "h:mm:ss a zzzz", // full
+    "HH:mm:ss zzzz",  //   force24
+    "h:mm:ss a zzzz", //   force12
+    "h:mm:ss a z",    // long
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+    "h:mm:ss a",      // medium
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "h:mm a",         // short
+    "HH:mm",          //   force24
+    "h:mm a",         //   force12
+    "EEEE, d MMMM y 'at' h:mm:ss a z", // long_df
+    "EEEE, d MMMM y 'at' HH:mm:ss z",  //   force24
+    "EEEE, d MMMM y 'at' h:mm:ss a z", //   force12
+    "dd/MM/yy, h:mm a", // short_ds
+    "dd/MM/yy, HH:mm",  //   force24
+    "dd/MM/yy, h:mm a", //   force12
+
+    "h:mm:ss a",      // jmmss
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "h:mm:ss a",      // jjmmss
+    "HH:mm:ss",       //   force24
+    "HH:mm:ss",       //   force24 | match hour field length
+    "h:mm:ss a",      //   force12
+    "hh:mm:ss a",     //   force12 | match hour field length
+    "hh:mm",          // Jmm
+    "HH:mm",          //   force24
+    "hh:mm",          //   force12
+    "h:mm:ss a v",    // jmsv
+    "HH:mm:ss v",     //   force24
+    "h:mm:ss a v",    //   force12
+    "h:mm:ss a z",    // jmsz
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss"
+    "HH:mm:ss",                           //
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y"
+    "HH:mm:ss d MMM y",                   //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'"
+    "EEE, d MMM y 'aha' HH:mm:ss 'hrs'",  //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' HH:mm:ss",        //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss"
+    "yyMMddHHmmss",                       //
+
+    "h:mm:ss a",                          // "H:mm:ss"
+    "H:mm:ss",                            //
+    "h:mm:ss a d MMM y",                  // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd h:mm:ss a '+0000'",       //
+
+    NULL
+};
+
+static const char * remapResults_en_IN_japanese[] = { // rdar://56309604
+    "h:mm:ss a zzzz", // full
+    "HH:mm:ss zzzz",  //   force24
+    "h:mm:ss a zzzz", //   force12
+    "h:mm:ss a z",    // long
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+    "h:mm:ss a",      // medium
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "h:mm a",         // short
+    "HH:mm",          //   force24
+    "h:mm a",         //   force12
+    "EEEE, d MMMM y G 'at' h:mm:ss a z", // long_df
+    "EEEE, d MMMM y G 'at' HH:mm:ss z",  //   force24
+    "EEEE, d MMMM y G 'at' h:mm:ss a z", //   force12
+    "dd/MM/y GGGGG, h:mm a", // short_ds
+    "dd/MM/y GGGGG, HH:mm",  //   force24
+    "dd/MM/y GGGGG, h:mm a", //   force12
+
+    "h:mm:ss a",      // jmmss
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "h:mm:ss a",      // jjmmss
+    "HH:mm:ss",       //   force24
+    "HH:mm:ss",       //   force24 | match hour field length
+    "h:mm:ss a",      //   force12
+    "hh:mm:ss a",     //   force12 | match hour field length
+    "hh:mm",          // Jmm
+    "HH:mm",          //   force24
+    "hh:mm",          //   force12
+    "h:mm:ss a v",    // jmsv
+    "HH:mm:ss v",     //   force24
+    "h:mm:ss a v",    //   force12
+    "h:mm:ss a z",    // jmsz
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss"
+    "HH:mm:ss",                           //
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y"
+    "HH:mm:ss d MMM y",                   //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'"
+    "EEE, d MMM y 'aha' HH:mm:ss 'hrs'",  //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' HH:mm:ss",        //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss"
+    "yyMMddHHmmss",                       //
+
+    "h:mm:ss a",                          // "H:mm:ss"
+    "H:mm:ss",                            //
+    "h:mm:ss a d MMM y",                  // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd h:mm:ss a '+0000'",       //
+
+    NULL
+};
+
+static const char * remapResults_en_BE[] = { // rdar://56309604
+    "HH:mm:ss zzzz",  // full
+    "HH:mm:ss zzzz",  //   force24
+    "h:mm:ss a zzzz", //   force12
+    "HH:mm:ss z",     // long
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+    "HH:mm:ss",       // medium
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "HH:mm",          // short
+    "HH:mm",          //   force24
+    "h:mm a",         //   force12
+    "EEEE, d MMMM y 'at' HH:mm:ss z",  // long_df
+    "EEEE, d MMMM y 'at' HH:mm:ss z",  //   force24
+    "EEEE, d MMMM y 'at' h:mm:ss a z", //   force12
+    "dd/MM/y, HH:mm",  // short_ds
+    "dd/MM/y, HH:mm",  //   force24
+    "dd/MM/y, h:mm a", //   force12
+
+    "HH:mm:ss",       // jmmss
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "HH:mm:ss",       // jjmmss
+    "HH:mm:ss",       //   force24
+    "HH:mm:ss",       //   force24 | match hour field length
+    "h:mm:ss a",      //   force12
+    "hh:mm:ss a",     //   force12 | match hour field length
+    "HH:mm",          // Jmm
+    "HH:mm",          //   force24
+    "hh:mm",          //   force12
+    "HH:mm:ss v",     // jmsv
+    "HH:mm:ss v",     //   force24
+    "h:mm:ss a v",    //   force12
+    "HH:mm:ss z",     // jmsz
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss" force12
+    "HH:mm:ss",                           //           force24
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y" force12
+    "HH:mm:ss d MMM y",                   //                        force24
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'" force12
+    "EEE, d MMM y 'aha' HH:mm:ss 'hrs'",  //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' HH:mm:ss",        //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss" force12
+    "yyMMddHHmmss",                       //
+
+    "h:mm:ss a",                          // "H:mm:ss"
+    "H:mm:ss",                            //
+    "h:mm:ss a d MMM y",                  // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd h:mm:ss a '+0000'",       //
+
+    NULL
+};
+
+static const char * remapResults_en_BE_japanese[] = { // rdar://56309604
+    "HH:mm:ss zzzz",  // full
+    "HH:mm:ss zzzz",  //   force24
+    "h:mm:ss a zzzz", //   force12
+    "HH:mm:ss z",     // long
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+    "HH:mm:ss",       // medium
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "HH:mm",          // short
+    "HH:mm",          //   force24
+    "h:mm a",         //   force12
+    "EEEE, d MMMM y G 'at' HH:mm:ss z",  // long_df
+    "EEEE, d MMMM y G 'at' HH:mm:ss z",  //   force24
+    "EEEE, d MMMM y G 'at' h:mm:ss a z", //   force12
+    "dd/MM/y GGGGG, HH:mm",  // short_ds
+    "dd/MM/y GGGGG, HH:mm",  //   force24
+    "dd/MM/y GGGGG, h:mm a", //   force12
+
+    "HH:mm:ss",       // jmmss
+    "HH:mm:ss",       //   force24
+    "h:mm:ss a",      //   force12
+    "HH:mm:ss",       // jjmmss
+    "HH:mm:ss",       //   force24
+    "HH:mm:ss",       //   force24 | match hour field length
+    "h:mm:ss a",      //   force12
+    "hh:mm:ss a",     //   force12 | match hour field length
+    "HH:mm",          // Jmm
+    "HH:mm",          //   force24
+    "hh:mm",          //   force12
+    "HH:mm:ss v",     // jmsv
+    "HH:mm:ss v",     //   force24
+    "h:mm:ss a v",    //   force12
+    "HH:mm:ss z",     // jmsz
+    "HH:mm:ss z",     //   force24
+    "h:mm:ss a z",    //   force12
+
+    "h:mm:ss a",                          // "h:mm:ss" force12
+    "HH:mm:ss",                           //           force24
+    "a'xx'h:mm:ss d MMM y",               // "a'xx'h:mm:ss d MMM y" force12
+    "HH:mm:ss d MMM y",                   //                        force24
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' h:mm:ss a 'hrs'" force12
+    "EEE, d MMM y 'aha' HH:mm:ss 'hrs'",  //
+    "EEE, d MMM y 'aha' a'xx'h:mm:ss",    // "EEE, d MMM y 'aha' a'xx'h:mm:ss"
+    "EEE, d MMM y 'aha' HH:mm:ss",        //
+    "yyMMddhhmmss",                       // "yyMMddhhmmss" force12
+    "yyMMddHHmmss",                       //
+
+    "h:mm:ss a",                          // "H:mm:ss"
+    "H:mm:ss",                            //
+    "h:mm:ss a d MMM y",                  // "H:mm:ss d MMM y"
+    "H:mm:ss d MMM y",                    //
+    "EEE, d MMM y 'aha' h:mm:ss a 'hrs'", // "EEE, d MMM y 'aha' H:mm:ss 'hrs'"
+    "EEE, d MMM y 'aha' H:mm:ss 'hrs'",   //
+    "EEE, d MMM y 'aha' h'h'mm'm'ss a",   // "EEE, d MMM y 'aha' H'h'mm'm'ss"
+    "EEE, d MMM y 'aha' H'h'mm'm'ss",     //
+
+    "uuuu-MM-dd h:mm:ss a '+0000'",       //
+
+    NULL
+};
+
 typedef struct {
     const char * locale;
     const char ** resultsPtr;
@@ -3044,6 +3308,10 @@ static const RemapPatternLocaleResults remapLocResults[] = {
     { "ar",     remapResults_ar   },
     { "en_IL",  remapResults_en_IL },
     { "es_PR@calendar=japanese",  remapResults_es_PR_japanese },
+    { "en_IN",  remapResults_en_IN },
+    { "en_IN@calendar=japanese",  remapResults_en_IN_japanese },
+    { "en_BE",  remapResults_en_BE },
+    { "en_BE@calendar=japanese",  remapResults_en_BE_japanese },
     { NULL,     NULL }
 };
 

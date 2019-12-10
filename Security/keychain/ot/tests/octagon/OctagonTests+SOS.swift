@@ -222,31 +222,32 @@ class OctagonSOSTests: OctagonTestsBase {
 
         var clique: OTClique
         do {
-            clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext)
+            clique = try OTClique.newFriends(withContextData: recoverykeyotcliqueContext,
+                                             resetReason: .testGenerated)
             XCTAssertNotNil(clique, "Clique should not be nil")
         } catch {
             XCTFail("Shouldn't have errored making new friends: \(error)")
             throw error
         }
-        do{
+        do {
             try clique.joinAfterRestore()
         } catch {
             XCTAssertNotNil(error, "error should not be nil")
         }
 
-        do{
+        do {
             try clique.isLastFriend()
         } catch {
             XCTAssertNotNil(error, "error should not be nil")
         }
 
-        do{
+        do {
             try clique.safariPasswordSyncingEnabled()
         } catch {
             XCTAssertNotNil(error, "error should not be nil")
         }
 
-        do{
+        do {
             try clique.waitForInitialSync()
         } catch {
             XCTAssertNotNil(error, "error should not be nil")
@@ -254,25 +255,25 @@ class OctagonSOSTests: OctagonTestsBase {
 
         clique.viewSet(Set(), disabledViews: Set())
 
-        do{
+        do {
             try clique.setUserCredentialsAndDSID("", password: Data())
         } catch {
             XCTAssertNotNil(error, "error should not be nil")
         }
 
-        do{
+        do {
             try clique.tryUserCredentialsAndDSID("", password: Data())
         } catch {
             XCTAssertNotNil(error, "error should not be nil")
         }
 
-        do{
+        do {
             try clique.peersHaveViewsEnabled([""])
         } catch {
             XCTAssertNotNil(error, "error should not be nil")
         }
 
-        do{
+        do {
             try clique.requestToJoinCircle()
         } catch {
             XCTAssertNotNil(error, "error should not be nil")
@@ -280,14 +281,14 @@ class OctagonSOSTests: OctagonTestsBase {
 
         clique.accountUserKeyAvailable()
 
-        do{
+        do {
             _ = try clique.copyViewUnawarePeerInfo()
-        }catch{
+        } catch {
             XCTAssertNotNil(error, "error should not be nil")
         }
         do {
             _ = try clique.copyPeerPeerInfo()
-        }catch{
+        } catch {
             XCTAssertNotNil(error, "error should not be nil")
         }
     }

@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <libgen.h>
+#include <sysexits.h>
 
 struct section_info {
 	struct section_info *next;
@@ -56,6 +57,7 @@ struct section_info *current_section = NULL;
 int mode_raw = 0;
 int mode_block = 0;
 int mode_pcap = 0;
+int mode_test = 0;
 
 #define PAD32(x) (((x) + 3) & ~3)
 
@@ -155,8 +157,8 @@ new_interface_info(struct section_info *section_info, pcapng_block_t block)
 		section_info->if_list = interface_info;
 	}
 	(void) pcnapng_block_iterate_options(block,
-										 interface_option_iterator,
-										 interface_info);
+					     interface_option_iterator,
+					     interface_info);
 	
 	return interface_info;
 }
@@ -571,26 +573,49 @@ break;
 void
 test_pcap_ng_fopen_offline(const char *filename, char *errbuf)
 {
-	FILE *fp = fopen(filename, "r");
+	FILE *fp;
 	off_t offset;
-	
+	pcap_t *pcap;
+
+	fp = fopen(filename, "r");
 	if (fp == NULL) {
 		warn("fopen(%s) failed", filename);
 		return;
 	}
 	offset = ftello(fp);
-	pcap_t *pcap = pcap_ng_fopen_offline(fp, errbuf);
+
+	pcap = pcap_ng_fopen_offline(fp, errbuf);
 	if (pcap == NULL) {
 		warnx("pcap_ng_fopen_offline(%s) failed: %s\n",
 		      filename, errbuf);
 		if (ftello(fp) != offset)
-			warnx("pcap_ng_fopen_offline(%s) ftello(fp) (%llu) != offset (%llu)",
+			errx(EX_OSERR, "pcap_ng_fopen_offline(%s) ftello(fp) (%llu) != offset (%llu)",
 			      filename, ftello(fp), offset);
 	} else {
 		pcap_close(pcap);
 	}
+
+	fp = fopen(filename, "r");
+	if (fp == NULL) {
+		warn("fopen(%s) failed", filename);
+		return;
+	}
+	offset = ftello(fp);
+
+	pcap = pcap_fopen_offline(fp, errbuf);
+	if (pcap == NULL) {
+		warnx("pcap_fopen_offline(%s) failed: %s\n",
+		      filename, errbuf);
+		if (ftello(fp) != offset)
+			errx(EX_OSERR, "pcap_fopen_offline(%s) ftello(fp) (%llu) != offset (%llu)",
+			      filename, ftello(fp), offset);
+	} else {
+		pcap_close(pcap);
+	}
+
 	fclose(fp);
-	
+
+	fprintf(stderr, "TEST PASSED\n");
 }
 
 int
@@ -599,59 +624,44 @@ main(int argc, const char * argv[])
 	int i;
 	char errbuf[PCAP_ERRBUF_SIZE];
 	
-#if 0
-	u_int64_t	section_length;
-	
-	section_length = 0x0004000300020001;
-	printf("section_length %llx\n", section_length);
-	
-	u_int32_t lowlong = (u_int32_t)section_length;
-	printf("lowlong %x\n", lowlong);
-	
-	u_int32_t hilong = (u_int32_t)(section_length >> 32);
-	printf("hilong %x\n", hilong);
-	
-	u_int64_t swapped = SWAPLONGLONG(section_length);
-	printf("swapped %llx\n", swapped);
-	
-	int nums[11] = { 0, 1, 2, 3, 4, 5, -1, -2, -3, -4, -5 };
-	for (i = 0; i < 11; i++) {
-		printf("PCAPNG_ROUNDUP32(%d): %d\n", nums[i], PCAPNG_ROUNDUP32(nums[i]));
-	}
-#endif
 	for (i = 1; i < argc; i++) {
 		pcap_t *pcap;
 		
 		if (strcmp(argv[i], "-h") == 0) {
 			char *path = strdup((argv[0]));
-			printf("# usage: %s [-raw] [-block] file\n", getprogname());
+			printf("# usage: %s [-raw] [-block] [-pcap] [-test] file\n", getprogname());
 			if (path != NULL)
 				free(path);
 			exit(0);
-		}
-		if (strcmp(argv[i], "-raw") == 0) {
+		} else if (strcmp(argv[i], "-raw") == 0) {
 			mode_raw = 1;
 			continue;
-		}
-		if (strcmp(argv[i], "-block") == 0) {
+		} else if (strcmp(argv[i], "-block") == 0) {
 			mode_block = 1;
 			continue;
-		}
-		if (strcmp(argv[i], "-pcap") == 0) {
+		} else if (strcmp(argv[i], "-pcap") == 0) {
 			mode_pcap = 1;
 			continue;
+		} else if (strcmp(argv[i], "-test") == 0) {
+			mode_test = 1;
+			continue;
 		}
-		if (mode_block == 0 && mode_raw == 0)
-			mode_block = 1;
-		
+
 		printf("#\n# opening %s\n#\n", argv[i]);
-		
+
+		if (mode_test != 0) {
+			test_pcap_ng_fopen_offline(argv[i], errbuf);
+			continue;
+		}
+
+		if (mode_block == 0 && mode_raw == 0) {
+			mode_block = 1;
+		}
 		if (mode_pcap == 0) {
 			pcap = pcap_ng_open_offline(argv[i], errbuf);
 			if (pcap == NULL) {
 				warnx("pcap_ng_open_offline(%s) failed: %s\n",
 					  argv[i], errbuf);
-				test_pcap_ng_fopen_offline(argv[i], errbuf);
 				continue;
 			}
 		} else {

@@ -51,9 +51,14 @@
 #include <dispatch/private.h>
 
 #include <stdlib.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <sys/cdefs.h>
 #include <sys/syslimits.h>
+
+#if DARWIN_TAPI
+#include "tapi.h"
+#endif
 
 __BEGIN_DECLS;
 
@@ -238,6 +243,122 @@ _os_strdup_known(const char *str)
 #endif
 
 /*!
+ * @function os_setflag
+ * Sets the given flag in a manner which is compatible with strongly-typed
+ * enumerations.
+ *
+ * @param _bf
+ * The bitfield in which to set the flag.
+ *
+ * @param _f
+ * The flag to set.
+ *
+ * @result
+ * The result of setting {@link _f} in {@link _bf}.
+ */
+#define os_setflag(_bf, _f) (typeof(_bf))((_bf) & (_f))
+
+/*!
+ * @function os_clrflag
+ * Clears the given flag in a manner which is compatible with strongly-typed
+ * enumerations.
+ *
+ * @param _bf
+ * The bitfield in which to clear the flag.
+ *
+ * @param _f
+ * The flag to clear.
+ *
+ * @result
+ * The result of clearing {@link _f} from {@link _bf}.
+ *
+ * @discussion
+ * clrbit() will produce errors when given types smaller than a pointer such as
+ * int because it casts to char *; thus this implementation is required to deal
+ * properly with flags defined via {@link OS_OPTIONS} or similar.
+ */
+#define os_clrflag(_bf, _f) (typeof(_bf))((_bf) & (typeof(_bf))(~(_f)))
+
+/*!
+ * @function switch_posix
+ * Macro which expands to a switch() statement for handling both the success
+ * case as well as errno values set by POSIX and POSIX-y APIs that return -1 and
+ * set errno.
+ *
+ * @example
+ *
+ *     int ret = dup(fd);
+ *     switch_posix (ret) {
+ *     case 0:
+ *         // success
+ *         break;
+ *     case EINTR:
+ *         // interrupted system call
+ *         break;
+ *     case EBADF:
+ *         // bad file descriptor
+ *         break;
+ *     }
+ *
+ * @discussion
+ * This statement cannot be used with APIs that return positive values on
+ * failure.
+ */
+#define switch_posix(_ret) if ((_ret) < 0 || (errno = 0, 1)) switch (errno)
+
+/*!
+ * @function size_unsigned
+ * Converts a signed size quantity into an unsigned size quantity after
+ * verifying the former can be represented as the latter.
+ *
+ * @param ss
+ * The signed size quantity.
+ *
+ * @result
+ * The unsigned representation of {@link ss}.
+ *
+ * @discussion
+ * This routine is useful for passing a signed value (such as the size of a file
+ * from a stat(2) structure) into a routine which accepts unsigned input
+ * (e.g. write(2)).
+ */
+OS_ALWAYS_INLINE OS_WARN_RESULT
+static inline size_t
+size_unsigned(ssize_t ss)
+{
+	if (ss < 0) {
+		os_crash("value not representable as size_t");
+	}
+	return (size_t)ss;
+}
+
+/*!
+ * @function size_signed
+ * Converts an unsigned size quantity into a signed size quantity after
+ * verifying the former can be represented as the latter.
+ *
+ * @param un
+ * The unsigned size quantity.
+ *
+ * @result
+ * The signed representation of {@link un}.
+ *
+ * @discussion
+ * This routine is useful for comparing an unsigned value (such as a number of
+ * bytes) to the result of a routine which returns a signed type but only ever
+ * returns a negative number in the event of an error (e.g. read(2)).
+ */
+OS_ALWAYS_INLINE OS_WARN_RESULT
+static inline ssize_t
+size_signed(size_t un)
+{
+	if (un > SSIZE_MAX) {
+		os_crash("value not representable as ssize_t");
+	}
+	return (ssize_t)un;
+}
+
+/*!
  * @function os_localtime_file
  * A routine to generate a time stamp that is suitable for embedding in a file
  * name.
@@ -371,6 +492,51 @@ DARWIN_API_AVAILABLE_20180727
 OS_EXPORT OS_WARN_RESULT
 errno_t
 realpath_np(os_fd_t fd, char buff[static PATH_MAX]);
+
+/*!
+ * @function memdup_np
+ * Copies the given range of bytes into a new allocation.
+ *
+ * @param _new
+ * Upon successful return, a pointer to a new allocation which has had the given
+ * source bytes copied into it. The caller is responsible for calling free(3) on
+ * this object when it is no longer needed.
+ *
+ * @param src
+ * The bytes to copy.
+ *
+ * @param len
+ * The number of bytes to copy.
+ *
+ * @result
+ * On success, zero is returned. Otherwise, the implementation may return any
+ * error that can be returned by malloc(3).
+ */
+DARWIN_API_AVAILABLE_20190830
+OS_EXPORT OS_WARN_RESULT OS_NONNULL1 OS_NONNULL2
+errno_t
+memdup_np(void **_new, const void *src, size_t len);
+
+/*!
+ * @function memdup2_np
+ * Variant of {@link memdup_np} which guarantees that memory duplication will
+ * either succeed or not return (terminating the caller).
+ *
+ * @param src
+ * The bytes to copy.
+ *
+ * @param len
+ * The number of bytes to copy.
+ *
+ * @result
+ * On success, a pointer to the new allocation which has had the given source
+ * bytes copied into it. The caller is responsible for calling free(3) on this
+ * object when it is no longer needed.
+ */
+DARWIN_API_AVAILABLE_20190830
+OS_EXPORT OS_WARN_RESULT OS_MALLOC OS_NONNULL1
+void *
+memdup2_np(const void *src, size_t len);
 
 __END_DECLS;
 

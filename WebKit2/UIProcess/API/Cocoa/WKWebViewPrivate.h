@@ -504,6 +504,8 @@ typedef NS_OPTIONS(NSUInteger, _WKRectEdge) {
 - (void)_accessibilityClearSelection WK_API_AVAILABLE(ios(11.3));
 - (UIView *)_fullScreenPlaceholderView WK_API_AVAILABLE(ios(12.0));
 
+- (void)_triggerSystemPreviewActionOnElement:(uint64_t)elementID document:(uint64_t)documentID page:(uint64_t)pageID WK_API_AVAILABLE(ios(WK_IOS_TBA));
+
 @property (nonatomic, readonly) BOOL _contentViewIsFirstResponder WK_API_AVAILABLE(ios(12.2));
 #else
 - (void)_dismissContentRelativeChildWindows WK_API_AVAILABLE(macos(10.13.4));

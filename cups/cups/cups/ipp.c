@@ -2956,7 +2956,7 @@ ippReadIO(void       *src,		/* I - Data source */
             * Read 32-bit "extension" tag...
             */
 
-	    if ((*cb)(src, buffer, 4) < 1)
+	    if ((*cb)(src, buffer, 4) < 4)
 	    {
 	      DEBUG_puts("1ippReadIO: Callback returned EOF/error");
 	      _cupsBufferRelease((char *)buffer);
@@ -4560,7 +4560,7 @@ ippSetValueTag(
           return (0);
 
         if (ipp->attrs && ipp->attrs->next && ipp->attrs->next->name &&
-            !strcmp(ipp->attrs->next->name, "attributes-natural-language"))
+            !strcmp(ipp->attrs->next->name, "attributes-natural-language") && (ipp->attrs->next->value_tag & IPP_TAG_CUPS_MASK) == IPP_TAG_LANGUAGE)
         {
          /*
           * Use the language code from the IPP message...

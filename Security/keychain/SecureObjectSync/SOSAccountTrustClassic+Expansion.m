@@ -15,7 +15,7 @@
 #import "keychain/SecureObjectSync/SOSPeerInfoCollections.h"
 #import "keychain/SecureObjectSync/SOSTransportCircleKVS.h"
 #import "keychain/SecureObjectSync/SOSRingRecovery.h"
-#import "keychain/Signin Metrics/SFSignInAnalytics.h"
+#import "keychain/SigninMetrics/SFSignInAnalytics.h"
 
 @implementation SOSAccountTrustClassic (Expansion)
 typedef enum {
@@ -27,11 +27,9 @@ typedef enum {
     ignore
 } ringAction_t;
 
-#if !defined(NDEBUG)
-static const char * __unused actionstring[] = {
+static const char *actionstring[] = {
     "accept", "countersign", "leave", "revert", "modify", "ignore",
 };
-#endif
 static NSString* kSOSRingKey = @"trusted_rings";
 
 //
@@ -331,7 +329,9 @@ errOut:
     SOSRingRef newRing = NULL;
     SOSRingRef oldRing = NULL;
 
-    secdebug("ringSigning", "start:[%s] %@", localRemote, prospectiveRing);
+    CFStringRef modifierPeerID = CFStringCreateTruncatedCopy(SOSRingGetLastModifier(prospectiveRing), 8);
+    secnotice("ring", "start:[%s] modifier: %@", localRemote, modifierPeerID);
+    CFReleaseNull(modifierPeerID);
     require_quiet(SOSAccountHasPublicKey(account, error), errOut);
     require_action_quiet(peerPubKey, errOut, SOSCreateError(kSOSErrorPublicKeyAbsent, CFSTR("No device public key to work with"), NULL, error));
     require_action_quiet(peerPrivKey, errOut, SOSCreateError(kSOSErrorPrivateKeyAbsent, CFSTR("No device private key to work with"), NULL, error));
@@ -360,7 +360,7 @@ errOut:
     
     SOSConcordanceStatus concstat = SOSRingConcordanceTrust(fpi, peers, oldRing, newRing, oldKey, userPublic, peerID, error);
     
-    CFStringRef concStr = NULL;
+    CFStringRef concStr = CFSTR("NA");
     switch(concstat) {
         case kSOSConcordanceTrusted:
             ringAction = countersign;
@@ -382,7 +382,7 @@ errOut:
         case kSOSConcordanceNoPeerSig:
             ringAction = accept; // We might like this one eventually but don't countersign.
             concStr = CFSTR("No trusted peer signature");
-            secnotice("signing", "##### No trusted peer signature found, accepting hoping for concordance later %@", newRing);
+            secnotice("signing", "##### No trusted peer signature found, accepting hoping for concordance later");
             break;
         case kSOSConcordanceNoPeer:
             ringAction = leave;
@@ -390,6 +390,7 @@ errOut:
             break;
         case kSOSConcordanceNoUserKey:
             secerror("##### No User Public Key Available, this shouldn't ever happen!!!");
+            concStr = CFSTR("No User Public Key Available");
             ringAction = ignore;
             break;
             
@@ -407,13 +408,12 @@ errOut:
             break;
         default:
             secerror("##### Bad Error Return from ConcordanceTrust");
+            concStr = CFSTR("Bad Error Return from ConcordanceTrust");
             ringAction = ignore;
             break;
     }
 
-    (void)concStr;
-
-    secdebug("ringSigning", "Decided on action [%s] based on concordance state [%@] and [%s] circle.",
+    secnotice("ring", "Decided on action [%s] based on concordance state [%@] and [%s] ring.",
              actionstring[ringAction], concStr, userTrustedoldRing ? "trusted" : "untrusted");
 
     // if we're ignoring this ring we're done
@@ -477,7 +477,7 @@ errOut:
 
                     if(SOSRingSetBackupKeyBag(newRing, fpi, viewSet, bskb, &localError) == false) {
                         stopCountersign = true;
-                        secnotice("recovery", "Couldn't fix BSKB (%@)", localError);
+                        secnotice("ring", "Couldn't fix BSKB (%@)", localError);
                     }
                     SOSRingRemoveSignatures(newRing, NULL);
                     SOSRingGenerationSign(newRing, NULL, fpi, error);
@@ -493,7 +493,7 @@ errOut:
         if(stopCountersign) {
             ringAction = ignore;
         } else if (SOSRingPeerTrusted(newRing, fpi, NULL)) {
-            secdebug("ringSigning", "Already concur with: %@", newRing);
+            secnotice("ring", "Already concur with newRing");
             ringAction = accept;
         } else {
             CFErrorRef signingError = NULL;
@@ -501,7 +501,7 @@ errOut:
                 ringToPush = newRing;
                 ringAction = accept;
             } else {
-                secerror("Failed to concordance sign, error: %@  Old: %@ New: %@", signingError, oldRing, newRing);
+                secnotice("ring", "Failed to concordance sign, error: %@", signingError);
                 success = false;
                 ringAction = ignore;
             }
@@ -545,10 +545,12 @@ leaveAndAccept:
     
     if (ringAction == revert) {
         if(haveOldRing && SOSRingHasPeerID(oldRing, peerID)) {
-            secdebug("ringSigning", "%@, Rejecting: %@ re-publishing %@", concStr, newRing, oldRing);
+            secnotice("ring", "Rejecting: %@", newRing);
+            secnotice("ring", "   RePush: %@", oldRing);
             ringToPush = oldRing;
         } else {
-            secdebug("ringSigning", "%@, Rejecting: %@ Have no old ring - would reset", concStr, newRing);
+            secnotice("ring", "Rejecting: %@", newRing);
+            secnotice("ring", "Have no old ring - would reset");
         }
     }
 
@@ -558,14 +560,14 @@ leaveAndAccept:
         } else if(ringIsRecovery) {
             recRingProcessed++;
         }
-        secdebug("ringSigning", "Pushing:[%s] %@", localRemote, ringToPush);
+        secnotice("ring", "Pushing:[%s] %@", localRemote, ringToPush);
         CFDataRef ringData = SOSRingCopyEncodedData(ringToPush, error);
         if (ringData) {
             success = [circleTransport kvsRingPostRing:SOSRingGetName(ringToPush) ring:ringData err:error];
         } else {
             success = false;
         }
-        secnotice("circleop", "Setting account.key_interests_need_updating to true in handleUpdateRing");
+        secnotice("ring", "Setting account.key_interests_need_updating to true in handleUpdateRing");
         account.key_interests_need_updating = true;
         CFReleaseNull(ringData);
     }

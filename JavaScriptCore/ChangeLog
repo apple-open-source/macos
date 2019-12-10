@@ -1,6 +1,114 @@
-2019-10-03  Alan Coon  <alancoon@apple.com>
+2019-11-04  Kocsen Chung  <kocsen_chung@apple.com>
 
-        Cherry-pick r249538. rdar://problem/55911485
+        Cherry-pick r248552. rdar://problem/56868427
+
+    Replace multiparameter overloads of append() in StringBuilder as a first step toward standardizinging on the flexibleAppend() implementation
+    https://bugs.webkit.org/show_bug.cgi?id=200614
+    
+    Reviewed by Darin Adler.
+    
+    Renames StringBuilder::append(const LChar*, unsigned), StringBuilder::append(const UChar*, unsigned) and 
+    StringBuilder::append(const char*, unsigned) to StringBuilder::appendCharacters(...).
+            
+    Renames StringBuilder::append(const String& string, unsigned offset, unsigned length) to 
+    StringBuilder::appendSubstring(...).
+    
+    Source/JavaScriptCore:
+    
+    * dfg/DFGStrengthReductionPhase.cpp:
+    (JSC::DFG::StrengthReductionPhase::handleNode):
+    * runtime/ConfigFile.cpp:
+    (JSC::ConfigFile::parse):
+    * runtime/LiteralParser.cpp:
+    (JSC::LiteralParser<CharType>::Lexer::lexStringSlow):
+    * tools/FunctionOverrides.cpp:
+    (JSC::parseClause):
+    Update for renames.
+    
+    Source/WebCore:
+    
+    * dom/Range.cpp:
+    (WebCore::Range::toString const):
+    * editing/Editing.cpp:
+    (WebCore::stringWithRebalancedWhitespace):
+    * editing/MarkupAccumulator.cpp:
+    (WebCore::appendCharactersReplacingEntitiesInternal):
+    * editing/TextIterator.cpp:
+    (WebCore::TextIteratorCopyableText::appendToStringBuilder const):
+    * html/HTMLTextFormControlElement.cpp:
+    (WebCore::HTMLTextFormControlElement::valueWithHardLineBreaks const):
+    * html/parser/HTMLTokenizer.cpp:
+    (WebCore::HTMLTokenizer::bufferedCharacters const):
+    * platform/graphics/avfoundation/InbandTextTrackPrivateAVF.cpp:
+    (WebCore::InbandTextTrackPrivateAVF::processNativeSamples):
+    * platform/text/SegmentedString.cpp:
+    (WebCore::SegmentedString::Substring::appendTo const):
+    * platform/text/TextCodecICU.cpp:
+    (WebCore::TextCodecICU::decode):
+    * xml/XSLTProcessorLibxslt.cpp:
+    (WebCore::writeToStringBuilder):
+    Update for renames.
+    
+    Source/WebKit:
+    
+    * Shared/mac/AuxiliaryProcessMac.mm:
+    (WebKit::setAndSerializeSandboxParameters):
+    * UIProcess/WebProcessPool.cpp:
+    (WebKit::WebProcessPool::didReceiveInvalidMessage):
+    Update for renames.
+    
+    Source/WTF:
+    
+    * wtf/HexNumber.h:
+    (WTF::appendUnsignedAsHexFixedSize):
+    Add overload that explicitly takes a StringBuilder to work around rename from append to appendCharacters.
+    
+    * wtf/text/StringBuilder.cpp:
+    (WTF::StringBuilder::appendCharacters):
+    (WTF::StringBuilder::append):
+    * wtf/text/StringBuilder.h:
+    (WTF::StringBuilder::appendCharacters):
+    (WTF::StringBuilder::append):
+    (WTF::StringBuilder::appendSubstring):
+    (WTF::StringBuilder::appendLiteral):
+    (WTF::IntegerToStringConversionTrait<StringBuilder>::flush):
+    Update for renames.
+    
+    Tools:
+    
+    * TestWebKitAPI/Tests/WTF/StringBuilder.cpp:
+    (TestWebKitAPI::TEST):
+    Update for renames.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@248552 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-12  Sam Weinig  <weinig@apple.com>
+
+            Replace multiparameter overloads of append() in StringBuilder as a first step toward standardizinging on the flexibleAppend() implementation
+            https://bugs.webkit.org/show_bug.cgi?id=200614
+
+            Reviewed by Darin Adler.
+
+            Renames StringBuilder::append(const LChar*, unsigned), StringBuilder::append(const UChar*, unsigned) and
+            StringBuilder::append(const char*, unsigned) to StringBuilder::appendCharacters(...).
+
+            Renames StringBuilder::append(const String& string, unsigned offset, unsigned length) to
+            StringBuilder::appendSubstring(...).
+
+            * dfg/DFGStrengthReductionPhase.cpp:
+            (JSC::DFG::StrengthReductionPhase::handleNode):
+            * runtime/ConfigFile.cpp:
+            (JSC::ConfigFile::parse):
+            * runtime/LiteralParser.cpp:
+            (JSC::LiteralParser<CharType>::Lexer::lexStringSlow):
+            * tools/FunctionOverrides.cpp:
+            (JSC::parseClause):
+            Update for renames.
+
+2019-10-20  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r249538. rdar://problem/56426429
 
     LazyClassStructure::setConstructor should not store the constructor to the global object
     https://bugs.webkit.org/show_bug.cgi?id=201484
@@ -55,6 +163,143 @@
             * runtime/LazyClassStructure.h:
             * runtime/Lookup.h:
             (JSC::reifyStaticProperty):
+
+2019-10-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250629. rdar://problem/56280996
+
+    FTL OSR exit shouldn't bother updating get_by_id array profiles that have changed modes
+    https://bugs.webkit.org/show_bug.cgi?id=202493
+    
+    Reviewed by Saam Barati.
+    
+    I added this optimization for DFG but forgot to do it for the FTL
+    at the same time. This patch rectifies that.
+    
+    * ftl/FTLOSRExitCompiler.cpp:
+    (JSC::FTL::compileStub):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250629 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-02  Keith Miller  <keith_miller@apple.com>
+
+            FTL OSR exit shouldn't bother updating get_by_id array profiles that have changed modes
+            https://bugs.webkit.org/show_bug.cgi?id=202493
+
+            Reviewed by Saam Barati.
+
+            I added this optimization for DFG but forgot to do it for the FTL
+            at the same time. This patch rectifies that.
+
+            * ftl/FTLOSRExitCompiler.cpp:
+            (JSC::FTL::compileStub):
+
+2019-10-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250585. rdar://problem/56280995
+
+    ObjectAllocationSinkingPhase shouldn't insert hints for allocations which are no longer valid
+    https://bugs.webkit.org/show_bug.cgi?id=199361
+    <rdar://problem/52454940>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/allocation-sinking-hints-are-valid-ssa-2.js: Added.
+    (main.fn):
+    (main.executor):
+    (main):
+    * stress/allocation-sinking-hints-are-valid-ssa.js: Added.
+    (main.fn):
+    (main.executor):
+    (main):
+    
+    Source/JavaScriptCore:
+    
+    In a prior fix to the object allocation sinking phase, I added code where we
+    made sure to insert PutHints over Phis for fields of an object at control flow
+    merge points. However, that code didn't consider that the base of the PutHint
+    may no longer be a valid heap location. This could cause us to emit invalid
+    SSA code by referring to a node which does not dominate the PutHint location.
+    This patch fixes the bug to only emit the PutHints when valid.
+    
+    This patch also makes it so that DFGValidate actually validates that the graph
+    is in valid SSA form. E.g, any use of a node N must be dominated by N.
+    
+    * dfg/DFGObjectAllocationSinkingPhase.cpp:
+    * dfg/DFGValidate.cpp:
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250585 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-01  Saam Barati  <sbarati@apple.com>
+
+            ObjectAllocationSinkingPhase shouldn't insert hints for allocations which are no longer valid
+            https://bugs.webkit.org/show_bug.cgi?id=199361
+            <rdar://problem/52454940>
+
+            Reviewed by Yusuke Suzuki.
+
+            In a prior fix to the object allocation sinking phase, I added code where we
+            made sure to insert PutHints over Phis for fields of an object at control flow
+            merge points. However, that code didn't consider that the base of the PutHint
+            may no longer be a valid heap location. This could cause us to emit invalid
+            SSA code by referring to a node which does not dominate the PutHint location.
+            This patch fixes the bug to only emit the PutHints when valid.
+
+            This patch also makes it so that DFGValidate actually validates that the graph
+            is in valid SSA form. E.g, any use of a node N must be dominated by N.
+
+            * dfg/DFGObjectAllocationSinkingPhase.cpp:
+            * dfg/DFGValidate.cpp:
+
+2019-10-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249959. rdar://problem/56280989
+
+    CheckArray on DirectArguments/ScopedArguments does not filter out slow put array storage
+    https://bugs.webkit.org/show_bug.cgi?id=201853
+    <rdar://problem/53805461>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/direct-arguments-check-array-filter-type.js: Added.
+    (foo):
+    
+    Source/JavaScriptCore:
+    
+    We were claiming CheckArray for ScopedArguments/DirectArguments was filtering
+    out SlowPutArrayStorage. It does no such thing. We just check that the object
+    is either ScopedArguments/DirectArguments.
+    
+    * dfg/DFGArrayMode.h:
+    (JSC::DFG::ArrayMode::arrayModesThatPassFiltering const):
+    (JSC::DFG::ArrayMode::arrayModesWithIndexingShapes const):
+    (JSC::DFG::ArrayMode::arrayModesWithIndexingShape const): Deleted.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249959 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-17  Saam Barati  <sbarati@apple.com>
+
+            CheckArray on DirectArguments/ScopedArguments does not filter out slow put array storage
+            https://bugs.webkit.org/show_bug.cgi?id=201853
+            <rdar://problem/53805461>
+
+            Reviewed by Yusuke Suzuki.
+
+            We were claiming CheckArray for ScopedArguments/DirectArguments was filtering
+            out SlowPutArrayStorage. It does no such thing. We just check that the object
+            is either ScopedArguments/DirectArguments.
+
+            * dfg/DFGArrayMode.h:
+            (JSC::DFG::ArrayMode::arrayModesThatPassFiltering const):
+            (JSC::DFG::ArrayMode::arrayModesWithIndexingShapes const):
+            (JSC::DFG::ArrayMode::arrayModesWithIndexingShape const): Deleted.
 
 2019-09-30  Babak Shafiei  <bshafiei@apple.com>
 

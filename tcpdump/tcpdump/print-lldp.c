@@ -930,7 +930,7 @@ lldp_extract_latlon(const u_char *tptr)
  * (right now there is only one)
  */
 
- 
+
 static int
 lldp_private_iana_print(netdissect_options *ndo,
                         const u_char *tptr, u_int tlv_len)
@@ -954,12 +954,12 @@ lldp_private_iana_print(netdissect_options *ndo,
     default:
         hexdump=TRUE;
     }
-    
+
     return hexdump;
 }
 
 
-      
+
 /*
  * Print private TIA extensions.
  */

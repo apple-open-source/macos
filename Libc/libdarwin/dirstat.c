@@ -335,8 +335,8 @@ fdirstat_fallback(int parent_fd, int flags, struct dirstat *ds)
 						if (1 == attrs.link_count) {
 							ds->total_size += object_size;
 						} else {
-							bool new_fileid = _dirstat_fileid_set_add(fileid_seen, attrs.fileid);
-							if (new_fileid) {
+							bool seen_fileid = _dirstat_fileid_set_add(fileid_seen, attrs.fileid);
+							if (!seen_fileid) {
 								ds->total_size += object_size;
 							} else {
 								DEBUGPRINT( "Skipping hardlinked file at %s/%s\n", path, name);

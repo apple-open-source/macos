@@ -510,7 +510,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.assertEnters(context: cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
     }
 
-    func testResetReasonLegacyJoinCircle() throws {
+    func testLegacyJoinCircleDoesNotReset() throws {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
@@ -537,11 +537,8 @@ class OctagonResetTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
-        let resetExpectation = self.expectation(description: "resetExpectation callback occurs")
         self.fakeCuttlefishServer.resetListener = {  request in
-            self.fakeCuttlefishServer.resetListener = nil
-            resetExpectation.fulfill()
-            XCTAssertTrue(request.resetReason.rawValue == CuttlefishResetReason.legacyJoinCircle.rawValue, "reset reason should be legacy join circle")
+            XCTFail("requestToJoinCircle should not reset Octagon")
             return nil
         }
 
@@ -551,7 +548,8 @@ class OctagonResetTests: OctagonTestsBase {
             XCTFail("Shouldn't have errored requesting to join circle: \(error)")
             throw error
         }
-        self.wait(for: [resetExpectation], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
     }
 
     func testResetReasonTestGenerated() throws {

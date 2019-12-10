@@ -529,8 +529,6 @@
 		77EC95322008041C00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
 		77F2C5E920228A0600209463 /* krb5cf-protos.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = 77F2C5E8202289E300209463 /* krb5cf-protos.h */; };
 		77FADD351FFC40870046BF01 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 77FADD341FFC407B0046BF01 /* CoreFoundation.framework */; };
-		8C5D2C9522F1080D00F18C97 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = EBEF29590FFEB23E00B7E286 /* libbsm.dylib */; };
-		8C5D2C9622F1082700F18C97 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = EBEF29590FFEB23E00B7E286 /* libbsm.dylib */; };
 		EB00129F1A2D07D6005B4B09 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB82E91F0F8A680100EE4F4A /* SystemConfiguration.framework */; };
 		EB0012A11A2D0A50005B4B09 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB6B1FB013AC1992001CB8AD /* CoreFoundation.framework */; };
 		EB00F0E2103CC6CA00399574 /* ct.c in Sources */ = {isa = PBXBuildFile; fileRef = EB00F0E1103CC6CA00399574 /* ct.c */; };
@@ -10331,7 +10329,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8C5D2C9522F1080D00F18C97 /* libbsm.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -10669,7 +10666,6 @@
 				EBBB6B5C1059953900B84263 /* libgss-krb5.a in Frameworks */,
 				EBBB6B5D1059953900B84263 /* libgss-mechglue.a in Frameworks */,
 				EBBB6B5E1059953900B84263 /* libgss-spnego.a in Frameworks */,
-				8C5D2C9622F1082700F18C97 /* libbsm.dylib in Frameworks */,
 				EBBB6B5F1059953900B84263 /* libgss-ntlm.a in Frameworks */,
 				EB792A231226E279004407A7 /* libgss-digest.a in Frameworks */,
 				EB17B5E71062E0ED0015DEB4 /* libgss-netlogon.a in Frameworks */,

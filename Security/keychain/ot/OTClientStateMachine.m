@@ -263,7 +263,6 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonClientStateMap(void) {
         return [OctagonStateTransitionOperation named:@"octagon-voucher-prepared"
                                             intending:OctagonStateAcceptorDone
                                            errorState:OctagonStateError
-                                              timeout:10*NSEC_PER_SEC
                                   withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
             otclientnotice(self.clientScope, "moving to state done for %@", clientName);
             op.nextState = OctagonStateAcceptorDone;

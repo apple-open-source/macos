@@ -139,7 +139,7 @@
     complete(true, NULL);
 }
 
-- (void)triggerSync:(NSArray<NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
+- (void)rpcTriggerSync:(NSArray<NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
 {
     complete(true, NULL);
 }
@@ -327,5 +327,14 @@
 - (void) ghostBustInfo: (void(^)(NSData *json, NSError *error))complete {
     complete(nil, nil);
 }
+
+- (void)rpcTriggerBackup:(NSArray<NSString *> *)backupPeers complete:(void (^)(NSError *))complete {
+    complete(nil);
+}
+
+- (void)rpcTriggerRingUpdate:(void (^)(NSError *))complete {
+    complete(nil);
+}
+
 
 @end

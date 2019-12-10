@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -v
 
 # This "verbose" ISIS protocol test involves a float calculation that
 # may produce a slightly different result if the compiler is not GCC.
@@ -7,18 +7,19 @@
 exitcode=0
 test_name=isis-seg-fault-1-v
 
+passed=`cat .passed`
+failed=`cat .failed`
+
 if [ ! -f ../Makefile ]
 then
 	printf '    %-35s: TEST SKIPPED (no Makefile)\n' $test_name
 elif grep '^CC = .*gcc' ../Makefile >/dev/null
 then
-	passed=`cat .passed`
-	failed=`cat .failed`
 	if ./TESTonce.sh $test_name isis-seg-fault-1.pcap isis-seg-fault-1-v.out '-v'
 	then
 		passed=`expr $passed + 1`
 		echo $passed >.passed
-else
+	else
 		failed=`expr $failed + 1`
 		echo $failed >.failed
 		exitcode=1

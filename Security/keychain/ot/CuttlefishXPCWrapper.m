@@ -255,6 +255,28 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 }
 
+
+- (void)fetchAllowedMachineIDsWithContainer:(nonnull NSString *)container
+                                    context:(nonnull NSString *)context
+                                      reply:(nonnull void (^)(NSSet<NSString *> * _Nullable, NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+                    if (i < NUM_RETRIES && [self.class retryable:error]) {
+                        secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                        retry = true;
+                    } else {
+                        secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                        reply(nil, error);
+                    }
+                    ++i;
+                }] fetchAllowedMachineIDsWithContainer:container context:context reply:reply];
+    } while (retry);
+}
+
+
 - (void)fetchEgoEpochWithContainer:(NSString *)container
                            context:(NSString *)context
                              reply:(void (^)(unsigned long long epoch,
@@ -841,4 +863,27 @@ enum {NUM_RETRIES = 5};
                 }] requestHealthCheckWithContainer:container context:context requiresEscrowCheck:requiresEscrowCheck reply:reply];
     } while (retry);
 }
+
+- (void)getSupportAppInfoWithContainer:(NSString *)container
+                               context:(NSString *)context
+                                 reply:(void (^)(NSData * _Nullable, NSError * _Nullable))reply
+{
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                reply(nil, error);
+            }
+            ++i;
+        }] getSupportAppInfoWithContainer:container context:context reply:reply];
+    } while (retry);
+
+}
+
 @end

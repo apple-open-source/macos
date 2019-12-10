@@ -168,6 +168,7 @@ struct netdissect_options {
 	int ndo_t3flag;		/* print packet arrival time */
 	int ndo_t4flag;		/* print packet arrival time */
 	int ndo_t5flag;		/* print packet arrival time */
+	int ndo_arp_plain;	/* print plain ARP */
 
 	void  *ndo_pcap; 	/* For source with multiple DLTs (e.g. PCAP-NG or PKTAP) */
 	pcap_handler ndo_print_callback;
@@ -244,10 +245,10 @@ struct netdissect_options {
 #define PT_RESP		17	/* RESP */
 
 #ifdef __APPLE__
-#define PT_IPERF	17	/* iperf-2 UDP */
-#define PT_IPERF3	18	/* iperf-3 UDP */
-#define PT_IPERF3_64	19	/* iperf-3 UDP with 64 bit packet ID */
-#define PT_SUTTP	20	/* Simple UDP throughput test protocol */
+#define PT_IPERF	18	/* iperf-2 UDP */
+#define PT_IPERF3	19	/* iperf-3 UDP */
+#define PT_IPERF3_64	20	/* iperf-3 UDP with 64 bit packet ID */
+#define PT_SUTTP	21	/* Simple UDP throughput test protocol */
 #endif /* __APPLE__ */
 
 #ifndef min
@@ -564,6 +565,7 @@ extern void hsrp_print(netdissect_options *, const u_char *, u_int);
 extern void http_print(netdissect_options *, const u_char *, u_int);
 extern void icmp6_print(netdissect_options *, const u_char *, u_int, const u_char *, int);
 extern void icmp_print(netdissect_options *, const u_char *, u_int, const u_char *, int);
+extern u_int ieee802_11_radio_print(netdissect_options *, const u_char *, u_int, u_int);
 extern void igmp_print(netdissect_options *, const u_char *, u_int);
 extern void igrp_print(netdissect_options *, const u_char *, u_int);
 extern void ip6_print(netdissect_options *, const u_char *, u_int);
@@ -690,7 +692,6 @@ extern int nextproto6_cksum(netdissect_options *, const struct ip6_hdr *, const 
 extern int mask2plen(uint32_t);
 extern int mask62plen(const u_char *);
 
-extern const char *dnname_string(netdissect_options *, u_short);
 extern const char *dnnum_string(netdissect_options *, u_short);
 
 extern char *smb_errstr(int, int);

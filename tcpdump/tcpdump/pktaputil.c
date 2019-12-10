@@ -62,7 +62,10 @@ extern char *svc2str(uint32_t);
 
 
 /*
- * Returns zero if the packet doesn't match, non-zero if it matches
+ * Returns:
+ * -1: pktap header is truncated and cannot be parsed
+ *  0: pktap header doesn't match
+ *  other values: pktap header matches the filter
  */
 int
 pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
@@ -78,8 +81,7 @@ pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 	if (h->len < sizeof(struct pktap_header) ||
 		h->caplen < sizeof(struct pktap_header) ||
 		pktp_hdr->pth_length > h->caplen) {
-		fprintf(stderr, "%s: Packet too short\n", __func__);
-		return (0);
+		return (-1);
 	}
 	
 	if (if_info == NULL) {
@@ -98,9 +100,9 @@ pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 		}
 	}
 	
-	if (if_info->if_filter_program.bf_insns == NULL)
+	if (if_info->if_filter_program.bf_insns == NULL) {
 		match = 1;
-	else {
+	} else {
 		/*
 		 * The actual data packet is past the packet tap header
 		 */

@@ -51,7 +51,7 @@ nb{
         aro{"araona"}
         arp{"arapaho"}
         arq{"algerisk arabisk"}
-        ars{"najdi-arabisk"}
+        ars{"arabisk (najd)"}
         arw{"arawak"}
         ary{"marokkansk-arabisk"}
         arz{"egyptisk arabisk"}

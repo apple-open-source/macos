@@ -24,6 +24,8 @@
 #ifndef _SEC_TRANSFORMVALIDATOR_H__
 #define _SEC_TRANSFORMVALIDATOR_H__
 
+#include <Security/SecCustomTransform.h>
+
 CF_EXTERN_C_BEGIN
 
 

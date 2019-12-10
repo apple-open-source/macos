@@ -9,15 +9,15 @@ To report bugs and other problems, contribute patches, request a
 feature, provide generic feedback etc please see the file
 CONTRIBUTING in the tcpdump source tree root.
 
-TCPDUMP 4.x.y  
-Now maintained by "The Tcpdump Group"  
-See 		www.tcpdump.org  
+TCPDUMP 4.x.y
+Now maintained by "The Tcpdump Group"
+See 		www.tcpdump.org
 
 Anonymous Git is available via:
 
 	git clone git://bpf.tcpdump.org/tcpdump
 
-formerly from 	Lawrence Berkeley National Laboratory  
+formerly from 	Lawrence Berkeley National Laboratory
 		Network Research Group <tcpdump@ee.lbl.gov>  
 		ftp://ftp.ee.lbl.gov/old/tcpdump.tar.Z (3.4)
 

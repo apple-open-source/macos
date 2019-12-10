@@ -36,11 +36,12 @@
 #include "JSDOMPromiseDeferred.h"
 #include "Page.h"
 #include "PublicKeyCredentialData.h"
+#include "RuntimeEnabledFeatures.h"
 #include <wtf/text/Base64.h>
 
 namespace WebCore {
 
-RefPtr<PublicKeyCredential> PublicKeyCredential::tryCreate(const PublicKeyCredentialData& data)
+RefPtr<PublicKeyCredential> PublicKeyCredential::tryCreate(PublicKeyCredentialData&& data)
 {
     if (!data.rawId || !data.clientDataJSON)
         return nullptr;
@@ -73,6 +74,10 @@ PublicKeyCredential::AuthenticationExtensionsClientOutputs PublicKeyCredential::
 
 void PublicKeyCredential::isUserVerifyingPlatformAuthenticatorAvailable(Document& document, DOMPromiseDeferred<IDLBoolean>&& promise)
 {
+    if (!RuntimeEnabledFeatures::sharedFeatures().webAuthenticationLocalAuthenticatorEnabled()) {
+        promise.resolve(false);
+        return;
+    }
     document.page()->authenticatorCoordinator().isUserVerifyingPlatformAuthenticatorAvailable(WTFMove(promise));
 }
 

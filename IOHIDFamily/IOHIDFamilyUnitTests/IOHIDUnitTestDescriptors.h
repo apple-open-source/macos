@@ -2723,5 +2723,856 @@ typedef struct __attribute__((packed))
     uint32_t VEN_VendorDefined0002;                    // Usage 0xFF230002: , Value = 0 to 0
     
 } IOReportingOutputReport07;
+
+//--------------------------------------------------------------------------------
+// Decoded Application Collection
+//--------------------------------------------------------------------------------
+
+#define HIDBatteryCase \
+  0x05, 0x85,                  /* (GLOBAL) USAGE_PAGE         0x0085 Battery System Page  */\
+  0x09, 0x2E,                  /* (LOCAL)  USAGE              0x0085002E PrimaryBattery (DV=Dynamic Value)  */\
+  0xA1, 0x01,                  /* (MAIN)   COLLECTION         0x01 Application (Usage=0x0085002E: Page=Battery System Page, Usage=PrimaryBattery, Type=DV) <-- Warning: USAGE type should be CA (Application) */\
+  0x09, 0x24,                  /*   (LOCAL)  USAGE              0x00850024     */\
+  0xA1, 0x02,                  /*   (MAIN)   COLLECTION         0x02 Logical (Usage=0x00850024: Page=Battery System Page, Usage=, Type=) <-- Warning: USAGE type should be CL (Logical)   */\
+  0x85, 0x01,                  /*     (GLOBAL) REPORT_ID          0x01 (1)      */\
+  0x05, 0x85,                  /*     (GLOBAL) USAGE_PAGE         0x0085 Battery System Page <-- Redundant: USAGE_PAGE is already 0x0085     */\
+  0x09, 0x83,                  /*     (LOCAL)  USAGE              0x00850083 DesignCapacity (SV=Static Value)      */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields       */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0) <-- Redundant: LOGICAL_MINIMUM is already 0 <-- Info: Consider replacing 15 00 with 14     */\
+  0x27, 0xFF, 0xFF, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x0000FFFF (65535)       */\
+  0x67, 0x01, 0x10, 0x10, 0x00, /*     (GLOBAL) UNIT               0x00101001 Electric charge in coulombs [1 C units] (1=System=SI Linear, 1=Time=Seconds, 1=Current=Ampere)      */\
+  0x55, 0x00,                  /*     (GLOBAL) UNIT_EXPONENT      0x00 (Unit Value x 10⁰) <-- Redundant: UNIT_EXPONENT is already 0     */\
+  0xB1, 0x01,                  /*     (MAIN)   FEATURE            0x00000001 (1 field x 16 bits) 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+  0x85, 0x02,                  /*     (GLOBAL) REPORT_ID          0x02 (2)      */\
+  0x05, 0x84,                  /*     (GLOBAL) USAGE_PAGE         0x0084 Power Device Page      */\
+  0x09, 0x36,                  /*     (LOCAL)  USAGE              0x00840036 Temperature (DV=Dynamic Value)      */\
+  0x67, 0x01, 0x00, 0x01, 0x00, /*     (GLOBAL) UNIT               0x00010001 Temperature in kelvin [1 K units] (1=System=SI Linear, 1=Temperature=Kelvin)      */\
+  0x55, 0x0F,                  /*     (GLOBAL) UNIT_EXPONENT      0x0F (Unit Value x 10⁻¹)      */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x09, 0x30,                  /*     (LOCAL)  USAGE              0x00840030 Voltage (DV=Dynamic Value)      */\
+  0x67, 0x21, 0xD1, 0xF0, 0x00, /*     (GLOBAL) UNIT               0x00F0D121 Voltage [0.1 μV units] (1=System=SI Linear, 2=Length=Centimetre², 1=Mass=Gram, D=Time=Seconds⁻³, F=Current=Ampere⁻¹)      */\
+  0x55, 0x04,                  /*     (GLOBAL) UNIT_EXPONENT      0x04 (Unit Value x 10⁴)      */\
+  0x27, 0x28, 0x23, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x00002328 (9000)  <-- Info: Consider replacing 27 00002328 with 26 2328     */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x09, 0x31,                  /*     (LOCAL)  USAGE              0x00840031 Current (DV=Dynamic Value)      */\
+  0x67, 0x01, 0x00, 0x10, 0x00, /*     (GLOBAL) UNIT               0x00100001 Current in amperes [1 A units] (1=System=SI Linear, 1=Current=Ampere)      */\
+  0x55, 0x0D,                  /*     (GLOBAL) UNIT_EXPONENT      0x0D (Unit Value x 10⁻³)      */\
+  0x16, 0x00, 0x80,            /*     (GLOBAL) LOGICAL_MINIMUM    0x8000 (-32768)       */\
+  0x26, 0xFF, 0x7F,            /*     (GLOBAL) LOGICAL_MAXIMUM    0x7FFF (32767)       */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x05, 0x85,                  /*     (GLOBAL) USAGE_PAGE         0x0085 Battery System Page      */\
+  0x09, 0x66,                  /*     (LOCAL)  USAGE              0x00850066 RemainingCapacity (DV=Dynamic Value)      */\
+  0x67, 0x01, 0x10, 0x10, 0x00, /*     (GLOBAL) UNIT               0x00101001 Electric charge in coulombs [1 C units] (1=System=SI Linear, 1=Time=Seconds, 1=Current=Ampere)      */\
+  0x55, 0x00,                  /*     (GLOBAL) UNIT_EXPONENT      0x00 (Unit Value x 10⁰)      */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0)  <-- Info: Consider replacing 15 00 with 14     */\
+  0x27, 0xFF, 0xFF, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x0000FFFF (65535)       */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x09, 0x67,                  /*     (LOCAL)  USAGE              0x00850067 FullChargeCapacity (DV=Dynamic Value)      */\
+  0x67, 0x01, 0x10, 0x10, 0x00, /*     (GLOBAL) UNIT               0x00101001 Electric charge in coulombs [1 C units] (1=System=SI Linear, 1=Time=Seconds, 1=Current=Ampere) <-- Redundant: UNIT is already 0x00101001     */\
+  0x55, 0x00,                  /*     (GLOBAL) UNIT_EXPONENT      0x00 (Unit Value x 10⁰) <-- Redundant: UNIT_EXPONENT is already 0     */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x09, 0x64,                  /*     (LOCAL)  USAGE              0x00850064 RelativeStateOfCharge (DV=Dynamic Value)      */\
+  0x65, 0x00,                  /*     (GLOBAL) UNIT               0x00000000 No unit (0=None)      */\
+  0x55, 0x00,                  /*     (GLOBAL) UNIT_EXPONENT      0x00 (Unit Value x 10⁰) <-- Redundant: UNIT_EXPONENT is already 0     */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0) <-- Redundant: LOGICAL_MINIMUM is already 0 <-- Info: Consider replacing 15 00 with 14     */\
+  0x25, 0x64,                  /*     (GLOBAL) LOGICAL_MAXIMUM    0x64 (100)       */\
+  0x81, 0x22,                  /*     (MAIN)   INPUT              0x00000022 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D       */\
+  0x09, 0x01,                  /*     (LOCAL)  USAGE              0xFF0D0001       */\
+  0x67, 0x01, 0x10, 0x10, 0x00, /*     (GLOBAL) UNIT               0x00101001 Electric charge in coulombs [1 C units] (1=System=SI Linear, 1=Time=Seconds, 1=Current=Ampere)      */\
+  0x55, 0x00,                  /*     (GLOBAL) UNIT_EXPONENT      0x00 (Unit Value x 10⁰) <-- Redundant: UNIT_EXPONENT is already 0     */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0) <-- Redundant: LOGICAL_MINIMUM is already 0 <-- Info: Consider replacing 15 00 with 14     */\
+  0x27, 0xFF, 0xFF, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x0000FFFF (65535)       */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x05, 0x85,                  /*     (GLOBAL) USAGE_PAGE         0x0085 Battery System Page      */\
+  0x09, 0x68,                  /*     (LOCAL)  USAGE              0x00850068 RunTimeToEmpty (DV=Dynamic Value)      */\
+  0x75, 0x20,                  /*     (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x66, 0x01, 0x10,            /*     (GLOBAL) UNIT               0x00001001 Time in seconds [1 s units] (1=System=SI Linear, 1=Time=Seconds)      */\
+  0x17, 0x00, 0x00, 0x00, 0x80, /*     (GLOBAL) LOGICAL_MINIMUM    0x80000000 (-2147483648)       */\
+  0x27, 0xFF, 0xFF, 0xFF, 0x7F, /*     (GLOBAL) LOGICAL_MAXIMUM    0x7FFFFFFF (2147483647)       */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D       */\
+  0x09, 0x06,                  /*     (LOCAL)  USAGE              0xFF0D0006       */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0)  <-- Info: Consider replacing 15 00 with 14     */\
+  0x27, 0xFF, 0xFF, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x0000FFFF (65535)       */\
+  0x67, 0x21, 0xD1, 0xF0, 0x00, /*     (GLOBAL) UNIT               0x00F0D121 Voltage [0.1 μV units] (1=System=SI Linear, 2=Length=Centimetre², 1=Mass=Gram, D=Time=Seconds⁻³, F=Current=Ampere⁻¹)      */\
+  0x55, 0x04,                  /*     (GLOBAL) UNIT_EXPONENT      0x04 (Unit Value x 10⁴)      */\
+  0x27, 0x20, 0x4E, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x00004E20 (20000)  <-- Info: Consider replacing 27 00004E20 with 26 4E20     */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D  <-- Redundant: USAGE_PAGE is already 0xFF0D     */\
+  0x09, 0x0B,                  /*     (LOCAL)  USAGE              0xFF0D000B       */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field <-- Redundant: REPORT_SIZE is already 16      */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0) <-- Redundant: LOGICAL_MINIMUM is already 0 <-- Info: Consider replacing 15 00 with 14     */\
+  0x27, 0xFF, 0xFF, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x0000FFFF (65535)       */\
+  0x67, 0x21, 0xD1, 0xF0, 0x00, /*     (GLOBAL) UNIT               0x00F0D121 Voltage [0.1 μV units] (1=System=SI Linear, 2=Length=Centimetre², 1=Mass=Gram, D=Time=Seconds⁻³, F=Current=Ampere⁻¹) <-- Redundant: UNIT is already 0x00F0D121     */\
+  0x55, 0x04,                  /*     (GLOBAL) UNIT_EXPONENT      0x04 (Unit Value x 10⁴) <-- Redundant: UNIT_EXPONENT is already 4     */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D  <-- Redundant: USAGE_PAGE is already 0xFF0D     */\
+  0x09, 0x0C,                  /*     (LOCAL)  USAGE              0xFF0D000C       */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field <-- Redundant: REPORT_SIZE is already 16      */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x16, 0x00, 0x80,            /*     (GLOBAL) LOGICAL_MINIMUM    0x8000 (-32768)       */\
+  0x26, 0xFF, 0x7F,            /*     (GLOBAL) LOGICAL_MAXIMUM    0x7FFF (32767)       */\
+  0x67, 0x01, 0x00, 0x10, 0x00, /*     (GLOBAL) UNIT               0x00100001 Current in amperes [1 A units] (1=System=SI Linear, 1=Current=Ampere)      */\
+  0x55, 0x0D,                  /*     (GLOBAL) UNIT_EXPONENT      0x0D (Unit Value x 10⁻³)      */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D  <-- Redundant: USAGE_PAGE is already 0xFF0D     */\
+  0x09, 0x0D,                  /*     (LOCAL)  USAGE              0xFF0D000D       */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field <-- Redundant: REPORT_SIZE is already 16      */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0)  <-- Info: Consider replacing 15 00 with 14     */\
+  0x27, 0xFF, 0xFF, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x0000FFFF (65535)       */\
+  0x67, 0x21, 0xD1, 0xF0, 0x00, /*     (GLOBAL) UNIT               0x00F0D121 Voltage [0.1 μV units] (1=System=SI Linear, 2=Length=Centimetre², 1=Mass=Gram, D=Time=Seconds⁻³, F=Current=Ampere⁻¹)      */\
+  0x55, 0x04,                  /*     (GLOBAL) UNIT_EXPONENT      0x04 (Unit Value x 10⁴)      */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D  <-- Redundant: USAGE_PAGE is already 0xFF0D     */\
+  0x09, 0x0E,                  /*     (LOCAL)  USAGE              0xFF0D000E       */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field <-- Redundant: REPORT_SIZE is already 16      */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0) <-- Redundant: LOGICAL_MINIMUM is already 0 <-- Info: Consider replacing 15 00 with 14     */\
+  0x27, 0xFF, 0xFF, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x0000FFFF (65535) <-- Redundant: LOGICAL_MAXIMUM is already 65535      */\
+  0x67, 0x21, 0xD1, 0xF0, 0x00, /*     (GLOBAL) UNIT               0x00F0D121 Voltage [0.1 μV units] (1=System=SI Linear, 2=Length=Centimetre², 1=Mass=Gram, D=Time=Seconds⁻³, F=Current=Ampere⁻¹) <-- Redundant: UNIT is already 0x00F0D121     */\
+  0x55, 0x04,                  /*     (GLOBAL) UNIT_EXPONENT      0x04 (Unit Value x 10⁴) <-- Redundant: UNIT_EXPONENT is already 4     */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D  <-- Redundant: USAGE_PAGE is already 0xFF0D     */\
+  0x0A, 0x00, 0x10,            /*     (LOCAL)  USAGE              0xFF0D1000       */\
+  0x75, 0x20,                  /*     (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D  <-- Redundant: USAGE_PAGE is already 0xFF0D     */\
+  0x0A, 0x01, 0x10,            /*     (LOCAL)  USAGE              0xFF0D1001       */\
+  0x75, 0x20,                  /*     (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field <-- Redundant: REPORT_SIZE is already 32      */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D  <-- Redundant: USAGE_PAGE is already 0xFF0D     */\
+  0x0A, 0x02, 0x10,            /*     (LOCAL)  USAGE              0xFF0D1002       */\
+  0x75, 0x20,                  /*     (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field <-- Redundant: REPORT_SIZE is already 32      */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x85, 0x03,                  /*     (GLOBAL) REPORT_ID          0x03 (3)      */\
+  0x05, 0x85,                  /*     (GLOBAL) USAGE_PAGE         0x0085 Battery System Page      */\
+  0x09, 0x6B,                  /*     (LOCAL)  USAGE              0x0085006B CycleCount (DV=Dynamic Value)      */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x65, 0x00,                  /*     (GLOBAL) UNIT               0x00000000 No unit (0=None)      */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0) <-- Redundant: LOGICAL_MINIMUM is already 0 <-- Info: Consider replacing 15 00 with 14     */\
+  0x27, 0xFF, 0xFF, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x0000FFFF (65535) <-- Redundant: LOGICAL_MAXIMUM is already 65535      */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x85, 0x04,                  /*     (GLOBAL) REPORT_ID          0x04 (4)      */\
+  0x05, 0x85,                  /*     (GLOBAL) USAGE_PAGE         0x0085 Battery System Page <-- Redundant: USAGE_PAGE is already 0x0085     */\
+  0x09, 0xD0,                  /*     (LOCAL)  USAGE              0x008500D0 ACPresent      */\
+  0x75, 0x01,                  /*     (GLOBAL) REPORT_SIZE        0x01 (1) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0) <-- Redundant: LOGICAL_MINIMUM is already 0 <-- Info: Consider replacing 15 00 with 14     */\
+  0x25, 0x01,                  /*     (GLOBAL) LOGICAL_MAXIMUM    0x01 (1)       */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 1 bit) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x75, 0x07,                  /*     (GLOBAL) REPORT_SIZE        0x07 (7) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x81, 0x01,                  /*     (MAIN)   INPUT              0x00000001 (1 field x 7 bits) 1=Constant 0=Array 0=Absolute 0=Ignored 0=Ignored 0=PrefState 0=NoNull      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D       */\
+  0x09, 0x04,                  /*     (LOCAL)  USAGE              0xFF0D0004       */\
+  0x75, 0x20,                  /*     (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field       */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x85, 0x06,                  /*     (GLOBAL) REPORT_ID          0x06 (6)      */\
+  0x06, 0xF4, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFFF4 Vendor-defined      */\
+  0x09, 0x01,                  /*     (LOCAL)  USAGE              0xFFF40001       */\
+  0x65, 0x00,                  /*     (GLOBAL) UNIT               0x00000000 No unit (0=None) <-- Redundant: UNIT is already 0x00000000     */\
+  0x55, 0x00,                  /*     (GLOBAL) UNIT_EXPONENT      0x00 (Unit Value x 10⁰)      */\
+  0xB1, 0xA2,                  /*     (MAIN)   FEATURE            0x000000A2 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x09, 0x03,                  /*     (LOCAL)  USAGE              0xFFF40003       */\
+  0xB1, 0x01,                  /*     (MAIN)   FEATURE            0x00000001 (1 field x 32 bits) 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+  0x09, 0x04,                  /*     (LOCAL)  USAGE              0xFFF40004       */\
+  0xB1, 0x01,                  /*     (MAIN)   FEATURE            0x00000001 (1 field x 32 bits) 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+  0x09, 0x05,                  /*     (LOCAL)  USAGE              0xFFF40005       */\
+  0xB1, 0x01,                  /*     (MAIN)   FEATURE            0x00000001 (1 field x 32 bits) 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+  0x85, 0x08,                  /*     (GLOBAL) REPORT_ID          0x08 (8)      */\
+  0x05, 0x85,                  /*     (GLOBAL) USAGE_PAGE         0x0085 Battery System Page      */\
+  0x09, 0x44,                  /*     (LOCAL)  USAGE              0x00850044 Charging      */\
+  0x75, 0x01,                  /*     (GLOBAL) REPORT_SIZE        0x01 (1) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0) <-- Redundant: LOGICAL_MINIMUM is already 0 <-- Info: Consider replacing 15 00 with 14     */\
+  0x25, 0x01,                  /*     (GLOBAL) LOGICAL_MAXIMUM    0x01 (1) <-- Redundant: LOGICAL_MAXIMUM is already 1      */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 1 bit) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x75, 0x07,                  /*     (GLOBAL) REPORT_SIZE        0x07 (7) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x81, 0x01,                  /*     (MAIN)   INPUT              0x00000001 (1 field x 7 bits) 1=Constant 0=Array 0=Absolute 0=Ignored 0=Ignored 0=PrefState 0=NoNull      */\
+  0x85, 0x09,                  /*     (GLOBAL) REPORT_ID          0x09 (9)      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D       */\
+  0x09, 0x02,                  /*     (LOCAL)  USAGE              0xFF0D0002       */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0) <-- Redundant: LOGICAL_MINIMUM is already 0 <-- Info: Consider replacing 15 00 with 14     */\
+  0x27, 0xFF, 0xFF, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x0000FFFF (65535)       */\
+  0x67, 0x01, 0x10, 0x10, 0x00, /*     (GLOBAL) UNIT               0x00101001 Electric charge in coulombs [1 C units] (1=System=SI Linear, 1=Time=Seconds, 1=Current=Ampere)      */\
+  0x55, 0x00,                  /*     (GLOBAL) UNIT_EXPONENT      0x00 (Unit Value x 10⁰) <-- Redundant: UNIT_EXPONENT is already 0     */\
+  0x81, 0xA2,                  /*     (MAIN)   INPUT              0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x85, 0x0D,                  /*     (GLOBAL) REPORT_ID          0x0D (13)      */\
+  0x05, 0x85,                  /*     (GLOBAL) USAGE_PAGE         0x0085 Battery System Page      */\
+  0x09, 0x86,                  /*     (LOCAL)  USAGE              0x00850086 SerialNumber (SV=Static Value)      */\
+  0x75, 0x08,                  /*     (GLOBAL) REPORT_SIZE        0x08 (8) Number of bits per field       */\
+  0x95, 0x20,                  /*     (GLOBAL) REPORT_COUNT       0x20 (32) Number of fields       */\
+  0x65, 0x00,                  /*     (GLOBAL) UNIT               0x00000000 No unit (0=None)      */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0) <-- Redundant: LOGICAL_MINIMUM is already 0 <-- Info: Consider replacing 15 00 with 14     */\
+  0x26, 0xFF, 0x00,            /*     (GLOBAL) LOGICAL_MAXIMUM    0x00FF (255)       */\
+  0xB1, 0x21,                  /*     (MAIN)   FEATURE            0x00000021 (32 fields x 8 bits) 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+  0x85, 0x0F,                  /*     (GLOBAL) REPORT_ID          0x0F (15)      */\
+  0x06, 0x00, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF00 Vendor-defined      */\
+  0x75, 0x20,                  /*     (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field       */\
+  0x09, 0x21,                  /*     (LOCAL)  USAGE              0xFF000021       */\
+  0xB1, 0x21,                  /*     (MAIN)   FEATURE            0x00000021 (32 fields x 32 bits) 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+  0x85, 0x11,                  /*     (GLOBAL) REPORT_ID          0x11 (17)      */\
+  0x05, 0x84,                  /*     (GLOBAL) USAGE_PAGE         0x0084 Power Device Page      */\
+  0x09, 0x36,                  /*     (LOCAL)  USAGE              0x00840036 Temperature (DV=Dynamic Value)      */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields       */\
+  0x67, 0x01, 0x00, 0x01, 0x00, /*     (GLOBAL) UNIT               0x00010001 Temperature in kelvin [1 K units] (1=System=SI Linear, 1=Temperature=Kelvin)      */\
+  0x55, 0x0F,                  /*     (GLOBAL) UNIT_EXPONENT      0x0F (Unit Value x 10⁻¹)      */\
+  0x91, 0xA2,                  /*     (MAIN)   OUTPUT             0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x09, 0x30,                  /*     (LOCAL)  USAGE              0x00840030 Voltage (DV=Dynamic Value)      */\
+  0x67, 0x21, 0xD1, 0xF0, 0x00, /*     (GLOBAL) UNIT               0x00F0D121 Voltage [0.1 μV units] (1=System=SI Linear, 2=Length=Centimetre², 1=Mass=Gram, D=Time=Seconds⁻³, F=Current=Ampere⁻¹)      */\
+  0x55, 0x04,                  /*     (GLOBAL) UNIT_EXPONENT      0x04 (Unit Value x 10⁴)      */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field <-- Redundant: REPORT_SIZE is already 16      */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x27, 0x28, 0x23, 0x00, 0x00, /*     (GLOBAL) LOGICAL_MAXIMUM    0x00002328 (9000)  <-- Info: Consider replacing 27 00002328 with 26 2328     */\
+  0x91, 0xA2,                  /*     (MAIN)   OUTPUT             0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x85, 0x12,                  /*     (GLOBAL) REPORT_ID          0x12 (18)      */\
+  0x05, 0x85,                  /*     (GLOBAL) USAGE_PAGE         0x0085 Battery System Page      */\
+  0x09, 0x66,                  /*     (LOCAL)  USAGE              0x00850066 RemainingCapacity (DV=Dynamic Value)      */\
+  0x65, 0x00,                  /*     (GLOBAL) UNIT               0x00000000 No unit (0=None)      */\
+  0x55, 0x00,                  /*     (GLOBAL) UNIT_EXPONENT      0x00 (Unit Value x 10⁰)      */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field <-- Redundant: REPORT_SIZE is already 16      */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x15, 0x00,                  /*     (GLOBAL) LOGICAL_MINIMUM    0x00 (0) <-- Redundant: LOGICAL_MINIMUM is already 0 <-- Info: Consider replacing 15 00 with 14     */\
+  0x25, 0x64,                  /*     (GLOBAL) LOGICAL_MAXIMUM    0x64 (100)       */\
+  0x91, 0xA2,                  /*     (MAIN)   OUTPUT             0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x85, 0x13,                  /*     (GLOBAL) REPORT_ID          0x13 (19)      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D       */\
+  0x09, 0x07,                  /*     (LOCAL)  USAGE              0xFF0D0007       */\
+  0x67, 0x01, 0x00, 0x10, 0x00, /*     (GLOBAL) UNIT               0x00100001 Current in amperes [1 A units] (1=System=SI Linear, 1=Current=Ampere)      */\
+  0x55, 0x0D,                  /*     (GLOBAL) UNIT_EXPONENT      0x0D (Unit Value x 10⁻³)      */\
+  0x75, 0x10,                  /*     (GLOBAL) REPORT_SIZE        0x10 (16) Number of bits per field <-- Redundant: REPORT_SIZE is already 16      */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x16, 0x00, 0x80,            /*     (GLOBAL) LOGICAL_MINIMUM    0x8000 (-32768)       */\
+  0x26, 0xFF, 0x7F,            /*     (GLOBAL) LOGICAL_MAXIMUM    0x7FFF (32767)       */\
+  0x91, 0xA2,                  /*     (MAIN)   OUTPUT             0x000000A2 (1 field x 16 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap      */\
+  0x85, 0x14,                  /*     (GLOBAL) REPORT_ID          0x14 (20)      */\
+  0x06, 0x0D, 0xFF,            /*     (GLOBAL) USAGE_PAGE         0xFF0D  <-- Redundant: USAGE_PAGE is already 0xFF0D     */\
+  0x75, 0x20,                  /*     (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field       */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x09, 0x09,                  /*     (LOCAL)  USAGE              0xFF0D0009       */\
+  0x81, 0x22,                  /*     (MAIN)   INPUT              0x00000022 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+  0x75, 0x20,                  /*     (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field <-- Redundant: REPORT_SIZE is already 32      */\
+  0x95, 0x01,                  /*     (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields <-- Redundant: REPORT_COUNT is already 1      */\
+  0x09, 0x0A,                  /*     (LOCAL)  USAGE              0xFF0D000A       */\
+  0x81, 0x22,                  /*     (MAIN)   INPUT              0x00000022 (1 field x 32 bits) 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 0=NonVolatile 0=Bitmap      */\
+  0xC0,                        /*   (MAIN)   END_COLLECTION     Logical   */\
+  0xC0,                        /* (MAIN)   END_COLLECTION     Application */\
+
+
+//--------------------------------------------------------------------------------
+// Battery System Page HIDBatteryCaseFeatureReport 01 (Device <-> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x01 (1)
+
+  // Field:   1
+  // Width:   16
+  // Count:   1
+  // Flags:   00000001: 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+  // Globals: PAGE:0085 LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:0 UNIT:00101001 RSIZ:16 RID:01 RCNT:1
+  // Locals:  USAG:00850083 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00850083
+  // Coll:    PrimaryBattery
+  // Access:  Read/Only
+  // Type:    Array
+                                                     // Page 0x0085: Battery System Page
+                                                     // Collection: PrimaryBattery
+  uint16_t BAT_PrimaryBattery;                       // Value = 0 to 65535, Physical = Value in C
+} HIDBatteryCaseFeatureReport01;
+
+
+//--------------------------------------------------------------------------------
+// Vendor-defined HIDBatteryCaseFeatureReport 06 (Device <-> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x06 (6)
+
+  // Field:   2
+  // Width:   32
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FFF4 LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:0 UNIT:00000000 RSIZ:32 RID:06 RCNT:1
+  // Locals:  USAG:FFF40001 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FFF40001
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFFF4: Vendor-defined
+  uint32_t VEN_PrimaryBattery0001;                   // Usage 0xFFF40001: , Value = 0 to 1
+
+  // Field:   3
+  // Width:   32
+  // Count:   1
+  // Flags:   00000001: 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+  // Globals: PAGE:FFF4 LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:0 UNIT:00000000 RSIZ:32 RID:06 RCNT:1
+  // Locals:  USAG:FFF40003 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FFF40003
+  // Coll:    PrimaryBattery
+  // Access:  Read/Only
+  // Type:    Array
+                                                     // Page 0xFFF4: Vendor-defined
+  uint32_t VEN_PrimaryBattery;                       // Value = 0 to 1
+
+  // Field:   4
+  // Width:   32
+  // Count:   1
+  // Flags:   00000001: 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+  // Globals: PAGE:FFF4 LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:0 UNIT:00000000 RSIZ:32 RID:06 RCNT:1
+  // Locals:  USAG:FFF40004 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FFF40004
+  // Coll:    PrimaryBattery
+  // Access:  Read/Only
+  // Type:    Array
+                                                     // Page 0xFFF4: Vendor-defined
+  uint32_t VEN_PrimaryBattery_1;                     // Value = 0 to 1
+
+  // Field:   5
+  // Width:   32
+  // Count:   1
+  // Flags:   00000001: 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+  // Globals: PAGE:FFF4 LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:0 UNIT:00000000 RSIZ:32 RID:06 RCNT:1
+  // Locals:  USAG:FFF40005 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FFF40005
+  // Coll:    PrimaryBattery
+  // Access:  Read/Only
+  // Type:    Array
+                                                     // Page 0xFFF4: Vendor-defined
+  uint32_t VEN_PrimaryBattery_2;                     // Value = 0 to 1
+} HIDBatteryCaseFeatureReport06;
+
+
+//--------------------------------------------------------------------------------
+// Battery System Page HIDBatteryCaseFeatureReport 0D (Device <-> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x0D (13)
+
+  // Field:   6
+  // Width:   8
+  // Count:   32
+  // Flags:   00000021: 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 0=NonVolatile 0=Bitmap
+  // Globals: PAGE:0085 LMIN:0 LMAX:255 PMIN:0 PMAX:0 UEXP:0 UNIT:00000000 RSIZ:8 RID:0D RCNT:32
+  // Locals:  USAG:00850086 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00850086
+  // Coll:    PrimaryBattery
+  // Access:  Read/Only
+  // Type:    Array
+                                                     // Page 0x0085: Battery System Page
+  uint8_t  BAT_PrimaryBattery[32];                   // Value = 0 to 255
+} HIDBatteryCaseFeatureReport0D;
+
+
+//--------------------------------------------------------------------------------
+// Vendor-defined HIDBatteryCaseFeatureReport 0F (Device <-> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x0F (15)
+
+  // Field:   7
+  // Width:   32
+  // Count:   32
+  // Flags:   00000021: 1=Constant 0=Array 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 0=NonVolatile 0=Bitmap
+  // Globals: PAGE:FF00 LMIN:0 LMAX:255 PMIN:0 PMAX:0 UEXP:0 UNIT:00000000 RSIZ:32 RID:0F RCNT:32
+  // Locals:  USAG:FF000021 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF000021
+  // Coll:    PrimaryBattery
+  // Access:  Read/Only
+  // Type:    Array
+                                                     // Page 0xFF00: Vendor-defined
+  uint32_t VEN_PrimaryBattery[32];                   // Value = 0 to 255
+} HIDBatteryCaseFeatureReport0F;
+
+
+//--------------------------------------------------------------------------------
+// Power Device Page HIDBatteryCaseInputReport 02 (Device --> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x02 (2)
+
+  // Field:   1
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0084 LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:-1 UNIT:00010001 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:00840036 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00840036
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0084: Power Device Page
+                                                     // Collection: PrimaryBattery
+  uint16_t POW_PrimaryBatteryTemperature;            // Usage 0x00840036: Temperature, Value = 0 to 65535, Physical = Value in 10⁻¹ K units
+
+  // Field:   2
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0084 LMIN:0 LMAX:9000 PMIN:0 PMAX:0 UEXP:4 UNIT:00F0D121 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:00840030 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00840030
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0084: Power Device Page
+  uint16_t POW_PrimaryBatteryVoltage;                // Usage 0x00840030: Voltage, Value = 0 to 9000, Physical = Value in 10⁻³ V units
+
+  // Field:   3
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0084 LMIN:-32768 LMAX:32767 PMIN:0 PMAX:0 UEXP:-3 UNIT:00100001 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:00840031 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00840031
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0084: Power Device Page
+  int16_t  POW_PrimaryBatteryCurrent;                // Usage 0x00840031: Current, Value = -32768 to 32767, Physical = ((Value + 32768) - 32768) in 10⁻³ A units
+
+  // Field:   4
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0085 LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:0 UNIT:00101001 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:00850066 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00850066
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0085: Battery System Page
+  uint16_t BAT_PrimaryBatteryRemainingcapacity;      // Usage 0x00850066: RemainingCapacity, Value = 0 to 65535, Physical = Value in C
+
+  // Field:   5
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0085 LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:0 UNIT:00101001 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:00850067 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00850067
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0085: Battery System Page
+  uint16_t BAT_PrimaryBatteryFullchargecapacity;     // Usage 0x00850067: FullChargeCapacity, Value = 0 to 65535, Physical = Value in C
+
+  // Field:   6
+  // Width:   16
+  // Count:   1
+  // Flags:   00000022: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 0=NonVolatile 0=Bitmap
+  // Globals: PAGE:0085 LMIN:0 LMAX:100 PMIN:0 PMAX:0 UEXP:0 UNIT:00000000 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:00850064 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00850064
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0085: Battery System Page
+  uint16_t BAT_PrimaryBatteryRelativestateofcharge;  // Usage 0x00850064: RelativeStateOfCharge, Value = 0 to 100
+
+  // Field:   7
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:0 UNIT:00101001 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:FF0D0001 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D0001
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  uint16_t PrimaryBattery0001;                       // Usage 0xFF0D0001: , Value = 0 to 65535, Physical = Value in C
+
+  // Field:   8
+  // Width:   32
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0085 LMIN:-2147483648 LMAX:2147483647 PMIN:0 PMAX:0 UEXP:0 UNIT:00001001 RSIZ:32 RID:02 RCNT:1
+  // Locals:  USAG:00850068 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00850068
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0085: Battery System Page
+  int32_t  BAT_PrimaryBatteryRuntimetoempty;         // Usage 0x00850068: RunTimeToEmpty, Value = -2147483648 to 2147483647, Physical = ((Value + 2147483648) - 2147483648) in s
+
+  // Field:   9
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:0 LMAX:20000 PMIN:0 PMAX:0 UEXP:4 UNIT:00F0D121 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:FF0D0006 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D0006
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  uint16_t PrimaryBattery0006;                       // Usage 0xFF0D0006: , Value = 0 to 20000, Physical = Value in 10⁻³ V units
+
+  // Field:   10
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:4 UNIT:00F0D121 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:FF0D000B UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D000B
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  uint16_t PrimaryBattery000B;                       // Usage 0xFF0D000B: , Value = 0 to 65535, Physical = Value in 10⁻³ V units
+
+  // Field:   11
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:-32768 LMAX:32767 PMIN:0 PMAX:0 UEXP:-3 UNIT:00100001 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:FF0D000C UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D000C
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  int16_t  PrimaryBattery000C;                       // Usage 0xFF0D000C: , Value = -32768 to 32767, Physical = ((Value + 32768) - 32768) in 10⁻³ A units
+
+  // Field:   12
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:4 UNIT:00F0D121 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:FF0D000D UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D000D
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  uint16_t PrimaryBattery000D;                       // Usage 0xFF0D000D: , Value = 0 to 65535, Physical = Value in 10⁻³ V units
+
+  // Field:   13
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:4 UNIT:00F0D121 RSIZ:16 RID:02 RCNT:1
+  // Locals:  USAG:FF0D000E UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D000E
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  uint16_t PrimaryBattery000E;                       // Usage 0xFF0D000E: , Value = 0 to 65535, Physical = Value in 10⁻³ V units
+
+  // Field:   14
+  // Width:   32
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:4 UNIT:00F0D121 RSIZ:32 RID:02 RCNT:1
+  // Locals:  USAG:FF0D1000 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D1000
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  uint32_t PrimaryBattery1000;                       // Usage 0xFF0D1000: , Value = 0 to 65535, Physical = Value in 10⁻³ V units
+
+  // Field:   15
+  // Width:   32
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:4 UNIT:00F0D121 RSIZ:32 RID:02 RCNT:1
+  // Locals:  USAG:FF0D1001 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D1001
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  uint32_t PrimaryBattery1001;                       // Usage 0xFF0D1001: , Value = 0 to 65535, Physical = Value in 10⁻³ V units
+
+  // Field:   16
+  // Width:   32
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:4 UNIT:00F0D121 RSIZ:32 RID:02 RCNT:1
+  // Locals:  USAG:FF0D1002 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D1002
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  uint32_t PrimaryBattery1002;                       // Usage 0xFF0D1002: , Value = 0 to 65535, Physical = Value in 10⁻³ V units
+} HIDBatteryCaseInputReport02;
+
+
+//--------------------------------------------------------------------------------
+// Battery System Page HIDBatteryCaseInputReport 03 (Device --> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x03 (3)
+
+  // Field:   17
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0085 LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:4 UNIT:00000000 RSIZ:16 RID:03 RCNT:1
+  // Locals:  USAG:0085006B UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  0085006B
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0085: Battery System Page
+  uint16_t BAT_PrimaryBatteryCyclecount;             // Usage 0x0085006B: CycleCount, Value = 0 to 65535
+} HIDBatteryCaseInputReport03;
+
+
+//--------------------------------------------------------------------------------
+// Battery System Page HIDBatteryCaseInputReport 04 (Device --> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x04 (4)
+
+  // Field:   18
+  // Width:   1
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0085 LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:4 UNIT:00000000 RSIZ:1 RID:04 RCNT:1
+  // Locals:  USAG:008500D0 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  008500D0
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0085: Battery System Page
+  uint8_t  BAT_PrimaryBatteryAcpresent : 1;          // Usage 0x008500D0: ACPresent, Value = 0 to 1
+
+  // Field:   19
+  // Width:   7
+  // Count:   1
+  // Flags:   00000001: 1=Constant 0=Array 0=Absolute 0=Ignored 0=Ignored 0=PrefState 0=NoNull
+  // Globals: PAGE:0085 LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:4 UNIT:00000000 RSIZ:7 RID:04 RCNT:1
+  // Locals:  USAG:0 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:
+  // Coll:    PrimaryBattery
+  // Access:  Read/Only
+  // Type:    Array
+                                                     // Page 0x0085: Battery System Page
+  uint8_t  : 7;                                      // Pad
+
+  // Field:   20
+  // Width:   32
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:4 UNIT:00000000 RSIZ:32 RID:04 RCNT:1
+  // Locals:  USAG:FF0D0004 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D0004
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  uint32_t PrimaryBattery0004;                       // Usage 0xFF0D0004: , Value = 0 to 1
+} HIDBatteryCaseInputReport04;
+
+
+//--------------------------------------------------------------------------------
+// Battery System Page HIDBatteryCaseInputReport 08 (Device --> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x08 (8)
+
+  // Field:   21
+  // Width:   1
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0085 LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:0 UNIT:00000000 RSIZ:1 RID:08 RCNT:1
+  // Locals:  USAG:00850044 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00850044
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0085: Battery System Page
+  uint8_t  BAT_PrimaryBatteryCharging : 1;           // Usage 0x00850044: Charging, Value = 0 to 1
+
+  // Field:   22
+  // Width:   7
+  // Count:   1
+  // Flags:   00000001: 1=Constant 0=Array 0=Absolute 0=Ignored 0=Ignored 0=PrefState 0=NoNull
+  // Globals: PAGE:0085 LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:0 UNIT:00000000 RSIZ:7 RID:08 RCNT:1
+  // Locals:  USAG:0 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:
+  // Coll:    PrimaryBattery
+  // Access:  Read/Only
+  // Type:    Array
+                                                     // Page 0x0085: Battery System Page
+  uint8_t  : 7;                                      // Pad
+} HIDBatteryCaseInputReport08;
+
+
+//--------------------------------------------------------------------------------
+//  HIDBatteryCaseInputReport 09 (Device --> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x09 (9)
+
+  // Field:   23
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:0 LMAX:65535 PMIN:0 PMAX:0 UEXP:0 UNIT:00101001 RSIZ:16 RID:09 RCNT:1
+  // Locals:  USAG:FF0D0002 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D0002
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  uint16_t PrimaryBattery0002;                       // Usage 0xFF0D0002: , Value = 0 to 65535, Physical = Value in C
+} HIDBatteryCaseInputReport09;
+
+
+//--------------------------------------------------------------------------------
+//  HIDBatteryCaseInputReport 14 (Device --> Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x14 (20)
+
+  // Field:   24
+  // Width:   32
+  // Count:   1
+  // Flags:   00000022: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 0=NonVolatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:-32768 LMAX:32767 PMIN:0 PMAX:0 UEXP:-3 UNIT:00100001 RSIZ:32 RID:14 RCNT:1
+  // Locals:  USAG:FF0D0009 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D0009
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  int32_t  PrimaryBattery0009;                       // Usage 0xFF0D0009: , Value = -32768 to 32767, Physical = ((Value + 32768) - 32768) in 10⁻³ A units
+
+  // Field:   25
+  // Width:   32
+  // Count:   1
+  // Flags:   00000022: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 0=NonVolatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:-32768 LMAX:32767 PMIN:0 PMAX:0 UEXP:-3 UNIT:00100001 RSIZ:32 RID:14 RCNT:1
+  // Locals:  USAG:FF0D000A UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D000A
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  int32_t  PrimaryBattery000A;                       // Usage 0xFF0D000A: , Value = -32768 to 32767, Physical = ((Value + 32768) - 32768) in 10⁻³ A units
+} HIDBatteryCaseInputReport14;
+
+
+//--------------------------------------------------------------------------------
+// Power Device Page HIDBatteryCaseOutputReport 11 (Device <-- Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x11 (17)
+
+  // Field:   1
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0084 LMIN:0 LMAX:255 PMIN:0 PMAX:0 UEXP:-1 UNIT:00010001 RSIZ:16 RID:11 RCNT:1
+  // Locals:  USAG:00840036 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00840036
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0084: Power Device Page
+                                                     // Collection: PrimaryBattery
+  uint16_t POW_PrimaryBatteryTemperature;            // Usage 0x00840036: Temperature, Value = 0 to 255, Physical = Value in 10⁻¹ K units
+
+  // Field:   2
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0084 LMIN:0 LMAX:9000 PMIN:0 PMAX:0 UEXP:4 UNIT:00F0D121 RSIZ:16 RID:11 RCNT:1
+  // Locals:  USAG:00840030 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00840030
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0084: Power Device Page
+  uint16_t POW_PrimaryBatteryVoltage;                // Usage 0x00840030: Voltage, Value = 0 to 9000, Physical = Value in 10⁻³ V units
+} HIDBatteryCaseOutputReport11;
+
+
+//--------------------------------------------------------------------------------
+// Battery System Page HIDBatteryCaseOutputReport 12 (Device <-- Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x12 (18)
+
+  // Field:   3
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:0085 LMIN:0 LMAX:100 PMIN:0 PMAX:0 UEXP:0 UNIT:00000000 RSIZ:16 RID:12 RCNT:1
+  // Locals:  USAG:00850066 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  00850066
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0x0085: Battery System Page
+  uint16_t BAT_PrimaryBatteryRemainingcapacity;      // Usage 0x00850066: RemainingCapacity, Value = 0 to 100
+} HIDBatteryCaseOutputReport12;
+
+
+//--------------------------------------------------------------------------------
+//  HIDBatteryCaseOutputReport 13 (Device <-- Host)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+  uint8_t  reportId;                                 // Report ID = 0x13 (19)
+
+  // Field:   4
+  // Width:   16
+  // Count:   1
+  // Flags:   000000A2: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 1=NoPrefState 0=NoNull 1=Volatile 0=Bitmap
+  // Globals: PAGE:FF0D LMIN:-32768 LMAX:32767 PMIN:0 PMAX:0 UEXP:-3 UNIT:00100001 RSIZ:16 RID:13 RCNT:1
+  // Locals:  USAG:FF0D0007 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+  // Usages:  FF0D0007
+  // Coll:    PrimaryBattery
+  // Access:  Read/Write
+  // Type:    Variable
+                                                     // Page 0xFF0D:
+  int16_t  PrimaryBattery0007;                       // Usage 0xFF0D0007: , Value = -32768 to 32767, Physical = ((Value + 32768) - 32768) in 10⁻³ A units
+} HIDBatteryCaseOutputReport13;
+
 #endif /* IOHIDUnitTestDescriptors_h */
 

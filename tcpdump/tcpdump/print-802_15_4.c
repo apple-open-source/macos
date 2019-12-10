@@ -100,10 +100,10 @@ ieee802_15_4_if_print(netdissect_options *ndo,
 			 */
 			ND_PRINT((ndo, "[|802.15.4]"));
 			return hdrlen;
-	}
+		}
 		if (ndo->ndo_vflag)
 			ND_PRINT((ndo,"none "));
-			break;
+		break;
 	case FC_ADDRESSING_MODE_RESERVED:
 		if (ndo->ndo_vflag)
 			ND_PRINT((ndo,"reserved destination addressing mode"));
@@ -113,8 +113,8 @@ ieee802_15_4_if_print(netdissect_options *ndo,
 			ND_PRINT((ndo, "[|802.15.4]"));
 			return hdrlen;
 		}
-			panid = EXTRACT_LE_16BITS(p);
-			p += 2;
+		panid = EXTRACT_LE_16BITS(p);
+		p += 2;
 		caplen -= 2;
 		hdrlen += 2;
 		if (caplen < 2) {
@@ -123,17 +123,17 @@ ieee802_15_4_if_print(netdissect_options *ndo,
 		}
 		if (ndo->ndo_vflag)
 			ND_PRINT((ndo,"%04x:%04x ", panid, EXTRACT_LE_16BITS(p)));
-			p += 2;
+		p += 2;
 		caplen -= 2;
 		hdrlen += 2;
-			break;
+		break;
 	case FC_ADDRESSING_MODE_LONG:
 		if (caplen < 2) {
 			ND_PRINT((ndo, "[|802.15.4]"));
 			return hdrlen;
 		}
-			panid = EXTRACT_LE_16BITS(p);
-			p += 2;
+		panid = EXTRACT_LE_16BITS(p);
+		p += 2;
 		caplen -= 2;
 		hdrlen += 2;
 		if (caplen < 8) {
@@ -142,11 +142,11 @@ ieee802_15_4_if_print(netdissect_options *ndo,
 		}
 		if (ndo->ndo_vflag)
 			ND_PRINT((ndo,"%04x:%s ", panid, le64addr_string(ndo, p)));
-			p += 8;
+		p += 8;
 		caplen -= 8;
 		hdrlen += 8;
-			break;
-		}
+		break;
+	}
 	if (ndo->ndo_vflag)
 		ND_PRINT((ndo,"< "));
 
@@ -157,11 +157,11 @@ ieee802_15_4_if_print(netdissect_options *ndo,
 	case FC_ADDRESSING_MODE_NONE:
 		if (ndo->ndo_vflag)
 			ND_PRINT((ndo,"none "));
-			break;
+		break;
 	case FC_ADDRESSING_MODE_RESERVED:
 		if (ndo->ndo_vflag)
 			ND_PRINT((ndo,"reserved source addressing mode"));
-			return 0;
+		return 0;
 	case FC_ADDRESSING_MODE_SHORT:
 		if (!(fc & FC_PAN_ID_COMPRESSION)) {
 			/*
@@ -173,21 +173,21 @@ ieee802_15_4_if_print(netdissect_options *ndo,
 				ND_PRINT((ndo, "[|802.15.4]"));
 				return hdrlen;
 			}
-				panid = EXTRACT_LE_16BITS(p);
-				p += 2;
+			panid = EXTRACT_LE_16BITS(p);
+			p += 2;
 			caplen -= 2;
 			hdrlen += 2;
-			}
+		}
 		if (caplen < 2) {
 			ND_PRINT((ndo, "[|802.15.4]"));
 			return hdrlen;
 		}
 		if (ndo->ndo_vflag)
 			ND_PRINT((ndo,"%04x:%04x ", panid, EXTRACT_LE_16BITS(p)));
-			p += 2;
+		p += 2;
 		caplen -= 2;
 		hdrlen += 2;
-			break;
+		break;
 	case FC_ADDRESSING_MODE_LONG:
 		if (!(fc & FC_PAN_ID_COMPRESSION)) {
 			/*
@@ -199,22 +199,22 @@ ieee802_15_4_if_print(netdissect_options *ndo,
 				ND_PRINT((ndo, "[|802.15.4]"));
 				return hdrlen;
 			}
-				panid = EXTRACT_LE_16BITS(p);
-				p += 2;
+			panid = EXTRACT_LE_16BITS(p);
+			p += 2;
 			caplen -= 2;
 			hdrlen += 2;
-			}
+		}
 		if (caplen < 8) {
 			ND_PRINT((ndo, "[|802.15.4]"));
 			return hdrlen;
 		}
 		if (ndo->ndo_vflag)
-                        ND_PRINT((ndo,"%04x:%s ", panid, le64addr_string(ndo, p)));
-			p += 8;
+			ND_PRINT((ndo,"%04x:%s ", panid, le64addr_string(ndo, p)));
+		p += 8;
 		caplen -= 8;
 		hdrlen += 8;
-			break;
-		}
+		break;
+	}
 
 	if (!ndo->ndo_suppress_default_print)
 		ND_DEFAULTPRINT(p, caplen);

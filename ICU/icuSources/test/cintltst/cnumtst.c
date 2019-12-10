@@ -88,6 +88,7 @@ static void TestMinimumGrouping(void); // Apple <rdar://problem/49808819>
 static void TestNumberSystemsMultiplier(void); // Apple <rdar://problem/49120648>
 static void TestParseScientific(void); // Apple <rdar://problem/39156484>
 static void TestCurrForUnkRegion(void); // Apple <rdar://problem/51985640>
+static void TestMinIntMinFracZero(void); // Apple <rdar://problem/54569257>
 #if APPLE_ADDITIONS
 static void TestFormatDecPerf(void); // Apple <rdar://problem/51672521>
 #endif
@@ -142,6 +143,7 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestNumberSystemsMultiplier); // Apple <rdar://problem/49120648>
     TESTCASE(TestParseScientific); // Apple <rdar://problem/39156484>
     TESTCASE(TestCurrForUnkRegion); // Apple <rdar://problem/51985640>
+    TESTCASE(TestMinIntMinFracZero); // Apple <rdar://problem/54569257>
 #if APPLE_ADDITIONS
     TESTCASE(TestFormatDecPerf); // Apple <rdar://problem/51672521>
 #endif
@@ -4248,6 +4250,60 @@ static void TestCurrForUnkRegion(void) {
             }
             unum_close(unum);
         }
+    }
+}
+
+static void TestMinIntMinFracZero(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UNumberFormat* unum = unum_open(UNUM_DECIMAL, NULL, 0, "en_US", NULL, &status);
+    if ( U_FAILURE(status) ) {
+        log_data_err("unum_open UNUM_DECIMAL for en_US fails with %s\n", u_errorName(status));
+    } else {
+        UChar ubuf[kUBufMax];
+        char  bbuf[kBBufMax];
+        int minInt, minFrac, ulen;
+
+        unum_setAttribute(unum, UNUM_MIN_INTEGER_DIGITS, 0);
+        unum_setAttribute(unum, UNUM_MIN_FRACTION_DIGITS, 0);
+        minInt = unum_getAttribute(unum, UNUM_MIN_INTEGER_DIGITS);
+        minFrac = unum_getAttribute(unum, UNUM_MIN_FRACTION_DIGITS);
+        if (minInt != 0 || minFrac != 0) {
+            log_err("after setting minInt=minFrac=0, get minInt %d, minFrac %d\n", minInt, minFrac);
+        }
+        ulen = unum_toPattern(unum, FALSE, ubuf, kUBufMax, &status);
+        if ( U_SUCCESS(status) ) {
+            u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
+            log_info("after setting minInt=minFrac=0, pattern (%d): %s\n", ulen, bbuf);
+        }
+
+        status = U_ZERO_ERROR;
+        ulen = unum_formatDouble(unum, 10.0, ubuf, kUBufMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_formatDouble 10.0 ulen %d fails with %s\n", ulen, u_errorName(status));
+        } else if (u_strcmp(ubuf, u"10") != 0) {
+            u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
+            log_err("unum_formatDouble 10.0 expected \"10\", got \"%s\"\n", bbuf);
+        }
+
+        status = U_ZERO_ERROR;
+        ulen = unum_formatDouble(unum, 0.9, ubuf, kUBufMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_formatDouble 0.9 ulen %d fails with %s\n", ulen, u_errorName(status));
+        } else if (u_strcmp(ubuf, u".9") != 0) {
+            u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
+            log_err("unum_formatDouble 0.9 expected \".9\", got \"%s\"\n", bbuf);
+        }
+
+        status = U_ZERO_ERROR;
+        ulen = unum_formatDouble(unum, 0.0, ubuf, kUBufMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_formatDouble 0.0 ulen %d fails with %s\n", ulen, u_errorName(status));
+        } else if (u_strcmp(ubuf, u"0") != 0) {
+            u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
+            log_err("unum_formatDouble 0.0 expected \"0\", got \"%s\"\n", bbuf);
+        }
+
+        unum_close(unum);
     }
 }
 

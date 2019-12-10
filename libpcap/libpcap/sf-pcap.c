@@ -28,27 +28,14 @@
  * dependent values so we can print the dump file on any architecture.
  */
 
-#ifndef lint
-static const char rcsid[] _U_ =
-    "@(#) $Header$ (LBL)";
-#endif
-
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include <config.h>
 #endif
 
+#include <pcap-types.h>
 #ifdef _WIN32
-#include <pcap-stdinc.h>
-#else /* _WIN32 */
-#if HAVE_INTTYPES_H
-#include <inttypes.h>
-#elif HAVE_STDINT_H
-#include <stdint.h>
-#endif
-#ifdef HAVE_SYS_BITYPES_H
-#include <sys/bitypes.h>
-#endif
-#include <sys/types.h>
+#include <io.h>
+#include <fcntl.h>
 #endif /* _WIN32 */
 
 #include <errno.h>
@@ -56,6 +43,7 @@ static const char rcsid[] _U_ =
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h> /* for INT_MAX */
 
 #include "pcap-int.h"
 
@@ -130,6 +118,20 @@ static const char rcsid[] _U_ =
 
 static int pcap_next_packet(pcap_t *p, struct pcap_pkthdr *hdr, u_char **datap);
 
+#ifdef _WIN32
+/*
+ * This isn't exported on Windows, because it would only work if both
+ * libpcap and the code using it were using the same C runtime; otherwise they
+ * would be using different definitions of a FILE structure.
+ *
+ * Instead we define this as a macro in pcap/pcap.h that wraps the hopen
+ * version that we do export, passing it a raw OS HANDLE, as defined by the
+ * Win32 / Win64 ABI, obtained from the _fileno() and _get_osfhandle()
+ * functions of the appropriate CRT.
+ */
+static pcap_dumper_t *pcap_dump_fopen(pcap_t *p, FILE *f);
+#endif /* _WIN32 */
+
 /*
  * Private data for reading pcap savefiles.
  */
@@ -155,10 +157,17 @@ struct pcap_sf {
  * Check whether this is a pcap savefile and, if it is, extract the
  * relevant information from the header.
  */
+#ifdef __APPLE__
 pcap_t *
-pcap_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
-    int *err, int isng)
+pcap_check_header(const uint8_t *magic, FILE *fp, u_int precision, char *errbuf,
+		  int *err, int isng)
+#else
+pcap_t *
+pcap_check_header(const uint8_t *magic, FILE *fp, u_int precision, char *errbuf,
+		  int *err)
+#endif /* __APPLE__ */
 {
+	bpf_u_int32 magic_int;
 	struct pcap_file_header hdr;
 	size_t amt_read;
 	pcap_t *p;
@@ -175,11 +184,14 @@ pcap_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 	 * number for a pcap savefile, or for a byte-swapped pcap
 	 * savefile.
 	 */
-	if (magic != TCPDUMP_MAGIC && magic != KUZNETZOV_TCPDUMP_MAGIC &&
-	    magic != NSEC_TCPDUMP_MAGIC) {
-		magic = SWAPLONG(magic);
-		if (magic != TCPDUMP_MAGIC && magic != KUZNETZOV_TCPDUMP_MAGIC &&
-		    magic != NSEC_TCPDUMP_MAGIC)
+	memcpy(&magic_int, magic, sizeof(magic_int));
+	if (magic_int != TCPDUMP_MAGIC &&
+	    magic_int != KUZNETZOV_TCPDUMP_MAGIC &&
+	    magic_int != NSEC_TCPDUMP_MAGIC) {
+		magic_int = SWAPLONG(magic_int);
+		if (magic_int != TCPDUMP_MAGIC &&
+		    magic_int != KUZNETZOV_TCPDUMP_MAGIC &&
+		    magic_int != NSEC_TCPDUMP_MAGIC)
 			return (NULL);	/* nope */
 		swapped = 1;
 	}
@@ -188,19 +200,17 @@ pcap_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 	 * They are.  Put the magic number in the header, and read
 	 * the rest of the header.
 	 */
-	hdr.magic = magic;
+	hdr.magic = magic_int;
 	amt_read = fread(((char *)&hdr) + sizeof hdr.magic, 1,
 	    sizeof(hdr) - sizeof(hdr.magic), fp);
 	if (amt_read != sizeof(hdr) - sizeof(hdr.magic)) {
 		if (ferror(fp)) {
-			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			    "error reading dump file: %s",
-			    pcap_strerror(errno));
+			pcap_fmt_errmsg_for_errno(errbuf, PCAP_ERRBUF_SIZE,
+			    errno, "error reading dump file");
 		} else {
 			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			    "truncated dump file; tried to read %lu file header bytes, only got %lu",
-			    (unsigned long)sizeof(hdr),
-			    (unsigned long)amt_read);
+			    "truncated dump file; tried to read %" PRIsize " file header bytes, only got %" PRIsize,
+			    sizeof(hdr), amt_read);
 		}
 		*err = 1;
 		return (NULL);
@@ -249,14 +259,6 @@ pcap_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 		*err = 1;
 		return NULL;
 	}
-#else
-	if (hdr.snaplen > MAXIMUM_SNAPLEN) {
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			 "invalid file capture length %u, bigger than "
-			 "maximum of %u", hdr.snaplen, MAXIMUM_SNAPLEN);
-		*err = 1;
-		return NULL;
-	}
 #endif /* __APPLE__ */
 
 	/*
@@ -273,13 +275,9 @@ pcap_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 	p->version_major = hdr.version_major;
 	p->version_minor = hdr.version_minor;
 	p->tzoff = hdr.thiszone;
-#ifdef __APPLE__
-	p->snapshot = MIN(hdr.snaplen, MAXIMUM_SNAPLEN);
-#else
-	p->snapshot = hdr.snaplen;
-#endif /* __APPLE__ */
 	p->linktype = linktype_to_dlt(LT_LINKTYPE(hdr.linktype));
 	p->linktype_ext = LT_LINKTYPE_EXT(hdr.linktype);
+	p->snapshot = pcap_adjust_snapshot(p->linktype, hdr.snaplen);
 
 	p->next_packet_op = pcap_next_packet;
 
@@ -294,7 +292,7 @@ pcap_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 	switch (precision) {
 
 	case PCAP_TSTAMP_PRECISION_MICRO:
-		if (magic == NSEC_TCPDUMP_MAGIC) {
+		if (magic_int == NSEC_TCPDUMP_MAGIC) {
 			/*
 			 * The file has nanoseconds, the user
 			 * wants microseconds; scale the
@@ -311,7 +309,7 @@ pcap_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 		break;
 
 	case PCAP_TSTAMP_PRECISION_NANO:
-		if (magic == NSEC_TCPDUMP_MAGIC) {
+		if (magic_int == NSEC_TCPDUMP_MAGIC) {
 			/*
 			 * The file has nanoseconds, the
 			 * user wants nanoseconds; nothing to do.
@@ -365,7 +363,7 @@ pcap_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 		break;
 	}
 
-	if (magic == KUZNETZOV_TCPDUMP_MAGIC) {
+	if (magic_int == KUZNETZOV_TCPDUMP_MAGIC) {
 		/*
 		 * XXX - the patch that's in some versions of libpcap
 		 * changes the packet header but not the magic number,
@@ -405,22 +403,30 @@ pcap_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 			 * length will be misleading if you use it to figure
 			 * out why a capture doesn't have all the packet data,
 			 * but there's not much we can do to avoid that.
+			 *
+			 * But don't grow the snapshot length past the
+			 * maximum value of an int.
 			 */
-			p->snapshot += 14;
+			if (p->snapshot <= INT_MAX - 14)
+				p->snapshot += 14;
+			else
+				p->snapshot = INT_MAX;
 		}
 	} else
 		ps->hdrsize = sizeof(struct pcap_sf_pkthdr);
 
 	/*
-	 * Allocate a buffer for the packet data -- rdar://25205036
+	 * Allocate a buffer for the packet data.
+	 * Choose the minimum of the file's snapshot length and 2K bytes;
+	 * that should be enough for most network packets - we'll grow it
+	 * if necessary.  That way, we don't allocate a huge chunk of
+	 * memory just because there's a huge snapshot length, as the
+	 * snapshot length might be larger than the size of the largest
+	 * packet.
 	 */
 	p->bufsize = p->snapshot;
-	if (p->bufsize <= 0 || p->bufsize > MAXIMUM_SNAPLEN) {
-		/*
-		 * Bogus snapshot length; use the maximum as a fallback.
-		 */
-		p->bufsize = MAXIMUM_SNAPLEN;
-	}
+	if (p->bufsize > 2048)
+		p->bufsize = 2048;
 	p->buffer = malloc(p->bufsize);
 	if (p->buffer == NULL) {
 		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE, "out of memory");
@@ -432,6 +438,24 @@ pcap_check_header(bpf_u_int32 magic, FILE *fp, u_int precision, char *errbuf,
 	p->cleanup_op = sf_cleanup;
 
 	return (p);
+}
+
+/*
+ * Grow the packet buffer to the specified size.
+ */
+static int
+grow_buffer(pcap_t *p, u_int bufsize)
+{
+	void *bigger_buffer;
+
+	bigger_buffer = realloc(p->buffer, bufsize);
+	if (bigger_buffer == NULL) {
+		pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "out of memory");
+		return (0);
+	}
+	p->buffer = bigger_buffer;
+	p->bufsize = bufsize;
+	return (1);
 }
 
 /*
@@ -458,16 +482,14 @@ pcap_next_packet(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data)
 	amt_read = fread(&sf_hdr, 1, ps->hdrsize, fp);
 	if (amt_read != ps->hdrsize) {
 		if (ferror(fp)) {
-			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-			    "error reading dump file: %s",
-			    pcap_strerror(errno));
+			pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+			    errno, "error reading dump file");
 			return (-1);
 		} else {
 			if (amt_read != 0) {
 				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-				    "truncated dump file; tried to read %lu header bytes, only got %lu",
-				    (unsigned long)ps->hdrsize,
-				    (unsigned long)amt_read);
+				    "truncated dump file; tried to read %" PRIsize " header bytes, only got %" PRIsize,
+				    ps->hdrsize, amt_read);
 				return (-1);
 			}
 			/* EOF */
@@ -539,41 +561,87 @@ pcap_next_packet(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data)
 		break;
 	}
 
-	if (hdr->caplen > p->bufsize) {
+	/*
+	 * Is the packet bigger than we consider sane?
+	 */
+	if (hdr->caplen > max_snaplen_for_dlt(p->linktype)) {
 		/*
+		 * Yes.  This may be a damaged or fuzzed file.
+		 *
+		 * Is it bigger than the snapshot length?
+		 * (We don't treat that as an error if it's not
+		 * bigger than the maximum we consider sane; see
+		 * below.)
+		 */
+		if (hdr->caplen > (bpf_u_int32)p->snapshot) {
+			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+			    "invalid packet capture length %u, bigger than "
+			    "snaplen of %d", hdr->caplen, p->snapshot);
+		} else {
+			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+			    "invalid packet capture length %u, bigger than "
+			    "maximum of %u", hdr->caplen,
+			    max_snaplen_for_dlt(p->linktype));
+		}
+		return (-1);
+	}
+
+	if (hdr->caplen > (bpf_u_int32)p->snapshot) {
+		/*
+		 * The packet is bigger than the snapshot length
+		 * for this file.
+		 *
 		 * This can happen due to Solaris 2.3 systems tripping
 		 * over the BUFMOD problem and not setting the snapshot
-		 * correctly in the savefile header.
-		 * This can also happen with a corrupted savefile or a
-		 * savefile built/modified by a fuzz tester.
-		 * If the caplen isn't grossly wrong, try to salvage.
+		 * length correctly in the savefile header.
+		 *
+		 * libpcap 0.4 and later on Solaris 2.3 should set the
+		 * snapshot length correctly in the pcap file header,
+		 * even though they don't set a snapshot length in bufmod
+		 * (the buggy bufmod chops off the *beginning* of the
+		 * packet if a snapshot length is specified); they should
+		 * also reduce the captured length, as supplied to the
+		 * per-packet callback, to the snapshot length if it's
+		 * greater than the snapshot length, so the code using
+		 * libpcap should see the packet cut off at the snapshot
+		 * length, even though the full packet is copied up to
+		 * userland.
+		 *
+		 * However, perhaps some versions of libpcap failed to
+		 * set the snapshot length currectly in the file header
+		 * or the per-packet header, or perhaps this is a
+		 * corrupted safefile or a savefile built/modified by a
+		 * fuzz tester, so we check anyway.  We grow the buffer
+		 * to be big enough for the snapshot length, read up
+		 * to the snapshot length, discard the rest of the
+		 * packet, and report the snapshot length as the captured
+		 * length; we don't want to hand our caller a packet
+		 * bigger than the snapshot length, because they might
+		 * be assuming they'll never be handed such a packet,
+		 * and might copy the packet into a snapshot-length-
+		 * sized buffer, assuming it'll fit.
 		 */
 		size_t bytes_to_discard;
 		size_t bytes_to_read, bytes_read;
 		char discard_buf[4096];
 
-		if (hdr->caplen > MAXIMUM_SNAPLEN || hdr->caplen == 0) {
-			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-			    "invalid packet capture length %u, bigger than "
-			    "maximum of %u", hdr->caplen, MAXIMUM_SNAPLEN);
-			return (-1);
+		if (hdr->caplen > p->bufsize) {
+			/*
+			 * Grow the buffer to the snapshot length.
+			 */
+			if (!grow_buffer(p, p->snapshot))
+				return (-1);
 		}
 
 		/*
-		 * XXX - we don't grow the buffer here because some
-		 * program might assume that it will never get packets
-		 * bigger than the snapshot length; for example, it might
-		 * copy data from our buffer to a buffer of its own,
-		 * allocated based on the return value of pcap_snapshot().
-		 *
-		 * Read the first p->bufsize bytes into the buffer.
+		 * Read the first p->snapshot bytes into the buffer.
 		 */
-		amt_read = fread(p->buffer, 1, p->bufsize, fp);
-		if (amt_read != p->bufsize) {
+		amt_read = fread(p->buffer, 1, p->snapshot, fp);
+		if (amt_read != (bpf_u_int32)p->snapshot) {
 			if (ferror(fp)) {
-				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-				    "error reading dump file: %s",
-				    pcap_strerror(errno));
+				pcap_fmt_errmsg_for_errno(p->errbuf,
+				     PCAP_ERRBUF_SIZE, errno,
+				    "error reading dump file");
 			} else {
 				/*
 				 * Yes, this uses hdr->caplen; technically,
@@ -583,8 +651,8 @@ pcap_next_packet(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data)
 				 * the read finished.
 				 */
 				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-				    "truncated dump file; tried to read %u captured bytes, only got %lu",
-				    hdr->caplen, (unsigned long)amt_read);
+				    "truncated dump file; tried to read %u captured bytes, only got %" PRIsize,
+				    p->snapshot, amt_read);
 			}
 			return (-1);
 		}
@@ -592,7 +660,7 @@ pcap_next_packet(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data)
 		/*
 		 * Now read and discard what's left.
 		 */
-		bytes_to_discard = hdr->caplen - p->bufsize;
+		bytes_to_discard = hdr->caplen - p->snapshot;
 		bytes_read = amt_read;
 		while (bytes_to_discard != 0) {
 			bytes_to_read = bytes_to_discard;
@@ -602,13 +670,13 @@ pcap_next_packet(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data)
 			bytes_read += amt_read;
 			if (amt_read != bytes_to_read) {
 				if (ferror(fp)) {
-					pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-					    "error reading dump file: %s",
-					    pcap_strerror(errno));
+					pcap_fmt_errmsg_for_errno(p->errbuf,
+					    PCAP_ERRBUF_SIZE, errno,
+					    "error reading dump file");
 				} else {
 					pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-					    "truncated dump file; tried to read %u captured bytes, only got %lu",
-					    hdr->caplen, (unsigned long)bytes_read);
+					    "truncated dump file; tried to read %u captured bytes, only got %" PRIsize,
+					    hdr->caplen, bytes_read);
 				}
 				return (-1);
 			}
@@ -619,19 +687,48 @@ pcap_next_packet(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data)
 		 * Adjust caplen accordingly, so we don't get confused later
 		 * as to how many bytes we have to play with.
 		 */
-		hdr->caplen = p->bufsize;
+		hdr->caplen = p->snapshot;
 	} else {
+		/*
+		 * The packet is within the snapshot length for this file.
+		 */
+		if (hdr->caplen > p->bufsize) {
+			/*
+			 * Grow the buffer to the next power of 2, or
+			 * the snaplen, whichever is lower.
+			 */
+			u_int new_bufsize;
+
+			new_bufsize = hdr->caplen;
+			/*
+			 * http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+			 */
+			new_bufsize--;
+			new_bufsize |= new_bufsize >> 1;
+			new_bufsize |= new_bufsize >> 2;
+			new_bufsize |= new_bufsize >> 4;
+			new_bufsize |= new_bufsize >> 8;
+			new_bufsize |= new_bufsize >> 16;
+			new_bufsize++;
+
+			if (new_bufsize > (u_int)p->snapshot)
+				new_bufsize = p->snapshot;
+
+			if (!grow_buffer(p, new_bufsize))
+				return (-1);
+		}
+
 		/* read the packet itself */
 		amt_read = fread(p->buffer, 1, hdr->caplen, fp);
 		if (amt_read != hdr->caplen) {
 			if (ferror(fp)) {
-				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-				    "error reading dump file: %s",
-				    pcap_strerror(errno));
+				pcap_fmt_errmsg_for_errno(p->errbuf,
+				    PCAP_ERRBUF_SIZE, errno,
+				    "error reading dump file");
 			} else {
 				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
-				    "truncated dump file; tried to read %u captured bytes, only got %lu",
-				    hdr->caplen, (unsigned long)amt_read);
+				    "truncated dump file; tried to read %u captured bytes, only got %" PRIsize,
+				    hdr->caplen, amt_read);
 			}
 			return (-1);
 		}
@@ -673,7 +770,11 @@ pcap_dump(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	register FILE *f;
 	struct pcap_sf_pkthdr sf_hdr;
 
-	f = ((pcap_dumper_t *)user)->f;
+#ifdef __APPLE__
+    f = ((pcap_dumper_t *)user)->f;
+#else
+	f = (FILE *)user;
+#endif /* __APPLE__ */
 	sf_hdr.ts.tv_sec  = h->ts.tv_sec;
 	sf_hdr.ts.tv_usec = h->ts.tv_usec;
 	sf_hdr.caplen     = h->caplen;
@@ -683,7 +784,7 @@ pcap_dump(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	(void)fwrite(sp, h->caplen, 1, f);
 }
 
-
+#ifdef __APPLE__
 pcap_dumper_t *
 pcap_alloc_dumper(pcap_t *p, FILE *f)
 {
@@ -701,15 +802,18 @@ pcap_alloc_dumper(pcap_t *p, FILE *f)
 
 	return (dumper);
 }
+#endif /* __APPLE__ */
 
 static pcap_dumper_t *
 pcap_setup_dump(pcap_t *p, int linktype, FILE *f, const char *fname)
 {
+#ifdef __APPLE__
 	pcap_dumper_t *dumper;
 
 	dumper = pcap_alloc_dumper(p, f);
 	if (dumper == NULL)
 		return (NULL);
+#endif /* __APPLE__ */
 
 #if defined(_WIN32) || defined(MSDOS)
 	/*
@@ -719,18 +823,24 @@ pcap_setup_dump(pcap_t *p, int linktype, FILE *f, const char *fname)
 	 * Otherwise, we turn off buffering.
 	 * XXX - why?  And why not on the standard output?
 	 */
-	if (dumper->f == stdout)
+	if (f == stdout)
 		SET_BINMODE(f);
 	else
-		setbuf(f, NULL);
+		setvbuf(f, NULL, _IONBF, 0);
 #endif
-	if (sf_write_header(p, dumper->f, linktype, p->tzoff, p->snapshot) == -1) {
-		pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "Can't write to %s: %s",
-		    fname, pcap_strerror(errno));
-		pcap_dump_close(dumper);
+	if (sf_write_header(p, f, linktype, p->tzoff, p->snapshot) == -1) {
+		pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+		    errno, "Can't write to %s", fname);
+		if (f != stdout)
+			(void)fclose(f);
 		return (NULL);
 	}
+#ifdef __APPLE__
 	return (dumper);
+#else
+    return ((pcap_dumper_t *)f);
+#endif /* __APPLE__ */
+
 }
 
 /*
@@ -770,24 +880,58 @@ pcap_dump_open(pcap_t *p, const char *fname)
 		f = stdout;
 		fname = "standard output";
 	} else {
-#if !defined(_WIN32) && !defined(MSDOS)
-		f = fopen(fname, "w");
-#else
+		/*
+		 * "b" is supported as of C90, so *all* UN*Xes should
+		 * support it, even though it does nothing.  It's
+		 * required on Windows, as the file is a binary file
+		 * and must be written in binary mode.
+		 */
 		f = fopen(fname, "wb");
-#endif
 		if (f == NULL) {
-			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "%s: %s",
-			    fname, pcap_strerror(errno));
+			pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+			    errno, "%s", fname);
 			return (NULL);
 		}
 	}
-
 	return (pcap_setup_dump(p, linktype, f, fname));
 }
+
+#ifdef _WIN32
+/*
+ * Initialize so that sf_write() will output to a stream wrapping the given raw
+ * OS file HANDLE.
+ */
+pcap_dumper_t *
+pcap_dump_hopen(pcap_t *p, intptr_t osfd)
+{
+	int fd;
+	FILE *file;
+
+	fd = _open_osfhandle(osfd, _O_APPEND);
+	if (fd < 0) {
+		pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+		    errno, "_open_osfhandle");
+		return NULL;
+	}
+
+	file = _fdopen(fd, "wb");
+	if (file == NULL) {
+		pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+		    errno, "_fdopen");
+		_close(fd);
+		return NULL;
+	}
+
+	return pcap_dump_fopen(p, file);
+}
+#endif /* _WIN32 */
 
 /*
  * Initialize so that sf_write() will output to the given stream.
  */
+#ifdef _WIN32
+static
+#endif /* _WIN32 */
 pcap_dumper_t *
 pcap_dump_fopen(pcap_t *p, FILE *f)
 {
@@ -829,34 +973,73 @@ pcap_dump_open_append(pcap_t *p, const char *fname)
 	if (fname[0] == '-' && fname[1] == '\0')
 		return (pcap_setup_dump(p, linktype, stdout, "standard output"));
 
-#if !defined(_WIN32) && !defined(MSDOS)
-	f = fopen(fname, "r+");
-#else
-	f = fopen(fname, "rb+");
-#endif
+	/*
+	 * "a" will cause the file *not* to be truncated if it exists
+	 * but will cause it to be created if it doesn't.  It will
+	 * also cause all writes to be done at the end of the file,
+	 * but will allow reads to be done anywhere in the file.  This
+	 * is what we need, because we need to read from the beginning
+	 * of the file to see if it already has a header and packets
+	 * or if it doesn't.
+	 *
+	 * "b" is supported as of C90, so *all* UN*Xes should support it,
+	 * even though it does nothing.  It's required on Windows, as the
+	 * file is a binary file and must be read in binary mode.
+	 */
+	f = fopen(fname, "ab+");
 	if (f == NULL) {
-		pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "%s: %s",
-		    fname, pcap_strerror(errno));
+		pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+		    errno, "%s", fname);
 		return (NULL);
 	}
+
+#ifdef __APPLE__
 	pcap_dumper_t *dumper;
 
 	dumper = pcap_alloc_dumper(p, f);
-
+#endif /* __APPLE__ */
+    
 	/*
 	 * Try to read a pcap header.
+	 *
+	 * We do not assume that the file will be positioned at the
+	 * beginning immediately after we've opened it - we seek to
+	 * the beginning.  ISO C says it's implementation-defined
+	 * whether the file position indicator is at the beginning
+	 * or the end of the file after an append-mode open, and
+	 * it wasn't obvious from the Single UNIX Specification
+	 * or the Microsoft documentation how that works on SUS-
+	 * compliant systems or on Windows.
 	 */
+	if (fseek(f, 0, SEEK_SET) == -1) {
+		pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+		    errno, "Can't seek to the beginning of %s", fname);
+#ifdef __APPLE__
+        (void)pcap_dump_close(dumper);
+#else
+        (void)fclose(f);
+#endif /* __APPLE__ */
+		return (NULL);
+	}
 	amt_read = fread(&ph, 1, sizeof (ph), f);
 	if (amt_read != sizeof (ph)) {
 		if (ferror(f)) {
-			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "%s: %s",
-			    fname, pcap_strerror(errno));
-			(void)pcap_dump_close(dumper);
+			pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+			    errno, "%s", fname);
+#ifdef __APPLE__
+            (void)pcap_dump_close(dumper);
+#else
+            (void)fclose(f);
+#endif /* __APPLE__ */
 			return (NULL);
 		} else if (feof(f) && amt_read > 0) {
 			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 			    "%s: truncated pcap file header", fname);
-			(void)pcap_dump_close(dumper);
+#ifdef __APPLE__
+            (void)pcap_dump_close(dumper);
+#else
+            (void)fclose(f);
+#endif /* __APPLE__ */
 			return (NULL);
 		}
 	}
@@ -866,7 +1049,7 @@ pcap_dump_open_append(pcap_t *p, const char *fname)
 	 * We turn off buffering.
 	 * XXX - why?  And why not on the standard output?
 	 */
-	setbuf(f, NULL);
+	setvbuf(f, NULL, _IONBF, 0);
 #endif
 
 	/*
@@ -892,7 +1075,11 @@ pcap_dump_open_append(pcap_t *p, const char *fname)
 			if (p->opt.tstamp_precision != PCAP_TSTAMP_PRECISION_MICRO) {
 				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 				    "%s: different time stamp precision, cannot append to file", fname);
-				(void)pcap_dump_close(dumper);
+#ifdef __APPLE__
+                (void)pcap_dump_close(dumper);
+#else
+                (void)fclose(f);
+#endif /* __APPLE__ */
 				return (NULL);
 			}
 			break;
@@ -901,7 +1088,11 @@ pcap_dump_open_append(pcap_t *p, const char *fname)
 			if (p->opt.tstamp_precision != PCAP_TSTAMP_PRECISION_NANO) {
 				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 				    "%s: different time stamp precision, cannot append to file", fname);
-				(void)pcap_dump_close(dumper);
+#ifdef __APPLE__
+                (void)pcap_dump_close(dumper);
+#else
+                (void)fclose(f);
+#endif /* __APPLE__ */
 				return (NULL);
 			}
 			break;
@@ -910,7 +1101,11 @@ pcap_dump_open_append(pcap_t *p, const char *fname)
 		case SWAPLONG(NSEC_TCPDUMP_MAGIC):
 			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 			    "%s: different byte order, cannot append to file", fname);
-			(void)pcap_dump_close(dumper);
+#ifdef __APPLE__
+                (void)pcap_dump_close(dumper);
+#else
+                (void)fclose(f);
+#endif /* __APPLE__ */
 			return (NULL);
 
 		case KUZNETZOV_TCPDUMP_MAGIC:
@@ -919,13 +1114,21 @@ pcap_dump_open_append(pcap_t *p, const char *fname)
 		case SWAPLONG(NAVTEL_TCPDUMP_MAGIC):
 			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 			    "%s: not a pcap file to which we can append", fname);
-			(void)pcap_dump_close(dumper);
+#ifdef __APPLE__
+                (void)pcap_dump_close(dumper);
+#else
+                (void)fclose(f);
+#endif /* __APPLE__ */
 			return (NULL);
 
 		default:
 			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 			    "%s: not a pcap file", fname);
-			(void)pcap_dump_close(dumper);
+#ifdef __APPLE__
+                (void)pcap_dump_close(dumper);
+#else
+                (void)fclose(f);
+#endif /* __APPLE__ */
 			return (NULL);
 		}
 
@@ -937,19 +1140,31 @@ pcap_dump_open_append(pcap_t *p, const char *fname)
 			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 			    "%s: version is %u.%u, cannot append to file", fname,
 			    ph.version_major, ph.version_minor);
-			(void)pcap_dump_close(dumper);
+#ifdef __APPLE__
+            (void)pcap_dump_close(dumper);
+#else
+            (void)fclose(f);
+#endif /* __APPLE__ */
 			return (NULL);
 		}
 		if ((bpf_u_int32)linktype != ph.linktype) {
 			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 			    "%s: different linktype, cannot append to file", fname);
-			(void)pcap_dump_close(dumper);
+#ifdef __APPLE__
+            (void)pcap_dump_close(dumper);
+#else
+            (void)fclose(f);
+#endif /* __APPLE__ */
 			return (NULL);
 		}
 		if ((bpf_u_int32)p->snapshot != ph.snaplen) {
 			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 			    "%s: different snaplen, cannot append to file", fname);
-			(void)pcap_dump_close(dumper);
+#ifdef __APPLE__
+            (void)pcap_dump_close(dumper);
+#else
+            (void)fclose(f);
+#endif /* __APPLE__ */
 			return (NULL);
 		}
 	} else {
@@ -957,42 +1172,116 @@ pcap_dump_open_append(pcap_t *p, const char *fname)
 		 * A header isn't present; attempt to write it.
 		 */
 		if (sf_write_header(p, f, linktype, p->tzoff, p->snapshot) == -1) {
-			pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "Can't write to %s: %s",
-			    fname, pcap_strerror(errno));
-			(void)pcap_dump_close(dumper);
+			pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+			    errno, "Can't write to %s", fname);
+#ifdef __APPLE__
+            (void)pcap_dump_close(dumper);
+#else
+            (void)fclose(f);
+#endif /* __APPLE__ */
 			return (NULL);
 		}
 	}
 
 	/*
 	 * Start writing at the end of the file.
+	 *
+	 * XXX - this shouldn't be necessary, given that we're opening
+	 * the file in append mode, and ISO C specifies that all writes
+	 * are done at the end of the file in that mode.
 	 */
 	if (fseek(f, 0, SEEK_END) == -1) {
-		pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "Can't seek to end of %s: %s",
-		    fname, pcap_strerror(errno));
-		(void)pcap_dump_close(dumper);
+		pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
+		    errno, "Can't seek to the end of %s", fname);
+#ifdef __APPLE__
+        (void)pcap_dump_close(dumper);
+#else
+        (void)fclose(f);
+#endif /* __APPLE__ */
 		return (NULL);
 	}
-	return (dumper);
+#ifdef __APPLE__
+    return (dumper);
+#else
+	return ((pcap_dumper_t *)f);
+#endif /* __APPLE__ */
 }
 
 FILE *
 pcap_dump_file(pcap_dumper_t *p)
 {
-	return (p->f);
+#ifdef __APPLE__
+    return (p->f);
+#else
+    return ((FILE *)p);
+#endif /* __APPLE__ */
 }
 
 long
 pcap_dump_ftell(pcap_dumper_t *p)
 {
+#ifdef __APPLE__
 	return (ftell(p->f));
+#else
+	return (ftell((FILE *)p));
+#endif /* __APPLE__ */
 }
+
+#if defined(HAVE_FSEEKO)
+/*
+ * We have fseeko(), so we have ftello().
+ * If we have large file support (files larger than 2^31-1 bytes),
+ * ftello() will give us a current file position with more than 32
+ * bits.
+ */
+int64_t
+pcap_dump_ftell64(pcap_dumper_t *p)
+{
+#ifdef __APPLE__
+	return (ftello(p->f));
+#else
+	return (ftello((FILE *)p));
+#endif /* __APPLE__ */
+}
+#elif defined(_MSC_VER)
+/*
+ * We have Visual Studio; we support only 2005 and later, so we have
+ * _ftelli64().
+ */
+int64_t
+pcap_dump_ftell64(pcap_dumper_t *p)
+{
+	return (_ftelli64((FILE *)p));
+}
+#else
+/*
+ * We don't have ftello() or _ftelli64(), so fall back on ftell().
+ * Either long is 64 bits, in which case ftell() should suffice,
+ * or this is probably an older 32-bit UN*X without large file
+ * support, which means you'll probably get errors trying to
+ * write files > 2^31-1, so it won't matter anyway.
+ *
+ * XXX - what about MinGW?
+ */
+int64_t
+pcap_dump_ftell64(pcap_dumper_t *p)
+{
+#ifdef __APPLE__
+	return (ftell(p->f));
+#else
+	return (ftell((FILE *)p));
+#endif /* __APPLE__ */
+}
+#endif
 
 int
 pcap_dump_flush(pcap_dumper_t *p)
 {
-
+#ifdef __APPLE__
 	if (fflush(p->f) == EOF)
+#else
+	if (fflush((FILE *)p) == EOF)
+#endif
 		return (-1);
 	else
 		return (0);
@@ -1001,6 +1290,7 @@ pcap_dump_flush(pcap_dumper_t *p)
 void
 pcap_dump_close(pcap_dumper_t *p)
 {
+#ifdef __APPLE__
 	if (p == NULL)
 		return;
 
@@ -1018,4 +1308,15 @@ pcap_dump_close(pcap_dumper_t *p)
 #endif
 	(void)fclose(p->f);
 	free(p);
+#else /* __APPLE__ */
+
+#ifdef notyet
+	if (ferror((FILE *)p))
+		return-an-error;
+	/* XXX should check return from fclose() too */
+#endif
+	(void)fclose((FILE *)p);
+
+#endif /* __APPLE__ */
+
 }

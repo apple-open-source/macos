@@ -241,7 +241,7 @@ vtp_print (netdissect_options *ndo,
 	 */
 
 	tptr += 4;
-	while (tptr < (pptr+length)) {
+	while ((unsigned)(tptr - pptr) < length) {
 
 	    ND_TCHECK_8BITS(tptr);
 	    len = *tptr;
@@ -267,9 +267,9 @@ vtp_print (netdissect_options *ndo,
 	    ND_TCHECK2(*tptr, vtp_vlan->name_len);
 	    fn_printzp(ndo, tptr, vtp_vlan->name_len, NULL);
 
-            /*
-             * Vlan names are aligned to 32-bit boundaries.
-             */
+	    /*
+	     * Vlan names are aligned to 32-bit boundaries.
+	     */
 	    len  -= 4*((vtp_vlan->name_len + 3)/4);
 	    tptr += 4*((vtp_vlan->name_len + 3)/4);
 
@@ -308,51 +308,51 @@ vtp_print (netdissect_options *ndo,
                     ND_PRINT((ndo, " (invalid TLV length %u != 1)", tlv_len));
                     return;
                 } else {
-                tlv_value = EXTRACT_16BITS(tptr+2);
+                    tlv_value = EXTRACT_16BITS(tptr+2);
 
-                switch (type) {
-                case VTP_VLAN_STE_HOP_COUNT:
-                    ND_PRINT((ndo, ", %u", tlv_value));
-                    break;
+                    switch (type) {
+                    case VTP_VLAN_STE_HOP_COUNT:
+                        ND_PRINT((ndo, ", %u", tlv_value));
+                        break;
 
-                case VTP_VLAN_PRUNING:
-                    ND_PRINT((ndo, ", %s (%u)",
-                           tlv_value == 1 ? "Enabled" : "Disabled",
-                           tlv_value));
-                    break;
+                    case VTP_VLAN_PRUNING:
+                        ND_PRINT((ndo, ", %s (%u)",
+                               tlv_value == 1 ? "Enabled" : "Disabled",
+                               tlv_value));
+                        break;
 
-                case VTP_VLAN_STP_TYPE:
-                    ND_PRINT((ndo, ", %s (%u)",
-                           tok2str(vtp_stp_type_values, "Unknown", tlv_value),
-                           tlv_value));
-                    break;
+                    case VTP_VLAN_STP_TYPE:
+                        ND_PRINT((ndo, ", %s (%u)",
+                               tok2str(vtp_stp_type_values, "Unknown", tlv_value),
+                               tlv_value));
+                        break;
 
-                case VTP_VLAN_BRIDGE_TYPE:
-                    ND_PRINT((ndo, ", %s (%u)",
-                           tlv_value == 1 ? "SRB" : "SRT",
-                           tlv_value));
-                    break;
+                    case VTP_VLAN_BRIDGE_TYPE:
+                        ND_PRINT((ndo, ", %s (%u)",
+                               tlv_value == 1 ? "SRB" : "SRT",
+                               tlv_value));
+                        break;
 
-                case VTP_VLAN_BACKUP_CRF_MODE:
-                    ND_PRINT((ndo, ", %s (%u)",
-                           tlv_value == 1 ? "Backup" : "Not backup",
-                           tlv_value));
-                    break;
+                    case VTP_VLAN_BACKUP_CRF_MODE:
+                        ND_PRINT((ndo, ", %s (%u)",
+                               tlv_value == 1 ? "Backup" : "Not backup",
+                               tlv_value));
+                        break;
 
-                    /*
-                     * FIXME those are the defined TLVs that lack a decoder
-                     * you are welcome to contribute code ;-)
-                     */
+                        /*
+                         * FIXME those are the defined TLVs that lack a decoder
+                         * you are welcome to contribute code ;-)
+                         */
 
-                case VTP_VLAN_SOURCE_ROUTING_RING_NUMBER:
-                case VTP_VLAN_SOURCE_ROUTING_BRIDGE_NUMBER:
-                case VTP_VLAN_PARENT_VLAN:
-                case VTP_VLAN_TRANS_BRIDGED_VLAN:
-                case VTP_VLAN_ARP_HOP_COUNT:
-                default:
-		    print_unknown_data(ndo, tptr, "\n\t\t  ", 2 + tlv_len*2);
-                    break;
-                }
+                    case VTP_VLAN_SOURCE_ROUTING_RING_NUMBER:
+                    case VTP_VLAN_SOURCE_ROUTING_BRIDGE_NUMBER:
+                    case VTP_VLAN_PARENT_VLAN:
+                    case VTP_VLAN_TRANS_BRIDGED_VLAN:
+                    case VTP_VLAN_ARP_HOP_COUNT:
+                    default:
+                        print_unknown_data(ndo, tptr, "\n\t\t  ", 2 + tlv_len*2);
+                        break;
+                    }
                 }
                 len -= 2 + tlv_len*2;
                 tptr += 2 + tlv_len*2;

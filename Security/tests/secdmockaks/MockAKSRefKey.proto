@@ -1,0 +1,6 @@
+syntax = "proto2";
+
+message MockAKSRefKey {
+    optional bytes key = 1;
+    optional bytes optional_params = 2;
+}

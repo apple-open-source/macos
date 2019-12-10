@@ -923,7 +923,7 @@
         let createKeyExpectation = self.expectation(description: "createKeyExpectation returns")
         self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context ?? "defaultContext", recoveryKey: recoveryKey) { error in
             XCTAssertNotNil(error, "error should not be nil")
-            XCTAssertEqual((error! as NSError).code, Int(OTErrorLimitedPeer.rawValue), "error code should be limited peer")
+            XCTAssertEqual((error! as NSError).code, OctagonError.OTErrorLimitedPeer.rawValue, "error code should be limited peer")
             createKeyExpectation.fulfill()
         }
         self.wait(for: [createKeyExpectation], timeout: 10)
@@ -1193,7 +1193,6 @@
         let recoveryKey = "malformedRecoveryKey"
         XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
         self.manager.setSOSEnabledForPlatformFlag(true)
-
 
         let createKeyExpectation = self.expectation(description: "createKeyExpectation returns")
         self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context ?? "defaultContext", recoveryKey: recoveryKey) { error in

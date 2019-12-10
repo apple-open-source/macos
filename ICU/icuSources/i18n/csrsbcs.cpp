@@ -902,6 +902,10 @@ UBool CharsetRecog_8859_1::match(InputText *textIn, CharsetMatch *results) const
             bestConfidenceSoFar = confidence;
         }
     }
+    if (bestConfidenceSoFar < 10 && textIn->fOnlyTypicalASCII) { // rdar://56373519
+        bestConfidenceSoFar = 15;
+        results->set(textIn, this, bestConfidenceSoFar, name);
+    }
     return (bestConfidenceSoFar > 0);
 }
 

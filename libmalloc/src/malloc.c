@@ -1969,11 +1969,15 @@ malloc_memory_event_handler(unsigned long event)
 		malloc_zone_pressure_relief(0, 0);
 	}
 
-	if ( ((event & NOTE_MEMORYSTATUS_MSL_STATUS) != 0 && (event & ~NOTE_MEMORYSTATUS_MSL_STATUS) == 0) ||
-		  (event & (NOTE_MEMORYSTATUS_PROC_LIMIT_WARN | NOTE_MEMORYSTATUS_PROC_LIMIT_CRITICAL | NOTE_MEMORYSTATUS_PRESSURE_CRITICAL)))
-	{
+	if ((event & NOTE_MEMORYSTATUS_MSL_STATUS) != 0 && (event & ~NOTE_MEMORYSTATUS_MSL_STATUS) == 0) {
 		malloc_register_stack_logger();
 	}
+
+#if ENABLE_MEMORY_RESOURCE_EXCEPTION_HANDLING
+	if (event & (NOTE_MEMORYSTATUS_PROC_LIMIT_WARN | NOTE_MEMORYSTATUS_PROC_LIMIT_CRITICAL | NOTE_MEMORYSTATUS_PRESSURE_CRITICAL)) {
+		malloc_register_stack_logger();
+	}
+#endif // ENABLE_MEMORY_RESOURCE_EXCEPTION_HANDLING
 	
 	if (msl.handle_memory_event) {
 		// Let MSL see the event.

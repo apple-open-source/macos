@@ -13,7 +13,6 @@ fr_CA{
         byv{"medumba"}
         chg{"tchagatay"}
         chn{"chinook"}
-        ckb{"kurde central"}
         cr{"cri"}
         den{"slave"}
         dgr{"tlicho"}

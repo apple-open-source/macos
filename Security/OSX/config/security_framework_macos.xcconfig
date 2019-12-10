@@ -19,7 +19,9 @@ INFOPLIST_FILE = OSX/lib/Info-Security.plist
 INSTALL_PATH = $(SYSTEM_LIBRARY_DIR)/Frameworks
 
 ASAN_EXTRA_LDFLAGS_YES = -Wl,-no_warn_inits
-OTHER_LDFLAGS = -laks -lCrashReporterClient -Wl,-upward_framework,Foundation -Wl,-no_inits $(ASAN_EXTRA_LDFLAGS_$(ENABLE_ADDRESS_SANITIZER))
+ASAN_EXTRA_LDFLAGS_NO = -Wl,-no_inits
+ASAN_EXTRA_LDFLAGS_ = $(ASAN_EXTRA_LDFLAGS_NO)
+OTHER_LDFLAGS = -laks -lCrashReporterClient -Wl,-upward_framework,Foundation $(ASAN_EXTRA_LDFLAGS_$(ENABLE_ADDRESS_SANITIZER))
 
 SECTORDER_FLAGS = -order_file_statistics
 APPLY_RULES_IN_COPY_FILES = NO

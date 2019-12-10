@@ -154,3 +154,5 @@ __dispatch_io_fds
 __dispatch_io_devs_lockq
 __dispatch_io_fds_lockq
 __dispatch_io_init_pred
+
+__voucher_activity_disabled.disabled

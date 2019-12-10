@@ -59,12 +59,11 @@ extern OctagonState* const OctagonStateMachineHalted;
 + (instancetype)named:(NSString*)name
             intending:(OctagonState*)intendedState
            errorState:(OctagonState*)errorState
-              timeout:(dispatch_time_t)timeout
   withBlockTakingSelf:(void(^)(OctagonStateTransitionOperation* op))block;
 
 // convenience constructor. Will always succeed at entering the state.
 + (instancetype)named:(NSString*)name
-             entering:(OctagonState*)intendedState;
+             entering:(OctagonState*)intendedState NS_SWIFT_NAME(init(name:entering:));
 @end
 
 

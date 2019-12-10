@@ -49,9 +49,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) CKKSResultOperation* result;
 @property (readonly) OctagonStateTransitionPath* intendedPath;
 
+// If the initial request times out, the watcher will fail as well.
 - (instancetype)initNamed:(NSString*)name
               serialQueue:(dispatch_queue_t)queue
-                     path:(OctagonStateTransitionPath*)path;
+                     path:(OctagonStateTransitionPath*)path
+           initialRequest:(OctagonStateTransitionRequest* _Nullable)initialRequest;
 
 - (instancetype)timeout:(dispatch_time_t)timeout;
 

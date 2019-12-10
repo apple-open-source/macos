@@ -45,9 +45,9 @@
     self.finishedOp = [[NSOperation alloc] init];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
-    NSString* primaryAccountAltDSID = self.deps.authKitAdapter.primaryiCloudAccountAltDSID;
+    NSError *error = nil;
+    NSString* primaryAccountAltDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:&error];
 
-    NSError* error = nil;
 
     if(primaryAccountAltDSID != nil) {
         secnotice("octagon", "iCloud account is present; checking HSA2 status");
@@ -74,7 +74,7 @@
         }
 
     } else {
-        secnotice("octagon", "iCloud account is not present");
+        secnotice("octagon", "iCloud account is not present: %@", error);
 
         [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC *(OTAccountMetadataClassC * metadata) {
             metadata.icloudAccountState = OTAccountMetadataClassC_AccountState_NO_ACCOUNT;

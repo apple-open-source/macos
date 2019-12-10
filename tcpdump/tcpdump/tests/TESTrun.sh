@@ -7,7 +7,9 @@ rm -rf DIFF/ NEW/
 mkdir -p NEW
 mkdir -p DIFF
 passed=0
+echo $passed >.passed
 failed=0
+echo $failed >.failed
 cat /dev/null > failure-outputs.txt
 
 runComplexTests()
@@ -26,7 +28,7 @@ runSimpleTests()
   passed=`cat .passed`
   failed=`cat .failed`
   only=$1
-  cat TESTLIST | while read name input output options
+  cat TESTLIST TESTLISTRADAR | while read name input output options
   do
     case $name in
       \#*) continue;;
@@ -36,11 +38,11 @@ runSimpleTests()
     [ "$only" != "" -a "$name" != "$only" ] && continue
     if ./TESTonce.sh $name $input $output "$options"
     then
-      echo $passed >.passed
       passed=`expr $passed + 1`
+      echo $passed >.passed
     else
-      echo $failed >.failed
       failed=`expr $failed + 1`
+      echo $failed >.failed
     fi
     [ "$only" != "" -a "$name" = "$only" ] && break
   done

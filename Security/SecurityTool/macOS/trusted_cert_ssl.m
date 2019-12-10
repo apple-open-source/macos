@@ -27,6 +27,7 @@
 #import "trusted_cert_ssl.h"
 #include <Foundation/Foundation.h>
 #include <CoreServices/CoreServices.h>
+#include <Network/Network.h>
 
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
@@ -52,52 +53,35 @@
 #include <Security/SecKey.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecTrust.h>
+#include <Security/SecProtocolOptions.h>
 
-#include <CFNetwork/CFNetwork.h>
 #include <SecurityFoundation/SFCertificateData.h>
 
-typedef CFTypeRef CFURLResponseRef;
-CFDictionaryRef _CFURLResponseGetSSLCertificateContext(CFURLResponseRef);
+#include <nw/private.h>
 
-@interface NSURLResponse (URLResponseInternals)
-- (CFURLResponseRef)_CFURLResponse;
-@end
 
-@interface NSHTTPURLResponse (HTTPURLResponseInternals)
-- (NSArray *)_peerCertificateChain;
-@end
+@interface TLSConnection : NSObject
 
-@interface NSURLResponse (CertificateUtilities)
-- (SecTrustRef)peerTrust;
-- (NSArray *)peerCertificates;
-@end
+@property NSURL *url;
+@property NSError *error;
+@property SecTrustRef trust;
+@property BOOL finished;
+@property BOOL udp; // default is NO (use tcp)
+@property int verbose;
+@property dispatch_queue_t queue;
+@property nw_connection_t connection;
 
-@interface CertDownloader : NSObject <NSURLDownloadDelegate>
-{
-    @private
-    NSURL *_url;
-    NSURLRequest *_urlReq;
-    NSURLResponse *_urlRsp;
-    NSURLDownload *_urlDL;
-    SecTrustRef _trust;
-    BOOL _finished;
-}
-
-- (id)initWithURLString:(const char *)urlstr;
+- (id)initWithURLString:(const char *)urlstr verbose:(int)level;
 - (void)dealloc;
-- (BOOL)finished;
-- (void)waitForDownloadToFinish;
-
-- (SecTrustRef)trustReference;
-
-- (void)downloadDidFinish:(NSURLDownload *)download;
-- (void)download:(NSURLDownload *)download didFailWithError:(NSError *)error;
+- (nw_connection_t)createConnection;
+- (void)startConnection;
+- (void)waitForConnection;
+- (NSError*)error;
+- (SecTrustRef)trust;
 
 + (BOOL)isNetworkURL:(const char *)urlstr;
 
 @end
-
-static int _verbose = 0;
 
 #define ANSI_RED     "\x1b[31m"
 #define ANSI_GREEN   "\x1b[32m"
@@ -107,130 +91,141 @@ static int _verbose = 0;
 #define ANSI_CYAN    "\x1b[36m"
 #define ANSI_RESET   "\x1b[0m"
 
+#if OBJC_ARC_DISABLED
+#define NW_RETAIN(obj) nw_retain(obj)
+#define NW_RELEASE(obj) nw_release(obj)
+#define SEC_RELEASE(obj) sec_release(obj)
+#define OBJ_RELEASE(obj) [obj release]
+#define SUPER_DEALLOC [super dealloc]
+#else
+#define NW_RETAIN(obj)
+#define NW_RELEASE(obj)
+#define SEC_RELEASE(obj)
+#define OBJ_RELEASE(obj)
+#define SUPER_DEALLOC
+#endif
 
-@implementation CertDownloader
+@implementation TLSConnection
 
-- (id)initWithURLString:(const char *)urlstr
+- (id)initWithURLString:(const char *)urlstr verbose:(int)level
 {
-    _finished = NO;
     _url = [[NSURL alloc] initWithString:[NSString stringWithFormat:@"%s", urlstr]];
-    _urlReq = [[NSURLRequest alloc] initWithURL:_url];
-    _urlRsp = nil;
+    _udp = NO;
+    _finished = NO;
+    _verbose = level;
+    _error = nil;
     _trust = NULL;
-
-    _urlDL = [[NSURLDownload alloc] initWithRequest:_urlReq delegate:self];
-
-    fprintf(stdout, "Opening connection to %s\n", urlstr);
-    fflush(stdout);
+    _queue = dispatch_get_main_queue();
+    _connection = [self createConnection];
 
     return self;
 }
 
 - (void)dealloc
 {
-    _urlDL = nil;
-    _urlReq = nil;
-    _urlRsp = nil;
-    _url = nil;
-    _trust = NULL;
-}
-
-- (BOOL)finished
-{
-    return _finished;
-}
-
-- (void)waitForDownloadToFinish
-{
-    // cycle the run loop while we're waiting for the _finished flag to be set
-    NSDate *cycleTime;
-    while (_finished == NO) {
-        cycleTime = [NSDate dateWithTimeIntervalSinceNow:0.1];
-        [[NSRunLoop currentRunLoop] runMode: NSDefaultRunLoopMode beforeDate:cycleTime];
+    if (_connection) {
+        NW_RELEASE(_connection);
+        _connection = NULL;
     }
-}
-
-// NSURLDownloadDelegate delegate methods
-
-- (void)downloadDidFinish:(NSURLDownload *)download
-{
-    if (!_urlRsp) {
-        fprintf(stdout, "No response received from %s\n", [[_url absoluteString] UTF8String]);
-        fflush(stdout);
+    if (_error) {
+        OBJ_RELEASE(_error);
+        _error = nil;
     }
-    _finished = YES;
-}
-
-- (void)download:(NSURLDownload *)download didReceiveResponse:(NSURLResponse *)response
-{
-    fprintf(stdout, "Received response from %s\n", [[_url absoluteString] UTF8String]);
-    fflush(stdout);
-    _urlRsp = response;
-}
-
-- (void)download:(NSURLDownload *)download didFailWithError:(NSError *)error
-{
-    fprintf(stdout, "Failed connection to %s", [[_url absoluteString] UTF8String]);
-    if (!_verbose) {
-        fprintf(stdout, " (use -v option to see more information)");
+    if (_url) {
+        OBJ_RELEASE(_url);
+        _url = nil;
     }
-    fprintf(stdout, "\n");
-    fflush(stdout);
-    SecTrustRef tmp = _trust;
-    _trust = (SecTrustRef)CFBridgingRetain([[error userInfo] objectForKey:@"NSURLErrorFailingURLPeerTrustErrorKey"]);
-    if (tmp) { CFRelease(tmp); }
-    _finished = YES;
-
-    if (_verbose) {
-        // dump the userInfo dictionary
-        NSLog(@"%@", [error userInfo]);
+    if (_trust) {
+        CFRelease(_trust);
+        _trust = NULL;
     }
+    SUPER_DEALLOC;
 }
 
-- (SecTrustRef)trustReference
+- (nw_connection_t)createConnection
 {
-    // First, see if we already retained the SecTrustRef, e.g. during a failed connection.
-    SecTrustRef trust = _trust;
-    if (!trust) {
-        // If not, try to obtain the SecTrustRef from the response.
-        trust = [_urlRsp peerTrust];
-        if (trust) {
-            if (_verbose > 1) {
-                fprintf(stdout, "Obtained SecTrustRef from the response\n");
+    const char *host = [[self.url host] UTF8String];
+    const char *port = [[[self.url port] stringValue] UTF8String];
+    if (!host) {
+        if (_verbose > 0) { fprintf(stderr, "Unable to continue without a hostname (is URL valid?)\n"); }
+        self.finished = YES;
+        return NULL;
+    }
+    nw_endpoint_t endpoint = nw_endpoint_create_host(host, (port) ? port : "443");
+    nw_parameters_configure_protocol_block_t configure_tls = ^(nw_protocol_options_t _Nonnull options) {
+        sec_protocol_options_t sec_options = nw_tls_copy_sec_protocol_options(options);
+        sec_protocol_options_set_verify_block(sec_options, ^(
+            sec_protocol_metadata_t _Nonnull metadata, sec_trust_t _Nonnull trust_ref, sec_protocol_verify_complete_t _Nonnull complete) {
+            SecTrustRef trust = sec_trust_copy_ref(trust_ref);
+            if (trust) {
+                CFRetain(trust);
+                if (self.trust) { CFRelease(self.trust); }
+                self.trust = trust;
             }
-            CFRetain(trust);
-            _trust = trust;
-        }
-    }
-    if (!trust) {
-        // We don't have a SecTrustRef, so build one ourselves for this host.
-        NSString *host = [_url host];
-        if (_verbose > 1) {
-            fprintf(stdout, "Building our own SecTrustRef for \"%s\"\n", host ? [host UTF8String] : "<missing host>");
-        }
-        SecPolicyRef sslPolicy = SecPolicyCreateSSL(false, (__bridge CFStringRef)host);
-        SecPolicyRef revPolicy =  SecPolicyCreateRevocation(kSecRevocationUseAnyAvailableMethod);
-        NSArray *policies = [NSArray arrayWithObjects:(__bridge id)sslPolicy, (__bridge id)revPolicy, nil];
-        NSArray *certs = [_urlRsp peerCertificates];
-        if (certs) {
-            (void)SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, (__bridge CFArrayRef)policies, &trust);
-            _trust = trust;
-        }
-    }
+            CFErrorRef error = NULL;
+            BOOL allow = SecTrustEvaluateWithError(trust, &error);
+            if (error) {
+                if (self.error) { OBJ_RELEASE(self.error); }
+                self.error = (__bridge NSError *)error;
+            }
+            complete(allow);
+        }, self.queue);
+    };
+    nw_parameters_t parameters = nw_parameters_create_secure_tcp(configure_tls, NW_PARAMETERS_DEFAULT_CONFIGURATION);
+    nw_parameters_set_indefinite(parameters, false); // so we don't enter the 'waiting' state on TLS failure
+    nw_connection_t connection = nw_connection_create(endpoint, parameters);
+    NW_RELEASE(endpoint);
+    NW_RELEASE(parameters);
+    return connection;
+}
 
-    // Ensure that the trust has been evaluated
-    SecTrustResultType result = kSecTrustResultInvalid;
-    OSStatus status = SecTrustGetTrustResult(trust, &result);
-    bool needsEvaluation = (status != errSecSuccess || result == kSecTrustResultInvalid);
-    if (needsEvaluation) {
-        status = SecTrustEvaluate(trust, &result);
-        if (_verbose > 1) {
-            fprintf(stdout, "%s trust reference (status = %d, trust result = %d)\n",
-                    (needsEvaluation) ? "Evaluated" : "Checked",
-                    (int)status, (int)result);
+- (void)startConnection
+{
+    nw_connection_set_queue(_connection, _queue);
+    NW_RETAIN(_connection); // Hold a reference until cancelled
+
+    nw_connection_set_state_changed_handler(_connection, ^(nw_connection_state_t state, nw_error_t error) {
+        nw_endpoint_t remote = nw_connection_copy_endpoint(self.connection);
+        errno = error ? nw_error_get_error_code(error) : 0;
+        const char *protocol = self.udp ? "udp" : "tcp";
+        const char *host = nw_endpoint_get_hostname(remote);
+        uint16_t port = nw_endpoint_get_port(remote);
+        // note: this code does not handle or expect nw_connection_state_waiting,
+        // since the connection parameters specified a definite connection.
+        if (state == nw_connection_state_failed) {
+            if (self.verbose > 0) {
+                fprintf(stderr, "connection to %s port %u (%s) failed\n", host, port, protocol);
+            }
+            // Cancel the connection, so we go to nw_connection_state_cancelled
+            nw_connection_cancel(self.connection);
+
+        } else if (state == nw_connection_state_ready) {
+            if (self.verbose > 0) {
+                fprintf(stderr, "connection to %s port %u (%s) opened\n", host, port, protocol);
+            }
+            // Once we get the SecTrustRef, we can cancel the connection
+            nw_connection_cancel(self.connection);
+
+        } else if (state == nw_connection_state_cancelled) {
+            if (self.verbose > 0) {
+                fprintf(stderr, "connection to %s port %u (%s) closed\n", host, port, protocol);
+            }
+            nw_connection_cancel(self.connection); // cancel to be safe (should be a no-op)
+            NW_RELEASE(_connection); // release the reference and set flag to exit loop
+            self.finished = YES;
         }
+        NW_RELEASE(remote);
+    });
+
+    nw_connection_start(_connection);
+}
+
+- (void)waitForConnection
+{
+    while (_finished == NO) {
+        NSDate *cycleTime = [NSDate dateWithTimeIntervalSinceNow:0.1];
+        [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:cycleTime];
     }
-    return trust;
 }
 
 + (BOOL)isNetworkURL:(const char *)urlstr
@@ -246,44 +241,6 @@ static int _verbose = 0;
 }
 
 @end
-
-@implementation NSURLResponse (CertificateUtilities)
-
-- (SecTrustRef)peerTrust
-{
-    SecTrustRef trust = NULL;
-
-    // Obtain the underlying SecTrustRef used by CFNetwork for the connection.
-    CFDictionaryRef certificateContext = _CFURLResponseGetSSLCertificateContext([self _CFURLResponse]);
-    if (_verbose && !certificateContext) {
-        fprintf(stdout, "Unable to get SSL certificate context!\n");
-        fflush(stdout);
-    } else {
-        trust = (SecTrustRef) CFDictionaryGetValue(certificateContext, kCFStreamPropertySSLPeerTrust);
-    }
-    if (_verbose && !trust) {
-        fprintf(stdout, "Unable to get kCFStreamPropertySSLPeerTrust!\n");
-        fflush(stdout);
-    }
-    return trust;
-}
-
-- (NSArray *)peerCertificates
-{
-    NSArray *certificateChain = nil;
-    if ([self isKindOfClass:[NSHTTPURLResponse class]]) {
-        certificateChain = [(NSHTTPURLResponse *)self _peerCertificateChain];
-    }
-    if (_verbose && certificateChain) {
-        fprintf(stdout, "Peer certificates: ");
-        fflush(stdout);
-        CFShow((__bridge CFArrayRef)certificateChain);
-    }
-    return certificateChain;
-}
-
-@end
-
 
 static NSString *errorStringForKey(NSString *key)
 {
@@ -412,20 +369,30 @@ void printExtendedResults(SecTrustRef trust)
 int evaluate_ssl(const char *urlstr, int verbose, SecTrustRef * CF_RETURNS_RETAINED trustRef)
 {
     @autoreleasepool {
-        _verbose = verbose;
         if (trustRef) {
             *trustRef = NULL;
         }
-        if (![CertDownloader isNetworkURL:urlstr]) {
+        if (![TLSConnection isNetworkURL:urlstr]) {
             return 2;
         }
-        CertDownloader *context = [[CertDownloader alloc] initWithURLString:urlstr];
-        [context waitForDownloadToFinish];
-        SecTrustRef trust = [context trustReference];
+        TLSConnection *tls = [[TLSConnection alloc] initWithURLString:urlstr verbose:verbose];
+        [tls startConnection];
+        [tls waitForConnection];
+
+        NSError *error = [tls error];
+        if (verbose && error) {
+            fprintf(stderr, "NSError: { ");
+            CFShow((__bridge CFErrorRef)error);
+            fprintf(stderr,"}\n");
+        }
+
+        SecTrustRef trust = [tls trust];
         if (trustRef && trust) {
             CFRetain(trust);
             *trustRef = trust;
         }
+        OBJ_RELEASE(tls);
+        tls = nil;
     }
     return 0;
 }

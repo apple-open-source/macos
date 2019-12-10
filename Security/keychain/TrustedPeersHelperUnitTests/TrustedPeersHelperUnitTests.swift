@@ -2018,6 +2018,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertEqual(midList.machineIDs(in: .disallowed), disallowedMachineIDs, "List of disallowed machine IDs should match")
         XCTAssertEqual(midList.machineIDs(in: .unknown), unknownMachineIDs, "List of unknown machine IDs should match")
 
+
+        let (fetchedAllowList, fetchErr) = container.fetchAllowedMachineIDsSync(test: self)
+        XCTAssertNil(fetchErr, "Should be no error fetching the allowed list")
+        XCTAssertEqual(fetchedAllowList, allowedMachineIDs, "A fetched list of allowed machine IDs should match the loaded list")
+
         // if we reload the container, does it still match?
         let reloadedContainer = try Container(name: ContainerName(container: "test", context: OTDefaultContext), persistentStoreDescription: persistentStore, cuttlefish: cuttlefish)
 
@@ -2399,8 +2404,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         try self.assert(container: container, allowedMachineIDs: Set([]), disallowedMachineIDs: [], unknownMachineIDs: Set([]), persistentStore: description, cuttlefish: self.cuttlefish)
 
         XCTAssertFalse(container.onqueueFullIDMSListWouldBeHelpful(), "Container shouldn't think it could use an IDMS list set")
-
-
     }
 
     func testContainerAndModelConsistency() throws {

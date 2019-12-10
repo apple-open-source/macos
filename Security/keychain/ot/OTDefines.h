@@ -26,6 +26,8 @@
 #if OCTAGON
 #include <Foundation/Foundation.h>
 #include <utilities/debugging.h>
+#import "keychain/ot/OTConstants.h"
+
 NS_ASSUME_NONNULL_BEGIN
 
 extern NSString* const OctagonEventAttributeZoneName;
@@ -40,7 +42,7 @@ extern NSString* const TrustedPeersHelperErrorDomain;
 extern NSString* const CuttlefishErrorRetryAfterKey;
 
 /* Octagon Errors */
-typedef enum {
+typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     //OTErrorNoColumn                         = 1,
     //OTErrorKeyGeneration                    = 2,
     //OTErrorEmptySecret                      = 3,
@@ -82,7 +84,13 @@ typedef enum {
     OTErrorSOSAdapter                       = 39,
     //OctagonErrorNoAccount                   = 40,
     OTErrorRecoveryKeyMalformed             = 41,
-} OctagonErrorCode;
+    OTAuthKitNoAltDSID                      = 42,
+    OTAuthKitAKDeviceListRequestContextClass = 43,
+    OTAuthKitNoPrimaryAccount               = 44,
+    OTAuthKitNoAuthenticationController     = 45,
+    OTAuthKitMachineIDMissing               = 46,
+    OTAuthKitPrimaryAccountHaveNoDSID       = 47,
+};
 
 #define OTMasterSecretLength 72
 

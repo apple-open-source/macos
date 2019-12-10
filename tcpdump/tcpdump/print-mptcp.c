@@ -318,7 +318,7 @@ mp_dss_print(netdissect_options *ndo,
                 if (opt_len >= 2) {
                         ND_PRINT((ndo, " csum 0x%x", EXTRACT_16BITS(opt)));
                         opt_len -= 2;
-        }
+                }
         }
         if (opt_len != 0)
                 return 0;

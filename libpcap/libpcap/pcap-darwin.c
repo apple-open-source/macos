@@ -401,10 +401,10 @@ pcap_setup_pktap_interface(const char *device, char *ebuf)
 			} else {
 				entry.filter_op = PKTAP_FILTER_OP_PASS;
 				entry.filter_param = PKTAP_FILTER_PARAM_IF_NAME;
-                /*
-                 * filter_param_if_name is not a zero terminated string so
-                 * do not use strlcpy(3)
-                 */
+				/*
+				 * filter_param_if_name is not a zero terminated string so
+				 * do not use strlcpy(3)
+				 */
 				strncpy(entry.filter_param_if_name, pktap_param,
 						MIN(sizeof(entry.filter_param_if_name), len));
 			}

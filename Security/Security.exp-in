@@ -341,6 +341,10 @@ SEC_EXP_CLASS(OTOperationConfiguration)
 _kSecEntitlementPrivateOctagonEscrow
 #endif
 
+__OctagonSignpostCreate
+__OctagonSignpostGetNanoseconds
+__OctagonSignpostLogSystem
+
 _OTCliqueStatusToString
 _OTCliqueStatusFromString
 

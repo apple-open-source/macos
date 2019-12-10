@@ -708,7 +708,7 @@ cfm_print(netdissect_options *ndo,
                     hexdump = TRUE;
                     break;
                 }
-                
+
                 /* Here mgmt_addr_length stands for the management address length. */
                 mgmt_addr_length = *tptr;
                 tptr++;

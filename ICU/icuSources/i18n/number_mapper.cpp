@@ -127,9 +127,10 @@ MacroProps NumberPropertyMapper::oldToNew(const DecimalFormatProperties& propert
     // Validate min/max int/frac.
     // For backwards compatibility, minimum overrides maximum if the two conflict.
     // The following logic ensures that there is always a minimum of at least one digit.
+    // Except that we allow minInt=0, minFrac=0 if maxInt!=0 - rdar://54569257
     if (minInt == 0 && maxFrac != 0) {
         // Force a digit after the decimal point.
-        minFrac = minFrac <= 0 ? 1 : minFrac;
+        minFrac = (minFrac < 0 || (minFrac==0 && maxInt==0)) ? 1 : minFrac; // rdar://54569257
         maxFrac = maxFrac < 0 ? -1 : maxFrac < minFrac ? minFrac : maxFrac;
         minInt = 0;
         maxInt = maxInt < 0 ? -1 : maxInt > kMaxIntFracSig ? -1 : maxInt;

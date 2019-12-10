@@ -1,0 +1,123 @@
+ifndef SVN_INSTALL_DIR
+export SVN_INSTALL_DIR = /usr/local
+endif
+
+Install_Prefix = $(SVN_INSTALL_DIR)
+Install_Man = $(SVN_INSTALL_DIR)/share/man
+
+GnuAfterInstall       = perl-bindings post-install
+Extra_Configure_Flags = --enable-shared --disable-static \
+                        --without-berkeley-db \
+                        --without-apxs \
+                        --with-lz4=internal \
+                        --with-utf8proc=internal \
+                        --with-apr=$(APR_TOOLCHAIN_DIR) \
+                        --with-apr-util=$(APR_TOOLCHAIN_DIR) \
+                        --with-swig=$(shell test -e /usr/bin/swig && echo /usr || echo /usr/local) \
+                        --with-ruby-sitedir=$(RBLIBDIR)/ruby \
+                        --with-sasl=$(SDKROOT)/usr \
+                        --includedir=$(Install_Prefix)/local/include
+
+# We are only performing post-install actions here.
+GnuNoBuild            = YES
+GnuNoInstall          = YES
+
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+
+Install_Target  = install
+Install_Flags   = DESTDIR=$(DSTROOT)
+
+# multi-version support
+VERSIONERDIR := /usr/local/versioner
+
+#-------------------------------------------------------------------------
+# Patch subversion's Makefile and Makefile.PL just after running configure
+#
+# In Makefile, we need to change the include path to the correct version
+# of perl and python, and we need to force the libsvn_swig_perl and
+# libsvn_swig_py dylibs to be installed in a version-specific place, so
+# each version of perl and python has its own dylib.  The install name
+# of these dylibs are set to the correct version-specific places, by defining
+# a new macro, LINKVERS in Makefile.in, which uses the environment variable
+# RPATHVERS (defined in "for" loops below) as the value to libtool's
+# -rpath argument.
+#
+# For Makefile.PL, we need to remove -L/usr/lib, which is always first,
+# and will cause the bundles to link against the libsvn_swig_perl dylib
+# in /usr/lib, instead of the version-specific place (in the DSTROOT).
+# This really only matters during the transition to the version-specific
+# place, while the BuildRoot still contains libsvn_swig_perl in /usr/lib
+# (it will eventually be cleaned out in a world build).
+#-------------------------------------------------------------------------
+ConfigStamp2 = $(ConfigStamp)2
+
+configure:: $(ConfigStamp2)
+
+# 13803426: version includes subversion, we just want revision.patchlevel
+PERLVERS := $(shell perl -MConfig -e 'print $$Config::Config{revision}.".".$$Config::Config{patchlevel}')
+PYTHONVERS := $(shell python -c 'import sys; print("%d.%d" % sys.version_info[:2])')
+MAKEFILEPL := subversion/bindings/swig/perl/native/Makefile.PL
+$(ConfigStamp2): $(ConfigStamp)
+	mv '$(BuildDirectory)/Makefile' '$(BuildDirectory)/Makefile.bak'
+	sed -e '/^SWIG_PL_INCLUDES/s/$(PERLVERS)/$$(VERSIONER_PERL_VERSION)/g' \
+	    -e '/^SWIG_PY_INCLUDES/s/$(PYTHONVERS)/$$(VERSIONER_PYTHON_VERSION)/g' \
+	    -e '/^swig_py_libdir/s,$${exec_prefix}/lib,$${RPATHVERS},' \
+	    -e '/^swig_pl_libdir/s,$${exec_prefix}/lib,$${RPATHVERS},' \
+	    '$(BuildDirectory)/Makefile.bak' > '$(BuildDirectory)/Makefile'
+	mv '$(BuildDirectory)/$(MAKEFILEPL)' '$(BuildDirectory)/$(MAKEFILEPL).bak'
+	sed 's,-L/usr/lib,,' '$(BuildDirectory)/$(MAKEFILEPL).bak' > '$(BuildDirectory)/$(MAKEFILEPL)'
+	$(TOUCH) $(ConfigStamp2)
+
+# Perl multi-version support
+PERLVERSIONS := $(VERSIONERDIR)/perl/versions
+PERLSUBDEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PERLVERSIONS))
+PERLDEFAULT := $(shell grep '^$(PERLSUBDEFAULT)' $(PERLVERSIONS))
+PERLUNORDEREDVERS := $(shell grep -v '^DEFAULT' $(PERLVERSIONS))
+# do default version last
+PERLORDEREDVERS := $(filter-out $(PERLDEFAULT),$(PERLUNORDEREDVERS)) $(PERLDEFAULT)
+PERLTOPDIR := $(BuildDirectory)/subversion/bindings/swig/perl
+PERLTOPDIRORIG := $(PERLTOPDIR).orig
+
+perl-bindings:
+	$(MKDIR) $(OBJROOT)/subversion/libsvn_delta $(OBJROOT)/subversion/libsvn_subr
+	$(MKDIR) $(PERLTOPDIR)/libsvn_swig_perl
+	mv $(PERLTOPDIR) $(PERLTOPDIRORIG)
+
+	@set -x && \
+	cd $(BuildDirectory) && \
+	for vers in $(PERLORDEREDVERS); do \
+	    export VERSIONER_PERL_VERSION=$${vers} && \
+	    installarchlib=`perl -MConfig -e 'print $$Config::Config{installarchlib}' | sed "s,^/System,," | sed "s,^/Library,/AppleInternal/Library,"` && \
+	    installprivlib=`perl -MConfig -e 'print $$Config::Config{installprivlib}' | sed "s,^/System,," | sed "s,^/Library,/AppleInternal/Library,"` && \
+	    installbin=$${installprivlib}/bin && \
+	    PLARGS="INSTALLDIRS=perl INSTALLARCHLIB='$${installarchlib}' INSTALLPRIVLIB='$${installprivlib}' INSTALLBIN='$${installbin}' INSTALLSCRIPT='$${installbin}' INSTALLMAN3DIR='/usr/local/share/man/man3'" && \
+	    MAKEARGS="$(Extra_Make_Flags) DESTDIR='$(DSTROOT)'" && \
+	    export RPATHVERS="$${installarchlib}/lib" && \
+	    ditto $(PERLTOPDIRORIG) $(PERLTOPDIR) && \
+	    make -j1 swig-pl PLARGS="$${PLARGS}" MAKEARGS="$${MAKEARGS}" ARCHFLAGS="$(RC_CFLAGS)" && \
+	    make -j1 install-swig-pl PLARGS="$${PLARGS}" MAKEARGS="$${MAKEARGS}" DESTDIR="$(DSTROOT)" && \
+	    for module in Client Core Delta Fs Ra Repos Wc; do\
+		    $(CP) $(DSTROOT)$${installarchlib}/auto/SVN/_$${module}/_$${module}.bundle $(SYMROOT) && \
+		    $(STRIP) -x $(DSTROOT)$${installarchlib}/auto/SVN/_$${module}/_$${module}.bundle && \
+		    $(CODESIGN) $(DSTROOT)$${installarchlib}/auto/SVN/_$${module}/_$${module}.bundle && \
+		    $(RM) $(DSTROOT)$${installarchlib}/auto/SVN/_$${module}/_$${module}.bs || exit 1; \
+	    done && \
+	    $(RM) $(DSTROOT)$${installarchlib}/perllocal.pod && \
+	    mv $(PERLTOPDIR) $(PERLTOPDIR).$${vers} || exit 1; \
+	done
+
+# Post-install cleanup
+post-install:
+	[ -n "$(DSTROOT)" ] || exit 1
+	@set -x && \
+	for library in `find $(DSTROOT) -type f -name \*.dylib`; do \
+		$(CP) $${library} $(SYMROOT) && \
+		$(STRIP) -x $${library} && \
+		$(CODESIGN) $${library} || exit 1; \
+	done
+	find $(DSTROOT) -name \*.la -delete
+	find $(DSTROOT) -name .packlist -delete
+	install -d -o root -g wheel -m 0755 $(DSTROOT)/usr/local/bin
+	install -o root -g wheel -m 0755 $(SRCROOT)/git-svn/git-svn $(DSTROOT)/usr/local/bin
+	install -d -o root -g wheel -m 0755 $(DSTROOT)/usr/local/share/git-core/perl
+	ditto $(SRCROOT)/git-svn/perl $(DSTROOT)/usr/local/share/git-core/perl

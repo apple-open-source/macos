@@ -277,18 +277,10 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     }
    
     if(self.account.circle_rings_retirements_need_attention){
-        SOSAccountRecordRetiredPeersInCircle(self.account);
-
-        SOSAccountEnsureRecoveryRing(self.account);
-        SOSAccountEnsureInBackupRings(self.account);
-
-        CFErrorRef localError = NULL;
-        if(![self.account.circle_transport flushChanges:&localError]){
-            secerror("flush circle failed %@", localError);
-        }
-        CFReleaseSafe(localError);
-
-        notifyEngines = true;
+        self.account.circle_rings_retirements_need_attention = false;
+#if OCTAGON
+        [self.account triggerRingUpdate];
+#endif
     }
 
     if (notifyEngines) {
@@ -305,7 +297,6 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
         SOSUpdateKeyInterest(self.account);
     }
 
-    self.account.circle_rings_retirements_need_attention = false;
     self.account.engine_peer_state_needs_repair = false;
 
     [self.account flattenToSaveBlock];

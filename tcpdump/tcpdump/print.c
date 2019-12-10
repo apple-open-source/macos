@@ -45,13 +45,11 @@ struct printer {
 
 static const struct printer printers[] = {
 	{ ether_if_print,	DLT_EN10MB },
-
 #ifdef __APPLE__
 #ifdef DLT_PCAPNG
 	{ pcapng_print,		DLT_PCAPNG },
 #endif
 #endif /* __APPLE__ */
-
 #ifdef DLT_IPNET
 	{ ipnet_if_print,	DLT_IPNET },
 #endif

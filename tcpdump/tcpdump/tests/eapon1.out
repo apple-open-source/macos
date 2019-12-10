@@ -37,9 +37,9 @@ EAP packet (0) v1, len 28
 EAP packet (0) v1, len 4
 EAPOL key (3) v1, len 57
 EAPOL key (3) v1, len 44
-ARP, Announcement 169.254.67.194, length 28
-ARP, Announcement 169.254.67.194, length 28
-ARP, Announcement 169.254.67.194, length 28
+ARP, Request who-has 169.254.67.194 tell 169.254.67.194, length 28
+ARP, Request who-has 169.254.67.194 tell 169.254.67.194, length 28
+ARP, Request who-has 169.254.67.194 tell 169.254.67.194, length 28
 IP 169.254.67.194.4299 > 239.255.255.250.1900: UDP, length 133
 IP 169.254.67.194 > 224.0.0.22: igmp v3 report, 1 group record(s)
 IP 169.254.67.194.137 > 169.254.255.255.137: NBT UDP PACKET(137): REGISTRATION; REQUEST; BROADCAST

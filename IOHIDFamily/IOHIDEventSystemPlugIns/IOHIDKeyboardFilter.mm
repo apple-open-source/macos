@@ -360,11 +360,6 @@ void IOHIDKeyboardFilter::open(IOHIDServiceRef service, IOOptionBits options)
     }
     
     setEjectKeyProperty(keyboardID);
-
-    if (keyboardID == kHIDNonEscKeyKeyboardDesignANSIID || keyboardID == kHIDNonEscKeyKeyboardDesignISOID || keyboardID == kHIDNonEscKeyKeyboardDesignJISID) {
-        
-        IOHIDServiceSetProperty(_service, CFSTR(kIOHIDKeyboardSupportsEscKey), kCFBooleanFalse);
-    }
 #endif
     
     value = IOHIDServiceCopyProperty(_service, CFSTR(kIOHIDKeyboardSupportedModifiersKey));

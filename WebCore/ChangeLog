@@ -1,6 +1,1086 @@
-2019-10-16  Alan Coon  <alancoon@apple.com>
+2019-11-10  Kocsen Chung  <kocsen_chung@apple.com>
 
-        Cherry-pick r251188. rdar://problem/56340800
+        Cherry-pick r252297. rdar://problem/57058404
+
+    [WebAuthn] Add quirk needed to support legacy Google NFC Titan security keys
+    https://bugs.webkit.org/show_bug.cgi?id=204024
+    <rdar://problem/56962320>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    Covered by manual tests.
+    
+    * Modules/webauthn/fido/FidoConstants.h:
+    
+    Source/WebKit:
+    
+    Some legacy U2F keys such as Google T1 Titan don't understand the FIDO applet command. Instead,
+    they are configured to only have the FIDO applet. Therefore, when the above command fails, we
+    use U2F_VERSION command to double check if the connected tag can actually speak U2F, indicating
+    we are interacting with one of these legacy keys.
+    
+    * UIProcess/WebAuthentication/Cocoa/NfcConnection.mm:
+    (WebKit::fido::compareVersion):
+    (WebKit::fido::trySelectFidoApplet):
+    (WebKit::NfcConnection::transact const):
+    (WebKit::NfcConnection::didDetectTags):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@252297 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-11-08  Jiewen Tan  <jiewen_tan@apple.com>
+
+            [WebAuthn] Add quirk needed to support legacy Google NFC Titan security keys
+            https://bugs.webkit.org/show_bug.cgi?id=204024
+            <rdar://problem/56962320>
+
+            Reviewed by Brent Fulgham.
+
+            Covered by manual tests.
+
+            * Modules/webauthn/fido/FidoConstants.h:
+
+2019-11-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r252175. rdar://problem/56971561
+
+    AX: WKWebView does not shift Accessibility Focus for Catalyst (203798)
+    https://bugs.webkit.org/show_bug.cgi?id=203798
+    
+    Patch by Eric Liang <ericliang@apple.com> on 2019-11-06
+    Reviewed by Chris Fleizach.
+    
+    Source/WebCore:
+    
+    Changed to use the new cocoa directory instead of macOS only
+    
+    * accessibility/mac/AXObjectCacheMac.mm:
+    * accessibility/mac/WebAccessibilityObjectWrapperMac.mm:
+    
+    Source/WebCore/PAL:
+    
+    Changed the path of NSAccessibilitySPI from Mac to Cocoa
+    
+    * PAL.xcodeproj/project.pbxproj:
+    * pal/spi/cocoa/NSAccessibilitySPI.h: Renamed from Source/WebCore/PAL/pal/spi/mac/NSAccessibilitySPI.h.
+    
+    Source/WebKit:
+    
+    Added the code to register/unregister remote UI Process identifier on the host app.
+    This is used so that the host app can appear as the sender for notifications sent from its web processes. Unfortunately this has to be done in WebKit: in accessibility bundles the swizzled code is not called because of bundle loading time.
+    Added AppKit softlink for Mac catalyst.
+    
+    * SourcesCocoa.txt:
+    * UIProcess/Cocoa/WebViewImpl.mm:
+    * UIProcess/ios/AppKitSoftLink.h: Added.
+    * UIProcess/ios/AppKitSoftLink.mm: Added.
+    * UIProcess/ios/ViewGestureControllerIOS.mm:
+    (-[WKSwipeTransitionController gestureRecognizerForInteractiveTransition:WithTarget:action:]):
+    * UIProcess/ios/WKContentView.mm:
+    (-[WKContentView _updateRemoteAccessibilityRegistration:]):
+    (-[WKContentView _accessibilityRegisterUIProcessTokens]):
+    (-[WKContentView _processDidExit]):
+    * WebKit.xcodeproj/project.pbxproj:
+    * WebProcess/WebPage/mac/WKAccessibilityWebPageObjectMac.mm:
+    * WebProcess/WebPage/mac/WebPageMac.mm:
+    * WebProcess/cocoa/WebProcessCocoa.mm:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@252175 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-11-06  Eric Liang  <ericliang@apple.com>
+
+            AX: WKWebView does not shift Accessibility Focus for Catalyst (203798)
+            https://bugs.webkit.org/show_bug.cgi?id=203798
+
+            Reviewed by Chris Fleizach.
+
+            Changed to use the new cocoa directory instead of macOS only
+
+            * accessibility/mac/AXObjectCacheMac.mm:
+            * accessibility/mac/WebAccessibilityObjectWrapperMac.mm:
+
+2019-11-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r252000. rdar://problem/56887517
+
+    REGRESSION(r243947) Epson software updater fails to install new version
+    https://bugs.webkit.org/show_bug.cgi?id=203809
+    <rdar://problem/56002179>
+    
+    Patch by Alex Christensen <achristensen@webkit.org> on 2019-11-04
+    Reviewed by Brady Eidson.
+    
+    Source/WebCore:
+    
+    I manually verified this fixes the issue.  See the radar.
+    
+    * platform/RuntimeApplicationChecks.h:
+    * platform/cocoa/RuntimeApplicationChecksCocoa.mm:
+    (WebCore::MacApplication::isEpsonSoftwareUpdater):
+    
+    Source/WebKitLegacy/mac:
+    
+    * Misc/WebDownload.mm:
+    (shouldCallOnNetworkThread):
+    (callOnDelegateThread):
+    (isDelegateThread):
+    (-[WebDownloadInternal downloadDidBegin:]):
+    (-[WebDownloadInternal download:willSendRequest:redirectResponse:]):
+    (-[WebDownloadInternal download:didReceiveAuthenticationChallenge:]):
+    (-[WebDownloadInternal download:didReceiveResponse:]):
+    (-[WebDownloadInternal download:didReceiveDataOfLength:]):
+    (-[WebDownloadInternal download:shouldDecodeSourceDataOfMIMEType:]):
+    (-[WebDownloadInternal download:decideDestinationWithSuggestedFilename:]):
+    (-[WebDownloadInternal download:didCreateDestination:]):
+    (-[WebDownloadInternal downloadDidFinish:]):
+    (-[WebDownloadInternal download:didFailWithError:]):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@252000 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-11-04  Alex Christensen  <achristensen@webkit.org>
+
+            REGRESSION(r243947) Epson software updater fails to install new version
+            https://bugs.webkit.org/show_bug.cgi?id=203809
+            <rdar://problem/56002179>
+
+            Reviewed by Brady Eidson.
+
+            I manually verified this fixes the issue.  See the radar.
+
+            * platform/RuntimeApplicationChecks.h:
+            * platform/cocoa/RuntimeApplicationChecksCocoa.mm:
+            (WebCore::MacApplication::isEpsonSoftwareUpdater):
+
+2019-11-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r251957. rdar://problem/56887511
+
+    SVG pair properties must be detached from their owner before it's deleted
+    https://bugs.webkit.org/show_bug.cgi?id=203545
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    SVGAnimatedPropertyPairAccessor needs to override its detach() method so
+    each of its pair properties detaches itself from the owner.
+    SVGPointerMemberAccessor does the same thing but for a single property
+    which covers all the list properties as well.
+    
+    Test: svg/custom/pair-properties-detach.html
+    
+    * svg/properties/SVGAnimatedPropertyPairAccessor.h:
+    
+    LayoutTests:
+    
+    * svg/custom/pair-properties-detach-expected.txt: Added.
+    * svg/custom/pair-properties-detach.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@251957 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-11-01  Said Abou-Hallawa  <sabouhallawa@apple.com>
+
+            SVG pair properties must be detached from their owner before it's deleted
+            https://bugs.webkit.org/show_bug.cgi?id=203545
+
+            Reviewed by Simon Fraser.
+
+            SVGAnimatedPropertyPairAccessor needs to override its detach() method so
+            each of its pair properties detaches itself from the owner.
+            SVGPointerMemberAccessor does the same thing but for a single property
+            which covers all the list properties as well.
+
+            Test: svg/custom/pair-properties-detach.html
+
+            * svg/properties/SVGAnimatedPropertyPairAccessor.h:
+
+2019-11-04  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r248552. rdar://problem/56868427
+
+    Replace multiparameter overloads of append() in StringBuilder as a first step toward standardizinging on the flexibleAppend() implementation
+    https://bugs.webkit.org/show_bug.cgi?id=200614
+    
+    Reviewed by Darin Adler.
+    
+    Renames StringBuilder::append(const LChar*, unsigned), StringBuilder::append(const UChar*, unsigned) and 
+    StringBuilder::append(const char*, unsigned) to StringBuilder::appendCharacters(...).
+            
+    Renames StringBuilder::append(const String& string, unsigned offset, unsigned length) to 
+    StringBuilder::appendSubstring(...).
+    
+    Source/JavaScriptCore:
+    
+    * dfg/DFGStrengthReductionPhase.cpp:
+    (JSC::DFG::StrengthReductionPhase::handleNode):
+    * runtime/ConfigFile.cpp:
+    (JSC::ConfigFile::parse):
+    * runtime/LiteralParser.cpp:
+    (JSC::LiteralParser<CharType>::Lexer::lexStringSlow):
+    * tools/FunctionOverrides.cpp:
+    (JSC::parseClause):
+    Update for renames.
+    
+    Source/WebCore:
+    
+    * dom/Range.cpp:
+    (WebCore::Range::toString const):
+    * editing/Editing.cpp:
+    (WebCore::stringWithRebalancedWhitespace):
+    * editing/MarkupAccumulator.cpp:
+    (WebCore::appendCharactersReplacingEntitiesInternal):
+    * editing/TextIterator.cpp:
+    (WebCore::TextIteratorCopyableText::appendToStringBuilder const):
+    * html/HTMLTextFormControlElement.cpp:
+    (WebCore::HTMLTextFormControlElement::valueWithHardLineBreaks const):
+    * html/parser/HTMLTokenizer.cpp:
+    (WebCore::HTMLTokenizer::bufferedCharacters const):
+    * platform/graphics/avfoundation/InbandTextTrackPrivateAVF.cpp:
+    (WebCore::InbandTextTrackPrivateAVF::processNativeSamples):
+    * platform/text/SegmentedString.cpp:
+    (WebCore::SegmentedString::Substring::appendTo const):
+    * platform/text/TextCodecICU.cpp:
+    (WebCore::TextCodecICU::decode):
+    * xml/XSLTProcessorLibxslt.cpp:
+    (WebCore::writeToStringBuilder):
+    Update for renames.
+    
+    Source/WebKit:
+    
+    * Shared/mac/AuxiliaryProcessMac.mm:
+    (WebKit::setAndSerializeSandboxParameters):
+    * UIProcess/WebProcessPool.cpp:
+    (WebKit::WebProcessPool::didReceiveInvalidMessage):
+    Update for renames.
+    
+    Source/WTF:
+    
+    * wtf/HexNumber.h:
+    (WTF::appendUnsignedAsHexFixedSize):
+    Add overload that explicitly takes a StringBuilder to work around rename from append to appendCharacters.
+    
+    * wtf/text/StringBuilder.cpp:
+    (WTF::StringBuilder::appendCharacters):
+    (WTF::StringBuilder::append):
+    * wtf/text/StringBuilder.h:
+    (WTF::StringBuilder::appendCharacters):
+    (WTF::StringBuilder::append):
+    (WTF::StringBuilder::appendSubstring):
+    (WTF::StringBuilder::appendLiteral):
+    (WTF::IntegerToStringConversionTrait<StringBuilder>::flush):
+    Update for renames.
+    
+    Tools:
+    
+    * TestWebKitAPI/Tests/WTF/StringBuilder.cpp:
+    (TestWebKitAPI::TEST):
+    Update for renames.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@248552 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-12  Sam Weinig  <weinig@apple.com>
+
+            Replace multiparameter overloads of append() in StringBuilder as a first step toward standardizinging on the flexibleAppend() implementation
+            https://bugs.webkit.org/show_bug.cgi?id=200614
+
+            Reviewed by Darin Adler.
+
+            Renames StringBuilder::append(const LChar*, unsigned), StringBuilder::append(const UChar*, unsigned) and
+            StringBuilder::append(const char*, unsigned) to StringBuilder::appendCharacters(...).
+
+            Renames StringBuilder::append(const String& string, unsigned offset, unsigned length) to
+            StringBuilder::appendSubstring(...).
+
+            * dom/Range.cpp:
+            (WebCore::Range::toString const):
+            * editing/Editing.cpp:
+            (WebCore::stringWithRebalancedWhitespace):
+            * editing/MarkupAccumulator.cpp:
+            (WebCore::appendCharactersReplacingEntitiesInternal):
+            * editing/TextIterator.cpp:
+            (WebCore::TextIteratorCopyableText::appendToStringBuilder const):
+            * html/HTMLTextFormControlElement.cpp:
+            (WebCore::HTMLTextFormControlElement::valueWithHardLineBreaks const):
+            * html/parser/HTMLTokenizer.cpp:
+            (WebCore::HTMLTokenizer::bufferedCharacters const):
+            * platform/graphics/avfoundation/InbandTextTrackPrivateAVF.cpp:
+            (WebCore::InbandTextTrackPrivateAVF::processNativeSamples):
+            * platform/text/SegmentedString.cpp:
+            (WebCore::SegmentedString::Substring::appendTo const):
+            * platform/text/TextCodecICU.cpp:
+            (WebCore::TextCodecICU::decode):
+            * xml/XSLTProcessorLibxslt.cpp:
+            (WebCore::writeToStringBuilder):
+            Update for renames.
+
+2019-11-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r251827. rdar://problem/56868427
+
+    Add fullscreen style quirk for reddit.com
+    https://bugs.webkit.org/show_bug.cgi?id=203635
+    <rdar://problem/55813774>
+    
+    Reviewed by Eric Carlson.
+    
+    Reddit.com expects the UA stylesheet to give the fullscreen element
+    a "width:100%; height:100%;" style.
+    
+    * css/CSSDefaultStyleSheets.cpp:
+    (WebCore::CSSDefaultStyleSheets::ensureDefaultStyleSheetsForElement):
+    * page/Quirks.cpp:
+    (WebCore::Quirks::needsFullWidthHeightFullscreenStyleQuirk const):
+    * page/Quirks.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@251827 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-30  Jer Noble  <jer.noble@apple.com>
+
+            Add fullscreen style quirk for reddit.com
+            https://bugs.webkit.org/show_bug.cgi?id=203635
+            <rdar://problem/55813774>
+
+            Reviewed by Eric Carlson.
+
+            Reddit.com expects the UA stylesheet to give the fullscreen element
+            a "width:100%; height:100%;" style.
+
+            * css/CSSDefaultStyleSheets.cpp:
+            (WebCore::CSSDefaultStyleSheets::ensureDefaultStyleSheetsForElement):
+            * page/Quirks.cpp:
+            (WebCore::Quirks::needsFullWidthHeightFullscreenStyleQuirk const):
+            * page/Quirks.h:
+
+2019-10-29  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r251500. rdar://problem/56579657
+
+    [WebAuthn] Warn users when multiple NFC tags present
+    https://bugs.webkit.org/show_bug.cgi?id=200932
+    <rdar://problem/54890736>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    Covered by new tests in existing test file.
+    
+    * testing/MockWebAuthenticationConfiguration.h:
+    (WebCore::MockWebAuthenticationConfiguration::NfcConfiguration::encode const):
+    (WebCore::MockWebAuthenticationConfiguration::NfcConfiguration::decode):
+    * testing/MockWebAuthenticationConfiguration.idl:
+    Adds a new test option.
+    
+    Source/WebKit:
+    
+    This patch utilizes -[_WKWebAuthenticationPanelDelegate panel:updateWebAuthenticationPanel:] to
+    inform clients about multiple physical tags are presenting such that clients can instruct users
+    to select only one of them physically. Given a physical tag could have multiple different
+    interfaces, which NearField will treat them into different NFTags, the tagID is then used to
+    identify if there are actually multiple physical tags.
+    
+    This patch also adds the ability to restart polling of a partiuclar NFReaderSession to NfcConnection
+    and the ability to restart the whole session to NfcService. The former is used to recover from errors
+    in the discovery stages, and the latter is used to recover from errors returned from authenticators
+    in the request stages. For the latter, given NfcConnection is not awared of the syntax of FIDO2/U2F
+    protocol, and CtapAuthenticator/U2fAuthenticator are not awared the transport of the underneath driver.
+    A generic restartDiscovery process is added to each service and it is up to the actual service to
+    implement the actual process such that AuthenticatorManager can arbitrarily call it after exceptions
+    are returned to restart the whole NFC session. To achieve restartDiscovery, NfcConnection is made
+    RefCounted as well such that both the NfcService and the CtapNfcDriver could hold it at the same time.
+    CtapNfcDriver uses the connection to complete requests as before while NfcService has the new capability
+    to use it to stop the current session when restartDiscovery kicks off.
+    
+    * Platform/spi/Cocoa/NearFieldSPI.h:
+    * UIProcess/WebAuthentication/AuthenticatorManager.cpp:
+    (WebKit::AuthenticatorManager::serviceStatusUpdated):
+    (WebKit::AuthenticatorManager::respondReceived):
+    (WebKit::AuthenticatorManager::restartDiscovery):
+    * UIProcess/WebAuthentication/AuthenticatorManager.h:
+    * UIProcess/WebAuthentication/AuthenticatorTransportService.cpp:
+    (WebKit::AuthenticatorTransportService::startDiscovery):
+    (WebKit::AuthenticatorTransportService::restartDiscovery):
+    * UIProcess/WebAuthentication/AuthenticatorTransportService.h:
+    (WebKit::AuthenticatorTransportService::restartDiscoveryInternal):
+    * UIProcess/WebAuthentication/Cocoa/NfcConnection.h:
+    * UIProcess/WebAuthentication/Cocoa/NfcConnection.mm:
+    (WebKit::NfcConnection::create):
+    (WebKit::NfcConnection::NfcConnection):
+    (WebKit::NfcConnection::~NfcConnection):
+    (WebKit::NfcConnection::stop const):
+    (WebKit::NfcConnection::didDetectTags):
+    (WebKit::NfcConnection::restartPolling):
+    (WebKit::NfcConnection::startPolling):
+    (WebKit::NfcConnection::didDetectTags const): Deleted.
+    * UIProcess/WebAuthentication/Cocoa/NfcService.h:
+    * UIProcess/WebAuthentication/Cocoa/NfcService.mm:
+    (WebKit::NfcService::NfcService):
+    (WebKit::NfcService::didConnectTag):
+    (WebKit::NfcService::didDetectMultipleTags const):
+    (WebKit::NfcService::setConnection):
+    (WebKit::NfcService::restartDiscoveryInternal):
+    (WebKit::NfcService::platformStartDiscovery):
+    (WebKit::NfcService::setDriver): Deleted.
+    * UIProcess/WebAuthentication/Mock/MockNfcService.h:
+    * UIProcess/WebAuthentication/Mock/MockNfcService.mm:
+    (-[WKMockNFTag tagID]):
+    (-[WKMockNFTag initWithNFTag:]):
+    (-[WKMockNFTag dealloc]):
+    (-[WKMockNFTag initWithType:]):
+    (-[WKMockNFTag initWithType:tagID:]):
+    (WebKit::MockNfcService::receiveStopPolling):
+    (WebKit::MockNfcService::receiveStartPolling):
+    (WebKit::MockNfcService::platformStartDiscovery):
+    (WebKit::MockNfcService::detectTags):
+    (WebKit::MockNfcService::detectTags const): Deleted.
+    * UIProcess/WebAuthentication/fido/CtapNfcDriver.cpp:
+    (WebKit::CtapNfcDriver::CtapNfcDriver):
+    * UIProcess/WebAuthentication/fido/CtapNfcDriver.h:
+    * UIProcess/WebAuthentication/fido/U2fAuthenticator.cpp:
+    
+    Tools:
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+    (-[TestWebAuthenticationPanelDelegate panel:updateWebAuthenticationPanel:]):
+    (TestWebKitAPI::TEST):
+    Adds a new test for -[_WKWebAuthenticationPanelDelegate panel:updateWebAuthenticationPanel:].
+    * TestWebKitAPI/Tests/WebKitCocoa/web-authentication-get-assertion-nfc-multiple-tags.html: Added.
+    
+    LayoutTests:
+    
+    * http/wpt/webauthn/public-key-credential-create-success-nfc.https-expected.txt:
+    * http/wpt/webauthn/public-key-credential-create-success-nfc.https.html:
+    Adds new tests for multiple physical tags and service restart.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@251500 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-21  Jiewen Tan  <jiewen_tan@apple.com>
+
+            [WebAuthn] Warn users when multiple NFC tags present
+            https://bugs.webkit.org/show_bug.cgi?id=200932
+            <rdar://problem/54890736>
+
+            Reviewed by Brent Fulgham.
+
+            Covered by new tests in existing test file.
+
+            * testing/MockWebAuthenticationConfiguration.h:
+            (WebCore::MockWebAuthenticationConfiguration::NfcConfiguration::encode const):
+            (WebCore::MockWebAuthenticationConfiguration::NfcConfiguration::decode):
+            * testing/MockWebAuthenticationConfiguration.idl:
+            Adds a new test option.
+
+2019-10-29  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r251489. rdar://problem/56579665
+
+    [WebAuthn] Supply FrameInfo in -[WKUIDelegatePrivate _webView:runWebAuthenticationPanel:initiatedByFrame:completionHandler:]
+    https://bugs.webkit.org/show_bug.cgi?id=202563
+    <rdar://problem/55973968>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    Covered by new test contents within existing tests.
+    
+    * Modules/webauthn/AuthenticatorCoordinator.cpp:
+    (WebCore::AuthenticatorCoordinator::create const):
+    (WebCore::AuthenticatorCoordinator::discoverFromExternalSource const):
+    * Modules/webauthn/AuthenticatorCoordinatorClient.h:
+    
+    Source/WebKit:
+    
+    This patch makes WKFrameInfo available to clients via the above SPI. To do so,
+    SecuirtyOrigin of the caller document is passed from WebContent Process.
+    
+    * UIProcess/API/APIUIClient.h:
+    (API::UIClient::runWebAuthenticationPanel):
+    * UIProcess/API/C/WKPage.cpp:
+    (WKPageSetPageUIClient):
+    * UIProcess/Cocoa/UIDelegate.h:
+    * UIProcess/Cocoa/UIDelegate.mm:
+    (WebKit::UIDelegate::UIClient::runWebAuthenticationPanel):
+    * UIProcess/WebAuthentication/AuthenticatorManager.cpp:
+    (WebKit::AuthenticatorManager::runPanel):
+    * UIProcess/WebAuthentication/WebAuthenticationRequestData.h:
+    * UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy.cpp:
+    (WebKit::WebAuthenticatorCoordinatorProxy::makeCredential):
+    (WebKit::WebAuthenticatorCoordinatorProxy::getAssertion):
+    (WebKit::WebAuthenticatorCoordinatorProxy::handleRequest):
+    * UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy.h:
+    * UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy.messages.in:
+    * WebProcess/WebAuthentication/WebAuthenticatorCoordinator.cpp:
+    (WebKit::WebAuthenticatorCoordinator::makeCredential):
+    (WebKit::WebAuthenticatorCoordinator::getAssertion):
+    * WebProcess/WebAuthentication/WebAuthenticatorCoordinator.h:
+    
+    Tools:
+    
+    Adds new test contents into existing tests.
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+    (-[TestWebAuthenticationPanelUIDelegate init]):
+    (-[TestWebAuthenticationPanelUIDelegate _webView:runWebAuthenticationPanel:initiatedByFrame:completionHandler:]):
+    (-[TestWebAuthenticationPanelUIDelegate frame]):
+    (TestWebKitAPI::TEST):
+    
+    LayoutTests:
+    
+    * http/wpt/webauthn/public-key-credential-get-success-hid.https.html:
+    Imporves the flakiness.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@251489 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-22  Jiewen Tan  <jiewen_tan@apple.com>
+
+            [WebAuthn] Supply FrameInfo in -[WKUIDelegatePrivate _webView:runWebAuthenticationPanel:initiatedByFrame:completionHandler:]
+            https://bugs.webkit.org/show_bug.cgi?id=202563
+            <rdar://problem/55973968>
+
+            Reviewed by Brent Fulgham.
+
+            Covered by new test contents within existing tests.
+
+            * Modules/webauthn/AuthenticatorCoordinator.cpp:
+            (WebCore::AuthenticatorCoordinator::create const):
+            (WebCore::AuthenticatorCoordinator::discoverFromExternalSource const):
+            * Modules/webauthn/AuthenticatorCoordinatorClient.h:
+
+2019-10-29  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r251295. rdar://problem/56579665
+
+    [WebAuthn] Implement AuthenticatorCancel
+    https://bugs.webkit.org/show_bug.cgi?id=191523
+    <rdar://problem/55920204>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    Covered by new tests in existing test files.
+    
+    * Modules/credentialmanagement/CredentialsContainer.cpp:
+    (WebCore::CredentialsContainer::get):
+    (WebCore::CredentialsContainer::isCreate):
+    * Modules/webauthn/AuthenticatorCoordinator.cpp:
+    (WebCore::AuthenticatorCoordinator::create const):
+    (WebCore::AuthenticatorCoordinator::discoverFromExternalSource const):
+    * Modules/webauthn/AuthenticatorCoordinator.h:
+    * Modules/webauthn/AuthenticatorCoordinatorClient.cpp: Removed.
+    * Modules/webauthn/AuthenticatorCoordinatorClient.h:
+    * Modules/webauthn/PublicKeyCredential.cpp:
+    (WebCore::PublicKeyCredential::tryCreate):
+    * Modules/webauthn/PublicKeyCredential.h:
+    * Modules/webauthn/PublicKeyCredentialData.h:
+    * Modules/webauthn/fido/DeviceRequestConverter.h:
+    * Modules/webauthn/fido/FidoHidMessage.cpp:
+    (fido::FidoHidMessage::FidoHidMessage):
+    * Modules/webauthn/fido/FidoHidPacket.cpp:
+    (fido::FidoHidInitPacket::getSerializedData const):
+    (fido::FidoHidContinuationPacket::getSerializedData const):
+    * Sources.txt:
+    * WebCore.xcodeproj/project.pbxproj:
+    * testing/MockWebAuthenticationConfiguration.h:
+    (WebCore::MockWebAuthenticationConfiguration::HidConfiguration::encode const):
+    (WebCore::MockWebAuthenticationConfiguration::HidConfiguration::decode):
+    * testing/MockWebAuthenticationConfiguration.idl:
+    Adds a new option to test AuthenticatorCancel.
+    
+    Source/WebKit:
+    
+    This patch implement two ways to cancel a pending WebAuthn ceremony:
+    1) Via navigation activities. Activities include i) main frame navigation, ii) main frame reload,
+    iii) main frame destruction, iv) sub frame navigation, and v) sub frame destruction. All the above
+    activities will cancel any pending WebAuthn ceremony that is associated with the frame. To prove
+    the association, a GlobalFrameIdentifier is bridged into WebAuthenticationRequestData. Navigation
+    cancel is done in WebPageProxy::didStartProvisionalLoadForFrameShared, and destruction cancel is done
+    in WebProcessProxy::didDestroyFrame and WebPageProxy::resetState.
+    2) Via UI. This path is simply bridged -[_WKWebAuthenticationPanel cancel] into AuthenticatorManager.
+    Noted, this patch follows the spec to wait until time out to notify RPs.
+    References: i) Step 20 of https://www.w3.org/TR/webauthn/#createCredential, ii) Step 18 of
+    https://www.w3.org/TR/webauthn/#getAssertion
+    
+    As for what the cancel actually does, it:
+    1) stops any HID/NFC scanning;
+    2) sends CTAPHID_CANCEL to any HID authenticators that have been added. Reference:
+    https://fidoalliance.org/specs/fido-v2.0-ps-20190130/fido-client-to-authenticator-protocol-v2.0-ps-20190130.html#usb-hid-cancel
+    Sending CTAPHID_CANCEL, however, is not trivial. An abstract class FidoAuthenticator is crafted to
+    do this labor for both CtapAuthenticator and U2fAuthenticator during the time of destructions.
+    Noted: The CtapHidDriver is the only CtapDriver implements the cancel method. Since the message
+    is sent during state reset, lifecycle of the HidConenction and HidService which manage the underlying
+    IOHIDDeviceRef is very hard to hold. This is required for the regular async sender. Therefore,
+    HidConnection::sendSync is crafted to send the message synchronously to get rid of the tediousness
+    of managing those lifecycles.
+    
+    P.S. Vector::grow doesn't initialize POD types. Therefore, this patch also appends it with memset
+    for FidoHidPacket.
+    
+    P.S.S. This patch also simplifies AuthenticatorCoordinatorClient by: i) moving code from AuthenticatorCoordinatorClient
+    to WebAuthenticatorCoordinatorClient, and ii) using sendWithAsyncReply. The latter allows us to
+    get rid of the complex mechanism of ensuring the right reply is returned.
+    
+    * DerivedSources.make:
+    * Sources.txt:
+    * UIProcess/API/APIWebAuthenticationPanel.cpp:
+    (API::WebAuthenticationPanel::create):
+    (API::WebAuthenticationPanel::WebAuthenticationPanel):
+    (API::WebAuthenticationPanel::cancel const):
+    * UIProcess/API/APIWebAuthenticationPanel.h:
+    * UIProcess/API/Cocoa/_WKWebAuthenticationPanel.mm:
+    (-[_WKWebAuthenticationPanel cancel]):
+    * UIProcess/WebAuthentication/AuthenticatorManager.cpp:
+    (WebKit::AuthenticatorManager::cancelRequest):
+    (WebKit::AuthenticatorManager::clearState):
+    (WebKit::AuthenticatorManager::runPanel):
+    (WebKit::AuthenticatorManager::resetState):
+    * UIProcess/WebAuthentication/AuthenticatorManager.h:
+    * UIProcess/WebAuthentication/Cocoa/HidConnection.h:
+    (WebKit::HidConnection::isInitialized const):
+    (WebKit::HidConnection::setIsInitialized):
+    * UIProcess/WebAuthentication/Cocoa/HidConnection.mm:
+    (WebKit::HidConnection::~HidConnection):
+    (WebKit::HidConnection::initialize):
+    (WebKit::HidConnection::terminate):
+    (WebKit::HidConnection::sendSync):
+    (WebKit::HidConnection::send):
+    (WebKit::HidConnection::registerDataReceivedCallback):
+    * UIProcess/WebAuthentication/Mock/MockHidConnection.cpp:
+    (WebKit::MockHidConnection::initialize):
+    (WebKit::MockHidConnection::terminate):
+    (WebKit::MockHidConnection::sendSync):
+    (WebKit::MockHidConnection::send):
+    (WebKit::MockHidConnection::feedReports):
+    * UIProcess/WebAuthentication/Mock/MockHidConnection.h:
+    * UIProcess/WebAuthentication/WebAuthenticationRequestData.h:
+    * UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy.cpp:
+    (WebKit::WebAuthenticatorCoordinatorProxy::makeCredential):
+    (WebKit::WebAuthenticatorCoordinatorProxy::getAssertion):
+    (WebKit::WebAuthenticatorCoordinatorProxy::handleRequest):
+    (WebKit::WebAuthenticatorCoordinatorProxy::isUserVerifyingPlatformAuthenticatorAvailable):
+    (WebKit::WebAuthenticatorCoordinatorProxy::requestReply): Deleted.
+    * UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy.h:
+    * UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy.messages.in:
+    * UIProcess/WebAuthentication/fido/CtapAuthenticator.cpp:
+    (WebKit::CtapAuthenticator::CtapAuthenticator):
+    (WebKit::CtapAuthenticator::makeCredential):
+    (WebKit::CtapAuthenticator::getAssertion):
+    (WebKit::CtapAuthenticator::tryDowngrade):
+    * UIProcess/WebAuthentication/fido/CtapAuthenticator.h:
+    * UIProcess/WebAuthentication/fido/CtapDriver.h:
+    (WebKit::CtapDriver::cancel):
+    * UIProcess/WebAuthentication/fido/CtapHidDriver.cpp:
+    (WebKit::CtapHidDriver::Worker::write):
+    (WebKit::CtapHidDriver::Worker::read):
+    (WebKit::CtapHidDriver::Worker::returnMessage):
+    (WebKit::CtapHidDriver::Worker::reset):
+    (WebKit::CtapHidDriver::Worker::cancel):
+    (WebKit::CtapHidDriver::continueAfterChannelAllocated):
+    (WebKit::CtapHidDriver::continueAfterResponseReceived):
+    (WebKit::CtapHidDriver::returnResponse):
+    (WebKit::CtapHidDriver::reset):
+    (WebKit::CtapHidDriver::cancel):
+    * UIProcess/WebAuthentication/fido/CtapHidDriver.h:
+    * UIProcess/WebAuthentication/fido/FidoAuthenticator.cpp: Copied from Source/WebKit/UIProcess/API/APIWebAuthenticationPanel.cpp.
+    (WebKit::FidoAuthenticator::FidoAuthenticator):
+    (WebKit::FidoAuthenticator::~FidoAuthenticator):
+    (WebKit::FidoAuthenticator::driver const):
+    (WebKit::FidoAuthenticator::releaseDriver):
+    * UIProcess/WebAuthentication/fido/FidoAuthenticator.h: Copied from Source/WebKit/UIProcess/API/APIWebAuthenticationPanel.cpp.
+    * UIProcess/WebAuthentication/fido/FidoService.cpp:
+    (WebKit::FidoService::continueAfterGetInfo):
+    * UIProcess/WebAuthentication/fido/U2fAuthenticator.cpp:
+    (WebKit::U2fAuthenticator::U2fAuthenticator):
+    (WebKit::U2fAuthenticator::issueCommand):
+    * UIProcess/WebAuthentication/fido/U2fAuthenticator.h:
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::didStartProvisionalLoadForFrameShared):
+    (WebKit::WebPageProxy::resetState):
+    * UIProcess/WebProcessProxy.cpp:
+    (WebKit::WebProcessProxy::didDestroyFrame):
+    * WebKit.xcodeproj/project.pbxproj:
+    * WebProcess/WebAuthentication/WebAuthenticatorCoordinator.cpp:
+    (WebKit::WebAuthenticatorCoordinator::WebAuthenticatorCoordinator):
+    (WebKit::WebAuthenticatorCoordinator::makeCredential):
+    (WebKit::WebAuthenticatorCoordinator::getAssertion):
+    (WebKit::WebAuthenticatorCoordinator::isUserVerifyingPlatformAuthenticatorAvailable):
+    (WebKit::WebAuthenticatorCoordinator::~WebAuthenticatorCoordinator): Deleted.
+    * WebProcess/WebAuthentication/WebAuthenticatorCoordinator.h:
+    * WebProcess/WebAuthentication/WebAuthenticatorCoordinator.messages.in: Removed.
+    * WebProcess/WebPage/WebFrame.cpp:
+    (WebKit::WebFrame::fromCoreFrame):
+    * WebProcess/WebPage/WebFrame.h:
+    
+    Tools:
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebCore/FidoHidMessageTest.cpp:
+    (TestWebKitAPI::TEST):
+    * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+    (-[TestWebAuthenticationPanelUIDelegate webView:runWebAuthenticationPanel:initiatedByFrame:completionHandler:]):
+    (TestWebKitAPI::TEST):
+    * TestWebKitAPI/Tests/WebKitCocoa/web-authentication-get-assertion-hid-cancel.html: Copied from Tools/TestWebKitAPI/Tests/WebKitCocoa/web-authentication-get-assertion-hid.html.
+    * TestWebKitAPI/Tests/WebKitCocoa/web-authentication-get-assertion-hid.html:
+    * TestWebKitAPI/Tests/WebKitCocoa/web-authentication-get-assertion-nfc.html:
+    * TestWebKitAPI/Tests/WebKitCocoa/web-authentication-get-assertion.html:
+    
+    LayoutTests:
+    
+    Modified one of the error message that is no longer emitted.
+    
+    * http/wpt/webauthn/public-key-credential-create-failure.https.html:
+    * http/wpt/webauthn/public-key-credential-create-success-hid.https.html:
+    * http/wpt/webauthn/public-key-credential-get-failure.https.html:
+    * http/wpt/webauthn/public-key-credential-get-success-hid.https.html:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@251295 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-18  Jiewen Tan  <jiewen_tan@apple.com>
+
+            [WebAuthn] Implement AuthenticatorCancel
+            https://bugs.webkit.org/show_bug.cgi?id=191523
+            <rdar://problem/55920204>
+
+            Reviewed by Brent Fulgham.
+
+            Covered by new tests in existing test files.
+
+            * Modules/credentialmanagement/CredentialsContainer.cpp:
+            (WebCore::CredentialsContainer::get):
+            (WebCore::CredentialsContainer::isCreate):
+            * Modules/webauthn/AuthenticatorCoordinator.cpp:
+            (WebCore::AuthenticatorCoordinator::create const):
+            (WebCore::AuthenticatorCoordinator::discoverFromExternalSource const):
+            * Modules/webauthn/AuthenticatorCoordinator.h:
+            * Modules/webauthn/AuthenticatorCoordinatorClient.cpp: Removed.
+            * Modules/webauthn/AuthenticatorCoordinatorClient.h:
+            * Modules/webauthn/PublicKeyCredential.cpp:
+            (WebCore::PublicKeyCredential::tryCreate):
+            * Modules/webauthn/PublicKeyCredential.h:
+            * Modules/webauthn/PublicKeyCredentialData.h:
+            * Modules/webauthn/fido/DeviceRequestConverter.h:
+            * Modules/webauthn/fido/FidoHidMessage.cpp:
+            (fido::FidoHidMessage::FidoHidMessage):
+            * Modules/webauthn/fido/FidoHidPacket.cpp:
+            (fido::FidoHidInitPacket::getSerializedData const):
+            (fido::FidoHidContinuationPacket::getSerializedData const):
+            * Sources.txt:
+            * WebCore.xcodeproj/project.pbxproj:
+            * testing/MockWebAuthenticationConfiguration.h:
+            (WebCore::MockWebAuthenticationConfiguration::HidConfiguration::encode const):
+            (WebCore::MockWebAuthenticationConfiguration::HidConfiguration::decode):
+            * testing/MockWebAuthenticationConfiguration.idl:
+            Adds a new option to test AuthenticatorCancel.
+
+2019-10-29  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250940. rdar://problem/56598350
+
+    [WebAuthn] Move the mock testing entrance to Internals
+    https://bugs.webkit.org/show_bug.cgi?id=202560
+    <rdar://problem/55973793>
+    
+    Reviewed by Chris Dumez.
+    
+    Source/WebCore:
+    
+    This patch moves TestRunner.setWebAuthenticationMockConfiguration to
+    Internals.setMockWebAuthenticationConfiguration and removes the old
+    entrance. The purpose of this patch is to allow API tests to use
+    the same mock infrastructure that is used by layout tests.
+    
+    No new tests, covered by updates on existing tests.
+    
+    * DerivedSources-input.xcfilelist:
+    * DerivedSources-output.xcfilelist:
+    * DerivedSources.make:
+    * Modules/webauthn/PublicKeyCredentialCreationOptions.h:
+    * WebCore.xcodeproj/project.pbxproj:
+    * page/ChromeClient.h:
+    (WebCore::ChromeClient::setMockWebAuthenticationConfiguration):
+    * testing/Internals.cpp:
+    (WebCore::Internals::setMockWebAuthenticationConfiguration):
+    * testing/Internals.h:
+    * testing/Internals.idl:
+    * testing/MockWebAuthenticationConfiguration.h: Added.
+    (WebCore::MockWebAuthenticationConfiguration::LocalConfiguration::encode const):
+    (WebCore::MockWebAuthenticationConfiguration::LocalConfiguration::decode):
+    (WebCore::MockWebAuthenticationConfiguration::HidConfiguration::encode const):
+    (WebCore::MockWebAuthenticationConfiguration::HidConfiguration::decode):
+    (WebCore::MockWebAuthenticationConfiguration::NfcConfiguration::encode const):
+    (WebCore::MockWebAuthenticationConfiguration::NfcConfiguration::decode):
+    (WebCore::MockWebAuthenticationConfiguration::encode const):
+    (WebCore::MockWebAuthenticationConfiguration::decode):
+    * testing/MockWebAuthenticationConfiguration.idl: Added.
+    
+    Source/WebKit:
+    
+    * UIProcess/API/C/WKWebsiteDataStoreRef.cpp:
+    (WKWebsiteDataStoreSetWebAuthenticationMockConfiguration): Deleted.
+    * UIProcess/API/C/WKWebsiteDataStoreRef.h:
+    * UIProcess/WebAuthentication/AuthenticatorTransportService.cpp:
+    (WebKit::AuthenticatorTransportService::createMock):
+    * UIProcess/WebAuthentication/AuthenticatorTransportService.h:
+    * UIProcess/WebAuthentication/Mock/MockAuthenticatorManager.cpp:
+    (WebKit::MockAuthenticatorManager::MockAuthenticatorManager):
+    * UIProcess/WebAuthentication/Mock/MockAuthenticatorManager.h:
+    * UIProcess/WebAuthentication/Mock/MockHidConnection.cpp:
+    (WebKit::MockHidConnection::send):
+    (WebKit::MockHidConnection::registerDataReceivedCallbackInternal):
+    (WebKit::MockHidConnection::parseRequest):
+    (WebKit::MockHidConnection::feedReports):
+    (WebKit::MockHidConnection::shouldContinueFeedReports):
+    * UIProcess/WebAuthentication/Mock/MockHidConnection.h:
+    * UIProcess/WebAuthentication/Mock/MockHidService.cpp:
+    (WebKit::MockHidService::MockHidService):
+    * UIProcess/WebAuthentication/Mock/MockHidService.h:
+    * UIProcess/WebAuthentication/Mock/MockLocalConnection.h:
+    * UIProcess/WebAuthentication/Mock/MockLocalConnection.mm:
+    (WebKit::MockLocalConnection::MockLocalConnection):
+    * UIProcess/WebAuthentication/Mock/MockLocalService.h:
+    * UIProcess/WebAuthentication/Mock/MockLocalService.mm:
+    (WebKit::MockLocalService::MockLocalService):
+    * UIProcess/WebAuthentication/Mock/MockNfcService.h:
+    * UIProcess/WebAuthentication/Mock/MockNfcService.mm:
+    (WebKit::MockNfcService::MockNfcService):
+    (WebKit::MockNfcService::platformStartDiscovery):
+    (WebKit::MockNfcService::detectTags const):
+    * UIProcess/WebAuthentication/Mock/MockWebAuthenticationConfiguration.h: Removed.
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::setMockWebAuthenticationConfiguration):
+    * UIProcess/WebPageProxy.h:
+    * UIProcess/WebPageProxy.messages.in:
+    * UIProcess/WebsiteData/WebsiteDataStore.h:
+    * WebKit.xcodeproj/project.pbxproj:
+    * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+    (WebKit::WebChromeClient::setMockWebAuthenticationConfiguration):
+    * WebProcess/WebCoreSupport/WebChromeClient.h:
+    
+    Tools:
+    
+    * WebKitTestRunner/InjectedBundle/Bindings/TestRunner.idl:
+    * WebKitTestRunner/InjectedBundle/TestRunner.cpp:
+    (WTR::TestRunner::setWebAuthenticationMockConfiguration): Deleted.
+    * WebKitTestRunner/InjectedBundle/TestRunner.h:
+    * WebKitTestRunner/TestController.cpp:
+    (WTR::TestController::setWebAuthenticationMockConfiguration): Deleted.
+    * WebKitTestRunner/TestController.h:
+    * WebKitTestRunner/TestInvocation.cpp:
+    (WTR::TestInvocation::didReceiveSynchronousMessageFromInjectedBundle):
+    
+    LayoutTests:
+    
+    * http/wpt/webauthn/ctap-hid-failure.https.html:
+    * http/wpt/webauthn/ctap-hid-success.https.html:
+    * http/wpt/webauthn/ctap-nfc-failure.https.html:
+    * http/wpt/webauthn/idl.https.html:
+    * http/wpt/webauthn/public-key-credential-create-failure-hid-silent.https.html:
+    * http/wpt/webauthn/public-key-credential-create-failure-hid.https.html:
+    * http/wpt/webauthn/public-key-credential-create-failure-local-silent.https.html:
+    * http/wpt/webauthn/public-key-credential-create-failure-local.https.html:
+    * http/wpt/webauthn/public-key-credential-create-failure-nfc.https.html:
+    * http/wpt/webauthn/public-key-credential-create-failure-u2f-silent.https.html:
+    * http/wpt/webauthn/public-key-credential-create-failure-u2f.https.html:
+    * http/wpt/webauthn/public-key-credential-create-failure.https.html:
+    * http/wpt/webauthn/public-key-credential-create-success-hid.https.html:
+    * http/wpt/webauthn/public-key-credential-create-success-local.https.html:
+    * http/wpt/webauthn/public-key-credential-create-success-nfc.https.html:
+    * http/wpt/webauthn/public-key-credential-create-success-u2f.https.html:
+    * http/wpt/webauthn/public-key-credential-get-failure-hid-silent.https.html:
+    * http/wpt/webauthn/public-key-credential-get-failure-hid.https.html:
+    * http/wpt/webauthn/public-key-credential-get-failure-local-silent.https.html:
+    * http/wpt/webauthn/public-key-credential-get-failure-local.https.html:
+    * http/wpt/webauthn/public-key-credential-get-failure-nfc.https.html:
+    * http/wpt/webauthn/public-key-credential-get-failure-u2f-silent.https.html:
+    * http/wpt/webauthn/public-key-credential-get-failure-u2f.https.html:
+    * http/wpt/webauthn/public-key-credential-get-failure.https.html:
+    * http/wpt/webauthn/public-key-credential-get-success-hid.https.html:
+    * http/wpt/webauthn/public-key-credential-get-success-local.https.html:
+    * http/wpt/webauthn/public-key-credential-get-success-nfc.https.html:
+    * http/wpt/webauthn/public-key-credential-get-success-u2f.https.html:
+    * http/wpt/webauthn/resources/public-key-credential-ip-address.https.html:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250940 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-09  Jiewen Tan  <jiewen_tan@apple.com>
+
+            [WebAuthn] Move the mock testing entrance to Internals
+            https://bugs.webkit.org/show_bug.cgi?id=202560
+            <rdar://problem/55973793>
+
+            Reviewed by Chris Dumez.
+
+            This patch moves TestRunner.setWebAuthenticationMockConfiguration to
+            Internals.setMockWebAuthenticationConfiguration and removes the old
+            entrance. The purpose of this patch is to allow API tests to use
+            the same mock infrastructure that is used by layout tests.
+
+            No new tests, covered by updates on existing tests.
+
+            * DerivedSources-input.xcfilelist:
+            * DerivedSources-output.xcfilelist:
+            * DerivedSources.make:
+            * Modules/webauthn/PublicKeyCredentialCreationOptions.h:
+            * WebCore.xcodeproj/project.pbxproj:
+            * page/ChromeClient.h:
+            (WebCore::ChromeClient::setMockWebAuthenticationConfiguration):
+            * testing/Internals.cpp:
+            (WebCore::Internals::setMockWebAuthenticationConfiguration):
+            * testing/Internals.h:
+            * testing/Internals.idl:
+            * testing/MockWebAuthenticationConfiguration.h: Added.
+            (WebCore::MockWebAuthenticationConfiguration::LocalConfiguration::encode const):
+            (WebCore::MockWebAuthenticationConfiguration::LocalConfiguration::decode):
+            (WebCore::MockWebAuthenticationConfiguration::HidConfiguration::encode const):
+            (WebCore::MockWebAuthenticationConfiguration::HidConfiguration::decode):
+            (WebCore::MockWebAuthenticationConfiguration::NfcConfiguration::encode const):
+            (WebCore::MockWebAuthenticationConfiguration::NfcConfiguration::decode):
+            (WebCore::MockWebAuthenticationConfiguration::encode const):
+            (WebCore::MockWebAuthenticationConfiguration::decode):
+            * testing/MockWebAuthenticationConfiguration.idl: Added.
+
+2019-10-28  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r251603. rdar://problem/56670801
+
+    Introduce AudioTrackPrivateMediaStreamCocoa::clear()
+    https://bugs.webkit.org/show_bug.cgi?id=203369
+    <rdar://problem/49017262>
+    
+    Reviewed by Jer Noble.
+    
+    Introduce the clear method to make sure the AudioTrackPrivteMediaStreamCocoa is in a clean state.
+    This will help further simplifications.
+    
+    * platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaStreamAVFObjC.mm:
+    (WebCore::MediaPlayerPrivateMediaStreamAVFObjC::~MediaPlayerPrivateMediaStreamAVFObjC):
+    (WebCore::MediaPlayerPrivateMediaStreamAVFObjC::updateTracks):
+    * platform/mediastream/mac/AudioTrackPrivateMediaStreamCocoa.cpp:
+    (WebCore::AudioTrackPrivateMediaStreamCocoa::~AudioTrackPrivateMediaStreamCocoa):
+    (WebCore::AudioTrackPrivateMediaStreamCocoa::clear):
+    * platform/mediastream/mac/AudioTrackPrivateMediaStreamCocoa.h:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@251603 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-25  youenn fablet  <youenn@apple.com>
+
+            Introduce AudioTrackPrivateMediaStreamCocoa::clear()
+            https://bugs.webkit.org/show_bug.cgi?id=203369
+            <rdar://problem/49017262>
+
+            Reviewed by Jer Noble.
+
+            Introduce the clear method to make sure the AudioTrackPrivteMediaStreamCocoa is in a clean state.
+            This will help further simplifications.
+
+            * platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaStreamAVFObjC.mm:
+            (WebCore::MediaPlayerPrivateMediaStreamAVFObjC::~MediaPlayerPrivateMediaStreamAVFObjC):
+            (WebCore::MediaPlayerPrivateMediaStreamAVFObjC::updateTracks):
+            * platform/mediastream/mac/AudioTrackPrivateMediaStreamCocoa.cpp:
+            (WebCore::AudioTrackPrivateMediaStreamCocoa::~AudioTrackPrivateMediaStreamCocoa):
+            (WebCore::AudioTrackPrivateMediaStreamCocoa::clear):
+            * platform/mediastream/mac/AudioTrackPrivateMediaStreamCocoa.h:
+
+2019-10-24  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250863. rdar://problem/56579654
+
+    Copying white text from dark mode WebKit apps and pasting in a light mode app results in white (invisible) text.
+    https://bugs.webkit.org/show_bug.cgi?id=202662
+    rdar://problem/48677354
+    
+    Reviewed by Megan Gardner.
+    
+    Source/WebCore:
+    
+    Covered by new API tests.
+    
+    HTMLConverter needs to strip white text colors when the document is in dark mode, like it does for black in light mode.
+    
+    * editing/cocoa/HTMLConverter.mm:
+    (normalizedColor): Handle dark mode and ignore white.
+    (HTMLConverterCaches::colorPropertyValueForNode): Pass element to normalizedColor.
+    
+    Tools:
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebKitCocoa/CopyRTF.mm: Added.
+    (readRTFDataFromPasteboard):
+    (copyAttributedStringFromHTML):
+    (checkColor):
+    (TEST):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250863 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-08  Timothy Hatcher  <timothy@apple.com>
+
+            Copying white text from dark mode WebKit apps and pasting in a light mode app results in white (invisible) text.
+            https://bugs.webkit.org/show_bug.cgi?id=202662
+            rdar://problem/48677354
+
+            Reviewed by Megan Gardner.
+
+            Covered by new API tests.
+
+            HTMLConverter needs to strip white text colors when the document is in dark mode, like it does for black in light mode.
+
+            * editing/cocoa/HTMLConverter.mm:
+            (normalizedColor): Handle dark mode and ignore white.
+            (HTMLConverterCaches::colorPropertyValueForNode): Pass element to normalizedColor.
+
+2019-10-21  Dean Jackson  <dino@apple.com>
+
+        Cherry-pick r251390. rdar://56579651
+
+    2019-10-21  Dean Jackson  <dino@apple.com>
+
+            Dispatch AR event on the originating anchor element
+            https://bugs.webkit.org/show_bug.cgi?id=203198
+            <rdar://55743929>
+
+            Reviewed by Simon Fraser.
+
+            Expose an ElementContext on the SystemPreviewInfo, so that
+            when something happens in the AR QuickLook an event can be
+            fired on the originating <a> element.
+
+            * dom/Document.cpp:
+            (WebCore::Document::dispatchSystemPreviewActionEvent): Make sure
+            we dispatch only to the HTMLAnchorElement.
+            * dom/Document.h:
+            * html/HTMLAnchorElement.cpp:
+            (WebCore::HTMLAnchorElement::handleClick):
+            * loader/FrameLoaderTypes.h:
+            (WebCore::SystemPreviewInfo::encode const):
+            (WebCore::SystemPreviewInfo::decode):
+            * testing/Internals.cpp:
+            (WebCore::Internals::elementIdentifier const):
+            * testing/Internals.h:
+            * testing/Internals.idl:
+
+2019-10-21  Dean Jackson  <dino@apple.com>
+
+        Cherry-pick r251388. rdar://56579651
+
+    Move ElementContext from WebKit to WebCore
+    https://bugs.webkit.org/show_bug.cgi?id=203210
+    <rdar://problem/56475682>
+
+    Reviewed by Simon Fraser.
+
+    * WebCore.xcodeproj/project.pbxproj:
+
+2019-10-20  Babak Shafiei  <bshafiei@apple.com>
+
+        Cherry-pick r251188. rdar://problem/56340816
 
     WebAudioSourceProviderAVFObjC::provideInput should set its WebAudioBufferList parameters correctly
     https://bugs.webkit.org/show_bug.cgi?id=202930
@@ -58,9 +1138,150 @@
             * platform/mediastream/mac/WebAudioSourceProviderAVFObjC.mm:
             (WebCore::WebAudioSourceProviderAVFObjC::provideInput):
 
-2019-10-09  Kocsen Chung  <kocsen_chung@apple.com>
+2019-10-20  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r250887. rdar://problem/56104999
+        Apply patch. rdar://problem/56427498
+
+    2019-10-20  John Wilander  <wilander@apple.com>
+
+                Cherry-pick r251213. rdar://problem/56262708
+
+            Resource Load Statistics: Block all third-party cookies on websites without prior user interaction
+            https://bugs.webkit.org/show_bug.cgi?id=203017
+            <rdar://problem/56262708>
+
+            Reviewed by Alex Christensen.
+
+            NetworkStorageSession::shouldBlockCookies() now checks if the first-party website has
+            received user interaction and if not, blocks all third-party cookies, regardless of the
+            status of those third-party domains (prevalent or not).
+
+            Test: http/tests/resourceLoadStatistics/third-party-cookie-blocking-on-sites-without-user-interaction.html
+
+            * page/Settings.yaml:
+            * platform/network/NetworkStorageSession.cpp:
+            (WebCore::NetworkStorageSession::hasHadUserInteractionAsFirstParty const):
+            (WebCore::NetworkStorageSession::shouldBlockCookies const):
+            (WebCore::NetworkStorageSession::setDomainsWithUserInteractionAsFirstParty):
+            * platform/network/NetworkStorageSession.h:
+            (WebCore::NetworkStorageSession::setIsThirdPartyCookieBlockingOnSitesWithoutUserInteractionEnabled):
+
+2019-10-17  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250589. rdar://problem/55927251
+
+    Storage Access API: document.hasStorageAccess() should return true when the cookie policy allows access
+    https://bugs.webkit.org/show_bug.cgi?id=202435
+    <rdar://problem/55718526>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    WebKit's Storage Access API implementation has so far only looked at whether ITP is
+    blocking cookie access or not. However, the default cookie policy is still in
+    effect underneath ITP. document.hasStorageAccess() should return true if the
+    third-party:
+    a) is not classified by ITP, and
+    b) has cookies which implies it can use cookies as third-party according to the
+    default cookie policy.
+    
+    Tests: http/tests/storageAccess/has-storage-access-false-by-default-ephemeral.html
+           http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-ephemeral.html
+           http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies.html
+    
+    * platform/network/NetworkStorageSession.h:
+    * platform/network/cocoa/NetworkStorageSessionCocoa.mm:
+    (WebCore::NetworkStorageSession::hasCookies const):
+    * platform/network/curl/NetworkStorageSessionCurl.cpp:
+    (WebCore::NetworkStorageSession::hasCookies const):
+        Not yet implemented. Always says false.
+    * platform/network/soup/NetworkStorageSessionSoup.cpp:
+    (WebCore::NetworkStorageSession::hasCookies const):
+        Not yet implemented. Always says false.
+    
+    Source/WebKit:
+    
+    WebKit's Storage Access API implementation has so far only looked at whether ITP is
+    blocking cookie access or not. However, the default cookie policy is still in
+    effect underneath ITP. document.hasStorageAccess() should return true if the
+    third-party:
+    a) is not classified by ITP, and
+    b) has cookies which implies it can use cookies as third-party according to the
+    default cookie policy.
+    
+    * NetworkProcess/Classifier/ResourceLoadStatisticsMemoryStore.cpp:
+    (WebKit::ResourceLoadStatisticsMemoryStore::hasStorageAccess):
+    * NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp:
+    (WebKit::WebResourceLoadStatisticsStore::hasCookies):
+    * NetworkProcess/Classifier/WebResourceLoadStatisticsStore.h:
+    * NetworkProcess/NetworkConnectionToWebProcess.cpp:
+    (WebKit::NetworkConnectionToWebProcess::hasStorageAccess):
+    * NetworkProcess/NetworkProcess.cpp:
+    (WebKit::NetworkProcess::registrableDomainsWithWebsiteData):
+    
+    Tools:
+    
+    This change makes sure topPrivatelyControlledDomain() correctly handles domains
+    with leading dots, as often used in cookie domains.
+    
+    * TestWebKitAPI/Tests/WebCore/PublicSuffix.cpp:
+    (TestWebKitAPI::TEST_F):
+    
+    LayoutTests:
+    
+    WebKit's Storage Access API implementation has so far only looked at whether ITP is
+    blocking cookie access or not. However, the default cookie policy is still in
+    effect underneath ITP. document.hasStorageAccess() should return true if the
+    third-party:
+    a) is not classified by ITP, and
+    b) has cookies which implies it can use cookies as third-party according to the
+    default cookie policy.
+    
+    * http/tests/storageAccess/has-storage-access-false-by-default-ephemeral-expected.txt: Added.
+    * http/tests/storageAccess/has-storage-access-false-by-default-ephemeral.html: Copied from LayoutTests/http/tests/storageAccess/has-storage-access-true-if-feature-off.html.
+    * http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-ephemeral-expected.txt: Added.
+    * http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-ephemeral.html: Copied from LayoutTests/http/tests/storageAccess/has-storage-access-true-if-feature-off.html.
+    * http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-expected.txt: Added.
+    * http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies.html: Renamed from LayoutTests/http/tests/storageAccess/has-storage-access-true-if-feature-off.html.
+    * platform/ios/TestExpectations:
+    * platform/mac-wk2/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250589 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-01  John Wilander  <wilander@apple.com>
+
+            Storage Access API: document.hasStorageAccess() should return true when the cookie policy allows access
+            https://bugs.webkit.org/show_bug.cgi?id=202435
+            <rdar://problem/55718526>
+
+            Reviewed by Brent Fulgham.
+
+            WebKit's Storage Access API implementation has so far only looked at whether ITP is
+            blocking cookie access or not. However, the default cookie policy is still in
+            effect underneath ITP. document.hasStorageAccess() should return true if the
+            third-party:
+            a) is not classified by ITP, and
+            b) has cookies which implies it can use cookies as third-party according to the
+            default cookie policy.
+
+            Tests: http/tests/storageAccess/has-storage-access-false-by-default-ephemeral.html
+                   http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-ephemeral.html
+                   http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies.html
+
+            * platform/network/NetworkStorageSession.h:
+            * platform/network/cocoa/NetworkStorageSessionCocoa.mm:
+            (WebCore::NetworkStorageSession::hasCookies const):
+            * platform/network/curl/NetworkStorageSessionCurl.cpp:
+            (WebCore::NetworkStorageSession::hasCookies const):
+                Not yet implemented. Always says false.
+            * platform/network/soup/NetworkStorageSessionSoup.cpp:
+            (WebCore::NetworkStorageSession::hasCookies const):
+                Not yet implemented. Always says false.
+
+2019-10-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250887. rdar://problem/56061121
 
     Partially undo r250811
     https://bugs.webkit.org/show_bug.cgi?id=202715
@@ -137,9 +1358,50 @@
             (): Deleted.
             * dom/ScriptExecutionContext.h:
 
-2019-10-08  Kocsen Chung  <kocsen_chung@apple.com>
+2019-10-15  Kocsen Chung  <kocsen_chung@apple.com>
 
-        Cherry-pick r250811. rdar://problem/56075033
+        Cherry-pick r250929. rdar://problem/56280990
+
+    RunResolver::rangeForRendererWithOffsets should check for range end
+    https://bugs.webkit.org/show_bug.cgi?id=202761
+    <rdar://problem/55917924>
+    
+    Reviewed by Antti Koivisto.
+    
+    Source/WebCore:
+    
+    This patch ensures that when rangeForRenderer comes back with a collapsed run (empty range), rangeForRendererWithOffsets returns an empty range as well.
+    
+    Test: fast/text/simple-line-layout-range-check-end.html
+    
+    * rendering/SimpleLineLayoutResolver.cpp:
+    (WebCore::SimpleLineLayout::RunResolver::rangeForRendererWithOffsets const):
+    
+    LayoutTests:
+    
+    * fast/text/simple-line-layout-range-check-end-expected.txt: Added.
+    * fast/text/simple-line-layout-range-check-end.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250929 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-09  Zalan Bujtas  <zalan@apple.com>
+
+            RunResolver::rangeForRendererWithOffsets should check for range end
+            https://bugs.webkit.org/show_bug.cgi?id=202761
+            <rdar://problem/55917924>
+
+            Reviewed by Antti Koivisto.
+
+            This patch ensures that when rangeForRenderer comes back with a collapsed run (empty range), rangeForRendererWithOffsets returns an empty range as well.
+
+            Test: fast/text/simple-line-layout-range-check-end.html
+
+            * rendering/SimpleLineLayoutResolver.cpp:
+            (WebCore::SimpleLineLayout::RunResolver::rangeForRendererWithOffsets const):
+
+2019-10-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250811. rdar://problem/56061121
 
     Only wrapping CryptoKeys for IDB during serialization
     https://bugs.webkit.org/show_bug.cgi?id=202500
@@ -265,9 +1527,89 @@
             * workers/WorkerMessagingProxy.h:
             (isType):
 
-2019-10-03  Kocsen Chung  <kocsen_chung@apple.com>
+2019-10-15  Kocsen Chung  <kocsen_chung@apple.com>
 
-        Cherry-pick r250642. rdar://problem/55947639
+        Cherry-pick r250716. rdar://problem/56280993
+
+    AppleTV named as XSS-payloads trigger when AirPlay is used
+    https://bugs.webkit.org/show_bug.cgi?id=202534
+    <rdar://55931262>
+    
+    Reviewed by Eric Carlson.
+    
+    Ensure we escape an AirPlay's device name before inserting its name into the DOM.
+    
+    * Modules/modern-media-controls/media/placard-support.js:
+    (PlacardSupport.prototype._updateAirPlayPlacard):
+    (PlacardSupport):
+    (escapeHTML):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250716 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-03  Antoine Quint  <graouts@apple.com>
+
+            AppleTV named as XSS-payloads trigger when AirPlay is used
+            https://bugs.webkit.org/show_bug.cgi?id=202534
+            <rdar://55931262>
+
+            Reviewed by Eric Carlson.
+
+            Ensure we escape an AirPlay's device name before inserting its name into the DOM.
+
+            * Modules/modern-media-controls/media/placard-support.js:
+            (PlacardSupport.prototype._updateAirPlayPlacard):
+            (PlacardSupport):
+            (escapeHTML):
+
+2019-10-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250694. rdar://problem/56061131
+
+    [iOS] WebContent process can be interrupted during suspension; loses "Now Playing" status
+        https://bugs.webkit.org/show_bug.cgi?id=202537
+        <rdar://problem/55952707>
+    
+        Reviewed by Eric Carlson.
+    
+        Always deactivate the AVAudioSession when the last playing PlatformAudioSession ends playback and the application is in the background.
+    
+        * platform/audio/PlatformMediaSessionManager.cpp:
+        (WebCore::PlatformMediaSessionManager::removeSession):
+        (WebCore::PlatformMediaSessionManager::processWillSuspend):
+        (WebCore::PlatformMediaSessionManager::maybeDeactivateAudioSession):
+        * platform/audio/PlatformMediaSessionManager.h:
+        (WebCore::PlatformMediaSessionManager::isApplicationInBackground const):
+        * platform/audio/ios/MediaSessionManagerIOS.h:
+        * platform/audio/ios/MediaSessionManagerIOS.mm:
+        (WebCore::MediaSessionManageriOS::sessionWillEndPlayback):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250694 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-03  Jer Noble  <jer.noble@apple.com>
+
+        [iOS] WebContent process can be interrupted during suspension; loses "Now Playing" status
+        https://bugs.webkit.org/show_bug.cgi?id=202537
+        <rdar://problem/55952707>
+
+        Reviewed by Eric Carlson.
+
+        Always deactivate the AVAudioSession when the last playing PlatformAudioSession ends playback and the application is in the background.
+
+        * platform/audio/PlatformMediaSessionManager.cpp:
+        (WebCore::PlatformMediaSessionManager::removeSession):
+        (WebCore::PlatformMediaSessionManager::processWillSuspend):
+        (WebCore::PlatformMediaSessionManager::maybeDeactivateAudioSession):
+        * platform/audio/PlatformMediaSessionManager.h:
+        (WebCore::PlatformMediaSessionManager::isApplicationInBackground const):
+        * platform/audio/ios/MediaSessionManagerIOS.h:
+        * platform/audio/ios/MediaSessionManagerIOS.mm:
+        (WebCore::MediaSessionManageriOS::sessionWillEndPlayback):
+
+2019-10-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r250642. rdar://problem/56280704
 
     [iOS] When hit testing for a context menu interaction, do not consider whether the element is contenteditable
     https://bugs.webkit.org/show_bug.cgi?id=202498
@@ -351,6 +1693,654 @@
             (WebCore::Frame::nodeRespondingToDoubleClickEvent):
             (WebCore::Frame::nodeRespondingToInteraction):
             (WebCore::Frame::nodeRespondingToScrollWheelEvents):
+
+2019-10-15  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249517. rdar://problem/56000099
+
+    Mail appears to be double inverting code copied from Notes, Xcode, or Terminal.
+    https://bugs.webkit.org/show_bug.cgi?id=201368
+    rdar://problem/40529867
+    
+    Reviewed by Ryosuke Niwa.
+    
+    Source/WebCore:
+    
+    Dark mode content that is pasted should have the inline styles inverse color
+    transformed by the color filter to match the color filtered document contents.
+    
+    Layout Test: editing/pasteboard/paste-dark-mode-color-filtered.html
+    API Tests: PasteHTML.TransformColorsOfDarkContent, PasteHTML.DoesNotTransformColorsOfLightContent,
+        PasteRTFD.TransformColorsOfDarkContent, PasteRTFD.DoesNotTransformColorsOfLightContent
+    
+    * editing/EditingStyle.cpp:
+    (WebCore::EditingStyle::inverseTransformColorIfNeeded): Added caret-color to the transformed properties.
+    * editing/ReplaceSelectionCommand.cpp:
+    (WebCore::fragmentNeedsColorTransformed): Added.
+    (WebCore::ReplaceSelectionCommand::inverseTransformColor): Added.
+    (WebCore::ReplaceSelectionCommand::doApply): Call fragmentNeedsColorTransformed() and inverseTransformColor().
+    * editing/ReplaceSelectionCommand.h:
+    
+    Tools:
+    
+    Added Tests: PasteHTML.TransformColorsOfDarkContent, PasteHTML.DoesNotTransformColorsOfLightContent,
+        PasteRTFD.TransformColorsOfDarkContent, PasteRTFD.DoesNotTransformColorsOfLightContent
+    
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebKitCocoa/PasteHTML.mm:
+    (createWebViewWithCustomPasteboardDataSetting): Added argument to enable color filter.
+    * TestWebKitAPI/Tests/WebKitCocoa/PasteRTFD.mm:
+    (createWebViewWithCustomPasteboardDataEnabled): Added argument to enable color filter.
+    * TestWebKitAPI/Tests/WebKitCocoa/rich-color-filtered.html: Added.
+    * TestWebKitAPI/cocoa/TestWKWebView.h:
+    * TestWebKitAPI/cocoa/TestWKWebView.mm:
+    (-[TestWKWebView forceDarkMode]):
+    
+    LayoutTests:
+    
+    * TestExpectations:
+    * editing/pasteboard/paste-dark-mode-color-filtered-expected.txt: Added.
+    * editing/pasteboard/paste-dark-mode-color-filtered.html: Added.
+    * platform/ios-12/TestExpectations:
+    * platform/ios/TestExpectations:
+    * platform/mac/TestExpectations:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249517 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-04  Timothy Hatcher  <timothy@apple.com>
+
+            Mail appears to be double inverting code copied from Notes, Xcode, or Terminal.
+            https://bugs.webkit.org/show_bug.cgi?id=201368
+            rdar://problem/40529867
+
+            Reviewed by Ryosuke Niwa.
+
+            Dark mode content that is pasted should have the inline styles inverse color
+            transformed by the color filter to match the color filtered document contents.
+
+            Layout Test: editing/pasteboard/paste-dark-mode-color-filtered.html
+            API Tests: PasteHTML.TransformColorsOfDarkContent, PasteHTML.DoesNotTransformColorsOfLightContent,
+                PasteRTFD.TransformColorsOfDarkContent, PasteRTFD.DoesNotTransformColorsOfLightContent
+
+            * editing/EditingStyle.cpp:
+            (WebCore::EditingStyle::inverseTransformColorIfNeeded): Added caret-color to the transformed properties.
+            * editing/ReplaceSelectionCommand.cpp:
+            (WebCore::fragmentNeedsColorTransformed): Added.
+            (WebCore::ReplaceSelectionCommand::inverseTransformColor): Added.
+            (WebCore::ReplaceSelectionCommand::doApply): Call fragmentNeedsColorTransformed() and inverseTransformColor().
+            * editing/ReplaceSelectionCommand.h:
+
+2019-10-04  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249436. rdar://problem/55989217
+
+    [WebAuthn] Enable WebAuthn by default for MobileSafari and SafariViewService
+    https://bugs.webkit.org/show_bug.cgi?id=201369
+    <rdar://problem/54903724>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    * platform/RuntimeApplicationChecks.h:
+    * platform/cocoa/RuntimeApplicationChecksCocoa.mm:
+    (WebCore::IOSApplication::isSafariViewService):
+    Adds a way to detect SafariViewService.
+    
+    Source/WebKit:
+    
+    Communications to security keys require entitlements, which are not guaranteed to be present in third party
+    WKWebView clients. Therefore, only enable WebAuthn by default for MobileSafari and SafariViewService.
+    
+    * Shared/WebPreferences.yaml:
+    * Shared/WebPreferencesDefaultValues.cpp:
+    (WebKit::defaultWebAuthenticationEnabled):
+    * Shared/WebPreferencesDefaultValues.h:
+    
+    LayoutTests:
+    
+    * http/wpt/webauthn/public-key-credential-get-success-nfc.https.html:
+    Imporves the test a bit.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249436 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-03  Jiewen Tan  <jiewen_tan@apple.com>
+
+            [WebAuthn] Enable WebAuthn by default for MobileSafari and SafariViewService
+            https://bugs.webkit.org/show_bug.cgi?id=201369
+            <rdar://problem/54903724>
+
+            Reviewed by Brent Fulgham.
+
+            * platform/RuntimeApplicationChecks.h:
+            * platform/cocoa/RuntimeApplicationChecksCocoa.mm:
+            (WebCore::IOSApplication::isSafariViewService):
+            Adds a way to detect SafariViewService.
+
+2019-10-03  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250659. rdar://problem/55954229
+
+    Support googleLegacyAppidSupport extension
+    https://bugs.webkit.org/show_bug.cgi?id=202427
+    <rdar://problem/55887473>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    This patch adds support for googleLegacyAppidSupport extension, when set:
+    1) user agent should only use the U2F transport protocol,
+    2) should only communicate with roaming authenticators, and
+    3) should use a hard-coded appID of https://www.gstatic.com/securitykey/origins.json.
+    To be noticed as the name implies, this extension is exclusively for RP ID = google.com.
+    
+    Implementation wise, all operations are captured in methods with name processGoogleLegacyAppIdSupportExtension.
+    1) AuthenticatorCoordinator takes care of setting the value.
+    2) U2fCommandConstructor takes care of hard coding the AppID.
+    3) AuthenticatorManager takes care of removing AuthenticatorTransport::Internal from TransportSet, so startDiscovery
+    will not poke platform authenticators.
+    4) CtapAuthenticator takes care of downgrading to U2fAuthenticator.
+    5) U2fAuthenticator takes care of setting the AppID in the response.
+    
+    Partially covered by new test cases in existing tests, and remaining will be covered by manual tests.
+    
+    * Modules/webauthn/AuthenticationExtensionsClientInputs.h:
+    (WebCore::AuthenticationExtensionsClientInputs::encode const):
+    (WebCore::AuthenticationExtensionsClientInputs::decode):
+    * Modules/webauthn/AuthenticationExtensionsClientInputs.idl:
+    * Modules/webauthn/AuthenticatorCoordinator.cpp:
+    (WebCore::AuthenticatorCoordinatorInternal::processGoogleLegacyAppIdSupportExtension):
+    (WebCore::AuthenticatorCoordinator::create const):
+    * Modules/webauthn/PublicKeyCredentialCreationOptions.h:
+    (WebCore::PublicKeyCredentialCreationOptions::encode const):
+    (WebCore::PublicKeyCredentialCreationOptions::decode):
+    * Modules/webauthn/fido/U2fCommandConstructor.cpp:
+    (fido::convertToU2fRegisterCommand):
+    (fido::processGoogleLegacyAppIdSupportExtension):
+    * Modules/webauthn/fido/U2fCommandConstructor.h:
+    
+    Source/WebKit:
+    
+    * UIProcess/WebAuthentication/AuthenticatorManager.cpp:
+    (WebKit::AuthenticatorManagerInternal::collectTransports):
+    (WebKit::AuthenticatorManagerInternal::processGoogleLegacyAppIdSupportExtension):
+    (WebKit::AuthenticatorManager::handleRequest):
+    * UIProcess/WebAuthentication/fido/CtapAuthenticator.cpp:
+    (WebKit::CtapAuthenticator::makeCredential):
+    (WebKit::CtapAuthenticator::processGoogleLegacyAppIdSupportExtension):
+    * UIProcess/WebAuthentication/fido/CtapAuthenticator.h:
+    * UIProcess/WebAuthentication/fido/U2fAuthenticator.cpp:
+    (WebKit::U2fAuthenticator::continueRegisterCommandAfterResponseReceived):
+    
+    Tools:
+    
+    Adds an API test for googleLegacyAppidSupport extension.
+    
+    * TestWebKitAPI/Tests/WebCore/FidoTestData.h:
+    * TestWebKitAPI/Tests/WebCore/U2fCommandConstructorTest.cpp:
+    (TestWebKitAPI::constructMakeCredentialRequest):
+    (TestWebKitAPI::constructMakeCredentialRequestWithGoogleLegacyAppidSupport):
+    (TestWebKitAPI::TEST):
+    
+    LayoutTests:
+    
+    Add tests to confirm the googleLegacyAppidSupport extension is ignored for RP ID != google.com.
+    
+    * http/wpt/webauthn/public-key-credential-create-success-hid.https-expected.txt:
+    * http/wpt/webauthn/public-key-credential-create-success-hid.https.html:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250659 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-10-03  Jiewen Tan  <jiewen_tan@apple.com>
+
+            Support googleLegacyAppidSupport extension
+            https://bugs.webkit.org/show_bug.cgi?id=202427
+            <rdar://problem/55887473>
+
+            Reviewed by Brent Fulgham.
+
+            This patch adds support for googleLegacyAppidSupport extension, when set:
+            1) user agent should only use the U2F transport protocol,
+            2) should only communicate with roaming authenticators, and
+            3) should use a hard-coded appID of https://www.gstatic.com/securitykey/origins.json.
+            To be noticed as the name implies, this extension is exclusively for RP ID = google.com.
+
+            Implementation wise, all operations are captured in methods with name processGoogleLegacyAppIdSupportExtension.
+            1) AuthenticatorCoordinator takes care of setting the value.
+            2) U2fCommandConstructor takes care of hard coding the AppID.
+            3) AuthenticatorManager takes care of removing AuthenticatorTransport::Internal from TransportSet, so startDiscovery
+            will not poke platform authenticators.
+            4) CtapAuthenticator takes care of downgrading to U2fAuthenticator.
+            5) U2fAuthenticator takes care of setting the AppID in the response.
+
+            Partially covered by new test cases in existing tests, and remaining will be covered by manual tests.
+
+            * Modules/webauthn/AuthenticationExtensionsClientInputs.h:
+            (WebCore::AuthenticationExtensionsClientInputs::encode const):
+            (WebCore::AuthenticationExtensionsClientInputs::decode):
+            * Modules/webauthn/AuthenticationExtensionsClientInputs.idl:
+            * Modules/webauthn/AuthenticatorCoordinator.cpp:
+            (WebCore::AuthenticatorCoordinatorInternal::processGoogleLegacyAppIdSupportExtension):
+            (WebCore::AuthenticatorCoordinator::create const):
+            * Modules/webauthn/PublicKeyCredentialCreationOptions.h:
+            (WebCore::PublicKeyCredentialCreationOptions::encode const):
+            (WebCore::PublicKeyCredentialCreationOptions::decode):
+            * Modules/webauthn/fido/U2fCommandConstructor.cpp:
+            (fido::convertToU2fRegisterCommand):
+            (fido::processGoogleLegacyAppIdSupportExtension):
+            * Modules/webauthn/fido/U2fCommandConstructor.h:
+
+2019-10-03  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r249949. rdar://problem/55964883
+
+    [WebAuthn] Use WebPreferences instead of RuntimeEnabledFeatures in UIProcess
+    https://bugs.webkit.org/show_bug.cgi?id=198176
+    <rdar://problem/55285709>
+    
+    Reviewed by Youenn Fablet.
+    
+    Source/WebCore:
+    
+    No changes of behavior.
+    
+    * Modules/webauthn/PublicKeyCredential.cpp:
+    (WebCore::PublicKeyCredential::isUserVerifyingPlatformAuthenticatorAvailable):
+    Resolves the promise with false immediately when the feature flag is false.
+    
+    Source/WebKit:
+    
+    This patch does the following two things:
+    1) It merges WebAuthenticationRequestData::creationOptions and requestOptions into a variant, and therefore
+    merges code paths that involve WebAuthenticationRequestData.
+    2) It teaches WebAuthenticationRequestData to store a WebPreferences such that AuthenticatorManager could utilize
+    runtime feature flags to turn features on or off.
+    
+    * UIProcess/WebAuthentication/Authenticator.cpp:
+    (WebKit::Authenticator::handleRequest):
+    * UIProcess/WebAuthentication/AuthenticatorManager.cpp:
+    (WebKit::AuthenticatorManager::handleRequest):
+    (WebKit::AuthenticatorManager::clearState):
+    (WebKit::AuthenticatorManager::authenticatorAdded):
+    (WebKit::AuthenticatorManager::startDiscovery):
+    (WebKit::AuthenticatorManager::makeCredential): Deleted.
+    (WebKit::AuthenticatorManager::getAssertion): Deleted.
+    * UIProcess/WebAuthentication/AuthenticatorManager.h:
+    * UIProcess/WebAuthentication/Cocoa/LocalAuthenticator.mm:
+    (WebKit::LocalAuthenticator::makeCredential):
+    (WebKit::LocalAuthenticator::continueMakeCredentialAfterUserConsented):
+    (WebKit::LocalAuthenticator::continueMakeCredentialAfterAttested):
+    (WebKit::LocalAuthenticator::getAssertion):
+    (WebKit::LocalAuthenticator::continueGetAssertionAfterUserConsented):
+    * UIProcess/WebAuthentication/Cocoa/LocalService.mm:
+    (WebKit::LocalService::isAvailable):
+    Don't check RuntimeEnabledFeatures given it is for WebCore.
+    * UIProcess/WebAuthentication/WebAuthenticationRequestData.h:
+    (): Deleted.
+    * UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy.cpp:
+    (WebKit::WebAuthenticatorCoordinatorProxy::makeCredential):
+    (WebKit::WebAuthenticatorCoordinatorProxy::getAssertion):
+    (WebKit::WebAuthenticatorCoordinatorProxy::handleRequest):
+    * UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy.h:
+    * UIProcess/WebAuthentication/fido/CtapAuthenticator.cpp:
+    (WebKit::CtapAuthenticator::makeCredential):
+    (WebKit::CtapAuthenticator::continueMakeCredentialAfterResponseReceived const):
+    (WebKit::CtapAuthenticator::getAssertion):
+    * UIProcess/WebAuthentication/fido/U2fAuthenticator.cpp:
+    (WebKit::U2fAuthenticator::makeCredential):
+    (WebKit::U2fAuthenticator::checkExcludeList):
+    (WebKit::U2fAuthenticator::issueRegisterCommand):
+    (WebKit::U2fAuthenticator::getAssertion):
+    (WebKit::U2fAuthenticator::issueSignCommand):
+    (WebKit::U2fAuthenticator::continueRegisterCommandAfterResponseReceived):
+    (WebKit::U2fAuthenticator::continueSignCommandAfterResponseReceived):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249949 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-17  Jiewen Tan  <jiewen_tan@apple.com>
+
+            [WebAuthn] Use WebPreferences instead of RuntimeEnabledFeatures in UIProcess
+            https://bugs.webkit.org/show_bug.cgi?id=198176
+            <rdar://problem/55285709>
+
+            Reviewed by Youenn Fablet.
+
+            No changes of behavior.
+
+            * Modules/webauthn/PublicKeyCredential.cpp:
+            (WebCore::PublicKeyCredential::isUserVerifyingPlatformAuthenticatorAvailable):
+            Resolves the promise with false immediately when the feature flag is false.
+
+2019-10-03  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r249059. rdar://problem/55927255
+
+    [WebAuthn] Support NFC authenticators for iOS
+    https://bugs.webkit.org/show_bug.cgi?id=188624
+    <rdar://problem/43354214>
+    
+    Reviewed by Chris Dumez.
+    
+    Source/WebCore:
+    
+    Tests: http/wpt/webauthn/ctap-nfc-failure.https.html
+           http/wpt/webauthn/public-key-credential-create-failure-nfc.https.html
+           http/wpt/webauthn/public-key-credential-create-success-nfc.https.html
+           http/wpt/webauthn/public-key-credential-get-failure-nfc.https.html
+           http/wpt/webauthn/public-key-credential-get-success-nfc.https.html
+    
+    * Modules/webauthn/apdu/ApduResponse.h:
+    Adds a new method to support moving m_data.
+    * Modules/webauthn/fido/FidoConstants.h:
+    Adds constants for NFC applet selection.
+    
+    Source/WebKit:
+    
+    This patch implements support for NFC authenticators including both FIDO2 and U2F ones. It utilizes a private
+    framework called NearField instead of CoreNFC to be able to supply a custom UI later if necessary.
+    
+    The patch follows almost the same flow as previous HID and Local authenticator support.
+    1) Discovery is via NfcService which will invoke NFHardwareManager to start a generic NFC reader session.
+    2) Once a reader session is established, a NfcConnection is created to start the polling and register the WKNFReaderSessionDelegate
+    to wait for 'didDetectTags'.
+    3) When tags are detected, NfcConnection will determine if it meets our requriements: { type, connectability, fido applet availability }.
+    The first tag that meets all requirement will then be returned for WebAuthn operations.
+    4) The first WebAuthn operation is to send authenticatorGetInfo command to determine the supported protocol, and then initialize corresponding
+    authenticators. Noted, the sending/receiving of this command is now abstracted into FidoService which will be shared across HidService and NfcService.
+    5) From then, the actual WebAuthn request, either makeCredential or getAssertion will be sent.
+    
+    For testing, this patch follows the same flow as well.
+    1) MockNfcService overrides NfcService to mock the behavior of NFC Tags discovery.
+    2) The same class also swizzles methods from NFReaderSession to mock tag connection and communication.
+    
+    * Platform/spi/Cocoa/NearFieldSPI.h: Added.
+    * Sources.txt:
+    * SourcesCocoa.txt:
+    * UIProcess/API/C/WKWebsiteDataStoreRef.cpp:
+    (WKWebsiteDataStoreSetWebAuthenticationMockConfiguration):
+    * UIProcess/WebAuthentication/AuthenticatorManager.cpp:
+    (WebKit::AuthenticatorManagerInternal::collectTransports):
+    * UIProcess/WebAuthentication/AuthenticatorTransportService.cpp:
+    (WebKit::AuthenticatorTransportService::create):
+    (WebKit::AuthenticatorTransportService::createMock):
+    * UIProcess/WebAuthentication/Cocoa/HidService.h:
+    * UIProcess/WebAuthentication/Cocoa/HidService.mm:
+    (WebKit::HidService::HidService):
+    (WebKit::HidService::deviceAdded):
+    (WebKit::HidService::continueAddDeviceAfterGetInfo): Deleted.
+    * UIProcess/WebAuthentication/Cocoa/NearFieldSoftLink.h: Copied from Source/WebKit/UIProcess/WebAuthentication/Cocoa/HidService.h.
+    * UIProcess/WebAuthentication/Cocoa/NearFieldSoftLink.mm: Copied from Source/WebKit/UIProcess/WebAuthentication/Cocoa/HidService.h.
+    * UIProcess/WebAuthentication/Cocoa/NfcConnection.h: Copied from Source/WebKit/UIProcess/WebAuthentication/Cocoa/HidService.h.
+    * UIProcess/WebAuthentication/Cocoa/NfcConnection.mm: Added.
+    (WebKit::fido::compareVersion):
+    (WebKit::NfcConnection::NfcConnection):
+    (WebKit::NfcConnection::~NfcConnection):
+    (WebKit::NfcConnection::transact const):
+    (WebKit::NfcConnection::didDetectTags const):
+    * UIProcess/WebAuthentication/Cocoa/NfcService.h: Copied from Source/WebKit/UIProcess/WebAuthentication/Cocoa/HidService.h.
+    * UIProcess/WebAuthentication/Cocoa/NfcService.mm: Added.
+    (WebKit::NfcService::NfcService):
+    (WebKit::NfcService::~NfcService):
+    (WebKit::NfcService::didConnectTag):
+    (WebKit::NfcService::startDiscoveryInternal):
+    (WebKit::NfcService::platformStartDiscovery):
+    * UIProcess/WebAuthentication/Cocoa/WKNFReaderSessionDelegate.h: Copied from Source/WebKit/UIProcess/WebAuthentication/Cocoa/HidService.h.
+    * UIProcess/WebAuthentication/Cocoa/WKNFReaderSessionDelegate.mm: Copied from Source/WebKit/UIProcess/WebAuthentication/Cocoa/HidService.h.
+    (-[WKNFReaderSessionDelegate initWithConnection:]):
+    (-[WKNFReaderSessionDelegate readerSession:didDetectTags:]):
+    * UIProcess/WebAuthentication/Mock/MockHidConnection.cpp:
+    (WebKit::MockHidConnection::send):
+    (WebKit::MockHidConnection::registerDataReceivedCallbackInternal):
+    (WebKit::MockHidConnection::parseRequest):
+    (WebKit::MockHidConnection::feedReports):
+    (WebKit::MockHidConnection::shouldContinueFeedReports):
+    * UIProcess/WebAuthentication/Mock/MockNfcService.h: Copied from Source/WebKit/UIProcess/WebAuthentication/Cocoa/HidService.h.
+    * UIProcess/WebAuthentication/Mock/MockNfcService.mm: Added.
+    (-[WKMockNFTag type]):
+    (-[WKMockNFTag initWithNFTag:]):
+    (-[WKMockNFTag description]):
+    (-[WKMockNFTag isEqualToNFTag:]):
+    (-[WKMockNFTag initWithType:]):
+    (WebKit::MockNfcService::MockNfcService):
+    (WebKit::MockNfcService::transceive):
+    (WebKit::MockNfcService::platformStartDiscovery):
+    (WebKit::MockNfcService::detectTags const):
+    * UIProcess/WebAuthentication/Mock/MockWebAuthenticationConfiguration.h:
+    * UIProcess/WebAuthentication/fido/CtapAuthenticator.cpp:
+    * UIProcess/WebAuthentication/fido/CtapAuthenticator.h:
+    * UIProcess/WebAuthentication/fido/CtapNfcDriver.cpp: Added.
+    (WebKit::CtapNfcDriver::CtapNfcDriver):
+    (WebKit::CtapNfcDriver::transact):
+    (WebKit::CtapNfcDriver::respondAsync const):
+    * UIProcess/WebAuthentication/fido/CtapNfcDriver.h: Copied from Source/WebKit/UIProcess/WebAuthentication/Cocoa/HidService.h.
+    * UIProcess/WebAuthentication/fido/FidoService.cpp: Added.
+    (WebKit::FidoService::FidoService):
+    (WebKit::FidoService::getInfo):
+    (WebKit::FidoService::continueAfterGetInfo):
+    * UIProcess/WebAuthentication/fido/FidoService.h: Copied from Source/WebKit/UIProcess/WebAuthentication/Cocoa/HidService.h.
+    * UIProcess/WebAuthentication/fido/U2fAuthenticator.cpp:
+    * UIProcess/WebAuthentication/fido/U2fAuthenticator.h:
+    * UIProcess/ios/WebPageProxyIOS.mm:
+    * WebKit.xcodeproj/project.pbxproj:
+    
+    Source/WTF:
+    
+    * wtf/Platform.h:
+    Add a feature flag for NearField.
+    
+    Tools:
+    
+    * WebKitTestRunner/InjectedBundle/TestRunner.cpp:
+    (WTR::TestRunner::setWebAuthenticationMockConfiguration):
+    Setup NFC mock testing configuration.
+    
+    LayoutTests:
+    
+    * http/wpt/webauthn/ctap-nfc-failure.https-expected.txt: Added.
+    * http/wpt/webauthn/ctap-nfc-failure.https.html: Added.
+    * http/wpt/webauthn/public-key-credential-create-failure-nfc.https-expected.txt: Added.
+    * http/wpt/webauthn/public-key-credential-create-failure-nfc.https.html: Added.
+    * http/wpt/webauthn/public-key-credential-create-success-hid.https-expected.txt:
+    * http/wpt/webauthn/public-key-credential-create-success-hid.https.html:
+    This patch replaces the "local" keyword with "hid".
+    * http/wpt/webauthn/public-key-credential-create-success-nfc.https-expected.txt: Added.
+    * http/wpt/webauthn/public-key-credential-create-success-nfc.https.html: Added.
+    * http/wpt/webauthn/public-key-credential-get-failure-nfc.https-expected.txt: Added.
+    * http/wpt/webauthn/public-key-credential-get-failure-nfc.https.html: Added.
+    * http/wpt/webauthn/public-key-credential-get-success-nfc.https-expected.txt: Added.
+    * http/wpt/webauthn/public-key-credential-get-success-nfc.https.html: Added.
+    * http/wpt/webauthn/resources/util.js:
+    * platform/ios-simulator-wk2/TestExpectations:
+    Skip NFC tests for simulators.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249059 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-08-20  Jiewen Tan  <jiewen_tan@apple.com>
+
+            [WebAuthn] Support NFC authenticators for iOS
+            https://bugs.webkit.org/show_bug.cgi?id=188624
+            <rdar://problem/43354214>
+
+            Reviewed by Chris Dumez.
+
+            Tests: http/wpt/webauthn/ctap-nfc-failure.https.html
+                   http/wpt/webauthn/public-key-credential-create-failure-nfc.https.html
+                   http/wpt/webauthn/public-key-credential-create-success-nfc.https.html
+                   http/wpt/webauthn/public-key-credential-get-failure-nfc.https.html
+                   http/wpt/webauthn/public-key-credential-get-success-nfc.https.html
+
+            * Modules/webauthn/apdu/ApduResponse.h:
+            Adds a new method to support moving m_data.
+            * Modules/webauthn/fido/FidoConstants.h:
+            Adds constants for NFC applet selection.
+
+2019-10-02  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r250238. rdar://problem/55927247
+
+    REGRESSION (r249855): Remove debug logging from WebCore::RenderImage::paintIntoRect()
+    <https://webkit.org/b/202103>
+    
+    Reviewed by Zalan Bujtas.
+    
+    * rendering/RenderImage.cpp:
+    (WebCore::RenderImage::paintIntoRect): Remove debug logging
+    statements.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250238 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-23  David Kilzer  <ddkilzer@apple.com>
+
+            REGRESSION (r249855): Remove debug logging from WebCore::RenderImage::paintIntoRect()
+            <https://webkit.org/b/202103>
+
+            Reviewed by Zalan Bujtas.
+
+            * rendering/RenderImage.cpp:
+            (WebCore::RenderImage::paintIntoRect): Remove debug logging
+            statements.
+
+2019-10-02  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r249855. rdar://problem/55927247
+
+    Provide a prototype for AR QuickLook to trigger processing in the originating page
+    https://bugs.webkit.org/show_bug.cgi?id=201371
+    <rdar://54904781>
+    
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    * dom/Document.cpp:
+    (WebCore::Document::dispatchSystemPreviewActionEvent): Create and dispatch a MessageEvent.
+    * dom/Document.h:
+    
+    * html/HTMLAnchorElement.cpp: Send along the page and frame identifiers for this
+    object to ensure that any reply goes to the correct place.
+    (WebCore::HTMLAnchorElement::handleClick):
+    
+    * loader/FrameLoadRequest.h: Use the new SystemPreviewInfo type.
+    (WebCore::FrameLoadRequest::isSystemPreview const):
+    (WebCore::FrameLoadRequest::systemPreviewInfo const):
+    (WebCore::FrameLoadRequest::systemPreviewRect const): Deleted.
+    * loader/FrameLoader.cpp:
+    (WebCore::FrameLoader::loadURL):
+    
+    * loader/FrameLoaderTypes.h: Provide encoders for the type.
+    (WebCore::SystemPreviewInfo::encode const):
+    (WebCore::SystemPreviewInfo::decode):
+    
+    * platform/network/ResourceRequestBase.cpp: Use the new type.
+    (WebCore::ResourceRequestBase::isSystemPreview const):
+    (WebCore::ResourceRequestBase::systemPreviewInfo const):
+    (WebCore::ResourceRequestBase::setSystemPreviewInfo):
+    (WebCore::ResourceRequestBase::setSystemPreview): Deleted.
+    (WebCore::ResourceRequestBase::systemPreviewRect const): Deleted.
+    (WebCore::ResourceRequestBase::setSystemPreviewRect): Deleted.
+    * platform/network/ResourceRequestBase.h:
+    
+    * testing/Internals.cpp: Expose the frame and page identifiers to testing.
+    (WebCore::Internals::frameIdentifier const):
+    (WebCore::Internals::pageIdentifier const):
+    * testing/Internals.h:
+    * testing/Internals.idl:
+    
+    Source/WebKit:
+    
+    Provide a way for a Web page to know if an action in the AR scene
+    was performed, if and only if the system AR library calls a delegate with
+    particular parameters. Post a message to the originating frame so
+    the page can detect the action.
+    
+    * Scripts/webkit/messages.py: Include the right header for SystemPreviewInfo.
+    
+    * Shared/WebCoreArgumentCoders.cpp: Use SystemPreviewInfo.
+    (IPC::ArgumentCoder<ResourceRequest>::encode):
+    (IPC::ArgumentCoder<ResourceRequest>::decode):
+    
+    * UIProcess/API/Cocoa/WKWebView.mm:
+    (-[WKWebView _triggerSystemPreviewActionOnFrame:page:]): New helper/test function
+    to trigger the system preview action.
+    * UIProcess/API/Cocoa/WKWebViewPrivate.h:
+    
+    * UIProcess/Cocoa/DownloadClient.mm: Use new type.
+    (WebKit::DownloadClient::didStart):
+    
+    * UIProcess/Cocoa/SystemPreviewControllerCocoa.mm: Implement the delegate so that
+    we can detect an action. When it happens, tell the WebPageProxy to send a message.
+    
+    * UIProcess/Downloads/DownloadProxy.h: Use SystemPreviewInfo type.
+    (WebKit::DownloadProxy::systemPreviewDownloadInfo const):
+    (WebKit::DownloadProxy::systemPreviewDownloadRect const): Deleted.
+    
+    * UIProcess/SystemPreviewController.h:
+    (WebKit::SystemPreviewController::previewInfo const):
+    
+    * UIProcess/WebPageProxy.cpp: Send it over to the Web Process.
+    (WebKit::WebPageProxy::systemPreviewActionTriggered const):
+    * UIProcess/WebPageProxy.h:
+    
+    * WebProcess/WebPage/WebPage.cpp: Check the destination still exists, and then talk
+    to the Document.
+    (WebKit::WebPage::systemPreviewActionTriggered):
+    * WebProcess/WebPage/WebPage.h:
+    * WebProcess/WebPage/WebPage.messages.in:
+    
+    Tools:
+    
+    * TestWebKitAPI/Tools/TestWebKitAPI/Tests/WebKitCocoa/SystemPreview.mm:
+    * TestWebKitAPI/TestWebKitAPI.xcodeproj/project.pbxproj:
+    * TestWebKitAPI/Tests/WebKitCocoa/system-preview-trigger.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@249855 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-11  Dean Jackson  <dino@apple.com>
+
+            Provide a prototype for AR QuickLook to trigger processing in the originating page
+            https://bugs.webkit.org/show_bug.cgi?id=201371
+            <rdar://54904781>
+
+            Reviewed by Simon Fraser.
+
+            * dom/Document.cpp:
+            (WebCore::Document::dispatchSystemPreviewActionEvent): Create and dispatch a MessageEvent.
+            * dom/Document.h:
+
+            * html/HTMLAnchorElement.cpp: Send along the page and frame identifiers for this
+            object to ensure that any reply goes to the correct place.
+            (WebCore::HTMLAnchorElement::handleClick):
+
+            * loader/FrameLoadRequest.h: Use the new SystemPreviewInfo type.
+            (WebCore::FrameLoadRequest::isSystemPreview const):
+            (WebCore::FrameLoadRequest::systemPreviewInfo const):
+            (WebCore::FrameLoadRequest::systemPreviewRect const): Deleted.
+            * loader/FrameLoader.cpp:
+            (WebCore::FrameLoader::loadURL):
+
+            * loader/FrameLoaderTypes.h: Provide encoders for the type.
+            (WebCore::SystemPreviewInfo::encode const):
+            (WebCore::SystemPreviewInfo::decode):
+
+            * platform/network/ResourceRequestBase.cpp: Use the new type.
+            (WebCore::ResourceRequestBase::isSystemPreview const):
+            (WebCore::ResourceRequestBase::systemPreviewInfo const):
+            (WebCore::ResourceRequestBase::setSystemPreviewInfo):
+            (WebCore::ResourceRequestBase::setSystemPreview): Deleted.
+            (WebCore::ResourceRequestBase::systemPreviewRect const): Deleted.
+            (WebCore::ResourceRequestBase::setSystemPreviewRect): Deleted.
+            * platform/network/ResourceRequestBase.h:
+
+            * testing/Internals.cpp: Expose the frame and page identifiers to testing.
+            (WebCore::Internals::frameIdentifier const):
+            (WebCore::Internals::pageIdentifier const):
+            * testing/Internals.h:
+            * testing/Internals.idl:
 
 2019-10-01  Alan Coon  <alancoon@apple.com>
 

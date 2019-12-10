@@ -196,6 +196,8 @@ static void sosRecoveryAlertAndNotify(SOSAccount* account, SOSRecoveryKeyBagRef 
 }
 
 void SOSAccountEnsureRecoveryRing(SOSAccount* account) {
+    dispatch_assert_queue(account.queue);
+
     static SOSRecoveryKeyBagRef oldRingRKBG = NULL;
     SOSRecoveryKeyBagRef acctRKBG = SOSAccountCopyRecoveryKeyBagEntry(kCFAllocatorDefault, account, NULL);
     if(!CFEqualSafe(acctRKBG, oldRingRKBG)) {

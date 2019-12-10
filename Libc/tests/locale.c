@@ -1,3 +1,4 @@
+#include <TargetConditionals.h>
 #include <locale.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -7,6 +8,7 @@
 
 #include <darwintest.h>
 
+#if TARGET_OS_OSX
 T_DECL(locale_PR_23679075, "converts a cyrillic a to uppercase")
 {
 	locale_t loc = newlocale(LC_COLLATE_MASK|LC_CTYPE_MASK, "ru_RU", 0);
@@ -32,3 +34,4 @@ T_DECL(locale_PR_28774201, "return code on bad locale")
     T_EXPECT_NULL(newlocale(LC_COLLATE_MASK | LC_CTYPE_MASK, "foobar", NULL), NULL);
     T_EXPECT_EQ(errno, ENOENT, NULL);
 }
+#endif

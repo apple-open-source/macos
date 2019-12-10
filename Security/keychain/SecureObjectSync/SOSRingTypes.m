@@ -181,8 +181,17 @@ SOSConcordanceStatus SOSRingConcordanceTrust(SOSFullPeerInfoRef me, CFSetRef pee
         return kSOSConcordanceError;
     }
 
-    secnotice("ring", "concordance trust (%s) knownRing: %@ proposedRing: %@ knownkey: %@ userkey: %@ excluded: %@",
-              ringTypes[type1]->typeName, knownRing, proposedRing, knownPubkey, userPubkey, excludePeerID);
+    secnotice("ring", "concordance trust (%s)", ringTypes[type1]->typeName);
+    secnotice("ring", "    knownRing: %@", knownRing);
+    secnotice("ring", " proposedRing: %@", proposedRing);
+    CFStringRef knownKeyID = SOSCopyIDOfKeyWithLength(knownPubkey, 8, NULL);
+    CFStringRef userKeyID = SOSCopyIDOfKeyWithLength(userPubkey, 8, NULL);
+    CFStringRef mypeerSPID = CFStringCreateTruncatedCopy(excludePeerID, 8);
+    
+    secnotice("ring", "knownkey: %@ userkey: %@ myPeerID: %@", knownKeyID, userKeyID, mypeerSPID);
+    CFReleaseNull(knownKeyID);
+    CFReleaseNull(userKeyID);
+    CFReleaseNull(mypeerSPID);
 
     if(!(ringTypes[type1]->sosRingConcordanceTrust)){
         return kSOSConcordanceError;

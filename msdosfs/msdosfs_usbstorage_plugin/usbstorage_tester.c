@@ -952,6 +952,28 @@ int main( int argc, const char * argv[] )
         printf("CreateNewFolder ÖÖ err [%d]\n",err);
         if (err) break;
 
+        // Create File Validation-MirrorAckColoradoBulldog (size 0) in D1
+        UVFSFileNode F12_Node= NULL;
+        err = CreateNewFile(D1_Node,&F12_Node,(char*)"Validation-MirrorAckColoradoBulldog",0);
+        printf("CreateNewFile Validation-MirrorAckColoradoBulldog err [%d]\n",err);
+        if (err) break;
+        
+        // Create File validation-mirrorackcoloradobulldog (size 0) in D1 - should fail
+        UVFSFileNode F13_Node= NULL;
+        err = CreateNewFile(D1_Node,&F13_Node,(char*)"validation-mirrorackcoloradobulldog",0);
+        printf("CreateNewFile validation-mirrorackcoloradobulldog err [%d]\n",err);
+        if (err != EEXIST) break;
+        
+        // Reclaim Validation-MirrorAckColoradoBulldog
+        err = CloseFile(F12_Node);
+        printf("Reclaim Validation-MirrorAckColoradoBulldog err [%d]\n",err);
+        if (err) break;
+        
+        //Remove validation-mirrorackcoloradobulldog - should remove Validation-MirrorAckColoradoBulldog
+        err = RemoveFile(D1_Node,(char*)"validation-mirrorackcoloradobulldog");
+        printf("RemoveFile validation-mirrorackcoloradobulldog from Root err [%d]\n",err);
+        if (err) break;
+        
         // Reclaim and Lookup of D1
         err = CloseFile(D1_Node);
         printf("Reclaim D1 err [%d]\n",err);

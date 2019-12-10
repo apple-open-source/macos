@@ -66,16 +66,17 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithEnvironmentName:(NSString*)environmentName
                       namedDelegatePort:(NSString*)namedDelegatePort
                      apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass;
+- (instancetype)initWithEnvironmentName:(NSString*)environmentName
+                      namedDelegatePort:(NSString*)namedDelegatePort
+                     apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
+                       stalePushTimeout:(uint64_t)stalePushTimeout;
 // This is the queue that APNS will use send the notifications to us
 + (dispatch_queue_t)apsDeliveryQueue;
-
-// timeout for stale push cache, in nanoseconds
-+ (int64_t)stalePushTimeout;
-
 @end
 
 @interface OctagonAPSReceiver (Testing)
 + (void)resetGlobalEnviornmentMap;
+- (void)reportDroppedPushes:(NSDictionary<NSString*, NSMutableSet<CKRecordZoneNotification*>*>*)notifications;
 @end
 
 NS_ASSUME_NONNULL_END

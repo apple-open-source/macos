@@ -1,5 +1,9 @@
 #include <darwintest.h>
 
+#if !defined(DARWIN_API_AVAILABLE_20190830)
+#define DARWIN_API_AVAILABLE_20190830
+#endif
+
 #include "../libdarwin/bsd.c"
 
 static struct test_case {

@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>42</integer>
+	<integer>43</integer>
 	<dict>
 		<key>domains</key>
 		<array>
@@ -1451,6 +1451,91 @@
 						<dict>
 							<key>1.2.840.113635.100.6.48.1</key>
 							<string>1.2.840.113635.100.6.27.70.1</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
+				<string>^updates$</string>
+				<key>suffix</key>
+				<string>cdn-apple.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>Updates</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.40.2</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.40.2</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.40.1</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.40.1</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+			<dict>
+				<key>AnchorSHA256</key>
+				<array>
+					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
+					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
+					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
+					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
+					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
+					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
+					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+				</array>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateCountry</key>
+				<string>US</string>
+				<key>CheckIntermediateOrganization</key>
+				<string>Apple Inc.</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.40.2</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.40.2</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.40.1</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.40.1</string>
 						</dict>
 					</array>
 				</dict>

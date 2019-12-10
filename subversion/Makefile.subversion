@@ -1,0 +1,47 @@
+ifndef SVN_INSTALL_DIR
+export SVN_INSTALL_DIR = /usr/local
+endif
+
+Install_Prefix = $(SVN_INSTALL_DIR)
+Install_Man = $(SVN_INSTALL_DIR)/share/man
+
+GnuAfterInstall       = post-install install-plist
+Extra_Configure_Flags = --enable-shared --disable-static \
+                        --without-berkeley-db \
+                        --without-apxs \
+                        --with-lz4=internal \
+                        --with-utf8proc=internal \
+                        --with-apr=$(APR_TOOLCHAIN_DIR) \
+                        --with-apr-util=$(APR_TOOLCHAIN_DIR) \
+                        --with-serf=$(SDKROOT)/usr/local \
+                        --with-swig=$(shell test -e /usr/bin/swig && echo /usr || echo /usr/local) \
+                        --with-ruby-sitedir=$(RBLIBDIR)/ruby \
+                        --with-sasl=$(SDKROOT)/usr \
+                        --includedir=$(Install_Prefix)/include \
+                        --without-libmagic
+
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+
+Install_Target  = install
+Install_Flags   = DESTDIR=$(DSTROOT)
+
+# Post-install cleanup
+post-install:
+	[ -n "$(DSTROOT)" ] || exit 1
+	@for binary in svn svnadmin svndumpfilter svnlook svnrdump svnserve svnsync svnversion; do \
+		file=$(DSTROOT)$(Install_Prefix)/bin/$${binary}; \
+		echo $(CP) $${file} $(SYMROOT); \
+		$(CP) $${file} $(SYMROOT); \
+		echo $(STRIP) -x $${file}; \
+		$(STRIP) -x $${file}; \
+		echo $(CODESIGN) -o library $${file}; \
+		$(CODESIGN) -o library $${file}; \
+	done
+	@set -x && \
+	for library in `find $(DSTROOT) -type f -name \*.dylib`; do \
+		$(CP) $${library} $(SYMROOT) && \
+		$(STRIP) -x $${library} && \
+		$(CODESIGN) $${library} || exit 1; \
+	done
+	find $(DSTROOT) -name \*.la -delete
+	rm -rf $(DSTROOT)$(SVN_INSTALL_DIR)/share/pkgconfig

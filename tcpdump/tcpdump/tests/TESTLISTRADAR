@@ -1,0 +1,12 @@
+
+# rdar://16628690
+radar-16628690		radar-16628690.pcapng	radar-16628690.out	-k -v
+
+# rdar://25205036
+radar-25205036		radar-25205036.pcap	radar-25205036.out	-w `mktemp /tmp/tcpdump-test-XXXXXXXX`
+
+# rdar://30878508
+radar-30878508		radar-30878508.pcap	radar-30878508.out	-w `mktemp /tmp/tcpdump-test-XXXXXXXX`
+
+# rdar://31053702
+radar-30878508		radar-30878508.pcapng	radar-30878508.out	-w `mktemp /tmp/tcpdump-test-XXXXXXXX`

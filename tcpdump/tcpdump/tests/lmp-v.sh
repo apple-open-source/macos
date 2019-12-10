@@ -8,21 +8,21 @@
 
 exitcode=0
 
+passed=`cat .passed`
+failed=`cat .failed`
+
 # A Windows build may have no file named Makefile and also a version of grep
 # that won't return an error when the file does not exist. Work around.
-#if [ ! -f ../Makefile # ]
-# then
-# 	printf '    %-35s: TEST SKIPPED (no Makefile)\n' 'lmp-v'
-# elif grep '^CC = .*gcc' ../Makefile >/dev/null
-if true
+if [ ! -f ../Makefile ]
 then
-	passed=`cat .passed`
-	failed=`cat .failed`
+	printf '    %-35s: TEST SKIPPED (no Makefile)\n' 'lmp-v'
+elif grep '^CC = .*gcc' ../Makefile >/dev/null
+then
 	if ./TESTonce.sh lmp-v lmp.pcap lmp-v.out '-T lmp -v'
 	then
 		passed=`expr $passed + 1`
 		echo $passed >.passed
-else
+	else
 		failed=`expr $failed + 1`
 		echo $failed >.failed
 		exitcode=1

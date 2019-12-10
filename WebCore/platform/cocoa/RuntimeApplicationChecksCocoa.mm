@@ -187,6 +187,12 @@ bool MacApplication::isSolidStateNetworksDownloader()
     return isSolidStateNetworksDownloader;
 }
 
+bool MacApplication::isEpsonSoftwareUpdater()
+{
+    static bool isEpsonSoftwareUpdater = applicationBundleIsEqualTo("com.epson.EPSON_Software_Updater"_s);
+    return isEpsonSoftwareUpdater;
+}
+
 #endif // PLATFORM(MAC)
 
 #if PLATFORM(IOS_FAMILY)
@@ -212,6 +218,12 @@ bool IOSApplication::isMobileSafari()
 {
     static bool isMobileSafari = applicationBundleIsEqualTo("com.apple.mobilesafari"_s);
     return isMobileSafari;
+}
+
+bool IOSApplication::isSafariViewService()
+{
+    static bool isSafariViewService = applicationBundleIsEqualTo("com.apple.SafariViewService"_s);
+    return isSafariViewService;
 }
 
 bool IOSApplication::isIMDb()

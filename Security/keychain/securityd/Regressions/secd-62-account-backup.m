@@ -156,7 +156,7 @@ static void tests(void)
     ok([bob_account.trust checkForRings:&error], "Alice_account is good");
     CFReleaseNull(error);
 
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 4, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 5, "updates");
 
 
     ok([alice_account.trust checkForRings:&error], "Alice_account is good");
@@ -269,7 +269,7 @@ static void tests(void)
 int secd_62_account_backup(int argc, char *const *argv)
 {
 #if !TARGET_OS_SIMULATOR
-    plan_tests(95);
+    plan_tests(98);
 #else
     plan_tests(1);
 #endif

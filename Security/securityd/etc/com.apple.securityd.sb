@@ -42,6 +42,7 @@
 
 (allow system-audit)
 (allow mach-lookup
+       (global-name "com.apple.SecurityServer")
        (global-name "com.apple.CoreServices.coreservicesd")
        (global-name "com.apple.system.opendirectoryd.api")
        (global-name "com.apple.securitydservice")

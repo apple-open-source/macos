@@ -710,10 +710,18 @@ void NetworkConnectionToWebProcess::hasStorageAccess(PAL::SessionID sessionID, c
         if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
             resourceLoadStatistics->hasStorageAccess(subFrameDomain, topFrameDomain, frameID, pageID, WTFMove(completionHandler));
             return;
+        } else {
+            auto* session = networkProcess().storageSession(sessionID);
+            if (!session) {
+                LOG_ERROR("Non-default storage session was requested, but there was no session for it. Please file a bug unless you just disabled private browsing, in which case it's an expected race.");
+            } else {
+                session->hasCookies(subFrameDomain, WTFMove(completionHandler));
+                return;
+            }
         }
     }
 
-    completionHandler(true);
+    completionHandler(false);
 }
 
 void NetworkConnectionToWebProcess::requestStorageAccess(PAL::SessionID sessionID, const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, uint64_t frameID, PageIdentifier pageID, CompletionHandler<void(WebCore::StorageAccessWasGranted wasGranted, WebCore::StorageAccessPromptWasShown promptWasShown)>&& completionHandler)

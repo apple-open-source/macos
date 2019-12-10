@@ -62,8 +62,10 @@ _SOSControlSetupInterface(NSXPCInterface *interface)
     [interface setClasses:errClasses forSelector:@selector(joinCircleWithBlob:version:complete:) argumentIndex:1 ofReply:YES];
     [interface setClasses:errClasses forSelector:@selector(initialSyncCredentials:complete:) argumentIndex:1 ofReply:YES];
     [interface setClasses:errClasses forSelector:@selector(importInitialSyncCredentials:complete:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(triggerSync:complete:) argumentIndex:1 ofReply:YES];
     [interface setClasses:errClasses forSelector:@selector(getWatchdogParameters:) argumentIndex:1 ofReply:YES];
     [interface setClasses:errClasses forSelector:@selector(setWatchdogParmeters:complete:) argumentIndex:0 ofReply:YES];
     [interface setClasses:errClasses forSelector:@selector(ghostBust:complete:) argumentIndex:1 ofReply:YES];
+    [interface setClasses:errClasses forSelector:@selector(rpcTriggerSync:complete:) argumentIndex:1 ofReply:YES];
+    [interface setClasses:errClasses forSelector:@selector(rpcTriggerBackup:complete:) argumentIndex:0 ofReply:YES];
+    [interface setClasses:errClasses forSelector:@selector(rpcTriggerRingUpdate:) argumentIndex:0 ofReply:YES];
 }

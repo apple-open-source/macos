@@ -70,7 +70,10 @@ get_default_realm(krb5_context context, void *ptr, void *userctx,
 	vals = (NSArray *)SCDynamicStoreCopyValue(ctx->store, HEIMDAL_SC_DEFAULT_REALM);
 	if (vals == NULL)
 	    goto out;
-
+	
+	if ([vals count] == 0)
+	    goto out;
+	
 	for (NSString *a in vals)
 	    add_realms(context, userctx, [a UTF8String]);
 

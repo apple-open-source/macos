@@ -124,10 +124,14 @@ typedef NS_OPTIONS(uint32_t, SOSAccountGhostBustingOptions) {
 - (void)initialSyncCredentials:(uint32_t)flags complete:(void (^)(NSArray *, NSError *))complete;
 - (void)importInitialSyncCredentials:(NSArray *)items complete:(void (^)(bool success, NSError *))complete;
 
-- (void)triggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete;
+- (void)rpcTriggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete;
 
 - (void)getWatchdogParameters:(void (^)(NSDictionary* parameters, NSError* error))complete;
 - (void)setWatchdogParmeters:(NSDictionary*)parameters complete:(void (^)(NSError* error))complete;
+
+- (void)rpcTriggerBackup:(NSArray<NSString *>*)backupPeers complete:(void (^)(NSError *error))complete;
+- (void)rpcTriggerRingUpdate:(void (^)(NSError *error))complete;
+
 @end
 #endif
 

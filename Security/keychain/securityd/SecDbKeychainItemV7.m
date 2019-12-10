@@ -355,7 +355,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     }
 
     if (!self && error) {
-        *error = [NSError errorWithDomain:(id)kCFErrorDomainOSStatus code:errSecItemNotFound userInfo:@{NSLocalizedDescriptionKey : @"failed to deserialize keychain item blob"}];
+        *error = [NSError errorWithDomain:(id)kCFErrorDomainOSStatus code:errSecDecode userInfo:@{NSLocalizedDescriptionKey : @"failed to deserialize keychain item blob"}];
     }
 
     return self;

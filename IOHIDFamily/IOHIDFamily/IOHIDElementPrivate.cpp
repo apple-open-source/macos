@@ -1184,13 +1184,21 @@ bool IOHIDElementPrivate::processReport(
             bool shouldProcess = (changed || _isInterruptReportHandler || (_flags & kHIDDataRelativeBit));
             
             if ( shouldProcess ) {
-                // Let's not update the timestamp in the case where the element is relative, the value is 0, and there is no change
+                // Let's not update the timestamp in the case where the element is relative, and there is no change
                 if (((_flags & kHIDDataRelativeBit) == 0) || (_reportBits > 32) || changed || _previousValue)
                     _elementValue->timestamp = *timestamp;
                     
                 if (IsArrayElement(this) && IsArrayReportHandler(this))
                     processArrayReport(reportID, reportData, reportBits, &(_elementValue->timestamp));
             }
+            
+            // Update element for first time
+            // This may be invalid report since timestamp is still 0
+            // so we should just update timestamp and not dispatch any report
+            if (_elementValue && _elementValue->timestamp == 0 && timestamp) {
+                _elementValue->timestamp = *timestamp;
+            }
+            
             if ( !_queueArray )
                 break;
                 

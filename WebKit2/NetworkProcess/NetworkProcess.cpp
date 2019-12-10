@@ -1221,6 +1221,15 @@ void NetworkProcess::setShouldDowngradeReferrerForTesting(bool enabled, Completi
         networkSession.get().setShouldDowngradeReferrerForTesting(enabled);
     completionHandler();
 }
+
+void NetworkProcess::setShouldBlockThirdPartyCookiesForTesting(PAL::SessionID sessionID, bool enabled, CompletionHandler<void()>&& completionHandler)
+{
+    if (auto* networkStorageSession = storageSession(sessionID))
+        networkStorageSession->setIsThirdPartyCookieBlockingOnSitesWithoutUserInteractionEnabled(enabled);
+    else
+        ASSERT_NOT_REACHED();
+    completionHandler();
+}
 #endif // ENABLE(RESOURCE_LOAD_STATISTICS)
 
 bool NetworkProcess::sessionIsControlledByAutomation(PAL::SessionID sessionID) const
@@ -1834,13 +1843,11 @@ void NetworkProcess::registrableDomainsWithWebsiteData(PAL::SessionID sessionID,
     
     auto& websiteDataStore = callbackAggregator->m_websiteData;
     
-    Vector<String> hostnamesWithCookiesToDelete;
     if (websiteDataTypes.contains(WebsiteDataType::Cookies)) {
         if (auto* networkStorageSession = storageSession(sessionID))
             networkStorageSession->getHostnamesWithCookies(websiteDataStore.hostNamesWithCookies);
     }
     
-    Vector<String> hostnamesWithHSTSToDelete;
 #if PLATFORM(COCOA)
     if (websiteDataTypes.contains(WebsiteDataType::HSTSCache)) {
         if (auto* networkStorageSession = storageSession(sessionID))
@@ -2731,6 +2738,19 @@ void NetworkProcess::getLocalStorageOriginDetails(PAL::SessionID sessionID, Comp
     storageManager.getLocalStorageOriginDetails([completionHandler = WTFMove(completionHandler)](auto&& details) mutable {
         completionHandler(WTFMove(details));
     });
+}
+
+const Seconds NetworkProcess::defaultServiceWorkerFetchTimeout = 70_s;
+void NetworkProcess::setServiceWorkerFetchTimeoutForTesting(Seconds timeout, CompletionHandler<void()>&& completionHandler)
+{
+    m_serviceWorkerFetchTimeout = timeout;
+    completionHandler();
+}
+
+void NetworkProcess::resetServiceWorkerFetchTimeoutForTesting(CompletionHandler<void()>&& completionHandler)
+{
+    m_serviceWorkerFetchTimeout = defaultServiceWorkerFetchTimeout;
+    completionHandler();
 }
 
 } // namespace WebKit

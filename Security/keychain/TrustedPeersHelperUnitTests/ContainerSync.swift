@@ -249,6 +249,19 @@ extension Container {
         return reterr
     }
 
+    func fetchAllowedMachineIDsSync(test: XCTestCase) -> (Set<String>?, Error?) {
+        let expectation = XCTestExpectation(description: "fetchMIDList replied")
+        var retlist: Set<String>?
+        var reterr: Error?
+        self.fetchAllowedMachineIDs() { list, err in
+            retlist = list
+            reterr = err
+            expectation.fulfill()
+        }
+        test.wait(for: [expectation], timeout: 10.0)
+        return (retlist, reterr)
+    }
+
     func departByDistrustingSelfSync(test: XCTestCase) -> Error? {
         let expectation = XCTestExpectation(description: "departByDistrustingSelf replied")
         var reterr: Error?
@@ -322,7 +335,12 @@ extension Container {
 
     func trustStatusSync(test: XCTestCase) -> (TrustedPeersHelperEgoPeerStatus, Error?) {
         let expectation = XCTestExpectation(description: "trustStatus replied")
-        var retEgoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil, status: .unknown, viablePeerCountsByModelID: [:], isExcluded: false, isLocked: false)
+        var retEgoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
+                                                           status: .unknown,
+                                                           viablePeerCountsByModelID: [:],
+                                                           peerCountsByMachineID: [:],
+                                                           isExcluded: false,
+                                                           isLocked: false)
         var reterror: Error?
         self.trustStatus { egoStatus, error in
             retEgoStatus = egoStatus

@@ -46,7 +46,7 @@ hr{
         arc{"aramejski"}
         arn{"mapuche"}
         arp{"arapaho"}
-        ars{"najdi arapski"}
+        ars{"arapski, najdi"}
         arw{"aravački"}
         as{"asamski"}
         asa{"asu"}
@@ -107,7 +107,7 @@ hr{
         chp{"chipewyan"}
         chr{"čerokijski"}
         chy{"čejenski"}
-        ckb{"soranski kurdski"}
+        ckb{"kurdski, sorani"}
         co{"korzički"}
         cop{"koptski"}
         cr{"cree"}

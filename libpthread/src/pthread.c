@@ -186,7 +186,7 @@ static uint8_t min_priority;
 #endif // !VARIANT_DYLD
 static int _pthread_count = 1;
 static int pthread_concurrency;
-static uintptr_t _pthread_ptr_munge_token;
+uintptr_t _pthread_ptr_munge_token;
 
 static void (*exitf)(int) = __exit;
 #if !VARIANT_DYLD
@@ -887,6 +887,7 @@ _pthread_start(pthread_t self, mach_port_t kport,
 	}
 	PTHREAD_DEBUG_ASSERT(MACH_PORT_VALID(kport));
 	PTHREAD_DEBUG_ASSERT(_pthread_kernel_thread(self) == kport);
+	_pthread_validate_signature(self);
 	_pthread_markcancel_if_canceled(self, kport);
 
 	_pthread_set_self_internal(self);
@@ -899,9 +900,7 @@ static inline void
 _pthread_struct_init(pthread_t t, const pthread_attr_t *attrs,
 		void *stackaddr, size_t stacksize, void *freeaddr, size_t freesize)
 {
-	PTHREAD_DEBUG_ASSERT(t->sig != _PTHREAD_SIG);
-
-	t->sig = _PTHREAD_SIG;
+	_pthread_init_signature(t);
 	t->tsd[_PTHREAD_TSD_SLOT_PTHREAD_SELF] = t;
 	t->tsd[_PTHREAD_TSD_SLOT_ERRNO] = &t->err_no;
 	if (attrs->schedset == 0) {
@@ -1209,6 +1208,8 @@ pthread_setname_np(const char *name)
 		len = strlen(name);
 	}
 
+	_pthread_validate_signature(self);
+
 	/* protytype is in pthread_internals.h */
 	res = __proc_info(5, getpid(), 2, (uint64_t)0, (void*)name, (int)len);
 	if (res == 0) {
@@ -1478,6 +1479,7 @@ pthread_exit(void *exit_value)
 		PTHREAD_CLIENT_CRASH(0, "pthread_exit() called from a thread "
 				"not created by pthread_create()");
 	}
+	_pthread_validate_signature(self);
 	_pthread_exit(self, exit_value);
 }
 
@@ -1542,6 +1544,7 @@ pthread_setschedparam(pthread_t t, int policy, const struct sched_param *param)
 
 	// since the main thread will not get de-allocated from underneath us
 	if (t == pthread_self() || t == main_thread()) {
+		_pthread_validate_signature(t);
 		kport = _pthread_kernel_thread(t);
 	} else {
 		bypass = 0;
@@ -1782,19 +1785,32 @@ static void
 parse_ptr_munge_params(const char *envp[], const char *apple[])
 {
 	const char *p, *s;
+	uintptr_t token = 0;
 	p = _simple_getenv(apple, "ptr_munge");
 	if (p) {
-		_pthread_ptr_munge_token = _pthread_strtoul(p, &s, 16);
+		token = _pthread_strtoul(p, &s, 16);
 		bzero((char *)p, strlen(p));
 	}
 #if !DEBUG
-	if (_pthread_ptr_munge_token) return;
+	if (!token) {
 #endif
-	p = _simple_getenv(envp, "PTHREAD_PTR_MUNGE_TOKEN");
-	if (p) {
-		uintptr_t t = _pthread_strtoul(p, &s, 16);
-		if (t) _pthread_ptr_munge_token = t;
+		p = _simple_getenv(envp, "PTHREAD_PTR_MUNGE_TOKEN");
+		if (p) {
+			uintptr_t t = _pthread_strtoul(p, &s, 16);
+			if (t) token = t;
+		}
+#if !DEBUG
 	}
+
+	if (!token) {
+		PTHREAD_INTERNAL_CRASH(token, "Token from the kernel is 0");
+	}
+#endif // DEBUG
+
+	_pthread_ptr_munge_token = token;
+	// we need to refresh the main thread signature now that we changed
+	// the munge token. We need to do it while TSAN will not look at it
+	_pthread_init_signature(_main_thread_ptr);
 }
 
 int
@@ -1811,6 +1827,18 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs,
 			_pthread_free = pthread_funcs->free;
 		}
 	}
+
+	// libpthread.a in dyld "owns" the main thread structure itself and sets
+	// up the tsd to point to it. So take the pthread_self() from there
+	// and make it our main thread point.
+	pthread_t thread = (pthread_t)_pthread_getspecific_direct(
+			_PTHREAD_TSD_SLOT_PTHREAD_SELF);
+	if (os_unlikely(thread == NULL)) {
+		PTHREAD_INTERNAL_CRASH(0, "PTHREAD_SELF TSD not initialized");
+	}
+	_main_thread_ptr = thread;
+	// this needs to be done early so that pthread_self() works in TSAN
+	_pthread_init_signature(thread);
 
 	//
 	// Get host information
@@ -1859,16 +1887,6 @@ __pthread_init(const struct _libpthread_functions *pthread_funcs,
 
 	// Initialize random ptr_munge token from the kernel.
 	parse_ptr_munge_params(envp, apple);
-
-	// libpthread.a in dyld "owns" the main thread structure itself and sets
-	// up the tsd to point to it. So take the pthread_self() from there
-	// and make it our main thread point.
-	pthread_t thread = (pthread_t)_pthread_getspecific_direct(
-			_PTHREAD_TSD_SLOT_PTHREAD_SELF);
-	if (os_unlikely(thread == NULL)) {
-		PTHREAD_INTERNAL_CRASH(0, "PTHREAD_SELF TSD not initialized");
-	}
-	_main_thread_ptr = thread;
 
 	PTHREAD_DEBUG_ASSERT(_pthread_attr_default.qosclass ==
 			_pthread_default_priority(0));

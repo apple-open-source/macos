@@ -141,6 +141,7 @@ Shared/Cocoa/APIObject.mm
 Shared/Cocoa/ArgumentCodersCocoa.mm
 Shared/Cocoa/AuxiliaryProcessCocoa.mm
 Shared/Cocoa/CompletionHandlerCallChecker.mm
+Shared/Cocoa/CoreTextHelpers.mm
 Shared/Cocoa/DataDetectionResult.mm
 Shared/Cocoa/InsertTextOptions.cpp
 Shared/Cocoa/LoadParametersCocoa.mm
@@ -266,6 +267,7 @@ UIProcess/API/Cocoa/_WKUserContentWorld.mm
 UIProcess/API/Cocoa/_WKUserInitiatedAction.mm
 UIProcess/API/Cocoa/_WKUserStyleSheet.mm
 UIProcess/API/Cocoa/_WKVisitedLinkStore.mm
+UIProcess/API/Cocoa/_WKWebAuthenticationPanel.mm
 UIProcess/API/Cocoa/_WKWebsiteDataSize.mm
 UIProcess/API/Cocoa/_WKWebsiteDataStore.mm
 UIProcess/API/Cocoa/_WKWebsiteDataStoreConfiguration.mm
@@ -399,6 +401,7 @@ UIProcess/ios/fullscreen/WKFullscreenStackView.mm
 UIProcess/ios/fullscreen/WKFullScreenViewController.mm
 UIProcess/ios/fullscreen/WKFullScreenWindowControllerIOS.mm
 
+UIProcess/ios/AppKitSoftLink.mm
 UIProcess/ios/DragDropInteractionState.mm
 UIProcess/ios/EditableImageController.mm
 UIProcess/ios/InputViewUpdateDeferrer.mm
@@ -498,9 +501,15 @@ UIProcess/WebAuthentication/Cocoa/LocalAuthenticationSoftLink.mm @no-unify
 UIProcess/WebAuthentication/Cocoa/LocalAuthenticator.mm
 UIProcess/WebAuthentication/Cocoa/LocalConnection.mm
 UIProcess/WebAuthentication/Cocoa/LocalService.mm
+UIProcess/WebAuthentication/Cocoa/NearFieldSoftLink.mm @no-unify
+UIProcess/WebAuthentication/Cocoa/NfcConnection.mm
+UIProcess/WebAuthentication/Cocoa/NfcService.mm
+UIProcess/WebAuthentication/Cocoa/WKNFReaderSessionDelegate.mm
+UIProcess/WebAuthentication/Cocoa/WebAuthenticationPanelClient.mm
 
 UIProcess/WebAuthentication/Mock/MockLocalConnection.mm
 UIProcess/WebAuthentication/Mock/MockLocalService.mm
+UIProcess/WebAuthentication/Mock/MockNfcService.mm
 
 UIProcess/WebsiteData/Cocoa/WebsiteDataStoreCocoa.mm
 

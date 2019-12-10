@@ -13,6 +13,7 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol OctagonFlagContainer
 - (BOOL)_onqueueContains:(OctagonFlag*)flag;
 - (NSArray<NSString*>*)dumpFlags;
+- (CKKSCondition*)conditionForFlag:(OctagonFlag*)flag;
 @end
 
 @protocol OctagonFlagSetter <OctagonFlagContainer>
@@ -27,7 +28,11 @@ NS_ASSUME_NONNULL_BEGIN
 @interface OctagonFlags : NSObject <OctagonFlagContainer,
                                     OctagonFlagSetter,
                                     OctagonFlagClearer>
-- (instancetype)initWithQueue:(dispatch_queue_t)queue;
+
+@property NSMutableDictionary<OctagonFlag*, CKKSCondition*>* flagConditions;
+
+- (instancetype)initWithQueue:(dispatch_queue_t)queue
+                        flags:(NSSet<OctagonFlag*>*)possibleFlags;
 
 - (NSString*)contentsAsString;
 @end

@@ -1,6 +1,7 @@
 #if OCTAGON
 
 #import "OTAuthKitAdapter.h"
+#import "OTConstants.h"
 
 #import "utilities/SecCFError.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
@@ -12,6 +13,9 @@
 #import <AuthKit/AKDeviceListDeltaMessagePayload.h>
 #import <Foundation/NSDistributedNotificationCenter.h>
 #import "keychain/ckks/CKKSListenerCollection.h"
+#import "keychain/ckks/CKKSAnalytics.h"
+
+#include "utilities/SecABC.h"
 
 #import <AppleAccount/ACAccount+AppleAccount.h>
 
@@ -21,15 +25,30 @@
 
 @implementation OTAuthKitActualAdapter
 
-- (NSString* _Nullable)primaryiCloudAccountAltDSID
+- (NSString* _Nullable)primaryiCloudAccountAltDSID:(NSError **)error
 {
     ACAccountStore *store = [[ACAccountStore alloc] init];
     ACAccount* primaryAccount = [store aa_primaryAppleAccount];
     if(!primaryAccount) {
+        secnotice("authkit", "No primary account");
+        if (error) {
+            *error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OTAuthKitNoPrimaryAccount
+                                  description:@"No primary account"];
+        }
         return nil;
     }
 
-    return [primaryAccount aa_altDSID];
+    NSString *altDSID =  [primaryAccount aa_altDSID];
+    if (altDSID == NULL) {
+        secnotice("authkit", "No altDSID on primary account");
+        if (error) {
+            *error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OTAuthKitPrimaryAccountHaveNoDSID
+                                  description:@"No altdsid on primary account"];
+        }
+    }
+    return altDSID;
 }
 
 - (BOOL)accountIsHSA2ByAltDSID:(NSString*)altDSID
@@ -63,9 +82,9 @@
     if(!machineID) {
         secnotice("authkit", "Anisette data does not have machineID");
         if(error) {
-            // TODO: this is a terrible error
-            *error = [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain
-                                         code:errSecParam
+            [SecABC triggerAutoBugCaptureWithType:@"AuthKit" subType:@"missingMID"];
+            *error = [NSError errorWithDomain:OctagonErrorDomain
+                                         code:OTAuthKitMachineIDMissing
                                   description:@"Anisette data does not have machineID"];
         }
         return nil;
@@ -78,30 +97,36 @@
 
 - (void)fetchCurrentDeviceList:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSError* _Nullable error))complete
 {
-    ACAccountStore *store = [[ACAccountStore alloc] init];
-    ACAccount* primaryAccount = [store aa_primaryAppleAccount];
-    if(primaryAccount == nil) {
-        secnotice("authkit", "can't get account");
-        complete(nil, [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain
-                                          code:errSecParam
-                                   description:@"no primary account"]);
-        return;
-    }
-
     AKDeviceListRequestContext* context = [[AKDeviceListRequestContext alloc] init];
     if (context == nil) {
-        complete(nil, [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain
-                                          code:errSecParam
-                                   description:@"can't get AKDeviceListRequestContextClass"]);
+        NSError *error = [NSError errorWithDomain:OctagonErrorDomain
+                                             code:OTAuthKitAKDeviceListRequestContextClass
+                                      description:@"can't get AKDeviceListRequestContextClass"];
+        [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
+        complete(nil, error);
         return;
     }
-    context.altDSID = primaryAccount.aa_altDSID;
+    NSError *authKitError = nil;
+    context.altDSID = [self primaryiCloudAccountAltDSID:&authKitError];
+    if (context.altDSID == NULL) {
+        secnotice("authkit", "Failed to get primary account AltDSID: %@", authKitError);
+        NSError *error = [NSError errorWithDomain:OctagonErrorDomain
+                                             code:OTAuthKitPrimaryAccountHaveNoDSID
+                                      description:@"Can't get primary AltDSID"
+                                       underlying:authKitError];
+        [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
+        [SecABC triggerAutoBugCaptureWithType:@"AuthKit" subType:@"missingAltDSID"];
+        complete(nil, error);
+        return;
+    }
 
     AKAppleIDAuthenticationController *authController = [[AKAppleIDAuthenticationController alloc] init];
     if(authController == nil) {
-        complete(nil, [NSError errorWithDomain:(__bridge NSString *)kSecErrorDomain
-                                          code:errSecParam
-                                   description:@"can't get authController"]);
+        NSError *error = [NSError errorWithDomain:OctagonErrorDomain
+                                             code:OTAuthKitNoAuthenticationController
+                                      description:@"can't get authController"];
+        [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
+        complete(nil, error);
         return;
     }
 
@@ -115,7 +140,10 @@
 
             secnotice("authkit", "Current machine ID list: %@", mids);
             complete(mids, error);
+            [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventAuthKitDeviceList];
+
         } else {
+            [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:OctagonEventAuthKitDeviceList withAttributes:nil];
             secnotice("authkit", "received no device list: %@", error);
             complete(nil, error);
         }

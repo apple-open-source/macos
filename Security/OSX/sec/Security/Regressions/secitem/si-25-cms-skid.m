@@ -28,6 +28,7 @@
 
 #import <Security/SecCMS.h>
 #import <Security/SecTrust.h>
+#import <Security/SecTrustPriv.h>
 #include <utilities/SecCFRelease.h>
 
 #import "si-25-cms-skid.h"
@@ -39,22 +40,28 @@ static void test_cms_verification(void)
 
     SecPolicyRef policy = SecPolicyCreateBasicX509();
     SecTrustRef trust = NULL;
-    SecTrustResultType trustResult = kSecTrustResultInvalid;
+    CFArrayRef certificates = NULL;
 
     ok_status(SecCMSVerify((__bridge CFDataRef)signedData, (__bridge CFDataRef)content, policy, &trust, NULL), "verify CMS message");
 
-    //10 Sept 2016
-    ok_status(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSinceReferenceDate:495245242.0]), "set verify date");
-    ok_status(SecTrustEvaluate(trust, &trustResult), "evaluate trust");
-    is(trustResult, kSecTrustResultUnspecified, "trust suceeded");
+    /* verify that CMS stack found the certs in the CMS (using the SKID) and stuck them in the trust ref */
+    ok_status(SecTrustCopyInputCertificates(trust, &certificates), "copy input certificates");
+#if TARGET_OS_OSX
+    // macOS implementation of CMS puts the leaf first and then adds all certs (so the signer cert is included twice)
+    is(CFArrayGetCount(certificates), 4, "4 certs in the cms");
+#else
+    // embedded implementation of CMS just orders the certs so the signer cert is first
+    is(CFArrayGetCount(certificates), 3, "3 certs in the cms");
+#endif
 
-    CFReleaseSafe(policy);
-    CFRetainSafe(trust);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+    CFReleaseNull(certificates);
 }
 
 int si_25_cms_skid(int argc, char *const *argv)
 {
-    plan_tests(4);
+    plan_tests(3);
 
     test_cms_verification();
 

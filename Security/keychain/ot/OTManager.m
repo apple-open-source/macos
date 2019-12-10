@@ -240,20 +240,6 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
     }
 }
 
--(NSString*) askAccountsForDSID
-{
-    NSString *dsid = nil;
-    @try {
-        ACAccountStore *accountStore = [[ACAccountStore alloc] init];
-
-        ACAccount *account = [accountStore aa_primaryAppleAccount];
-        dsid = [account aa_personID];
-    } @catch (NSException * e) {
-        secerror("octagon: failed to retrieve account: %@", e);
-    }
-    return dsid;
-}
-
 + (instancetype _Nullable)manager {
     if(!OctagonIsEnabled()) {
         secerror("octagon: Attempt to fetch a manager while Octagon is disabled");
@@ -988,13 +974,50 @@ static NSString* const kOTRampZoneName = @"metadata_zone";
 
         values[OctagonAnalyticsStateMachineState] = OctagonStateMap()[cuttlefishContext.stateMachine.currentState];
 
-        values[OctagonAnalyticIcloudAccountState] = @([cuttlefishContext currentMemoizedAccountState]);
-        values[OctagonAnalyticsTrustState] = @([cuttlefishContext currentMemoizedTrustState]);
+        NSError* metadataError = nil;
+        OTAccountMetadataClassC* metadata = [cuttlefishContext.accountMetadataStore loadOrCreateAccountMetadata:&metadataError];
+        if(!metadata || metadataError) {
+            secnotice("octagon-analytics", "Error fetching Octagon metadata: %@", metadataError);
+        }
+        values[OctagonAnalyticIcloudAccountState] = metadata ? @(metadata.icloudAccountState) : nil;
+        values[OctagonAnalyticsTrustState] = metadata ? @(metadata.trustState) : nil;
+
         NSDate* healthCheck = [cuttlefishContext currentMemoizedLastHealthCheck];
         values[OctagonAnalyticsLastHealthCheck] = @([CKKSAnalytics fuzzyDaysSinceDate:healthCheck]);
 
         NSDate* dateOfLastKSR = [[CKKSAnalytics logger] datePropertyForKey: OctagonAnalyticsLastKeystateReady];
         values[OctagonAnalyticsLastKeystateReady] = @([CKKSAnalytics fuzzyDaysSinceDate:dateOfLastKSR]);
+
+        if(metadata && metadata.icloudAccountState == OTAccountMetadataClassC_AccountState_ACCOUNT_AVAILABLE) {
+            values[OctagonAnalyticsAttemptedJoin] = @(metadata.attemptedJoin);
+
+            NSError* machineIDError = nil;
+            NSString* machineID = [cuttlefishContext.authKitAdapter machineID:&machineIDError];
+            if(machineIDError) {
+                secnotice("octagon-analytics", "Error fetching machine ID: %@", metadataError);
+            }
+
+            values[OctagonAnalyticsHaveMachineID] = @(machineID != nil);
+
+            if(machineID) {
+                NSError* midOnListError = nil;
+                BOOL midOnList = [cuttlefishContext machineIDOnMemoizedList:machineID error:&midOnListError];
+
+                if(midOnListError) {
+                    secnotice("octagon-analytics", "Error fetching 'mid on list': %@", midOnListError);
+                } else {
+                    values[OctagonAnalyticsMIDOnMemoizedList] = @(midOnList);
+                }
+
+                NSError* peersWithMIDError = nil;
+                NSNumber* peersWithMID = [cuttlefishContext numberOfPeersInModelWithMachineID:machineID error:&peersWithMIDError];
+                if(peersWithMID && peersWithMIDError == nil) {
+                    values[OctagonAnalyticsPeersWithMID] = peersWithMID;
+                } else {
+                    secnotice("octagon-analytics", "Error fetching how many peers have our MID: %@", midOnListError);
+                }
+            }
+        }
 
         // Track CFU usage and success/failure metrics
         // 1. Users in a good state will have no outstanding CFU, and will not have done a CFU

@@ -177,4 +177,8 @@ __private_extern__ void dynamicStoreNotifyCallBack(
 
 __private_extern__ void ioregBatteryProcess(IOPMBattery *changed_batt,
                                             io_service_t batt);
+
+// Reevaluate DW thermal emergency message
+__private_extern__ void evaluateDWThermalMsg(void);
+
 #endif /* pmconfigd_h */

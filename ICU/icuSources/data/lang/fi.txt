@@ -123,7 +123,7 @@ fi{
         chp{"chipewyan"}
         chr{"cherokee"}
         chy{"cheyenne"}
-        ckb{"sorani"}
+        ckb{"kurdi – soranî"}
         co{"korsika"}
         cop{"kopti"}
         cps{"capiznon"}

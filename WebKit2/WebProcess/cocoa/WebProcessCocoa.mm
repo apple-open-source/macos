@@ -71,9 +71,9 @@
 #import <pal/spi/cf/CFUtilitiesSPI.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
+#import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/cocoa/pthreadSPI.h>
-#import <pal/spi/mac/NSAccessibilitySPI.h>
 #import <pal/spi/mac/NSApplicationSPI.h>
 #import <stdio.h>
 #import <wtf/FileSystem.h>
@@ -311,12 +311,28 @@ void WebProcess::processTaskStateDidChange(ProcessTaskStateObserver::TaskState t
     if (!m_processIsSuspended)
         return;
 
+    LockHolder holder(m_unexpectedlyResumedUIAssertionLock);
+    if (m_unexpectedlyResumedUIAssertion)
+        return;
+
     // We were awakened from suspension unexpectedly. Notify the WebProcessProxy, but take a process assertion on our parent PID
     // to ensure that it too is awakened.
+    RELEASE_LOG(ProcessSuspension, "%p - WebProcess::processTaskStateChanged() Taking 'Unexpectedly resumed' assertion", this);
+    m_unexpectedlyResumedUIAssertion = adoptNS([[BKSProcessAssertion alloc] initWithPID:parentProcessConnection()->remoteProcessID() flags:BKSProcessAssertionPreventTaskSuspend reason:BKSProcessAssertionReasonFinishTask name:@"Unexpectedly resumed" withHandler:nil]);
 
-    auto uiProcessAssertion = adoptNS([[BKSProcessAssertion alloc] initWithPID:parentProcessConnection()->remoteProcessID() flags:BKSProcessAssertionPreventTaskSuspend reason:BKSProcessAssertionReasonFinishTask name:@"Unexpectedly resumed" withHandler:nil]);
+    auto releaseAssertion = [this] {
+        LockHolder holder(m_unexpectedlyResumedUIAssertionLock);
+        if (!m_unexpectedlyResumedUIAssertion)
+            return;
+
+        RELEASE_LOG(ProcessSuspension, "%p - WebProcess::processTaskStateChanged() Releasing 'Unexpectedly resumed' assertion due to time out", this);
+        [m_unexpectedlyResumedUIAssertion invalidate];
+        m_unexpectedlyResumedUIAssertion = nullptr;
+    };
+
+    m_unexpectedlyResumedUIAssertion.get().invalidationHandler = releaseAssertion;
     parentProcessConnection()->send(Messages::WebProcessProxy::ProcessWasUnexpectedlyUnsuspended(), 0);
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_main_queue(), [assertion = WTFMove(uiProcessAssertion)] { [assertion invalidate]; });
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5 * NSEC_PER_SEC)), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), releaseAssertion);
 }
 #endif
 

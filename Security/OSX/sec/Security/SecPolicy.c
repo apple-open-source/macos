@@ -2608,109 +2608,50 @@ SecPolicyRef SecPolicyCreateTestMobileStoreSigner(void)
 
 CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreateEscrowServiceSigner(void)
 {
-	SecPolicyRef result = NULL;
+    SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    CFArrayRef anArray = NULL;
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
-	// X509, ignoring date validity
-	SecPolicyAddBasicCertOptions(options);
+    // X509, ignoring date validity
+    SecPolicyAddBasicCertOptions(options);
 
-	add_ku(options, kSecKeyUsageKeyEncipherment);
+    add_ku(options, kSecKeyUsageKeyEncipherment);
 
     /* Leaf has marker OID with value that can't be pre-determined */
     add_element(options, kSecPolicyCheckLeafMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.6.23.1"));
-	require(SecPolicyAddChainLengthOptions(options, 2), errOut);
-
-	Boolean anchorAdded = false;
-	// Get the roots by calling the SecCertificateCopyEscrowRoots
-	anArray = SecCertificateCopyEscrowRoots(kSecCertificateProductionEscrowRoot);
-    CFIndex numRoots = 0;
-	if (NULL == anArray || 0 == (numRoots = CFArrayGetCount(anArray))) {
-		goto errOut;
-	}
-
-	for (CFIndex iCnt = 0; iCnt < numRoots; iCnt++) {
-		SecCertificateRef aCert = (SecCertificateRef)CFArrayGetValueAtIndex(anArray, iCnt);
-
-		if (NULL != aCert) {
-			CFDataRef sha_data = SecCertificateGetSHA1Digest(aCert);
-			if (NULL != sha_data) {
-				const UInt8* pSHAData = CFDataGetBytePtr(sha_data);
-				if (NULL != pSHAData) {
-					SecPolicyAddAnchorSHA1Options(options, pSHAData);
-					anchorAdded = true;
-				}
-			}
-		}
-	}
-	CFReleaseNull(anArray);
-
-	if (!anchorAdded) {
-		goto errOut;
-	}
+    require(SecPolicyAddChainLengthOptions(options, 2), errOut);
 
     require(result = SecPolicyCreate(kSecPolicyAppleEscrowService,
                                      kSecPolicyNameEscrowService, options), errOut);
 
 errOut:
-    CFReleaseSafe(anArray);
-	CFReleaseSafe(options);
-	return result;
+    CFReleaseSafe(options);
+    return result;
 }
 
 CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreatePCSEscrowServiceSigner(void)
 {
-	SecPolicyRef result = NULL;
+    SecPolicyRef result = NULL;
     CFMutableDictionaryRef options = NULL;
-    CFArrayRef anArray = NULL;
-	require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                 &kCFTypeDictionaryKeyCallBacks,
                                                 &kCFTypeDictionaryValueCallBacks), errOut);
 
-	SecPolicyAddBasicX509Options(options);
-	add_ku(options, kSecKeyUsageKeyEncipherment);
+    SecPolicyAddBasicX509Options(options);
+    add_ku(options, kSecKeyUsageKeyEncipherment);
 
     /* Leaf has marker OID with value that can't be pre-determined */
     add_element(options, kSecPolicyCheckLeafMarkerOidWithoutValueCheck, CFSTR("1.2.840.113635.100.6.23.1"));
-	require(SecPolicyAddChainLengthOptions(options, 2), errOut);
-
-	Boolean anchorAdded = false;
-	anArray = SecCertificateCopyEscrowRoots(kSecCertificateProductionPCSEscrowRoot);
-    CFIndex numRoots = 0;
-	if (NULL == anArray || 0 == (numRoots = CFArrayGetCount(anArray))) {
-		goto errOut;
-	}
-
-	for (CFIndex iCnt = 0; iCnt < numRoots; iCnt++) {
-		SecCertificateRef aCert = (SecCertificateRef)CFArrayGetValueAtIndex(anArray, iCnt);
-
-		if (NULL != aCert) {
-			CFDataRef sha_data = SecCertificateGetSHA1Digest(aCert);
-			if (NULL != sha_data) {
-				const UInt8* pSHAData = CFDataGetBytePtr(sha_data);
-				if (NULL != pSHAData) {
-					SecPolicyAddAnchorSHA1Options(options, pSHAData);
-					anchorAdded = true;
-				}
-			}
-		}
-	}
-	CFReleaseNull(anArray);
-
-	if (!anchorAdded) {
-		goto errOut;
-	}
+    require(SecPolicyAddChainLengthOptions(options, 2), errOut);
 
     require(result = SecPolicyCreate(kSecPolicyApplePCSEscrowService,
                                      kSecPolicyNamePCSEscrowService, options), errOut);
 
 errOut:
-    CFReleaseSafe(anArray);
-	CFReleaseSafe(options);
-	return result;
+    CFReleaseSafe(options);
+    return result;
 }
 
 static SecPolicyRef CreateConfigurationProfileSigner(bool forTest) {

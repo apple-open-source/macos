@@ -40,6 +40,10 @@
 #include <mach/mach_port.h>
 #include <mach/kern_return.h>
 
+#if DARWIN_TAPI
+#include "tapi.h"
+#endif
+
 __BEGIN_DECLS;
 
 /*!

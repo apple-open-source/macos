@@ -25,6 +25,8 @@
 
 #include <IOKit/network/IONetworkController.h>
 
+#define APPLE_KEXT_DEPRECATE __kpi_deprecated("DriverKit/NetworkingDriverKit is the new Networking Driver Development framework, please transition your Networking Driver to that Framework")
+
 /*! @defined kIOEthernetControllerClass
     @abstract kIOEthernetControllerClass is the name of the
         IOEthernetController class. */
@@ -181,7 +183,7 @@ class IOTimeSyncEthernetInterfaceAdapter;
     the controller driver to the data link layer. 
 */
 
-class IOEthernetController : public IONetworkController
+class APPLE_KEXT_DEPRECATE IOEthernetController : public IONetworkController
 {
     OSDeclareAbstractStructors( IOEthernetController )
 

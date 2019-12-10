@@ -16,6 +16,12 @@
 			<string>added kqueue</string>
 			<string>added rb tree for responses</string>
 			<string>added SecureTransport</string>
+			<string>backport CVE-2019-13565 (ITS#9052)</string>
+			<string>backport CVE-2019-13057 (ITS#9038)</string>
+			<string>backport CVE-2015-1545 (ITS#8027)</string>
+			<string>backport CVE-2013-4449 (ITS#7723)</string>
+			<string>backport CVE-2012-2668 (ITS#7285)</string>
+			<string>backport CVE-2012-1164 (ITS#7143)</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>OpenLDAP</string>

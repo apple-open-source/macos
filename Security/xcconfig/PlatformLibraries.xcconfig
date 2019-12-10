@@ -4,7 +4,7 @@ OTHER_LDFLAGS_AKS_LIBRARY[sdk=macosx*] = -L$(SDKROOT)/usr/local/lib -laks -laks_
 OTHER_LDFLAGS_AKS_LIBRARY[sdk=iphoneos*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
 OTHER_LDFLAGS_AKS_LIBRARY[sdk=watchos*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
 OTHER_LDFLAGS_AKS_LIBRARY[sdk=appletvos*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
-OTHER_LDFLAGS_AKS_LIBRARY[sdk=iphonesimulator*] = -laks_mock -Wl,-upward_framework,SecurityFoundation
+OTHER_LDFLAGS_AKS_LIBRARY[sdk=iphonesimulator*] = -laks_mock -Wl,-upward_framework,SecurityFoundation -Wl,-upward_framework,ProtocolBuffer
 
 OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=macosx*] = -framework MobileKeyBag
 OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=iphoneos*] = -framework MobileKeyBag

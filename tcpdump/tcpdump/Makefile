@@ -43,7 +43,7 @@ AR = ar
 MKDEP = 
 PROG = tcpdump
 CCOPT = 
-INCLS = -I. -I/opt/local/include 
+INCLS = -I. -I/usr/local/include 
 DEFS = -DHAVE_CONFIG_H   -D_U_="__attribute__((unused))"
 
 # Standard CFLAGS
@@ -54,7 +54,7 @@ FULL_CFLAGS = $(CCOPT) $(DEFS) $(INCLS) $(CFLAGS)
 LDFLAGS = 
 
 # Standard LIBS
-LIBS = -L/opt/local/lib  -lpcap 
+LIBS = -L/usr/local/lib  -lpcap 
 
 INSTALL = /usr/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
@@ -237,7 +237,7 @@ LIBNETDISSECT_SRC=\
 	strtoaddr.c \
 	util-print.c
 
-LOCALSRC = print-smb.c smbutil.c 
+LOCALSRC = 
 GENSRC = version.c
 LIBOBJS = 
 
@@ -263,6 +263,7 @@ HDR = \
 	ether.h \
 	ethertype.h \
 	extract.h \
+	funcattrs.h \
 	getopt_long.h \
 	gmpls.h \
 	gmt2local.h \
@@ -333,7 +334,7 @@ EXTRA_DIST = \
 	config.h.in \
 	config.sub \
 	configure \
-	configure.in \
+	configure.ac \
 	install-sh \
 	lbl/os-osf4.h \
 	lbl/os-solaris2.h \
@@ -365,7 +366,7 @@ EXTRA_DIST = \
 	win32/prj/WinDump.vcproj \
 	win32/src/ether_ntohost.c
 
-TEST_DIST= `find tests \( -name 'DIFF' -prune \) -o \( -name NEW -prune \) -o -type f \! -name '.*' \! -name '*~' -print`
+TEST_DIST= `git ls-files tests | grep -v 'tests/\..*'`
 
 all: $(PROG) $(LIBNETDISSECT)
 
@@ -437,7 +438,7 @@ distclean:
 	rm -rf autom4te.cache tests/DIFF tests/NEW
 
 check: tcpdump
-	(cd tests && ./TESTrun.sh)
+	(mkdir -p tests && SRCDIR=`cd ${srcdir}; pwd` && export SRCDIR && $$SRCDIR/tests/TESTrun.sh )
 
 extags: $(TAGFILES)
 	ctags $(TAGFILES)

@@ -189,9 +189,9 @@
         CKDatabaseOperation<CKKSModifyRecordZonesOperation>* modifyZonesOperation = [self createModifyZonesOperation:ops];
         CKDatabaseOperation<CKKSModifySubscriptionsOperation>* zoneSubscriptionOperation = [self createModifySubscriptionsOperation:ops];
 
-        [self.operationQueue addOperation:modifyZonesOperation];
+        [self.database addOperation:modifyZonesOperation];
         if(zoneSubscriptionOperation) {
-            [self.operationQueue addOperation:zoneSubscriptionOperation];
+            [self.database addOperation:zoneSubscriptionOperation];
         }
     });
 }

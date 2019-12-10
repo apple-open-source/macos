@@ -908,8 +908,9 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
     // 7628429: ignore read-only filesystems (which might be on writable media)
     if (CFURLGetFileSystemRepresentation(volURL, false, (UInt8*)path, PATH_MAX)) {
         struct statfs sfs;
+        bool isRoot = (strcmp(path, "/") != 0);
         if (statfs(path, &sfs) == -1)       goto finish;
-        if (strcmp(path, "/") != 0 &&
+        if ((!isRoot || (isRoot && isBaseSystemActive())) &&
             sfs.f_flags & MNT_RDONLY)       goto finish;    // ignore ro, non-root
         if (sfs.f_flags & MNT_DONTBROWSE)   goto finish;    // respect nobrowse
     } else {

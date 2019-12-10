@@ -55,6 +55,10 @@
 #include <stdarg.h>
 #include <stdio.h>
 
+#if DARWIN_TAPI
+#include "tapi.h"
+#endif
+
 __BEGIN_DECLS;
 
 /*!

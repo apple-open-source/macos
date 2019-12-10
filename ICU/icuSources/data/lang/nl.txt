@@ -50,7 +50,7 @@ nl{
         aro{"Araona"}
         arp{"Arapaho"}
         arq{"Algerijns Arabisch"}
-        ars{"Nadjdi-Arabisch"}
+        ars{"Arabisch, Nadjdi"}
         arw{"Arawak"}
         ary{"Marokkaans Arabisch"}
         arz{"Egyptisch Arabisch"}
@@ -122,7 +122,7 @@ nl{
         chp{"Chipewyan"}
         chr{"Cherokee"}
         chy{"Cheyenne"}
-        ckb{"Soranî"}
+        ckb{"Koerdisch, Soranî"}
         co{"Corsicaans"}
         cop{"Koptisch"}
         cps{"Capiznon"}

@@ -46,9 +46,6 @@
 #include <syslog.h>
 #include "CertificateValues.h"
 
-#include "AppleBaselineEscrowCertificates.h"
-
-
 OSStatus SecCertificateGetCLHandle_legacy(SecCertificateRef certificate, CSSM_CL_HANDLE *clHandle);
 extern CSSM_KEYUSE ConvertArrayToKeyUsage(CFArrayRef usage);
 

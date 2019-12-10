@@ -29,9 +29,11 @@
 #import "SecItemServer.h"
 #import "SecItemSchema.h"
 #include "OSX/sec/Security/SecItemShim.h"
+#import "server_security_helpers.h"
 #import "spi.h"
 #import <utilities/SecCFWrappers.h>
 #import <utilities/SecFileLocations.h>
+#import "utilities/der_plist.h"
 #import <SecurityFoundation/SFEncryptionOperation.h>
 #import <XCTest/XCTest.h>
 #import <OCMock/OCMock.h>
@@ -50,6 +52,29 @@
 
 @interface secdmockaks : mockaksxcbase
 @end
+
+@interface NSData (secdmockaks)
+- (NSString *)hexString;
+@end
+
+@implementation NSData (secdmockaks)
+- (NSString *)hexString
+{
+    static const char tbl[] = "0123456789ABCDEF";
+    NSUInteger len = self.length;
+    char *buf = malloc(len * 2);
+    [self enumerateByteRangesUsingBlock:^(const void *bytes, NSRange byteRange, BOOL *stop) {
+        const uint8_t *p = (const uint8_t *)bytes;
+        for (NSUInteger i = byteRange.location; i < NSMaxRange(byteRange); i++) {
+            uint8_t byte = *p++;
+            buf[i * 2 + 0] = tbl[(byte >> 4) & 0xf];
+            buf[i * 2 + 1] = tbl[(byte >> 0) & 0xf];
+        }
+    }];
+    return [[NSString alloc] initWithBytesNoCopy:buf length:len * 2 encoding:NSUTF8StringEncoding freeWhenDone:YES];
+}
+@end
+
 
 @implementation secdmockaks
 
@@ -90,6 +115,39 @@
         };
         OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
         XCTAssertEqual(result, errSecSuccess, @"failed to add test item to keychain: %u", n);
+    }
+}
+
+- (void)createECKeyWithACL:(NSString *)label
+{
+    NSDictionary* keyParams = @{
+        (__bridge id)kSecAttrKeyClass : (__bridge id)kSecAttrKeyClassPrivate,
+        (__bridge id)kSecAttrKeyType : (__bridge id)kSecAttrKeyTypeEC,
+        (__bridge id)kSecAttrKeySizeInBits: @(256),
+    };
+    SecAccessControlRef ref = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenUnlocked, 0, NULL);
+    XCTAssertNotEqual(ref, NULL, @"SAC");
+
+    SecKeyRef key = SecKeyCreateRandomKey((__bridge CFDictionaryRef)keyParams, NULL);
+    XCTAssertNotEqual(key, NULL, @"failed to create test key to keychain");
+
+    NSDictionary* item = @{
+        (__bridge id)kSecClass: (__bridge id)kSecClassKey,
+        (__bridge id)kSecValueRef: (__bridge id)key,
+        (__bridge id)kSecAttrLabel: label,
+        (__bridge id)kSecUseDataProtectionKeychain: @(YES),
+        (__bridge id)kSecAttrAccessControl: (__bridge id)ref,
+    };
+
+    OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+    XCTAssertEqual(result, 0, @"failed to add test key to keychain");
+}
+
+- (void)createManyACLKeyItems
+{
+    unsigned n;
+    for (n = 0; n < 50; n++) {
+        [self createECKeyWithACL: [NSString stringWithFormat:@"TestLabel-EC-%u", n]];
     }
 }
 
@@ -136,8 +194,10 @@
 
 - (void)testSecItemServerDeleteAll
 {
+
     [self addAccessGroup:@"com.apple.bluetooth"];
     [self addAccessGroup:@"lockdown-identities"];
+    [self addAccessGroup:@"apple"];
 
     // BT root key, should not be deleted
     NSMutableDictionary* bt = [@{
@@ -248,6 +308,7 @@
 {
     [self createManyItems];
     [self createManyKeys];
+    [self createManyACLKeyItems];
 
     
     NSDictionary* item = @{ (id)kSecClass : (id)kSecClassGenericPassword,
@@ -309,6 +370,7 @@
 
     [self createManyItems];
     [self createManyKeys];
+    [self createManyACLKeyItems];
 
     /*
      sleep(600);
@@ -634,6 +696,218 @@
     XCTAssertEqual(CFGetTypeID(output), CFDictionaryGetTypeID(), "output is a dictionary");
     XCTAssertEqual(CFDictionaryGetValue(output, (id)kSecAttrKeyType), (__bridge CFNumberRef)[NSNumber numberWithUnsignedInt:0x80000001L], "keytype is unchanged");
 }
+
+- (NSData *)objectToDER:(NSDictionary *)dict
+{
+    CFPropertyListRef object = (__bridge CFPropertyListRef)dict;
+    CFErrorRef error = NULL;
+
+    size_t size = der_sizeof_plist(object, &error);
+    if (!size) {
+        return NULL;
+    }
+    NSMutableData *data = [NSMutableData dataWithLength:size];
+    uint8_t *der = [data mutableBytes];
+    uint8_t *der_end = der + size;
+    uint8_t *der_start = der_encode_plist(object, &error, der, der_end);
+    if (!der_start) {
+        return NULL;
+    }
+    return data;
+}
+
+#if !TARGET_OS_WATCH
+/* this should be enabled for watch too, but that cause a crash in the mock aks layer */
+
+- (void)testUpgradeWithBadACLKey
+{
+    SecAccessControlRef ref = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenUnlocked, 0, NULL);
+    XCTAssertNotEqual(ref, NULL, @"SAC");
+
+    NSDictionary *canaryItem = @{
+        (__bridge NSString *)kSecClass : (__bridge NSString *)kSecClassInternetPassword,
+        (__bridge NSString *)kSecAttrServer : @"server-here",
+        (__bridge NSString *)kSecAttrAccount : @"foo",
+        (__bridge NSString *)kSecAttrPort : @80,
+        (__bridge NSString *)kSecAttrProtocol : @"http",
+        (__bridge NSString *)kSecAttrAuthenticationType : @"dflt",
+        (__bridge NSString *)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    NSDictionary* canaryQuery = @{
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (__bridge NSString *)kSecAttrServer : @"server-here",
+        (__bridge NSString *)kSecAttrAccount : @"foo",
+        (__bridge NSString *)kSecAttrPort : @80,
+        (__bridge NSString *)kSecAttrProtocol : @"http",
+        (__bridge NSString *)kSecAttrAuthenticationType : @"dflt",
+        (id)kSecUseDataProtectionKeychain : @(YES),
+    };
+
+    NSDictionary* baseQuery = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrAccount : @"TestAccount-0",
+        (id)kSecAttrService : @"TestService",
+        (id)kSecUseDataProtectionKeychain : @(YES),
+    };
+
+    NSMutableDictionary* query = [baseQuery  mutableCopy];
+    [query addEntriesFromDictionary:@{
+        (id)kSecReturnAttributes: @YES,
+        (id)kSecReturnData: @YES,
+    }];
+
+    NSMutableDictionary* add = [baseQuery  mutableCopy];
+    [add addEntriesFromDictionary:@{
+        (__bridge id)kSecValueData: [@"foo" dataUsingEncoding:NSUTF8StringEncoding],
+        (__bridge id)kSecAttrAccessControl: (__bridge id)ref,
+    }];
+
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)canaryItem, NULL), errSecSuccess, "should successfully add canaryItem");
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)canaryQuery, NULL), errSecSuccess, "should successfully get canaryItem");
+
+    __block NSUInteger counter = 0;
+    __block bool mutatedDatabase = true;
+    while (mutatedDatabase) {
+        mutatedDatabase = false;
+
+        if (counter == 0) {
+            /* corruption of version is not great if its > 7 */
+            counter++;
+        }
+
+        kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+            CFErrorRef localError = NULL;
+            (void)SecDbExec(dbt, CFSTR("DELETE FROM genp"), &localError);
+            CFReleaseNull(localError);
+            return true;
+        });
+        SecKeychainDbReset(NULL);
+
+        XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecItemNotFound, "should successfully get item");
+        XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)add, NULL), errSecSuccess, "should successfully add item");
+        XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecSuccess, "should successfully get item");
+
+        XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)canaryQuery, NULL), errSecSuccess,
+                       "should successfully get canaryItem pre %d", (int)counter);
+
+        // lower database and destroy the item
+        kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) {
+            CFErrorRef localError2 = NULL;
+            __block bool ok = true;
+            int version = 0;
+
+            SecKeychainDbGetVersion(dbt, &version, &localError2);
+            CFReleaseNull(localError2);
+
+            // force a minor (if more then zero), otherwise pick major
+            NSString *downgradeString = nil;
+            if ((version & (0xff00)) != 0) {
+                downgradeString = [NSString stringWithFormat:@"UPDATE tversion SET version='%d', minor='%d'",
+                                                (version & 0xff), 0];
+            } else {
+                downgradeString = [NSString stringWithFormat:@"UPDATE tversion SET version='%d', minor='%d'",
+                                                ((version & 0xff) - 1), 0];
+            }
+
+            ok = SecDbExec(dbt, (__bridge CFStringRef)downgradeString, &localError2);
+            XCTAssertTrue(ok, "downgrade should be successful: %@", localError2);
+            CFReleaseNull(localError2);
+
+            __block NSData *data = nil;
+            __block unsigned steps = 0;
+            ok &= SecDbPrepare(dbt, CFSTR("SELECT data FROM genp"), &localError2, ^(sqlite3_stmt *stmt) {
+                ok = SecDbStep(dbt, stmt, NULL, ^(bool *stop) {
+                    steps++;
+
+                    void *ptr = (uint8_t *)sqlite3_column_blob(stmt, 0);
+                    size_t length = sqlite3_column_bytes(stmt, 0);
+                    XCTAssertNotEqual(ptr, NULL, "should have ptr");
+                    XCTAssertNotEqual(length, 0, "should have data");
+                    data = [NSData dataWithBytes:ptr length:length];
+                });
+            });
+            XCTAssertTrue(ok, "copy should be successful: %@", localError2);
+            XCTAssertEqual(steps, 1, "steps should be 1, since we should only have one genp");
+            XCTAssertNotNil(data, "should find the row");
+            CFReleaseNull(localError2);
+
+
+            NSMutableData *mutatedData = [data mutableCopy];
+
+            if (counter < mutatedData.length) {
+                mutatedDatabase = true;
+                ((uint8_t *)[mutatedData mutableBytes])[counter] = 'X';
+                counter++;
+            } else {
+                counter = 0;
+            }
+
+
+            NSString *mutateString = [NSString stringWithFormat:@"UPDATE genp SET data=x'%@'",
+                                      [mutatedData hexString]];
+
+            ok &= SecDbPrepare(dbt, (__bridge CFStringRef)mutateString, &localError2, ^(sqlite3_stmt *stmt) {
+                ok = SecDbStep(dbt, stmt, NULL, ^(bool *stop) {
+                });
+            });
+            XCTAssertTrue(ok, "corruption should be successful: %@", localError2);
+            CFReleaseNull(localError2);
+
+            return ok;
+        });
+
+        // force it to reload
+        SecKeychainDbReset(NULL);
+
+        //dont care about result, we might have done a good number on this item
+        (void)SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL);
+        XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)canaryQuery, NULL), errSecSuccess,
+                       "should successfully get canaryItem final %d", (int)counter);
+    }
+
+    NSLog(@"count: %lu", (unsigned long)counter);
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)canaryQuery, NULL), errSecSuccess,
+                   "should successfully get canaryItem final %d", (int)counter);
+}
+#endif /* !TARGET_OS_WATCH */
+
+- (void)testInteractionFailuresFromReferenceKeys
+{
+    SecAccessControlRef ref = SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenUnlocked, 0, NULL);
+    XCTAssertNotEqual(ref, NULL, @"SAC");
+
+    NSDictionary* query = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrAccount : @"TestAccount-0",
+        (id)kSecAttrService : @"TestService",
+        (id)kSecUseDataProtectionKeychain : @(YES),
+        (id)kSecReturnAttributes: @YES,
+        (id)kSecReturnData: @YES,
+    };
+
+    NSDictionary* add = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrAccount : @"TestAccount-0",
+        (id)kSecAttrService : @"TestService",
+        (id)kSecUseDataProtectionKeychain : @(YES),
+        (id)kSecValueData: [@"foo" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecAttrAccessControl: (__bridge id)ref,
+    };
+
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecItemNotFound, "should successfully get item");
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)add, NULL), errSecSuccess, "should successfully add item");
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecSuccess, "should successfully get item");
+
+    [SecMockAKS failNextDecryptRefKey:[NSError errorWithDomain:@"foo" code:kAKSReturnNoPermission userInfo:nil]];
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecInteractionNotAllowed, "should successfully get item");
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecSuccess, "should successfully get item");
+}
+
+
 
 #endif /* USE_KEYSTORE */
 

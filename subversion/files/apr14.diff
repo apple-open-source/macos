@@ -1,0 +1,22 @@
+--- subversion/include/svn_types.h.orig	2016-05-11 13:22:16.000000000 -0700
++++ subversion/include/svn_types.h	2016-05-11 13:22:58.000000000 -0700
+@@ -256,7 +256,7 @@
+  * @{
+  */
+ 
+-#if !APR_VERSION_AT_LEAST(1, 5, 0)
++#if !APR_VERSION_AT_LEAST(1, 5, 0) || defined(__APPLE__)
+ 
+ /** Return the key of the hash table entry indexed by @a hi. */
+ const void *
+--- subversion/libsvn_subr/iter.c.orig	2016-05-11 13:28:51.000000000 -0700
++++ subversion/libsvn_subr/iter.c	2016-05-11 13:27:07.000000000 -0700
+@@ -184,7 +184,7 @@
+   return &internal_break_error;
+ }
+ 
+-#if !APR_VERSION_AT_LEAST(1, 5, 0)
++#if !APR_VERSION_AT_LEAST(1, 5, 0) || defined(__APPLE__)
+ const void *apr_hash_this_key(apr_hash_index_t *hi)
+ {
+   const void *key;

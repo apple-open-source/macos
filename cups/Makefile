@@ -23,7 +23,7 @@ GSSAPI_Options=--disable-gssapi
 endif
 
 Configure_Flags = `$(SRCROOT)/gettargetflags.sh host` \
-		  --with-cups-build="cups-483" \
+		  --with-cups-build="cups-483.2" \
 		  --with-adminkey="system.print.admin" \
 		  --with-operkey="system.print.operator" \
 		  --with-pam-module=opendirectory \

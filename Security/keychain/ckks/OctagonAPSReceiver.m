@@ -133,10 +133,6 @@
     return aps_dispatch_queue;
 }
 
-+ (int64_t)stalePushTimeout {
-    return 5*60*NSEC_PER_SEC;
-}
-
 - (BOOL) haveStalePushes
 {
     __block BOOL haveStalePushes = NO;
@@ -160,7 +156,19 @@
 
 - (instancetype)initWithEnvironmentName:(NSString*)environmentName
                       namedDelegatePort:(NSString*)namedDelegatePort
-                     apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass {
+                     apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
+{
+    return [self initWithEnvironmentName:environmentName
+                       namedDelegatePort:namedDelegatePort
+                      apsConnectionClass:apsConnectionClass
+                        stalePushTimeout:5*60*NSEC_PER_SEC];
+}
+
+- (instancetype)initWithEnvironmentName:(NSString*)environmentName
+                      namedDelegatePort:(NSString*)namedDelegatePort
+                     apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
+                       stalePushTimeout:(uint64_t)stalePushTimeout
+{
     if(self = [super init]) {
         _apsConnectionClass = apsConnectionClass;
         _apsConnection = NULL;
@@ -204,15 +212,12 @@
                 self.undeliveredUpdates = [NSMutableDictionary dictionary];
                 [self.undeliveredCuttlefishUpdates removeAllObjects];
 
-                dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
-                    STRONGIFY(self);
-                    [self reportDroppedPushes:droppedUpdates];
-                });
+                [self reportDroppedPushes:droppedUpdates];
             });
         };
 
         _clearStalePushNotifications = [[CKKSNearFutureScheduler alloc] initWithName: @"clearStalePushNotifications"
-                                                                               delay:[[self class] stalePushTimeout]
+                                                                               delay:stalePushTimeout
                                                                     keepProcessAlive:false
                                                            dependencyDescriptionCode:CKKSResultDescriptionNone
                                                                                block:clearPushBlock];

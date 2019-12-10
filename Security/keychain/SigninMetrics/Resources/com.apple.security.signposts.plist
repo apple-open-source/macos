@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>DEFAULT-OPTIONS</key>
+	<dict>
+		<key>Propagate-with-Activity</key>
+		<true/>
+		<key>TTL</key>
+		<dict>
+			<key>Default</key>
+			<integer>7</integer>
+			<key>Info</key>
+			<integer>7</integer>
+			<key>Debug</key>
+			<integer>0</integer>
+		</dict>
+		<key>Level</key>
+		<dict>
+			<key>Enable</key>
+			<string>Default</string>
+			<key>Persist</key>
+			<string>Default</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

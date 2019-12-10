@@ -8144,6 +8144,18 @@ static const char * prefLangsMSx[]   = { "en_NZ" };
 static const char * prefLangsMSy[]   = { "en_NZ", "en_AU" };
 static const char * locsToUseMSa[]   = { "en_GB", "en" };
 static const char * locsToUseMSb[]   = { "en_AU", "en_GB", "en" };
+// For <rdar://problem/55885283>
+static const char * appleLocsMT[]   = { "ca-ES", "fi", "nl", "en-US", "hu", "pt-BR", "pl-PL", "it",
+                                        "ru", "el", "el-GR", "ca", "de-DE", "sv-SE", "tr", "pl",
+                                        "sv", "tr-TR", "da", "en", "nb", "pt-PT", "nb-NO",
+                                        "es-ES@collation=traditional", "sl-SI", "cs", "hu-HU",
+                                        "cs-CZ", "sk", "sl", "de", "da-DK", "es-MX", "vi", "nl-NL",
+                                        "es", "fi-FI", "fr", "it-IT", "es-ES", "fr-CA", "vi-VN",
+                                        "pt", "sk-SK", "eu-ES", "ru-RU", "eu", "fr-FR", "unk" };
+static const char * prefLangsMTa[]   = { "en" };
+static const char * prefLangsMTb[]   = { "he" };
+static const char * locsToUseMTa[]   = { "en" };
+static const char * locsToUseMTb[]   = { };
 
 typedef struct {
     const char *  name;
@@ -8233,6 +8245,8 @@ static const MultiPrefTest multiTestSets[] = {
     { "MSay",  appleLocsMSa,  UPRV_LENGTHOF(appleLocsMSa), prefLangsMSy, UPRV_LENGTHOF(prefLangsMSy), locsToUseMSa,    UPRV_LENGTHOF(locsToUseMSa) },
     { "MSbx",  appleLocsMSb,  UPRV_LENGTHOF(appleLocsMSb), prefLangsMSx, UPRV_LENGTHOF(prefLangsMSx), locsToUseMSb,    UPRV_LENGTHOF(locsToUseMSb) },
     { "MSby",  appleLocsMSb,  UPRV_LENGTHOF(appleLocsMSb), prefLangsMSy, UPRV_LENGTHOF(prefLangsMSy), locsToUseMSb,    UPRV_LENGTHOF(locsToUseMSb) },
+    { "MTa",   appleLocsMT,   UPRV_LENGTHOF(appleLocsMT),  prefLangsMTa, UPRV_LENGTHOF(prefLangsMTa), locsToUseMTa,    UPRV_LENGTHOF(locsToUseMTa) },
+    { "MTb",   appleLocsMT,   UPRV_LENGTHOF(appleLocsMT),  prefLangsMTb, UPRV_LENGTHOF(prefLangsMTb), locsToUseMTb,    UPRV_LENGTHOF(locsToUseMTb) },
 
     { NULL, NULL, 0, NULL, 0, NULL, 0 }
 };

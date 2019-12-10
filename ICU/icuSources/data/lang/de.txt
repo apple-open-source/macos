@@ -122,7 +122,7 @@ de{
         chp{"Chipewyan"}
         chr{"Cherokee"}
         chy{"Cheyenne"}
-        ckb{"Zentralkurdisch"}
+        ckb{"Kurdisch (Sorani)"}
         co{"Korsisch"}
         cop{"Koptisch"}
         cps{"Capiznon"}

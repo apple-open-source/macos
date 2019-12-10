@@ -597,6 +597,7 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
     bool enableResourceLoadStatistics = m_shouldEnableITPForDefaultSessions;
     bool shouldIncludeLocalhost = true;
     bool enableResourceLoadStatisticsDebugMode = false;
+    bool enableThirdPartyCookieBlockingOnSitesWithoutUserInteraction = true;
     WebCore::RegistrableDomain manualPrevalentResource { };
     if (withWebsiteDataStore) {
         enableResourceLoadStatistics = withWebsiteDataStore->resourceLoadStatisticsEnabled();
@@ -604,6 +605,7 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
             auto networkSessionParameters = withWebsiteDataStore->parameters().networkSessionParameters;
             shouldIncludeLocalhost = networkSessionParameters.shouldIncludeLocalhostInResourceLoadStatistics;
             enableResourceLoadStatisticsDebugMode = networkSessionParameters.enableResourceLoadStatisticsDebugMode;
+            enableThirdPartyCookieBlockingOnSitesWithoutUserInteraction = networkSessionParameters.enableThirdPartyCookieBlockingOnSitesWithoutUserInteraction;
             manualPrevalentResource = networkSessionParameters.resourceLoadStatisticsManualPrevalentResource;
         }
 
@@ -615,6 +617,7 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
             auto networkSessionParameters = m_websiteDataStore->websiteDataStore().parameters().networkSessionParameters;
             shouldIncludeLocalhost = networkSessionParameters.shouldIncludeLocalhostInResourceLoadStatistics;
             enableResourceLoadStatisticsDebugMode = networkSessionParameters.enableResourceLoadStatisticsDebugMode;
+            enableThirdPartyCookieBlockingOnSitesWithoutUserInteraction = networkSessionParameters.enableThirdPartyCookieBlockingOnSitesWithoutUserInteraction;
             manualPrevalentResource = networkSessionParameters.resourceLoadStatisticsManualPrevalentResource;
         }
 
@@ -625,6 +628,7 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
     parameters.defaultDataStoreParameters.networkSessionParameters.enableResourceLoadStatistics = enableResourceLoadStatistics;
     parameters.defaultDataStoreParameters.networkSessionParameters.shouldIncludeLocalhostInResourceLoadStatistics = shouldIncludeLocalhost;
     parameters.defaultDataStoreParameters.networkSessionParameters.enableResourceLoadStatisticsDebugMode = enableResourceLoadStatisticsDebugMode;
+    parameters.defaultDataStoreParameters.networkSessionParameters.enableThirdPartyCookieBlockingOnSitesWithoutUserInteraction = enableThirdPartyCookieBlockingOnSitesWithoutUserInteraction;
     parameters.defaultDataStoreParameters.networkSessionParameters.resourceLoadStatisticsManualPrevalentResource = manualPrevalentResource;
 
     // Add any platform specific parameters
@@ -785,9 +789,9 @@ void WebProcessPool::didReceiveInvalidMessage(const IPC::StringReference& messag
         return;
 
     StringBuilder messageNameStringBuilder;
-    messageNameStringBuilder.append(messageReceiverName.data(), messageReceiverName.size());
+    messageNameStringBuilder.appendCharacters(messageReceiverName.data(), messageReceiverName.size());
     messageNameStringBuilder.append('.');
-    messageNameStringBuilder.append(messageName.data(), messageName.size());
+    messageNameStringBuilder.appendCharacters(messageName.data(), messageName.size());
 
     s_invalidMessageCallback(toAPI(API::String::create(messageNameStringBuilder.toString()).ptr()));
 }
@@ -1484,6 +1488,16 @@ void WebProcessPool::activePagesOriginsInWebProcessForTesting(ProcessID pid, Com
             return process->activePagesDomainsForTesting(WTFMove(completionHandler));
     }
     completionHandler({ });
+}
+
+void WebProcessPool::setServiceWorkerTimeoutForTesting(Seconds seconds)
+{
+    sendSyncToNetworkingProcess(Messages::NetworkProcess::SetServiceWorkerFetchTimeoutForTesting(seconds), Messages::NetworkProcess::SetServiceWorkerFetchTimeoutForTesting::Reply());
+}
+
+void WebProcessPool::resetServiceWorkerTimeoutForTesting()
+{
+    sendSyncToNetworkingProcess(Messages::NetworkProcess::ResetServiceWorkerFetchTimeoutForTesting(), Messages::NetworkProcess::ResetServiceWorkerFetchTimeoutForTesting::Reply());
 }
 
 void WebProcessPool::setAlwaysUsesComplexTextCodePath(bool alwaysUseComplexText)

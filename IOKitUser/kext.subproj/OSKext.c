@@ -6935,7 +6935,7 @@ CFDataRef __OSKextMapExecutable(
         */
         executableBuffer = mmap(/* addr */ NULL, length,
             PROT_READ|PROT_WRITE, MAP_FILE|MAP_PRIVATE, executableFD, offset);
-        if (!executableBuffer) {
+        if (executableBuffer == MAP_FAILED) {
             localErrno = errno;
             
            /* Only if we are mapping the executable as a whole, flag its

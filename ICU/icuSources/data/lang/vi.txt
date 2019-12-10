@@ -120,7 +120,7 @@ vi{
         chp{"Tiếng Chipewyan"}
         chr{"Tiếng Cherokee"}
         chy{"Tiếng Cheyenne"}
-        ckb{"Tiếng Kurd Miền Trung"}
+        ckb{"Tiếng Kurd Sorani"}
         co{"Tiếng Corsica"}
         cop{"Tiếng Coptic"}
         cps{"Tiếng Capiznon"}

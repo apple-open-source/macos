@@ -28,19 +28,28 @@
 
 #if __has_include(<MobileKeyBag/MobileKeyBag.h>)
 #include <MobileKeyBag/MobileKeyBag.h>
-#else
+#define HAVE_MobileKeyBag_MobileKeyBag 1
+#endif
+
+#if __OBJC2__
+#import <Foundation/Foundation.h>
+#endif
+
+CF_ASSUME_NONNULL_BEGIN
+
+#if !HAVE_MobileKeyBag_MobileKeyBag
 
 typedef struct  __MKBKeyBagHandle* MKBKeyBagHandleRef;
-int MKBKeyBagCreateWithData(CFDataRef keybagBlob, MKBKeyBagHandleRef* newHandle);
+int MKBKeyBagCreateWithData(CFDataRef keybagBlob, MKBKeyBagHandleRef _Nullable * _Nonnull newHandle);
 
 #define kMobileKeyBagDeviceIsLocked 1
 #define kMobileKeyBagDeviceIsUnlocked 0
 
-int MKBKeyBagUnlock(MKBKeyBagHandleRef keybag, CFDataRef passcode);
-int MKBKeyBagGetAKSHandle(MKBKeyBagHandleRef keybag, int32_t *handle);
-int MKBGetDeviceLockState(CFDictionaryRef options);
-CF_RETURNS_RETAINED CFDictionaryRef MKBUserTypeDeviceMode(CFDictionaryRef options, CFErrorRef * error);
-int MKBForegroundUserSessionID( CFErrorRef * error);
+int MKBKeyBagUnlock(MKBKeyBagHandleRef keybag, CFDataRef _Nullable passcode);
+int MKBKeyBagGetAKSHandle(MKBKeyBagHandleRef _Nonnull keybag, int32_t *_Nullable handle);
+int MKBGetDeviceLockState(CFDictionaryRef _Nullable options);
+CF_RETURNS_RETAINED CFDictionaryRef _Nullable MKBUserTypeDeviceMode(CFDictionaryRef _Nullable options, CFErrorRef _Nullable * _Nullable error);
+int MKBForegroundUserSessionID( CFErrorRef _Nullable * _Nullable error);
 
 #define kMobileKeyBagSuccess (0)
 #define kMobileKeyBagError (-1)
@@ -49,8 +58,8 @@ int MKBForegroundUserSessionID( CFErrorRef * error);
 #define kMobileKeyBagExistsError                (-4)
 #define kMobileKeyBagNoMemoryError    (-5)
 
-#endif // <MobileKeyBag/MobileKeyBag.h>
 
+#endif // HAVE_MobileKeyBag_MobileKeyBag
 
 #if __OBJC2__
 
@@ -67,8 +76,15 @@ int MKBForegroundUserSessionID( CFErrorRef * error);
 + (void)unlockAllClasses;
 
 + (void)reset;
+
++ (void)failNextDecryptRefKey:(NSError* _Nonnull) decryptRefKeyError;
++ (NSError * _Nullable)popDecryptRefKeyFailure;
+
 @end
 
 #endif // OBJC2
+
+CF_ASSUME_NONNULL_END
+
 
 #endif /* mockaks_h */

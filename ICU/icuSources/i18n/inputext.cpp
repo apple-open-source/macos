@@ -50,6 +50,7 @@ void InputText::setText(const char *in, int32_t len)
 {
     fInputLen  = 0;
     fC1Bytes   = FALSE;
+    fOnlyTypicalASCII = FALSE; // rdar://56373519
     fRawInput  = (const uint8_t *) in;
     fRawLength = len == -1? (int32_t)uprv_strlen(in) : len;
 }
@@ -163,11 +164,19 @@ void InputText::MungeInput(UBool fStripTags) {
         fByteStats[fInputBytes[srci]] += 1;
     }
 
-    for (int32_t i = 0x80; i <= 0x9F; i += 1) {
+    fOnlyTypicalASCII = TRUE; // rdar://56373519
+    for (int32_t i = 0x01; i <= 0xFF; i += 1) {
         if (fByteStats[i] != 0) {
-            fC1Bytes = TRUE;
-            break;
+            if ((i < 0x20 && i != 0x09 && i != 0x0A && i != 0x0D) || i > 0x7E) {
+                fOnlyTypicalASCII = FALSE; // rdar://56373519
+                if (i >= 0x80 && i <= 0x9F) {
+                    fC1Bytes = TRUE;
+                }
+            }
         }
+    }
+    if (fByteStats[0] > 1) {
+        fOnlyTypicalASCII = FALSE;
     }
 }
 

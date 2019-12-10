@@ -34,7 +34,7 @@ bool OctagonIsEnabled(void);
 
 extern NSString* OTDefaultContext;
 
-extern NSString* const OctagonErrorDomain;
+extern NSErrorDomain const OctagonErrorDomain;
 
 /* used for defaults writes */
 extern NSString* OTDefaultsDomain;

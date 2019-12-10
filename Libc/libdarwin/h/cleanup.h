@@ -51,11 +51,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <dirent.h>
 #include <mach/mach_init.h>
 #include <mach/port.h>
 #include <mach/mach_port.h>
 #include <mach/kern_return.h>
 #include <mach/mach_right.h>
+
+#if DARWIN_TAPI
+#include "tapi.h"
+#endif
 
 __BEGIN_DECLS;
 
@@ -99,7 +104,7 @@ __os_cleanup_close(int *__fd)
  * @define __os_fclose
  * An attribute that may be applied to a variable's type. This attribute causes
  * the variable to be passed to fclose(3) when it goes out of scope. Applying
- * this attribute to variables that do not reference a valid FILE* will result
+ * this attribute to variables that do not reference a valid FILE * will result
  * in undefined behavior. If the variable's value is NULL upon going out-of-
  * scope, no cleanup is performed.
  */
@@ -118,6 +123,26 @@ __os_cleanup_fclose(FILE **__fp)
 	if (ret == EOF) {
 		os_assert_zero(errno);
 	}
+}
+
+/*!
+ * @define __os_closedir
+ * An attribute that may be applied to a variable's type. This attribute causes
+ * the variable to be passed to closedir(3) when it goes out of scope. Applying
+ * this attribute to variables that do not reference a valid DIR * will result
+ * in undefined behavior. If the variable's value is NULL upon going out-of-
+ * scope, no cleanup is performed.
+ */
+#define __os_closedir __attribute__((cleanup(__os_cleanup_closedir)))
+static inline void
+__os_cleanup_closedir(DIR **__dp)
+{
+	DIR *dp = *__dp;
+
+	if (!dp) {
+		return;
+	}
+	posix_assert_zero(closedir(dp));
 }
 
 /*!
@@ -212,7 +237,7 @@ __os_cleanup_os_release(void *__p)
 }
 #endif
 
-#if __COREFOUNDATION__
+#if DARWIN_CLEANUP_CF
 /*!
  * @define __os_cfrelease
  * An attribute that may be applied to a variable's type. This attribute causes
@@ -220,6 +245,9 @@ __os_cleanup_os_release(void *__p)
  * this attribute to a variable which does not reference a valid CoreFoundation
  * object will result in undefined behavior. If the variable's value is NULL
  * upon going out-of-scope, no cleanup is performed.
+ *
+ * In order to use, you must define the DARWIN_CLEANUP_CF macro to 1 prior to
+ * including this header.
  */
 #define __os_cfrelease __attribute__((cleanup(__os_cleanup_cfrelease)))
 static inline void
@@ -232,7 +260,68 @@ __os_cleanup_cfrelease(void *__p)
 	}
 	CFRelease(cf);
 }
-#endif // __COREFOUNDATION__
+#endif // DARWIN_CLEANUP_CF
+
+#if DARWIN_CLEANUP_IOKIT
+/*!
+ * @define __os_iorelease
+ * An attribute that may be applied to a variable's type. This attribute causes
+ * the variable to be passed to IOObjectRelease() when it goes out of scope.
+ * Applying this attribute to a variable which does not reference a valid IOKit
+ * object will result in undefined behavior. If the variable's value is
+ * IO_OBJECT_NULL upon going out-of-scope, no cleanup is performed.
+ *
+ *
+ * In order to use, you must define the DARWIN_CLEANUP_IOKIT macro to 1 prior to
+ * including this header.
+ */
+#define __os_iorelease __attribute__((cleanup(__os_cleanup_iorelease)))
+static inline void
+__os_cleanup_iorelease(void *__p)
+{
+	kern_return_t kr = KERN_FAILURE;
+	io_object_t *iop = (io_object_t *)__p;
+	io_object_t io = *iop;
+
+	if (io == IO_OBJECT_NULL) {
+		return;
+	}
+
+	kr = IOObjectRelease(io);
+	if (kr) {
+		os_crash("IOObjectRetain: %{mach.errno}d", kr);
+	}
+}
+
+/*!
+ * @define __os_ioclose
+ * An attribute that may be applied to a variable's type. This attribute causes
+ * the variable to be passed to IOServiceClose() when it goes out of scope.
+ * Applying this attribute to a variable which does not reference a valid IOKit
+ * connection will result in undefined behavior. If the variable's value is
+ * IO_OBJECT_NULL upon going out-of-scope, no cleanup is performed.
+ *
+ * In order to use, you must define the DARWIN_CLEANUP_IOKIT macro to 1 prior to
+ * including this header.
+ */
+#define __os_ioclose __attribute__((cleanup(__os_cleanup_ioclose)))
+static inline void
+__os_cleanup_ioclose(void *__p)
+{
+	kern_return_t kr = KERN_FAILURE;
+	io_connect_t *iop = (io_object_t *)__p;
+	io_connect_t io = *iop;
+
+	if (io == IO_OBJECT_NULL) {
+		return;
+	}
+
+	kr = IOServiceClose(io);
+	if (kr) {
+		os_crash("IOObjectRelease: %{mach.errno}d", kr);
+	}
+}
+#endif // DARWIN_CLEANUP_IOKIT
 
 /*!
  * @define __os_unfair_unlock
@@ -275,11 +364,14 @@ __os_cleanup_unfair_unlock(void *__p)
 #define __os_free __os_cleanup_unsupported
 #define __os_close __os_cleanup_unsupported
 #define __os_fclose __os_cleanup_unsupported
+#define __os_closedir __os_cleanup_unsupported
 #define __os_close_mach_recv __os_cleanup_unsupported
 #define __os_release_mach_send __os_cleanup_unsupported
 #define __os_preserve_errno __os_cleanup_unsupported
 #define __os_release __os_cleanup_unsupported
 #define __os_cfrelease __os_cleanup_unsupported
+#define __os_iorelease __os_cleanup_unsupported
+#define __os_ioclose __os_cleanup_unsupported
 #define __os_unfair_unlock __os_cleanup_unsupported
 #endif // __has_attribute(cleanup)
 

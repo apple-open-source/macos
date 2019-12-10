@@ -605,6 +605,7 @@ show_devices_and_exit (void)
 #ifdef __APPLE__
 #define OPTION_TIME_ZONE_OFFSET    131
 #define OPTION_APPLE_TRUNCATE    132
+#define OPTION_APPLE_ARP_PLAIN    133
 #endif /* __APPLE__ */
 
 static const struct option longopts[] = {
@@ -650,6 +651,7 @@ static const struct option longopts[] = {
 	{ "time-zone-offset", required_argument, NULL, OPTION_TIME_ZONE_OFFSET },
 	{ "apple-tzo", required_argument, NULL, OPTION_TIME_ZONE_OFFSET },
 	{ "apple-truncate", no_argument, NULL, OPTION_APPLE_TRUNCATE },
+	{ "apple-arp-plain", no_argument, NULL, OPTION_APPLE_ARP_PLAIN },
 #endif /* __APPLE__ */
 	{ NULL, 0, NULL, 0 }
 };
@@ -685,11 +687,10 @@ droproot(const char *username, const char *chroot_dir)
 #ifdef HAVE_LIBCAP_NG
 		{
 			int ret = capng_change_id(pw->pw_uid, pw->pw_gid, CAPNG_NO_FLAG);
-			if (ret < 0) {
-				fprintf(stderr, "error : ret %d\n", ret);
-			} else {
+			if (ret < 0)
+				error("capng_change_id(): return %d\n", ret);
+			else
 				fprintf(stderr, "dropped privs to %s\n", username);
-			}
 		}
 #else
 		if (initgroups(pw->pw_name, pw->pw_gid) != 0 ||
@@ -778,13 +779,15 @@ static char *
 get_next_file(FILE *VFile, char *ptr)
 {
 	char *ret;
+	size_t len;
 
 	ret = fgets(ptr, PATH_MAX, VFile);
 	if (!ret)
 		return NULL;
 
-	if (ptr[strlen(ptr) - 1] == '\n')
-		ptr[strlen(ptr) - 1] = '\0';
+	len = strlen (ptr);
+	if (len > 0 && ptr[len - 1] == '\n')
+		ptr[len - 1] = '\0';
 
 	return ret;
 }
@@ -1101,6 +1104,10 @@ open_interface(const char *device, netdissect_options *ndo, char *ebuf)
 		if (status < 0)
 			error("%s: Can't set time stamp type: %s",
 		              device, pcap_statustostr(status));
+		else if (status > 0)
+			warning("When trying to set timestamp type '%s' on %s: %s",
+				pcap_tstamp_type_val_to_name(jflag), device,
+				pcap_statustostr(status));
 	}
 #endif
 
@@ -1205,13 +1212,11 @@ main(int argc, char **argv)
 	char *ret = NULL;
 	char *end;
 #ifdef HAVE_PCAP_FINDALLDEVS
-
 #ifndef __APPLE__
 	pcap_if_t *devlist;
-#endif
-
-	long devnum;
 #endif /* __APPLE__ */
+	long devnum;
+#endif
 	int status;
 	FILE *VFile;
 #ifdef HAVE_CAPSICUM
@@ -1545,11 +1550,11 @@ main(int argc, char **argv)
 #else /* __APPLE__ */
 #ifdef HAVE_PCAP_SETDIRECTION
 		case 'Q':
-			if (strcasecmp(optarg, "in") == 0)
+			if (ascii_strcasecmp(optarg, "in") == 0)
 				Qflag = PCAP_D_IN;
-			else if (strcasecmp(optarg, "out") == 0)
+			else if (ascii_strcasecmp(optarg, "out") == 0)
 				Qflag = PCAP_D_OUT;
-			else if (strcasecmp(optarg, "inout") == 0)
+			else if (ascii_strcasecmp(optarg, "inout") == 0)
 				Qflag = PCAP_D_INOUT;
 			else
 				error("unknown capture direction `%s'", optarg);
@@ -1767,6 +1772,10 @@ main(int argc, char **argv)
 		case OPTION_APPLE_TRUNCATE:
 			truncation_mode = 1;
 			break;
+
+		case OPTION_APPLE_ARP_PLAIN:
+			ndo->ndo_arp_plain = 1;
+			break;
 #endif /* __APPLE__ */
 
 		default:
@@ -1790,7 +1799,7 @@ main(int argc, char **argv)
 	case 1: /* No time stamp */
 	case 2: /* Unix timeval style */
 	case 3: /* Microseconds since previous packet */
-	case 5: /* Microseconds since first packet */
+        case 5: /* Microseconds since first packet */
 		break;
 
 	default: /* Not supported */
@@ -2680,7 +2689,7 @@ info(register int verbose)
 	if (!verbose)
 		fprintf(stderr, "%s: ", program_name);
 
-	(void)fprintf(stderr, "%lu packet%s captured", packets_captured,
+	(void)fprintf(stderr, "%u packet%s captured", packets_captured,
 	    PLURAL_SUFFIX(packets_captured));
 	if (!verbose)
 		fputs(", ", stderr);
@@ -3139,7 +3148,7 @@ void CALLBACK verbose_stats_dump (UINT timer_id _U_, UINT msg _U_, DWORD_PTR arg
 static void verbose_stats_dump(int sig _U_)
 {
 	if (infodelay == 0)
-		fprintf(stderr, "Got %lu\r", packets_captured);
+		fprintf(stderr, "Got %u\r", packets_captured);
 	alarm(1);
 }
 #endif
@@ -3513,8 +3522,15 @@ int
 handle_pktap_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 				  const u_char *sp)
 {
-	if (pktap_filter_packet(dump_info->ndo, NULL, h, sp) == 0)
-		return (0);
+	switch (pktap_filter_packet(dump_info->ndo, NULL, h, sp)) {
+		case -1:
+			fprintf(stderr, "%s: Packet too short for pktap\n", __func__);
+			return (0);
+		case 0:
+			return (0);
+		default:
+			break;
+	}
 
 	if (packets_captured < skip_packet_cnt)
 		return (1);
@@ -3551,6 +3567,7 @@ print_pktap_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 {
 	netdissect_options *ndo = (netdissect_options *)user;
 
+	// Let the printer code deal with truncated pktap headers
 	if (pktap_filter_packet(ndo, NULL, h, sp) == 0)
 		return;
 

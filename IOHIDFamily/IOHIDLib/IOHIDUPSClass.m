@@ -408,10 +408,16 @@
     IOReturn ret = kIOReturnError;
     NSInteger elementsToUpdate = 0;
     
+    if (!_transaction) {
+        UPSLogError("Invalid transaction");
+        return;
+    }
+    
     ret = (*_transaction)->setDirection(_transaction, kIOHIDTransactionDirectionTypeInput, 0);
     
     if (ret) {
-        UPSLog("Failed to set transaction direction %x",ret);
+        UPSLogError("Failed to set transaction direction %x",ret);
+        return;
     }
     
     for (HIDLibElement *element in elements) {
@@ -439,7 +445,7 @@
     ret = (*_transaction)->commit(_transaction, 0, 0, 0, 0);
     if (ret != kIOReturnSuccess) {
         (*_transaction)->clear(_transaction, 0);
-        UPSLog("Failed to commit input element transaction with error %x",ret);
+        UPSLogError("Failed to commit input element transaction with error %x",ret);
         return;
     }
     
@@ -467,6 +473,9 @@
 - (BOOL)updateEvent
 {
     bool updated = false;
+    bool isCharging = false;
+    bool isDischarging = false; // Keeping this seperate bool for case when both charge / discharge is 1 (possible ??)
+    bool isACSource = false;
     
     /*
      * Get the latest element values. Our input elements will already be updated
@@ -480,7 +489,7 @@
                                               psKey:element.psKey];
         
         if (latest && ![element isEqual:latest]) {
-            UPSLog("Skipping duplicate element with key %@\n", element.psKey);
+            UPSLog("Skipping duplicate element (UP : %x U : %x Type : %u IV: %ld) with key %@\n",element.usagePage, element.usage, (unsigned int)element.type, (long)element.integerValue, element.psKey);
             continue;
         }
         
@@ -526,21 +535,11 @@
                 switch (element.usage) {
                     case kHIDUsage_BS_Charging:
                         newValue = element.integerValue ? @YES : @NO;
-                        // Also update kIOPSPowerSourceStateKey
-                        if (element.integerValue) {
-                            _upsEvent[@(kIOPSPowerSourceStateKey)] = @(kIOPSACPowerValue);
-                        } else {
-                            _upsEvent[@(kIOPSPowerSourceStateKey)] = @(kIOPSBatteryPowerValue);
-                        }
+                        isCharging |= (element.integerValue ? 1 : 0);
                         break;
                     case kHIDUsage_BS_Discharging:
                         newValue = element.integerValue ? @FALSE : @TRUE;
-                        // Also update kIOPSPowerSourceStateKey
-                        if (element.integerValue) {
-                            _upsEvent[@(kIOPSPowerSourceStateKey)] = @(kIOPSBatteryPowerValue);
-                        } else {
-                            _upsEvent[@(kIOPSPowerSourceStateKey)] = @(kIOPSACPowerValue);
-                        }
+                        isDischarging |= (element.integerValue ? 1 : 0);
                         break;
                     case kHIDUsage_BS_AbsoluteStateOfCharge:
                     case kHIDUsage_BS_RemainingCapacity:
@@ -606,6 +605,7 @@
                     }
                     case kHIDUsage_BS_ACPresent:
                         newValue = element.integerValue ? @(kIOPSACPowerValue) : @(kIOPSBatteryPowerValue);
+                        isACSource |= (element.integerValue ? 1 : 0);
                         break;
                 }
                 break;
@@ -672,6 +672,27 @@
         }
     }
     
+    // rdar://problem/57132356 , we have logic to report power state
+    // based on 3 usages kHIDUsage_BS_Charging, kHIDUsage_BS_Discharging,
+    // kHIDUsage_BS_ACPresent. Following is observation from Cyberpower UPS
+    // device :
+    // 1. When UPS power  < max power -> BS Charging is reported 1
+    // 2. When UPS power == max power -> BS Charging is reported 0
+    // Case 2 is persistant across reboots, once battery is fully charged
+    // it will report 0 for this usage
+    // 3. When UPS is unlpuged from power source , or battery consumption >
+    // battery charge rate it reports Battery Discharging as 1
+    // 4. AC preset usage truely convey power source
+    UPSLog("Power Source status isACSource : %s , isCharging : %s , isDischarging : %s", isACSource ? "Yes" : "No", isCharging ? "Yes" : "No", isDischarging ? "Yes" : "No");
+    
+    if (isACSource || (isCharging && !isDischarging)) {
+        _upsEvent[@(kIOPSPowerSourceStateKey)] = @(kIOPSACPowerValue);
+    } else {
+        _upsEvent[@(kIOPSPowerSourceStateKey)] = @(kIOPSBatteryPowerValue);
+    }
+    
+    // When both charging and discharging are reported this should be battery (since AC is not reported in first check)
+    
     return updated;
 }
 
@@ -732,7 +753,16 @@ static void _valueAvailableCallback(void *context,
                                             &deviceProperties,
                                             kCFAllocatorDefault,
                                             0);
-    require(ret == kIOReturnSuccess && deviceProperties, exit);
+    require_action(ret == kIOReturnSuccess, exit, {
+        UPSLogError("Failed to query properties with error %x",ret);
+    });
+    
+    
+    require_action(deviceProperties, exit, {
+        UPSLogError("deviceProperties not valid");
+        ret = kIOReturnInvalid;
+    });
+    
     
     [self parseProperties:(__bridge NSDictionary *)deviceProperties];
     
@@ -740,31 +770,72 @@ static void _valueAvailableCallback(void *context,
                                             kIOHIDDeviceTypeID,
                                             kIOCFPlugInInterfaceID,
                                             &plugin, &score);
-    require(ret == kIOReturnSuccess && plugin, exit);
+    require_action(ret == kIOReturnSuccess , exit, {
+        UPSLogError("Failed to create plugin interface with error %x",ret);
+    });
+    
+    require_action(plugin, exit, {
+        UPSLogError("Plugin not valid");
+        ret = kIOReturnInvalid;
+    });
     
     result = (*plugin)->QueryInterface(plugin,
                             CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID),
                             (LPVOID *)&_device);
-    require(result == S_OK && _device, exit);
+    require_action(result == S_OK , exit, {
+        UPSLogError("Failed to get device interface with error %d",(int)result);
+        ret = kIOReturnError;
+    });
+    
+    require_action(_device, exit, {
+        UPSLogError("Device not valid");
+        ret = kIOReturnInvalid;
+    });
     
     ret = (*_device)->open(_device, 0);
-    require_noerr(ret, exit);
+    require_action(ret == kIOReturnSuccess, exit, {
+         UPSLogError("Failed to open device with error %x",ret);
+    });
     
     ret = (*_device)->copyMatchingElements(_device, nil, &elements, 0);
-    require(ret == kIOReturnSuccess && elements, exit);
+    require_action(ret == kIOReturnSuccess, exit, {
+        UPSLogError("Failed to copy matching elements with error %x",ret);
+    });
     
+    require_action(elements, exit, {
+        UPSLogError("Elements not valid");
+        ret = kIOReturnInvalid;
+    });
     
+   
     // setup queue
     result = (*_device)->QueryInterface(_device,
                             CFUUIDGetUUIDBytes(kIOHIDDeviceQueueInterfaceID),
                             (LPVOID *)&_queue);
-    require(result == S_OK && _queue, exit);
+    require_action(result == S_OK, exit, {
+        UPSLogError("Failed to get queue interface with error %d",result);
+        ret = kIOReturnError;
+        
+    });
+    
+    require_action(_queue, exit, {
+        UPSLogError("Queue not valid");
+        ret = kIOReturnInvalid;
+    });
     
     // setup transaction
     result = (*_device)->QueryInterface(_device,
                         CFUUIDGetUUIDBytes(kIOHIDDeviceTransactionInterfaceID),
                         (LPVOID *)&_transaction);
-    require(result == S_OK && _transaction, exit);
+    require_action(result == S_OK , exit, {
+        UPSLogError("Failed to get transaction interface with error %d",result);
+        ret = kIOReturnError;
+    });
+    
+    require_action(_transaction, exit, {
+        UPSLogError("Transaction not valid");
+        ret = kIOReturnInvalid;
+    });
     
     (*_transaction)->setDirection(_transaction,
                                   kIOHIDTransactionDirectionTypeOutput, 0);
@@ -794,6 +865,7 @@ static void _valueAvailableCallback(void *context,
     
     // get the initial values for our input/feature elements
     [self updateElements:_elements.input];
+    [self updateEvent];
     
     ret = kIOReturnSuccess;
     
@@ -945,6 +1017,11 @@ static IOReturn _sendCommand(void *iunknown, CFDictionaryRef command)
     
     if (!command || !command.count) {
         return kIOReturnBadArgument;
+    }
+    
+    if (!_transaction) {
+        UPSLogError("Invalid transaction");
+        return kIOReturnError;
     }
     
     (*_transaction)->setDirection(_transaction, kIOHIDTransactionDirectionTypeOutput, 0);

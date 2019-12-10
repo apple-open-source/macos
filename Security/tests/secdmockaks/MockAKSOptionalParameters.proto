@@ -1,0 +1,7 @@
+syntax = "proto2";
+
+message MockAKSOptionalParameters {
+    optional bytes access_groups = 1;
+    optional bytes external_data = 2;
+    optional bytes acm_handle = 3;
+}

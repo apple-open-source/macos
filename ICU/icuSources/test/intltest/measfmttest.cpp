@@ -2285,7 +2285,7 @@ void MeasureFormatTest::TestManyLocaleDurations() {
     helperTestManyLocaleDurations("is", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
     helperTestManyLocaleDurations("ja", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5\\u6642\\u959337\\u5206");
     helperTestManyLocaleDurations("ja", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
-    helperTestManyLocaleDurations("nb", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5t, 37m");
+    helperTestManyLocaleDurations("nb", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5 t, 37 m");
     helperTestManyLocaleDurations("nb", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");
     helperTestManyLocaleDurations("nl", UMEASFMT_WIDTH_NARROW,  measures, UPRV_LENGTHOF(measures), "5 u, 37 m");
     helperTestManyLocaleDurations("nl", UMEASFMT_WIDTH_NUMERIC, measures, UPRV_LENGTHOF(measures), "5:37");

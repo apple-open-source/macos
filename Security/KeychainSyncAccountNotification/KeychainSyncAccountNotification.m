@@ -36,29 +36,27 @@
 
 #if OCTAGON
         if(OctagonIsEnabled()){
+            NSString* altDSID =  [account aa_altDSID];
+            secnotice("octagon-account", "Received an primary Apple account modification (altDSID %@)", altDSID);
+
             __block NSError* error = nil;
 
-            NSString* altDSID =  [account aa_altDSID];
-
-            OTControl* otcontrol = [OTControl controlObject:&error];
+            // Use asynchronous XPC here for speed and just hope it works
+            OTControl* otcontrol = [OTControl controlObject:false error:&error];
             
             if (nil == otcontrol) {
-                secerror("octagon: Failed to get OTControl: %@", error.localizedDescription);
+                secerror("octagon-account: Failed to get OTControl: %@", error.localizedDescription);
             } else {
-                dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-                
                 [otcontrol signIn:altDSID container:nil context:OTDefaultContext reply:^(NSError * _Nullable signedInError) {
+                    // take a retain on otcontrol so it won't invalidate the connection
+                    (void)otcontrol;
+
                     if(signedInError) {
-                        secerror("octagon: error signing in: %s", [[signedInError description] UTF8String]);
+                        secerror("octagon-account: error signing in: %s", [[signedInError description] UTF8String]);
                     } else {
-                        secnotice("octagon", "account now signed in for octagon operation");
+                        secnotice("octagon-account", "account now signed in for octagon operation");
                     }
-                    dispatch_semaphore_signal(sema);
-                    
                 }];
-                if (0 != dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60 * 5))) {
-                    secerror("octagon: Timed out signing in");
-                }
             }
         }else{
             secerror("Octagon not enabled; not signing in");
@@ -70,7 +68,8 @@
 
 #if OCTAGON
     if([account.accountType.identifier isEqualToString: ACAccountTypeIdentifierIDMS]) {
-        secnotice("octagon-authkit", "Received an IDMS account modification");
+        NSString* altDSID = [account aa_altDSID];;
+        secnotice("octagon-authkit", "Received an IDMS account modification (altDSID: %@)", altDSID);
 
         AKAccountManager *manager = [AKAccountManager sharedInstance];
 
@@ -78,37 +77,35 @@
         AKAppleIDSecurityLevel newSecurityLevel = [manager securityLevelForAccount:account];
 
         if(oldSecurityLevel != newSecurityLevel) {
-            NSString* identifier = account.identifier;
-            secnotice("octagon-authkit", "IDMS security level has now moved to %ld for %@", (unsigned long)newSecurityLevel, identifier);
+            secnotice("octagon-authkit", "IDMS security level has now moved to %ld for altDSID %@", (unsigned long)newSecurityLevel, altDSID);
 
             __block NSError* error = nil;
-            OTControl* otcontrol = [OTControl controlObject:&error];
+            // Use an asynchronous otcontrol for Speed But Not Necessarily Correctness
+            OTControl* otcontrol = [OTControl controlObject:false error:&error];
             if(!otcontrol || error) {
                 secerror("octagon-authkit: Failed to get OTControl: %@", error);
             } else {
-                dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-
                  [otcontrol notifyIDMSTrustLevelChangeForContainer:nil context:OTDefaultContext reply:^(NSError * _Nullable idmsError) {
-                    if(idmsError) {
-                        secerror("octagon-authkit: error with idms trust level change in: %s", [[idmsError description] UTF8String]);
-                    } else {
-                        secnotice("octagon-authkit", "informed octagon of IDMS trust level change");
-                    }
-                    dispatch_semaphore_signal(sema);
-                }];
+                     // take a retain on otcontrol so it won't invalidate the connection
+                     (void)otcontrol;
 
-                if (0 != dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 5))) {
-                    secerror("octagon-authkit: Timed out altering IDMS change in");
-                }
+                     if(idmsError) {
+                         secerror("octagon-authkit: error with idms trust level change in: %s", [[idmsError description] UTF8String]);
+                     } else {
+                         secnotice("octagon-authkit", "informed octagon of IDMS trust level change");
+                     }
+                }];
             }
 
         } else {
-            secnotice("octagon-authkit", "No change to IDMS security level");
+            secnotice("octagon-authkit", "No change to IDMS security level (%lu) for altDSID %@", (unsigned long)newSecurityLevel, altDSID);
         }
     }
 #endif
 
     if ((changeType == kACAccountChangeTypeDeleted) && [oldAccount.accountType.identifier isEqualToString:ACAccountTypeIdentifierAppleAccount]) {
+        NSString* altDSID =  [oldAccount aa_altDSID];
+        secnotice("octagon-account", "Received an Apple account deletion (altDSID %@)", altDSID);
 
         NSString *accountIdentifier = oldAccount.identifier;
         NSString *username = oldAccount.username;
@@ -127,25 +124,22 @@
                 if(OctagonIsEnabled()){
                     __block NSError* error = nil;
 
-                    OTControl* otcontrol = [OTControl controlObject:&error];
+                    // Use an asynchronous control for Speed
+                    OTControl* otcontrol = [OTControl controlObject:false error:&error];
 
                     if (nil == otcontrol) {
-                        secerror("octagon: Failed to get OTControl: %@", error.localizedDescription);
+                        secerror("octagon-account: Failed to get OTControl: %@", error.localizedDescription);
                     } else {
-                        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-
                         [otcontrol signOut:nil context:OTDefaultContext reply:^(NSError * _Nullable signedInError) {
-                            if(signedInError) {
-                                secerror("octagon: error signing out: %s", [[signedInError description] UTF8String]);
-                            } else {
-                                secnotice("octagon", "signed out of octagon trust");
-                            }
-                            dispatch_semaphore_signal(sema);
+                            // take a retain on otcontrol so it won't invalidate the connection
+                            (void)otcontrol;
 
+                            if(signedInError) {
+                                secerror("octagon-account: error signing out: %s", [[signedInError description] UTF8String]);
+                            } else {
+                                secnotice("octagon-account", "signed out of octagon trust");
+                            }
                         }];
-                        if (0 != dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 60 * 5))) {
-                            secerror("octagon: Timed out signing out");
-                        }
                     }
                 } else {
                     secerror("Octagon not enabled; not signing out");

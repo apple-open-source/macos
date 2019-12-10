@@ -29,21 +29,13 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+#include <config.h>
 #endif
 
+#include <pcap-types.h>
 #ifdef _WIN32
-#include <pcap-stdinc.h>
-#else /* _WIN32 */
-#if HAVE_INTTYPES_H
-#include <inttypes.h>
-#elif HAVE_STDINT_H
-#include <stdint.h>
-#endif
-#ifdef HAVE_SYS_BITYPES_H
-#include <sys/bitypes.h>
-#endif
-#include <sys/types.h>
+#include <io.h>
+#include <fcntl.h>
 #endif /* _WIN32 */
 
 #include <errno.h>
@@ -51,6 +43,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h> /* for INT_MAX */
 
 #include "pcap-int.h"
 
@@ -59,7 +52,8 @@
 #endif
 
 #include "sf-pcap.h"
-#include "sf-pcap-ng.h"
+#include "sf-pcapng.h"
+#include "pcap-common.h"
 
 #ifdef __APPLE__
 static pcap_t *
@@ -71,8 +65,8 @@ pcap_fopen_offline_internal(FILE *fp, u_int precision,
 #ifdef _WIN32
 /*
  * These aren't exported on Windows, because they would only work if both
- * WinPcap and the code using it were to use the Universal CRT; otherwise,
- * a FILE structure in WinPcap and a FILE structure in the code using it
+ * WinPcap/Npcap and the code using it were to use the Universal CRT; otherwise,
+ * a FILE structure in WinPcap/Npcap and a FILE structure in the code using it
  * could be different if they're using different versions of the C runtime.
  *
  * Instead, pcap/pcap.h defines them as macros that wrap the hopen versions,
@@ -99,7 +93,7 @@ static pcap_t *pcap_fopen_offline(FILE *, char *);
 #endif
 
 static int
-sf_getnonblock(pcap_t *p, char *errbuf)
+sf_getnonblock(pcap_t *p _U_)
 {
 	/*
 	 * This is a savefile, not a live capture file, so never say
@@ -109,7 +103,7 @@ sf_getnonblock(pcap_t *p, char *errbuf)
 }
 
 static int
-sf_setnonblock(pcap_t *p, int nonblock, char *errbuf)
+sf_setnonblock(pcap_t *p, int nonblock _U_)
 {
 	/*
 	 * This is a savefile, not a live capture file, so reject
@@ -125,7 +119,7 @@ sf_setnonblock(pcap_t *p, int nonblock, char *errbuf)
 }
 
 static int
-sf_stats(pcap_t *p, struct pcap_stat *ps)
+sf_stats(pcap_t *p, struct pcap_stat *ps _U_)
 {
 	pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 	    "Statistics aren't available from savefiles");
@@ -194,7 +188,7 @@ sf_oid_set_request(pcap_t *p, bpf_u_int32 oid _U_, const void *data _U_,
 static u_int
 sf_sendqueue_transmit(pcap_t *p, pcap_send_queue *queue, int sync)
 {
-	strlcpy(p->errbuf, "Sending packets isn't supported on savefiles",
+	pcap_strlcpy(p->errbuf, "Sending packets isn't supported on savefiles",
 	    PCAP_ERRBUF_SIZE);
 	return (0);
 }
@@ -233,7 +227,7 @@ sf_get_airpcap_handle(pcap_t *pcap)
 static int
 sf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
 {
-	strlcpy(p->errbuf, "Sending packets isn't supported on savefiles",
+	pcap_strlcpy(p->errbuf, "Sending packets isn't supported on savefiles",
 	    PCAP_ERRBUF_SIZE);
 	return (-1);
 }
@@ -243,7 +237,7 @@ sf_inject(pcap_t *p, const void *buf _U_, size_t size _U_)
  * single device? IN, OUT or both?
  */
 static int
-sf_setdirection(pcap_t *p, pcap_direction_t d)
+sf_setdirection(pcap_t *p, pcap_direction_t d _U_)
 {
 	pcap_snprintf(p->errbuf, sizeof(p->errbuf),
 	    "Setting direction is not supported on savefiles");
@@ -259,22 +253,6 @@ sf_cleanup(pcap_t *p)
 		free(p->buffer);
 	pcap_freecode(&p->fcode);
 }
-
-/*
-* fopen's safe version on Windows.
-*/
-#ifdef _MSC_VER
-FILE *fopen_safe(const char *filename, const char* mode)
-{
-	FILE *fp = NULL;
-	errno_t errno;
-	errno = fopen_s(&fp, filename, mode);
-	if (errno == 0)
-		return fp;
-	else
-		return NULL;
-}
-#endif
 
 pcap_t *
 pcap_open_offline_with_tstamp_precision(const char *fname, u_int precision,
@@ -300,14 +278,16 @@ pcap_open_offline_with_tstamp_precision(const char *fname, u_int precision,
 #endif
 	}
 	else {
-#if !defined(_WIN32) && !defined(MSDOS)
-		fp = fopen(fname, "r");
-#else
+		/*
+		 * "b" is supported as of C90, so *all* UN*Xes should
+		 * support it, even though it does nothing.  It's
+		 * required on Windows, as the file is a binary file
+		 * and must be read in binary mode.
+		 */
 		fp = fopen(fname, "rb");
-#endif
 		if (fp == NULL) {
-			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE, "%s: %s", fname,
-			    pcap_strerror(errno));
+			pcap_fmt_errmsg_for_errno(errbuf, PCAP_ERRBUF_SIZE,
+			    errno, "%s", fname);
 			return (NULL);
 		}
 	}
@@ -336,14 +316,17 @@ pcap_t* pcap_hopen_offline_with_tstamp_precision(intptr_t osfd, u_int precision,
 	fd = _open_osfhandle(osfd, _O_RDONLY);
 	if ( fd < 0 )
 	{
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE, pcap_strerror(errno));
+		pcap_fmt_errmsg_for_errno(errbuf, PCAP_ERRBUF_SIZE,
+		    errno, "_open_osfhandle");
 		return NULL;
 	}
 
 	file = _fdopen(fd, "rb");
 	if ( file == NULL )
 	{
-		pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE, pcap_strerror(errno));
+		pcap_fmt_errmsg_for_errno(errbuf, PCAP_ERRBUF_SIZE,
+		    errno, "_fdopen");
+		_close(fd);
 		return NULL;
 	}
 
@@ -358,7 +341,38 @@ pcap_t* pcap_hopen_offline(intptr_t osfd, char *errbuf)
 }
 #endif
 
-static pcap_t *(*check_headers[])(bpf_u_int32, FILE *, u_int, char *, int *, int) = {
+/*
+ * Given a link-layer header type and snapshot length, return a
+ * snapshot length to use when reading the file; it's guaranteed
+ * to be > 0 and <= INT_MAX.
+ *
+ * XXX - the only reason why we limit it to <= INT_MAX is so that
+ * it fits in p->snapshot, and the only reason that p->snapshot is
+ * signed is that pcap_snapshot() returns an int, not an unsigned int.
+ */
+bpf_u_int32
+pcap_adjust_snapshot(bpf_u_int32 linktype, bpf_u_int32 snaplen)
+{
+	if (snaplen == 0 || snaplen > INT_MAX) {
+		/*
+		 * Bogus snapshot length; use the maximum for this
+		 * link-layer type as a fallback.
+		 *
+		 * XXX - we don't clamp snapshot lengths that are
+		 * <= INT_MAX but > max_snaplen_for_dlt(linktype),
+		 * so a capture file could cause us to allocate
+		 * a Really Big Buffer.
+		 */
+		snaplen = max_snaplen_for_dlt(linktype);
+	}
+	return snaplen;
+}
+
+#if __APPLE__
+static pcap_t *(*check_headers[])(const uint8_t *, FILE *, u_int, char *, int *, int) = {
+#else
+static pcap_t *(*check_headers[])(const uint8_t *, FILE *, u_int, char *, int *) = {
+#endif /* __APPLE__ */
 	pcap_check_header,
 	pcap_ng_check_header
 };
@@ -372,10 +386,9 @@ pcap_t *
 pcap_fopen_offline_with_tstamp_precision(FILE *fp, u_int precision,
     char *errbuf)
 {
+#ifdef __APPLE__
 	return pcap_fopen_offline_internal(fp, precision, errbuf, 0);
 }
-
-#ifdef __APPLE__
 
 pcap_t *
 pcap_ng_open_offline(const char *fname, char *errbuf)
@@ -424,41 +437,48 @@ pcap_ng_fopen_offline(FILE *fp, char *errbuf)
 					   errbuf, 1);
 }
 
-#endif /* __APPLE__ */
 
 static pcap_t *
 pcap_fopen_offline_internal(FILE *fp, u_int precision,
     char *errbuf, int isng)
 {
-	register pcap_t *p = NULL;
-	bpf_u_int32 magic;
+#endif /* __APPLE__ */
+	register pcap_t *p;
+	uint8_t magic[4];
 	size_t amt_read;
 	u_int i;
 	int err;
+#ifdef __APPLE__
 	off_t offset = ftello(fp);
+
+	p = NULL;
+#endif /* __APPLE__ */
 
 	/*
 	 * Read the first 4 bytes of the file; the network analyzer dump
-	 * file formats we support (pcap and pcap-ng), and several other
+	 * file formats we support (pcap and pcapng), and several other
 	 * formats we might support in the future (such as snoop, DOS and
 	 * Windows Sniffer, and Microsoft Network Monitor) all have magic
 	 * numbers that are unique in their first 4 bytes.
 	 */
-	amt_read = fread((char *)&magic, 1, sizeof(magic), fp);
+	amt_read = fread(&magic, 1, sizeof(magic), fp);
 	if (amt_read != sizeof(magic)) {
 		if (ferror(fp)) {
-			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			    "error reading dump file: %s",
-			    pcap_strerror(errno));
+			pcap_fmt_errmsg_for_errno(errbuf, PCAP_ERRBUF_SIZE,
+			    errno, "error reading dump file");
 		} else {
 			pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE,
-			    "truncated dump file; tried to read %lu file header bytes, only got %lu",
-			    (unsigned long)sizeof(magic),
-			    (unsigned long)amt_read);
+			    "truncated dump file; tried to read %" PRIsize " file header bytes, only got %" PRIsize,
+			    sizeof(magic), amt_read);
 		}
+#ifdef __APPLE__
 		goto bad;
+#else
+		return (NULL);
+#endif /* __APPLE__ */
 	}
 
+#ifdef __APPLE__
 	/*
 	 * When using the PCAP-NG extension APIs we are expected a PCAP-NG file
 	 */
@@ -474,11 +494,17 @@ pcap_fopen_offline_internal(FILE *fp, u_int precision,
             snprintf(errbuf, PCAP_ERRBUF_SIZE, "not a pcap-ng file");
         goto bad;
 	}
+#endif /* __APPLE__ */
+
 	/*
 	 * Try all file types.
 	 */
 	for (i = 0; i < N_FILE_TYPES; i++) {
+#if __APPLE__
 		p = (*check_headers[i])(magic, fp, precision, errbuf, &err, isng);
+#else
+		p = (*check_headers[i])(magic, fp, precision, errbuf, &err);
+#endif /* __APPLE__ */
 		if (p != NULL) {
 			/* Yup, that's it. */
 			goto found;
@@ -487,7 +513,11 @@ pcap_fopen_offline_internal(FILE *fp, u_int precision,
 			/*
 			 * Error trying to read the header.
 			 */
-			goto bad;
+#ifdef __APPLE__
+            goto bad;
+#else
+            return (NULL);
+#endif /* __APPLE__ */
 		}
 	}
 
@@ -495,7 +525,11 @@ pcap_fopen_offline_internal(FILE *fp, u_int precision,
 	 * Well, who knows what this mess is....
 	 */
 	pcap_snprintf(errbuf, PCAP_ERRBUF_SIZE, "unknown file format");
-	goto bad;
+#ifdef __APPLE__
+    goto bad;
+#else
+    return (NULL);
+#endif /* __APPLE__ */
 
 found:
 	p->rfile = fp;
@@ -514,7 +548,11 @@ found:
 	p->selectable_fd = fileno(fp);
 #endif
 
-	p->read_op = isng ? pcap_ng_offline_read : pcap_offline_read;
+#ifdef __APPLE__
+    p->read_op = isng ? pcap_ng_offline_read : pcap_offline_read;
+#else
+	p->read_op = pcap_offline_read;
+#endif /* __APPLE__ */
 	p->inject_op = sf_inject;
 	p->setfilter_op = install_bpf_program;
 	p->setdirection_op = sf_setdirection;
@@ -622,6 +660,7 @@ pcap_offline_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 	return (n);
 }
 
+#ifdef __APPLE__
 /*
  * Read blocks from a capture file, and call the callback for each
  * packet.
@@ -681,4 +720,5 @@ pcap_ng_offline_read(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 	/*XXX this breaks semantics tcpslice expects */
 	return (n);
 }
+#endif /* __APPLE__ */
 

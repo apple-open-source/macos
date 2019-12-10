@@ -18,6 +18,9 @@ NS_ASSUME_NONNULL_BEGIN
 @interface SecABC : NSObject
 
 + (void)triggerAutoBugCaptureWithType:(NSString *)type
+                              subType:(NSString *)subType;
+
++ (void)triggerAutoBugCaptureWithType:(NSString *)type
                               subType:(NSString *)subType
                        subtypeContext:(NSString * _Nullable)subtypeContext
                                events:(NSArray * _Nullable)events

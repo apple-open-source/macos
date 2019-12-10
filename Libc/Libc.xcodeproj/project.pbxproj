@@ -135,6 +135,7 @@
 		4B2C64A915519BC800342BFA /* assumes.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B2C64A215519BAF00342BFA /* assumes.c */; };
 		4B2C64AA15519BCB00342BFA /* assumes.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B2C64A215519BAF00342BFA /* assumes.c */; };
 		4B2C64BA1551B03700342BFA /* assumes.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B2C64A215519BAF00342BFA /* assumes.c */; };
+		4B2D551E231706F9003DAFCE /* tapi.h in Headers */ = {isa = PBXBuildFile; fileRef = 4B2D551D2317040F003DAFCE /* tapi.h */; };
 		4B450FFB211A56DD0029AF5D /* ctl.h in Headers */ = {isa = PBXBuildFile; fileRef = 4B450FFA211A56DC0029AF5D /* ctl.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4B450FFD211A56EC0029AF5D /* ctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B450FFC211A56EC0029AF5D /* ctl.c */; };
 		4B4E643F2069E94A00C4D8D5 /* internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 4B2C50E41F8453FA005DA2B6 /* internal.h */; };
@@ -143,7 +144,6 @@
 		4B6D181D206DEFBD00C00E37 /* mach_exception.h in Headers */ = {isa = PBXBuildFile; fileRef = 4B6D181C206DEFBD00C00E37 /* mach_exception.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4B6D181F206DF1E200C00E37 /* exception.c in Sources */ = {isa = PBXBuildFile; fileRef = 4B6D181E206DF1E200C00E37 /* exception.c */; };
 		4B782979208926A80070E1FF /* api.h in Headers */ = {isa = PBXBuildFile; fileRef = 4B782978208926A70070E1FF /* api.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		4B8A6F3221C99ACC00D00D67 /* linker_set.h in Headers */ = {isa = PBXBuildFile; fileRef = 4B8A6F3121C99A0E00D00D67 /* linker_set.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4BA6E55F202AB35900F38D3A /* string.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BA6E55E202AB35900F38D3A /* string.c */; };
 		4BA6E562202AC06300F38D3A /* err.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BA6E561202AC06300F38D3A /* err.c */; };
 		4BA6E566202AC94800F38D3A /* stdlib.c in Sources */ = {isa = PBXBuildFile; fileRef = 4BA6E565202AC94800F38D3A /* stdlib.c */; };
@@ -5741,6 +5741,7 @@
 		4B2C50E41F8453FA005DA2B6 /* internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = internal.h; sourceTree = "<group>"; };
 		4B2C64A215519BAF00342BFA /* assumes.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = assumes.c; path = os/assumes.c; sourceTree = "<group>"; };
 		4B2C64AB15519C3400342BFA /* assumes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = assumes.h; path = os/assumes.h; sourceTree = "<group>"; };
+		4B2D551D2317040F003DAFCE /* tapi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tapi.h; sourceTree = "<group>"; };
 		4B450FFA211A56DC0029AF5D /* ctl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ctl.h; sourceTree = "<group>"; };
 		4B450FFC211A56EC0029AF5D /* ctl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ctl.c; sourceTree = "<group>"; };
 		4B69E81220800BE9008D13D2 /* libdarwin_init.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libdarwin_init.h; sourceTree = "<group>"; };
@@ -7136,6 +7137,7 @@
 				4B2C50DE1F8453A6005DA2B6 /* h */,
 				9280EA171E59BC8A007A6F58 /* AppleInternalVariant.plist */,
 				4B2C50E41F8453FA005DA2B6 /* internal.h */,
+				4B2D551D2317040F003DAFCE /* tapi.h */,
 				4BA6E56B202AD02900F38D3A /* bsd.c */,
 				4B450FFC211A56EC0029AF5D /* ctl.c */,
 				4B6D181E206DF1E200C00E37 /* exception.c */,
@@ -9025,8 +9027,8 @@
 				4B0899BC2046258F001360A4 /* cleanup.h in Headers */,
 				4BCC350F20659AD500A4CBAA /* linker_set.h in Headers */,
 				4B20DB53202B81A4005C2327 /* stdlib.h in Headers */,
-				4B8A6F3221C99ACC00D00D67 /* linker_set.h in Headers */,
 				4B09323421C9C08F006063D6 /* mach_utils.h in Headers */,
+				4B2D551E231706F9003DAFCE /* tapi.h in Headers */,
 				4B69E81320800D47008D13D2 /* libdarwin_init.h in Headers */,
 				4B20DB54202B81A4005C2327 /* string.h in Headers */,
 				4B075C8E208BE9F200FD4F23 /* variant_private.h in Headers */,
@@ -9392,7 +9394,7 @@
 		C9B53597138D9A690028D27C /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1000;
+				LastUpgradeCheck = 1140;
 				TargetAttributes = {
 					925E7FE619E8945900AC7889 = {
 						CreatedOnToolsVersion = 6.1;
@@ -9499,7 +9501,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash -e -x";
-			shellScript = "mkdir -p ${TAPI_PUBLIC_HEADER_PATH}";
+			shellScript = "mkdir -p ${TAPI_PUBLIC_HEADER_PATH}\n";
 			showEnvVarsInLog = 0;
 		};
 		3FF283291A4764370098AD2C /* Simulator Build Compat Symlink */ = {
@@ -15790,9 +15792,10 @@
 					"$(DERIVED_FILES_DIR)/dtrace",
 					"$(SRCROOT_SEARCH_PATHS)",
 					"$(SYSTEM_FRAMEWORK_HEADERS)",
+					"$(PROJECT_DIR)/libdarwin",
+					"$(PROJECT_DIR)/libdarwin/h",
 					"$(SDKROOT)/usr/local/include",
 					"$(inherited)",
-					"$(PROJECT_DIR)/libdarwin/h",
 				);
 				LIBRARY_SEARCH_PATHS = /usr/lib/system;
 				LIBSYSTEM_DARWIN_LDFLAGS = "-all_load -nostdlib -L/usr/lib/system -umbrella System $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBC_LDFLAGS) $(LIBDISPATCH_LDFLAGS) $(LIBXPC_LDFLAGS) -lmacho -ldyld -Wl,-upward-lsystem_trace";
@@ -15802,6 +15805,7 @@
 				PRODUCT_NAME = darwin;
 				SKIP_INSTALL = NO;
 				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/libdarwin";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -15837,18 +15841,20 @@
 					"$(DERIVED_FILES_DIR)/dtrace",
 					"$(SRCROOT_SEARCH_PATHS)",
 					"$(SYSTEM_FRAMEWORK_HEADERS)",
+					"$(PROJECT_DIR)/libdarwin",
+					"$(PROJECT_DIR)/libdarwin/h",
 					"$(SDKROOT)/usr/local/include",
 					"$(inherited)",
-					"$(PROJECT_DIR)/libdarwin/h",
 				);
 				LIBRARY_SEARCH_PATHS = /usr/lib/system;
 				LIBSYSTEM_DARWIN_LDFLAGS = "-all_load -nostdlib -L/usr/lib/system -umbrella System $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBC_LDFLAGS) $(LIBDISPATCH_LDFLAGS) $(LIBXPC_LDFLAGS) -lmacho -ldyld -Wl,-upward-lsystem_trace";
 				OTHER_LDFLAGS = "$(LIBSYSTEM_DARWIN_LDFLAGS)";
-				OTHER_TAPI_FLAGS = "$(inherited) -extra-public-header $(SRCROOT)/libdarwin/h/dirstat.h -extra-public-header $(SRCROOT)/libdarwin/internal.h -DDARWIN_TAPI=1 -extra-public-header $(SRCROOT)/os/variant_private.h";
+				OTHER_TAPI_FLAGS = "$(inherited) -extra-public-header $(SRCROOT)/libdarwin/h/dirstat.h -extra-public-header $(SRCROOT)/libdarwin/tapi.h -DDARWIN_TAPI=1 -extra-public-header $(SRCROOT)/os/variant_private.h -extra-public-header $(SRCROOT)/os/api.h";
 				PRIVATE_HEADERS_FOLDER_PATH = "$(DARWIN_PRIVATE_HEADERS_FOLDER_PATH)";
 				PRODUCT_NAME = darwin;
 				SKIP_INSTALL = NO;
 				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/libdarwin";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;

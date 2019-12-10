@@ -51,7 +51,7 @@ sv{
         aro{"araoniska"}
         arp{"arapaho"}
         arq{"algerisk arabiska"}
-        ars{"najdiarabiska"}
+        ars{"arabiska (najd)"}
         arw{"arawakiska"}
         ary{"marockansk arabiska"}
         arz{"egyptisk arabiska"}
@@ -123,7 +123,7 @@ sv{
         chp{"chipewyan"}
         chr{"cherokesiska"}
         chy{"cheyenne"}
-        ckb{"soranisk kurdiska"}
+        ckb{"kurdiska (sorani)"}
         co{"korsikanska"}
         cop{"koptiska"}
         cps{"kapisnon"}

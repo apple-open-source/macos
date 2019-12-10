@@ -174,8 +174,8 @@ pgm_print(netdissect_options *ndo,
 				ipaddr_string(ndo, &ip->ip_src),
 				ipaddr_string(ndo, &ip->ip_dst)));
 		}
-			return;
-		}
+		return;
+	}
 
 	sport = EXTRACT_16BITS(&pgm->pgm_sport);
 	dport = EXTRACT_16BITS(&pgm->pgm_dport);

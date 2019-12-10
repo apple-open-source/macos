@@ -38,6 +38,7 @@
 #include "FocusDirection.h"
 #include "FontSelectorClient.h"
 #include "FrameDestructionObserver.h"
+#include "FrameLoaderTypes.h"
 #include "GenericTaskQueue.h"
 #include "GraphicsTypes.h"
 #include "MediaProducer.h"
@@ -634,7 +635,7 @@ public:
     WEBCORE_EXPORT AXObjectCache* axObjectCache() const;
     void clearAXObjectCache();
 
-    Optional<PageIdentifier> pageID() const;
+    WEBCORE_EXPORT Optional<PageIdentifier> pageID() const;
     // to get visually ordered hebrew and arabic pages right
     void setVisuallyOrdered();
     bool visuallyOrdered() const { return m_visuallyOrdered; }
@@ -1527,6 +1528,10 @@ public:
     bool hitTest(const HitTestRequest&, const HitTestLocation&, HitTestResult&);
 #if !ASSERT_DISABLED
     bool inHitTesting() const { return m_inHitTesting; }
+#endif
+
+#if USE(SYSTEM_PREVIEW)
+    WEBCORE_EXPORT void dispatchSystemPreviewActionEvent(const SystemPreviewInfo&, const String& message);
 #endif
 
 protected:

@@ -226,8 +226,8 @@ static void tests(bool recKeyFirst)
     ok([bob_account.trust checkForRings:&error], "Alice_account is good");
     CFReleaseNull(error);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 4, "updates");
-    
+    int passes = ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL);
+    ok(passes < 6, "updates"); // this was varying between 4 and 5 on different BATS runs - we just don't want it going crazy
     
     ok([alice_account.trust checkForRings:&error], "Alice_account is good");
     CFReleaseNull(error);
@@ -362,7 +362,7 @@ static void tests(bool recKeyFirst)
 }
 
 int secd_66_account_recovery(int argc, char *const *argv) {
-    plan_tests(278);
+    plan_tests(281);
     
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     

@@ -6,7 +6,7 @@
 #endif /* __APPLE__ */
 
 /* define if you want to build the possibly-buggy SMB printer */
-#define ENABLE_SMB 1
+/* #undef ENABLE_SMB */
 
 /* Define to 1 if you have the `alarm' function. */
 #define HAVE_ALARM 1
@@ -33,11 +33,11 @@
    don't. */
 #define HAVE_DECL_ETHER_NTOHOST 1
 
-/* define if you have the dnet_htoa function */
-/* #undef HAVE_DNET_HTOA */
-
 /* Define to 1 if you have the `ether_ntohost' function. */
 #define HAVE_ETHER_NTOHOST 1
+
+/* Define to 1 if you have the `EVP_CipherInit_ex' function. */
+/* #undef HAVE_EVP_CIPHERINIT_EX */
 
 /* Define to 1 if you have the `EVP_CIPHER_CTX_new' function. */
 /* #undef HAVE_EVP_CIPHER_CTX_NEW */
@@ -71,12 +71,6 @@
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
-
-/* Define to 1 if you have the <netdnet/dnetdb.h> header file. */
-/* #undef HAVE_NETDNET_DNETDB_H */
-
-/* define if you have a dnet_htoa declaration in <netdnet/dnetdb.h> */
-/* #undef HAVE_NETDNET_DNETDB_H_DNET_HTOA */
 
 /* Define to 1 if you have the <netinet/ether.h> header file. */
 /* #undef HAVE_NETINET_ETHER_H */
@@ -143,7 +137,6 @@
 
 /* Define to 1 if you have the <pcap/nflog.h> header file. */
 /* #undef HAVE_PCAP_NFLOG_H */
-
 
 /* Define to 1 if you have the `pcap_setdirection' function. */
 #define HAVE_PCAP_SETDIRECTION 1

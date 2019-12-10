@@ -1274,6 +1274,7 @@ DISPATCH_ALWAYS_INLINE
 static inline bool
 _voucher_activity_disabled(void)
 {
+
 	dispatch_once_f(&_firehose_task_buffer_pred,
 			NULL, _firehose_task_buffer_init);
 

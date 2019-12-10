@@ -582,6 +582,41 @@ void
 sec_protocol_options_set_tls_grease_enabled(sec_protocol_options_t options, bool tls_grease_enabled);
 
 /*!
+ * @function sec_protocol_options_set_experiment_identifier
+ *
+ * @abstract
+ *      Set the SecExperiment identifier for a given connection.
+ *
+ *      Note: this SPI is meant to be called by libnetcore. It should not be called in any other circumstances.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param experiment_identifier
+ *      The identifier for a secure connection experiment.
+ */
+#define SEC_PROTOCOL_HAS_EXPERIMENT_IDENTIFIER 1
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+void
+sec_protocol_options_set_experiment_identifier(sec_protocol_options_t options, const char *experiment_identifier);
+
+/*!
+ * @function sec_protocol_options_set_connection_id
+ *
+ * @abstract
+ *      Set the explciit connection identifier. If not set, one will be populated internally.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param connection_id
+ *      The `uuid_t`` connection identifier.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+void
+sec_protocol_options_set_connection_id(sec_protocol_options_t options, uuid_t _Nonnull connection_id);
+
+/*!
  * @function sec_protocol_options_create_config
  *
  * @abstract
@@ -646,6 +681,39 @@ sec_protocol_options_apply_config(sec_protocol_options_t options, xpc_object_t c
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 const char * __nullable
 sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata);
+
+/*!
+ * @function sec_protocol_metadata_get_experiment_identifier
+ *
+ * @abstract
+ *      Get the SecExperiment identifier for a given connection.
+ *
+ *      Note: this SPI is meant to be called by libnetcore. It should not be called in any other circumstances.
+ *
+ * @param options
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @return The identifier for a secure connection experiment, or NULL if none was specified.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+const char * __nullable
+sec_protocol_metadata_get_experiment_identifier(sec_protocol_metadata_t metadata);
+
+/*!
+ * @function sec_protocol_metadata_copy_connection_id
+ *
+ * @abstract
+ *      Copy the secure connection identifier.
+ *
+ * @param metadata
+ *      A `sec_protocol_metadata_t` instance.
+ *
+ * @param output_uuid
+ *      A `uuid_t` into which the connection identifier is written.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+void
+sec_protocol_metadata_copy_connection_id(sec_protocol_metadata_t metadata, uuid_t _Nonnull output_uuid);
 
 /*!
  * @function sec_protocol_metadata_get_tls_false_start_used
@@ -1109,8 +1177,9 @@ struct sec_protocol_options_content {
     SSLProtocol min_version;
     SSLProtocol max_version;
 
-    // Reference-counted types
     char *server_name;
+    char *experiment_identifier;
+    uuid_t connection_id;
     __nullable xpc_object_t ciphersuites;
     xpc_object_t application_protocols;
     sec_identity_t identity;
@@ -1196,6 +1265,8 @@ struct sec_protocol_metadata_content {
     SSLCipherSuite negotiated_ciphersuite;
     const char *negotiated_protocol;
     const char *server_name;
+    const char *experiment_identifier;
+    uuid_t connection_id;
 
     sec_array_t sent_certificate_chain;
     sec_array_t peer_certificate_chain;

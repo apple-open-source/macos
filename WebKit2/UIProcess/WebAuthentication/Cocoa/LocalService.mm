@@ -41,15 +41,9 @@ LocalService::LocalService(Observer& observer)
 {
 }
 
+// FIXME(rdar://problem/51048542)
 bool LocalService::isAvailable()
 {
-// FIXME(182772)
-#if !PLATFORM(IOS_FAMILY)
-    return false;
-#else
-    if (!WebCore::RuntimeEnabledFeatures::sharedFeatures().webAuthenticationLocalAuthenticatorEnabled())
-        return false;
-
     auto context = adoptNS([allocLAContextInstance() init]);
     NSError *error = nil;
     if (![context canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:&error]) {
@@ -57,7 +51,6 @@ bool LocalService::isAvailable()
         return false;
     }
     return true;
-#endif
 }
 
 void LocalService::startDiscoveryInternal()

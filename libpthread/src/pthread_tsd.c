@@ -377,5 +377,7 @@ pthread_key_init_np(int key, void (*destructor)(void *))
 pthread_t
 pthread_self(void)
 {
-	return _pthread_getspecific_direct(_PTHREAD_TSD_SLOT_PTHREAD_SELF);
+	pthread_t self = _pthread_self_direct();
+	_pthread_validate_signature(self);
+	return self;
 }

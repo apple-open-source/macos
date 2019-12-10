@@ -32,6 +32,7 @@
 #include "trust/trustd/SecRevocationServer.h"
 #include "trust/trustd/SecCertificateServer.h"
 #include "trust/trustd/SecPinningDb.h"
+#include "trust/trustd/md.h"
 
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecDispatchRelease.h>
@@ -1162,14 +1163,15 @@ static bool SecPathBuilderReportResult(SecPathBuilderRef builder) {
      * got a revocation response as well. */
     if (builder->info && SecCertificatePathVCIsEV(builder->bestPath) && SecPathBuilderIsOkResult(builder)) {
 #if !TARGET_OS_WATCH
-        if (SecCertificatePathVCIsRevocationDone(builder->bestPath)) {
-            CFAbsoluteTime nextUpdate = SecCertificatePathVCGetEarliestNextUpdate(builder->bestPath);
-            if (nextUpdate != 0) {
-#else
         /* <rdar://32728029> We don't do networking on watchOS, so we can't require OCSP for EV */
-        {
-            {
+        if (SecCertificatePathVCIsRevocationDone(builder->bestPath))
 #endif
+        {
+#if !TARGET_OS_WATCH
+            CFAbsoluteTime nextUpdate = SecCertificatePathVCGetEarliestNextUpdate(builder->bestPath);
+            if (nextUpdate != 0)
+#endif
+            {
                 /* Successful revocation check, so this cert is EV */
                 CFDictionarySetValue(builder->info, kSecTrustInfoExtendedValidationKey,
                                      kCFBooleanTrue); /* iOS key */

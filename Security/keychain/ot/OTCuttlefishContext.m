@@ -186,6 +186,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
         _stateMachine = [[OctagonStateMachine alloc] initWithName:@"octagon"
                                                            states:[NSSet setWithArray:[OctagonStateMap() allKeys]]
+                                                            flags:AllOctagonFlags()
                                                      initialState:OctagonStateInitializing
                                                             queue:_queue
                                                       stateEngine:self
@@ -381,24 +382,22 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (BOOL)accountAvailable:(NSString*)altDSID error:(NSError**)error
 {
-    __block NSError* localError = nil;
     secnotice("octagon", "Account available with altDSID: %@ %@", altDSID, self);
 
     self.launchSequence.firstLaunch = true;
-    
-    dispatch_sync(self.queue, ^{
-        [self.accountMetadataStore _onqueuePersistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
-            // Do not set the account available bit here, since we need to check if it's HSA2. The initializing state should do that for us...
-            metadata.altDSID = altDSID;
 
-            return metadata;
-        } error:&localError];
+    NSError* localError = nil;
+    [self.accountMetadataStore persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
+        // Do not set the account available bit here, since we need to check if it's HSA2. The initializing state should do that for us...
+        metadata.altDSID = altDSID;
 
-        if(localError) {
-            secerror("octagon: unable to persist new account availability: %@", localError);
-        }
-    });
-    
+        return metadata;
+    } error:&localError];
+
+    if(localError) {
+        secerror("octagon: unable to persist new account availability: %@", localError);
+    }
+
     [self.stateMachine handleFlag:OctagonFlagAccountIsAvailable];
     
     if(localError) {
@@ -437,7 +436,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     OctagonStateTransitionOperation* attemptOp = [OctagonStateTransitionOperation named:@"octagon-account-gone"
                                                                               intending:OctagonStateNoAccountDoReset
                                                                              errorState:OctagonStateNoAccountDoReset
-                                                                                timeout:OctagonStateTransitionDefaultTimeout
                                                                     withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
                                                                         __block NSError* localError = nil;
 
@@ -815,11 +813,11 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         return [OctagonStateTransitionOperation named:@"octagon-determine-icloud-state"
                                             intending:OctagonStateNoAccount
                                            errorState:OctagonStateError
-                                              timeout:OctagonStateTransitionDefaultTimeout
                                   withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
             STRONGIFY(self);
 
-            NSString* primaryAccountAltDSID = self.authKitAdapter.primaryiCloudAccountAltDSID;
+            NSError *authKitError = nil;
+            NSString* primaryAccountAltDSID = [self.authKitAdapter primaryiCloudAccountAltDSID:&authKitError];
 
             dispatch_sync(self.queue, ^{
                 NSError* error = nil;
@@ -849,7 +847,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                     }
 
                 } else {
-                    secnotice("octagon", "iCloud account is not present");
+                    secnotice("octagon", "iCloud account is not present: %@", authKitError);
 
                     [self.accountMetadataStore _onqueuePersistAccountChanges:^OTAccountMetadataClassC *(OTAccountMetadataClassC * metadata) {
                         metadata.icloudAccountState = OTAccountMetadataClassC_AccountState_NO_ACCOUNT;
@@ -1113,6 +1111,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
         if([flags _onqueueContains:OctagonFlagFetchAuthKitMachineIDList]) {
             [flags _onqueueRemoveFlag:OctagonFlagFetchAuthKitMachineIDList];
+
             secnotice("octagon", "Received an suggestion to update the machine ID list (while ready); updating trusted device list");
 
             // If the cached list changes due to this fetch, go into 'updated'. Otherwise, back into ready with you!
@@ -1179,7 +1178,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return [OctagonStateTransitionOperation named:@"octagon-initializing"
                                         intending:OctagonStateNoAccount
                                        errorState:OctagonStateError
-                                          timeout:OctagonStateTransitionDefaultTimeout
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
                                   STRONGIFY(self);
                                   NSError* localError = nil;
@@ -1230,7 +1228,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return [OctagonStateTransitionOperation named:@"octagon-health-securityd-trust-check"
                                  intending:OctagonStateTPHTrustCheck
                                 errorState:OctagonStatePostRepairCFU
-                                          timeout:OctagonStateTransitionDefaultTimeout
                        withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
                            NSError* localError = nil;
                            OTAccountMetadataClassC* account = [self.accountMetadataStore loadOrCreateAccountMetadata:&localError];
@@ -1250,7 +1247,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return [OctagonStateTransitionOperation named:@"octagon-health-tph-trust-check"
                                         intending:OctagonStateCuttlefishTrustCheck
                                        errorState:OctagonStatePostRepairCFU
-                                          timeout:OctagonStateTransitionDefaultTimeout
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
                                   [self checkTrustStatusAndPostRepairCFUIfNecessary:^(CliqueStatus status, BOOL posted, BOOL hasIdentity, NSError *trustFromTPHError) {
 
@@ -1328,7 +1324,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return [OctagonStateTransitionOperation named:@"octagon-health-post-repair-cfu"
                                         intending:OctagonStateUntrusted
                                        errorState:OctagonStateError
-                                          timeout:OctagonStateTransitionDefaultTimeout
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
         [self checkTrustStatusAndPostRepairCFUIfNecessary:^(CliqueStatus status,
                                                             BOOL posted,
@@ -1350,7 +1345,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return [OctagonStateTransitionOperation named:@"octagon-icloud-account-available"
                                         intending:OctagonStateCheckTrustState
                                        errorState:OctagonStateError
-                                          timeout:OctagonStateTransitionDefaultTimeout
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
                                   STRONGIFY(self);
                                   // Register with APS, but don't bother to wait until it's complete.
@@ -1543,7 +1537,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return [OctagonStateTransitionOperation named:@"start-companion-pairing"
                                         intending:OctagonStateBecomeUntrusted
                                        errorState:OctagonStateError
-                                          timeout:OctagonStateTransitionDefaultTimeout
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
         STRONGIFY(self);
         OTPairingInitiateWithCompletion(self.queue, ^(bool success, NSError *error) {
@@ -1568,7 +1561,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return [OctagonStateTransitionOperation named:@"octagon-become-untrusted"
                                         intending:intendedState
                                        errorState:OctagonStateError
-                                          timeout:OctagonStateTransitionDefaultTimeout
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
                                   STRONGIFY(self);
                                   NSError* localError = nil;
@@ -1621,7 +1613,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return [OctagonStateTransitionOperation named:@"octagon-ready"
                                         intending:OctagonStateReady
                                        errorState:OctagonStateError
-                                          timeout:OctagonStateTransitionDefaultTimeout
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
                                   STRONGIFY(self);
 
@@ -2362,8 +2353,10 @@ preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
     __block BOOL excluded = NO;
     __block CliqueStatus trustStatus = CliqueStatusError;
 
-    [self.cuttlefishXPCWrapper trustStatusWithContainer:self.containerName context:self.contextID reply:^(TrustedPeersHelperEgoPeerStatus *egoStatus,
-                                                                                                          NSError *xpcError) {
+    [self.cuttlefishXPCWrapper trustStatusWithContainer:self.containerName
+                                                context:self.contextID
+                                                  reply:^(TrustedPeersHelperEgoPeerStatus *egoStatus,
+                                                          NSError *xpcError) {
         TPPeerStatus status = egoStatus.egoStatus;
         peerID = egoStatus.egoPeerID;
         excluded = egoStatus.isExcluded;
@@ -2699,6 +2692,56 @@ preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
     self.postedRecoveryKeyCFU = NO;
     self.postedEscrowRepairCFU = NO;
     self.postedRepairCFU = NO;
+}
+
+// Metrics passthroughs
+
+- (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error
+{
+    __block BOOL onList = NO;
+    __block NSError* reterror = nil;
+    [self.cuttlefishXPCWrapper fetchAllowedMachineIDsWithContainer:self.containerName
+                                                            context:self.contextID
+                                                             reply:^(NSSet<NSString *> * _Nonnull machineIDs, NSError * _Nullable miderror) {
+        if(miderror) {
+            secnotice("octagon-metrics", "Failed to fetch allowed machineIDs: %@", miderror);
+            reterror = miderror;
+        } else {
+            if([machineIDs containsObject:machineID]) {
+                onList = YES;
+            }
+            secnotice("octagon-metrics", "MID (%@) on list: %@", machineID, onList ? @"yes" : @"no");
+        }
+    }];
+
+    if(reterror && error) {
+        *error = reterror;
+    }
+    return onList;
+}
+
+- (NSNumber* _Nullable)numberOfPeersInModelWithMachineID:(NSString*)machineID error:(NSError**)error
+{
+    __block NSNumber* ret = nil;
+    __block NSError* retError = nil;
+    [self.cuttlefishXPCWrapper trustStatusWithContainer:self.containerName
+                                                context:self.contextID
+                                                  reply:^(TrustedPeersHelperEgoPeerStatus *egoStatus,
+                                                          NSError *xpcError) {
+        if(xpcError) {
+            secnotice("octagon-metrics", "Unable to fetch trust status: %@", xpcError);
+            retError = xpcError;
+        } else {
+            ret = egoStatus.peerCountsByMachineID[machineID] ?: @(0);
+            secnotice("octagon-metrics", "Number of peers with machineID (%@): %@", machineID, ret);
+        }
+    }];
+
+    if(retError && error) {
+        *error = retError;
+    }
+
+    return ret;
 }
 
 @end

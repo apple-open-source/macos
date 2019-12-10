@@ -60,8 +60,10 @@ extern CKKSFetchBecause* const CKKSFetchBecauseResync;
 @end
 
 @class CKKSCloudKitDeletion;
+
 @protocol CKKSChangeFetcherClient <NSObject>
 - (CKRecordZoneID*)zoneID;
+- (BOOL)zoneIsReadyForFetching;
 - (CKKSCloudKitFetchRequest*)participateInFetch;
 
 // Return false if this is a 'fatal' error and you don't want another fetch to be tried

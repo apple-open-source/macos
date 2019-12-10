@@ -125,10 +125,10 @@ ripng_print(netdissect_options *ndo, const u_char *dat, unsigned int length)
 		if (j == 1) {
 			ND_TCHECK(rp->rip6_nets);
 			if (rp->rip6_nets->rip6_metric == HOPCNT_INFINITY6
-		    &&  IN6_IS_ADDR_UNSPECIFIED(&rp->rip6_nets->rip6_dest)) {
-			ND_PRINT((ndo, " ripng-req dump"));
-			break;
-		}
+			    &&  IN6_IS_ADDR_UNSPECIFIED(&rp->rip6_nets->rip6_dest)) {
+				ND_PRINT((ndo, " ripng-req dump"));
+				break;
+			}
 		}
 		if (j * sizeof(*ni) != length_left)
 			ND_PRINT((ndo, " ripng-req %u[%u]:", j, length));

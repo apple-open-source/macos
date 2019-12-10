@@ -8,5 +8,7 @@
 	<true/>
 	<key>com.apple.private.octagon</key>
 	<true/>
+	<key>com.apple.securebackupd.access</key>
+	<true/>
 </dict>
 </plist>

@@ -32,6 +32,8 @@
 #include "LocalService.h"
 #include "MockHidService.h"
 #include "MockLocalService.h"
+#include "MockNfcService.h"
+#include "NfcService.h"
 #include <wtf/RunLoop.h>
 
 namespace WebKit {
@@ -41,25 +43,25 @@ UniqueRef<AuthenticatorTransportService> AuthenticatorTransportService::create(W
     switch (transport) {
     case WebCore::AuthenticatorTransport::Internal:
         return makeUniqueRef<LocalService>(observer);
-#if PLATFORM(MAC)
     case WebCore::AuthenticatorTransport::Usb:
         return makeUniqueRef<HidService>(observer);
-#endif
+    case WebCore::AuthenticatorTransport::Nfc:
+        return makeUniqueRef<NfcService>(observer);
     default:
         ASSERT_NOT_REACHED();
         return makeUniqueRef<LocalService>(observer);
     }
 }
 
-UniqueRef<AuthenticatorTransportService> AuthenticatorTransportService::createMock(WebCore::AuthenticatorTransport transport, Observer& observer, const MockWebAuthenticationConfiguration& configuration)
+UniqueRef<AuthenticatorTransportService> AuthenticatorTransportService::createMock(WebCore::AuthenticatorTransport transport, Observer& observer, const WebCore::MockWebAuthenticationConfiguration& configuration)
 {
     switch (transport) {
     case WebCore::AuthenticatorTransport::Internal:
         return makeUniqueRef<MockLocalService>(observer, configuration);
-#if PLATFORM(MAC)
     case WebCore::AuthenticatorTransport::Usb:
         return makeUniqueRef<MockHidService>(observer, configuration);
-#endif
+    case WebCore::AuthenticatorTransport::Nfc:
+        return makeUniqueRef<MockNfcService>(observer, configuration);
     default:
         ASSERT_NOT_REACHED();
         return makeUniqueRef<MockLocalService>(observer, configuration);
@@ -73,11 +75,19 @@ AuthenticatorTransportService::AuthenticatorTransportService(Observer& observer)
 
 void AuthenticatorTransportService::startDiscovery()
 {
-    // Enforce asynchronous execution of makeCredential.
     RunLoop::main().dispatch([weakThis = makeWeakPtr(*this)] {
         if (!weakThis)
             return;
         weakThis->startDiscoveryInternal();
+    });
+}
+
+void AuthenticatorTransportService::restartDiscovery()
+{
+    RunLoop::main().dispatch([weakThis = makeWeakPtr(*this)] {
+        if (!weakThis)
+            return;
+        weakThis->restartDiscoveryInternal();
     });
 }
 

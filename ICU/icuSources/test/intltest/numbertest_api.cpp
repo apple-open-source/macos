@@ -1345,8 +1345,10 @@ void NumberFormatterApiTest::grouping() {
             u"8.765",
             u"0");
 
-    // NOTE: Hungarian is interesting because it has minimumGroupingDigits=4 in locale data
-    // If this test breaks due to data changes, find another locale that has minimumGroupingDigits.
+    // NOTE: Hungarian was interesting because it had minimumGroupingDigits=4 in locale data.
+    // Open source has fixed Hungarian to have minimumGroupingDigits=1 and changed this test to
+    // use Polish with minimumGroupingDigits=2. However for now we keep the test using Hungarian
+    // to verify the change.
     assertFormatDescendingBig(
             u"Hungarian Grouping",
             u"group-auto",
@@ -1354,9 +1356,9 @@ void NumberFormatterApiTest::grouping() {
             Locale("hu"),
             u"87 650 000",
             u"8 765 000",
-            u"876500",
-            u"87650",
-            u"8765",
+            u"876 500",
+            u"87 650",
+            u"8 765",
             u"876,5",
             u"87,65",
             u"8,765",
@@ -1369,8 +1371,8 @@ void NumberFormatterApiTest::grouping() {
             Locale("hu"),
             u"87 650 000",
             u"8 765 000",
-            u"876500",
-            u"87650",
+            u"876 500",
+            u"87 650",
             u"8765",
             u"876,5",
             u"87,65",

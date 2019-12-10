@@ -69,12 +69,17 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Note: this field does not include untrusted peers
 @property NSDictionary<NSString*, NSNumber*>* viablePeerCountsByModelID;
+
+// Note: this field does include untrusted peers
+@property NSDictionary<NSString*, NSNumber*>* peerCountsByMachineID;
+
 @property BOOL isExcluded;
 @property BOOL isLocked;
 
 - (instancetype)initWithEgoPeerID:(NSString* _Nullable)egoPeerID
                            status:(TPPeerStatus)egoStatus
         viablePeerCountsByModelID:(NSDictionary<NSString*, NSNumber*>*)viablePeerCountsByModelID
+            peerCountsByMachineID:(NSDictionary<NSString*, NSNumber*>*)peerCountsByMachineID
                        isExcluded:(BOOL)isExcluded
                          isLocked:(BOOL)isLocked;
 
@@ -135,6 +140,10 @@ NS_ASSUME_NONNULL_BEGIN
                                      context:(NSString *)context
                                   machineIDs:(NSArray<NSString*> *)machineIDs
                                        reply:(void (^)(NSError * _Nullable error))reply;
+
+- (void)fetchAllowedMachineIDsWithContainer:(NSString *)container
+                                    context:(NSString *)context
+                                      reply:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSError* _Nullable error))reply;
 
 - (void)fetchEgoEpochWithContainer:(NSString *)container
                            context:(NSString *)context
@@ -336,6 +345,11 @@ NS_ASSUME_NONNULL_BEGIN
                                 context:(NSString *)context
                     requiresEscrowCheck:(BOOL)requiresEscrowCheck
                                   reply:(void (^)(BOOL postRepairCFU, BOOL postEscrowCFU, BOOL resetOctagon, NSError* _Nullable))reply;
+
+- (void)getSupportAppInfoWithContainer:(NSString *)container
+                               context:(NSString *)context
+                                 reply:(void (^)(NSData * _Nullable, NSError * _Nullable))reply;
+
 @end
 
 /*

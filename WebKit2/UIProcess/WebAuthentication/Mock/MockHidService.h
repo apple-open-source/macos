@@ -25,14 +25,12 @@
 
 #pragma once
 
-#if ENABLE(WEB_AUTHN) && PLATFORM(MAC)
+#if ENABLE(WEB_AUTHN)
 
 #include "HidService.h"
-#include "MockWebAuthenticationConfiguration.h"
+#include <WebCore/MockWebAuthenticationConfiguration.h>
 
 namespace WebKit {
-
-struct MockWebAuthenticationConfiguration;
 
 class MockHidService final : public HidService {
 public:
@@ -42,9 +40,9 @@ private:
     void platformStartDiscovery() final;
     UniqueRef<HidConnection> createHidConnection(IOHIDDeviceRef) const final;
 
-    MockWebAuthenticationConfiguration m_configuration;
+    WebCore::MockWebAuthenticationConfiguration m_configuration;
 };
 
 } // namespace WebKit
 
-#endif // ENABLE(WEB_AUTHN) && PLATFORM(MAC)
+#endif // ENABLE(WEB_AUTHN)

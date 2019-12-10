@@ -4031,7 +4031,7 @@ void Document::pageMutedStateDidChange()
         audioProducer.pageMutedStateDidChange();
 
 #if ENABLE(MEDIA_STREAM) && PLATFORM(IOS_FAMILY)
-    MediaStreamTrack::muteCapture();
+    MediaStreamTrack::pageMutedStateDidChange(page()->mutedState());
 #endif
 }
 
@@ -8236,5 +8236,23 @@ void Document::setApplePayIsActive()
 }
 
 #endif
+
+
+#if USE(SYSTEM_PREVIEW)
+void Document::dispatchSystemPreviewActionEvent(const SystemPreviewInfo& systemPreviewInfo, const String& message)
+{
+    auto* element = searchForElementByIdentifier(systemPreviewInfo.element.elementIdentifier);
+    if (!element)
+        return;
+
+    if (!is<HTMLAnchorElement>(element))
+        return;
+
+    auto event = MessageEvent::create(message, origin());
+    UserGestureIndicator gestureIndicator(ProcessingUserGesture, this);
+    element->dispatchEvent(event);
+}
+#endif
+
 
 } // namespace WebCore

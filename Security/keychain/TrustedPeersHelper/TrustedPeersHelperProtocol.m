@@ -205,6 +205,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
 - (instancetype)initWithEgoPeerID:(NSString* _Nullable)egoPeerID
                            status:(TPPeerStatus)egoStatus
         viablePeerCountsByModelID:(NSDictionary<NSString*, NSNumber*>*)viablePeerCountsByModelID
+            peerCountsByMachineID:(NSDictionary<NSString *,NSNumber *> * _Nonnull)peerCountsByMachineID
                        isExcluded:(BOOL)isExcluded
                          isLocked:(BOOL)isLocked
 {
@@ -212,6 +213,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
         _egoPeerID = egoPeerID;
         _egoStatus = egoStatus;
         _viablePeerCountsByModelID = viablePeerCountsByModelID;
+        _peerCountsByMachineID = peerCountsByMachineID;
         _numberOfPeersInOctagon = 0;
         for(NSNumber* n in viablePeerCountsByModelID.allValues) {
             _numberOfPeersInOctagon += [n unsignedIntegerValue];
@@ -241,6 +243,8 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
             _numberOfPeersInOctagon += [n unsignedIntegerValue];
         }
 
+        _peerCountsByMachineID = [coder decodeObjectOfClasses:[NSSet setWithArray:@[[NSDictionary class], [NSString class], [NSNumber class]]] forKey:@"peerCountsByMachineID"];
+
         _isExcluded = (BOOL)[coder decodeBoolForKey:@"isExcluded"];
         _isLocked = (BOOL)[coder decodeBoolForKey:@"isLocked"];
     }
@@ -251,6 +255,7 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
     [coder encodeObject:self.egoPeerID forKey:@"peerID"];
     [coder encodeInt64:self.egoStatus forKey:@"egoStatus"];
     [coder encodeObject:self.viablePeerCountsByModelID forKey:@"viablePeerCountsByModelID"];
+    [coder encodeObject:self.peerCountsByMachineID forKey:@"peerCountsByMachineID"];
     [coder encodeBool:self.isExcluded forKey:@"isExcluded"];
     [coder encodeBool:self.isLocked forKey:@"isLocked"];
 }

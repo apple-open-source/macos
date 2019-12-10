@@ -289,7 +289,6 @@ asl_open(const char *ident, const char *facility, uint32_t opts)
 	asl_client_t *asl = asl_client_open(ident, facility, opts);
 	if (asl == NULL) return NULL;
 
-	_asl_global_init();
 	if (!(opts & ASL_OPT_NO_REMOTE)) _asl_notify_open(1);
 
 	return (asl_object_t)asl;
@@ -1385,7 +1384,6 @@ _asl_send_message(asl_object_t obj, uint32_t eval, asl_msg_t *msg, const char *m
 		return outstatus;
 	}
 
-	_asl_global_init();
 	outstatus = 0;
 
 	/*
@@ -1480,6 +1478,7 @@ _asl_send_message(asl_object_t obj, uint32_t eval, asl_msg_t *msg, const char *m
 	}
 #endif
 
+	_asl_global_init();
 	if ((_asl_global.server_port != MACH_PORT_NULL) && (eval & EVAL_SEND_ASL))
 	{
 		asl_string_t *send_str;

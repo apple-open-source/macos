@@ -268,6 +268,7 @@
     op.name = name;
     return op;
 }
+
 @end
 
 #endif // OCTAGON

@@ -1,0 +1,2 @@
+reading from file awdlFamily.pcap, link-type 147
+tcpdump: pcap_loop: truncated dump file; tried to read 264 captured bytes, only got 150

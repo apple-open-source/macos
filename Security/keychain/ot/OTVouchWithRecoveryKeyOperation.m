@@ -70,9 +70,10 @@
         secnotice("octagon", "using passed in altdsid, altdsid is: %@", self.salt);
         salt = self.salt;
     } else{
-        if(self.deps.authKitAdapter.primaryiCloudAccountAltDSID){
-            secnotice("octagon", "using auth kit adapter, altdsid is: %@", self.deps.authKitAdapter.primaryiCloudAccountAltDSID);
-            salt = self.deps.authKitAdapter.primaryiCloudAccountAltDSID;
+        NSString *altDSID = [self.deps.authKitAdapter primaryiCloudAccountAltDSID:nil];
+        if(altDSID){
+            secnotice("octagon", "using auth kit adapter, altdsid is: %@", altDSID);
+            salt = altDSID;
         }
         else {
             NSError* accountError = nil;

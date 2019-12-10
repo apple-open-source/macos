@@ -71,7 +71,7 @@
      defined(__mips) || defined(__mips__))
 
 /*
- * This is a GCC-compatible compiler and we have __attribute__, which
+* This is a GCC-compatible compiler and we have __attribute__, which
  * we assume that mean we have __attribute__((packed)), and this is
  * MIPS or Alpha, which has instructions that can help when doing
  * unaligned loads.

@@ -93,12 +93,12 @@ parse_field(netdissect_options *ndo, const char **pptr, int *len, int *truncated
     for (;;) {
 	if (*len == 0) {
 	    /* Ran out of packet data without finding it */
-	return NULL;
+	    return NULL;
 	}
 	if (!ND_TTEST(**pptr)) {
 	    /* Ran out of captured data without finding it */
 	    *truncated = 1;
-	return NULL;
+	    return NULL;
 	}
 	if (**pptr == '\0') {
 	    /* Found it */
@@ -160,7 +160,7 @@ zephyr_print(netdissect_options *ndo, const u_char *cp, int length)
     z.sender = 0;
     z.recipient = 0;
 
-#define PARSE_STRING				\
+#define PARSE_STRING						\
 	s = parse_field(ndo, &parse, &parselen, &truncated);	\
 	if (truncated) goto trunc;				\
 	if (!s) lose = 1;

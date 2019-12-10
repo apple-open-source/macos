@@ -555,7 +555,7 @@ yue_Hans{
         speed{
             kilometer-per-hour{
                 dnam{"每小时公里"}
-                other{"每小时 {0} 公里"}
+                other{"{0}公里/小时"}
             }
             knot{
                 dnam{"节"}
@@ -563,7 +563,7 @@ yue_Hans{
             }
             meter-per-second{
                 dnam{"每秒公尺"}
-                other{"每秒 {0} 米"}
+                other{"{0}米/秒"}
             }
             mile-per-hour{
                 dnam{"每小时英里"}
@@ -1062,10 +1062,10 @@ yue_Hans{
         speed{
             kilometer-per-hour{
                 dnam{"公里/小时"}
-                other{"{0}公里/小时"}
+                other{"{0}公里/时"}
             }
             meter-per-second{
-                other{"{0}m/s"}
+                other{"{0}米/秒"}
             }
             mile-per-hour{
                 other{"{0}英里/小时"}
@@ -1702,7 +1702,7 @@ yue_Hans{
         speed{
             kilometer-per-hour{
                 dnam{"公里/小时"}
-                other{"每小时{0}公里"}
+                other{"{0}公里/时"}
             }
             knot{
                 dnam{"节"}
@@ -1710,7 +1710,7 @@ yue_Hans{
             }
             meter-per-second{
                 dnam{"公尺/秒"}
-                other{"每秒{0}米"}
+                other{"{0}米/秒"}
             }
             mile-per-hour{
                 dnam{"英里/小时"}

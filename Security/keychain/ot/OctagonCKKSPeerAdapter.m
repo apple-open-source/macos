@@ -104,7 +104,7 @@
 {
     // Async to sync again! No other option.
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-    SFKeychainManager* keychainManager = [SFKeychainManager defaultManager];
+    SFKeychainManager* keychainManager = [SFKeychainManager defaultOverCommitManager];
 
     __block SFIdentity* identity = nil;
     __block NSError* localError = nil;

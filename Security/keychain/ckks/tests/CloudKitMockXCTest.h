@@ -94,6 +94,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nullable) NSBlockOperation* ckModifyHoldOperation;
 @property (nullable) NSBlockOperation* ckFetchHoldOperation;
+@property (nullable) NSBlockOperation* ckModifyRecordZonesHoldOperation;
+@property (nullable) NSBlockOperation* ckModifySubscriptionsHoldOperation;
 
 @property bool silentFetchesAllowed;
 @property bool silentZoneDeletesAllowed;
@@ -194,6 +196,13 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)holdCloudKitFetches;
 // Unblocks the hold you've added with holdCloudKitFetches; CloudKit fetches will finish
 - (void)releaseCloudKitFetchHold;
+
+- (void)holdCloudKitModifyRecordZones;
+- (void)releaseCloudKitModifyRecordZonesHold;
+
+- (void)holdCloudKitModifySubscription;
+- (void)releaseCloudKitModifySubscriptionHold;
+
 
 // Make a CK internal server extension error with a given code and description.
 - (NSError*)ckInternalServerExtensionError:(NSInteger)code description:(NSString*)desc;

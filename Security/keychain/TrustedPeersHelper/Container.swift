@@ -98,6 +98,7 @@ public enum ContainerError: Error {
     case invalidPeerID
     case failedToStoreSecret(errorCode: Int)
     case unknownSecurityFoundationError
+    case failedToSerializeData
 }
 
 extension ContainerError: LocalizedError {
@@ -185,6 +186,8 @@ extension ContainerError: LocalizedError {
             return "failed to store the secret in the keychain \(errorCode)"
         case .unknownSecurityFoundationError:
             return "SecurityFoundation returned an unknown type"
+        case .failedToSerializeData:
+            return "Failed to encode protobuf data"
         }
     }
 }
@@ -281,6 +284,8 @@ extension ContainerError: CustomNSError {
             return 42
         case .unknownSecurityFoundationError:
             return 43
+        case .failedToSerializeData:
+            return 44
         }
     }
 
@@ -849,6 +854,7 @@ class Container: NSObject {
 
     func onQueueDetermineLocalTrustStatus(reply: @escaping (TrustedPeersHelperEgoPeerStatus, Error?) -> Void) {
         let viablePeerCountsByModelID = self.model.viablePeerCountsByModelID()
+        let peerCountsByMachineID = self.model.peerCountsByMachineID()
 
         if let egoPeerID = self.containerMO.egoPeerID {
             var status = self.model.statusOfPeer(withID: egoPeerID)
@@ -875,6 +881,7 @@ class Container: NSObject {
                     let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
                                                                     status: status,
                                                                     viablePeerCountsByModelID: viablePeerCountsByModelID,
+                                                                    peerCountsByMachineID: peerCountsByMachineID,
                                                                     isExcluded: isExcluded,
                                                                     isLocked: isLocked)
                     reply(egoStatus, returnError)
@@ -887,6 +894,7 @@ class Container: NSObject {
                     let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
                                                                     status: .excluded,
                                                                     viablePeerCountsByModelID: viablePeerCountsByModelID,
+                                                                    peerCountsByMachineID: peerCountsByMachineID,
                                                                     isExcluded: true,
                                                                     isLocked: false)
 
@@ -897,6 +905,7 @@ class Container: NSObject {
                 let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: egoPeerID,
                                                                 status: status,
                                                                 viablePeerCountsByModelID: viablePeerCountsByModelID,
+                                                                peerCountsByMachineID: peerCountsByMachineID,
                                                                 isExcluded: isExcluded,
                                                                 isLocked: false)
                 reply(egoStatus, nil)
@@ -910,6 +919,7 @@ class Container: NSObject {
                 let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
                                                                 status: .unknown,
                                                                 viablePeerCountsByModelID: viablePeerCountsByModelID,
+                                                                peerCountsByMachineID: peerCountsByMachineID,
                                                                 isExcluded: false,
                                                                 isLocked: false)
                 reply(egoStatus, nil)
@@ -919,6 +929,7 @@ class Container: NSObject {
                 let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
                                                                 status: .excluded,
                                                                 viablePeerCountsByModelID: viablePeerCountsByModelID,
+                                                                peerCountsByMachineID: peerCountsByMachineID,
                                                                 isExcluded: true,
                                                                 isLocked: false)
                 reply(egoStatus, nil)
@@ -950,6 +961,7 @@ class Container: NSObject {
                         let egoStatus = TrustedPeersHelperEgoPeerStatus(egoPeerID: nil,
                                                                         status: .unknown,
                                                                         viablePeerCountsByModelID: [:],
+                                                                        peerCountsByMachineID: [:],
                                                                         isExcluded: false,
                                                                         isLocked: false)
                         reply(egoStatus, fetchError)
@@ -2993,6 +3005,33 @@ class Container: NSObject {
                 reply(postRepairAccount, postRepairEscrow, resetOctagon, nil)
             }
         }
+    }
+
+    func getSupportAppInfo(reply: @escaping (Data?, Error?) -> Void) {
+        self.semaphore.wait()
+        let reply: (Data?, Error?) -> Void = {
+            os_log("getSupportAppInfo complete: %@", log: tplogTrace, type: .info, traceError($1))
+            self.semaphore.signal()
+            reply($0, $1)
+        }
+
+        self.cuttlefish.getSupportAppInfo { response, error in
+            os_log("getSupportAppInfo(): %@, error: %@", log: tplogDebug,
+                   "(\(String(describing: response))", "\(String(describing: error))")
+            guard let response = response, error == nil else {
+                os_log("getSupportAppInfo failed: %@", log: tplogDebug, type: .default, (error as CVarArg?) ?? "no error")
+                reply(nil, error ?? ContainerError.cloudkitResponseMissing)
+                return
+            }
+
+            guard let data = try? response.serializedData() else {
+                reply(nil, ContainerError.failedToSerializeData)
+                return
+            }
+
+            reply(data, nil)
+        }
+
     }
 
     func preflightPreapprovedJoin(reply: @escaping (Bool, Error?) -> Void) {

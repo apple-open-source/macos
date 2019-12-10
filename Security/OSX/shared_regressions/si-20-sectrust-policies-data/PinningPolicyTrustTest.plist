@@ -2889,52 +2889,6 @@
 		<key>MajorTestName</key>
 		<string>EscrowService</string>
 		<key>MinorTestName</key>
-		<string>NegativeTest-v1</string>
-		<key>Policies</key>
-		<dict>
-			<key>PolicyIdentifier</key>
-			<string>1.2.840.113635.100.1.24</string>
-		</dict>
-		<key>Leaf</key>
-		<string>escrow_service_key_B157A8D4</string>
-		<key>Intermediates</key>
-		<string>EscrowServiceRootCA0</string>
-		<key>Anchors</key>
-		<string>EscrowServiceRootCA0</string>
-		<key>ExpectedResult</key>
-		<integer>5</integer>
-	</dict>
-	<dict>
-		<key>CertDirectory</key>
-		<string>si-20-sectrust-policies-data</string>
-		<key>BridgeOSDisable</key>
-		<true/>
-		<key>MajorTestName</key>
-		<string>EscrowService</string>
-		<key>MinorTestName</key>
-		<string>NegativeTest-v2</string>
-		<key>Policies</key>
-		<dict>
-			<key>PolicyIdentifier</key>
-			<string>1.2.840.113635.100.1.24</string>
-		</dict>
-		<key>Leaf</key>
-		<string>escrow_service_key_049F9D11</string>
-		<key>Intermediates</key>
-		<string>EscrowServiceRootCA101</string>
-		<key>Anchors</key>
-		<string>EscrowServiceRootCA101</string>
-		<key>ExpectedResult</key>
-		<integer>5</integer>
-	</dict>
-	<dict>
-		<key>CertDirectory</key>
-		<string>si-20-sectrust-policies-data</string>
-		<key>BridgeOSDisable</key>
-		<true/>
-		<key>MajorTestName</key>
-		<string>PCSEscrowService</string>
-		<key>MinorTestName</key>
 		<string>PositiveTest</string>
 		<key>Policies</key>
 		<dict>

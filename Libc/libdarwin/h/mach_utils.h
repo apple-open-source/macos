@@ -40,6 +40,10 @@
 #include <mach/mach_port.h>
 #include <mach/kern_return.h>
 
+#if DARWIN_TAPI
+#include "tapi.h"
+#endif
+
 /*!
  * @define OS_MIG_SUBSYSTEM_MAXSIZE
  * A macro that evaluates to the maximum size of a request or reply message in
@@ -62,6 +66,42 @@
 })
 
 __BEGIN_DECLS;
+
+/*!
+ * @function os_vm_address_from_ptr
+ * Converts the given pointer to a vm_address_t.
+ *
+ * @param p
+ * The pointer to convert.
+ *
+ * @result
+ * The pointer as a vm_address_t.
+ */
+DARWIN_API_AVAILABLE_20190830
+OS_ALWAYS_INLINE OS_WARN_RESULT
+static inline vm_address_t
+os_vm_address_from_ptr(const void *p)
+{
+	return (vm_address_t)(uintptr_t)p;
+}
+
+/*!
+ * @function os_mach_vm_address_from_ptr
+ * Converts the given pointer to a mach_vm_address_t.
+ *
+ * @param p
+ * The pointer to convert.
+ *
+ * @result
+ * The pointer as a mach_vm_address_t.
+ */
+DARWIN_API_AVAILABLE_20190830
+OS_ALWAYS_INLINE OS_WARN_RESULT
+static inline mach_vm_address_t
+os_mach_vm_address_from_ptr(const void *p)
+{
+	return (mach_vm_address_t)(uintptr_t)p;
+}
 
 /*!
  * @function os_mach_msg_get_trailer
