@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 1999-2005, 2010-2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 1999-2005, 2010-2015 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,6 +18,11 @@
  * Sponsored in part by the Defense Advanced Research Projects
  * Agency (DARPA) and Air Force Research Laboratory, Air Force
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -65,13 +72,6 @@ sudo_passwd_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_c
     /* An empty plain-text password must match an empty encrypted password. */
     if (pass[0] == '\0')
 	debug_return_int(pw_epasswd[0] ? AUTH_FAILURE : AUTH_SUCCESS);
-
-#ifdef HAVE_GETAUTHUID
-    /* Ultrix shadow passwords may use crypt16() */
-    epass = (char *) crypt16(pass, pw_epasswd);
-    if (epass != NULL && strcmp(pw_epasswd, epass) == 0)
-	debug_return_int(AUTH_SUCCESS);
-#endif /* HAVE_GETAUTHUID */
 
     /*
      * Truncate to 8 chars if standard DES since not all crypt()'s do this.

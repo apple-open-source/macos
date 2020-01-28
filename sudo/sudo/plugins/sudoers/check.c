@@ -1,6 +1,8 @@
 /*
- * Copyright (c) 1993-1996,1998-2005, 2007-2015
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 1993-1996,1998-2005, 2007-2018
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -19,10 +21,14 @@
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
 #include <config.h>
 
 #include <sys/types.h>
-#include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_STRING_H
@@ -32,9 +38,7 @@
 # include <strings.h>
 #endif /* HAVE_STRINGS_H */
 #include <unistd.h>
-#ifdef TIME_WITH_SYS_TIME
-# include <time.h>
-#endif
+#include <time.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
@@ -90,7 +94,7 @@ check_user_interactive(int validated, int mode, struct passwd *auth_pw)
     struct sudo_conv_callback cb, *callback = NULL;
     struct getpass_closure closure;
     int status = TS_ERROR;
-    int rval = -1;
+    int ret = -1;
     char *prompt;
     bool lectured;
     debug_decl(check_user_interactive, SUDOERS_DEBUG_AUTH)
@@ -124,9 +128,11 @@ check_user_interactive(int validated, int mode, struct passwd *auth_pw)
     case TS_CURRENT:
 	/* Time stamp file is valid and current. */
 	if (!ISSET(validated, FLAG_CHECK_USER)) {
-	    rval = true;
+	    ret = true;
 	    break;
 	}
+	sudo_debug_printf(SUDO_DEBUG_INFO,
+	    "%s: check user flag overrides time stamp", __func__);
 	/* FALLTHROUGH */
 
     default:
@@ -146,8 +152,8 @@ check_user_interactive(int validated, int mode, struct passwd *auth_pw)
 	if (prompt == NULL)
 	    goto done;
 
-	rval = verify_user(closure.auth_pw, prompt, validated, callback);
-	if (rval == true && lectured)
+	ret = verify_user(closure.auth_pw, prompt, validated, callback);
+	if (ret == true && lectured)
 	    (void)set_lectured();	/* lecture error not fatal */
 	free(prompt);
 	break;
@@ -157,14 +163,14 @@ check_user_interactive(int validated, int mode, struct passwd *auth_pw)
      * Only update time stamp if user was validated.
      * Failure to update the time stamp is not a fatal error.
      */
-    if (rval == true && ISSET(validated, VALIDATE_SUCCESS) && status != TS_ERROR)
+    if (ret == true && ISSET(validated, VALIDATE_SUCCESS) && status != TS_ERROR)
 	(void)timestamp_update(closure.cookie, closure.auth_pw);
 done:
     if (closure.cookie != NULL)
 	timestamp_close(closure.cookie);
     sudo_pw_delref(closure.auth_pw);
 
-    debug_return_int(rval);
+    debug_return_int(ret);
 }
 
 /*
@@ -175,7 +181,8 @@ int
 check_user(int validated, int mode)
 {
     struct passwd *auth_pw;
-    int rval = -1;
+    int ret = -1;
+    bool exempt = false;
     debug_decl(check_user, SUDOERS_DEBUG_AUTH)
 
     /*
@@ -192,7 +199,11 @@ check_user(int validated, int mode)
      * If the user is not changing uid/gid, no need for a password.
      */
     if (!def_authenticate || user_is_exempt()) {
-	rval = true;
+	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: %s", __func__,
+	    !def_authenticate ? "authentication disabled" :
+	    "user exempt from authentication");
+	exempt = true;
+	ret = true;
 	goto done;
     }
     if (user_uid == 0 || (user_uid == runas_pw->pw_uid &&
@@ -204,18 +215,24 @@ check_user(int validated, int mode)
 	if (runas_privs == NULL && runas_limitprivs == NULL)
 #endif
 	{
-	    rval = true;
+	    sudo_debug_printf(SUDO_DEBUG_INFO,
+		"%s: user running command as self", __func__);
+	    ret = true;
 	    goto done;
 	}
     }
 
-    rval = check_user_interactive(validated, mode, auth_pw);
+    ret = check_user_interactive(validated, mode, auth_pw);
 
 done:
+    if (ret == true) {
+	/* The approval function may disallow a user post-authentication. */
+	ret = sudo_auth_approval(auth_pw, validated, exempt);
+    }
     sudo_auth_cleanup(auth_pw);
     sudo_pw_delref(auth_pw);
 
-    debug_return_int(rval);
+    debug_return_int(ret);
 }
 
 /*
@@ -242,13 +259,13 @@ display_lecture(int status)
     if (def_lecture_file && (fp = fopen(def_lecture_file, "r")) != NULL) {
 	while ((nread = fread(buf, sizeof(char), sizeof(buf) - 1, fp)) != 0) {
 	    buf[nread] = '\0';
-	    msg.msg_type = SUDO_CONV_ERROR_MSG;
+	    msg.msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
 	    msg.msg = buf;
 	    sudo_conv(1, &msg, &repl, NULL);
 	}
 	fclose(fp);
     } else {
-	msg.msg_type = SUDO_CONV_ERROR_MSG;
+	msg.msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
 	msg.msg = _("\n"
 	    "We trust you have received the usual lecture from the local System\n"
 	    "Administrator. It usually boils down to these three things:\n\n"
@@ -266,12 +283,12 @@ display_lecture(int status)
 bool
 user_is_exempt(void)
 {
-    bool rval = false;
+    bool ret = false;
     debug_decl(user_is_exempt, SUDOERS_DEBUG_AUTH)
 
     if (def_exempt_group)
-	rval = user_in_group(sudo_user.pw, def_exempt_group);
-    debug_return_bool(rval);
+	ret = user_in_group(sudo_user.pw, def_exempt_group);
+    debug_return_bool(ret);
 }
 
 /*

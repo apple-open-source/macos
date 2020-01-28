@@ -938,6 +938,16 @@ static CFStringRef SecRevocationDbGetDefaultServer(void) {
 #endif
 }
 
+static CF_RETURNS_RETAINED CFStringRef SecRevocationDbCopyServer(void) {
+    /* Prefer a in-process setting for the update server, as used in testing */
+    CFTypeRef value = CFPreferencesCopyAppValue(kUpdateServerKey, kSecPrefsDomain);
+    if (!value) {
+        value = (CFStringRef)CFPreferencesCopyValue(kUpdateServerKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+    }
+    CFStringRef server = (isString(value)) ? (CFStringRef)value : CFRetainSafe(SecRevocationDbGetDefaultServer());
+    return server;
+}
+
 void SecRevocationDbInitialize() {
     if (!isDbOwner()) { return; }
     os_transaction_t transaction = os_transaction_create("com.apple.trustd.valid.initialize");
@@ -983,8 +993,7 @@ void SecRevocationDbInitialize() {
     }
 
     /* initialize database from local asset */
-    CFTypeRef value = (CFStringRef)CFPreferencesCopyValue(kUpdateServerKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-    CFStringRef server = (isString(value)) ? (CFStringRef)value : (CFStringRef)SecRevocationDbGetDefaultServer();
+    CFStringRef server = SecRevocationDbCopyServer();
     CFIndex version = 0;
     secnotice("validupdate", "initializing database");
     if (!SecValidUpdateSatisfiedLocally(server, version, true)) {
@@ -993,7 +1002,7 @@ void SecRevocationDbInitialize() {
         (void)SecValidUpdateRequest(SecRevocationDbGetUpdateQueue(), server, version);
 #endif
     }
-    CFReleaseSafe(value);
+    CFReleaseSafe(server);
     os_release(transaction);
 }
 
@@ -1172,14 +1181,7 @@ static bool _SecRevocationDbCheckNextUpdate(void) {
     gNextUpdate = minNextUpdate;
 
     // determine which server to query
-    CFStringRef server;
-    value = (CFStringRef)CFPreferencesCopyValue(kUpdateServerKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-    if (isString(value)) {
-        server = (CFStringRef) CFRetain(value);
-    } else {
-        server = (CFStringRef) CFRetain(SecRevocationDbGetDefaultServer());
-    }
-    CFReleaseNull(value);
+    CFStringRef server = SecRevocationDbCopyServer();
 
     // determine version of our current database
     CFIndex version = SecRevocationDbGetVersion();

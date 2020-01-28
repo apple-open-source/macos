@@ -42,16 +42,19 @@
 #include "utilities/SecDb.h"
 #include "utilities/SecFileLocations.h"
 #include "utilities/iOSforOSX.h"
+#include <os/lock.h>
 
 /* Note that lastUsed is actually time of insert because we don't
    refresh lastUsed on each SELECT. */
 
-#define flushSQL  CFSTR("DELETE FROM responses")
-#define expireSQL  CFSTR("DELETE FROM responses WHERE expires<?")
+#define deleteAllSQL CFSTR("DELETE FROM responses") /* for testing purposes */
+#define flushSQL  CFSTR("DELETE FROM ocsp WHERE certStatus!=1; " \
+    "DELETE FROM responses WHERE responseId NOT IN (SELECT responseId FROM ocsp WHERE certStatus=1)") /* Delete respones that aren't CS_Revoked */
+#define expireSQL  CFSTR("DELETE FROM responses WHERE expires<? AND responseId NOT IN (SELECT responseId FROM ocsp WHERE certStatus=1)") /* Don't expire revoked responses */
 #define insertResponseSQL  CFSTR("INSERT INTO responses " \
     "(ocspResponse,responderURI,expires,lastUsed) VALUES (?,?,?,?)")
 #define insertLinkSQL  CFSTR("INSERT INTO ocsp (hashAlgorithm," \
-    "issuerNameHash,issuerPubKeyHash,serialNum,responseId) VALUES (?,?,?,?,?)")
+    "issuerNameHash,issuerPubKeyHash,serialNum,responseId,certStatus) VALUES (?,?,?,?,?,?)")
 #define deleteResponseSQL  CFSTR("DELETE FROM responses WHERE responseId=?")
 #define selectHashAlgorithmSQL  CFSTR("SELECT DISTINCT hashAlgorithm " \
     "FROM ocsp WHERE serialNum=?")
@@ -59,12 +62,46 @@
     "responses WHERE lastUsed>? AND responseId=(SELECT responseId FROM ocsp WHERE " \
     "issuerNameHash=? AND issuerPubKeyHash=? AND serialNum=? AND hashAlgorithm=?)" \
     " ORDER BY expires DESC")
+#define hasCertStatusSQL CFSTR("SELECT issuerNameHash FROM ocsp WHERE certStatus=0 LIMIT 1")
+#define alterOCSPTableSQL CFSTR("ALTER TABLE ocsp ADD COLUMN certStatus INTEGER NOT NULL DEFAULT 255") /* CS_NotParsed */
 
 #define kSecOCSPCacheFileName CFSTR("ocspcache.sqlite3")
 
 
 // MARK; -
 // MARK: SecOCSPCacheDb
+
+static bool SecOCSPCacheDbUpdateTables(SecDbRef db) {
+    __block bool ok = true;
+    __block CFErrorRef localError = NULL;
+
+    ok &= SecDbPerformWrite(db, &localError, ^(SecDbConnectionRef dbconn) {
+        ok &= SecDbTransaction(dbconn, kSecDbExclusiveTransactionType, &localError, ^(bool *commit) {
+            CFErrorRef readColumnError = NULL;
+            if (!SecDbWithSQL(dbconn, hasCertStatusSQL, &readColumnError, NULL) && CFErrorGetCode(readColumnError) == SQLITE_ERROR) {
+                ok &= SecDbWithSQL(dbconn, alterOCSPTableSQL, &localError, ^bool(sqlite3_stmt *stmt) {
+                    ok = SecDbStep(dbconn, stmt, &localError, NULL);
+                    return ok;
+                });
+                *commit = ok;
+            }
+            CFReleaseSafe(readColumnError);
+        });
+    });
+
+    if (!ok) {
+        secerror("OCSP table update failed: %@", localError);
+        CFIndex errCode = errSecInternalComponent;
+        if (localError) {
+            errCode = CFErrorGetCode(localError);
+        }
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TAOCSPCache,
+                                                     TAOperationWrite,
+                                                     TAFatalError, errCode);
+    }
+    CFReleaseSafe(localError);
+    return ok;
+}
 
 static SecDbRef SecOCSPCacheDbCreate(CFStringRef path) {
     return SecDbCreate(path, 0600, true, true, true, true, 1,
@@ -81,7 +118,8 @@ static SecDbRef SecOCSPCacheDbCreate(CFStringRef path) {
                           "issuerPubKeyHash BLOB NOT NULL,"
                           "serialNum BLOB NOT NULL,"
                           "hashAlgorithm BLOB NOT NULL,"
-                          "responseId INTEGER NOT NULL"
+                          "responseId INTEGER NOT NULL,"
+                          "certStatus INTEGER NOT NULL DEFAULT 255" // CS_NotParsed
                           ");"
                           "CREATE INDEX iResponseId ON ocsp(responseId);"
                           "CREATE INDEX iserialNum ON ocsp(serialNum);"
@@ -124,14 +162,12 @@ struct __SecOCSPCache {
 	SecDbRef db;
 };
 
-static dispatch_once_t kSecOCSPCacheOnce;
-static SecOCSPCacheRef kSecOCSPCache = NULL;
-
 static SecOCSPCacheRef SecOCSPCacheCreate(CFStringRef db_name) {
 	SecOCSPCacheRef this;
 
 	require(this = (SecOCSPCacheRef)malloc(sizeof(struct __SecOCSPCache)), errOut);
     require(this->db = SecOCSPCacheDbCreate(db_name), errOut);
+    require(SecOCSPCacheDbUpdateTables(this->db), errOut);
 
 	return this;
 
@@ -144,7 +180,7 @@ errOut:
 	return NULL;
 }
 
-static CFStringRef SecOCSPCacheCopyPath(void) {
+CFStringRef SecOCSPCacheCopyPath(void) {
     CFStringRef ocspRelPath = kSecOCSPCacheFileName;
 #if TARGET_OS_IPHONE
     CFURLRef ocspURL = SecCopyURLForFileInKeychainDirectory(ocspRelPath);
@@ -163,17 +199,55 @@ static CFStringRef SecOCSPCacheCopyPath(void) {
     return ocspPath;
 }
 
+static SecOCSPCacheRef kSecOCSPCache = NULL;
+static os_unfair_lock cacheLock = OS_UNFAIR_LOCK_INIT;
+
+void SecOCSPCacheCloseDB(void) {
+    os_unfair_lock_lock(&cacheLock);
+    if (kSecOCSPCache) {
+        // Release the DB
+        SecDbReleaseAllConnections(kSecOCSPCache->db);
+        CFReleaseSafe(kSecOCSPCache->db);
+
+        // free the cache struct
+        free(kSecOCSPCache);
+        kSecOCSPCache = NULL;
+    }
+    os_unfair_lock_unlock(&cacheLock);
+}
+
+void SecOCSPCacheDeleteCache(void) {
+    os_unfair_lock_lock(&cacheLock);
+    if (kSecOCSPCache) {
+        // Release the DB
+        SecDbReleaseAllConnections(kSecOCSPCache->db);
+        CFReleaseSafe(kSecOCSPCache->db);
+
+        // free the cache struct
+        free(kSecOCSPCache);
+        kSecOCSPCache = NULL;
+    }
+
+    // remove the file
+    CFStringRef path = SecOCSPCacheCopyPath();
+    CFStringPerformWithCStringAndLength(path, ^(const char *utf8Str, size_t utf8Length) {
+        remove(utf8Str);
+    });
+    CFReleaseSafe(path);
+    os_unfair_lock_unlock(&cacheLock);
+}
+
 static void SecOCSPCacheWith(void(^cacheJob)(SecOCSPCacheRef cache)) {
-    dispatch_once(&kSecOCSPCacheOnce, ^{
+    os_unfair_lock_lock(&cacheLock);
+    if (!kSecOCSPCache) {
         CFStringRef dbPath = SecOCSPCacheCopyPath();
         if (dbPath) {
             kSecOCSPCache = SecOCSPCacheCreate(dbPath);
             CFRelease(dbPath);
         }
-    });
-    // Do pre job run work here (cancel idle timers etc.)
+    }
     cacheJob(kSecOCSPCache);
-    // Do post job run work here (gc timer, etc.)
+    os_unfair_lock_unlock(&cacheLock);
 }
 
 static bool _SecOCSPCacheExpireWithTransaction(SecDbConnectionRef dbconn, CFAbsoluteTime now, CFErrorRef *error) {
@@ -259,6 +333,7 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
                      *responses; ++responses) {
                     SecAsn1OCSPSingleResponse *resp = *responses;
                     SecAsn1OCSPCertID *certId = &resp->certID;
+                    SecAsn1OCSPCertStatusTag certStatus = (SecAsn1OCSPCertStatusTag)(resp->certStatus.Data[0] & SEC_ASN1_TAGNUM_MASK);
                     ok &= SecDbBindBlob(insertLink, 1,
                                         certId->algId.algorithm.Data,
                                         certId->algId.algorithm.Length,
@@ -276,6 +351,7 @@ static void _SecOCSPCacheReplaceResponse(SecOCSPCacheRef this,
                                         certId->serialNumber.Length,
                                         SQLITE_TRANSIENT, &localError);
                     ok &= SecDbBindInt64(insertLink, 5, responseId, &localError);
+                    ok &= SecDbBindInt(insertLink, 6, certStatus, &localError);
 
                     /* Execute the insert statement. */
                     ok &= SecDbStep(dbconn, insertLink, &localError, NULL);
@@ -328,42 +404,34 @@ static SecOCSPResponseRef _SecOCSPCacheCopyMatching(SecOCSPCacheRef this,
                 CFDataRef issuerPubKeyHash = SecDigestCreate(kCFAllocatorDefault,
                                                              &algorithm, NULL, publicKey->data, publicKey->length);
 
-                if (issuerNameHash && issuerPubKeyHash && ok) ok &= SecDbWithSQL(dbconn, selectResponseSQL, &localError, ^bool(sqlite3_stmt *selectResponse) {
-                    /* Now we have the serial, algorithm, issuerNameHash and
-                     issuerPubKeyHash so let's lookup the db entry. */
-                    ok &= SecDbBindDouble(selectResponse, 1, minInsertTime, &localError);
-                    ok &= SecDbBindBlob(selectResponse, 2, CFDataGetBytePtr(issuerNameHash),
-                                        CFDataGetLength(issuerNameHash), SQLITE_TRANSIENT, &localError);
-                    ok &= SecDbBindBlob(selectResponse, 3, CFDataGetBytePtr(issuerPubKeyHash),
-                                        CFDataGetLength(issuerPubKeyHash), SQLITE_TRANSIENT, &localError);
-                    ok &= SecDbBindBlob(selectResponse, 4, CFDataGetBytePtr(serial),
-                                        CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
-                    ok &= SecDbBindBlob(selectResponse, 5, algorithm.Data,
-                                        algorithm.Length, SQLITE_TRANSIENT, &localError);
-                    ok &= SecDbStep(dbconn, selectResponse, &localError, ^(bool *stopResponse) {
-                        /* Found an entry! */
-                        secdebug("ocspcache", "found cached response");
-                        CFDataRef resp = CFDataCreate(kCFAllocatorDefault,
-                                                      sqlite3_column_blob(selectResponse, 0),
-                                                      sqlite3_column_bytes(selectResponse, 0));
-                        sqlite3_int64 responseID = sqlite3_column_int64(selectResponse, 1);
-                        if (resp) {
-                            SecOCSPResponseRef new_response = SecOCSPResponseCreateWithID(resp, responseID);
-                            if (response) {
-                                if (SecOCSPResponseProducedAt(response) < SecOCSPResponseProducedAt(new_response)) {
-                                    SecOCSPResponseFinalize(response);
-                                    response = new_response;
-                                } else {
-                                    SecOCSPResponseFinalize(new_response);
-                                }
-                            } else {
-                                response = new_response;
+                if (issuerNameHash && issuerPubKeyHash && ok) {
+                    ok &= SecDbWithSQL(dbconn, selectResponseSQL, &localError, ^bool(sqlite3_stmt *selectResponse) {
+                        /* Now we have the serial, algorithm, issuerNameHash and
+                         issuerPubKeyHash so let's lookup the db entry. */
+                        ok &= SecDbBindDouble(selectResponse, 1, minInsertTime, &localError);
+                        ok &= SecDbBindBlob(selectResponse, 2, CFDataGetBytePtr(issuerNameHash),
+                                            CFDataGetLength(issuerNameHash), SQLITE_TRANSIENT, &localError);
+                        ok &= SecDbBindBlob(selectResponse, 3, CFDataGetBytePtr(issuerPubKeyHash),
+                                            CFDataGetLength(issuerPubKeyHash), SQLITE_TRANSIENT, &localError);
+                        ok &= SecDbBindBlob(selectResponse, 4, CFDataGetBytePtr(serial),
+                                            CFDataGetLength(serial), SQLITE_TRANSIENT, &localError);
+                        ok &= SecDbBindBlob(selectResponse, 5, algorithm.Data,
+                                            algorithm.Length, SQLITE_TRANSIENT, &localError);
+                        ok &= SecDbStep(dbconn, selectResponse, &localError, ^(bool *stopResponse) {
+                            /* Found an entry! */
+                            secdebug("ocspcache", "found cached response");
+                            CFDataRef resp = CFDataCreate(kCFAllocatorDefault,
+                                                          sqlite3_column_blob(selectResponse, 0),
+                                                          sqlite3_column_bytes(selectResponse, 0));
+                            sqlite3_int64 responseID = sqlite3_column_int64(selectResponse, 1);
+                            if (resp) {
+                                response = SecOCSPResponseCreateWithID(resp, responseID);
+                                CFRelease(resp);
                             }
-                            CFRelease(resp);
-                        }
+                        });
+                        return ok;
                     });
-                    return ok;
-                });
+                }
 
                 CFReleaseSafe(issuerNameHash);
                 CFReleaseSafe(issuerPubKeyHash);
@@ -408,6 +476,22 @@ static bool _SecOCSPCacheFlush(SecOCSPCacheRef cache, CFErrorRef *error) {
     return ok;
 }
 
+static bool _SecOCSPCacheDeleteContent(SecOCSPCacheRef cache, CFErrorRef *error) {
+    __block CFErrorRef localError = NULL;
+    __block bool ok = true;
+
+    ok &= SecDbPerformWrite(cache->db, &localError, ^(SecDbConnectionRef dbconn) {
+        ok &= SecDbExec(dbconn, deleteAllSQL, &localError);
+    });
+    if (!ok || localError) {
+        TrustdHealthAnalyticsLogErrorCodeForDatabase(TAOCSPCache, TAOperationWrite, TAFatalError,
+                                                     localError ? CFErrorGetCode(localError) : errSecInternalComponent);
+    }
+    (void) CFErrorPropagate(localError, error);
+
+    return ok;
+}
+
 
 /* Public API */
 
@@ -440,6 +524,14 @@ bool SecOCSPCacheFlush(CFErrorRef *error) {
     __block bool result = false;
     SecOCSPCacheWith(^(SecOCSPCacheRef cache) {
         result = _SecOCSPCacheFlush(cache, error);
+    });
+    return result;
+}
+
+bool SecOCSPCacheDeleteContent(CFErrorRef *error) {
+    __block bool result = false;
+    SecOCSPCacheWith(^(SecOCSPCacheRef cache) {
+        result = _SecOCSPCacheDeleteContent(cache, error);
     });
     return result;
 }

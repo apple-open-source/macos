@@ -513,7 +513,7 @@ class Tester
             return new Response(null, true);
         }
         if (is_null($uri)) {
-            $uri = $this->makeFile('src.php', $this->code);
+            $uri = $this->makeSourceFile();
         }
 
         $params = array_merge(
@@ -538,7 +538,6 @@ class Tester
             ],
             $headers
         );
-
         try {
             $this->response = new Response(
                 $this->getClient($address, $connKeepAlive)->request_data($params, false)
@@ -945,6 +944,14 @@ class Tester
     }
 
     /**
+     * @return string
+     */
+    public function makeSourceFile()
+    {
+        return $this->makeFile('src.php', $this->code);
+    }
+
+    /**
      * @param string|null $msg
      */
     private function message($msg)
@@ -1080,7 +1087,7 @@ class Tester
      * @param string $message
      * @return bool
      */
-    public function expectLogLine(string $message)
+    public function expectLogLine(string $message, bool $is_stderr = true)
     {
         $messageLen = strlen($message);
         $limit = $messageLen > 1024 ? $messageLen + 16 : 1024;
@@ -1090,7 +1097,7 @@ class Tester
             $this->message("LOG LINE: " . ($logLines[0] ?? ''));
         }
 
-        return $this->logTool->checkWrappedMessage($logLines, false);
+        return $this->logTool->checkWrappedMessage($logLines, false, true, $is_stderr);
     }
 
     /**

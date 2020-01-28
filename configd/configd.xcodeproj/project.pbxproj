@@ -1170,9 +1170,6 @@
 		F95B8A460B03E09300993BA3 /* SCNetworkSignature.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F95B8A470B03E09300993BA3 /* SCNetworkSignaturePrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F963401020FE8E6000F1E1F1 /* AwdMetadata-0x81-IPMonitor.bin in CopyFiles */ = {isa = PBXBuildFile; fileRef = F963400E20FE8E1D00F1E1F1 /* AwdMetadata-0x81-IPMonitor.bin */; };
-		F97289D322652D0600080596 /* serviceIDNumber.c in Sources */ = {isa = PBXBuildFile; fileRef = F97289D122652CE600080596 /* serviceIDNumber.c */; };
-		F97289D422652D0A00080596 /* serviceIDNumber.c in Sources */ = {isa = PBXBuildFile; fileRef = F97289D122652CE600080596 /* serviceIDNumber.c */; };
-		F97289D522652D0D00080596 /* serviceIDNumber.c in Sources */ = {isa = PBXBuildFile; fileRef = F97289D122652CE600080596 /* serviceIDNumber.c */; };
 		F9A3781016A4847700C57CDC /* IPMonitorControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */; };
 		F9A3781116A4849100C57CDC /* IPMonitorControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */; };
 		F9B50FF316A4CBB200CA274E /* IPMonitorControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */; };
@@ -2394,8 +2391,6 @@
 		F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignature.h; sourceTree = "<group>"; };
 		F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignaturePrivate.h; sourceTree = "<group>"; };
 		F963400E20FE8E1D00F1E1F1 /* AwdMetadata-0x81-IPMonitor.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = "AwdMetadata-0x81-IPMonitor.bin"; sourceTree = "<group>"; };
-		F97289D122652CE600080596 /* serviceIDNumber.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = serviceIDNumber.c; sourceTree = "<group>"; };
-		F97289D222652CE600080596 /* serviceIDNumber.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = serviceIDNumber.h; sourceTree = "<group>"; };
 		F9A3780E16A4846E00C57CDC /* IPMonitorControlPrefs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IPMonitorControlPrefs.c; sourceTree = "<group>"; };
 		F9A3780F16A4846E00C57CDC /* IPMonitorControlPrefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IPMonitorControlPrefs.h; sourceTree = "<group>"; };
 		F9B7AE5C1862116500C78D18 /* IPMonitorControl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = IPMonitorControl.c; sourceTree = "<group>"; };
@@ -2942,8 +2937,6 @@
 				15812A2D1EA5540B001CF384 /* nat64-configuration.c */,
 				1575FD2612CD15C60003D86E /* proxy-configuration.h */,
 				1575FD2512CD15C60003D86E /* proxy-configuration.c */,
-				F97289D122652CE600080596 /* serviceIDNumber.c */,
-				F97289D222652CE600080596 /* serviceIDNumber.h */,
 				155D22390AF13A7300D52ED0 /* set-hostname.h */,
 				159D53AB07528B36004F8947 /* set-hostname.c */,
 				155D223A0AF13A7300D52ED0 /* smb-configuration.h */,
@@ -6571,7 +6564,6 @@
 				155281020E3E4A0F00C54315 /* ip_plugin.c in Sources */,
 				E4F211D3137B0AB900BBB915 /* network_state_information_priv.c in Sources */,
 				153ACCA914E322D5005029A5 /* network_information_server.c in Sources */,
-				F97289D322652D0600080596 /* serviceIDNumber.c in Sources */,
 				1575FD2712CD15C60003D86E /* proxy-configuration.c in Sources */,
 				157A84FC0D56C7E800B6F1A0 /* set-hostname.c in Sources */,
 				1501F76A1EA8019D006A71B0 /* nat64-configuration.c in Sources */,
@@ -6707,7 +6699,6 @@
 				F9B7AE6A186211D300C78D18 /* IPMonitorControlServer.c in Sources */,
 				F9D7305320E4211900521181 /* IPMonitorAWDReport.m in Sources */,
 				F9D7305220E4211900521181 /* AWDIPMonitorInterfaceAdvisoryReport.m in Sources */,
-				F97289D422652D0A00080596 /* serviceIDNumber.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6940,7 +6931,6 @@
 				159FFD612110EA71009311DD /* dnsinfo_flatfile.c in Sources */,
 				15E1B04D16EBAE3C00E5F06F /* dnsinfo_server.c in Sources */,
 				15E1B04E16EBAE3C00E5F06F /* ip_plugin.c in Sources */,
-				F97289D522652D0D00080596 /* serviceIDNumber.c in Sources */,
 				15E1B04F16EBAE3C00E5F06F /* network_state_information_priv.c in Sources */,
 				15E1B05016EBAE3C00E5F06F /* network_information_server.c in Sources */,
 				15E1B05116EBAE3C00E5F06F /* proxy-configuration.c in Sources */,

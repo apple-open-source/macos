@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2010-2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2010-2016 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,6 +14,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -43,18 +50,19 @@
 # define INADDR_NONE ((unsigned int)-1)
 #endif
 
-static struct interface_list interfaces;
+static struct interface_list interfaces = SLIST_HEAD_INITIALIZER(interfaces);
 
 /*
  * Parse a space-delimited list of IP address/netmask pairs and
- * store in a list of interface structures.
+ * store in a list of interface structures.  Returns true on
+ * success and false on parse error or memory allocation error.
  */
 bool
 set_interfaces(const char *ai)
 {
     char *addrinfo, *addr, *mask, *last;
     struct interface *ifp;
-    bool rval = false;
+    bool ret = false;
     debug_decl(set_interfaces, SUDOERS_DEBUG_NETIF)
 
     if ((addrinfo = strdup(ai)) == NULL)
@@ -67,37 +75,48 @@ set_interfaces(const char *ai)
 
 	/* Parse addr and store in list. */
 	if ((ifp = calloc(1, sizeof(*ifp))) == NULL) {
-	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		"unable to allocate memory");
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    goto done;
 	}
 	if (strchr(addr, ':')) {
 	    /* IPv6 */
 #ifdef HAVE_STRUCT_IN6_ADDR
 	    ifp->family = AF_INET6;
-	    if (inet_pton(AF_INET6, addr, &ifp->addr.ip6) != 1 ||
-		inet_pton(AF_INET6, mask, &ifp->netmask.ip6) != 1)
-#endif
-	    {
+	    if (inet_pton(AF_INET6, addr, &ifp->addr.ip6) != 1) {
+		sudo_warnx(U_("unable to parse IP address \"%s\""), addr);
 		free(ifp);
-		continue;
+		goto done;
 	    }
+	    if (inet_pton(AF_INET6, mask, &ifp->netmask.ip6) != 1) {
+		sudo_warnx(U_("unable to parse netmask \"%s\""), mask);
+		free(ifp);
+		goto done;
+	    }
+#else
+	    free(ifp);
+	    continue;
+#endif
 	} else {
 	    /* IPv4 */
 	    ifp->family = AF_INET;
-	    if (inet_pton(AF_INET, addr, &ifp->addr.ip4) != 1 ||
-		inet_pton(AF_INET, mask, &ifp->netmask.ip4) != 1) {
+	    if (inet_pton(AF_INET, addr, &ifp->addr.ip4) != 1) {
+		sudo_warnx(U_("unable to parse IP address \"%s\""), addr);
 		free(ifp);
-		continue;
+		goto done;
+	    }
+	    if (inet_pton(AF_INET, mask, &ifp->netmask.ip4) != 1) {
+		sudo_warnx(U_("unable to parse netmask \"%s\""), mask);
+		free(ifp);
+		goto done;
 	    }
 	}
 	SLIST_INSERT_HEAD(&interfaces, ifp, entries);
     }
-    rval = true;
+    ret = true;
 
 done:
     free(addrinfo);
-    debug_return_bool(rval);
+    debug_return_bool(ret);
 }
 
 struct interface_list *

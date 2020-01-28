@@ -1,5 +1,7 @@
 #
-# Copyright (c) 2011-2014 Todd C. Miller <Todd.Miller@courtesan.com>
+# SPDX-License-Identifier: ISC
+#
+# Copyright (c) 2011-2015, 2017-2018 Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -12,7 +14,6 @@
 # WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # include/Makefile.  Generated from Makefile.in by configure.
 #
@@ -49,8 +50,10 @@ SHELL = /bin/sh
 
 all:
 
+depend:
+
 Makefile: $(srcdir)/Makefile.in
-	(cd $(top_builddir) && ./config.status --file include/Makefile)
+	cd $(top_builddir) && ./config.status --file include/Makefile
 
 .SUFFIXES: .h
 
@@ -76,6 +79,10 @@ uninstall:
 splint:
 
 cppcheck:
+
+pvs-log-files:
+
+pvs-studio:
 
 check:
 

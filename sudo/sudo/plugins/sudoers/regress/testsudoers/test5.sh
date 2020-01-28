@@ -3,6 +3,9 @@
 # Test sudoers file mode check
 #
 
+# Avoid warnings about memory leaks when there is a syntax error
+ASAN_OPTIONS=detect_leaks=0; export ASAN_OPTIONS
+
 # Create test file
 TESTFILE=`pwd`/regress/testsudoers/test5.inc
 cat >$TESTFILE <<EOF
@@ -21,7 +24,7 @@ EOF
 
 # Test group writable
 chmod 664 $TESTFILE
-./testsudoers -U $MYUID -G -1 root id <<EOF
+./testsudoers -U $MYUID -G -2 root id <<EOF
 #include $TESTFILE
 EOF
 

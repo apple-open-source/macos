@@ -1,6 +1,8 @@
 /*
- * Copyright (c) 1999-2005, 2008-2013
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 1999-2005, 2008-2018
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -22,7 +24,9 @@
 #ifndef SUDOERS_DEFAULTS_H
 #define SUDOERS_DEFAULTS_H
 
+#include <time.h>
 #include <def_data.h>
+#include "sudo_queue.h"
 
 struct list_member {
     SLIST_ENTRY(list_member) entries;
@@ -43,6 +47,17 @@ struct def_values {
     enum def_tuple nval;/* numeric value */
 };
 
+union sudo_defs_val {
+    int flag;
+    int ival;
+    unsigned int uival;
+    enum def_tuple tuple;
+    char *str;
+    mode_t mode;
+    struct timespec tspec;
+    struct list_members list;
+};
+
 /*
  * Structure describing compile-time and run-time options.
  */
@@ -51,22 +66,21 @@ struct sudo_defs_types {
     int type;
     char *desc;
     struct def_values *values;
-    bool (*callback)(const char *);
-    union {
-	int flag;
-	int ival;
-	unsigned int uival;
-	double fval;
-	enum def_tuple tuple;
-	char *str;
-	mode_t mode;
-	struct list_members list;
-    } sd_un;
+    bool (*callback)(const union sudo_defs_val *);
+    union sudo_defs_val sd_un;
+};
+
+/*
+ * Defaults values to apply before others.
+ */
+struct early_default {
+    short idx;
+    short run_callback;
 };
 
 /*
  * Four types of defaults: strings, integers, and flags.
- * Also, T_INT, T_FLOAT or T_STR may be ANDed with T_BOOL to indicate that
+ * Also, T_INT, T_TIMESPEC or T_STR may be ANDed with T_BOOL to indicate that
  * a value is not required.  Flags are boolean by nature...
  */
 #undef T_INT
@@ -87,8 +101,10 @@ struct sudo_defs_types {
 #define T_LOGPRI	0x008
 #undef T_TUPLE
 #define T_TUPLE		0x009
-#undef T_FLOAT
-#define T_FLOAT		0x010
+#undef T_TIMESPEC
+#define T_TIMESPEC	0x010
+#undef T_TIMEOUT
+#define T_TIMEOUT	0x020
 #undef T_MASK
 #define T_MASK		0x0FF
 #undef T_BOOL
@@ -97,7 +113,7 @@ struct sudo_defs_types {
 #define T_PATH		0x200
 
 /*
- * Argument to update_defaults() and check_defaults()
+ * Argument to update_defaults()
  */
 #define SETDEF_GENERIC	0x01
 #define	SETDEF_HOST	0x02
@@ -109,11 +125,16 @@ struct sudo_defs_types {
 /*
  * Prototypes
  */
+struct defaults_list;
+struct sudoers_parse_tree;
 void dump_default(void);
 bool init_defaults(void);
-bool set_default(char *var, char *val, int op);
-bool update_defaults(int what);
-bool check_defaults(int what, bool quiet);
+struct early_default *is_early_default(const char *name);
+bool run_early_defaults(void);
+bool set_early_default(const char *var, const char *val, int op, const char *file, int lineno, bool quiet, struct early_default *early);
+bool set_default(const char *var, const char *val, int op, const char *file, int lineno, bool quiet);
+bool update_defaults(struct sudoers_parse_tree *parse_tree, struct defaults_list *defs, int what, bool quiet);
+bool check_defaults(struct sudoers_parse_tree *parse_tree, bool quiet);
 
 extern struct sudo_defs_types sudo_defs_table[];
 

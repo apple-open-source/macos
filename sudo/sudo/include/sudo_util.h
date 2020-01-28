@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2013-2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2013-2018 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -22,6 +24,14 @@
 #else
 # include "compat/stdbool.h"
 #endif /* HAVE_STDBOOL_H */
+
+#ifndef TIME_T_MAX
+# if SIZEOF_TIME_T == 8
+#  define TIME_T_MAX	LLONG_MAX
+# else
+#  define TIME_T_MAX	INT_MAX
+# endif
+#endif
 
 /*
  * Macros for operating on struct timeval.
@@ -128,15 +138,24 @@
 # else
 #  define mtim_get(_x, _y)	do { (_y).tv_sec = (_x)->SUDO_ST_MTIM.tv_sec; (_y).tv_nsec = ((_x)->SUDO_ST_MTIM.tv_nsec / 1000) * 1000; } while (0)
 # endif
+#elif defined(HAVE_ST_NMTIME)
+# define mtim_get(_x, _y)	do { (_y).tv_sec = (_x)->st_mtime; (_y).tv_nsec = (_x)->st_nmtime; } while (0)
 #else
 # define mtim_get(_x, _y)	do { (_y).tv_sec = (_x)->st_mtime; (_y).tv_nsec = 0; } while (0)
 #endif /* HAVE_ST_MTIM */
+
+/* sizeof() that returns a signed value */
+#define ssizeof(_x)	((ssize_t)sizeof(_x))
 
 /* Bit map macros. */
 #define sudo_setbit(_a, _i)	((_a)[(_i) / NBBY] |= 1 << ((_i) % NBBY))
 #define sudo_clrbit(_a, _i)	((_a)[(_i) / NBBY] &= ~(1<<((_i) % NBBY)))
 #define sudo_isset(_a, _i)	((_a)[(_i) / NBBY] & (1<<((_i) % NBBY)))
 #define sudo_isclr(_a, _i)	(((_a)[(_i) / NBBY] & (1<<((_i) % NBBY))) == 0)
+
+/* sudo_parseln() flags */
+#define PARSELN_COMM_BOL	0x01	/* comments only at begining of line */
+#define PARSELN_CONT_IGN	0x02	/* ignore line continuation char */
 
 /*
  * Macros to quiet gcc's warn_unused_result attribute.
@@ -166,6 +185,8 @@ __dso_public char *sudo_gethostname_v1(void);
 #define sudo_gethostname() sudo_gethostname_v1()
 
 /* gettime.c */
+__dso_public int sudo_gettime_awake_v1(struct timespec *ts);
+#define sudo_gettime_awake(_a) sudo_gettime_awake_v1((_a))
 __dso_public int sudo_gettime_mono_v1(struct timespec *ts);
 #define sudo_gettime_mono(_a) sudo_gettime_mono_v1((_a))
 __dso_public int sudo_gettime_real_v1(struct timespec *ts);
@@ -174,6 +195,10 @@ __dso_public int sudo_gettime_real_v1(struct timespec *ts);
 /* gidlist.c */
 __dso_public int sudo_parse_gids_v1(const char *gidstr, const gid_t *basegid, GETGROUPS_T **gidsp);
 #define sudo_parse_gids(_a, _b, _c) sudo_parse_gids_v1((_a), (_b), (_c))
+
+/* getgrouplist.c */
+__dso_public int sudo_getgrouplist2_v1(const char *name, gid_t basegid, GETGROUPS_T **groupsp, int *ngroupsp);
+#define sudo_getgrouplist2(_a, _b, _c, _d) sudo_getgrouplist2_v1((_a), (_b), (_c), (_d))
 
 /* key_val.c */
 __dso_public char *sudo_new_key_val_v1(const char *key, const char *value);
@@ -190,7 +215,8 @@ __dso_public bool sudo_lock_region_v1(int fd, int action, off_t len);
 
 /* parseln.c */
 __dso_public ssize_t sudo_parseln_v1(char **buf, size_t *bufsize, unsigned int *lineno, FILE *fp);
-#define sudo_parseln(_a, _b, _c, _d) sudo_parseln_v1((_a), (_b), (_c), (_d))
+__dso_public ssize_t sudo_parseln_v2(char **buf, size_t *bufsize, unsigned int *lineno, FILE *fp, int flags);
+#define sudo_parseln(_a, _b, _c, _d, _e) sudo_parseln_v2((_a), (_b), (_c), (_d), (_e))
 
 /* progname.c */
 __dso_public void initprogname(const char *);
@@ -220,9 +246,16 @@ __dso_public const char *sudo_strsplit_v1(const char *str, const char *endstr, c
 __dso_public int sudo_strtobool_v1(const char *str);
 #define sudo_strtobool(_a) sudo_strtobool_v1((_a))
 
+/* strtonum.c */
+/* Not versioned for historical reasons. */
+__dso_public long long sudo_strtonum(const char *, long long, long long, const char **);
+
 /* strtoid.c */
 __dso_public id_t sudo_strtoid_v1(const char *str, const char *sep, char **endp, const char **errstr);
-#define sudo_strtoid(_a, _b, _c, _d) sudo_strtoid_v1((_a), (_b), (_c), (_d))
+__dso_public id_t sudo_strtoid_v2(const char *str, const char **errstr);
+#define sudo_strtoid(_a, _b) sudo_strtoid_v2((_a), (_b))
+__dso_public id_t sudo_strtoidx_v1(const char *str, const char *sep, char **endp, const char **errstr);
+#define sudo_strtoidx(_a, _b, _c, _d) sudo_strtoidx_v1((_a), (_b), (_c), (_d))
 
 /* strtomode.c */
 __dso_public int sudo_strtomode_v1(const char *cp, const char **errstr);
@@ -242,6 +275,10 @@ __dso_public bool sudo_term_raw_v1(int fd, int isig);
 #define sudo_term_raw(_a, _b) sudo_term_raw_v1((_a), (_b))
 __dso_public bool sudo_term_restore_v1(int fd, bool flush);
 #define sudo_term_restore(_a, _b) sudo_term_restore_v1((_a), (_b))
+
+/* ttyname_dev.c */
+__dso_public char *sudo_ttyname_dev_v1(dev_t tdev, char *name, size_t namelen);
+#define sudo_ttyname_dev(_a, _b, _c) sudo_ttyname_dev_v1((_a), (_b), (_c))
 
 /* ttysize.c */
 __dso_public void sudo_get_ttysize_v1(int *rowp, int *colp);

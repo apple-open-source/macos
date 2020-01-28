@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2013-2014 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2013-2015, 2019 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,6 +14,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -34,41 +41,10 @@
 #include "sudo_gettext.h"	/* must be included before sudo_compat.h */
 
 #include "sudo_compat.h"
-
-#ifdef HAVE_STRTONUM
-
-/*
- * The OpenBSD strtonum error string too short to be translated sensibly.
- * This wrapper just changes errstr as follows:
- *  invalid -> invalid value
- *  too large -> value too large
- *  too small -> value too small
- */
-long long
-sudo_strtonum(const char *str, long long minval, long long maxval,
-    const char **errstrp)
-{
-    long long retval;
-    const char *errstr;
-
-# undef strtonum
-    retval = strtonum(str, minval, maxval, &errstr);
-    if (errstr != NULL) {
-	if (errno == EINVAL) {
-	    errstr = N_("invalid value");
-	} else if (errno == ERANGE) {
-	    errstr = strcmp(errstr, "too large") == 0 ?
-		N_("value too large") : N_("value too small");
-	}
-    }
-    if (errstrp != NULL)
-	*errstrp = errstr;
-    return retval;
-}
-
-#else
+#include "sudo_util.h"
 
 enum strtonum_err {
+    STN_INITIAL,
     STN_VALID,
     STN_INVALID,
     STN_TOOSMALL,
@@ -77,16 +53,18 @@ enum strtonum_err {
 
 /*
  * Convert a string to a number in the range [minval, maxval]
+ * Unlike strtonum(), this returns the first non-digit in endp (if not NULL).
  */
 long long
-sudo_strtonum(const char *str, long long minval, long long maxval,
+sudo_strtonumx(const char *str, long long minval, long long maxval, char **endp,
     const char **errstrp)
 {
-    const unsigned char *ustr = (const unsigned char *)str;
-    enum strtonum_err errval = STN_VALID;
+    enum strtonum_err errval = STN_INITIAL;
     long long lastval, result = 0;
-    unsigned char dig, sign;
+    const char *cp = str;
+    unsigned char ch;
     int remainder;
+    char sign;
 
     if (minval > maxval) {
 	errval = STN_INVALID;
@@ -94,16 +72,16 @@ sudo_strtonum(const char *str, long long minval, long long maxval,
     }
 
     /* Trim leading space and check sign, if any. */
-    while (isspace(*ustr)) {
-	ustr++;
-    }
-    switch (*ustr) {
+    do {
+	ch = *cp++;
+    } while (isspace(ch));
+    switch (ch) {
     case '-':
 	sign = '-';
-	ustr++;
+	ch = *cp++;
 	break;
     case '+':
-	ustr++;
+	ch = *cp++;
 	/* FALLTHROUGH */
     default:
 	sign = '+';
@@ -126,18 +104,21 @@ sudo_strtonum(const char *str, long long minval, long long maxval,
 	    lastval += 1;
 	    remainder += 10;
 	}
-	while ((dig = *ustr++) != '\0') {
-	    if (!isdigit(dig)) {
-		errval = STN_INVALID;
+	for (;; ch = *cp++) {
+	    if (!isdigit(ch))
 		break;
-	    }
-	    dig -= '0';
-	    if (result < lastval || (result == lastval && dig > remainder)) {
+	    ch -= '0';
+	    if (result < lastval || (result == lastval && ch > remainder)) {
+		/* Skip remaining digits. */
+		do {
+		    ch = *cp++;
+		} while (isdigit(ch));
 		errval = STN_TOOSMALL;
 		break;
 	    } else {
 		result *= 10;
-		result -= dig;
+		result -= ch;
+		errval = STN_VALID;
 	    }
 	}
 	if (result > maxval)
@@ -145,18 +126,21 @@ sudo_strtonum(const char *str, long long minval, long long maxval,
     } else {
 	lastval = maxval / 10;
 	remainder = maxval % 10;
-	while ((dig = *ustr++) != '\0') {
-	    if (!isdigit(dig)) {
-		errval = STN_INVALID;
+	for (;; ch = *cp++) {
+	    if (!isdigit(ch))
 		break;
-	    }
-	    dig -= '0';
-	    if (result > lastval || (result == lastval && dig > remainder)) {
+	    ch -= '0';
+	    if (result > lastval || (result == lastval && ch > remainder)) {
+		/* Skip remaining digits. */
+		do {
+		    ch = *cp++;
+		} while (isdigit(ch));
 		errval = STN_TOOBIG;
 		break;
 	    } else {
 		result *= 10;
-		result += dig;
+		result += ch;
+		errval = STN_VALID;
 	    }
 	}
 	if (result < minval)
@@ -165,6 +149,7 @@ sudo_strtonum(const char *str, long long minval, long long maxval,
 
 done:
     switch (errval) {
+    case STN_INITIAL:
     case STN_VALID:
 	if (errstrp != NULL)
 	    *errstrp = NULL;
@@ -188,6 +173,34 @@ done:
 	    *errstrp = N_("value too large");
 	break;
     }
+    if (endp != NULL) {
+	if (errval == STN_INITIAL || errval == STN_INVALID)
+	    *endp = (char *)str;
+	else
+	    *endp = (char *)(cp - 1);
+    }
     return result;
 }
-#endif /* HAVE_STRTONUM */
+
+/*
+ * Convert a string to a number in the range [minval, maxval]
+ */
+long long
+sudo_strtonum(const char *str, long long minval, long long maxval,
+    const char **errstrp)
+{
+    const char *errstr;
+    char *ep;
+    long long ret;
+
+    ret = sudo_strtonumx(str, minval, maxval, &ep, &errstr);
+    /* Check for empty string and terminating NUL. */
+    if (str == ep || *ep != '\0') {
+	errno = EINVAL;
+	errstr = N_("invalid value");
+	ret = 0;
+    }
+    if (errstrp != NULL)
+	*errstrp = errstr;
+    return ret;
+}

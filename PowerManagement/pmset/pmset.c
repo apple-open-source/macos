@@ -118,7 +118,9 @@
 #define ARG_DARKWAKES       "darkwakes"
 #define ARG_POWERNAP        "powernap"
 #define ARG_RESTOREDEFAULTS "restoredefaults"
-
+#if TARGET_OS_OSX
+#define ARG_VACT            "vact-disable"
+#endif // TARGET_OS_OSX
 
 // Scheduling options
 #define ARG_SCHEDULE        "schedule"
@@ -305,6 +307,9 @@ PMFeature all_features[] =
     { kIOPMTCPKeepAlivePrefKey,     ARG_TCPKEEPALIVE },
     { kIOPMAutoPowerOffDelayKey,    ARG_AUTOPOWEROFFDELAY },
     { kIOPMProximityDarkWakeKey,    ARG_PROXIMITYWAKE },
+#if TARGET_OS_OSX
+    { kIOPMVact,                    ARG_VACT },
+#endif // TARGET_OS_OSX
 };
 
 #define kNUM_PM_FEATURES    (sizeof(all_features)/sizeof(PMFeature))
@@ -5286,6 +5291,20 @@ static int parseArgs(int argc,
                 }
                 modified |= kModSettings;
                 i+=2;
+#if TARGET_OS_OSX
+            } else if(0 == strncmp(argv[i], ARG_VACT, kMaxArgStringLength))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1],
+                                             CFSTR(kIOPMVact),
+                                             apply, true, kNoMultiplier,
+                                             ac, battery, ups))
+                {
+                    ret = kParseBadArgs;
+                    goto exit;
+                }
+                modified |= kModSettings;
+                i+=2;
+#endif // TARGET_OS_OSX
             } else if(0 == strncmp(argv[i], ARG_WOMP, kMaxArgStringLength))
             {
                 if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMWakeOnLANKey),

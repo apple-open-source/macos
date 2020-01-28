@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2011-2013 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -87,10 +89,10 @@ main(int argc, char *argv[])
 		dash = strchr(cp, '-');
 		if (dash != NULL) {
 		    *dash = '\0';
-		    len = strtonum(cp, 1, INT_MAX, NULL);
-		    maxlen = strtonum(dash + 1, 1, INT_MAX, NULL);
+		    len = sudo_strtonum(cp, 1, INT_MAX, NULL);
+		    maxlen = sudo_strtonum(dash + 1, 1, INT_MAX, NULL);
 		} else {
-		    len = maxlen = strtonum(cp, 1, INT_MAX, NULL);
+		    len = maxlen = sudo_strtonum(cp, 1, INT_MAX, NULL);
 		}
 		if (len == 0 || maxlen == 0)
 		    sudo_fatalx("%s: invalid length on line %d\n", argv[1], lineno);

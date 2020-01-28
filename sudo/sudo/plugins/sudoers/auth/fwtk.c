@@ -1,6 +1,8 @@
 /*
+ * SPDX-License-Identifier: ISC
+ *
  * Copyright (c) 1999-2005, 2008, 2010-2015
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,6 +19,11 @@
  * Sponsored in part by the Defense Advanced Research Projects
  * Agency (DARPA) and Air Force Research Laboratory, Air Force
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -91,20 +98,18 @@ restart:
     /* Get the password/response from the user. */
     if (strncmp(resp, "challenge ", 10) == 0) {
 	(void) snprintf(buf, sizeof(buf), "%s\nResponse: ", &resp[10]);
-	pass = auth_getpass(buf, def_passwd_timeout * 60, SUDO_CONV_PROMPT_ECHO_OFF, callback);
+	pass = auth_getpass(buf, SUDO_CONV_PROMPT_ECHO_OFF, callback);
 	if (pass && *pass == '\0') {
 	    free(pass);
 	    pass = auth_getpass("Response [echo on]: ",
-		def_passwd_timeout * 60, SUDO_CONV_PROMPT_ECHO_ON, callback);
+		SUDO_CONV_PROMPT_ECHO_ON, callback);
 	}
     } else if (strncmp(resp, "chalnecho ", 10) == 0) {
-	pass = auth_getpass(&resp[10], def_passwd_timeout * 60,
-	    SUDO_CONV_PROMPT_ECHO_OFF, callback);
+	pass = auth_getpass(&resp[10], SUDO_CONV_PROMPT_ECHO_OFF, callback);
     } else if (strncmp(resp, "password", 8) == 0) {
-	pass = auth_getpass(prompt, def_passwd_timeout * 60,
-	    SUDO_CONV_PROMPT_ECHO_OFF, callback);
+	pass = auth_getpass(prompt, SUDO_CONV_PROMPT_ECHO_OFF, callback);
     } else if (strncmp(resp, "display ", 8) == 0) {
-	sudo_printf(SUDO_CONV_INFO_MSG, "%s\n", &resp[8]);
+	sudo_printf(SUDO_CONV_INFO_MSG|SUDO_CONV_PREFER_TTY, "%s\n", &resp[8]);
 	strlcpy(buf, "response dummy", sizeof(buf));
 	goto restart;
     } else {

@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 1993-1996, 1998-2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 1993-1996, 1998-2017 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,6 +20,11 @@
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
 #include <config.h>
 
 #include <sys/types.h>
@@ -34,6 +41,7 @@
 #include <ctype.h>
 #include <grp.h>
 #include <pwd.h>
+#include <assert.h>
 
 #include <sudo_usage.h>
 #include "sudo.h"
@@ -101,8 +109,16 @@ static struct sudo_settings sudo_settings[] = {
     { "plugin_dir" },
 #define ARG_REMOTE_HOST 21
     { "remote_host" },
-#define NUM_SETTINGS 22
+#define ARG_TIMEOUT 22
+    { "timeout" },
+#define NUM_SETTINGS 23
     { NULL }
+};
+
+struct environment {
+    char **envp;		/* pointer to the new environment */
+    size_t env_size;		/* size of new_environ in char **'s */
+    size_t env_len;		/* number of slots used, not counting NULL */
 };
 
 /*
@@ -118,14 +134,15 @@ static struct sudo_settings sudo_settings[] = {
  * Note that we must disable arg permutation to support setting environment
  * variables and to better support the optional arg of the -h flag.
  */
-static const char short_opts[] =  "+Aa:bC:c:D:Eeg:Hh::iKklnPp:r:Sst:U:u:Vv";
+static const char short_opts[] =  "+Aa:BbC:c:D:Eeg:Hh::iKklnPp:r:SsT:t:U:u:Vv";
 static struct option long_opts[] = {
     { "askpass",	no_argument,		NULL,	'A' },
     { "auth-type",	required_argument,	NULL,	'a' },
     { "background",	no_argument,		NULL,	'b' },
+    { "bell",	        no_argument,		NULL,	'B' },
     { "close-from",	required_argument,	NULL,	'C' },
     { "login-class",	required_argument,	NULL,	'c' },
-    { "preserve-env",	no_argument,		NULL,	'E' },
+    { "preserve-env",	optional_argument,	NULL,	'E' },
     { "edit",		no_argument,		NULL,	'e' },
     { "group",		required_argument,	NULL,	'g' },
     { "set-home",	no_argument,		NULL,	'H' },
@@ -142,12 +159,80 @@ static struct option long_opts[] = {
     { "stdin",		no_argument,		NULL,	'S' },
     { "shell",		no_argument,		NULL,	's' },
     { "type",		required_argument,	NULL,	't' },
+    { "command-timeout",required_argument,	NULL,	'T' },
     { "other-user",	required_argument,	NULL,	'U' },
     { "user",		required_argument,	NULL,	'u' },
     { "version",	no_argument,		NULL,	'V' },
     { "validate",	no_argument,		NULL,	'v' },
     { NULL,		no_argument,		NULL,	'\0' },
 };
+
+/*
+ * Insert a key=value pair into the specified environment.
+ */
+static void
+env_insert(struct environment *e, char *pair)
+{
+    debug_decl(env_insert, SUDO_DEBUG_ARGS)
+
+    /* Make sure we have at least two slots free (one for NULL). */
+    if (e->env_len + 1 >= e->env_size) {
+	char **tmp;
+
+	if (e->env_size == 0)
+	    e->env_size = 16;
+	tmp = reallocarray(e->envp, e->env_size, 2 * sizeof(char *));
+	if (tmp == NULL)
+	    sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+	e->envp = tmp;
+	e->env_size *= 2;
+    }
+    e->envp[e->env_len++] = pair;
+    e->envp[e->env_len] = NULL;
+
+    debug_return;
+}
+
+/*
+ * Format as var=val and insert into the specified environment.
+ */
+static void
+env_set(struct environment *e, char *var, char *val)
+{
+    char *pair;
+    debug_decl(env_set, SUDO_DEBUG_ARGS)
+
+    pair = sudo_new_key_val(var, val);
+    if (pair == NULL) {
+	sudo_fatalx(U_("%s: %s"),
+	    __func__, U_("unable to allocate memory"));
+    }
+    env_insert(e, pair);
+
+    debug_return;
+}
+
+/*
+ * Parse a comma-separated list of env vars and add to the
+ * specified environment.
+ */
+static void
+parse_env_list(struct environment *e, char *list)
+{
+    char *cp, *last, *val;
+    debug_decl(parse_env_list, SUDO_DEBUG_ARGS)
+
+    for ((cp = strtok_r(list, ",", &last)); cp != NULL;
+	(cp = strtok_r(NULL, ",", &last))) {
+	if (strchr(cp, '=') != NULL) {
+	    sudo_warnx(U_("invalid environment variable name: %s"), cp);
+	    usage(1);
+	}
+	if ((val = getenv(cp)) != NULL)
+	    env_set(e, cp, val);
+    }
+    debug_return;
+}
 
 /*
  * Command line argument parsing.
@@ -158,26 +243,21 @@ int
 parse_args(int argc, char **argv, int *nargc, char ***nargv,
     struct sudo_settings **settingsp, char ***env_addp)
 {
+    struct environment extra_env;
     int mode = 0;		/* what mode is sudo to be run in? */
     int flags = 0;		/* mode flags */
     int valid_flags = DEFAULT_VALID_FLAGS;
     int ch, i;
-    char *cp, **env_add;
+    char *cp;
     const char *runas_user = NULL;
     const char *runas_group = NULL;
     const char *progname;
     int proglen;
-    int nenv = 0;
-    int env_size = 32;
     debug_decl(parse_args, SUDO_DEBUG_ARGS)
 
     /* Is someone trying something funny? */
     if (argc <= 0)
 	usage(1);
-
-    env_add = reallocarray(NULL, env_size, sizeof(char *));
-    if (env_add == NULL)
-	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 
     /* Pass progname to plugin so it can call initprogname() */
     progname = getprogname();
@@ -215,6 +295,9 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
 #define is_envar (optind < argc && argv[optind][0] != '/' && \
 	    strchr(argv[optind], '=') != NULL)
 
+    /* Space for environment variables is lazy allocated. */
+    memset(&extra_env, 0, sizeof(extra_env));
+
     /* XXX - should fill in settings at the end to avoid dupes */
     for (;;) {
 	/*
@@ -228,21 +311,31 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
 		    break;
 #ifdef HAVE_BSD_AUTH_H
 		case 'a':
+		    assert(optarg != NULL);
+		    if (*optarg == '\0')
+			usage(1);
 		    sudo_settings[ARG_BSDAUTH_TYPE].value = optarg;
 		    break;
 #endif
 		case 'b':
 		    SET(flags, MODE_BACKGROUND);
 		    break;
+		case 'B':
+		    SET(tgetpass_flags, TGP_BELL);
+		    break;
 		case 'C':
-		    if (strtonum(optarg, 3, INT_MAX, NULL) == 0) {
-			sudo_warnx(_("the argument to -C must be a number greater than or equal to 3"));
+		    assert(optarg != NULL);
+		    if (sudo_strtonum(optarg, 3, INT_MAX, NULL) == 0) {
+			sudo_warnx(U_("the argument to -C must be a number greater than or equal to 3"));
 			usage(1);
 		    }
 		    sudo_settings[ARG_CLOSEFROM].value = optarg;
 		    break;
 #ifdef HAVE_LOGIN_CAP_H
 		case 'c':
+		    assert(optarg != NULL);
+		    if (*optarg == '\0')
+			usage(1);
 		    sudo_settings[ARG_LOGIN_CLASS].value = optarg;
 		    break;
 #endif
@@ -250,7 +343,17 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
 		    /* Ignored for backwards compatibility. */
 		    break;
 		case 'E':
-		    sudo_settings[ARG_PRESERVE_ENVIRONMENT].value = "true";
+		    /*
+		     * Optional argument is a comma-separated list of
+		     * environment variables to preserve.
+		     * If not present, preserve everything.
+		     */
+		    if (optarg == NULL) {
+			sudo_settings[ARG_PRESERVE_ENVIRONMENT].value = "true";
+			SET(flags, MODE_PRESERVE_ENV);
+		    } else {
+			parse_env_list(&extra_env, optarg);
+		    }
 		    break;
 		case 'e':
 		    if (mode && mode != MODE_EDIT)
@@ -260,6 +363,9 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
 		    valid_flags = MODE_NONINTERACTIVE;
 		    break;
 		case 'g':
+		    assert(optarg != NULL);
+		    if (*optarg == '\0')
+			usage(1);
 		    runas_group = optarg;
 		    sudo_settings[ARG_RUNAS_GROUP].value = optarg;
 		    break;
@@ -288,6 +394,9 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
 		    }
 		    /* FALLTHROUGH */
 		case OPT_HOSTNAME:
+		    assert(optarg != NULL);
+		    if (*optarg == '\0')
+			usage(1);
 		    sudo_settings[ARG_REMOTE_HOST].value = optarg;
 		    break;
 		case 'i':
@@ -322,16 +431,29 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
 		    sudo_settings[ARG_PRESERVE_GROUPS].value = "true";
 		    break;
 		case 'p':
+		    /* An empty prompt is allowed. */
+		    assert(optarg != NULL);
 		    sudo_settings[ARG_PROMPT].value = optarg;
 		    break;
 #ifdef HAVE_SELINUX
 		case 'r':
+		    assert(optarg != NULL);
+		    if (*optarg == '\0')
+			usage(1);
 		    sudo_settings[ARG_SELINUX_ROLE].value = optarg;
 		    break;
 		case 't':
+		    assert(optarg != NULL);
+		    if (*optarg == '\0')
+			usage(1);
 		    sudo_settings[ARG_SELINUX_TYPE].value = optarg;
 		    break;
 #endif
+		case 'T':
+		    /* Plugin determines whether empty timeout is allowed. */
+		    assert(optarg != NULL);
+		    sudo_settings[ARG_TIMEOUT].value = optarg;
+		    break;
 		case 'S':
 		    SET(tgetpass_flags, TGP_STDIN);
 		    break;
@@ -340,9 +462,15 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
 		    SET(flags, MODE_SHELL);
 		    break;
 		case 'U':
+		    assert(optarg != NULL);
+		    if (*optarg == '\0')
+			usage(1);
 		    list_user = optarg;
 		    break;
 		case 'u':
+		    assert(optarg != NULL);
+		    if (*optarg == '\0')
+			usage(1);
 		    runas_user = optarg;
 		    sudo_settings[ARG_RUNAS_USER].value = optarg;
 		    break;
@@ -362,25 +490,14 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
 		    usage(1);
 	    }
 	} else if (!got_end_of_args && is_envar) {
-	    if (nenv == env_size - 2) {
-		char **tmp;
-
-		tmp = reallocarray(env_add, env_size, 2 * sizeof(char *));
-		if (tmp == NULL)
-		    sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-		env_add = tmp;
-		env_size *= 2;
-	    }
-	    env_add[nenv++] = argv[optind];
-
-	    /* Crank optind and resume getopt. */
+	    /* Insert key=value pair, crank optind and resume getopt. */
+	    env_insert(&extra_env, argv[optind]);
 	    optind++;
 	} else {
 	    /* Not an option or an environment variable -- we're done. */
 	    break;
 	}
     }
-    env_add[nenv] = NULL;
 
     argc -= optind;
     argv += optind;
@@ -415,10 +532,10 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
     if ((flags & valid_flags) != flags)
 	usage(1);
     if (mode == MODE_EDIT &&
-       (ISSET(flags, MODE_PRESERVE_ENV) || env_add[0] != NULL)) {
+       (ISSET(flags, MODE_PRESERVE_ENV) || extra_env.env_len != 0)) {
 	if (ISSET(mode, MODE_PRESERVE_ENV))
 	    sudo_warnx(U_("the `-E' option is not valid in edit mode"));
-	if (env_add[0] != NULL)
+	if (extra_env.env_len != 0)
 	    sudo_warnx(U_("you may not specify environment variables in edit mode"));
 	usage(1);
     }
@@ -441,7 +558,7 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
 	SET(flags, (MODE_IMPLIED_SHELL | MODE_SHELL));
 	sudo_settings[ARG_IMPLIED_SHELL].value = "true";
     }
-#ifdef _PATH_SUDO_PLUGIN_DIR
+#ifdef ENABLE_SUDO_PLUGIN_API
     sudo_settings[ARG_PLUGIN_DIR].value = sudo_conf_plugin_dir_path();
 #endif
 
@@ -464,6 +581,9 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
 	    cmnd = dst = reallocarray(NULL, cmnd_size, 2);
 	    if (cmnd == NULL)
 		sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+	    if (!gc_add(GC_PTR, cmnd))
+		exit(1);
+
 	    for (av = argv; *av != NULL; av++) {
 		for (src = *av; *src != '\0'; src++) {
 		    /* quote potential meta characters */
@@ -483,6 +603,9 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
 	av = reallocarray(NULL, ac + 1, sizeof(char *));
 	if (av == NULL)
 	    sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+	if (!gc_add(GC_PTR, av))
+	    exit(1);
+
 	av[0] = (char *)user_details.shell; /* plugin may override shell */
 	if (cmnd != NULL) {
 	    av[1] = "-c";
@@ -506,7 +629,7 @@ parse_args(int argc, char **argv, int *nargc, char ***nargv,
     }
 
     *settingsp = sudo_settings;
-    *env_addp = env_add;
+    *env_addp = extra_env.envp;
     *nargc = argc;
     *nargv = argv;
     debug_return_int(mode | flags);
@@ -539,7 +662,7 @@ usage(int fatal)
      * Use usage vectors appropriate to the progname.
      */
     if (strcmp(getprogname(), "sudoedit") == 0) {
-	uvec[0] = SUDO_USAGE5 + 3;
+	uvec[0] = &SUDO_USAGE5[3];
 	uvec[1] = NULL;
     } else {
 	uvec[0] = SUDO_USAGE1;
@@ -582,7 +705,7 @@ static void
 help(void)
 {
     struct sudo_lbuf lbuf;
-    const int indent = 30;
+    const int indent = 32;
     const char *pname = getprogname();
     debug_decl(help, SUDO_DEBUG_ARGS)
 
@@ -596,67 +719,73 @@ help(void)
     usage(0);
 
     sudo_lbuf_append(&lbuf, _("\nOptions:\n"));
-    sudo_lbuf_append(&lbuf, "  -A, --askpass               %s\n",
+    sudo_lbuf_append(&lbuf, "  -A, --askpass                 %s\n",
 	_("use a helper program for password prompting"));
 #ifdef HAVE_BSD_AUTH_H
-    sudo_lbuf_append(&lbuf, "  -a, --auth-type=type        %s\n",
+    sudo_lbuf_append(&lbuf, "  -a, --auth-type=type          %s\n",
 	_("use specified BSD authentication type"));
 #endif
-    sudo_lbuf_append(&lbuf, "  -b, --background            %s\n",
+    sudo_lbuf_append(&lbuf, "  -b, --background              %s\n",
 	_("run command in the background"));
-    sudo_lbuf_append(&lbuf, "  -C, --close-from=num        %s\n",
+    sudo_lbuf_append(&lbuf, "  -B, --bell                    %s\n",
+	_("ring bell when prompting"));
+    sudo_lbuf_append(&lbuf, "  -C, --close-from=num          %s\n",
 	_("close all file descriptors >= num"));
 #ifdef HAVE_LOGIN_CAP_H
-    sudo_lbuf_append(&lbuf, "  -c, --login-class=class     %s\n",
+    sudo_lbuf_append(&lbuf, "  -c, --login-class=class       %s\n",
 	_("run command with the specified BSD login class"));
 #endif
-    sudo_lbuf_append(&lbuf, "  -E, --preserve-env          %s\n",
+    sudo_lbuf_append(&lbuf, "  -E, --preserve-env            %s\n",
 	_("preserve user environment when running command"));
-    sudo_lbuf_append(&lbuf, "  -e, --edit                  %s\n",
+    sudo_lbuf_append(&lbuf, "      --preserve-env=list       %s\n",
+	_("preserve specific environment variables"));
+    sudo_lbuf_append(&lbuf, "  -e, --edit                    %s\n",
 	_("edit files instead of running a command"));
-    sudo_lbuf_append(&lbuf, "  -g, --group=group           %s\n",
+    sudo_lbuf_append(&lbuf, "  -g, --group=group             %s\n",
 	_("run command as the specified group name or ID"));
-    sudo_lbuf_append(&lbuf, "  -H, --set-home              %s\n",
+    sudo_lbuf_append(&lbuf, "  -H, --set-home                %s\n",
 	_("set HOME variable to target user's home dir"));
-    sudo_lbuf_append(&lbuf, "  -h, --help                  %s\n",
+    sudo_lbuf_append(&lbuf, "  -h, --help                    %s\n",
 	_("display help message and exit"));
-    sudo_lbuf_append(&lbuf, "  -h, --host=host             %s\n",
+    sudo_lbuf_append(&lbuf, "  -h, --host=host               %s\n",
 	_("run command on host (if supported by plugin)"));
-    sudo_lbuf_append(&lbuf, "  -i, --login                 %s\n",
+    sudo_lbuf_append(&lbuf, "  -i, --login                   %s\n",
 	_("run login shell as the target user; a command may also be specified"));
-    sudo_lbuf_append(&lbuf, "  -K, --remove-timestamp      %s\n",
+    sudo_lbuf_append(&lbuf, "  -K, --remove-timestamp        %s\n",
 	_("remove timestamp file completely"));
-    sudo_lbuf_append(&lbuf, "  -k, --reset-timestamp       %s\n",
+    sudo_lbuf_append(&lbuf, "  -k, --reset-timestamp         %s\n",
 	_("invalidate timestamp file"));
-    sudo_lbuf_append(&lbuf, "  -l, --list                  %s\n",
+    sudo_lbuf_append(&lbuf, "  -l, --list                    %s\n",
 	_("list user's privileges or check a specific command; use twice for longer format"));
-    sudo_lbuf_append(&lbuf, "  -n, --non-interactive       %s\n",
+    sudo_lbuf_append(&lbuf, "  -n, --non-interactive         %s\n",
 	_("non-interactive mode, no prompts are used"));
-    sudo_lbuf_append(&lbuf, "  -P, --preserve-groups       %s\n",
+    sudo_lbuf_append(&lbuf, "  -P, --preserve-groups         %s\n",
 	_("preserve group vector instead of setting to target's"));
-    sudo_lbuf_append(&lbuf, "  -p, --prompt=prompt         %s\n",
+    sudo_lbuf_append(&lbuf, "  -p, --prompt=prompt           %s\n",
 	_("use the specified password prompt"));
 #ifdef HAVE_SELINUX
-    sudo_lbuf_append(&lbuf, "  -r, --role=role             %s\n",
+    sudo_lbuf_append(&lbuf, "  -r, --role=role               %s\n",
 	_("create SELinux security context with specified role"));
 #endif
-    sudo_lbuf_append(&lbuf, "  -S, --stdin                 %s\n",
+    sudo_lbuf_append(&lbuf, "  -S, --stdin                   %s\n",
 	_("read password from standard input"));
-    sudo_lbuf_append(&lbuf, "  -s, --shell                 %s\n",
+    sudo_lbuf_append(&lbuf, "  -s, --shell                   %s\n",
 	_("run shell as the target user; a command may also be specified"));
 #ifdef HAVE_SELINUX
-    sudo_lbuf_append(&lbuf, "  -t, --type=type             %s\n",
+    sudo_lbuf_append(&lbuf, "  -t, --type=type               %s\n",
 	_("create SELinux security context with specified type"));
 #endif
-    sudo_lbuf_append(&lbuf, "  -U, --other-user=user       %s\n",
+    sudo_lbuf_append(&lbuf, "  -T, --command-timeout=timeout %s\n",
+	_("terminate command after the specified time limit"));
+    sudo_lbuf_append(&lbuf, "  -U, --other-user=user         %s\n",
 	_("in list mode, display privileges for user"));
-    sudo_lbuf_append(&lbuf, "  -u, --user=user             %s\n",
+    sudo_lbuf_append(&lbuf, "  -u, --user=user               %s\n",
 	_("run command (or edit file) as specified user name or ID"));
-    sudo_lbuf_append(&lbuf, "  -V, --version               %s\n",
+    sudo_lbuf_append(&lbuf, "  -V, --version                 %s\n",
 	_("display version information and exit"));
-    sudo_lbuf_append(&lbuf, "  -v, --validate              %s\n",
+    sudo_lbuf_append(&lbuf, "  -v, --validate                %s\n",
 	_("update user's timestamp without running a command"));
-    sudo_lbuf_append(&lbuf, "  --                          %s\n",
+    sudo_lbuf_append(&lbuf, "  --                            %s\n",
 	_("stop processing command line arguments"));
     sudo_lbuf_print(&lbuf);
     sudo_lbuf_destroy(&lbuf);

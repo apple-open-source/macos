@@ -1,6 +1,8 @@
 /*
+ * SPDX-License-Identifier: ISC
+ *
  * Copyright (c) 1996, 1998-2005, 2010-2012, 2014-2015
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,13 +15,15 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Sponsored in part by the Defense Advanced Research Projects
  * Agency (DARPA) and Air Force Research Laboratory, Air Force
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 /*
  *  The code below basically comes from the examples supplied on
@@ -99,7 +103,7 @@ sudo_dce_verify(struct passwd *pw, char *plain_pw, sudo_auth *auth, struct sudo_
 	     * sure that we didn't get spoofed by another DCE server.
 	     */
 	    if (!sec_login_certify_identity(login_context, &status)) {
-		sudo_printf(SUDO_CONV_ERROR_MSG,
+		sudo_printf(SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY,
 		    "Whoa! Bogus authentication server!\n");
 		(void) check_dce_status(status,"sec_login_certify_identity(1):");
 		debug_return_int(AUTH_FAILURE);
@@ -121,13 +125,13 @@ sudo_dce_verify(struct passwd *pw, char *plain_pw, sudo_auth *auth, struct sudo_
 	     * DCE client and DCE security server...
 	     */
 	    if (auth_src != sec_login_auth_src_network) {
-		    sudo_printf(SUDO_CONV_ERROR_MSG,
+		    sudo_printf(SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY,
 			"You have no network credentials.\n");
 		    debug_return_int(AUTH_FAILURE);
 	    }
 	    /* Check if the password has aged and is thus no good */
 	    if (reset_passwd) {
-		    sudo_printf(SUDO_CONV_ERROR_MSG,
+		    sudo_printf(SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY,
 			"Your DCE password needs resetting.\n");
 		    debug_return_int(AUTH_FAILURE);
 	    }
@@ -187,7 +191,8 @@ check_dce_status(error_status_t input_status, char *comment)
     if (input_status == rpc_s_ok)
 	debug_return_int(0);
     dce_error_inq_text(input_status, error_string, &error_stat);
-    sudo_printf(SUDO_CONV_ERROR_MSG, "%s %s\n", comment, error_string);
+    sudo_printf(SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY,
+	"%s %s\n", comment, error_string);
     debug_return_int(1);
 }
 

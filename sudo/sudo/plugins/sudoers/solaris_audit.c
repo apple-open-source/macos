@@ -1,4 +1,6 @@
 /*
+ * SPDX-License-Identifier: ISC
+ *
  * Copyright (c) 2014, Oracle and/or its affiliates.
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -12,6 +14,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -32,7 +39,7 @@
 
 static adt_session_data_t *ah;		/* audit session handle */
 static adt_event_data_t	*event;		/* event to be generated */
-static char		cwd[MAXPATHLEN];
+static char		cwd[PATH_MAX];
 static char		cmdpath[PATH_MAX];
 
 static int

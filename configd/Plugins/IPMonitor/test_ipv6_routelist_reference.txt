@@ -1388,13 +1388,10 @@ Process:         test_ipv6_routelist [XXXX]
 Path: XXXX
 Identifier:      test_ipv6_routelist
 Code Type:       X86-64
-Parent Process:  sh [XXXX]
 
 Date/Time:       XXXX
 OS Version: XXXX
 Report Version:  7
-Analysis Tool Version:  Xcode 11.0 (11M275m)
-
 
 leaks Report Version: 4.0
 Process XXXX 0 leaks for 0 total leaked bytes.

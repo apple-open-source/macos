@@ -1,6 +1,8 @@
 /*
- * Copyright (c) 1996, 1998-2005, 2007-2015
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 1996, 1998-2005, 2007-2015, 2018
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -20,6 +22,11 @@
  */
 
 /*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
+/*
  * Suppress a warning w/ gcc on Digital UN*X.
  * The system headers should really do this....
  */
@@ -28,11 +35,13 @@ struct mbuf;
 struct rtentry;
 #endif
 
+/* Avoid a compilation problem with gcc and machine/sys/getppdp.h */
+#define _MACHINE_SYS_GETPPDP_INCLUDED
+
 #include <config.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <sys/ioctl.h>
 #if defined(HAVE_SYS_SOCKIO_H) && !defined(SIOCGIFCONF)
 # include <sys/sockio.h>
@@ -142,12 +151,13 @@ get_net_ifs(char **addrinfo)
 	}
     }
     if (num_interfaces == 0)
-	debug_return_int(0);
+	goto done;
     ailen = num_interfaces * 2 * INET6_ADDRSTRLEN;
     if ((cp = malloc(ailen)) == NULL) {
 	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 	    "unable to allocate memory");
-	debug_return_int(-1);
+	num_interfaces = -1;
+	goto done;
     }
     *addrinfo = cp;
 
@@ -169,7 +179,7 @@ get_net_ifs(char **addrinfo)
 
 		len = snprintf(cp, ailen - (*addrinfo - cp),
 		    "%s%s/%s", cp == *addrinfo ? "" : " ", addrstr, maskstr);
-		if (len <= 0 || len >= ailen - (*addrinfo - cp)) {
+		if (len < 0 || len >= ailen - (*addrinfo - cp)) {
 		    sudo_warnx(U_("internal error, %s overflow"), __func__);
 		    goto done;
 		}
@@ -186,7 +196,7 @@ get_net_ifs(char **addrinfo)
 
 		len = snprintf(cp, ailen - (*addrinfo - cp),
 		    "%s%s/%s", cp == *addrinfo ? "" : " ", addrstr, maskstr);
-		if (len <= 0 || len >= ailen - (*addrinfo - cp)) {
+		if (len < 0 || len >= ailen - (*addrinfo - cp)) {
 		    sudo_warnx(U_("internal error, %s overflow"), __func__);
 		    goto done;
 		}
@@ -299,7 +309,7 @@ get_net_ifs(char **addrinfo)
 
 #ifdef SIOCGIFFLAGS
 	memset(ifr_tmp, 0, sizeof(*ifr_tmp));
-	strncpy(ifr_tmp->ifr_name, ifr->ifr_name, sizeof(ifr_tmp->ifr_name) - 1);
+	memcpy(ifr_tmp->ifr_name, ifr->ifr_name, sizeof(ifr_tmp->ifr_name));
 	if (ioctl(sock, SIOCGIFFLAGS, (caddr_t) ifr_tmp) < 0)
 #endif
 	    memcpy(ifr_tmp, ifr, sizeof(*ifr_tmp));
@@ -311,7 +321,7 @@ get_net_ifs(char **addrinfo)
 
 	/* Get the netmask. */
 	memset(ifr_tmp, 0, sizeof(*ifr_tmp));
-	strncpy(ifr_tmp->ifr_name, ifr->ifr_name, sizeof(ifr_tmp->ifr_name) - 1);
+	memcpy(ifr_tmp->ifr_name, ifr->ifr_name, sizeof(ifr_tmp->ifr_name));
 	sin = (struct sockaddr_in *) &ifr_tmp->ifr_addr;
 #ifdef _ISC
 	STRSET(SIOCGIFNETMASK, (caddr_t) ifr_tmp, sizeof(*ifr_tmp));
@@ -331,7 +341,7 @@ get_net_ifs(char **addrinfo)
 
 	len = snprintf(cp, ailen - (*addrinfo - cp),
 	    "%s%s/%s", cp == *addrinfo ? "" : " ", addrstr, maskstr);
-	if (len <= 0 || len >= ailen - (*addrinfo - cp)) {
+	if (len < 0 || len >= ailen - (*addrinfo - cp)) {
 	    sudo_warnx(U_("internal error, %s overflow"), __func__);
 	    goto done;
 	}

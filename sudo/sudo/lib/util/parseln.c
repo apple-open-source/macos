@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2007, 2013-2015
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2007, 2013-2016 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,6 +14,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -42,21 +48,22 @@
  * Read a line of input, honoring line continuation chars.
  * Remove comments and strip off leading and trailing spaces.
  * Returns the line length and updates the buf and bufsize pointers.
- * XXX - just use a struct w/ state, including getline buffer?
+ * XXX - just use a struct w/ state, including getdelim buffer?
  *       could also make comment char and line continuation configurable
  */
 ssize_t
-sudo_parseln_v1(char **bufp, size_t *bufsizep, unsigned int *lineno, FILE *fp)
+sudo_parseln_v2(char **bufp, size_t *bufsizep, unsigned int *lineno, FILE *fp, int flags)
 {
     size_t linesize = 0, total = 0;
     ssize_t len;
     char *cp, *line = NULL;
-    bool continued;
+    bool continued, comment;
     debug_decl(sudo_parseln, SUDO_DEBUG_UTIL)
 
     do {
+	comment = false;
 	continued = false;
-	len = getline(&line, &linesize, fp);
+	len = getdelim(&line, &linesize, '\n', fp);
 	if (len == -1)
 	    break;
 	if (lineno != NULL)
@@ -68,11 +75,17 @@ sudo_parseln_v1(char **bufp, size_t *bufsizep, unsigned int *lineno, FILE *fp)
 
 	/* Remove comments or check for line continuation (but not both) */
 	if ((cp = strchr(line, '#')) != NULL) {
-	    *cp = '\0';
-	    len = (ssize_t)(cp - line);
-	} else if (len > 0 && line[len - 1] == '\\' && (len == 1 || line[len - 2] != '\\')) {
-	    line[--len] = '\0';
-	    continued = true;
+	    if (cp == line || !ISSET(flags, PARSELN_COMM_BOL)) {
+		*cp = '\0';
+		len = (ssize_t)(cp - line);
+		comment = true;
+	    }
+	}
+	if (!comment && !ISSET(flags, PARSELN_CONT_IGN)) {
+	    if (len > 0 && line[len - 1] == '\\' && (len == 1 || line[len - 2] != '\\')) {
+		line[--len] = '\0';
+		continued = true;
+	    }
 	}
 
 	/* Trim leading and trailing whitespace */
@@ -116,4 +129,10 @@ sudo_parseln_v1(char **bufp, size_t *bufsizep, unsigned int *lineno, FILE *fp)
     if (len == -1 && total == 0)
 	debug_return_ssize_t(-1);
     debug_return_ssize_t(total);
+}
+
+ssize_t
+sudo_parseln_v1(char **bufp, size_t *bufsizep, unsigned int *lineno, FILE *fp)
+{
+    return sudo_parseln_v2(bufp, bufsizep, lineno, fp, 0);
 }

@@ -1,6 +1,8 @@
 #!/usr/bin/env perl
 #
-# Copyright (c) 2011-2014 Todd C. Miller <Todd.Miller@courtesan.com>
+# SPDX-License-Identifier: ISC
+#
+# Copyright (c) 2011-2017 Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -19,30 +21,73 @@ use File::Temp qw/ :mktemp  /;
 use Fcntl;
 use warnings;
 
-die "usage: $0 Makefile ...\n" unless $#ARGV >= 0;
+die "usage: $0 [--builddir=dir] [--srcdir=dir] Makefile.in ...\n" unless $#ARGV >= 0;
 
 my @incpaths;
 my %dir_vars;
 my %implicit;
 my %generated;
+my $top_builddir = ".";
+my $top_srcdir;
 
-# Read in MANIFEST fail if present
-my %manifest;
-if (open(MANIFEST, "<MANIFEST")) {
-    while (<MANIFEST>) {
-	chomp;
-	next unless /([^\/]+\.[cly])$/;
-	$manifest{$1} = $_;
+# Check for srcdir and/or builddir, if present
+while ($ARGV[0] =~ /^--(src|build)dir=(.*)/) {
+    if ($1 eq 'src') {
+	$top_srcdir = $2;
+    } else {
+	$top_builddir = $2;
     }
+    shift @ARGV;
+}
+chdir($top_srcdir) if defined($top_srcdir);
+
+# Read in MANIFEST or fail if not present
+my %manifest;
+die "unable to open MANIFEST: $!\n" unless open(MANIFEST, "<MANIFEST");
+while (<MANIFEST>) {
+    chomp;
+    next unless /([^\/]+\.[cly])$/;
+    $manifest{$1} = $_;
 }
 
 foreach (@ARGV) {
     mkdep($_);
 }
 
+sub fmt_depend {
+    my ($obj, $src) = @_;
+    my $ret;
+
+    my $deps = sprintf("%s: %s %s", $obj, $src,
+	join(' ', find_depends($src)));
+    if (length($deps) > 80) {
+	my $off = 0;
+	my $indent = length($obj) + 2;
+	while (length($deps) - $off > 80 - $indent) {
+	    my $pos;
+	    if ($off != 0) {
+		$ret .= ' ' x $indent;
+		$pos = rindex($deps, ' ', $off + 80 - $indent - 2);
+	    } else {
+		$pos = rindex($deps, ' ', $off + 78);
+	    }
+	    $ret .= substr($deps, $off, $pos - $off) . " \\\n";
+	    $off = $pos + 1;
+	}
+	$ret .= ' ' x $indent;
+	$ret .= substr($deps, $off) . "\n";
+    } else {
+	$ret = "$deps\n";
+    }
+
+    $ret;
+}
+
 sub mkdep {
     my $file = $_[0];
     $file =~ s:^\./+::;		# strip off leading ./
+    $file =~ m:^(.*)/[^/]+$:;
+    my $srcdir = $1;		# parent dir of Makefile
 
     my $makefile;
     if (open(MF, "<$file")) {
@@ -66,11 +111,12 @@ sub mkdep {
     # Expand some configure bits
     $makefile =~ s:\@DEV\@::g;
     $makefile =~ s:\@COMMON_OBJS\@:aix.lo event_poll.lo event_select.lo:;
-    $makefile =~ s:\@SUDO_OBJS\@:openbsd.o preload.o selinux.o sesh.o solaris.o sudo_noexec.lo:;
-    $makefile =~ s:\@SUDOERS_OBJS\@:bsm_audit.lo linux_audit.lo ldap.lo solaris_audit.lo sssd.lo:;
+    $makefile =~ s:\@SUDO_OBJS\@:openbsd.o preload.o selinux.o sesh.o solaris.o:;
+    $makefile =~ s:\@SUDOERS_OBJS\@:bsm_audit.lo linux_audit.lo ldap.lo ldap_util.lo ldap_conf.lo solaris_audit.lo sssd.lo:;
     # XXX - fill in AUTH_OBJS from contents of the auth dir instead
     $makefile =~ s:\@AUTH_OBJS\@:afs.lo aix_auth.lo bsdauth.lo dce.lo fwtk.lo getspwuid.lo kerb5.lo pam.lo passwd.lo rfc1938.lo secureware.lo securid5.lo sia.lo:;
-    $makefile =~ s:\@LTLIBOBJS\@:closefrom.lo fnmatch.lo getaddrinfo.lo getcwd.lo getgrouplist.lo getline.lo getopt_long.lo glob.lo inet_ntop_lo inet_pton.lo isblank.lo memrchr.lo memset_s.lo mksiglist.lo mksigname.lo mktemp.lo pw_dup.lo reallocarray.lo sha2.lo sig2str.lo siglist.lo signame.lo snprintf.lo strlcat.lo strlcpy.lo strndup.lo strnlen.lo strsignal.lo strtonum.lo utimens.lo:;
+    $makefile =~ s:\@DIGEST\@:digest.lo digest_openssl.lo digest_gcrypt.lo:;
+    $makefile =~ s:\@LTLIBOBJS\@:arc4random.lo arc4random_uniform.lo closefrom.lo fnmatch.lo getaddrinfo.lo getcwd.lo getentropy.lo getgrouplist.lo getdelim.lo getopt_long.lo glob.lo inet_ntop_lo inet_pton.lo isblank.lo memrchr.lo memset_s.lo mksiglist.lo mksigname.lo mktemp.lo nanosleep.lo pw_dup.lo reallocarray.lo sha2.lo sig2str.lo siglist.lo signame.lo snprintf.lo str2sig.lo strlcat.lo strlcpy.lo strndup.lo strnlen.lo strsignal.lo utimens.lo vsyslog.lo pipe2.lo:;
 
     # Parse OBJS lines
     my %objs;
@@ -100,13 +146,14 @@ sub mkdep {
     $dir_vars{'srcdir'} = $1 || '.';
     $dir_vars{'devdir'} = $dir_vars{'srcdir'};
     $dir_vars{'authdir'} = $dir_vars{'srcdir'} . "/auth";
+    $dir_vars{'builddir'} = $top_builddir . "/" . $dir_vars{'srcdir'};
     $dir_vars{'top_srcdir'} = '.';
     #$dir_vars{'top_builddir'} = '.';
     $dir_vars{'incdir'} = 'include';
 
     # Find implicit rules for generated .o and .lo files
     %implicit = ();
-    while ($makefile =~ /^\.c\.(l?o):\s*\n\t+(.*)$/mg) {
+    while ($makefile =~ /^\.[ci]\.(l?o|i|plog):\s*\n\t+(.*)$/mg) {
 	$implicit{$1} = $2;
     }
 
@@ -120,8 +167,8 @@ sub mkdep {
     foreach my $obj (sort keys %objs) {
 	next unless $obj =~ /(\S+)\.(l?o)$/;
 	if ($2 eq "o" && exists($objs{"$1.lo"})) {
-	    # If we have both .lo and .o files, make the .o depend on the .lo
-	    $new_makefile .= sprintf("%s: %s.lo\n", $obj, $1);
+	    # We have both .lo and .o files, only the .lo should be used
+	    warn "$file: $obj should be $1.lo\n";
 	} else {
 	    # Use old depenencies when mapping objects to their source.
 	    # If no old depenency, use the MANIFEST file to find the source.
@@ -136,33 +183,33 @@ sub mkdep {
 		    last if $src =~ s:^\Q$dir_vars{$_}/\E:\$\($_\)/:;
 		}
 	    } else {
-		warn "$file: unable to find source for $obj\n";
+		warn "$file: unable to find source for $obj ($src) in MANIFEST\n";
+		if (-f "$srcdir/$src") {
+		    $src = '$(srcdir)/' . $src;
+		}
 	    }
 	    my $imp = $implicit{$ext};
 	    $imp =~ s/\$</$src/g;
 
-	    my $deps = sprintf("%s: %s %s", $obj, $src,
-		join(' ', find_depends($src)));
-	    if (length($deps) > 80) {
-		my $off = 0;
-		my $indent = length($obj) + 2;
-		while (length($deps) - $off > 80 - $indent) {
-		    my $pos;
-		    if ($off != 0) {
-			$new_makefile .= ' ' x $indent;
-			$pos = rindex($deps, ' ', $off + 80 - $indent - 2);
-		    } else {
-			$pos = rindex($deps, ' ', $off + 78);
-		    }
-		    $new_makefile .= substr($deps, $off, $pos - $off) . " \\\n";
-		    $off = $pos + 1;
-		}
-		$new_makefile .= ' ' x $indent;
-		$new_makefile .= substr($deps, $off) . "\n";
-	    } else {
-		$new_makefile .= "$deps\n";
-	    }
+	    my $deps = fmt_depend($obj, $src);
+	    $new_makefile .= $deps;
 	    $new_makefile .= "\t$imp\n";
+
+	    # PVS Studio files (.i and .plog)
+	    $imp = $implicit{"i"};
+	    if (exists $implicit{"i"} && exists $implicit{"plog"}) {
+		$imp = $implicit{"i"};
+		$deps =~ s/\.l?o/.i/;
+		$new_makefile .= $deps;
+		$new_makefile .= "\t$imp\n";
+
+		$imp = $implicit{"plog"};
+		$imp =~ s/ifile=\$<; *//;
+		$imp =~ s/\$\$\{ifile\%i\}c/$src/;
+		$obj =~ /(.*)\.[a-z]+$/;
+		$new_makefile .= "${1}.plog: ${1}.i\n";
+		$new_makefile .= "\t$imp\n";
+	    }
 	}
     }
 
@@ -183,8 +230,8 @@ sub find_depends {
     my ($deps, $code, %headers);
 
     if ($src !~ /\//) {
-	# XXX - want build dir not src dir
-	$src = "$dir_vars{'srcdir'}/$src";
+	# generated file, local to build dir
+	$src = "$dir_vars{'builddir'}/$src";
     }
 
     # resolve $(srcdir) etc.

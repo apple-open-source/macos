@@ -31,6 +31,7 @@ BEGIN {
 		$ENV{GITPERLLIB} ||
 		do {
 			my $perllibdir = __git_system_path('share/git-core/perl');
+			$perllibdir = "/usr/local/share/git-core/perl" unless (-e $perllibdir);
 			(-e $perllibdir) || die("Invalid system path ($relpath): $path");
 			$perllibdir;
 		}

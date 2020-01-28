@@ -1,4 +1,13 @@
 package Git::SVN;
+BEGIN {
+    my $PERLVERSION = "5.18";
+    if ($^V =~ m/v([0-9]+).([0-9]+)/) {
+        $PERLVERSION = $1.".".$2;
+    }
+    unshift @INC, "/AppleInternal/Library/Perl/".$PERLVERSION."/darwin-thread-multi-2level";
+    unshift @INC, "/AppleInternal/Library/Perl/".$PERLVERSION;
+}
+
 use strict;
 use warnings;
 use Fcntl qw/:DEFAULT :seek/;

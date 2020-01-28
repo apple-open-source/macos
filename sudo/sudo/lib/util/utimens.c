@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2015, 2018 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,6 +16,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
 #include <config.h>
 
 #if !defined(HAVE_FUTIMENS) || !defined(HAVE_UTIMENSAT)
@@ -23,9 +30,7 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <errno.h>
-#ifdef TIME_WITH_SYS_TIME
-# include <time.h>
-#endif
+#include <time.h>
 #if !defined(HAVE_UTIMES) || defined(HAVE_FUTIME)
 # include <utime.h>
 #endif
@@ -49,6 +54,9 @@
 #elif defined(HAVE_ST_MTIMESPEC)
 # define ATIME_TO_TIMEVAL(_x, _y)	TIMESPEC_TO_TIMEVAL((_x), &(_y)->st_atimespec)
 # define MTIME_TO_TIMEVAL(_x, _y)	TIMESPEC_TO_TIMEVAL((_x), &(_y)->st_mtimespec)
+#elif defined(HAVE_ST_NMTIME)
+# define ATIME_TO_TIMEVAL(_x, _y)      do { (_x)->tv_sec = (_y)->st_atime; (_x)->tv_usec = (_y)->st_natime; } while (0)
+# define MTIME_TO_TIMEVAL(_x, _y)      do { (_x)->tv_sec = (_y)->st_mtime; (_x)->tv_usec = (_y)->st_nmtime; } while (0)
 #else
 # define ATIME_TO_TIMEVAL(_x, _y)      do { (_x)->tv_sec = (_y)->st_atime; (_x)->tv_usec = 0; } while (0)
 # define MTIME_TO_TIMEVAL(_x, _y)      do { (_x)->tv_sec = (_y)->st_mtime; (_x)->tv_usec = 0; } while (0)

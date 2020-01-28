@@ -1,5 +1,8 @@
 /*
- * Copyright (c) 2007-2010, 2013 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2007-2010, 2013, 2015, 2017
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,8 +15,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef SUDO_USAGE_H
@@ -26,8 +27,8 @@
 #define SUDO_USAGE1 " -h | -K | -k | -V"
 #define SUDO_USAGE2 " -v [-AknS] [-g group] [-h host] [-p prompt] [-u user]"
 #define SUDO_USAGE3 " -l [-AknS] [-g group] [-h host] [-p prompt] [-U user] [-u user] [command]"
-#define SUDO_USAGE4 " [-AbEHknPS] [-C num] [-g group] [-h host] [-p prompt] [-u user] [VAR=value] [-i|-s] [<command>]"
-#define SUDO_USAGE5 " -e [-AknS] [-C num] [-g group] [-h host] [-p prompt] [-u user] file ..."
+#define SUDO_USAGE4 " [-AbEHknPS] [-C num] [-g group] [-h host] [-p prompt] [-T timeout] [-u user] [VAR=value] [-i|-s] [<command>]"
+#define SUDO_USAGE5 " -e [-AknS] [-C num] [-g group] [-h host] [-p prompt] [-T timeout] [-u user] file ..."
 
 /*
  * Configure script arguments used to build sudo.

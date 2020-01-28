@@ -224,33 +224,27 @@ static void php_intl_idn_to(INTERNAL_FUNCTION_PARAMETERS,
 		}
 		RETURN_FALSE;
 	} else {
+		UParseError parse_error;
 		UChar       converted[MAXPATHLEN];
 		int32_t     converted_ret_len;
 
 		status = U_ZERO_ERROR;
-
-#if U_ICU_VERSION_MAJOR_NUM >= 55
-		UIDNAInfo info = UIDNA_INFO_INITIALIZER;
-		UIDNA *idna = uidna_openUTS46((int32_t)option, &status);
-
-		if (U_FAILURE(status)) {
-			intl_error_set( NULL, status, "idn_to_ascii: failed to create an UIDNA instance", 0 );
-			RETURN_FALSE;
-		}
-
-		if (mode == INTL_IDN_TO_ASCII) {
-			converted_ret_len = uidna_nameToASCII(idna, ustring, ustring_len, converted, MAXPATHLEN, &info, &status);
-		} else {
-			converted_ret_len = uidna_nameToUnicode(idna, ustring, ustring_len, converted, MAXPATHLEN, &info, &status);
-		}
-		uidna_close(idna);
-#else
-		UParseError parse_error;
+#if defined(__clang__)
+# pragma clang diagnostic push
+# pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif ZEND_GCC_VERSION >= 4008
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 		if (mode == INTL_IDN_TO_ASCII) {
 			converted_ret_len = uidna_IDNToASCII(ustring, ustring_len, converted, MAXPATHLEN, (int32_t)option, &parse_error, &status);
 		} else {
 			converted_ret_len = uidna_IDNToUnicode(ustring, ustring_len, converted, MAXPATHLEN, (int32_t)option, &parse_error, &status);
 		}
+#if defined(__clang__)
+# pragma clang diagnostic pop
+#elif ZEND_GCC_VERSION >= 4008
+# pragma GCC diagnostic pop
 #endif
 		efree(ustring);
 

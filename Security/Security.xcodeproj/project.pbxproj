@@ -2475,6 +2475,12 @@
 		D4911172209559630066A1E4 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4911167209558900066A1E4 /* CoreData.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		D4911173209559630066A1E4 /* CoreData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4911167209558900066A1E4 /* CoreData.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		D4961BC42079424200F16DA7 /* TrustURLSessionDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = D4961BBD2079423300F16DA7 /* TrustURLSessionDelegate.m */; };
+		D49A370323873A580065719F /* RevocationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D49A370023873A570065719F /* RevocationTests.m */; };
+		D49A370423873A580065719F /* RevocationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D49A370023873A570065719F /* RevocationTests.m */; };
+		D49A370623873BD30065719F /* TrustDaemonTestCase.m in Sources */ = {isa = PBXBuildFile; fileRef = D49A370523873BD30065719F /* TrustDaemonTestCase.m */; };
+		D49A370723873BD30065719F /* TrustDaemonTestCase.m in Sources */ = {isa = PBXBuildFile; fileRef = D49A370523873BD30065719F /* TrustDaemonTestCase.m */; };
+		D49A370C23877ECC0065719F /* OCSPCacheTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D49A370B23877ECC0065719F /* OCSPCacheTests.m */; };
+		D49A370D23877ECC0065719F /* OCSPCacheTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D49A370B23877ECC0065719F /* OCSPCacheTests.m */; };
 		D4A0F8C2211E6A2F00443CA1 /* si-82-sectrust-ct-data in Resources */ = {isa = PBXBuildFile; fileRef = D4A0F8C1211E6A2F00443CA1 /* si-82-sectrust-ct-data */; };
 		D4A0F8C7211E6A5800443CA1 /* TrustFrameworkTestCase.m in Sources */ = {isa = PBXBuildFile; fileRef = D4A0F8C4211E6A5700443CA1 /* TrustFrameworkTestCase.m */; };
 		D4A0F8C8211E6A5800443CA1 /* CertificateInterfaceTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D4A0F8C6211E6A5700443CA1 /* CertificateInterfaceTests.m */; };
@@ -12655,6 +12661,11 @@
 		D4911167209558900066A1E4 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		D4961BBD2079423300F16DA7 /* TrustURLSessionDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TrustURLSessionDelegate.m; sourceTree = "<group>"; };
 		D4961BC52079426000F16DA7 /* TrustURLSessionDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TrustURLSessionDelegate.h; sourceTree = "<group>"; };
+		D49A370023873A570065719F /* RevocationTests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RevocationTests.m; path = tests/TrustTests/EvaluationTests/RevocationTests.m; sourceTree = "<group>"; };
+		D49A370223873A570065719F /* RevocationTests_data.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RevocationTests_data.h; path = tests/TrustTests/EvaluationTests/RevocationTests_data.h; sourceTree = "<group>"; };
+		D49A370523873BD30065719F /* TrustDaemonTestCase.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = TrustDaemonTestCase.m; path = tests/TrustTests/DaemonTests/TrustDaemonTestCase.m; sourceTree = "<group>"; };
+		D49A370823873BF10065719F /* TrustDaemonTestCase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = TrustDaemonTestCase.h; path = tests/TrustTests/DaemonTests/TrustDaemonTestCase.h; sourceTree = "<group>"; };
+		D49A370B23877ECC0065719F /* OCSPCacheTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = OCSPCacheTests.m; path = tests/TrustTests/DaemonTests/OCSPCacheTests.m; sourceTree = "<group>"; };
 		D4A0F8BA211E69CB00443CA1 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = tests/TrustTests/Info.plist; sourceTree = "<group>"; };
 		D4A0F8BB211E69CB00443CA1 /* TestMacroConversions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TestMacroConversions.h; path = tests/TrustTests/TestMacroConversions.h; sourceTree = "<group>"; };
 		D4A0F8C1211E6A2F00443CA1 /* si-82-sectrust-ct-data */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "si-82-sectrust-ct-data"; path = "OSX/shared_regressions/si-82-sectrust-ct-data"; sourceTree = "<group>"; };
@@ -12693,6 +12704,7 @@
 		D4B6D57B2069D8450099FBEF /* si-34-cms-timestamp.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "si-34-cms-timestamp.m"; sourceTree = "<group>"; };
 		D4B6D5822069D85B0099FBEF /* si-34-cms-timestamp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "si-34-cms-timestamp.h"; sourceTree = "<group>"; };
 		D4B858661D370D9A003B2D95 /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.0.Internal.sdk/System/Library/Frameworks/MobileCoreServices.framework; sourceTree = DEVELOPER_DIR; };
+		D4BA4FD22388687A000B9E64 /* OCSPCacheTests_data.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = OCSPCacheTests_data.h; path = tests/TrustTests/DaemonTests/OCSPCacheTests_data.h; sourceTree = "<group>"; };
 		D4BEECE61E93093A00F76D1A /* trustd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = trustd.c; sourceTree = "<group>"; };
 		D4C263C51F8FF2A9001317EA /* generateErrStrings.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; name = generateErrStrings.pl; path = OSX/lib/generateErrStrings.pl; sourceTree = "<group>"; usesTabs = 1; };
 		D4C263C81F952E64001317EA /* SecDebugErrorMessages.strings */ = {isa = PBXFileReference; explicitFileType = text.plist.strings; fileEncoding = 10; name = SecDebugErrorMessages.strings; path = derived_src/SecDebugErrorMessages.strings; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -19654,6 +19666,10 @@
 			isa = PBXGroup;
 			children = (
 				D4EA5CF622B225C000883439 /* LoggingServerTests.m */,
+				D49A370B23877ECC0065719F /* OCSPCacheTests.m */,
+				D4BA4FD22388687A000B9E64 /* OCSPCacheTests_data.h */,
+				D49A370523873BD30065719F /* TrustDaemonTestCase.m */,
+				D49A370823873BF10065719F /* TrustDaemonTestCase.h */,
 			);
 			name = DaemonTests;
 			sourceTree = "<group>";
@@ -19683,6 +19699,8 @@
 				D458C4B6214E19AE0043D982 /* SignatureAlgorithmTests_data.h */,
 				D4056A1922712A650026E24E /* SSLPolicyTests.m */,
 				D4056A1C22712AD80026E24E /* SSLPolicyTests_data.h */,
+				D49A370023873A570065719F /* RevocationTests.m */,
+				D49A370223873A570065719F /* RevocationTests_data.h */,
 				D4AC5764214E195200A32C01 /* VerifyDateTests.m */,
 				D4AC5765214E195300A32C01 /* VerifyDateTests_data.h */,
 				D4A0F8CB211E6A8200443CA1 /* TrustEvaluationTestCase.h */,
@@ -33924,6 +33942,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D49A370723873BD30065719F /* TrustDaemonTestCase.m in Sources */,
+				D49A370423873A580065719F /* RevocationTests.m in Sources */,
 				D40881F5217573C900180E81 /* SecTrustStatusCodes.c in Sources */,
 				D4FD421D217D789C002B7EE2 /* NameConstraintsTests.m in Sources */,
 				D4FD4221217D7B2E002B7EE2 /* PathScoringTests.m in Sources */,
@@ -33947,6 +33967,7 @@
 				D442830022D68564001746B3 /* TrustEvaluationTestHelpers.m in Sources */,
 				D453A4AB2122236D00850A26 /* TrustEvaluationTestCase.m in Sources */,
 				D453A4AD2122236D00850A26 /* TrustFrameworkTestCase.m in Sources */,
+				D49A370D23877ECC0065719F /* OCSPCacheTests.m in Sources */,
 				D4EA5CF922B225D100883439 /* LoggingServerTests.m in Sources */,
 				D4056A1B22712A650026E24E /* SSLPolicyTests.m in Sources */,
 				D458C4C4214E19FC0043D982 /* TrustInterfaceTests.m in Sources */,
@@ -33977,6 +33998,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D49A370C23877ECC0065719F /* OCSPCacheTests.m in Sources */,
 				D40881FA217573F800180E81 /* SecPolicy.c in Sources */,
 				D40881FB217573F800180E81 /* SecPolicyLeafCallbacks.c in Sources */,
 				D40881F9217573EF00180E81 /* SecSignatureVerificationSupport.c in Sources */,
@@ -33998,9 +34020,11 @@
 				D4A0F8C8211E6A5800443CA1 /* CertificateInterfaceTests.m in Sources */,
 				D458C4B0214E198F0043D982 /* CTTests.m in Sources */,
 				D458C4B2214E198F0043D982 /* EvaluationBasicTests.m in Sources */,
+				D49A370323873A580065719F /* RevocationTests.m in Sources */,
 				D458C4BA214E19AF0043D982 /* iAPTests.m in Sources */,
 				D458C4B8214E19AF0043D982 /* PathParseTests.m in Sources */,
 				D458C525214E33440043D982 /* VerifyDateTests.m in Sources */,
+				D49A370623873BD30065719F /* TrustDaemonTestCase.m in Sources */,
 				D458C515214E286C0043D982 /* PolicyTests.m in Sources */,
 				D4EF32182156DDEB000A31A5 /* TrustSettingsInterfaceTests.m in Sources */,
 				D44282FF22D68564001746B3 /* TrustEvaluationTestHelpers.m in Sources */,

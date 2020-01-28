@@ -1,6 +1,8 @@
 /*
- * Copyright (c) 1996, 1998-2005, 2007-2015
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 1996, 1998-2005, 2007-2018
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -19,9 +21,15 @@
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
 #include <config.h>
 
 #include <sys/types.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_STRING_H
@@ -38,10 +46,6 @@
 
 #include "sudoers.h"
 #include "pwutil.h"
-
-#ifdef __APPLE_MEMBERSHIP__
-int32_t getgrouplist_2(const char *, gid_t, gid_t **);
-#endif
 
 #ifndef LOGIN_NAME_MAX
 # ifdef _POSIX_LOGIN_NAME_MAX
@@ -231,27 +235,29 @@ sudo_make_gritem(gid_t gid, const char *name)
 
 /*
  * Dynamically allocate space for a struct item plus the key and data
- * elements.  Fills in datum from user_gids or from getgrouplist(3).
+ * elements.  Fills in datum from user_gids or from sudo_getgrouplist2(3).
  */
 struct cache_item *
-sudo_make_grlist_item(const struct passwd *pw, char * const *unused1,
-    char * const *unused2)
+sudo_make_gidlist_item(const struct passwd *pw, char * const *unused1,
+    unsigned int type)
 {
     char *cp;
-    size_t nsize, ngroups, total, len;
-    struct cache_item_grlist *grlitem;
-    struct group_list *grlist;
+    size_t nsize, total;
+    struct cache_item_gidlist *glitem;
+    struct gid_list *gidlist;
     GETGROUPS_T *gids;
-    struct group *grp = NULL;
-    int i, ngids, groupname_len;
-    debug_decl(sudo_make_grlist_item, SUDOERS_DEBUG_NSS)
+    int i, ngids;
+    debug_decl(sudo_make_gidlist_item, SUDOERS_DEBUG_NSS)
 
-    if (pw == sudo_user.pw && sudo_user.gids != NULL) {
+    /* Don't use user_gids if the entry type says we must query the db. */
+    if (type != ENTRY_TYPE_QUERIED && pw == sudo_user.pw && sudo_user.gids != NULL) {
 	gids = user_gids;
 	ngids = user_ngids;
 	user_gids = NULL;
 	user_ngids = 0;
+	type = ENTRY_TYPE_FRONTEND;
     } else {
+	type = ENTRY_TYPE_QUERIED;
 	if (sudo_user.max_groups > 0) {
 	    ngids = sudo_user.max_groups;
 	    gids = reallocarray(NULL, ngids, sizeof(GETGROUPS_T));
@@ -260,45 +266,82 @@ sudo_make_grlist_item(const struct passwd *pw, char * const *unused1,
 		    "unable to allocate memory");
 		debug_return_ptr(NULL);
 	    }
-	    (void)getgrouplist(pw->pw_name, pw->pw_gid, gids, &ngids);
+	    (void)sudo_getgrouplist2(pw->pw_name, pw->pw_gid, &gids, &ngids);
 	} else {
-#ifdef __APPLE_MEMBERSHIP__
-	    ngids = getgrouplist_2(pw->pw_name, pw->pw_gid, &gids);
-	    if (ngids == -1) {
-		/*
-	         * getgrouplist_2 only fails on memory error; in which case
-		 * gids will be left NULL so no need to free.
-		 */
-		sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		    "unable to allocate memory");
-	        debug_return_ptr(NULL);
-	    }
-#else
-	    ngids = (int)sysconf(_SC_NGROUPS_MAX) * 2;
-	    if (ngids < 0)
-		ngids = NGROUPS_MAX * 2;
-	    gids = reallocarray(NULL, ngids, sizeof(GETGROUPS_T));
-	    if (gids == NULL) {
+	    gids = NULL;
+	    if (sudo_getgrouplist2(pw->pw_name, pw->pw_gid, &gids, &ngids) == -1) {
 		sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 		    "unable to allocate memory");
 		debug_return_ptr(NULL);
 	    }
-	    if (getgrouplist(pw->pw_name, pw->pw_gid, gids, &ngids) == -1) {
-		free(gids);
-		gids = reallocarray(NULL, ngids, sizeof(GETGROUPS_T));
-		if (gids == NULL) {
-		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-			"unable to allocate memory");
-		    debug_return_ptr(NULL);
-		}
-		if (getgrouplist(pw->pw_name, pw->pw_gid, gids, &ngids) == -1)
-		    ngids = -1;
-	    }
-#endif /* __APPLE_MEMBERSHIP__ */
 	}
     }
     if (ngids <= 0) {
 	free(gids);
+	errno = ENOENT;
+	debug_return_ptr(NULL);
+    }
+
+    /* Allocate in one big chunk for easy freeing. */
+    nsize = strlen(pw->pw_name) + 1;
+    total = sizeof(*glitem) + nsize;
+    total += sizeof(gid_t *) * ngids;
+
+    if ((glitem = calloc(1, total)) == NULL) {
+	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
+	    "unable to allocate memory");
+	free(gids);
+	debug_return_ptr(NULL);
+    }
+
+    /*
+     * Copy in group list and make pointers relative to space
+     * at the end of the buffer.  Note that the groups array must come
+     * immediately after struct group to guarantee proper alignment.
+     */
+    gidlist = &glitem->gidlist;
+    cp = (char *)(glitem + 1);
+    gidlist->gids = (gid_t *)cp;
+    cp += sizeof(gid_t) * ngids;
+
+    /* Set key and datum. */
+    memcpy(cp, pw->pw_name, nsize);
+    glitem->cache.k.name = cp;
+    glitem->cache.d.gidlist = gidlist;
+    glitem->cache.refcnt = 1;
+    glitem->cache.type = type;
+
+    /*
+     * Store group IDs.
+     */
+    for (i = 0; i < ngids; i++)
+	gidlist->gids[i] = gids[i];
+    gidlist->ngids = ngids;
+    free(gids);
+
+    debug_return_ptr(&glitem->cache);
+}
+
+/*
+ * Dynamically allocate space for a struct item plus the key and data
+ * elements.  Fills in group names from a call to sudo_get_gidlist().
+ */
+struct cache_item *
+sudo_make_grlist_item(const struct passwd *pw, char * const *unused1)
+{
+    char *cp;
+    size_t nsize, ngroups, total, len;
+    struct cache_item_grlist *grlitem;
+    struct group_list *grlist;
+    struct gid_list *gidlist;
+    struct group *grp = NULL;
+    int i, groupname_len;
+    debug_decl(sudo_make_grlist_item, SUDOERS_DEBUG_NSS)
+
+    gidlist = sudo_get_gidlist(pw, ENTRY_TYPE_ANY);
+    if (gidlist == NULL) {
+	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
+	    "no gid list for use %s", pw->pw_name);
 	errno = ENOENT;
 	debug_return_ptr(NULL);
     }
@@ -312,15 +355,14 @@ sudo_make_grlist_item(const struct passwd *pw, char * const *unused1,
     /* Allocate in one big chunk for easy freeing. */
     nsize = strlen(pw->pw_name) + 1;
     total = sizeof(*grlitem) + nsize;
-    total += sizeof(char *) * ngids;
-    total += sizeof(gid_t *) * ngids;
-    total += groupname_len * ngids;
+    total += sizeof(char *) * gidlist->ngids;
+    total += groupname_len * gidlist->ngids;
 
 again:
     if ((grlitem = calloc(1, total)) == NULL) {
 	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 	    "unable to allocate memory");
-	free(gids);
+	sudo_gidlist_delref(gidlist);
 	debug_return_ptr(NULL);
     }
 
@@ -332,9 +374,7 @@ again:
     grlist = &grlitem->grlist;
     cp = (char *)(grlitem + 1);
     grlist->groups = (char **)cp;
-    cp += sizeof(char *) * ngids;
-    grlist->gids = (gid_t *)cp;
-    cp += sizeof(gid_t) * ngids;
+    cp += sizeof(char *) * gidlist->ngids;
 
     /* Set key and datum. */
     memcpy(cp, pw->pw_name, nsize);
@@ -344,13 +384,6 @@ again:
     cp += nsize;
 
     /*
-     * Store group IDs.
-     */
-    for (i = 0; i < ngids; i++)
-	grlist->gids[i] = gids[i];
-    grlist->ngids = ngids;
-
-    /*
      * Resolve and store group names by ID.
      */
 #ifdef HAVE_SETAUTHDB
@@ -358,8 +391,8 @@ again:
 	aix_setauthdb((char *) pw->pw_name, NULL);
 #endif
     ngroups = 0;
-    for (i = 0; i < ngids; i++) {
-	if ((grp = sudo_getgrgid(gids[i])) != NULL) {
+    for (i = 0; i < gidlist->ngids; i++) {
+	if ((grp = sudo_getgrgid(gidlist->gids[i])) != NULL) {
 	    len = strlen(grp->gr_name) + 1;
 	    if (cp - (char *)grlitem + len > total) {
 		total += len + groupname_len;
@@ -374,7 +407,7 @@ again:
 	}
     }
     grlist->ngroups = ngroups;
-    free(gids);
+    sudo_gidlist_delref(gidlist);
 
 #ifdef HAVE_SETAUTHDB
     aix_restoreauthdb();

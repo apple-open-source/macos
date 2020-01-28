@@ -104,8 +104,8 @@ static time_t entry_cache_max_time = AUTOD_MAX_CACHE_TIME;
 static struct cache_entry *cache_head = NULL;
 pthread_rwlock_t cache_lock;	/* protect the cache chain */
 
-static int nfsmount(struct mapfs *, char *, char *, boolean_t, fsid_t ,
-		    au_asid_t, fsid_t *, uint32_t *);
+static int nfsmount(struct mapfs *, char *, char *, boolean_t, boolean_t,
+		    fsid_t, au_asid_t, fsid_t *, uint32_t *);
 #ifdef HAVE_LOFS
 static int is_nfs_port(char *);
 #endif
@@ -187,6 +187,7 @@ mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
 #endif
 	if (err) {
 		err = nfsmount(mfs, mntpnt, me->map_mntopts, isdirect,
+			       me->map_quarantine,
 			       mntpnt_fsid, asid, fsidp, retflags);
 		if (err && trace > 1) {
 			trace_prt(1, "	Couldn't mount %s:%s, err=%d\n",
@@ -575,8 +576,8 @@ static const struct mntopt mopts_nfs[] = {
 
 static int
 nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
-	 fsid_t mntpnt_fsid, au_asid_t asid, fsid_t *fsidp,
-	 uint32_t *retflags)
+	 boolean_t quarantine, fsid_t mntpnt_fsid, au_asid_t asid,
+	 fsid_t *fsidp, uint32_t *retflags)
 {
 	mntoptparse_t mp;
 	int flags, altflags;
@@ -919,7 +920,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	 * will almost certainly not work.
 	 */
 	last_error = mount_generic(mount_resource, "nfs", opts, nfsvers,
-	    mntpnt, isdirect, FALSE, mntpnt_fsid, 0, asid, fsidp,
+	    mntpnt, isdirect, FALSE, quarantine, mntpnt_fsid, 0, asid, fsidp,
 	    retflags);
 
 	free(mount_resource);

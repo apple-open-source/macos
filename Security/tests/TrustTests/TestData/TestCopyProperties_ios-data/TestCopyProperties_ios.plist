@@ -154,11 +154,11 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleInternetAuthorityG3</string>
+		<string>GoogleTrustServicesCA101</string>
 		<key>Anchors</key>
 		<string>GlobalSignRootCAR2</string>
 		<key>VerifyDate</key>
-		<date>2018-04-14T19:00:00Z</date>
+		<date>2019-11-14T20:00:00Z</date>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -182,11 +182,11 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleInternetAuthorityG3</string>
+		<string>GoogleTrustServicesCA101</string>
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>VerifyDate</key>
-		<date>2018-04-14T19:00:00Z</date>
+		<date>2019-11-14T20:00:00Z</date>
 		<key>ExpectedProperties</key>
 		<array>
 			<dict>
@@ -219,11 +219,11 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleInternetAuthorityG3</string>
+		<string>GoogleTrustServicesCA101</string>
 		<key>Anchors</key>
 		<string>AppleRootCA</string>
 		<key>VerifyDate</key>
-		<date>2018-04-14T19:00:00Z</date>
+		<date>2019-11-14T20:00:00Z</date>
 		<key>ExpectedProperties</key>
 		<array>
 			<dict>
@@ -260,11 +260,11 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleInternetAuthorityG3</string>
+		<string>GoogleTrustServicesCA101</string>
 		<key>Anchors</key>
 		<string>GlobalSignRootCAR2</string>
 		<key>VerifyDate</key>
-		<date>2018-04-14T19:00:00Z</date>
+		<date>2019-11-14T20:00:00Z</date>
 		<key>ExpectedProperties</key>
 		<array>
 			<dict>
@@ -295,11 +295,11 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleInternetAuthorityG3</string>
+		<string>GoogleTrustServicesCA101</string>
 		<key>Anchors</key>
 		<string>GlobalSignRootCAR2</string>
 		<key>VerifyDate</key>
-		<date>2019-04-14T19:00:00Z</date>
+		<date>2018-11-14T20:00:00Z</date>
 		<key>ExpectedProperties</key>
 		<array>
 			<dict>
@@ -330,11 +330,11 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleInternetAuthorityG3</string>
+		<string>GoogleTrustServicesCA101</string>
 		<key>Anchors</key>
 		<string>GlobalSignRootCAR2</string>
 		<key>VerifyDate</key>
-		<date>2019-04-14T19:00:00Z</date>
+		<date>2018-11-14T20:00:00Z</date>
 		<key>ExpectedProperties</key>
 		<array>
 			<dict>
@@ -368,7 +368,7 @@
 		<key>Anchors</key>
 		<string>GlobalSignRootCAR2</string>
 		<key>VerifyDate</key>
-		<date>2018-04-14T19:00:00Z</date>
+		<date>2019-11-14T20:00:00Z</date>
 		<key>ExpectedProperties</key>
 		<array>
 			<dict>
@@ -396,7 +396,7 @@
 		<key>Anchors</key>
 		<string>GlobalSignRootCAR2</string>
 		<key>VerifyDate</key>
-		<date>2019-04-14T19:00:00Z</date>
+		<date>2018-11-14T20:00:00Z</date>
 		<key>ExpectedProperties</key>
 		<array>
 			<dict>

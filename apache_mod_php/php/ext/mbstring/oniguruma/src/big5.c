@@ -102,7 +102,7 @@ big5_mbc_case_fold(OnigCaseFoldType flag, const UChar** pp, const UChar* end,
 #if 0
 static int
 big5_is_mbc_ambiguous(OnigCaseFoldType flag,
-		      const UChar** pp, const UChar* end)
+                      const UChar** pp, const UChar* end)
 {
   return onigenc_mbn_is_mbc_ambiguous(ONIG_ENCODING_BIG5, flag, pp, end);
 }
@@ -148,10 +148,10 @@ big5_left_adjust_char_head(const UChar* start, const UChar* s)
   if (BIG5_ISMB_TRAIL(*p)) {
     while (p > start) {
       if (! BIG5_ISMB_FIRST(*--p)) {
-	p++;
-	break;
+        p++;
+        break;
       }
-    } 
+    }
   }
   len = enclen(ONIG_ENCODING_BIG5, p);
   if (p + len > s) return (UChar* )p;
@@ -187,6 +187,6 @@ OnigEncodingType OnigEncodingBIG5 = {
   NULL, /* init */
   NULL, /* is_initialized */
   is_valid_mbc_string,
-  ENC_FLAG_ASCII_COMPATIBLE,
+  ENC_FLAG_ASCII_COMPATIBLE|ENC_FLAG_SKIP_OFFSET_1,
   0, 0
 };

@@ -1,5 +1,8 @@
 /*
- * Copyright (c) 2004-2005, 2010-2014 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2004-2005, 2010-2015, 2017-2018
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,11 +17,17 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
 #include <config.h>
 
 #include <sys/types.h>
 
 #include <errno.h>
+#include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,6 +46,10 @@
 #include "sudo_util.h"
 #include "sudo_plugin.h"
 
+#ifndef HAVE_GETADDRINFO
+# include "compat/getaddrinfo.h"
+#endif
+
 struct sudo_fatal_callback {
     SLIST_ENTRY(sudo_fatal_callback) entries;
     void (*func)(void);
@@ -48,7 +61,7 @@ static sudo_conv_t sudo_warn_conversation;
 static bool (*sudo_warn_setlocale)(bool, int *);
 static bool (*sudo_warn_setlocale_prev)(bool, int *);
 
-static void warning(int errnum, const char *fmt, va_list ap);
+static void warning(const char *errstr, const char *fmt, va_list ap);
 
 static void
 do_cleanup(void)
@@ -69,7 +82,7 @@ sudo_fatal_nodebug_v1(const char *fmt, ...)
     va_list ap;
 
     va_start(ap, fmt);
-    warning(errno, fmt, ap);
+    warning(strerror(errno), fmt, ap);
     va_end(ap);
     do_cleanup();
     exit(EXIT_FAILURE);
@@ -81,7 +94,7 @@ sudo_fatalx_nodebug_v1(const char *fmt, ...)
     va_list ap;
 
     va_start(ap, fmt);
-    warning(0, fmt, ap);
+    warning(NULL, fmt, ap);
     va_end(ap);
     do_cleanup();
     exit(EXIT_FAILURE);
@@ -90,7 +103,7 @@ sudo_fatalx_nodebug_v1(const char *fmt, ...)
 void
 sudo_vfatal_nodebug_v1(const char *fmt, va_list ap)
 {
-    warning(errno, fmt, ap);
+    warning(strerror(errno), fmt, ap);
     do_cleanup();
     exit(EXIT_FAILURE);
 }
@@ -98,7 +111,7 @@ sudo_vfatal_nodebug_v1(const char *fmt, va_list ap)
 void
 sudo_vfatalx_nodebug_v1(const char *fmt, va_list ap)
 {
-    warning(0, fmt, ap);
+    warning(NULL, fmt, ap);
     do_cleanup();
     exit(EXIT_FAILURE);
 }
@@ -109,7 +122,7 @@ sudo_warn_nodebug_v1(const char *fmt, ...)
     va_list ap;
 
     va_start(ap, fmt);
-    warning(errno, fmt, ap);
+    warning(strerror(errno), fmt, ap);
     va_end(ap);
 }
 
@@ -118,24 +131,60 @@ sudo_warnx_nodebug_v1(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
-    warning(0, fmt, ap);
+    warning(NULL, fmt, ap);
     va_end(ap);
 }
 
 void
 sudo_vwarn_nodebug_v1(const char *fmt, va_list ap)
 {
-    warning(errno, fmt, ap);
+    warning(strerror(errno), fmt, ap);
 }
 
 void
 sudo_vwarnx_nodebug_v1(const char *fmt, va_list ap)
 {
-    warning(0, fmt, ap);
+    warning(NULL, fmt, ap);
+}
+
+void
+sudo_gai_fatal_nodebug_v1(int errnum, const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    warning(gai_strerror(errnum), fmt, ap);
+    va_end(ap);
+    do_cleanup();
+    exit(EXIT_FAILURE);
+}
+
+void
+sudo_gai_vfatal_nodebug_v1(int errnum, const char *fmt, va_list ap)
+{
+    warning(gai_strerror(errnum), fmt, ap);
+    do_cleanup();
+    exit(EXIT_FAILURE);
+}
+
+void
+sudo_gai_warn_nodebug_v1(int errnum, const char *fmt, ...)
+{
+    va_list ap;
+
+    va_start(ap, fmt);
+    warning(gai_strerror(errnum), fmt, ap);
+    va_end(ap);
+}
+
+void
+sudo_gai_vwarn_nodebug_v1(int errnum, const char *fmt, va_list ap)
+{
+    warning(gai_strerror(errnum), fmt, ap);
 }
 
 static void
-warning(int errnum, const char *fmt, va_list ap)
+warning(const char *errstr, const char *fmt, va_list ap)
 {
     int cookie;
 
@@ -159,7 +208,7 @@ warning(int errnum, const char *fmt, va_list ap)
 		va_copy(ap2, ap);
 		buflen = vsnprintf(static_buf, sizeof(static_buf), fmt, ap2);
 		va_end(ap2);
-		if (buflen >= (int)sizeof(static_buf)) {
+		if (buflen >= ssizeof(static_buf)) {
 		    buf = malloc(++buflen);
 		    if (buf != NULL)
 			(void)vsnprintf(buf, buflen, fmt, ap);
@@ -171,11 +220,11 @@ warning(int errnum, const char *fmt, va_list ap)
 		msgs[nmsgs].msg_type = SUDO_CONV_ERROR_MSG;
 		msgs[nmsgs++].msg = buf;
         }
-        if (errnum) {
+        if (errstr != NULL) {
 	    msgs[nmsgs].msg_type = SUDO_CONV_ERROR_MSG;
 	    msgs[nmsgs++].msg = ": ";
 	    msgs[nmsgs].msg_type = SUDO_CONV_ERROR_MSG;
-	    msgs[nmsgs++].msg = strerror(errnum);
+	    msgs[nmsgs++].msg = errstr;
         }
 	msgs[nmsgs].msg_type = SUDO_CONV_ERROR_MSG;
 	msgs[nmsgs++].msg = "\n";
@@ -189,9 +238,9 @@ warning(int errnum, const char *fmt, va_list ap)
                 fputs(": ", stderr);
                 vfprintf(stderr, fmt, ap);
         }
-        if (errnum) {
+        if (errstr != NULL) {
             fputs(": ", stderr);
-            fputs(strerror(errnum), stderr);
+            fputs(errstr, stderr);
         }
         putc('\n', stderr);
     }

@@ -15,6 +15,14 @@
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecTrust.h>
 #include <Security/SecTrustPriv.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <string.h>
 
 #include "TrustEvaluationTestHelpers.h"
 
@@ -502,3 +510,43 @@ errOut:
 }
 
 @end
+
+int ping_host(char *host_name)
+{
+    struct sockaddr_in pin;
+    struct hostent *nlp_host;
+    struct in_addr addr;
+    int sd = 0;
+    int port = 80;
+    int retries = 5; // we try 5 times, then give up
+    char **h_addr_list = NULL;
+
+    while ((nlp_host=gethostbyname(host_name)) == 0 && retries--) {
+        printf("Resolve Error! (%s) %d\n", host_name, h_errno);
+        sleep(1);
+    }
+    if (nlp_host == 0) {
+        return 0;
+    }
+
+    bzero(&pin,sizeof(pin));
+    pin.sin_family=AF_INET;
+    pin.sin_addr.s_addr=htonl(INADDR_ANY);
+    h_addr_list = malloc(nlp_host->h_length * sizeof(char *));
+    memcpy(h_addr_list, nlp_host->h_addr_list, nlp_host->h_length * sizeof(char *));
+    memcpy(&addr, h_addr_list[0], sizeof(struct in_addr));
+    pin.sin_addr.s_addr=addr.s_addr;
+    pin.sin_port=htons(port);
+
+    sd=socket(AF_INET,SOCK_STREAM,0);
+
+    if (connect(sd,(struct sockaddr*)&pin,sizeof(pin)) == -1) {
+        printf("connect error! (%s) %d\n", host_name, errno);
+        close(sd);
+        free(h_addr_list);
+        return 0;
+    }
+    close(sd);
+    free(h_addr_list);
+    return 1;
+}

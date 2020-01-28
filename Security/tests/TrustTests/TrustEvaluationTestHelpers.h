@@ -30,6 +30,8 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+int ping_host(char *host_name);
+
 @interface TestTrustEvaluation : NSObject
 @property (assign, nonnull) SecTrustRef trust;
 @property NSString *fullTestName;

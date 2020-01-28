@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2011-2013 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -144,7 +146,7 @@ main(int argc, char *argv[])
 	    user_name = strdup(line);
 	    break;
 	case 2:
-	    user_gid = (gid_t)sudo_strtoid(line, NULL, NULL, &errstr);
+	    user_gid = (gid_t)sudo_strtoid(line, &errstr);
 	    if (errstr != NULL)
 		sudo_fatalx("group ID %s: %s", line, errstr);
 	    break;
@@ -154,7 +156,7 @@ main(int argc, char *argv[])
 	    runas_pw->pw_name = strdup(line);
 	    break;
 	case 4:
-	    runas_pw->pw_gid = (gid_t)sudo_strtoid(line, NULL, NULL, &errstr);
+	    runas_pw->pw_gid = (gid_t)sudo_strtoid(line, &errstr);
 	    if (errstr != NULL)
 		sudo_fatalx("group ID %s: %s", line, errstr);
 	    break;

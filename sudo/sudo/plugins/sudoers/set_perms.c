@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 1994-1996,1998-2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 1994-1996, 1998-2019 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,6 +18,11 @@
  * Sponsored in part by the Defense Advanced Research Projects
  * Agency (DARPA) and Air Force Research Laboratory, Air Force
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -44,7 +51,7 @@
  * Prototypes
  */
 #if defined(HAVE_SETRESUID) || defined(HAVE_SETREUID) || defined(HAVE_SETEUID)
-static struct group_list *runas_setgroups(void);
+static struct gid_list *runas_setgroups(void);
 #endif
 
 /*
@@ -62,7 +69,7 @@ struct perm_state {
 #if defined(HAVE_SETRESUID) || defined(ID_SAVED)
     gid_t sgid;
 #endif
-    struct group_list *grlist;
+    struct gid_list *gidlist;
 };
 
 #define PERM_STACK_MAX	16
@@ -84,7 +91,7 @@ rewind_perms(void)
 	    if (!restore_perms())
 		debug_return_bool(false);
 	}
-	sudo_grlist_delref(perm_stack[0].grlist);
+	sudo_gidlist_delref(perm_stack[0].gidlist);
     }
 
     debug_return_bool(true);
@@ -147,8 +154,8 @@ set_perms(int perm)
 	state->egid = getegid();
 	state->sgid = state->egid; /* in case we are setgid */
 #endif
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
 	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_INITIAL: "
 	    "ruid: %d, euid: %d, suid: %d, rgid: %d, egid: %d, sgid: %d",
 	    __func__, (int)state->ruid, (int)state->euid, (int)state->suid,
@@ -164,9 +171,9 @@ set_perms(int perm)
 	    (int)ostate->ruid, (int)ostate->euid, (int)ostate->suid,
 	    (int)state->ruid, (int)state->euid, (int)state->suid);
 	if (UID_CHANGED && setresuid(ID(ruid), ID(euid), ID(suid))) {
-	    snprintf(errbuf, sizeof(errbuf),
+	    (void)snprintf(errbuf, sizeof(errbuf),
 		"PERM_ROOT: setresuid(%d, %d, %d)",
-		ID(ruid), ID(euid), ID(suid));
+		(int)ID(ruid), (int)ID(euid), (int)ID(suid));
 	    goto bad;
 	}
 	state->rgid = ostate->rgid;
@@ -180,8 +187,8 @@ set_perms(int perm)
 	    errstr = N_("unable to change to root gid");
 	    goto bad;
 	}
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 	break;
 
     case PERM_USER:
@@ -193,14 +200,15 @@ set_perms(int perm)
 	    (int)ostate->rgid, (int)ostate->egid, (int)ostate->sgid,
 	    (int)state->rgid, (int)state->egid, (int)state->sgid);
 	if (GID_CHANGED && setresgid(ID(rgid), ID(egid), ID(sgid))) {
-	    snprintf(errbuf, sizeof(errbuf), "PERM_USER: setresgid(%d, %d, %d)",
-		ID(rgid), ID(egid), ID(sgid));
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_USER: setresgid(%d, %d, %d)",
+		(int)ID(rgid), (int)ID(egid), (int)ID(sgid));
 	    goto bad;
 	}
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
-	if (state->grlist != ostate->grlist) {
-	    if (sudo_setgroups(state->grlist->ngids, state->grlist->gids)) {
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
+	if (state->gidlist != ostate->gidlist) {
+	    if (sudo_setgroups(state->gidlist->ngids, state->gidlist->gids)) {
 		errstr = "PERM_USER: setgroups";
 		goto bad;
 	    }
@@ -213,8 +221,9 @@ set_perms(int perm)
 	    (int)ostate->ruid, (int)ostate->euid, (int)ostate->suid,
 	    (int)state->ruid, (int)state->euid, (int)state->suid);
 	if (UID_CHANGED && setresuid(ID(ruid), ID(euid), ID(suid))) {
-	    snprintf(errbuf, sizeof(errbuf), "PERM_USER: setresuid(%d, %d, %d)",
-		ID(ruid), ID(euid), ID(suid));
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_USER: setresuid(%d, %d, %d)",
+		(int)ID(ruid), (int)ID(euid), (int)ID(suid));
 	    goto bad;
 	}
 	break;
@@ -229,15 +238,15 @@ set_perms(int perm)
 	    (int)ostate->rgid, (int)ostate->egid, (int)ostate->sgid,
 	    (int)state->rgid, (int)state->egid, (int)state->sgid);
 	if (GID_CHANGED && setresgid(ID(rgid), ID(egid), ID(sgid))) {
-	    snprintf(errbuf, sizeof(errbuf),
+	    (void)snprintf(errbuf, sizeof(errbuf),
 		"PERM_FULL_USER: setresgid(%d, %d, %d)",
-		ID(rgid), ID(egid), ID(sgid));
+		(int)ID(rgid), (int)ID(egid), (int)ID(sgid));
 	    goto bad;
 	}
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
-	if (state->grlist != ostate->grlist) {
-	    if (sudo_setgroups(state->grlist->ngids, state->grlist->gids)) {
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
+	if (state->gidlist != ostate->gidlist) {
+	    if (sudo_setgroups(state->gidlist->ngids, state->gidlist->gids)) {
 		errstr = "PERM_FULL_USER: setgroups";
 		goto bad;
 	    }
@@ -250,9 +259,9 @@ set_perms(int perm)
 	    (int)ostate->ruid, (int)ostate->euid, (int)ostate->suid,
 	    (int)state->ruid, (int)state->euid, (int)state->suid);
 	if (UID_CHANGED && setresuid(ID(ruid), ID(euid), ID(suid))) {
-	    snprintf(errbuf, sizeof(errbuf),
+	    (void)snprintf(errbuf, sizeof(errbuf),
 		"PERM_FULL_USER: setresuid(%d, %d, %d)",
-		ID(ruid), ID(euid), ID(suid));
+		(int)ID(ruid), (int)ID(euid), (int)ID(suid));
 	    goto bad;
 	}
 	break;
@@ -269,8 +278,8 @@ set_perms(int perm)
 	    errstr = N_("unable to change to runas gid");
 	    goto bad;
 	}
-	state->grlist = runas_setgroups();
-	if (state->grlist == NULL) {
+	state->gidlist = runas_setgroups();
+	if (state->gidlist == NULL) {
 	    errstr = N_("unable to set runas group vector");
 	    goto bad;
 	}
@@ -288,8 +297,8 @@ set_perms(int perm)
 	break;
 
     case PERM_SUDOERS:
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 
 	/* assumes euid == ROOT_UID, ruid == user */
 	state->rgid = ostate->rgid;
@@ -320,16 +329,16 @@ set_perms(int perm)
 	    (int)ostate->ruid, (int)ostate->euid, (int)ostate->suid,
 	    (int)state->ruid, (int)state->euid, (int)state->suid);
 	if (UID_CHANGED && setresuid(ID(ruid), ID(euid), ID(suid))) {
-	    snprintf(errbuf, sizeof(errbuf),
+	    (void)snprintf(errbuf, sizeof(errbuf),
 		"PERM_SUDOERS: setresuid(%d, %d, %d)",
-		ID(ruid), ID(euid), ID(suid));
+		(int)ID(ruid), (int)ID(euid), (int)ID(suid));
 	    goto bad;
 	}
 	break;
 
     case PERM_TIMESTAMP:
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 	state->rgid = ostate->rgid;
 	state->egid = ostate->egid;
 	state->sgid = ostate->sgid;
@@ -341,9 +350,40 @@ set_perms(int perm)
 	    (int)ostate->ruid, (int)ostate->euid, (int)ostate->suid,
 	    (int)state->ruid, (int)state->euid, (int)state->suid);
 	if (UID_CHANGED && setresuid(ID(ruid), ID(euid), ID(suid))) {
-	    snprintf(errbuf, sizeof(errbuf),
+	    (void)snprintf(errbuf, sizeof(errbuf),
 		"PERM_TIMESTAMP: setresuid(%d, %d, %d)",
-		ID(ruid), ID(euid), ID(suid));
+		(int)ID(ruid), (int)ID(euid), (int)ID(suid));
+	    goto bad;
+	}
+	break;
+
+    case PERM_IOLOG:
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
+	state->rgid = ostate->rgid;
+	state->egid = iolog_gid;
+	state->sgid = ostate->sgid;
+	state->ruid = ROOT_UID;
+	state->euid = iolog_uid;
+	state->suid = ROOT_UID;
+	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_IOLOG: gid: "
+	    "[%d, %d, %d] -> [%d, %d, %d]", __func__,
+	    (int)ostate->rgid, (int)ostate->egid, (int)ostate->sgid,
+	    (int)state->rgid, (int)state->egid, (int)state->sgid);
+	if (GID_CHANGED && setresgid(ID(rgid), ID(egid), ID(sgid))) {
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_IOLOG: setresgid(%d, %d, %d)",
+		(int)ID(rgid), (int)ID(egid), (int)ID(sgid));
+	    goto bad;
+	}
+	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_IOLOG: uid: "
+	    "[%d, %d, %d] -> [%d, %d, %d]", __func__,
+	    (int)ostate->ruid, (int)ostate->euid, (int)ostate->suid,
+	    (int)state->ruid, (int)state->euid, (int)state->suid);
+	if (UID_CHANGED && setresuid(ID(ruid), ID(euid), ID(suid))) {
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_IOLOG: setresuid(%d, %d, %d)",
+		(int)ID(ruid), (int)ID(euid), (int)ID(suid));
 	    goto bad;
 	}
 	break;
@@ -390,25 +430,25 @@ restore_perms(void)
 	    goto bad;
 	}
     }
-    if (setresuid(OID(ruid), OID(euid), OID(suid))) {
-	sudo_warn("setresuid() [%d, %d, %d] -> [%d, %d, %d]",
-	    (int)state->ruid, (int)state->euid, (int)state->suid,
-	    (int)OID(ruid), (int)OID(euid), (int)OID(suid));
-	goto bad;
-    }
     if (setresgid(OID(rgid), OID(egid), OID(sgid))) {
 	sudo_warn("setresgid() [%d, %d, %d] -> [%d, %d, %d]",
 	    (int)state->rgid, (int)state->egid, (int)state->sgid,
 	    (int)OID(rgid), (int)OID(egid), (int)OID(sgid));
 	goto bad;
     }
-    if (state->grlist != ostate->grlist) {
-	if (sudo_setgroups(ostate->grlist->ngids, ostate->grlist->gids)) {
+    if (state->gidlist != ostate->gidlist) {
+	if (sudo_setgroups(ostate->gidlist->ngids, ostate->gidlist->gids)) {
 	    sudo_warn("setgroups()");
 	    goto bad;
 	}
     }
-    sudo_grlist_delref(state->grlist);
+    if (setresuid(OID(ruid), OID(euid), OID(suid))) {
+	sudo_warn("setresuid() [%d, %d, %d] -> [%d, %d, %d]",
+	    (int)state->ruid, (int)state->euid, (int)state->suid,
+	    (int)OID(ruid), (int)OID(euid), (int)OID(suid));
+	goto bad;
+    }
+    sudo_gidlist_delref(state->gidlist);
     debug_return_bool(true);
 
 bad:
@@ -459,13 +499,12 @@ set_perms(int perm)
 	state->rgid = getgidx(ID_REAL);
 	state->egid = getgidx(ID_EFFECTIVE);
 	state->sgid = getgidx(ID_SAVED);
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
 	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_INITIAL: "
 	    "ruid: %d, euid: %d, suid: %d, rgid: %d, egid: %d, sgid: %d",
-	    __func__, (unsigned int)state->ruid, (unsigned int)state->euid,
-	    (unsigned int)state->suid, (unsigned int)state->rgid,
-	    (unsigned int)state->egid, (unsigned int)state->sgid);
+	    __func__, (int)state->ruid, (int)state->euid, (int)state->suid,
+	    (int)state->rgid, (int)state->egid, (int)state->sgid);
 	break;
 
     case PERM_ROOT:
@@ -477,7 +516,7 @@ set_perms(int perm)
 	    (int)ostate->ruid, (int)ostate->euid, (int)ostate->suid,
 	    (int)state->ruid, (int)state->euid, (int)state->suid);
 	if (UID_CHANGED && setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, ROOT_UID)) {
-	    snprintf(errbuf, sizeof(errbuf),
+	    (void)snprintf(errbuf, sizeof(errbuf),
 		"PERM_ROOT: setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, %d)",
 		ROOT_UID);
 	    goto bad;
@@ -493,8 +532,8 @@ set_perms(int perm)
 	    errstr = N_("unable to change to root gid");
 	    goto bad;
 	}
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 	break;
 
     case PERM_USER:
@@ -506,14 +545,14 @@ set_perms(int perm)
 	    (int)ostate->rgid, (int)ostate->egid, (int)ostate->sgid,
 	    (int)state->rgid, (int)state->egid, (int)state->sgid);
 	if (GID_CHANGED && setgidx(ID_EFFECTIVE, user_gid)) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_USER: setgidx(ID_EFFECTIVE, %d)", user_gid);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_USER: setgidx(ID_EFFECTIVE, %d)", (int)user_gid);
 	    goto bad;
 	}
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
-	if (state->grlist != ostate->grlist) {
-	    if (sudo_setgroups(state->grlist->ngids, state->grlist->gids)) {
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
+	if (state->gidlist != ostate->gidlist) {
+	    if (sudo_setgroups(state->gidlist->ngids, state->gidlist->gids)) {
 		errstr = "PERM_USER: setgroups";
 		goto bad;
 	    }
@@ -527,15 +566,15 @@ set_perms(int perm)
 	    (int)state->ruid, (int)state->euid, (int)state->suid);
 	if (ostate->euid != ROOT_UID || ostate->suid != ROOT_UID) {
 	    if (setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, ROOT_UID)) {
-		snprintf(errbuf, sizeof(errbuf),
+		(void)snprintf(errbuf, sizeof(errbuf),
 		    "PERM_USER: setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, %d)",
 		    ROOT_UID);
 		goto bad;
 	    }
 	}
 	if (setuidx(ID_EFFECTIVE|ID_REAL, user_uid)) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_USER: setuidx(ID_EFFECTIVE|ID_REAL, %d)", user_uid);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_USER: setuidx(ID_EFFECTIVE|ID_REAL, %d)", (int)user_uid);
 	    goto bad;
 	}
 	break;
@@ -550,15 +589,15 @@ set_perms(int perm)
 	    (int)ostate->rgid, (int)ostate->egid, (int)ostate->sgid,
 	    (int)state->rgid, (int)state->egid, (int)state->sgid);
 	if (GID_CHANGED && setgidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, user_gid)) {
-	    snprintf(errbuf, sizeof(errbuf),
+	    (void)snprintf(errbuf, sizeof(errbuf),
 		"PERM_FULL_USER: setgidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, %d)",
-		user_gid);
+		(int)user_gid);
 	    goto bad;
 	}
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
-	if (state->grlist != ostate->grlist) {
-	    if (sudo_setgroups(state->grlist->ngids, state->grlist->gids)) {
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
+	if (state->gidlist != ostate->gidlist) {
+	    if (sudo_setgroups(state->gidlist->ngids, state->gidlist->gids)) {
 		errstr = "PERM_FULL_USER: setgroups";
 		goto bad;
 	    }
@@ -571,9 +610,9 @@ set_perms(int perm)
 	    (int)ostate->ruid, (int)ostate->euid, (int)ostate->suid,
 	    (int)state->ruid, (int)state->euid, (int)state->suid);
 	if (UID_CHANGED && setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, user_uid)) {
-	    snprintf(errbuf, sizeof(errbuf),
+	    (void)snprintf(errbuf, sizeof(errbuf),
 		"PERM_FULL_USER: setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, %d)",
-		user_uid);
+		(int)user_uid);
 	    goto bad;
 	}
 	break;
@@ -590,8 +629,8 @@ set_perms(int perm)
 	    errstr = N_("unable to change to runas gid");
 	    goto bad;
 	}
-	state->grlist = runas_setgroups();
-	if (state->grlist == NULL) {
+	state->gidlist = runas_setgroups();
+	if (state->gidlist == NULL) {
 	    errstr = N_("unable to set runas group vector");
 	    goto bad;
 	}
@@ -609,8 +648,8 @@ set_perms(int perm)
 	break;
 
     case PERM_SUDOERS:
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 
 	/* assume euid == ROOT_UID, ruid == user */
 	state->rgid = ostate->rgid;
@@ -643,23 +682,23 @@ set_perms(int perm)
 	if (UID_CHANGED) {
 	    if (ostate->ruid != ROOT_UID || ostate->suid != ROOT_UID) {
 		if (setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, ROOT_UID)) {
-		    snprintf(errbuf, sizeof(errbuf),
+		    (void)snprintf(errbuf, sizeof(errbuf),
 			"PERM_SUDOERS: setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, %d)",
 			ROOT_UID);
 		    goto bad;
 		}
 	    }
 	    if (setuidx(ID_EFFECTIVE, state->euid)) {
-		snprintf(errbuf, sizeof(errbuf),
-		    "PERM_SUDOERS: setuidx(ID_EFFECTIVE, %d)", sudoers_uid);
+		(void)snprintf(errbuf, sizeof(errbuf),
+		    "PERM_SUDOERS: setuidx(ID_EFFECTIVE, %d)", (int)sudoers_uid);
 		goto bad;
 	    }
 	}
 	break;
 
     case PERM_TIMESTAMP:
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 	state->rgid = ostate->rgid;
 	state->egid = ostate->egid;
 	state->sgid = ostate->sgid;
@@ -673,15 +712,56 @@ set_perms(int perm)
 	if (UID_CHANGED) {
 	    if (ostate->ruid != ROOT_UID || ostate->suid != ROOT_UID) {
 		if (setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, ROOT_UID)) {
-		    snprintf(errbuf, sizeof(errbuf),
+		    (void)snprintf(errbuf, sizeof(errbuf),
 			"PERM_TIMESTAMP: setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, %d)",
 			ROOT_UID);
 		    goto bad;
 		}
 	    }
 	    if (setuidx(ID_EFFECTIVE, timestamp_uid)) {
-		snprintf(errbuf, sizeof(errbuf),
-		    "PERM_TIMESTAMP: setuidx(ID_EFFECTIVE, %d)", timestamp_uid);
+		(void)snprintf(errbuf, sizeof(errbuf),
+		    "PERM_TIMESTAMP: setuidx(ID_EFFECTIVE, %d)",
+		    (int)timestamp_uid);
+		goto bad;
+	    }
+	}
+	break;
+
+    case PERM_IOLOG:
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
+	state->rgid = ostate->rgid;
+	state->egid = iolog_gid;
+	state->sgid = ostate->sgid;
+	state->ruid = ROOT_UID;
+	state->euid = iolog_uid;
+	state->suid = ROOT_UID;
+	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_IOLOG: gid: "
+	    "[%d, %d, %d] -> [%d, %d, %d]", __func__,
+	    (int)ostate->rgid, (int)ostate->egid, (int)ostate->sgid,
+	    (int)state->rgid, (int)state->egid, (int)state->sgid);
+	if (GID_CHANGED && setgidx(ID_EFFECTIVE, iolog_gid)) {
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_IOLOG: setgidx(ID_EFFECTIVE, %d)", (int)iolog_gid);
+	    goto bad;
+	}
+	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_IOLOG: uid: "
+	    "[%d, %d, %d] -> [%d, %d, %d]", __func__,
+	    (int)ostate->ruid, (int)ostate->euid, (int)ostate->suid,
+	    (int)state->ruid, (int)state->euid, (int)state->suid);
+	if (UID_CHANGED) {
+	    if (ostate->ruid != ROOT_UID || ostate->suid != ROOT_UID) {
+		if (setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, ROOT_UID)) {
+		    (void)snprintf(errbuf, sizeof(errbuf),
+			"PERM_IOLOG: setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, %d)",
+			ROOT_UID);
+		    goto bad;
+		}
+	    }
+	    if (setuidx(ID_EFFECTIVE, timestamp_uid)) {
+		(void)snprintf(errbuf, sizeof(errbuf),
+		    "PERM_IOLOG: setuidx(ID_EFFECTIVE, %d)",
+		    (int)timestamp_uid);
 		goto bad;
 	    }
 	}
@@ -734,7 +814,7 @@ restore_perms(void)
 	if (OID(ruid) == OID(euid) && OID(euid) == OID(suid)) {
 	    sudo_debug_printf(SUDO_DEBUG_INFO,
 		"%s: setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, %d)",
-		__func__, OID(ruid));
+		__func__, (int)OID(ruid));
 	    if (setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, OID(ruid))) {
 		sudo_warn("setuidx(ID_EFFECTIVE|ID_REAL|ID_SAVED) [%d, %d, %d] -> [%d, %d, %d]",
 		    (int)state->ruid, (int)state->euid, (int)state->suid,
@@ -768,7 +848,7 @@ restore_perms(void)
 		sudo_debug_printf(SUDO_DEBUG_INFO,
 		    "%s: setuidx(ID_EFFECTIVE, %d)", __func__, ostate->euid);
 		if (setuidx(ID_EFFECTIVE, ostate->euid)) {
-		    sudo_warn("setuidx(ID_EFFECTIVE, %d)", ostate->euid);
+		    sudo_warn("setuidx(ID_EFFECTIVE, %d)", (int)ostate->euid);
 		    goto bad;
 		}
 	    }
@@ -778,7 +858,7 @@ restore_perms(void)
 	if (OID(rgid) == OID(egid) && OID(egid) == OID(sgid)) {
 	    sudo_debug_printf(SUDO_DEBUG_INFO,
 		"%s: setgidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, %d)",
-		__func__, OID(rgid));
+		__func__, (int)OID(rgid));
 	    if (setgidx(ID_EFFECTIVE|ID_REAL|ID_SAVED, OID(rgid))) {
 		sudo_warn("setgidx(ID_EFFECTIVE|ID_REAL|ID_SAVED) [%d, %d, %d] -> [%d, %d, %d]",
 		    (int)state->rgid, (int)state->egid, (int)state->sgid,
@@ -787,7 +867,7 @@ restore_perms(void)
 	    }
 	} else if (OID(rgid) == (gid_t)-1 && OID(sgid) == (gid_t)-1) {
 	    sudo_debug_printf(SUDO_DEBUG_INFO, "%s: setgidx(ID_EFFECTIVE, %d)",
-		__func__, OID(egid));
+		__func__, (int)OID(egid));
 	    if (setgidx(ID_EFFECTIVE, OID(egid))) {
 		sudo_warn("setgidx(ID_EFFECTIVE) [%d, %d, %d] -> [%d, %d, %d]",
 		    (int)state->rgid, (int)state->egid, (int)state->sgid,
@@ -805,13 +885,13 @@ restore_perms(void)
 	    }
 	}
     }
-    if (state->grlist != ostate->grlist) {
-	if (sudo_setgroups(ostate->grlist->ngids, ostate->grlist->gids)) {
+    if (state->gidlist != ostate->gidlist) {
+	if (sudo_setgroups(ostate->gidlist->ngids, ostate->gidlist->gids)) {
 	    sudo_warn("setgroups()");
 	    goto bad;
 	}
     }
-    sudo_grlist_delref(state->grlist);
+    sudo_gidlist_delref(state->gidlist);
     debug_return_bool(true);
 
 bad:
@@ -860,8 +940,8 @@ set_perms(int perm)
 	state->euid = geteuid();
 	state->rgid = getgid();
 	state->egid = getegid();
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
 	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_INITIAL: "
 	    "ruid: %d, euid: %d, rgid: %d, egid: %d", __func__,
 	    (int)state->ruid, (int)state->euid,
@@ -879,14 +959,14 @@ set_perms(int perm)
 	 */
 	if (ostate->euid != ROOT_UID) {
 	    if (setreuid(-1, ROOT_UID)) {
-		snprintf(errbuf, sizeof(errbuf),
+		(void)snprintf(errbuf, sizeof(errbuf),
 		    "PERM_ROOT: setreuid(-1, %d)", ROOT_UID);
 		goto bad;
 	    }
 	}
 	if (ostate->ruid != ROOT_UID) {
 	    if (setreuid(ROOT_UID, -1)) {
-		snprintf(errbuf, sizeof(errbuf),
+		(void)snprintf(errbuf, sizeof(errbuf),
 		    "PERM_ROOT: setreuid(%d, -1)", ROOT_UID);
 		goto bad;
 	    }
@@ -897,12 +977,12 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->rgid,
 	    (int)ostate->egid, (int)state->rgid, (int)state->egid);
 	if (GID_CHANGED && setregid(ID(rgid), ID(egid))) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_ROOT: setregid(%d, %d)", ID(rgid), ID(egid));
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_ROOT: setregid(%d, %d)", (int)ID(rgid), (int)ID(egid));
 	    goto bad;
 	}
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 	break;
 
     case PERM_USER:
@@ -912,14 +992,14 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->rgid,
 	    (int)ostate->egid, (int)state->rgid, (int)state->egid);
 	if (GID_CHANGED && setregid(ID(rgid), ID(egid))) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_USER: setregid(%d, %d)", ID(rgid), ID(egid));
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_USER: setregid(%d, %d)", (int)ID(rgid), (int)ID(egid));
 	    goto bad;
 	}
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
-	if (state->grlist != ostate->grlist) {
-	    if (sudo_setgroups(state->grlist->ngids, state->grlist->gids)) {
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
+	if (state->gidlist != ostate->gidlist) {
+	    if (sudo_setgroups(state->gidlist->ngids, state->gidlist->gids)) {
 		errstr = "PERM_USER: setgroups";
 		goto bad;
 	    }
@@ -930,8 +1010,8 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->ruid,
 	    (int)ostate->euid, (int)state->ruid, (int)state->euid);
 	if (UID_CHANGED && setreuid(ID(ruid), ID(euid))) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_USER: setreuid(%d, %d)", ID(ruid), ID(euid));
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_USER: setreuid(%d, %d)", (int)ID(ruid), (int)ID(euid));
 	    goto bad;
 	}
 	break;
@@ -944,14 +1024,15 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->rgid,
 	    (int)ostate->egid, (int)state->rgid, (int)state->egid);
 	if (GID_CHANGED && setregid(ID(rgid), ID(egid))) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_FULL_USER: setregid(%d, %d)", ID(rgid), ID(egid));
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_FULL_USER: setregid(%d, %d)",
+		(int)ID(rgid), (int)ID(egid));
 	    goto bad;
 	}
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
-	if (state->grlist != ostate->grlist) {
-	    if (sudo_setgroups(state->grlist->ngids, state->grlist->gids)) {
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
+	if (state->gidlist != ostate->gidlist) {
+	    if (sudo_setgroups(state->gidlist->ngids, state->gidlist->gids)) {
 		errstr = "PERM_FULL_USER: setgroups";
 		goto bad;
 	    }
@@ -962,8 +1043,9 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->ruid,
 	    (int)ostate->euid, (int)state->ruid, (int)state->euid);
 	if (UID_CHANGED && setreuid(ID(ruid), ID(euid))) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_FULL_USER: setreuid(%d, %d)", ID(ruid), ID(euid));
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_FULL_USER: setreuid(%d, %d)",
+		(int)ID(ruid), (int)ID(euid));
 	    goto bad;
 	}
 	break;
@@ -978,8 +1060,8 @@ set_perms(int perm)
 	    errstr = N_("unable to change to runas gid");
 	    goto bad;
 	}
-	state->grlist = runas_setgroups();
-	if (state->grlist == NULL) {
+	state->gidlist = runas_setgroups();
+	if (state->gidlist == NULL) {
 	    errstr = N_("unable to set runas group vector");
 	    goto bad;
 	}
@@ -995,8 +1077,8 @@ set_perms(int perm)
 	break;
 
     case PERM_SUDOERS:
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 
 	/* assume euid == ROOT_UID, ruid == user */
 	state->rgid = ostate->rgid;
@@ -1023,15 +1105,16 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->ruid,
 	    (int)ostate->euid, (int)state->ruid, (int)state->euid);
 	if (UID_CHANGED && setreuid(ID(ruid), ID(euid))) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_SUDOERS: setreuid(%d, %d)", ID(ruid), ID(euid));
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_SUDOERS: setreuid(%d, %d)",
+		(int)ID(ruid), (int)ID(euid));
 	    goto bad;
 	}
 	break;
 
     case PERM_TIMESTAMP:
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 	state->rgid = ostate->rgid;
 	state->egid = ostate->egid;
 	state->ruid = ROOT_UID;
@@ -1040,8 +1123,36 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->ruid,
 	    (int)ostate->euid, (int)state->ruid, (int)state->euid);
 	if (UID_CHANGED && setreuid(ID(ruid), ID(euid))) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_TIMESTAMP: setreuid(%d, %d)", ID(ruid), ID(euid));
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_TIMESTAMP: setreuid(%d, %d)",
+		(int)ID(ruid), (int)ID(euid));
+	    goto bad;
+	}
+	break;
+
+    case PERM_IOLOG:
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
+	state->rgid = ostate->rgid;
+	state->egid = iolog_gid;
+	state->ruid = ROOT_UID;
+	state->euid = iolog_uid;
+	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_IOLOG: gid: "
+	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->rgid,
+	    (int)ostate->egid, (int)state->rgid, (int)state->egid);
+	if (GID_CHANGED && setregid(ID(rgid), ID(egid))) {
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_IOLOG: setregid(%d, %d)",
+		(int)ID(rgid), (int)ID(egid));
+	    goto bad;
+	}
+	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_IOLOG: uid: "
+	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->ruid,
+	    (int)ostate->euid, (int)state->ruid, (int)state->euid);
+	if (UID_CHANGED && setreuid(ID(ruid), ID(euid))) {
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_IOLOG: setreuid(%d, %d)",
+		(int)ID(ruid), (int)ID(euid));
 	    goto bad;
 	}
 	break;
@@ -1085,8 +1196,13 @@ restore_perms(void)
      */
     if (OID(euid) == ROOT_UID) {
 	/* setuid() may not set the saved ID unless the euid is ROOT_UID */
-	if (ID(euid) != ROOT_UID)
-	    ignore_result(setreuid(-1, ROOT_UID));
+	if (ID(euid) != ROOT_UID) {
+	    if (setreuid(-1, ROOT_UID) != 0) {
+		sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_ERRNO,
+		    "setreuid() [%d, %d] -> [-1, %d)", (int)state->ruid,
+		    (int)state->euid, ROOT_UID);
+	    }
+	}
 	if (setuid(ROOT_UID)) {
 	    sudo_warn("setuid() [%d, %d] -> %d)", (int)state->ruid,
 		(int)state->euid, ROOT_UID);
@@ -1103,13 +1219,13 @@ restore_perms(void)
 	    (int)state->egid, (int)OID(rgid), (int)OID(egid));
 	goto bad;
     }
-    if (state->grlist != ostate->grlist) {
-	if (sudo_setgroups(ostate->grlist->ngids, ostate->grlist->gids)) {
+    if (state->gidlist != ostate->gidlist) {
+	if (sudo_setgroups(ostate->gidlist->ngids, ostate->gidlist->gids)) {
 	    sudo_warn("setgroups()");
 	    goto bad;
 	}
     }
-    sudo_grlist_delref(state->grlist);
+    sudo_gidlist_delref(state->gidlist);
     debug_return_bool(true);
 
 bad:
@@ -1157,11 +1273,13 @@ set_perms(int perm)
      */
     if (perm != PERM_INITIAL) {
 	if (ostate->euid != ROOT_UID && seteuid(ROOT_UID)) {
-	    snprintf(errbuf, sizeof(errbuf), "set_perms: seteuid(%d)", ROOT_UID);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"set_perms: seteuid(%d)", ROOT_UID);
 	    goto bad;
 	}
 	if (ostate->ruid != ROOT_UID && setuid(ROOT_UID)) {
-	    snprintf(errbuf, sizeof(errbuf), "set_perms: setuid(%d)", ROOT_UID);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"set_perms: setuid(%d)", ROOT_UID);
 	    goto bad;
 	}
     }
@@ -1173,8 +1291,8 @@ set_perms(int perm)
 	state->euid = geteuid();
 	state->rgid = getgid();
 	state->egid = getegid();
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
 	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_INITIAL: "
 	    "ruid: %d, euid: %d, rgid: %d, egid: %d", __func__,
 	    (int)state->ruid, (int)state->euid,
@@ -1197,8 +1315,8 @@ set_perms(int perm)
 	    errstr = N_("unable to change to root gid");
 	    goto bad;
 	}
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 	break;
 
     case PERM_USER:
@@ -1208,14 +1326,14 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->rgid,
 	    (int)ostate->egid, (int)state->rgid, (int)state->egid);
 	if (GID_CHANGED && setegid(user_gid)) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_USER: setegid(%d)", user_gid);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_USER: setegid(%d)", (int)user_gid);
 	    goto bad;
 	}
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
-	if (state->grlist != ostate->grlist) {
-	    if (sudo_setgroups(state->grlist->ngids, state->grlist->gids)) {
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
+	if (state->gidlist != ostate->gidlist) {
+	    if (sudo_setgroups(state->gidlist->ngids, state->gidlist->gids)) {
 		errstr = "PERM_USER: setgroups";
 		goto bad;
 	    }
@@ -1226,8 +1344,8 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->ruid,
 	    (int)ostate->euid, (int)state->ruid, (int)state->euid);
 	if (seteuid(user_uid)) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_USER: seteuid(%d)", user_uid);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_USER: seteuid(%d)", (int)user_uid);
 	    goto bad;
 	}
 	break;
@@ -1240,14 +1358,14 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->rgid,
 	    (int)ostate->egid, (int)state->rgid, (int)state->egid);
 	if (GID_CHANGED && setgid(user_gid)) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_FULL_USER: setgid(%d)", user_gid);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_FULL_USER: setgid(%d)", (int)user_gid);
 	    goto bad;
 	}
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
-	if (state->grlist != ostate->grlist) {
-	    if (sudo_setgroups(state->grlist->ngids, state->grlist->gids)) {
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
+	if (state->gidlist != ostate->gidlist) {
+	    if (sudo_setgroups(state->gidlist->ngids, state->gidlist->gids)) {
 		errstr = "PERM_FULL_USER: setgroups";
 		goto bad;
 	    }
@@ -1258,8 +1376,8 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->ruid,
 	    (int)ostate->euid, (int)state->ruid, (int)state->euid);
 	if (setuid(user_uid)) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_FULL_USER: setuid(%d)", user_uid);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_FULL_USER: setuid(%d)", (int)user_uid);
 	    goto bad;
 	}
 	break;
@@ -1274,8 +1392,8 @@ set_perms(int perm)
 	    errstr = N_("unable to change to runas gid");
 	    goto bad;
 	}
-	state->grlist = runas_setgroups();
-	if (state->grlist == NULL) {
+	state->gidlist = runas_setgroups();
+	if (state->gidlist == NULL) {
 	    errstr = N_("unable to set runas group vector");
 	    goto bad;
 	}
@@ -1291,8 +1409,8 @@ set_perms(int perm)
 	break;
 
     case PERM_SUDOERS:
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 
 	/* assume euid == ROOT_UID, ruid == user */
 	state->rgid = ostate->rgid;
@@ -1319,15 +1437,15 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->ruid,
 	    (int)ostate->euid, (int)state->ruid, (int)state->euid);
 	if (seteuid(state->euid)) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_SUDOERS: seteuid(%d)", state->euid);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_SUDOERS: seteuid(%d)", (int)state->euid);
 	    goto bad;
 	}
 	break;
 
     case PERM_TIMESTAMP:
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 	state->rgid = ostate->rgid;
 	state->egid = ostate->egid;
 	state->ruid = ROOT_UID;
@@ -1336,8 +1454,33 @@ set_perms(int perm)
 	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->ruid,
 	    (int)ostate->euid, (int)state->ruid, (int)state->euid);
 	if (seteuid(timestamp_uid)) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_TIMESTAMP: seteuid(%d)", timestamp_uid);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_TIMESTAMP: seteuid(%d)", (int)timestamp_uid);
+	    goto bad;
+	}
+	break;
+
+    case PERM_IOLOG:
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
+	state->rgid = ostate->rgid;
+	state->egid = iolog_gid;
+	state->ruid = ROOT_UID;
+	state->euid = iolog_uid;
+	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_IOLOG: gid: "
+	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->rgid,
+	    (int)ostate->egid, (int)state->rgid, (int)state->egid);
+	if (GID_CHANGED && setegid(iolog_gid)) {
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_IOLOG: setegid(%d)", (int)iolog_gid);
+	    goto bad;
+	}
+	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_IOLOG: uid: "
+	    "[%d, %d] -> [%d, %d]", __func__, (int)ostate->ruid,
+	    (int)ostate->euid, (int)state->ruid, (int)state->euid);
+	if (seteuid(timestamp_uid)) {
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_IOLOG: seteuid(%d)", (int)timestamp_uid);
 	    goto bad;
 	}
 	break;
@@ -1394,17 +1537,17 @@ restore_perms(void)
 	sudo_warn("setegid(%d)", (int)ostate->egid);
 	goto bad;
     }
-    if (state->grlist != ostate->grlist) {
-	if (sudo_setgroups(ostate->grlist->ngids, ostate->grlist->gids)) {
+    if (state->gidlist != ostate->gidlist) {
+	if (sudo_setgroups(ostate->gidlist->ngids, ostate->gidlist->gids)) {
 	    sudo_warn("setgroups()");
 	    goto bad;
 	}
     }
     if (OID(euid) != (uid_t)-1 && seteuid(ostate->euid)) {
-	sudo_warn("seteuid(%d)", ostate->euid);
+	sudo_warn("seteuid(%d)", (int)ostate->euid);
 	goto bad;
     }
-    sudo_grlist_delref(state->grlist);
+    sudo_gidlist_delref(state->gidlist);
     debug_return_bool(true);
 
 bad:
@@ -1447,8 +1590,8 @@ set_perms(int perm)
 	/* Stash initial state */
 	state->ruid = geteuid() == ROOT_UID ? ROOT_UID : getuid();
 	state->rgid = getgid();
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
 	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_INITIAL: "
 	    "ruid: %d, rgid: %d", __func__, (int)state->ruid, (int)state->rgid);
 	break;
@@ -1456,12 +1599,13 @@ set_perms(int perm)
     case PERM_ROOT:
 	state->ruid = ROOT_UID;
 	state->rgid = ROOT_GID;
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_ROOT: uid: "
 	    "[%d] -> [%d]", __func__, (int)ostate->ruid, (int)state->ruid);
 	if (setuid(ROOT_UID)) {
-	    snprintf(errbuf, sizeof(errbuf), "PERM_ROOT: setuid(%d)", ROOT_UID);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_ROOT: setuid(%d)", ROOT_UID);
 	    goto bad;
 	}
 	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_ROOT: gid: "
@@ -1477,10 +1621,10 @@ set_perms(int perm)
 	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_FULL_USER: gid: "
 	    "[%d] -> [%d]", __func__, (int)ostate->rgid, (int)state->rgid);
 	(void) setgid(user_gid);
-	state->grlist = user_group_list;
-	sudo_grlist_addref(state->grlist);
-	if (state->grlist != ostate->grlist) {
-	    if (sudo_setgroups(state->grlist->ngids, state->grlist->gids)) {
+	state->gidlist = user_gid_list;
+	sudo_gidlist_addref(state->gidlist);
+	if (state->gidlist != ostate->gidlist) {
+	    if (sudo_setgroups(state->gidlist->ngids, state->gidlist->gids)) {
 		errstr = "PERM_FULL_USER: setgroups";
 		goto bad;
 	    }
@@ -1489,8 +1633,8 @@ set_perms(int perm)
 	sudo_debug_printf(SUDO_DEBUG_INFO, "%s: PERM_FULL_USER: uid: "
 	    "[%d] -> [%d]", __func__, (int)ostate->ruid, (int)state->ruid);
 	if (setuid(user_uid)) {
-	    snprintf(errbuf, sizeof(errbuf),
-		"PERM_FULL_USER: setuid(%d)", user_uid);
+	    (void)snprintf(errbuf, sizeof(errbuf),
+		"PERM_FULL_USER: setuid(%d)", (int)user_uid);
 	    goto bad;
 	}
 	break;
@@ -1499,11 +1643,12 @@ set_perms(int perm)
     case PERM_SUDOERS:
     case PERM_RUNAS:
     case PERM_TIMESTAMP:
+    case PERM_IOLOG:
 	/* Unsupported since we can't set euid. */
 	state->ruid = ostate->ruid;
 	state->rgid = ostate->rgid;
-	state->grlist = ostate->grlist;
-	sudo_grlist_addref(state->grlist);
+	state->gidlist = ostate->gidlist;
+	sudo_gidlist_addref(state->gidlist);
 	break;
     }
 
@@ -1541,13 +1686,13 @@ restore_perms(void)
 	sudo_warn("setgid(%d)", (int)ostate->rgid);
 	goto bad;
     }
-    if (state->grlist != ostate->grlist) {
-	if (sudo_setgroups(ostate->grlist->ngids, ostate->grlist->gids)) {
+    if (state->gidlist != ostate->gidlist) {
+	if (sudo_setgroups(ostate->gidlist->ngids, ostate->gidlist->gids)) {
 	    sudo_warn("setgroups()");
 	    goto bad;
 	}
     }
-    sudo_grlist_delref(state->grlist);
+    sudo_gidlist_delref(state->gidlist);
     if (OID(ruid) != (uid_t)-1 && setuid(ostate->ruid)) {
 	sudo_warn("setuid(%d)", (int)ostate->ruid);
 	goto bad;
@@ -1560,26 +1705,19 @@ bad:
 #endif /* HAVE_SETRESUID || HAVE_SETREUID || HAVE_SETEUID */
 
 #if defined(HAVE_SETRESUID) || defined(HAVE_SETREUID) || defined(HAVE_SETEUID)
-static struct group_list *
+static struct gid_list *
 runas_setgroups(void)
 {
-    struct passwd *pw;
-    struct group_list *grlist;
+    struct gid_list *gidlist;
     debug_decl(runas_setgroups, SUDOERS_DEBUG_PERMS)
 
-    if (def_preserve_groups) {
-	sudo_grlist_addref(user_group_list);
-	debug_return_ptr(user_group_list);
-    }
-
-    pw = runas_pw ? runas_pw : sudo_user.pw;
-    grlist = sudo_get_grlist(pw);
-    if (grlist != NULL) {
-	if (sudo_setgroups(grlist->ngids, grlist->gids) < 0) {
-	    sudo_grlist_delref(grlist);
-	    grlist = NULL;
+    gidlist = runas_getgroups();
+    if (gidlist != NULL && !def_preserve_groups) {
+	if (sudo_setgroups(gidlist->ngids, gidlist->gids) < 0) {
+	    sudo_gidlist_delref(gidlist);
+	    gidlist = NULL;
 	}
     }
-    debug_return_ptr(grlist);
+    debug_return_ptr(gidlist);
 }
 #endif /* HAVE_SETRESUID || HAVE_SETREUID || HAVE_SETEUID */

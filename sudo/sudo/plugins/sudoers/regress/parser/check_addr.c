@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2011-2013 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -38,7 +40,6 @@
 #define SUDO_ERROR_WRAP 0
 
 #include "sudoers.h"
-#include "parse.h"
 #include "interfaces.h"
 
 __dso_public int main(int argc, char *argv[]);
@@ -59,7 +60,7 @@ check_addr(char *input)
     cp = input + len;
     while (isspace((unsigned char)*cp))
 	cp++;
-    expected = strtonum(cp, 0, 1, &errstr);
+    expected = sudo_strtonum(cp, 0, 1, &errstr);
     if (errstr != NULL)
 	sudo_fatalx("expecting 0 or 1, got %s", cp);
     input[len] = '\0';

@@ -1,5 +1,7 @@
 #
-# Copyright (c) 2010-2014 Todd C. Miller <Todd.Miller@courtesan.com>
+# SPDX-License-Identifier: ISC
+#
+# Copyright (c) 2010-2018 Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -12,7 +14,6 @@
 # WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # plugins/group_file/Makefile.  Generated from Makefile.in by configure.
 #
@@ -35,13 +36,14 @@ AWK = awk
 # Our install program supports extra flags...
 INSTALL = $(SHELL) $(top_srcdir)/install-sh -c
 INSTALL_OWNER = -o $(install_uid) -g $(install_gid)
+INSTALL_BACKUP = 
 
 # Libraries
 LT_LIBS = $(top_builddir)/lib/util/libsudo_util.la
 LIBS = $(LT_LIBS)
 
 # C preprocessor flags
-CPPFLAGS = -I$(incdir) -I$(top_builddir) -I$(top_srcdir) -D_FORTIFY_SOURCE=2
+CPPFLAGS = -I$(incdir) -I$(top_builddir) -I$(top_srcdir) -DZLIB_CONST -D_FORTIFY_SOURCE=2
 
 # Usually -O and/or -g
 CFLAGS = -g -O2 -fvisibility=hidden
@@ -52,6 +54,10 @@ LT_LDFLAGS =
 
 # Flags to pass to libtool
 LTFLAGS = --tag=disable-static
+
+# Address sanitizer flags
+ASAN_CFLAGS = 
+ASAN_LDFLAGS = 
 
 # PIE flags
 PIE_CFLAGS = 
@@ -66,6 +72,11 @@ CPPCHECK_OPTS = -q --force --enable=warning,performance,portability --suppress=c
 
 # splint options, usually set in the top-level Makefile
 SPLINT_OPTS = -D__restrict= -checks
+
+# PVS-studio options
+PVS_CFG = $(top_srcdir)/PVS-Studio.cfg
+PVS_IGNORE = 'V707,V011,V002,V536'
+PVS_LOG_OPTS = -a 'GA:1,2' -e -t errorfile -d $(PVS_IGNORE)
 
 # Where to install things...
 prefix = /usr/local
@@ -95,19 +106,34 @@ SHELL = /bin/sh
 
 OBJS =	group_file.lo getgrent.lo
 
+IOBJS = $(OBJS:.lo=.i)
+
+POBJS = $(IOBJS:.i=.plog)
+
 LIBOBJDIR = $(top_builddir)/@ac_config_libobj_dir@/
 
-VERSION = 1.8.17p1
+VERSION = 1.8.29
 
 all: group_file.la
 
-Makefile: $(srcdir)/Makefile.in
-	(cd $(top_builddir) && ./config.status --file plugins/group_file/Makefile)
+depend:
+	$(top_srcdir)/mkdep.pl --srcdir=$(top_srcdir) \
+	    --builddir=`pwd`/$(top_builddir) plugins/group_file/Makefile.in
+	cd $(top_builddir) && ./config.status --file plugins/group_file/Makefile
 
-.SUFFIXES: .o .c .h .lo
+Makefile: $(srcdir)/Makefile.in
+	cd $(top_builddir) && ./config.status --file plugins/group_file/Makefile
+
+.SUFFIXES: .c .h .i .lo .plog
 
 .c.lo:
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $<
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $<
+
+.c.i:
+	$(CC) -E -o $@ $(CPPFLAGS) $<
+
+.i.plog:
+	ifile=$<; rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $${ifile%i}c --i-file $< --output-file $@
 
 $(shlib_map): $(shlib_exp)
 	@$(AWK) 'BEGIN { print "{\n\tglobal:" } { print "\t\t"$$0";" } END { print "\tlocal:\n\t\t*;\n};" }' $(shlib_exp) > $@
@@ -116,7 +142,7 @@ $(shlib_opt): $(shlib_exp)
 	@$(SED) 's/^/+e /' $(shlib_exp) > $@
 
 group_file.la: $(OBJS) $(LT_LIBS) 
-	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) $(LDFLAGS) $(SSP_LDFLAGS) $(LT_LDFLAGS) -o $@ $(OBJS) $(LIBS) -module -avoid-version -rpath $(plugindir) -shrext .so
+	$(LIBTOOL) $(LTFLAGS) --mode=link $(CC) $(LDFLAGS) $(ASAN_LDFLAGS) $(SSP_LDFLAGS) $(LT_LDFLAGS) -o $@ $(OBJS) $(LIBS) -module -avoid-version -rpath $(plugindir) -shrext .so
 
 pre-install:
 
@@ -133,12 +159,13 @@ install-doc:
 
 install-plugin: install-dirs group_file.la
 	if [ X"$(shlib_enable)" = X"yes" ]; then \
-	    INSTALL_BACKUP='~' $(LIBTOOL) $(LTFLAGS) --mode=install $(INSTALL) $(INSTALL_OWNER) -m $(shlib_mode) group_file.la $(DESTDIR)$(plugindir); \
+	    INSTALL_BACKUP='$(INSTALL_BACKUP)' $(LIBTOOL) $(LTFLAGS) --mode=install $(INSTALL) $(INSTALL_OWNER) -m $(shlib_mode) group_file.la $(DESTDIR)$(plugindir); \
 	fi
 
 uninstall:
 	-$(LIBTOOL) $(LTFLAGS) --mode=uninstall rm -f $(DESTDIR)$(plugindir)/group_file.la
-	-rm -f $(DESTDIR)$(plugindir)/group_file.so~
+	-test -z "$(INSTALL_BACKUP)" || \
+	    rm -f $(DESTDIR)$(plugindir)/group_file.so$(INSTALL_BACKUP)
 
 splint:
 	splint $(SPLINT_OPTS) -I$(incdir) -I$(top_builddir) -I$(top_srcdir) $(srcdir)/*.c
@@ -146,11 +173,16 @@ splint:
 cppcheck:
 	cppcheck $(CPPCHECK_OPTS) -I$(incdir) -I$(top_builddir) -I$(top_srcdir) $(srcdir)/*.c
 
+pvs-log-files: $(POBJS)
+
+pvs-studio: $(POBJS)
+	plog-converter $(PVS_LOG_OPTS) $(POBJS)
+
 check:
 
 clean:
-	-$(LIBTOOL) $(LTFLAGS) --mode=clean rm -f *.lo *.o *.la *.a stamp-* \
-	    core *.core core.*
+	-$(LIBTOOL) $(LTFLAGS) --mode=clean rm -f *.lo *.o *.la *.a *.i *.plog \
+	    stamp-* core *.core core.*
 
 mostlyclean: clean
 
@@ -168,8 +200,20 @@ cleandir: realclean
 getgrent.lo: $(srcdir)/getgrent.c $(incdir)/compat/stdbool.h \
              $(incdir)/sudo_compat.h $(incdir)/sudo_util.h \
              $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/getgrent.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/getgrent.c
+getgrent.i: $(srcdir)/getgrent.c $(incdir)/compat/stdbool.h \
+             $(incdir)/sudo_compat.h $(incdir)/sudo_util.h \
+             $(top_builddir)/config.h
+	$(CC) -E -o $@ $(CPPFLAGS) $<
+getgrent.plog: getgrent.i
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/getgrent.c --i-file $< --output-file $@
 group_file.lo: $(srcdir)/group_file.c $(incdir)/compat/stdbool.h \
                $(incdir)/sudo_compat.h $(incdir)/sudo_plugin.h \
                $(top_builddir)/config.h
-	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/group_file.c
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/group_file.c
+group_file.i: $(srcdir)/group_file.c $(incdir)/compat/stdbool.h \
+               $(incdir)/sudo_compat.h $(incdir)/sudo_plugin.h \
+               $(top_builddir)/config.h
+	$(CC) -E -o $@ $(CPPFLAGS) $<
+group_file.plog: group_file.i
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/group_file.c --i-file $< --output-file $@

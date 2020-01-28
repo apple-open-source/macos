@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2007-2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2007-2015 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,8 +14,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -195,10 +200,18 @@ static void
 sudo_lbuf_println(struct sudo_lbuf *lbuf, char *line, int len)
 {
     char *cp, save;
-    int i, have, contlen;
+    int i, have, contlen = 0;
+    int indent = lbuf->indent;
+    bool is_comment = false;
     debug_decl(sudo_lbuf_println, SUDO_DEBUG_UTIL)
 
-    contlen = lbuf->continuation ? strlen(lbuf->continuation) : 0;
+    /* Comment lines don't use continuation and only indent is for "# " */
+    if (line[0] == '#' && isblank((unsigned char)line[1])) {
+	is_comment = true;
+	indent = 2;
+    }
+    if (lbuf->continuation != NULL && !is_comment)
+	contlen = strlen(lbuf->continuation);
 
     /*
      * Print the buffer, splitting the line as needed on a word
@@ -218,10 +231,14 @@ sudo_lbuf_println(struct sudo_lbuf *lbuf, char *line, int len)
 		need = (int)(ep - cp);
 	}
 	if (cp != line) {
-	    /* indent continued lines */
-	    /* XXX - build up string instead? */
-	    for (i = 0; i < lbuf->indent; i++)
-		lbuf->output(" ");
+	    if (is_comment) {
+		lbuf->output("# ");
+	    } else {
+		/* indent continued lines */
+		/* XXX - build up string instead? */
+		for (i = 0; i < indent; i++)
+		    lbuf->output(" ");
+	    }
 	}
 	/* NUL-terminate cp for the output function and restore afterwards */
 	save = cp[need];
@@ -235,7 +252,7 @@ sudo_lbuf_println(struct sudo_lbuf *lbuf, char *line, int len)
 	 * the whitespace, and print a line continuaton char if needed.
 	 */
 	if (cp != NULL) {
-	    have = lbuf->cols - lbuf->indent;
+	    have = lbuf->cols - indent;
 	    ep = line + len;
 	    while (cp < ep && isblank((unsigned char)*cp)) {
 		cp++;

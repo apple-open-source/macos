@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2011-2016 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2011-2017 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,6 +14,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -81,7 +88,7 @@ static const char *const sudo_debug_default_subsystems[] = {
     NULL
 };
 
-#define NUM_DEF_SUBSYSTEMS	(sizeof(sudo_debug_default_subsystems) / sizeof(sudo_debug_default_subsystems[0]) - 1)
+#define NUM_DEF_SUBSYSTEMS	(nitems(sudo_debug_default_subsystems) - 1)
 
 /*
  * For multiple programs/plugins there is a per-program instance
@@ -148,15 +155,15 @@ sudo_debug_new_output(struct sudo_debug_instance *instance,
     /* XXX - reuse fd for existing filename? */
     output = calloc(1, sizeof(*output));
     if (output == NULL)
-	goto bad;
+	goto oom;
     output->fd = -1;
     output->settings = reallocarray(NULL, instance->max_subsystem + 1,
 	sizeof(int));
     if (output->settings == NULL)
-	goto bad;
+	goto oom;
     output->filename = strdup(debug_file->debug_file);
     if (output->filename == NULL)
-	goto bad;
+	goto oom;
     output->fd = -1;
 
     /* Init per-subsystems settings to -1 since 0 is a valid priority. */
@@ -171,8 +178,10 @@ sudo_debug_new_output(struct sudo_debug_instance *instance,
 	    output->fd = open(output->filename, O_WRONLY|O_APPEND|O_CREAT,
 		S_IRUSR|S_IWUSR);
 	}
-	if (output->fd == -1)
+	if (output->fd == -1) {
+	    sudo_warn_nodebug("%s", output->filename);
 	    goto bad;
+	}
 	ignore_result(fchown(output->fd, (uid_t)-1, 0));
     }
     (void)fcntl(output->fd, F_SETFD, FD_CLOEXEC);
@@ -184,7 +193,7 @@ sudo_debug_new_output(struct sudo_debug_instance *instance,
 
 	new_fds = realloc(sudo_debug_fds, new_size);
 	if (new_fds == NULL)
-	    goto bad;
+	    goto oom;
 	memset(new_fds + old_size, 0, new_size - old_size);
 	sudo_debug_fds = new_fds;
 	sudo_debug_fds_size = new_size * NBBY;
@@ -196,7 +205,7 @@ sudo_debug_new_output(struct sudo_debug_instance *instance,
     /* Parse Debug conf string. */
     buf = strdup(debug_file->debug_flags);
     if (buf == NULL)
-	goto bad;
+	goto oom;
     for ((cp = strtok_r(buf, ",", &last)); cp != NULL; (cp = strtok_r(NULL, ",", &last))) {
 	/* Should be in the form subsys@pri. */
 	subsys = cp;
@@ -230,8 +239,9 @@ sudo_debug_new_output(struct sudo_debug_instance *instance,
     free(buf);
 
     return output;
-bad:
+oom:
     sudo_warn_nodebug(NULL);
+bad:
     if (output != NULL)
 	sudo_debug_free_output(output);
     return NULL;
@@ -243,8 +253,9 @@ bad:
  * If subsystem names are specified they override the default values.
  * NOTE: subsystems must not be freed by caller unless deregistered.
  * Sets the active instance to the newly registered instance.
- * Returns instance index on success or SUDO_DEBUG_INSTANCE_INITIALIZER
- * on failure.
+ * Returns instance index on success, SUDO_DEBUG_INSTANCE_INITIALIZER
+ * if no debug files are specified and SUDO_DEBUG_INSTANCE_ERROR
+ * on error.
  */
 int
 sudo_debug_register_v1(const char *program, const char *const subsystems[],
@@ -264,7 +275,7 @@ sudo_debug_register_v1(const char *program, const char *const subsystems[],
 	subsystems = sudo_debug_default_subsystems;
     } else if (ids == NULL) {
 	/* If subsystems are specified we must have ids[] too. */
-	return SUDO_DEBUG_INSTANCE_INITIALIZER;
+	return SUDO_DEBUG_INSTANCE_ERROR;
     }
 
     /* Search for existing instance. */
@@ -302,17 +313,17 @@ sudo_debug_register_v1(const char *program, const char *const subsystems[],
 	if (idx == SUDO_DEBUG_INSTANCE_MAX) {
 	    /* XXX - realloc? */
 	    sudo_warnx_nodebug("too many debug instances (max %d)", SUDO_DEBUG_INSTANCE_MAX);
-	    return SUDO_DEBUG_INSTANCE_INITIALIZER;
+	    return SUDO_DEBUG_INSTANCE_ERROR;
 	}
 	if (idx != sudo_debug_last_instance + 1 && idx != free_idx) {
 	    sudo_warnx_nodebug("%s: instance number mismatch: expected %d or %d, got %d", __func__, sudo_debug_last_instance + 1, free_idx, idx);
-	    return SUDO_DEBUG_INSTANCE_INITIALIZER;
+	    return SUDO_DEBUG_INSTANCE_ERROR;
 	}
 	if ((instance = malloc(sizeof(*instance))) == NULL)
-	    return SUDO_DEBUG_INSTANCE_INITIALIZER;
+	    return SUDO_DEBUG_INSTANCE_ERROR;
 	if ((instance->program = strdup(program)) == NULL) {
 	    free(instance);
-	    return SUDO_DEBUG_INSTANCE_INITIALIZER;
+	    return SUDO_DEBUG_INSTANCE_ERROR;
 	}
 	instance->subsystems = subsystems;
 	instance->subsystem_ids = ids;
@@ -437,69 +448,95 @@ sudo_debug_exit_v1(const char *func, const char *file, int line,
 
 void
 sudo_debug_exit_int_v1(const char *func, const char *file, int line,
-    int subsys, int rval)
+    int subsys, int ret)
 {
     sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
-	"<- %s @ %s:%d := %d", func, file, line, rval);
+	"<- %s @ %s:%d := %d", func, file, line, ret);
 }
 
 void
 sudo_debug_exit_long_v1(const char *func, const char *file, int line,
-    int subsys, long rval)
+    int subsys, long ret)
 {
     sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
-	"<- %s @ %s:%d := %ld", func, file, line, rval);
+	"<- %s @ %s:%d := %ld", func, file, line, ret);
+}
+
+void
+sudo_debug_exit_id_t_v1(const char *func, const char *file, int line,
+    int subsys, id_t ret)
+{
+#if SIZEOF_ID_T == 8
+    sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
+	"<- %s @ %s:%d := %lld", func, file, line, (long long)ret);
+#else
+    sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
+	"<- %s @ %s:%d := %d", func, file, line, (int)ret);
+#endif
 }
 
 void
 sudo_debug_exit_size_t_v1(const char *func, const char *file, int line,
-    int subsys, size_t rval)
+    int subsys, size_t ret)
 {
     sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
-	"<- %s @ %s:%d := %zu", func, file, line, rval);
+	"<- %s @ %s:%d := %zu", func, file, line, ret);
 }
 
 void
 sudo_debug_exit_ssize_t_v1(const char *func, const char *file, int line,
-    int subsys, ssize_t rval)
+    int subsys, ssize_t ret)
 {
     sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
-	"<- %s @ %s:%d := %zd", func, file, line, rval);
+	"<- %s @ %s:%d := %zd", func, file, line, ret);
+}
+
+void
+sudo_debug_exit_time_t_v1(const char *func, const char *file, int line,
+    int subsys, time_t ret)
+{
+#if SIZEOF_TIME_T == 8
+    sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
+	"<- %s @ %s:%d := %lld", func, file, line, (long long)ret);
+#else
+    sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
+	"<- %s @ %s:%d := %d", func, file, line, (int)ret);
+#endif
 }
 
 void
 sudo_debug_exit_bool_v1(const char *func, const char *file, int line,
-    int subsys, bool rval)
+    int subsys, bool ret)
 {
     sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
-	"<- %s @ %s:%d := %s", func, file, line, rval ? "true" : "false");
+	"<- %s @ %s:%d := %s", func, file, line, ret ? "true" : "false");
 }
 
 void
 sudo_debug_exit_str_v1(const char *func, const char *file, int line,
-    int subsys, const char *rval)
+    int subsys, const char *ret)
 {
     sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
-	"<- %s @ %s:%d := %s", func, file, line, rval ? rval : "(null)");
+	"<- %s @ %s:%d := %s", func, file, line, ret ? ret : "(null)");
 }
 
 void
 sudo_debug_exit_str_masked_v1(const char *func, const char *file, int line,
-    int subsys, const char *rval)
+    int subsys, const char *ret)
 {
     static const char stars[] = "********************************************************************************";
-    int len = rval ? strlen(rval) : sizeof("(null)") - 1;
+    int len = ret ? strlen(ret) : sizeof("(null)") - 1;
 
     sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
-	"<- %s @ %s:%d := %.*s", func, file, line, len, rval ? stars : "(null)");
+	"<- %s @ %s:%d := %.*s", func, file, line, len, ret ? stars : "(null)");
 }
 
 void
 sudo_debug_exit_ptr_v1(const char *func, const char *file, int line,
-    int subsys, const void *rval)
+    int subsys, const void *ret)
 {
     sudo_debug_printf2(NULL, NULL, 0, subsys | SUDO_DEBUG_TRACE,
-	"<- %s @ %s:%d := %p", func, file, line, rval);
+	"<- %s @ %s:%d := %p", func, file, line, ret);
 }
 
 void
@@ -619,7 +656,7 @@ sudo_debug_vprintf2_v1(const char *func, const char *file, int lineno, int level
 	    va_copy(ap2, ap);
 	    buflen = fmt ? vsnprintf(static_buf, sizeof(static_buf), fmt, ap2) : 0;
 	    va_end(ap2);
-	    if (buflen >= (int)sizeof(static_buf)) {
+	    if (buflen >= ssizeof(static_buf)) {
 		va_list ap3;
 
 		/* Not enough room in static buf, allocate dynamically. */
@@ -729,7 +766,7 @@ sudo_debug_execve2_v1(int level, const char *path, char *const argv[], char *con
 		buflen += strlen(*av) + 1;
 	    buflen--;
 	}
-	if (buflen >= (int)sizeof(static_buf)) {
+	if (buflen >= ssizeof(static_buf)) {
 	    buf = malloc(buflen + 1);
 	    if (buf == NULL)
 		goto out;

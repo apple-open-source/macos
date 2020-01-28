@@ -2,28 +2,28 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-        <key>OpenSourceProject</key>
-        <string>sudo</string>
-        <key>OpenSourceVersion</key>
-        <string>1.8.17p1</string>
-        <key>OpenSourceWebsiteURL</key>
-        <string>http://www.sudo.ws/</string>
-        <key>OpenSourceURL</key>
-        <string>http://www.sudo.ws/dist/sudo-1.8.17p1.tar.gz</string>
-        <key>OpenSourceSHA256</key>
-        <string>c690d707fb561b3ecdf6a6de5563bc0b769388eff201c851edbace408bb155cc</string>
-        <key>OpenSourceImportDate</key>
-        <string>2016-07-06</string>
-        <key>OpenSourceModifications</key>
-        <array>
-        	<string>Disable sudoedit.</string>
-        	<string>Disable sudoreplay.</string>
-        	<string>Allow admin group by default.</string>
-        	<string>Disable lecture</string>
-        </array>
-        <key>OpenSourceLicense</key>
-        <string>other|bsd</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>sudo.txt</string>
+	<key>OpenSourceProject</key>
+	<string>sudo</string>
+	<key>OpenSourceVersion</key>
+	<string>1.8.29</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.sudo.ws/</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.sudo.ws/dist/sudo-1.8.29.tar.gz</string>
+	<key>OpenSourceSHA256</key>
+	<string>ce53ffac9604e23321334d8ba8ac59ded2bcf624fdb9dbde097ab2049bf29c7c</string>
+	<key>OpenSourceImportDate</key>
+	<string>2019-11-08</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Disable sudoedit.</string>
+		<string>Disable sudoreplay.</string>
+		<string>Allow admin group by default.</string>
+		<string>Disable lecture</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>other|bsd</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>sudo.txt</string>
 </dict>
 </plist>

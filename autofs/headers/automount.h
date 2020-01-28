@@ -161,6 +161,7 @@ struct mapent {
 	int	map_mntlevel;	/* mapentry hierarchy level */
 	bool_t	map_modified;	/* flags modified mapentries */
 	bool_t	map_faked;	/* flags faked mapentries */
+	bool_t	map_quarantine;	/* mounts for this map entry should quarantine */
 	int	map_err;	/* flags any bad entries in the map */
 	struct mapfs *map_fs;	/* list of replicas for nfs */
 	struct mapent *map_next;
@@ -339,7 +340,7 @@ extern int mount_autofs(const char *, struct mapent *, const char *, fsid_t,
 	action_list **, const char *, const char *, const char *, fsid_t *,
 	uint32_t *);
 extern int mount_generic(char *, char *, char *, int, char *, boolean_t,
-	boolean_t, fsid_t, uid_t, au_asid_t, fsid_t *, uint32_t *);
+	boolean_t, boolean_t, fsid_t, uid_t, au_asid_t, fsid_t *, uint32_t *);
 extern int get_triggered_mount_info(const char *, fsid_t, fsid_t *,
 	uint32_t *);
 extern enum clnt_stat nfs_cast(struct mapfs *, struct mapfs **, int);

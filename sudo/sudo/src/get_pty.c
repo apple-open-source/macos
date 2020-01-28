@@ -1,6 +1,8 @@
 /*
- * Copyright (c) 2009-2012, 2014-2015
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2009-2012, 2014-2016
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,6 +15,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -54,7 +61,7 @@ get_pty(int *master, int *slave, char *name, size_t namesz, uid_t ttyuid)
 {
     struct group *gr;
     gid_t ttygid = -1;
-    bool rval = false;
+    bool ret = false;
     debug_decl(get_pty, SUDO_DEBUG_PTY)
 
     if ((gr = getgrnam("tty")) != NULL)
@@ -62,10 +69,10 @@ get_pty(int *master, int *slave, char *name, size_t namesz, uid_t ttyuid)
 
     if (openpty(master, slave, name, NULL, NULL) == 0) {
 	if (chown(name, ttyuid, ttygid) == 0)
-	    rval = true;
+	    ret = true;
     }
 
-    debug_return_bool(rval);
+    debug_return_bool(ret);
 }
 
 #elif defined(HAVE__GETPTY)
@@ -73,7 +80,7 @@ bool
 get_pty(int *master, int *slave, char *name, size_t namesz, uid_t ttyuid)
 {
     char *line;
-    bool rval = false;
+    bool ret = false;
     debug_decl(get_pty, SUDO_DEBUG_PTY)
 
     /* IRIX-style dynamic ptys (may fork) */
@@ -83,13 +90,13 @@ get_pty(int *master, int *slave, char *name, size_t namesz, uid_t ttyuid)
 	if (*slave != -1) {
 	    (void) chown(line, ttyuid, -1);
 	    strlcpy(name, line, namesz);
-	    rval = true;
+	    ret = true;
 	} else {
 	    close(*master);
 	    *master = -1;
 	}
     }
-    debug_return_bool(rval);
+    debug_return_bool(ret);
 }
 #elif defined(HAVE_GRANTPT)
 # ifndef HAVE_POSIX_OPENPT
@@ -99,9 +106,9 @@ posix_openpt(int oflag)
     int fd;
 
 #  ifdef _AIX
-    fd = open("/dev/ptc", oflag);
+    fd = open(_PATH_DEV "ptc", oflag);
 #  else
-    fd = open("/dev/ptmx", oflag);
+    fd = open(_PATH_DEV "ptmx", oflag);
 #  endif
     return fd;
 }
@@ -111,7 +118,7 @@ bool
 get_pty(int *master, int *slave, char *name, size_t namesz, uid_t ttyuid)
 {
     char *line;
-    bool rval = false;
+    bool ret = false;
     debug_decl(get_pty, SUDO_DEBUG_PTY)
 
     *master = posix_openpt(O_RDWR|O_NOCTTY);
@@ -137,15 +144,15 @@ get_pty(int *master, int *slave, char *name, size_t namesz, uid_t ttyuid)
 # endif
 	(void) chown(line, ttyuid, -1);
 	strlcpy(name, line, namesz);
-	rval = true;
+	ret = true;
     }
 done:
-    debug_return_bool(rval);
+    debug_return_bool(ret);
 }
 
 #else /* Old-style BSD ptys */
 
-static char line[] = "/dev/ptyXX";
+static char line[] = _PATH_DEV "ptyXX";
 
 bool
 get_pty(int *master, int *slave, char *name, size_t namesz, uid_t ttyuid)
@@ -153,23 +160,23 @@ get_pty(int *master, int *slave, char *name, size_t namesz, uid_t ttyuid)
     char *bank, *cp;
     struct group *gr;
     gid_t ttygid = -1;
-    bool rval = false;
+    bool ret = false;
     debug_decl(get_pty, SUDO_DEBUG_PTY)
 
     if ((gr = getgrnam("tty")) != NULL)
 	ttygid = gr->gr_gid;
 
     for (bank = "pqrs"; *bank != '\0'; bank++) {
-	line[sizeof("/dev/ptyX") - 2] = *bank;
+	line[sizeof(_PATH_DEV "ptyX") - 2] = *bank;
 	for (cp = "0123456789abcdef"; *cp != '\0'; cp++) {
-	    line[sizeof("/dev/ptyXX") - 2] = *cp;
+	    line[sizeof(_PATH_DEV "ptyXX") - 2] = *cp;
 	    *master = open(line, O_RDWR|O_NOCTTY, 0);
 	    if (*master == -1) {
 		if (errno == ENOENT)
 		    goto done; /* out of ptys */
 		continue; /* already in use */
 	    }
-	    line[sizeof("/dev/p") - 2] = 't';
+	    line[sizeof(_PATH_DEV "p") - 2] = 't';
 	    (void) chown(line, ttyuid, ttygid);
 	    (void) chmod(line, S_IRUSR|S_IWUSR|S_IWGRP);
 # ifdef HAVE_REVOKE
@@ -178,13 +185,13 @@ get_pty(int *master, int *slave, char *name, size_t namesz, uid_t ttyuid)
 	    *slave = open(line, O_RDWR|O_NOCTTY, 0);
 	    if (*slave != -1) {
 		    strlcpy(name, line, namesz);
-		    rval = true; /* success */
+		    ret = true; /* success */
 		    goto done;
 	    }
 	    (void) close(*master);
 	}
     }
 done:
-    debug_return_bool(rval);
+    debug_return_bool(ret);
 }
 #endif /* HAVE_OPENPTY */

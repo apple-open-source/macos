@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2010-2014 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2010-2014 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -86,9 +88,9 @@ struct io_plugin_1_1 {
 struct plugin_container {
     TAILQ_ENTRY(plugin_container) entries;
     struct sudo_conf_debug_file_list *debug_files;
-    const char *name;
+    char *name;
     char *path;
-    char * const *options;
+    char **options;
     void *handle;
     int debug_instance;
     union {

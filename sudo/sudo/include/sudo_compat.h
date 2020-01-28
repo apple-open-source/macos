@@ -1,6 +1,8 @@
 /*
- * Copyright (c) 1996, 1998-2005, 2008, 2009-2016
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 1996, 1998-2005, 2008, 2009-2018
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -23,8 +25,16 @@
 #define SUDO_COMPAT_H
 
 #include <stdio.h>
-#include <stdarg.h>
-#include <stddef.h>	/* for rsize_t */
+#if !defined(HAVE_VSNPRINTF) || !defined(HAVE_VASPRINTF) || \
+    !defined(HAVE_VSYSLOG) || defined(PREFER_PORTABLE_SNPRINTF)
+# include <stdarg.h>
+#endif
+#if !defined(HAVE_MEMSET_S) && !defined(rsize_t)
+# include <stddef.h>	/* for rsize_t */
+# ifdef HAVE_STRING_H
+#  include <string.h>	/* for rsize_t on AIX */
+# endif /* HAVE_STRING_H */
+#endif /* HAVE_MEMSET_S && rsize_t */
 
 /*
  * Macros and functions that may be missing on some operating systems.
@@ -164,6 +174,9 @@
 #ifndef _S_IFLNK
 # define _S_IFLNK		S_IFLNK
 #endif /* _S_IFLNK */
+#ifndef _S_IFIFO
+# define _S_IFIFO		S_IFIFO
+#endif /* _S_IFIFO */
 #ifndef S_ISREG
 # define S_ISREG(m)		(((m) & _S_IFMT) == _S_IFREG)
 #endif /* S_ISREG */
@@ -173,6 +186,22 @@
 #ifndef S_ISLNK
 # define S_ISLNK(m)		(((m) & _S_IFMT) == _S_IFLNK)
 #endif /* S_ISLNK */
+#ifndef S_ISFIFO
+# define S_ISFIFO(m)		(((m) & _S_IFMT) == _S_IFIFO)
+#endif /* S_ISLNK */
+#ifndef S_ISTXT
+# define S_ISTXT		0001000
+#endif /* S_ISTXT */
+
+/*
+ * ACCESSPERMS (00777) and ALLPERMS (07777) are handy BSDisms
+ */
+#ifndef ACCESSPERMS
+# define ACCESSPERMS	(S_IRWXU|S_IRWXG|S_IRWXO)
+#endif /* ACCESSPERMS */
+#ifndef ALLPERMS
+# define ALLPERMS	(S_ISUID|S_ISGID|S_ISTXT|S_IRWXU|S_IRWXG|S_IRWXO)
+#endif /* ALLPERMS */
 
 /* For futimens() and utimensat() emulation. */
 #if !defined(HAVE_FUTIMENS) && !defined(HAVE_UTIMENSAT)
@@ -187,6 +216,12 @@
 # ifndef AT_FDCWD
 #  define AT_FDCWD	-100
 # endif
+#endif
+
+/* For pipe2() emulation. */
+#if !defined(HAVE_PIPE2) && defined(O_NONBLOCK) && (!defined(O_CLOEXEC) || O_CLOEXEC > 0xffffffff)
+# undef O_CLOEXEC
+# define O_CLOEXEC	0x80000000
 #endif
 
 /*
@@ -208,6 +243,13 @@
 #define ISSET(t, f)     ((t) & (f))
 
 /*
+ * Some systems define this in <sys/param.h> but we don't include that anymore.
+ */
+#ifndef howmany
+# define howmany(x, y)	(((x) + ((y) - 1)) / (y))
+#endif
+
+/*
  * Simple isblank() macro and function for systems without it.
  */
 #ifndef HAVE_ISBLANK
@@ -224,17 +266,10 @@ __dso_public int isblank(int);
 #endif /* HAVE__INNETGR */
 
 /*
- * Add IRIX-like sigaction_t for those without it.
- * SA_RESTART is not required by POSIX; SunOS has SA_INTERRUPT instead.
+ * The nitems macro may be defined in sys/param.h
  */
-#ifndef HAVE_SIGACTION_T
-typedef struct sigaction sigaction_t;
-#endif
-#ifndef SA_INTERRUPT
-# define SA_INTERRUPT	0
-#endif
-#ifndef SA_RESTART
-# define SA_RESTART	0
+#ifndef nitems
+# define nitems(_a)	(sizeof((_a)) / sizeof((_a)[0]))
 #endif
 
 /*
@@ -246,7 +281,7 @@ typedef struct sigaction sigaction_t;
 #endif
 
 #if !defined(HAVE_KILLPG) && !defined(killpg)
-# define killpg(s)	kill(-(s))
+# define killpg(p, s)	kill(-(p), (s))
 #endif
 
 /*
@@ -275,6 +310,11 @@ extern int errno;
 /* WCOREDUMP is not POSIX, this usually works (verified on AIX). */
 #ifndef WCOREDUMP
 # define WCOREDUMP(x)	((x) & 0x80)
+#endif
+
+/* W_EXITCODE is not POSIX but the encoding of wait status is. */
+#ifndef W_EXITCODE
+# define W_EXITCODE(ret, sig)	((ret) << 8 | (sig))
 #endif
 
 /* Number of bits in a byte. */
@@ -339,11 +379,6 @@ int getdomainname(char *, size_t);
 # endif
 #endif /* __hpux && !__LP64__ */
 
-/* We wrap OpenBSD's strtonum() to get translatable error strings. */
-__dso_public long long sudo_strtonum(const char *, long long, long long, const char **);
-#undef strtonum
-#define strtonum(_a, _b, _c, _d) sudo_strtonum((_a), (_b), (_c), (_d))
-
 /*
  * Functions "missing" from libc.
  * All libc replacements are prefixed with "sudo_" to avoid namespace issues.
@@ -363,15 +398,15 @@ __dso_public char *sudo_getcwd(char *, size_t size);
 # define getcwd(_a, _b) sudo_getcwd((_a), (_b))
 #endif /* PREFER_PORTABLE_GETCWD */
 #ifndef HAVE_GETGROUPLIST
-__dso_public int sudo_getgrouplist(const char *name, gid_t basegid, gid_t *groups, int *ngroupsp);
+__dso_public int sudo_getgrouplist(const char *name, GETGROUPS_T basegid, GETGROUPS_T *groups, int *ngroupsp);
 # undef getgrouplist
 # define getgrouplist(_a, _b, _c, _d) sudo_getgrouplist((_a), (_b), (_c), (_d))
 #endif /* GETGROUPLIST */
-#ifndef HAVE_GETLINE
-__dso_public ssize_t sudo_getline(char **bufp, size_t *bufsizep, FILE *fp);
-# undef getline
-# define getline(_a, _b, _c) sudo_getline((_a), (_b), (_c))
-#endif /* HAVE_GETLINE */
+#ifndef HAVE_GETDELIM
+__dso_public ssize_t sudo_getdelim(char **bufp, size_t *bufsizep, int delim, FILE *fp);
+# undef getdelim
+# define getdelim(_a, _b, _c, _d) sudo_getdelim((_a), (_b), (_c), (_d))
+#endif /* HAVE_GETDELIM */
 #ifndef HAVE_UTIMENSAT
 __dso_public int sudo_utimensat(int fd, const char *file, const struct timespec *times, int flag);
 # undef utimensat
@@ -440,6 +475,11 @@ __dso_public int sudo_mkstemps(char *path, int slen);
 # undef mkstemps
 # define mkstemps(_a, _b) sudo_mkstemps((_a), (_b))
 #endif /* !HAVE_MKDTEMP || !HAVE_MKSTEMPS */
+#ifndef HAVE_NANOSLEEP
+__dso_public int sudo_nanosleep(const struct timespec *timeout, struct timespec *remainder);
+#undef nanosleep
+# define nanosleep(_a, _b) sudo_nanosleep((_a), (_b))
+#endif
 #ifndef HAVE_PW_DUP
 __dso_public struct passwd *sudo_pw_dup(const struct passwd *pw);
 # undef pw_dup
@@ -455,6 +495,11 @@ __dso_public int sudo_sig2str(int signo, char *signame);
 # undef sig2str
 # define sig2str(_a, _b) sudo_sig2str((_a), (_b))
 #endif /* HAVE_SIG2STR */
+#ifndef HAVE_STR2SIG
+__dso_public int sudo_str2sig(const char *signame, int *signum);
+# undef str2sig
+# define str2sig(_a, _b) sudo_str2sig((_a), (_b))
+#endif /* HAVE_STR2SIG */
 #if !defined(HAVE_INET_NTOP) && defined(SUDO_NET_IFS_C)
 __dso_public char *sudo_inet_ntop(int af, const void *src, char *dst, socklen_t size);
 # undef inet_ntop
@@ -475,5 +520,15 @@ __dso_public void *sudo_reallocarray(void *ptr, size_t nmemb, size_t size);
 # undef reallocarray
 # define reallocarray(_a, _b, _c) sudo_reallocarray((_a), (_b), (_c))
 #endif /* HAVE_REALLOCARRAY */
+#ifndef HAVE_VSYSLOG
+__dso_public void sudo_vsyslog(int pri, const char *fmt, va_list ap);
+# undef vsyslog
+# define vsyslog(_a, _b, _c) sudo_vsyslog((_a), (_b), (_c))
+#endif /* HAVE_VSYSLOG */
+#ifndef HAVE_PIPE2
+__dso_public int sudo_pipe2(int fildes[2], int flags);
+# undef pipe2
+# define pipe2(_a, _b) sudo_pipe2((_a), (_b))
+#endif /* HAVE_PIPE2 */
 
 #endif /* SUDO_COMPAT_H */

@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2009-2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2009-2015, 2018 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,6 +14,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -34,9 +41,7 @@
 #endif /* HAVE_STRINGS_H */
 #include <errno.h>
 #include <limits.h>
-#ifdef TIME_WITH_SYS_TIME
-# include <time.h>
-#endif
+#include <time.h>
 #ifndef __linux__
 # if defined(HAVE_SYSCTL) && defined(KERN_BOOTTIME)
 #  include <sys/sysctl.h>
@@ -69,11 +74,11 @@ get_boottime(struct timespec *ts)
     /* read btime from /proc/stat */
     fp = fopen("/proc/stat", "r");
     if (fp != NULL) {
-	while ((len = getline(&line, &linesize, fp)) != -1) {
+	while ((len = getdelim(&line, &linesize, '\n', fp)) != -1) {
 	    if (strncmp(line, "btime ", 6) == 0) {
 		if (line[len - 1] == '\n')
 		    line[len - 1] = '\0';
-		llval = strtonum(line + 6, 1, LLONG_MAX, NULL);
+		llval = sudo_strtonum(line + 6, 1, LLONG_MAX, NULL);
 		if (llval > 0) {
 		    ts->tv_sec = (time_t)llval;
 		    ts->tv_nsec = 0;

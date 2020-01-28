@@ -1,6 +1,8 @@
 /*
+ * SPDX-License-Identifier: ISC
+ *
  * Copyright (c) 1994-1996, 1998-1999, 2004
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +20,9 @@
 #ifndef SUDOERS_INSULTS_H
 #define SUDOERS_INSULTS_H
 
-#if defined(HAL_INSULTS) || defined(GOONS_INSULTS) || defined(CLASSIC_INSULTS) || defined(CSOPS_INSULTS)
+#if defined(HAL_INSULTS) || defined(GOONS_INSULTS) || defined(CLASSIC_INSULTS) || defined(CSOPS_INSULTS) || defined(PYTHON_INSULTS)
+
+#include "sudo_rand.h"
 
 /*
  * Use one or more set of insults as determined by configure
@@ -42,20 +46,24 @@ char *insults[] = {
 #  include "ins_csops.h"
 # endif
 
-    (char *) 0
+# ifdef PYTHON_INSULTS
+#  include "ins_python.h"
+# endif
+
+    NULL
 
 };
 
 /*
  * How may I insult you?  Let me count the ways...
  */
-#define NOFINSULTS (sizeof(insults) / sizeof(insults[0]) - 1)
+#define NOFINSULTS (nitems(insults) - 1)
 
 /*
  * return a pseudo-random insult.
  */
-#define INSULT		(insults[time(NULL) % NOFINSULTS])
+#define INSULT		(insults[arc4random_uniform(NOFINSULTS)])
 
-#endif /* HAL_INSULTS || GOONS_INSULTS || CLASSIC_INSULTS || CSOPS_INSULTS */
+#endif /* HAL_INSULTS || GOONS_INSULTS || CLASSIC_INSULTS || CSOPS_INSULTS || PYTHON_INSULTS */
 
 #endif /* SUDOERS_INSULTS_H */

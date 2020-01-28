@@ -1,6 +1,8 @@
 /*
+ * SPDX-License-Identifier: ISC
+ *
  * Copyright (c) 2000-2005, 2007-2008, 2010-2015
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,6 +19,11 @@
  * Sponsored in part by the Defense Advanced Research Projects
  * Agency (DARPA) and Air Force Research Laboratory, Air Force
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -104,7 +111,7 @@ bsdauth_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_con
     char *s;
     size_t len;
     int authok = 0;
-    sigaction_t sa, osa;
+    struct sigaction sa, osa;
     auth_session_t *as = ((struct bsdauth_state *) auth->data)->as;
     debug_decl(bsdauth_verify, SUDOERS_DEBUG_AUTH)
 
@@ -121,9 +128,9 @@ bsdauth_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_con
      * S/Key.
      */
     if ((s = auth_challenge(as)) == NULL) {
-	pass = auth_getpass(prompt, def_passwd_timeout * 60, SUDO_CONV_PROMPT_ECHO_OFF, callback);
+	pass = auth_getpass(prompt, SUDO_CONV_PROMPT_ECHO_OFF, callback);
     } else {
-	pass = auth_getpass(s, def_passwd_timeout * 60, SUDO_CONV_PROMPT_ECHO_OFF, callback);
+	pass = auth_getpass(s, SUDO_CONV_PROMPT_ECHO_OFF, callback);
 	if (pass && *pass == '\0') {
 	    if ((prompt = strrchr(s, '\n')))
 		prompt++;
@@ -142,8 +149,7 @@ bsdauth_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_con
 		debug_return_int(AUTH_FATAL);
 	    }
 	    free(pass);
-	    pass = auth_getpass(s, def_passwd_timeout * 60,
-		SUDO_CONV_PROMPT_ECHO_ON, callback);
+	    pass = auth_getpass(s, SUDO_CONV_PROMPT_ECHO_ON, callback);
 	    free(s);
 	}
     }
@@ -166,6 +172,22 @@ bsdauth_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_con
     if ((s = auth_getvalue(as, "errormsg")) != NULL)
 	log_warningx(0, "%s", s);
     debug_return_int(AUTH_FAILURE);
+}
+
+int
+bsdauth_approval(struct passwd *pw, sudo_auth *auth, bool exempt)
+{
+    struct bsdauth_state *state = auth->data;
+    debug_decl(bsdauth_approval, SUDOERS_DEBUG_AUTH)
+
+    if (auth_approval(state->as, state->lc, pw->pw_name, "auth-sudo") == 0) {
+	if (auth_getstate(state->as) & AUTH_EXPIRED)
+	    log_warningx(0, "%s", N_("your account has expired"));
+	else
+	    log_warningx(0, "%s", N_("approval failed"));
+	debug_return_int(AUTH_FAILURE);
+    }
+    debug_return_int(AUTH_SUCCESS);
 }
 
 int

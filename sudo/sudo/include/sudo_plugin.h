@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2009-2016 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2009-2018 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -19,7 +21,7 @@
 
 /* API version major/minor */
 #define SUDO_API_VERSION_MAJOR 1
-#define SUDO_API_VERSION_MINOR 9
+#define SUDO_API_VERSION_MINOR 14
 #define SUDO_API_MKVERSION(x, y) (((x) << 16) | (y))
 #define SUDO_API_VERSION SUDO_API_MKVERSION(SUDO_API_VERSION_MAJOR, SUDO_API_VERSION_MINOR)
 
@@ -41,6 +43,7 @@ struct sudo_conv_message {
 #define SUDO_CONV_INFO_MSG	    0x0004  /* informational message */
 #define SUDO_CONV_PROMPT_MASK	    0x0005  /* mask user input */
 #define SUDO_CONV_PROMPT_ECHO_OK    0x1000  /* flag: allow echo if no tty */
+#define SUDO_CONV_PREFER_TTY	    0x2000  /* flag: use tty if possible */
     int msg_type;
     int timeout;
     const char *msg;
@@ -134,7 +137,7 @@ struct policy_plugin {
     int (*open)(unsigned int version, sudo_conv_t conversation,
 	sudo_printf_t sudo_printf, char * const settings[],
 	char * const user_info[], char * const user_env[],
-	char * const plugin_plugins[]);
+	char * const plugin_options[]);
     void (*close)(int exit_status, int error); /* wait status or error */
     int (*show_version)(int verbose);
     int (*check_policy)(int argc, char * const argv[],
@@ -158,7 +161,7 @@ struct io_plugin {
 	sudo_printf_t sudo_printf, char * const settings[],
 	char * const user_info[], char * const command_info[],
 	int argc, char * const argv[], char * const user_env[],
-	char * const plugin_plugins[]);
+	char * const plugin_options[]);
     void (*close)(int exit_status, int error); /* wait status or error */
     int (*show_version)(int verbose);
     int (*log_ttyin)(const char *buf, unsigned int len);
@@ -168,6 +171,8 @@ struct io_plugin {
     int (*log_stderr)(const char *buf, unsigned int len);
     void (*register_hooks)(int version, int (*register_hook)(struct sudo_hook *hook));
     void (*deregister_hooks)(int version, int (*deregister_hook)(struct sudo_hook *hook));
+    int (*change_winsize)(unsigned int line, unsigned int cols);
+    int (*log_suspend)(int signo);
 };
 
 /* Sudoers group plugin version major/minor */

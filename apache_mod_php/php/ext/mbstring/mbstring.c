@@ -407,6 +407,7 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_mb_decode_numericentity, 0, 0, 2)
 	ZEND_ARG_INFO(0, string)
 	ZEND_ARG_INFO(0, convmap)
 	ZEND_ARG_INFO(0, encoding)
+	ZEND_ARG_INFO(0, is_hex)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_mb_send_mail, 0, 0, 3)
@@ -4822,27 +4823,15 @@ PHP_FUNCTION(mb_check_encoding)
 		RETURN_FALSE;
 	}
 
-	switch(Z_TYPE_P(input)) {
-		case IS_LONG:
-		case IS_DOUBLE:
-		case IS_NULL:
-		case IS_TRUE:
-		case IS_FALSE:
-			RETURN_TRUE;
-			break;
-		case IS_STRING:
-			if (!php_mb_check_encoding(Z_STRVAL_P(input), Z_STRLEN_P(input), enc ? ZSTR_VAL(enc): NULL)) {
-				RETURN_FALSE;
-			}
-			break;
-		case IS_ARRAY:
-			if (!php_mb_check_encoding_recursive(HASH_OF(input), enc)) {
-				RETURN_FALSE;
-			}
-			break;
-		default:
-			php_error_docref(NULL, E_WARNING, "Input is something other than scalar or array");
+	if (Z_TYPE_P(input) == IS_ARRAY) {
+		if (!php_mb_check_encoding_recursive(HASH_OF(input), enc)) {
 			RETURN_FALSE;
+		}
+	} else {
+		convert_to_string(input);
+		if (!php_mb_check_encoding(Z_STRVAL_P(input), Z_STRLEN_P(input), enc ? ZSTR_VAL(enc): NULL)) {
+			RETURN_FALSE;
+		}
 	}
 	RETURN_TRUE;
 }

@@ -2,7 +2,6 @@
 //  LoggingServerTests.m
 //  Security
 //
-//  Created by Bailey Basile on 6/11/19.
 //
 
 #include <AssertMacros.h>
@@ -10,7 +9,9 @@
 
 #import "trust/trustd/SecTrustLoggingServer.h"
 
-@interface LoggingServerTests : XCTestCase
+#import "TrustDaemonTestCase.h"
+
+@interface LoggingServerTests : TrustDaemonTestCase
 @end
 
 @implementation LoggingServerTests

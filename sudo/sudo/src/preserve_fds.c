@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2013-2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2013-2015 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,6 +14,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -59,16 +66,18 @@ add_preserved_fd(struct preserved_fd_list *pfds, int fd)
 	    sudo_debug_printf(SUDO_DEBUG_DEBUG|SUDO_DEBUG_LINENO,
 		"fd %d already preserved", fd);
 	    free(pfd_new);
+	    pfd_new = NULL;
 	    break;
 	}
 	if (fd < pfd->highfd) {
 	    TAILQ_INSERT_BEFORE(pfd, pfd_new, entries);
 	    sudo_debug_printf(SUDO_DEBUG_DEBUG|SUDO_DEBUG_LINENO,
 		"preserving fd %d", fd);
+	    pfd_new = NULL;
 	    break;
 	}
     }
-    if (pfd == NULL) {
+    if (pfd_new != NULL) {
 	TAILQ_INSERT_TAIL(pfds, pfd_new, entries);
 	sudo_debug_printf(SUDO_DEBUG_DEBUG|SUDO_DEBUG_LINENO,
 	    "preserving fd %d", fd);

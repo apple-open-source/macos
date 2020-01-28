@@ -1178,7 +1178,7 @@ autofs_mount_url(__unused mach_port_t server,
 	}
 
 	status = mount_generic(url, "url", opts, 0, mountpoint, FALSE,
-	    TRUE, mntpnt_fsid, sendereuid, asid, fsidp, retflags);
+	    TRUE, FALSE, mntpnt_fsid, sendereuid, asid, fsidp, retflags);
 
 	*err = status;
 

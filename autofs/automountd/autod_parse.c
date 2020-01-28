@@ -2663,6 +2663,7 @@ retry:
 		me->map_mntlevel = -1;
 		me->map_modified = FALSE;
 		me->map_faked = FALSE;
+		me->map_quarantine = TRUE;
 	}
 	freeex(exlist);
 

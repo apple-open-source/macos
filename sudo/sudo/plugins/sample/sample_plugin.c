@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2010-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2010-2016 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,6 +14,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -445,7 +452,7 @@ static int
 io_log_output(const char *buf, unsigned int len)
 {
     const char *cp, *ep;
-    bool rval = true;
+    bool ret = true;
 
     ignore_result(fwrite(buf, len, 1, output));
     /*
@@ -455,11 +462,11 @@ io_log_output(const char *buf, unsigned int len)
      */
     for (cp = buf, ep = buf + len; cp < ep; cp++) {
 	if (cp + 5 < ep && memcmp(cp, "honk!", 5) == 0) {
-	    rval = false;
+	    ret = false;
 	    break;
 	}
     }
-    return rval;
+    return ret;
 }
 
 __dso_public struct policy_plugin sample_policy = {

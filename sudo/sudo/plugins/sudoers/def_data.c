@@ -21,17 +21,32 @@ static struct def_values def_data_verifypw[] = {
     { NULL, 0 },
 };
 
+static struct def_values def_data_fdexec[] = {
+    { "never", never },
+    { "digest_only", digest_only },
+    { "always", always },
+    { NULL, 0 },
+};
+
+static struct def_values def_data_timestamp_type[] = {
+    { "global", global },
+    { "ppid", ppid },
+    { "tty", tty },
+    { "kernel", kernel },
+    { NULL, 0 },
+};
+
 struct sudo_defs_types sudo_defs_table[] = {
     {
 	"syslog", T_LOGFAC|T_BOOL,
 	N_("Syslog facility if syslog is being used for logging: %s"),
 	NULL,
     }, {
-	"syslog_goodpri", T_LOGPRI,
+	"syslog_goodpri", T_LOGPRI|T_BOOL,
 	N_("Syslog priority to use when user authenticates successfully: %s"),
 	NULL,
     }, {
-	"syslog_badpri", T_LOGPRI,
+	"syslog_badpri", T_LOGPRI|T_BOOL,
 	N_("Syslog priority to use when user authenticates unsuccessfully: %s"),
 	NULL,
     }, {
@@ -159,11 +174,11 @@ struct sudo_defs_types sudo_defs_table[] = {
 	N_("Length at which to wrap log file lines (0 for no wrap): %u"),
 	NULL,
     }, {
-	"timestamp_timeout", T_FLOAT|T_BOOL,
+	"timestamp_timeout", T_TIMESPEC|T_BOOL,
 	N_("Authentication timestamp timeout: %.1f minutes"),
 	NULL,
     }, {
-	"passwd_timeout", T_FLOAT|T_BOOL,
+	"passwd_timeout", T_TIMESPEC|T_BOOL,
 	N_("Password prompt timeout: %.1f minutes"),
 	NULL,
     }, {
@@ -295,6 +310,10 @@ struct sudo_defs_types sudo_defs_table[] = {
 	N_("Path to the sudo-specific environment file: %s"),
 	NULL,
     }, {
+	"restricted_env_file", T_STR|T_PATH|T_BOOL,
+	N_("Path to the restricted sudo-specific environment file: %s"),
+	NULL,
+    }, {
 	"sudoers_locale", T_STR,
 	N_("Locale to use while parsing sudoers: %s"),
 	NULL,
@@ -352,11 +371,11 @@ struct sudo_defs_types sudo_defs_table[] = {
 	NULL,
     }, {
 	"privs", T_STR,
-	N_("Set of permitted privileges"),
+	N_("Set of permitted privileges: %s"),
 	NULL,
     }, {
 	"limitprivs", T_STR,
-	N_("Set of limit privileges"),
+	N_("Set of limit privileges: %s"),
 	NULL,
     }, {
 	"exec_background", T_FLAG,
@@ -364,11 +383,11 @@ struct sudo_defs_types sudo_defs_table[] = {
 	NULL,
     }, {
 	"pam_service", T_STR,
-	N_("PAM service name to use"),
+	N_("PAM service name to use: %s"),
 	NULL,
     }, {
 	"pam_login_service", T_STR,
-	N_("PAM service name to use for login shells"),
+	N_("PAM service name to use for login shells: %s"),
 	NULL,
     }, {
 	"pam_setcred", T_FLAG,
@@ -377,6 +396,10 @@ struct sudo_defs_types sudo_defs_table[] = {
     }, {
 	"pam_session", T_FLAG,
 	N_("Create a new PAM session for the command to run in"),
+	NULL,
+    }, {
+	"pam_acct_mgmt", T_FLAG,
+	N_("Perform PAM account validation management"),
 	NULL,
     }, {
 	"maxseq", T_UINT,
@@ -401,6 +424,86 @@ struct sudo_defs_types sudo_defs_table[] = {
     }, {
 	"netgroup_tuple", T_FLAG,
 	N_("Match netgroups based on the entire tuple: user, host and domain"),
+	NULL,
+    }, {
+	"ignore_audit_errors", T_FLAG,
+	N_("Allow commands to be run even if sudo cannot write to the audit log"),
+	NULL,
+    }, {
+	"ignore_iolog_errors", T_FLAG,
+	N_("Allow commands to be run even if sudo cannot write to the I/O log"),
+	NULL,
+    }, {
+	"ignore_logfile_errors", T_FLAG,
+	N_("Allow commands to be run even if sudo cannot write to the log file"),
+	NULL,
+    }, {
+	"match_group_by_gid", T_FLAG,
+	N_("Resolve groups in sudoers and match on the group ID, not the name"),
+	NULL,
+    }, {
+	"syslog_maxlen", T_UINT,
+	N_("Log entries larger than this value will be split into multiple syslog messages: %u"),
+	NULL,
+    }, {
+	"iolog_user", T_STR|T_BOOL,
+	N_("User that will own the I/O log files: %s"),
+	NULL,
+    }, {
+	"iolog_group", T_STR|T_BOOL,
+	N_("Group that will own the I/O log files: %s"),
+	NULL,
+    }, {
+	"iolog_mode", T_MODE,
+	N_("File mode to use for the I/O log files: 0%o"),
+	NULL,
+    }, {
+	"fdexec", T_TUPLE|T_BOOL,
+	N_("Execute commands by file descriptor instead of by path: %s"),
+	def_data_fdexec,
+    }, {
+	"ignore_unknown_defaults", T_FLAG,
+	N_("Ignore unknown Defaults entries in sudoers instead of producing a warning"),
+	NULL,
+    }, {
+	"command_timeout", T_TIMEOUT|T_BOOL,
+	N_("Time in seconds after which the command will be terminated: %u"),
+	NULL,
+    }, {
+	"user_command_timeouts", T_FLAG,
+	N_("Allow the user to specify a timeout on the command line"),
+	NULL,
+    }, {
+	"iolog_flush", T_FLAG,
+	N_("Flush I/O log data to disk immediately instead of buffering it"),
+	NULL,
+    }, {
+	"syslog_pid", T_FLAG,
+	N_("Include the process ID when logging via syslog"),
+	NULL,
+    }, {
+	"timestamp_type", T_TUPLE,
+	N_("Type of authentication timestamp record: %s"),
+	def_data_timestamp_type,
+    }, {
+	"authfail_message", T_STR,
+	N_("Authentication failure message: %s"),
+	NULL,
+    }, {
+	"case_insensitive_user", T_FLAG,
+	N_("Ignore case when matching user names"),
+	NULL,
+    }, {
+	"case_insensitive_group", T_FLAG,
+	N_("Ignore case when matching group names"),
+	NULL,
+    }, {
+	"log_allowed", T_FLAG,
+	N_("Log when a command is allowed by sudoers"),
+	NULL,
+    }, {
+	"log_denied", T_FLAG,
+	N_("Log when a command is denied by sudoers"),
 	NULL,
     }, {
 	NULL, 0, NULL

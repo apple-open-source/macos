@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2015 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -51,7 +53,7 @@ struct parse_gids_test {
 
 static const GETGROUPS_T test1_out[] = { 0, 1, 2, 3, 4 };
 static const GETGROUPS_T test2_out[] = { 1, 2, 3, 4 };
-static const GETGROUPS_T test3_out[] = { 0, 1, -2, 3, 4 };
+static const GETGROUPS_T test3_out[] = { 0, 1, (gid_t)-2, 3, 4 };
 
 /* XXX - test syntax errors too */
 static struct parse_gids_test test_data[] = {
@@ -79,7 +81,7 @@ main(int argc, char *argv[])
     GETGROUPS_T *gidlist = NULL;
     int i, j, errors = 0, ntests = 0;
     int ngids;
-    initprogname(argc > 0 ? argv[0] : "strsplit_test");
+    initprogname(argc > 0 ? argv[0] : "parse_gids_test");
 
     for (i = 0; test_data[i].gids != NULL; i++) {
 	free(gidlist);

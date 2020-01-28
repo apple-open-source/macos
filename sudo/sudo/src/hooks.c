@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2012-2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2012-2016 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,6 +14,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -147,40 +154,40 @@ register_hook_internal(struct sudo_hook_list *head,
 int
 register_hook(struct sudo_hook *hook)
 {
-    int rval;
+    int ret;
     debug_decl(register_hook, SUDO_DEBUG_HOOKS)
 
     if (SUDO_API_VERSION_GET_MAJOR(hook->hook_version) != SUDO_HOOK_VERSION_MAJOR) {
 	/* Major versions must match. */
 	errno = EINVAL;
-	rval = -1;
+	ret = -1;
     } else {
 	switch (hook->hook_type) {
 	    case SUDO_HOOK_GETENV:
-		rval = register_hook_internal(&sudo_hook_getenv_list,
+		ret = register_hook_internal(&sudo_hook_getenv_list,
 		    hook->hook_fn, hook->closure);
 		break;
 	    case SUDO_HOOK_PUTENV:
-		rval = register_hook_internal(&sudo_hook_putenv_list,
+		ret = register_hook_internal(&sudo_hook_putenv_list,
 		    hook->hook_fn, hook->closure);
 		break;
 	    case SUDO_HOOK_SETENV:
-		rval = register_hook_internal(&sudo_hook_setenv_list,
+		ret = register_hook_internal(&sudo_hook_setenv_list,
 		    hook->hook_fn, hook->closure);
 		break;
 	    case SUDO_HOOK_UNSETENV:
-		rval = register_hook_internal(&sudo_hook_unsetenv_list,
+		ret = register_hook_internal(&sudo_hook_unsetenv_list,
 		    hook->hook_fn, hook->closure);
 		break;
 	    default:
 		/* XXX - use define for unknown value */
 		errno = ENOTSUP;
-		rval = 1;
+		ret = 1;
 		break;
 	}
     }
 
-    debug_return_int(rval);
+    debug_return_int(ret);
 }
 
 /* Hook deregistration internals. */
@@ -211,12 +218,12 @@ deregister_hook_internal(struct sudo_hook_list *head,
 int
 deregister_hook(struct sudo_hook *hook)
 {
-    int rval = 0;
+    int ret = 0;
     debug_decl(deregister_hook, SUDO_DEBUG_HOOKS)
 
     if (SUDO_API_VERSION_GET_MAJOR(hook->hook_version) != SUDO_HOOK_VERSION_MAJOR) {
 	/* Major versions must match. */
-	rval = -1;
+	ret = -1;
     } else {
 	switch (hook->hook_type) {
 	    case SUDO_HOOK_GETENV:
@@ -237,10 +244,10 @@ deregister_hook(struct sudo_hook *hook)
 		break;
 	    default:
 		/* XXX - use define for unknown value */
-		rval = 1;
+		ret = 1;
 		break;
 	}
     }
 
-    debug_return_int(rval);
+    debug_return_int(ret);
 }

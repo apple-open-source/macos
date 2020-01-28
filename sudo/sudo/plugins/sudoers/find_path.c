@@ -1,6 +1,8 @@
 /*
- * Copyright (c) 1996, 1998-2005, 2010-2015
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 1996, 1998-2005, 2010-2015, 2017-2019
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,6 +19,11 @@
  * Sponsored in part by the Defense Advanced Research Projects
  * Agency (DARPA) and Air Force Research Laboratory, Air Force
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -135,7 +142,7 @@ find_path(const char *infile, char **outfile, struct stat *sbp,
 	 */
 	len = snprintf(command, sizeof(command), "%.*s/%s",
 	    (int)(ep - cp), cp, infile);
-	if (len <= 0 || (size_t)len >= sizeof(command)) {
+	if (len < 0 || len >= ssizeof(command)) {
 	    errno = ENAMETOOLONG;
 	    debug_return_int(NOT_FOUND_ERROR);
 	}
@@ -149,7 +156,7 @@ find_path(const char *infile, char **outfile, struct stat *sbp,
      */
     if (!found && checkdot) {
 	len = snprintf(command, sizeof(command), "./%s", infile);
-	if (len <= 0 || (size_t)len >= sizeof(command)) {
+	if (len < 0 || len >= ssizeof(command)) {
 	    errno = ENAMETOOLONG;
 	    debug_return_int(NOT_FOUND_ERROR);
 	}

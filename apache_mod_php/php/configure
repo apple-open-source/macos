@@ -3663,7 +3663,7 @@ ac_config_headers="$ac_config_headers main/php_config.h"
 
 PHP_MAJOR_VERSION=7
 PHP_MINOR_VERSION=3
-PHP_RELEASE_VERSION=9
+PHP_RELEASE_VERSION=11
 PHP_EXTRA_VERSION=""
 PHP_VERSION="$PHP_MAJOR_VERSION.$PHP_MINOR_VERSION.$PHP_RELEASE_VERSION$PHP_EXTRA_VERSION"
 PHP_VERSION_ID=`expr $PHP_MAJOR_VERSION \* 10000 + $PHP_MINOR_VERSION \* 100 + $PHP_RELEASE_VERSION`
@@ -45129,7 +45129,7 @@ fi
   fi
 
     if test "$PHP_ICU_DIR" = "DEFAULT" && test -x "$PKG_CONFIG" && $PKG_CONFIG --exists icu-uc icu-io icu-i18n; then
-    if $PKG_CONFIG --atleast-version=40 icu-uc; then
+    if $PKG_CONFIG --atleast-version=4.0 icu-uc; then
       found_icu=yes
       icu_version_full=`$PKG_CONFIG --modversion icu-uc`
       ac_IFS=$IFS

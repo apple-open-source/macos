@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2013-2014 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2013-2014 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -53,6 +55,7 @@ main(int argc, char *argv[])
 	fprintf(stderr, "usage: %s conf_file\n", getprogname());
 	exit(EXIT_FAILURE);
     }
+    sudo_conf_clear_paths();
     if (sudo_conf_read(argv[1], SUDO_CONF_ALL) == -1)
 	exit(EXIT_FAILURE);
     sudo_conf_dump();
@@ -77,10 +80,12 @@ sudo_conf_dump(void)
     printf("Set max_groups %d\n", sudo_conf_max_groups());
     if (sudo_conf_askpass_path() != NULL)
 	printf("Path askpass %s\n", sudo_conf_askpass_path());
-#ifdef _PATH_SUDO_NOEXEC
+    if (sudo_conf_sesh_path() != NULL)
+	printf("Path sesh %s\n", sudo_conf_sesh_path());
     if (sudo_conf_noexec_path() != NULL)
 	printf("Path noexec %s\n", sudo_conf_noexec_path());
-#endif
+    if (sudo_conf_plugin_dir_path() != NULL)
+	printf("Path plugin_dir %s\n", sudo_conf_plugin_dir_path());
     TAILQ_FOREACH(info, plugins, entries) {
 	printf("Plugin %s %s", info->symbol_name, info->path);
 	if (info->options) {

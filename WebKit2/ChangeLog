@@ -1,55 +1,252 @@
-2019-11-11  Kocsen Chung  <kocsen_chung@apple.com>
+2019-12-16  Dan Robson  <dan_robson@apple.com>
 
-        Cherry-pick r252248. rdar://problem/57058391
+        Cherry-pick r250461. rdar://problem/57979214
 
-    [WebAuthn] Return NotAllowedError immediately for UI cancellations
-    https://bugs.webkit.org/show_bug.cgi?id=203937
-    <rdar://problem/56962420>
+    Adopt new UIWebGeolocationPolicyDecider SPI to pass a view instead of a window
+    https://bugs.webkit.org/show_bug.cgi?id=202329
+    <rdar://problem/25963823>
+    
+    Reviewed by Wenson Hsieh.
+    
+    * Platform/spi/ios/UIKitSPI.h:
+    * UIProcess/ios/WKGeolocationProviderIOS.mm:
+    (-[WKGeolocationProviderIOS geolocationAuthorizationGranted]):
+    * UIProcess/ios/WKGeolocationProviderIOSObjCSecurityOrigin.mm:
+    (WebKit::decidePolicyForGeolocationRequestFromOrigin):
+    Switch to newer SPI that takes a UIView instead of a UIWindow, so that
+    UIWebGeolocationPolicyDecider can find the correct presenting view controller.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250461 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-09-27  Tim Horton  <timothy_horton@apple.com>
+
+            Adopt new UIWebGeolocationPolicyDecider SPI to pass a view instead of a window
+            https://bugs.webkit.org/show_bug.cgi?id=202329
+            <rdar://problem/25963823>
+
+            Reviewed by Wenson Hsieh.
+
+            * Platform/spi/ios/UIKitSPI.h:
+            * UIProcess/ios/WKGeolocationProviderIOS.mm:
+            (-[WKGeolocationProviderIOS geolocationAuthorizationGranted]):
+            * UIProcess/ios/WKGeolocationProviderIOSObjCSecurityOrigin.mm:
+            (WebKit::decidePolicyForGeolocationRequestFromOrigin):
+            Switch to newer SPI that takes a UIView instead of a UIWindow, so that
+            UIWebGeolocationPolicyDecider can find the correct presenting view controller.
+
+2019-12-03  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r252811. rdar://problem/57609336
+
+    [iOS] Copy assertions before iterating over them in _notifyAssertionsOfImminentSuspension
+    https://bugs.webkit.org/show_bug.cgi?id=204524
+    <rdar://problem/57265830>
+    
+    Reviewed by Alexey Proskuryakov.
+    
+    Copy assertions before iterating over them in _notifyAssertionsOfImminentSuspension and use WeakPtr
+    to make sure the assertions are still alive before calling uiAssertionWillExpireImminently() on
+    them. It is common for process assertions to get released when uiAssertionWillExpireImminently()
+    gets called, which would remove them from the _assertionsNeedingBackgroundTask vector we were
+    iterating on.
+    
+    * UIProcess/ios/ProcessAssertionIOS.mm:
+    (-[WKProcessAssertionBackgroundTaskManager _notifyAssertionsOfImminentSuspension]):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@252811 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-11-22  Chris Dumez  <cdumez@apple.com>
+
+            [iOS] Copy assertions before iterating over them in _notifyAssertionsOfImminentSuspension
+            https://bugs.webkit.org/show_bug.cgi?id=204524
+            <rdar://problem/57265830>
+
+            Reviewed by Alexey Proskuryakov.
+
+            Copy assertions before iterating over them in _notifyAssertionsOfImminentSuspension and use WeakPtr
+            to make sure the assertions are still alive before calling uiAssertionWillExpireImminently() on
+            them. It is common for process assertions to get released when uiAssertionWillExpireImminently()
+            gets called, which would remove them from the _assertionsNeedingBackgroundTask vector we were
+            iterating on.
+
+            * UIProcess/ios/ProcessAssertionIOS.mm:
+            (-[WKProcessAssertionBackgroundTaskManager _notifyAssertionsOfImminentSuspension]):
+
+2019-11-19  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r252619. rdar://problem/57330791
+
+    IPC::Decoder should use nullptr as invalid value
+    <https://webkit.org/b/203880>
+    <rdar://problem/53159906>
     
     Reviewed by Brent Fulgham.
     
-    Source/WebKit:
-    
-    NotAllowedError representing UI cancellations should be returned to sites
-    immediately such that sites could show appropriate error page immediately.
-    
     Covered by existing tests.
     
-    * UIProcess/WebAuthentication/AuthenticatorManager.cpp:
-    (WebKit::AuthenticatorManager::cancelRequest):
-    (WebKit::AuthenticatorManager::clearState):
-    (WebKit::AuthenticatorManager::resetState): Deleted.
-    * UIProcess/WebAuthentication/AuthenticatorManager.h:
+    * Platform/IPC/Decoder.cpp:
+    (IPC::alignedBufferIsLargeEnoughToContain): Add bufferStart
+    parameter to add beginning bounds check now that m_bufferPos
+    uses nullptr for an invalid value.
+    (IPC::Decoder::alignBufferPosition): Update to pass m_buffer to
+    IPC::alignedBufferIsLargeEnoughToContain().
+    (IPC::Decoder::bufferIsLargeEnoughToContain const): Ditto.
+    * Platform/IPC/Decoder.h:
+    (IPC::Decoder::isInvalid const): Add beginning bounds check now
+    that m_bufferPos uses nullptr for an invalid value.
+    (IPC::Decoder::markInvalid): Make nullptr the invalid value for
+    m_bufferPos.
     
-    Tools:
-    
-    * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
-    (TestWebKitAPI::TEST):
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@252248 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@252619 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2019-11-06  Jiewen Tan  <jiewen_tan@apple.com>
+    2019-11-18  David Kilzer  <ddkilzer@apple.com>
 
-            [WebAuthn] Return NotAllowedError immediately for UI cancellations
-            https://bugs.webkit.org/show_bug.cgi?id=203937
-            <rdar://problem/56962420>
+            IPC::Decoder should use nullptr as invalid value
+            <https://webkit.org/b/203880>
+            <rdar://problem/53159906>
 
             Reviewed by Brent Fulgham.
 
-            NotAllowedError representing UI cancellations should be returned to sites
-            immediately such that sites could show appropriate error page immediately.
-
             Covered by existing tests.
 
-            * UIProcess/WebAuthentication/AuthenticatorManager.cpp:
-            (WebKit::AuthenticatorManager::cancelRequest):
-            (WebKit::AuthenticatorManager::clearState):
-            (WebKit::AuthenticatorManager::resetState): Deleted.
-            * UIProcess/WebAuthentication/AuthenticatorManager.h:
+            * Platform/IPC/Decoder.cpp:
+            (IPC::alignedBufferIsLargeEnoughToContain): Add bufferStart
+            parameter to add beginning bounds check now that m_bufferPos
+            uses nullptr for an invalid value.
+            (IPC::Decoder::alignBufferPosition): Update to pass m_buffer to
+            IPC::alignedBufferIsLargeEnoughToContain().
+            (IPC::Decoder::bufferIsLargeEnoughToContain const): Ditto.
+            * Platform/IPC/Decoder.h:
+            (IPC::Decoder::isInvalid const): Add beginning bounds check now
+            that m_bufferPos uses nullptr for an invalid value.
+            (IPC::Decoder::markInvalid): Make nullptr the invalid value for
+            m_bufferPos.
 
-2019-11-10  Kocsen Chung  <kocsen_chung@apple.com>
+2019-11-18  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r252297. rdar://problem/57058404
+        Apply patch. rdar://problem/57283569
+
+    2019-11-18  Alex Christensen  <achristensen@webkit.org>
+
+            WKContentRuleLists should block requests from service workers
+            https://bugs.webkit.org/show_bug.cgi?id=201980
+            <rdar://problem/55516735>
+
+            Reviewed by Chris Dumez.
+
+            Test: http/tests/contentextensions/service-worker.https.html
+
+            Also covered by an API test.
+
+            * Shared/ServiceWorkerInitializationData.cpp: Added.
+            (WebKit::ServiceWorkerInitializationData::encode const):
+            (WebKit::ServiceWorkerInitializationData::decode):
+            * Shared/ServiceWorkerInitializationData.h: Added.
+            * Sources.txt:
+            * UIProcess/UserContent/WebUserContentControllerProxy.cpp:
+            (WebKit::WebUserContentControllerProxy::addProcess):
+            (WebKit::WebUserContentControllerProxy::contentRuleListData):
+            * UIProcess/UserContent/WebUserContentControllerProxy.h:
+            * UIProcess/WebProcessPool.cpp:
+            (WebKit::WebProcessPool::establishWorkerContextConnectionToNetworkProcess):
+            (WebKit::WebProcessPool::createWebPage):
+            * UIProcess/WebProcessPool.h:
+            * UIProcess/WebProcessProxy.cpp:
+            (WebKit::WebProcessProxy::createForServiceWorkers):
+            (WebKit::WebProcessProxy::establishServiceWorkerContext):
+            (WebKit::contentRuleListsFromIdentifier):
+            (WebKit::WebProcessProxy::enableServiceWorkers):
+            * UIProcess/WebProcessProxy.h:
+            * WebKit.xcodeproj/project.pbxproj:
+            * WebProcess/Storage/WebSWContextManagerConnection.cpp:
+            (WebKit::WebSWContextManagerConnection::WebSWContextManagerConnection):
+            (WebKit::m_userAgent):
+            (WebKit::WebSWContextManagerConnection::installServiceWorker):
+            * WebProcess/Storage/WebSWContextManagerConnection.h:
+            * WebProcess/WebProcess.cpp:
+            (WebKit::WebProcess::establishWorkerContextConnectionToNetworkProcess):
+            * WebProcess/WebProcess.h:
+            * WebProcess/WebProcess.messages.in:
+
+2019-11-18  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/57257755
+
+    2019-11-18  John Wilander  <wilander@apple.com>
+
+            Check if ITP is on before applying third-party cookie blocking
+            https://bugs.webkit.org/show_bug.cgi?id=204109
+            <rdar://problem/57120772>
+
+            Reviewed by Chris Dumez and Alexey Proskuryakov.
+
+            This change makes sure WebCore::NetworkStorageSession knows
+            whether ITP is on or off and checks that first thing in
+            WebCore::NetworkStorageSession::shouldBlockCookies().
+
+            This check was never needed before since if ITP was off,
+            there would be no classified domains and thus the function
+            would always return false. However,
+            https://trac.webkit.org/changeset/251353/webkit introduced
+            full third-party cookie blocking for websites without user
+            interaction and that rule is checked before checking domain
+            classification. The effect was unconditional third-party
+            cookie blocking if ITP is off. This changes fixes that bug.
+
+            Note that this patch is branch-specific and expected to not
+            apply to trunk.
+
+            * NetworkProcess/NetworkSession.cpp:
+            (WebKit::NetworkSession::setResourceLoadStatisticsEnabled):
+                Now tells WebCore::NetworkStorageSession the status of
+                ITP.
+
+2019-11-18  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/57123571
+
+    2019-11-18  Chris Dumez  <cdumez@apple.com>
+
+            Networking loading stalls / partial loading
+            <rdar://problem/57050996>
+
+            Reviewed by Ryosuke Niwa.
+
+            If the UIProcess's background task expires while we're holding a foreground assertion on behalf
+            of the network process, we would fail to release that assertion (i.e. reset the assertion state
+            to "Suspended"). We would send the ProcessWillSuspendImminently IPC to the network process, which
+            would suspend the StorageManager thread and everything would suspend shortly after.
+
+            When MobileSafari would come back to the foreground after this, the WKWebView would become visible and
+            it would indicate it needs a "Foreground" process assertion on behalf of its network process.
+            However, because we did not reset the network process assertion state on suspension, the UIProcess
+            would still think it has a "Foreground" process assertion on behalf of the network process and
+            it would do nothing. As a result, the UIProcess would fail to send the ProcessDidResume to the
+            network process and the network process would still have its StorageManager thread suspended.
+
+            If you then try to do a page load and the WebProcess ends up needing the local storage data for
+            the origin, it would do a synchronous IPC to the network process to get the data. Getting that
+            data is supposed to happen on the StorageManager thread in the network process, which is still
+            suspended / hung. As a result, the network process would fail to respond to the sync IPC and
+            the WebProcess would hang, usually in the middle of a page load.
+
+            To address the issue, we now reset the process assertion state to "Suspended" when
+            uiAssertionWillExpireImminently(), to properly reflect its new state (given that it expired).
+            As a result, if we later need a Foreground assertion for the network process, the UIProcess
+            will know it does not already have one and it will take one.
+
+            Note that this was already fixed on trunk via <rdar://problem/56547883> /
+            <https://trac.webkit.org/changeset/251577>. However, r251577 is fairly large because it
+            refactored the code at the same time. This patch only contains the part of r251577 that we
+            need on the branch to fix the suspension bug.
+
+            * UIProcess/ProcessThrottler.cpp:
+            (WebKit::ProcessThrottler::uiAssertionWillExpireImminently):
+
+2019-11-15  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r252297. rdar://problem/57058406
 
     [WebAuthn] Add quirk needed to support legacy Google NFC Titan security keys
     https://bugs.webkit.org/show_bug.cgi?id=204024
@@ -96,6 +293,55 @@
             (WebKit::fido::trySelectFidoApplet):
             (WebKit::NfcConnection::transact const):
             (WebKit::NfcConnection::didDetectTags):
+
+2019-11-15  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r252248. rdar://problem/57058392
+
+    [WebAuthn] Return NotAllowedError immediately for UI cancellations
+    https://bugs.webkit.org/show_bug.cgi?id=203937
+    <rdar://problem/56962420>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebKit:
+    
+    NotAllowedError representing UI cancellations should be returned to sites
+    immediately such that sites could show appropriate error page immediately.
+    
+    Covered by existing tests.
+    
+    * UIProcess/WebAuthentication/AuthenticatorManager.cpp:
+    (WebKit::AuthenticatorManager::cancelRequest):
+    (WebKit::AuthenticatorManager::clearState):
+    (WebKit::AuthenticatorManager::resetState): Deleted.
+    * UIProcess/WebAuthentication/AuthenticatorManager.h:
+    
+    Tools:
+    
+    * TestWebKitAPI/Tests/WebKitCocoa/_WKWebAuthenticationPanel.mm:
+    (TestWebKitAPI::TEST):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@252248 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2019-11-06  Jiewen Tan  <jiewen_tan@apple.com>
+
+            [WebAuthn] Return NotAllowedError immediately for UI cancellations
+            https://bugs.webkit.org/show_bug.cgi?id=203937
+            <rdar://problem/56962420>
+
+            Reviewed by Brent Fulgham.
+
+            NotAllowedError representing UI cancellations should be returned to sites
+            immediately such that sites could show appropriate error page immediately.
+
+            Covered by existing tests.
+
+            * UIProcess/WebAuthentication/AuthenticatorManager.cpp:
+            (WebKit::AuthenticatorManager::cancelRequest):
+            (WebKit::AuthenticatorManager::clearState):
+            (WebKit::AuthenticatorManager::resetState): Deleted.
+            * UIProcess/WebAuthentication/AuthenticatorManager.h:
 
 2019-11-07  Alan Coon  <alancoon@apple.com>
 
@@ -248,6 +494,54 @@
             (WebKit::ResponsivenessTimer::timerFired):
             * UIProcess/ResponsivenessTimer.h:
             * UIProcess/WebProcessProxy.h:
+
+2019-11-04  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/56864381
+
+    2019-11-04  Tim Horton  <timothy_horton@apple.com>
+
+            WKWebView can get stuck blank (Web Content process thinks the app is backgrounded)
+            https://bugs.webkit.org/show_bug.cgi?id=203774
+            <rdar://problem/53399054>
+
+            With careful timing, if a WKWebView swaps out its content view in the
+            background, the incoming view can fail to inform the Web Content process
+            when the app comes to the foreground, leaving the layer tree frozen.
+
+            This occurs because the last-sent state is stored per-WKApplicationStateTrackingView,
+            and the content view is the WKApplicationStateTrackingView, so it is possible
+            for e.g. a WKPDFView to be in the hierarchy, keeping the correct state,
+            with an initialized-but-never-parented WKContentView hanging off the WKWebView.
+
+            If it is never parented, WKContentView will think that the current application
+            state is foreground (_lastObservedStateWasBackground is initialized to NO).
+
+            If you go into the background with a WKPDFView as the current content view,
+            it will inform the Web Content process that the application has backgrounded.
+
+            If, still in the background, WKWebView swaps from the WKPDFView to
+            the WKContentView, and then comes into the foreground, when we get the
+            notification that the app came to the foreground, we will not forward it
+            to the Web Content process, because WKContentView's _lastObservedStateWasBackground
+            remains NO.
+
+            To fix this, move _lastObservedStateWasBackground to WebPageProxy, so that
+            it always tracks the most recently sent state, regardless of which content view
+            is active.
+
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::resetState):
+            * UIProcess/WebPageProxy.h:
+            (WebKit::WebPageProxy::lastObservedStateWasBackground const):
+            * UIProcess/ios/WKApplicationStateTrackingView.mm:
+            (-[WKApplicationStateTrackingView willMoveToWindow:]):
+            (-[WKApplicationStateTrackingView didMoveToWindow]):
+            (-[WKApplicationStateTrackingView _applicationDidEnterBackground]):
+            (-[WKApplicationStateTrackingView _applicationWillEnterForeground]):
+            * UIProcess/ios/WebPageProxyIOS.mm:
+            (WebKit::WebPageProxy::applicationDidEnterBackground):
+            (WebKit::WebPageProxy::applicationWillEnterForeground):
 
 2019-11-04  Kocsen Chung  <kocsen_chung@apple.com>
 

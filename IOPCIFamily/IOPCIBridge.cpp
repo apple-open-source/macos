@@ -1351,7 +1351,9 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
     {
 		retries = 0;
 		clock_get_uptime(&start);
-        clock_interval_to_deadline(200, kMillisecondScale, &deadline);
+
+        // some devices take 600ms+ to be available rdar://problem/58030724
+        clock_interval_to_deadline(1000, kMillisecondScale, &deadline);
         do
         {
             if (retries) IOSleep(2);

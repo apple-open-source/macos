@@ -1,6 +1,8 @@
 /*
- * Copyright (c) 1999-2005, 2007, 2010-2012, 2014-2015
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 1999-2005, 2007, 2010-2012, 2014-2016
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  * Copyright (c) 2002 Michael Stroucken <michael@stroucken.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -14,13 +16,15 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Sponsored in part by the Defense Advanced Research Projects
  * Agency (DARPA) and Air Force Research Laboratory, Air Force
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -142,35 +146,35 @@ int
 sudo_securid_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
     SDI_HANDLE *sd = (SDI_HANDLE *) auth->data;
-    int rval;
+    int ret;
     debug_decl(sudo_securid_verify, SUDOERS_DEBUG_AUTH)
 
-    pass = auth_getpass("Enter your PASSCODE: ",
-	def_passwd_timeout * 60, SUDO_CONV_PROMPT_ECHO_OFF, callback);
+    pass = auth_getpass("Enter your PASSCODE: ", SUDO_CONV_PROMPT_ECHO_OFF,
+	callback);
 
     /* Have ACE verify password */
     switch (SD_Check(*sd, pass, pw->pw_name)) {
 	case ACM_OK:
-		rval = AUTH_SUCESS;
+		ret = AUTH_SUCESS;
 		break;
 
 	case ACE_UNDEFINED_PASSCODE:
 		sudo_warnx(U_("invalid passcode length for SecurID"));
-		rval = AUTH_FATAL;
+		ret = AUTH_FATAL;
 		break;
 
 	case ACE_UNDEFINED_USERNAME:
 		sudo_warnx(U_("invalid username length for SecurID"));
-		rval = AUTH_FATAL;
+		ret = AUTH_FATAL;
 		break;
 
 	case ACE_ERR_INVALID_HANDLE:
 		sudo_warnx(U_("invalid Authentication Handle for SecurID"));
-		rval = AUTH_FATAL;
+		ret = AUTH_FATAL;
 		break;
 
 	case ACM_ACCESS_DENIED:
-		rval = AUTH_FAILURE;
+		ret = AUTH_FAILURE;
 		break;
 
 	case ACM_NEXT_CODE_REQUIRED:
@@ -185,14 +189,14 @@ sudo_securid_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_
 !!! ATTENTION !!!\n\
 Wait for the token code to change, \n\
 then enter the new token code.\n", \
-		def_passwd_timeout * 60, SUDO_CONV_PROMPT_ECHO_OFF, callback);
+		SUDO_CONV_PROMPT_ECHO_OFF, callback);
 
 		if (SD_Next(*sd, pass) == ACM_OK) {
-			rval = AUTH_SUCCESS;
+			ret = AUTH_SUCCESS;
 			break;
 		}
 
-		rval = AUTH_FAILURE;
+		ret = AUTH_FAILURE;
 		break;
 
 	case ACM_NEW_PIN_REQUIRED:
@@ -202,16 +206,16 @@ then enter the new token code.\n", \
 		 */
 		/* XXX - Is setting up a new PIN within sudo's scope? */
 		SD_Pin(*sd, "");
-		sudo_printf(SUDO_CONV_ERROR_MSG, 
+		sudo_printf(SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY, 
 		    "Your SecurID access has not yet been set up.\n");
-		sudo_printf(SUDO_CONV_ERROR_MSG, 
+		sudo_printf(SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY, 
 		    "Please set up a PIN before you try to authenticate.\n");
-		rval = AUTH_FATAL;
+		ret = AUTH_FATAL;
 		break;
 
 	default:
 		sudo_warnx(U_("unknown SecurID error"));
-		rval = AUTH_FATAL;
+		ret = AUTH_FATAL;
 		break;
     }
 
@@ -224,7 +228,7 @@ then enter the new token code.\n", \
     }
 
     /* Return stored state to calling process */
-    debug_return_int(rval);
+    debug_return_int(ret);
 }
 
 #endif /* HAVE_SECURID */

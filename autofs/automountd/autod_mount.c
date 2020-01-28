@@ -308,6 +308,7 @@ retry:
 			err = mount_generic(me->map_fs->mfs_dir,
 					    me->map_fstype, me->map_mntopts, 0,
 					    spec_mntpnt, isdirect, FALSE,
+					    me->map_quarantine,
 					    mntpnt_fsid, sendereuid, asid,
 					    fsidp, retflags);
 		}
@@ -398,8 +399,8 @@ struct attr_buffer {
 
 int
 mount_generic(char *special, char *fstype, char *opts, int nfsvers,
-    char *mntpnt, boolean_t isdirect, boolean_t usenetauth, fsid_t mntpnt_fsid,
-    uid_t sendereuid, au_asid_t asid, fsid_t *fsidp,
+    char *mntpnt, boolean_t isdirect, boolean_t usenetauth, boolean_t quarantine,
+    fsid_t mntpnt_fsid, uid_t sendereuid, au_asid_t asid, fsid_t *fsidp,
     uint32_t *retflags)
 {
 	struct stat stbuf;
@@ -498,11 +499,7 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 		newargv[i++] = "-t";
 		newargv[i++] = "nfs";
 
-		/*
-		 *  Add quarantine flag to /net mounts.
-		 *  For more info see rdar://problem/48284485
-		 */
-		if (strlen(mntpnt) >= 4 && strncmp(mntpnt, "/net", 4) == 0) {
+		if (quarantine) {
 			newargv[i++] = "-o";
 			newargv[i++] = "quarantine";
 		}

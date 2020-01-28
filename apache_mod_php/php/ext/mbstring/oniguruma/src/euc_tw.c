@@ -63,27 +63,27 @@ is_valid_mbc_string(const UChar* p, const UChar* end)
     }
     else if (*p < 0xa1) {
       if (*p == 0x8e) {
-	p++;
-	if (p >= end) return FALSE;
-	if (*p < 0xa1 || *p > 0xb0) return FALSE;
-	p++;
-	if (p >= end) return FALSE;
-	if (*p < 0xa1 || *p == 0xff)
-	  return FALSE;
-	p++;
-	if (p >= end) return FALSE;
-	if (*p < 0xa1 || *p == 0xff)
-	  return FALSE;
-	p++;
+        p++;
+        if (p >= end) return FALSE;
+        if (*p < 0xa1 || *p > 0xb0) return FALSE;
+        p++;
+        if (p >= end) return FALSE;
+        if (*p < 0xa1 || *p == 0xff)
+          return FALSE;
+        p++;
+        if (p >= end) return FALSE;
+        if (*p < 0xa1 || *p == 0xff)
+          return FALSE;
+        p++;
       }
       else
-	return FALSE;
+        return FALSE;
     }
     else if (*p < 0xff) {
       p++;
       if (p >= end) return FALSE;
       if (*p < 0xa1 || *p == 0xff)
-	return FALSE;
+        return FALSE;
       p++;
     }
     else
@@ -168,6 +168,6 @@ OnigEncodingType OnigEncodingEUC_TW = {
   NULL, /* init */
   NULL, /* is_initialized */
   is_valid_mbc_string,
-  ENC_FLAG_ASCII_COMPATIBLE,
+  ENC_FLAG_ASCII_COMPATIBLE|ENC_FLAG_SKIP_OFFSET_1,
   0, 0
 };

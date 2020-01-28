@@ -64,7 +64,6 @@
 		FDB436A01492DD0A00D5E278 /* 420.status-network in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366E1492DB0B00D5E278 /* 420.status-network */; };
 		FDB436A11492DD0E00D5E278 /* 430.status-rwho in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366F1492DB0B00D5E278 /* 430.status-rwho */; };
 		FDB436A21492DD1100D5E278 /* 999.local in Install daily */ = {isa = PBXBuildFile; fileRef = FDB436701492DB0B00D5E278 /* 999.local */; };
-		FDB436A31492DD1F00D5E278 /* 320.whatis in Install weekly */ = {isa = PBXBuildFile; fileRef = FDB436801492DB0B00D5E278 /* 320.whatis */; };
 		FDB436A41492DD2100D5E278 /* 999.local in Install weekly */ = {isa = PBXBuildFile; fileRef = FDB436811492DB0B00D5E278 /* 999.local */; };
 		FDB436A51492DD2700D5E278 /* 199.rotate-fax in Install monthly */ = {isa = PBXBuildFile; fileRef = FDB436791492DB0B00D5E278 /* 199.rotate-fax */; };
 		FDB436A61492DD2900D5E278 /* 200.accounting in Install monthly */ = {isa = PBXBuildFile; fileRef = FDB4367A1492DB0B00D5E278 /* 200.accounting */; };
@@ -205,7 +204,6 @@
 			dstPath = /private/etc/periodic/weekly;
 			dstSubfolderSpec = 0;
 			files = (
-				FDB436A31492DD1F00D5E278 /* 320.whatis in Install weekly */,
 				FDB436A41492DD2100D5E278 /* 999.local in Install weekly */,
 			);
 			name = "Install weekly";
@@ -256,7 +254,6 @@
 		FDB4367C1492DB0B00D5E278 /* newsyslog.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = newsyslog.conf; sourceTree = "<group>"; };
 		FDB4367D1492DB0B00D5E278 /* periodic.conf */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = periodic.conf; sourceTree = "<group>"; };
 		FDB4367E1492DB0B00D5E278 /* periodic.conf.5 */ = {isa = PBXFileReference; lastKnownFileType = text; path = periodic.conf.5; sourceTree = "<group>"; };
-		FDB436801492DB0B00D5E278 /* 320.whatis */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 320.whatis; sourceTree = "<group>"; };
 		FDB436811492DB0B00D5E278 /* 999.local */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 999.local; sourceTree = "<group>"; };
 		FDCEF0A9162E12DC002D6429 /* periodic-wrapper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "periodic-wrapper.c"; sourceTree = "<group>"; };
 		FDCEF0AC162E140E002D6429 /* periodic-wrapper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "periodic-wrapper"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -379,7 +376,6 @@
 		FDB4367F1492DB0B00D5E278 /* weekly */ = {
 			isa = PBXGroup;
 			children = (
-				FDB436801492DB0B00D5E278 /* 320.whatis */,
 				FDB436811492DB0B00D5E278 /* 999.local */,
 			);
 			path = weekly;

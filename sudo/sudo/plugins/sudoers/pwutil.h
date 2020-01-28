@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2010-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2010-2013, 2015-2017 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -24,7 +26,8 @@
  */
 struct cache_item {
     unsigned int refcnt;
-    char registry[16];
+    unsigned int type;	/* only used for gidlist */
+    char registry[16];	/* AIX-specific, empty otherwise */
     /* key */
     union {
 	uid_t uid;
@@ -36,12 +39,13 @@ struct cache_item {
 	struct passwd *pw;
 	struct group *gr;
 	struct group_list *grlist;
+	struct gid_list *gidlist;
     } d;
 };
 
 /*
  * Container structs to simpify size and offset calculations and guarantee
- * proper aligment of struct passwd, group and group_list.
+ * proper aligment of struct passwd, group, gid_list and group_list.
  */
 struct cache_item_pw {
     struct cache_item cache;
@@ -59,8 +63,15 @@ struct cache_item_grlist {
     /* actually bigger */
 };
 
+struct cache_item_gidlist {
+    struct cache_item cache;
+    struct gid_list gidlist;
+    /* actually bigger */
+};
+
 struct cache_item *sudo_make_gritem(gid_t gid, const char *group);
-struct cache_item *sudo_make_grlist_item(const struct passwd *pw, char * const *groups, char * const *gids);
+struct cache_item *sudo_make_grlist_item(const struct passwd *pw, char * const *groups);
+struct cache_item *sudo_make_gidlist_item(const struct passwd *pw, char * const *gids, unsigned int type);
 struct cache_item *sudo_make_pwitem(uid_t uid, const char *user);
 
 #endif /* SUDOERS_PWUTIL_H */

@@ -57,6 +57,7 @@ configure:: $(ConfigStamp2)
 PERLVERS := $(shell perl -MConfig -e 'print $$Config::Config{revision}.".".$$Config::Config{patchlevel}')
 PYTHONVERS := $(shell python -c 'import sys; print("%d.%d" % sys.version_info[:2])')
 MAKEFILEPL := subversion/bindings/swig/perl/native/Makefile.PL
+PR57510742_LINK_DIR := $(BuildDirectory)/subversion/libsvn_pr57510742
 $(ConfigStamp2): $(ConfigStamp)
 	mv '$(BuildDirectory)/Makefile' '$(BuildDirectory)/Makefile.bak'
 	sed -e '/^SWIG_PL_INCLUDES/s/$(PERLVERS)/$$(VERSIONER_PERL_VERSION)/g' \
@@ -66,6 +67,35 @@ $(ConfigStamp2): $(ConfigStamp)
 	    '$(BuildDirectory)/Makefile.bak' > '$(BuildDirectory)/Makefile'
 	mv '$(BuildDirectory)/$(MAKEFILEPL)' '$(BuildDirectory)/$(MAKEFILEPL).bak'
 	sed 's,-L/usr/lib,,' '$(BuildDirectory)/$(MAKEFILEPL).bak' > '$(BuildDirectory)/$(MAKEFILEPL)'
+	# 57510742 - Hack around ExtUtils-MakeMaker not searching $SDKROOT/usr/local/lib nor understanding .tbd files
+	mkdir -p $(BuildDirectory)/subversion/libsvn_client/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_delta/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_diff/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_fs/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_fs_fs/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_fs_util/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_fs_x/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_ra/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_ra_local/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_ra_serf/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_ra_svn/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_repos/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_subr/.libs
+	mkdir -p $(BuildDirectory)/subversion/libsvn_wc/.libs
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_client-1.tbd $(BuildDirectory)/subversion/libsvn_client/.libs/libsvn_client-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_delta-1.tbd $(BuildDirectory)/subversion/libsvn_delta/.libs/libsvn_delta-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_diff-1.tbd $(BuildDirectory)/subversion/libsvn_diff/.libs/libsvn_diff-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_fs-1.tbd $(BuildDirectory)/subversion/libsvn_fs/.libs/libsvn_fs-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_fs_fs-1.tbd $(BuildDirectory)/subversion/libsvn_fs_fs/.libs/libsvn_fs_fs-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_fs_util-1.tbd $(BuildDirectory)/subversion/libsvn_fs_util/.libs/libsvn_fs_util-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_fs_x-1.tbd $(BuildDirectory)/subversion/libsvn_fs_x/.libs/libsvn_fs_x-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_ra-1.tbd $(BuildDirectory)/subversion/libsvn_ra/.libs/libsvn_ra-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_ra_local-1.tbd $(BuildDirectory)/subversion/libsvn_ra_local/.libs/libsvn_ra_local-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_ra_serf-1.tbd $(BuildDirectory)/subversion/libsvn_ra_serf/.libs/libsvn_ra_serf-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_ra_svn-1.tbd $(BuildDirectory)/subversion/libsvn_ra_svn/.libs/libsvn_ra_svn-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_repos-1.tbd $(BuildDirectory)/subversion/libsvn_repos/.libs/libsvn_repos-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_subr-1.tbd $(BuildDirectory)/subversion/libsvn_subr/.libs/libsvn_subr-1.dylib
+	ln -s $(SDKROOT)/usr/local/lib/libsvn_wc-1.tbd $(BuildDirectory)/subversion/libsvn_wc/.libs/libsvn_wc-1.dylib
 	$(TOUCH) $(ConfigStamp2)
 
 # Perl multi-version support
@@ -121,3 +151,4 @@ post-install:
 	install -o root -g wheel -m 0755 $(SRCROOT)/git-svn/git-svn $(DSTROOT)/usr/local/bin
 	install -d -o root -g wheel -m 0755 $(DSTROOT)/usr/local/share/git-core/perl
 	ditto $(SRCROOT)/git-svn/perl $(DSTROOT)/usr/local/share/git-core/perl
+	chown -R root:wheel $(DSTROOT)/usr/local/share/git-core/perl

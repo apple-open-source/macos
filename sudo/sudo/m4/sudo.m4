@@ -1,7 +1,21 @@
 dnl Local m4 macros for autoconf (used by sudo)
 dnl
+dnl SPDX-License-Identifier: ISC
+dnl
 dnl Copyright (c) 1994-1996, 1998-2005, 2007-2015
-dnl	Todd C. Miller <Todd.Miller@courtesan.com>
+dnl	Todd C. Miller <Todd.Miller@sudo.ws>
+dnl
+dnl Permission to use, copy, modify, and distribute this software for any
+dnl purpose with or without fee is hereby granted, provided that the above
+dnl copyright notice and this permission notice appear in all copies.
+dnl
+dnl THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+dnl WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+dnl MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+dnl ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+dnl WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+dnl ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+dnl OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 dnl
 dnl XXX - should cache values in all cases!!!
 dnl
@@ -108,7 +122,7 @@ dnl
 AC_DEFUN([SUDO_RUNDIR], [AC_MSG_CHECKING(for sudo run dir location)
 rundir="$with_rundir"
 if test -z "$rundir"; then
-    for d in /var/run /var/db /var/lib /var/adm /usr/adm; do
+    for d in /run /var/run /var/db /var/lib /var/adm /usr/adm; do
 	if test -d "$d"; then
 	    rundir="$d/sudo"
 	    break
@@ -266,6 +280,26 @@ int putenv(const char *string) {return 0;}], [])],
 ])
 
 dnl
+dnl check whether au_close() takes 3 or 4 arguments
+dnl
+AC_DEFUN([SUDO_FUNC_AU_CLOSE_SOLARIS11],
+[AC_CACHE_CHECK([whether au_close() takes 4 arguments],
+sudo_cv_func_au_close_solaris11,
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT
+#include <bsm/audit.h>
+#include <bsm/libbsm.h>
+#include <bsm/audit_uevents.h>
+
+int au_close(int d, int keep, au_event_t event, au_emod_t emod) {return 0;}], [])],
+    [sudo_cv_func_au_close_solaris11=yes],
+    [sudo_cv_func_au_close_solaris11=no])
+  ])
+  if test $sudo_cv_func_au_close_solaris11 = yes; then
+    AC_DEFINE(HAVE_AU_CLOSE_SOLARIS11, 1, [Define to 1 if the `au_close' functions takes 4 arguments like Solaris 11.])
+  fi
+])
+
+dnl
 dnl Check if the data argument for the sha2 functions is void * or u_char *
 dnl
 AC_DEFUN([SUDO_FUNC_SHA2_VOID_PTR],
@@ -342,37 +376,77 @@ AC_DEFINE_UNQUOTED(MAX_UID_T_LEN, $sudo_cv_uid_t_len, [Define to the max length 
 ])
 
 dnl
+dnl There are three different utmp variants we need to check for.
+dnl SUDO_CHECK_UTMP_MEMBERS(utmp_type)
+dnl
+AC_DEFUN([SUDO_CHECK_UTMP_MEMBERS], [
+    dnl
+    dnl Check for utmp/utmpx/utmps struct members.
+    dnl
+    AC_CHECK_MEMBER([struct $1.ut_id], [
+	AC_DEFINE(HAVE_STRUCT_UTMP_UT_ID, 1, [Define to 1 if `ut_id' is a member of `struct utmp'.])
+    ], [], [
+#	include <sys/types.h>
+#	include <$1.h>
+    ])
+    AC_CHECK_MEMBER([struct $1.ut_pid], [
+	AC_DEFINE(HAVE_STRUCT_UTMP_UT_PID, 1, [Define to 1 if `ut_pid' is a member of `struct utmp'.])
+    ], [], [
+#	include <sys/types.h>
+#	include <$1.h>
+    ])
+    AC_CHECK_MEMBER([struct $1.ut_tv], [
+	AC_DEFINE(HAVE_STRUCT_UTMP_UT_TV, 1, [Define to 1 if `ut_tv' is a member of `struct utmp'.])
+    ], [], [
+#	include <sys/types.h>
+#	include <$1.h>
+    ])
+    AC_CHECK_MEMBER([struct $1.ut_type], [
+	AC_DEFINE(HAVE_STRUCT_UTMP_UT_TYPE, 1, [Define to 1 if `ut_type' is a member of `struct utmp'.])
+    ], [], [
+#	include <sys/types.h>
+#	include <$1.h>
+    ])
+    dnl
+    dnl Older struct utmp has ut_name instead of ut_user
+    dnl
+    if test "$1" = "utmp"; then
+	AC_CHECK_MEMBERS([struct utmp.ut_user], [], [], [
+#	include <sys/types.h>
+#	include <$1.h>
+	])
+    fi
+    dnl
+    dnl Check for ut_exit.__e_termination first, then ut_exit.e_termination
+    dnl We need to have already defined _GNU_SOURCE on glibc which only has
+    dnl __e_termination visible when _GNU_SOURCE is *not* defined.
+    dnl
+    AC_CHECK_MEMBER([struct $1.ut_exit.__e_termination], [
+	AC_DEFINE(HAVE_STRUCT_UTMP_UT_EXIT, 1, [Define to 1 if `ut_exit' is a member of `struct utmp'.])
+	AC_DEFINE(HAVE_STRUCT_UTMP_UT_EXIT___E_TERMINATION, 1, [Define to 1 if `ut_exit.__e_termination' is a member of `struct utmp'.])
+    ], [
+	AC_CHECK_MEMBER([struct $1.ut_exit.e_termination], [
+	    AC_DEFINE(HAVE_STRUCT_UTMP_UT_EXIT, 1, [Define to 1 if `ut_exit' is a member of `struct utmp'.])
+	    AC_DEFINE(HAVE_STRUCT_UTMP_UT_EXIT_E_TERMINATION, 1, [Define to 1 if `ut_exit.e_termination' is a member of `struct utmp'.])
+	], [], [
+#	    include <sys/types.h>
+#	    include <$1.h>
+	])
+    ], [
+#	include <sys/types.h>
+#	include <$1.h>
+    ])
+])
+
+dnl
 dnl Append a libpath to an LDFLAGS style variable if not already present.
 dnl Also appends to the _R version unless rpath is disabled.
 dnl
 AC_DEFUN([SUDO_APPEND_LIBPATH], [
-    case "${$1}" in
-	*"-L$2"|*"-L$2 ")
-	    ;;
-	*)
-	    $1="${$1} -L$2"
-	    if test X"$enable_rpath" = X"yes"; then
-		$1_R="${$1_R} -R$2"
-	    fi
-	    ;;
-    esac
-])
-
-dnl
-dnl Append a directory to CPPFLAGS if not already present.
-dnl
-AC_DEFUN([SUDO_APPEND_CPPFLAGS], [
-    case "${CPPFLAGS}" in
-	*"$1"|*"$1 ")
-	    ;;
-	*)
-	    if test X"${CPPFLAGS}" = X""; then
-		CPPFLAGS="$1"
-	    else
-		CPPFLAGS="${CPPFLAGS} $1"
-	    fi
-	    ;;
-    esac
+    AX_APPEND_FLAG([-L$2], [$1])
+    if test X"$enable_rpath" = X"yes"; then
+	AX_APPEND_FLAG([-R$2], [$1_R])
+    fi
 ])
 
 dnl

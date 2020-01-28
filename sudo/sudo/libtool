@@ -1,6 +1,6 @@
 #! /bin/sh
 # Generated automatically by config.status () 
-# Libtool was configured on host dogpatch.apple.com:
+# Libtool was configured on host Redcap.local:
 # NOTE: Changes made to this file will be lost: look at ltmain.sh.
 
 # Provide generalized library-building support services.
@@ -32,11 +32,14 @@
 # The names of the tagged configurations supported by this script.
 available_tags=''
 
+# Configured defaults for sys_lib_dlsearch_path munging.
+: ${LT_SYS_LIBRARY_PATH=""}
+
 # ### BEGIN LIBTOOL CONFIG
 
 # Which release of libtool.m4 was used?
-macro_version=2.4.4
-macro_revision=2.4.4
+macro_version=2.4.6
+macro_revision=2.4.6
 
 # Whether or not to build shared libraries.
 build_libtool_libs=yes
@@ -64,13 +67,13 @@ PATH_SEPARATOR=":"
 
 # The host system.
 host_alias=
-host=x86_64-apple-darwin16.0.0
-host_os=darwin16.0.0
+host=x86_64-apple-darwin19.2.0
+host_os=darwin19.2.0
 
 # The build system.
 build_alias=
-build=x86_64-apple-darwin16.0.0
-build_os=darwin16.0.0
+build=x86_64-apple-darwin19.2.0
+build_os=darwin19.2.0
 
 # A sed program that does not truncate output.
 SED="/usr/bin/sed"
@@ -183,7 +186,7 @@ global_symbol_to_c_name_address_lib_prefix="sed -n -e 's/^: \\(.*\\) .*\$/  {\"\
 nm_interface="BSD nm"
 
 # Specify filename containing input files for $NM.
-nm_file_list_spec=""
+nm_file_list_spec="@"
 
 # The root where to search for dependent libraries,and where our libraries should be installed.
 lt_sysroot=
@@ -279,10 +282,13 @@ finish_eval=""
 hardcode_into_libs=no
 
 # Compile-time system search path for libraries.
-sys_lib_search_path_spec="/Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.12.xctoolchain/usr/lib/clang/8.0.0  /usr/local/lib"
+sys_lib_search_path_spec="/Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.15.xctoolchain/usr/lib/clang/11.0.0  /usr/local/lib"
 
-# Run-time system search path for libraries.
+# Detected run-time system search path for libraries.
 sys_lib_dlsearch_path_spec="/usr/local/lib /lib /usr/lib"
+
+# Explicit LT_SYS_LIBRARY_PATH set during ./configure time.
+configure_time_lt_sys_library_path=""
 
 # Whether dlopen is supported.
 dlopen_support=yes
@@ -299,7 +305,7 @@ striplib="strip -x"
 
 
 # The linker used to build libraries.
-LD="/Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.12.xctoolchain/usr/bin/ld"
+LD="/Applications/Xcode.app/Contents/Developer/Toolchains/OSX10.15.xctoolchain/usr/bin/ld"
 
 # How to create reloadable object files.
 reload_flag=" -r"
@@ -437,15 +443,71 @@ hardcode_action=immediate
 
 # ### END LIBTOOL CONFIG
 
+
+# ### BEGIN FUNCTIONS SHARED WITH CONFIGURE
+
+# func_munge_path_list VARIABLE PATH
+# -----------------------------------
+# VARIABLE is name of variable containing _space_ separated list of
+# directories to be munged by the contents of PATH, which is string
+# having a format:
+# "DIR[:DIR]:"
+#       string "DIR[ DIR]" will be prepended to VARIABLE
+# ":DIR[:DIR]"
+#       string "DIR[ DIR]" will be appended to VARIABLE
+# "DIRP[:DIRP]::[DIRA:]DIRA"
+#       string "DIRP[ DIRP]" will be prepended to VARIABLE and string
+#       "DIRA[ DIRA]" will be appended to VARIABLE
+# "DIR[:DIR]"
+#       VARIABLE will be replaced by "DIR[ DIR]"
+func_munge_path_list ()
+{
+    case x$2 in
+    x)
+        ;;
+    *:)
+        eval $1=\"`$ECHO $2 | $SED 's/:/ /g'` \$$1\"
+        ;;
+    x:*)
+        eval $1=\"\$$1 `$ECHO $2 | $SED 's/:/ /g'`\"
+        ;;
+    *::*)
+        eval $1=\"\$$1\ `$ECHO $2 | $SED -e 's/.*:://' -e 's/:/ /g'`\"
+        eval $1=\"`$ECHO $2 | $SED -e 's/::.*//' -e 's/:/ /g'`\ \$$1\"
+        ;;
+    *)
+        eval $1=\"`$ECHO $2 | $SED 's/:/ /g'`\"
+        ;;
+    esac
+}
+
+
+# Calculate cc_basename.  Skip known compiler wrappers and cross-prefix.
+func_cc_basename ()
+{
+    for cc_temp in $*""; do
+      case $cc_temp in
+        compile | *[\\/]compile | ccache | *[\\/]ccache ) ;;
+        distcc | *[\\/]distcc | purify | *[\\/]purify ) ;;
+        \-*) ;;
+        *) break;;
+      esac
+    done
+    func_cc_basename_result=`$ECHO "$cc_temp" | $SED "s%.*/%%; s%^$host_alias-%%"`
+}
+
+
+# ### END FUNCTIONS SHARED WITH CONFIGURE
+
 #! /bin/sh
 ## DO NOT EDIT - This file generated from ./build-aux/ltmain.in
 ##               by inline-source v2014-01-03.01
 
-# libtool (GNU libtool) 2.4.4
+# libtool (GNU libtool) 2.4.6
 # Provide generalized library-building support services.
 # Written by Gordon Matzigkeit <gord@gnu.ai.mit.edu>, 1996
 
-# Copyright (C) 1996-2014 Free Software Foundation, Inc.
+# Copyright (C) 1996-2015 Free Software Foundation, Inc.
 # This is free software; see the source for copying conditions.  There is NO
 # warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
@@ -470,8 +532,8 @@ hardcode_action=immediate
 
 PROGRAM=libtool
 PACKAGE=libtool
-VERSION=2.4.4
-package_revision=2.4.4
+VERSION=2.4.6
+package_revision=2.4.6
 
 
 ## ------ ##
@@ -503,12 +565,12 @@ package_revision=2.4.4
 # libraries, which are installed to $pkgauxdir.
 
 # Set a version string for this script.
-scriptversion=2014-01-03.01; # UTC
+scriptversion=2015-01-20.17; # UTC
 
 # General shell script boiler plate, and helper functions.
 # Written by Gary V. Vaughan, 2004
 
-# Copyright (C) 2004-2014 Free Software Foundation, Inc.
+# Copyright (C) 2004-2015 Free Software Foundation, Inc.
 # This is free software; see the source for copying conditions.  There is NO
 # warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
@@ -631,7 +693,7 @@ func_path_progs ()
 
     _G_path_prog_max=0
     _G_path_prog_found=false
-    _G_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+    _G_save_IFS=$IFS; IFS=${PATH_SEPARATOR-:}
     for _G_dir in $_G_PATH; do
       IFS=$_G_save_IFS
       test -z "$_G_dir" && _G_dir=.
@@ -1814,7 +1876,7 @@ scriptversion=2014-01-07.03; # UTC
 # A portable, pluggable option parser for Bourne shell.
 # Written by Gary V. Vaughan, 2010
 
-# Copyright (C) 2010-2014 Free Software Foundation, Inc.
+# Copyright (C) 2010-2015 Free Software Foundation, Inc.
 # This is free software; see the source for copying conditions.  There is NO
 # warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
@@ -2416,7 +2478,7 @@ func_version ()
 # End:
 
 # Set a version string.
-scriptversion='(GNU libtool) 2.4.4'
+scriptversion='(GNU libtool) 2.4.6'
 
 
 # func_echo ARG...
@@ -2478,7 +2540,12 @@ usage_message="Options:
 "
 
 # Additional text appended to 'usage_message' in response to '--help'.
-long_help_message=$long_help_message"
+func_help ()
+{
+    $debug_cmd
+
+    func_usage_message
+    $ECHO "$long_help_message
 
 MODE must be one of the following:
 
@@ -2502,13 +2569,15 @@ include the following information:
        compiler:       $LTCC
        compiler flags: $LTCFLAGS
        linker:         $LD (gnu? $with_gnu_ld)
-       version:        $progname (GNU libtool) 2.4.4
+       version:        $progname (GNU libtool) 2.4.6
        automake:       `($AUTOMAKE --version) 2>/dev/null |$SED 1q`
        autoconf:       `($AUTOCONF --version) 2>/dev/null |$SED 1q`
 
 Report bugs to <bug-libtool@gnu.org>.
 GNU libtool home page: <http://www.gnu.org/software/libtool/>.
 General help using GNU software: <http://www.gnu.org/gethelp/>."
+    exit 0
+}
 
 
 # func_lo2o OBJECT-NAME
@@ -6900,6 +6969,24 @@ func_win32_import_lib_p ()
     esac
 }
 
+# func_suncc_cstd_abi
+# !!ONLY CALL THIS FOR SUN CC AFTER $compile_command IS FULLY EXPANDED!!
+# Several compiler flags select an ABI that is incompatible with the
+# Cstd library. Avoid specifying it if any are in CXXFLAGS.
+func_suncc_cstd_abi ()
+{
+    $debug_cmd
+
+    case " $compile_command " in
+    *" -compat=g "*|*\ -std=c++[0-9][0-9]\ *|*" -library=stdcxx4 "*|*" -library=stlport4 "*)
+      suncc_use_cstd_abi=no
+      ;;
+    *)
+      suncc_use_cstd_abi=yes
+      ;;
+    esac
+}
+
 # func_mode_link arg...
 func_mode_link ()
 {
@@ -7877,6 +7964,9 @@ func_mode_link ()
     fi
     eval sys_lib_search_path=\"$sys_lib_search_path_spec\"
     eval sys_lib_dlsearch_path=\"$sys_lib_dlsearch_path_spec\"
+
+    # Definition is injected by LT_CONFIG during libtool generation.
+    func_munge_path_list sys_lib_dlsearch_path "$LT_SYS_LIBRARY_PATH"
 
     func_dirname "$output" "/" ""
     output_objdir=$func_dirname_result$objdir
@@ -9058,6 +9148,37 @@ func_mode_link ()
 	  eval $var=\"$tmp_libs\"
 	done # for var
       fi
+
+      # Add Sun CC postdeps if required:
+      test CXX = "$tagname" && {
+        case $host_os in
+        linux*)
+          case `$CC -V 2>&1 | sed 5q` in
+          *Sun\ C*) # Sun C++ 5.9
+            func_suncc_cstd_abi
+
+            if test no != "$suncc_use_cstd_abi"; then
+              func_append postdeps ' -library=Cstd -library=Crun'
+            fi
+            ;;
+          esac
+          ;;
+
+        solaris*)
+          func_cc_basename "$CC"
+          case $func_cc_basename_result in
+          CC* | sunCC*)
+            func_suncc_cstd_abi
+
+            if test no != "$suncc_use_cstd_abi"; then
+              func_append postdeps ' -library=Cstd -library=Crun'
+            fi
+            ;;
+          esac
+          ;;
+        esac
+      }
+
       # Last step: remove runtime libs from dependency_libs
       # (they stay in deplibs)
       tmp_libs=

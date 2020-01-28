@@ -1,6 +1,8 @@
 #!/bin/sh
 #
-# Copyright (c) 2010-2015 Todd C. Miller <Todd.Miller@courtesan.com>
+# SPDX-License-Identifier: ISC
+#
+# Copyright (c) 2010-2018 Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -91,10 +93,50 @@ top_srcdir=`dirname $0`
 : ${osversion="`$top_srcdir/pp --probe`"}
 test -n "$osversion" || exit 1
 osrelease=`echo "$osversion" | sed -e 's/^[^0-9]*//' -e 's/-.*$//'`
+: ${MAKE=make}
+
+# If using GNU make, set number of jobs
+if ${MAKE} --version 2>&1 | grep GNU >/dev/null; then
+    NJOBS=0
+    case "`uname`" in
+	Darwin)
+	    # macOS
+	    NJOBS=`sysctl -n hw.ncpu`
+	    ;;
+	Linux)
+	    if [ -r /proc/cpuinfo ]; then
+		for c in `sed -n 's/^cpu cores[	 ]*: *//p' /proc/cpuinfo`; do
+		    NJOBS=`expr $NJOBS + $c`
+		done
+	    fi
+	    ;;
+	SunOS)
+	    # Solaris
+	    if [ -x /usr/sbin/psrinfo ]; then
+		NJOBS=`/usr/sbin/psrinfo | wc -l`
+	    fi
+	    ;;
+	HP-UX)
+	    NJOBS=`sar -Mu 1 1 | awk 'END {print NR-5}'`
+	    ;;
+	AIX)
+	    NJOBS=`bindprocessor -q | awk '{print NF-4}'`
+	    ;;
+    esac
+    if [ $NJOBS -gt 1 ]; then
+	make_opts="-j$NJOBS"
+    fi
+fi
 
 # Choose compiler options by osversion if not cross-compiling.
 if [ "$crossbuild" = "false" ]; then
     case "$osversion" in
+	macos*)
+	    # Use clang on macOS if present
+	    if [ -z "$CC" -a -x /usr/bin/clang ]; then
+		CC=/usr/bin/clang; export CC
+	    fi
+	    ;;
 	sol[0-9]*)
 	    # Use the Sun Studio C compiler on Solaris if possible
 	    if [ -z "$CC" -a -x /usr/bin/cc ]; then
@@ -107,21 +149,26 @@ if [ "$crossbuild" = "false" ]; then
     esac
 fi
 
+# Give configure a hint that we are building a package.
+# Some libc functions are only available on certain OS revisions.
+configure_opts="${configure_opts}${configure_opts+$tab}--enable-package-build"
+
 # Choose configure options by osversion.
 # We use the same configure options as vendor packages when possible.
 case "$osversion" in
     centos*|rhel*|f[0-9]*)
 	case "$osversion" in
 	    centos*|rhel*)
-		if [ $osrelease -ge 40 ]; then
+		osmajor=`sed -n -e 's/^.*release \([0-9]*\)[^0-9].*$/\1/p' /etc/redhat-release`
+		if [ $osmajor -ge 4 ]; then
 		    # RHEL 4 and up support SELinux
 		    with_selinux=true
-		    if [ $osrelease -ge 50 ]; then
+		    if [ $osmajor -ge 5 ]; then
 			# RHEL 5 and up has audit support and uses a
 			# separate PAM config file for "sudo -i".
 			with_linux_audit=true
 			with_pam_login=true
-			if [ $osrelease -ge 60 ]; then
+			if [ $osmajor -ge 6 ]; then
 			    # RHEL 6 and above builds sudo with SSSD support
 			    with_sssd=true
 			    # RHEL 6 and above use /etc/sudo-ldap.conf
@@ -136,7 +183,6 @@ case "$osversion" in
 		with_linux_audit=true
 		with_pam_login=true
 		with_sssd=true
-		with_sudo_ldap_conf=true
 		;;
 	esac
 
@@ -207,7 +253,7 @@ case "$osversion" in
 		--with-sendmail=/usr/sbin/sendmail
 		$configure_opts"
 
-	make_opts='docdir=$(datarootdir)/doc/packages/$(PACKAGE_TARNAME)'
+	make_opts="${make_opts}${make_opts+ }"'docdir=$(datarootdir)/doc/packages/$(PACKAGE_TARNAME)'
 	;;
     deb*|ubu*)
 	# Man pages should be compressed in .deb files
@@ -258,7 +304,7 @@ case "$osversion" in
 		test -n "$linux_audit" && break;
 	    fi
 	done
-	if [ -z "linux_audit" ]; then
+	if [ -z "$linux_audit" ]; then
 	    echo "unable to determine package for libaudit" 1>&2
 	    exit 1
 	fi
@@ -273,14 +319,22 @@ case "$osversion" in
 	esac
 	if test "${osversion}" != "`$top_srcdir/pp --probe`"; then
 	    sdkvers=`echo "${osversion}" | sed 's/^macos\([0-9][0-9]\)\([0-9]*\)-.*$/\1.\2/'`
-	    # Newer Xcode puts /Developer under the app Contents dir.
-	    SDK_DIR="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
-	    if test -d "${SDK_DIR}/MacOSX${sdkvers}.sdk"; then
-		SDK_DIR="${SDK_DIR}/MacOSX${sdkvers}.sdk"
-	    elif test -d "/Developer/SDKs/MacOSX${sdkvers}.sdk"; then
-		SDK_DIR="/Developer/SDKs/MacOSX${sdkvers}.sdk"
+	    # SDKs may be under Xcode.app or CommandLineTools (for non-Xcode)
+	    if [ -d "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs" ]; then
+		SDK_DIR="/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+	    elif [ -d "/Library/Developer/CommandLineTools/SDKs" ]; then
+		SDK_DIR="/Library/Developer/CommandLineTools/SDKs"
+	    else
+		echo "unable to find macOS SDKs directory" 1>&2
+		exit 1
 	    fi
-	    SDK_FLAGS="-isysroot ${SDK_DIR} -mmacosx-version-min=${sdkvers}"
+	    SDK_DIR="${SDK_DIR}/MacOSX${sdkvers}.sdk"
+	    if test -d "${SDK_DIR}"; then
+		SDK_FLAGS="-isysroot ${SDK_DIR} -mmacosx-version-min=${sdkvers}"
+	    else
+		echo "unable to find SDKs directory for macOS $sdkvers" 1>&2
+		exit 1
+	    fi
 	fi
 	export CFLAGS="-O2 -g $ARCH_FLAGS $SDK_FLAGS"
 	export LDFLAGS="$ARCH_FLAGS $SDK_FLAGS"
@@ -300,7 +354,7 @@ case "$osversion" in
     aix*)
 	# Use -gxcoff with gcc instead of -g for dbx-style debugging symbols.
 	if test -z "$CC" && gcc -v >/dev/null 2>&1; then
-	    CFLAGS=-gxcoff; export CFLAGS
+	    CFLAGS="-O2 -gxcoff"; export CFLAGS
 	fi
 	# Note, must indent with tabs, not spaces due to IFS trickery
 	# Note: we include our own zlib instead of relying on the
@@ -357,8 +411,8 @@ IFS="	$nl"
 set -- $configure_opts $extra_opts
 IFS="$OIFS"
 if [ -r Makefile ]; then
-    make $make_opts distclean
+    ${MAKE} $make_opts distclean
 fi
 $top_srcdir/configure "$@" || exit 1
-make $make_opts && make $make_opts PPFLAGS="$PPFLAGS" PPVARS="$PPVARS" package
+${MAKE} $make_opts && ${MAKE} $make_opts PPFLAGS="$PPFLAGS" PPVARS="$PPVARS" package
 test $debug -eq 0 && rm -rf destdir

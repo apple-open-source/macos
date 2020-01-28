@@ -735,7 +735,7 @@ addrwins
 #ifdef ENABLE_HYBRID
 			struct isakmp_cfg_config *icc = &isakmp_cfg_config;
 
-			if (icc->nbns4_index > MAXWINS) {
+			if (icc->nbns4_index >= MAXWINS) {
 				racoon_yyerror("No more than %d WINS", MAXWINS);
                 return -1;
             }

@@ -1,6 +1,8 @@
 /*
+ * SPDX-License-Identifier: ISC
+ *
  * Copyright (c) 1993-1996, 1998-2005, 2007-2016
- *	Todd C. Miller <Todd.Miller@courtesan.com>
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -36,10 +38,16 @@
 #include "sudo_fatal.h"
 #include "sudo_conf.h"
 #include "sudo_debug.h"
+#include "sudo_queue.h"
 #include "sudo_util.h"
 
 #ifdef HAVE_PRIV_SET
 # include <priv.h>
+#endif
+
+/* Enable asserts() to avoid static analyzer false positives. */
+#if !(defined(SUDO_DEVEL) || defined(__clang_analyzer__) || defined(__COVERITY__))
+# define NDEBUG
 #endif
 
 #ifdef __TANDEM
@@ -83,6 +91,7 @@
 #define TGP_ASKPASS	0x04		/* read from askpass helper program */
 #define TGP_MASK	0x08		/* mask user input when reading */
 #define TGP_NOECHO_TRY	0x10		/* turn off echo if possible */
+#define TGP_BELL	0x20		/* bell on password prompt */
 
 /* name/value pairs for command line settings. */
 struct sudo_settings {
@@ -107,29 +116,31 @@ struct user_details {
     const char *shell;
     GETGROUPS_T *groups;
     int ngroups;
+    int ts_rows;
     int ts_cols;
-    int ts_lines;
 };
 
-#define CD_SET_UID		0x00001
-#define CD_SET_EUID		0x00002
-#define CD_SET_GID		0x00004
-#define CD_SET_EGID		0x00008
-#define CD_PRESERVE_GROUPS	0x00010
-#define CD_NOEXEC		0x00020
-#define CD_SET_PRIORITY		0x00040
-#define CD_SET_UMASK		0x00080
-#define CD_SET_TIMEOUT		0x00100
-#define CD_SUDOEDIT		0x00200
-#define CD_BACKGROUND		0x00400
-#define CD_RBAC_ENABLED		0x00800
-#define CD_USE_PTY		0x01000
-#define CD_SET_UTMP		0x02000
-#define CD_EXEC_BG		0x04000
-#define CD_SUDOEDIT_COPY	0x08000
-#define CD_SUDOEDIT_FOLLOW	0x10000
-#define CD_SUDOEDIT_CHECKDIR	0x20000
-#define CD_SET_GROUPS		0x40000
+#define CD_SET_UID		0x000001
+#define CD_SET_EUID		0x000002
+#define CD_SET_GID		0x000004
+#define CD_SET_EGID		0x000008
+#define CD_PRESERVE_GROUPS	0x000010
+#define CD_NOEXEC		0x000020
+#define CD_SET_PRIORITY		0x000040
+#define CD_SET_UMASK		0x000080
+#define CD_SET_TIMEOUT		0x000100
+#define CD_SUDOEDIT		0x000200
+#define CD_BACKGROUND		0x000400
+#define CD_RBAC_ENABLED		0x000800
+#define CD_USE_PTY		0x001000
+#define CD_SET_UTMP		0x002000
+#define CD_EXEC_BG		0x004000
+#define CD_SUDOEDIT_COPY	0x008000
+#define CD_SUDOEDIT_FOLLOW	0x010000
+#define CD_SUDOEDIT_CHECKDIR	0x020000
+#define CD_SET_GROUPS		0x040000
+#define CD_LOGIN_SHELL		0x080000
+#define CD_OVERRIDE_UMASK	0x100000
 
 struct preserved_fd {
     TAILQ_ENTRY(preserved_fd) entries;
@@ -161,6 +172,7 @@ struct command_details {
     const char *selinux_role;
     const char *selinux_type;
     const char *utmp_user;
+    const char *tty;
     char **argv;
     char **envp;
 #ifdef HAVE_PRIV_SET
@@ -171,16 +183,22 @@ struct command_details {
 
 /* Status passed between parent and child via socketpair */
 struct command_status {
-#define CMD_INVALID 0
-#define CMD_ERRNO 1
-#define CMD_WSTATUS 2
-#define CMD_SIGNO 3
-#define CMD_PID 4
+#define CMD_INVALID	0
+#define CMD_ERRNO	1
+#define CMD_WSTATUS	2
+#define CMD_SIGNO	3
+#define CMD_PID		4
+#define CMD_TTYWINCH	5
     int type;
     int val;
 };
 
-struct timeval;
+/* Garbage collector data types. */
+enum sudo_gc_types {
+    GC_UNKNOWN,
+    GC_VECTOR,
+    GC_PTR
+};
 
 /* For fatal() and fatalx() (XXX - needed?) */
 void cleanup(int);
@@ -190,7 +208,6 @@ char *tgetpass(const char *prompt, int timeout, int flags,
     struct sudo_conv_callback *callback);
 
 /* exec.c */
-int pipe_nonblock(int fds[2]);
 int sudo_execute(struct command_details *details, struct command_status *cstat);
 
 /* parse_args.c */
@@ -202,10 +219,11 @@ extern int tgetpass_flags;
 bool get_pty(int *master, int *slave, char *name, size_t namesz, uid_t uid);
 
 /* sudo.c */
-bool exec_setup(struct command_details *details, const char *ptyname, int ptyfd);
 int policy_init_session(struct command_details *details);
 int run_command(struct command_details *details);
 int os_init_common(int argc, char *argv[], char *envp[]);
+bool gc_add(enum sudo_gc_types type, void *v);
+bool set_user_groups(struct command_details *details);
 extern const char *list_user;
 extern struct user_details user_details;
 extern int sudo_debug_instance;
@@ -251,11 +269,11 @@ char *get_process_ttyname(char *name, size_t namelen);
 
 /* signal.c */
 struct sigaction;
-extern int signal_pipe[2];
 int sudo_sigaction(int signo, struct sigaction *sa, struct sigaction *osa);
 void init_signals(void);
 void restore_signals(void);
 void save_signals(void);
+bool signal_pending(int signo);
 
 /* preload.c */
 void preload_static_symbols(void);
@@ -264,5 +282,15 @@ void preload_static_symbols(void);
 int add_preserved_fd(struct preserved_fd_list *pfds, int fd);
 void closefrom_except(int startfd, struct preserved_fd_list *pfds);
 void parse_preserved_fds(struct preserved_fd_list *pfds, const char *fdstr);
+
+/* setpgrp_nobg.c */
+int tcsetpgrp_nobg(int fd, pid_t pgrp_id);
+
+/* limits.c */
+void disable_coredump();
+void restore_limits(void);
+void restore_nproc(void);
+void unlimit_nproc(void);
+void unlimit_sudo(void);
 
 #endif /* SUDO_SUDO_H */

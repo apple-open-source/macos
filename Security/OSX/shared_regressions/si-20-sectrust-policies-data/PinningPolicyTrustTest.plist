@@ -2317,13 +2317,13 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleInternetAuthorityG3</string>
+		<string>GoogleTrustServicesCA101</string>
 		<key>Anchors</key>
 		<string>GlobalSignRootCAR2</string>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>VerifyDate</key>
-		<date>2018-04-14T19:00:00Z</date>
+		<date>2019-11-14T20:00:00Z</date>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -3164,13 +3164,13 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleInternetAuthorityG3</string>
+		<string>GoogleTrustServicesCA101</string>
 		<key>Anchors</key>
 		<string>GlobalSignRootCAR2</string>
 		<key>ExpectedResult</key>
 		<integer>5</integer>
 		<key>VerifyDate</key>
-		<date>2018-04-14T19:00:00Z</date>
+		<date>2019-11-14T20:00:00Z</date>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>
@@ -3192,13 +3192,13 @@
 		<key>Leaf</key>
 		<string>googleapis</string>
 		<key>Intermediates</key>
-		<string>GoogleInternetAuthorityG3</string>
+		<string>GoogleTrustServicesCA101</string>
 		<key>Anchors</key>
 		<string>GlobalSignRootCAR2</string>
 		<key>ExpectedResult</key>
 		<integer>4</integer>
 		<key>VerifyDate</key>
-		<date>2018-04-14T19:00:00Z</date>
+		<date>2019-11-14T20:00:00Z</date>
 	</dict>
 	<dict>
 		<key>CertDirectory</key>

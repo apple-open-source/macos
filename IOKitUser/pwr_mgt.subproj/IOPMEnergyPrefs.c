@@ -265,6 +265,7 @@ bool isA_GenericPref(CFStringRef key)
         CFSTR(kIOPMCarrierMode),
         CFSTR(kIOPMCarrierModeVh),
         CFSTR(kIOPMCarrierModeVl),
+        CFSTR(kIOPMVact),
     };
 
     static CFSetRef genericSet = NULL;
@@ -1201,6 +1202,12 @@ supportedNameForPMName( CFStringRef pm_name )
         return CFSTR("CarrierChargingMode");
     }
 #endif // TARGET_OS_IPHONE || TARGET_OS_WATCH
+#if TARGET_OS_OSX
+    if (CFEqual(pm_name, CFSTR(kIOPMVact)))
+    {
+        return CFSTR("VAC-T");
+    }
+#endif // TARGET_OS_OSX
 
     return pm_name;
 }

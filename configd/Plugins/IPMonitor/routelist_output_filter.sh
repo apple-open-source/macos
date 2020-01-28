@@ -12,5 +12,7 @@ sed -e 's/^\(Process:.*\[\)[0-9][0-9]*/\1XXXX/'			\
     -e 's/^\(OS Version: \)\(.*$\)/\1XXXX/' 			\
     -e '/^Load Address:.*/d'					\
     -e '/^Launch Time:.*/d'					\
+    -e '/^Parent Process:.*/d'					\
+    -e '/^Analysis Tool Version:.*/d'				\
     -e '/^Physical footprint:.*/d'				\
     -e '/^Physical footprint (peak):.*/d'

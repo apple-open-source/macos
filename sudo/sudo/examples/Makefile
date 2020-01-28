@@ -1,5 +1,7 @@
 #
-# Copyright (c) 2014 Todd C. Miller <Todd.Miller@courtesan.com>
+# SPDX-License-Identifier: ISC
+#
+# Copyright (c) 2014, 2017-2018 Todd C. Miller <Todd.Miller@sudo.ws>
 #
 # Permission to use, copy, modify, and distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -12,7 +14,6 @@
 # WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 # examples/Makefile.  Generated from Makefile.in by configure.
 #
@@ -50,13 +51,15 @@ SHELL = /bin/sh
 EXAMPLES = $(srcdir)/pam.conf $(srcdir)/sudo.conf $(srcdir)/sudoers \
 	   $(srcdir)/syslog.conf
  
-VERSION = 1.8.17p1
+VERSION = 1.8.29
 PACKAGE_TARNAME = sudo
 
 all: $(EXAMPLES)
 
+depend:
+
 Makefile: $(srcdir)/Makefile.in
-	(cd $(top_builddir) && ./config.status --file examples/Makefile)
+	cd $(top_builddir) && ./config.status --file examples/Makefile
 
 pre-install:
 
@@ -80,6 +83,10 @@ uninstall:
 splint:
 
 cppcheck:
+
+pvs-log-files:
+
+pvs-studio:
 
 check:
 

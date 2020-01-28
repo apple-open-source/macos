@@ -151,13 +151,13 @@ code_to_mbc(OnigCodePoint code, UChar *buf)
 #if 1
   if (enclen(ONIG_ENCODING_EUC_JP, buf) != (p - buf))
     return ONIGERR_INVALID_CODE_POINT_VALUE;
-#endif  
+#endif
   return (int )(p - buf);
 }
 
 static int
 mbc_case_fold(OnigCaseFoldType flag ARG_UNUSED,
-	      const UChar** pp, const UChar* end ARG_UNUSED, UChar* lower)
+              const UChar** pp, const UChar* end ARG_UNUSED, UChar* lower)
 {
   int len;
   const UChar* p = *pp;
@@ -269,7 +269,7 @@ is_code_ctype(OnigCodePoint code, unsigned int ctype)
 
 static int
 get_ctype_code_range(OnigCtype ctype, OnigCodePoint* sb_out,
-		     const OnigCodePoint* ranges[])
+                     const OnigCodePoint* ranges[])
 {
   if (ctype <= ONIGENC_MAX_STD_CTYPE) {
     return ONIG_NO_SUPPORT_CONFIG;
@@ -307,6 +307,6 @@ OnigEncodingType OnigEncodingEUC_JP = {
   NULL, /* init */
   NULL, /* is_initialized */
   is_valid_mbc_string,
-  ENC_FLAG_ASCII_COMPATIBLE,
+  ENC_FLAG_ASCII_COMPATIBLE|ENC_FLAG_SKIP_OFFSET_1_OR_0,
   0, 0
 };

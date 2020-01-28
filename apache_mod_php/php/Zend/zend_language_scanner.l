@@ -115,6 +115,7 @@ do {																			\
 #define GET_DOUBLE_QUOTES_SCANNED_LENGTH()    SCNG(scanned_string_len)
 
 #define IS_LABEL_START(c) (((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && (c) <= 'Z') || (c) == '_' || (c) >= 0x80)
+#define IS_LABEL_SUCCESSOR(c) (((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && (c) <= 'Z') || ((c) >= '0' && (c) <= '9') || (c) == '_' || (c) >= 0x80)
 
 #define ZEND_IS_OCT(c)  ((c)>='0' && (c)<='7')
 #define ZEND_IS_HEX(c)  (((c)>='0' && (c)<='9') || ((c)>='a' && (c)<='f') || ((c)>='A' && (c)<='F'))
@@ -2097,7 +2098,7 @@ inline_char_handler:
 
 	if (YYCURSOR < YYLIMIT) {
 		YYCURSOR++;
-	} else {
+	} else if (!SCNG(heredoc_scan_ahead)) {
 		zend_error(E_COMPILE_WARNING, "Unterminated comment starting line %d", CG(zend_lineno));
 	}
 
@@ -2319,9 +2320,12 @@ skip_escape_conversion:
 
 	/* Check for ending label on the next line */
 	if (heredoc_label->length < YYLIMIT - YYCURSOR && !memcmp(YYCURSOR, s, heredoc_label->length)) {
-		if (!IS_LABEL_START(YYCURSOR[heredoc_label->length])) {
+		if (!IS_LABEL_SUCCESSOR(YYCURSOR[heredoc_label->length])) {
 			if (spacing == (HEREDOC_USING_SPACES | HEREDOC_USING_TABS)) {
 				zend_throw_exception(zend_ce_parse_error, "Invalid indentation - tabs and spaces cannot be mixed", 0);
+				if (PARSER_MODE()) {
+					RETURN_TOKEN(T_ERROR);
+				}
 			}
 
 			YYCURSOR = saved_cursor;
@@ -2338,6 +2342,7 @@ skip_escape_conversion:
 		zend_lex_state current_state;
 		int heredoc_nesting_level = 1;
 		int first_token = 0;
+		int error = 0;
 
 		zend_save_lexical_state(&current_state);
 
@@ -2385,6 +2390,7 @@ skip_escape_conversion:
 		     || first_token == T_CURLY_OPEN
 		    ) && SCNG(heredoc_indentation)) {
 			zend_throw_exception_ex(zend_ce_parse_error, 0, "Invalid body indentation level (expecting an indentation level of at least %d)", SCNG(heredoc_indentation));
+			error = 1;
 		}
 
 		heredoc_label->indentation = SCNG(heredoc_indentation);
@@ -2393,6 +2399,10 @@ skip_escape_conversion:
 		zend_restore_lexical_state(&current_state);
 		SCNG(heredoc_scan_ahead) = 0;
 		CG(increment_lineno) = 0;
+
+		if (PARSER_MODE() && error) {
+			RETURN_TOKEN(T_ERROR);
+		}
 	}
 
 	RETURN_TOKEN(T_START_HEREDOC);
@@ -2576,12 +2586,15 @@ double_quotes_scan_done:
 
 				/* Check for ending label on the next line */
 				if (IS_LABEL_START(*YYCURSOR) && heredoc_label->length < YYLIMIT - YYCURSOR && !memcmp(YYCURSOR, heredoc_label->label, heredoc_label->length)) {
-					if (IS_LABEL_START(YYCURSOR[heredoc_label->length])) {
+					if (IS_LABEL_SUCCESSOR(YYCURSOR[heredoc_label->length])) {
 						continue;
 					}
 
 					if (spacing == (HEREDOC_USING_SPACES | HEREDOC_USING_TABS)) {
 						zend_throw_exception(zend_ce_parse_error, "Invalid indentation - tabs and spaces cannot be mixed", 0);
+						if (PARSER_MODE()) {
+							RETURN_TOKEN(T_ERROR);
+						}
 					}
 
 					/* newline before label will be subtracted from returned text, but
@@ -2697,12 +2710,15 @@ heredoc_scan_done:
 
 				/* Check for ending label on the next line */
 				if (IS_LABEL_START(*YYCURSOR) && heredoc_label->length < YYLIMIT - YYCURSOR && !memcmp(YYCURSOR, heredoc_label->label, heredoc_label->length)) {
-					if (IS_LABEL_START(YYCURSOR[heredoc_label->length])) {
+					if (IS_LABEL_SUCCESSOR(YYCURSOR[heredoc_label->length])) {
 						continue;
 					}
 
 					if (spacing == (HEREDOC_USING_SPACES | HEREDOC_USING_TABS)) {
 						zend_throw_exception(zend_ce_parse_error, "Invalid indentation - tabs and spaces cannot be mixed", 0);
+						if (PARSER_MODE()) {
+							RETURN_TOKEN(T_ERROR);
+						}
 					}
 
 					/* newline before label will be subtracted from returned text, but
@@ -2751,7 +2767,9 @@ nowdoc_scan_done:
 		RETURN_TOKEN(END);
 	}
 
-	zend_error(E_COMPILE_WARNING,"Unexpected character in input:  '%c' (ASCII=%d) state=%d", yytext[0], yytext[0], YYSTATE);
+	if (!SCNG(heredoc_scan_ahead)) {
+		zend_error(E_COMPILE_WARNING, "Unexpected character in input:  '%c' (ASCII=%d) state=%d", yytext[0], yytext[0], YYSTATE);
+	}
 	goto restart;
 }
 

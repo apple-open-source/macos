@@ -83,9 +83,6 @@ IPMonitorControlPrefs.o: ../common/IPMonitorControlPrefs.h ../common/IPMonitorCo
 IPMonitorControlServer.o: ../../IPMonitorControl/IPMonitorControlServer.c
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) ${TEST_INCLUDE} -Wall -O0 -g -c $^
 
-serviceIDNumber.o: serviceIDNumber.c
-	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) ${TEST_INCLUDE} -Wall -O0 -g -c $^
-
 # ----------
 
 ip_pluginX.o: Makefile ip_plugin.c
@@ -135,7 +132,7 @@ test_dns_order: test_dns_order.o IPMonitorControlPrefs.o agent-monitor.o configA
 test_ipv4_routelist.o: ip_plugin.c
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_IPV4_ROUTELIST ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o $@ $^
 
-test_ipv4_routelist: test_ipv4_routelist.o IPMonitorControlPrefs.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o serviceIDNumber.o
+test_ipv4_routelist: test_ipv4_routelist.o IPMonitorControlPrefs.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -O0 -g -o test_ipv4_routelist $^ ${EXTRA_CFLAGS} -lnetwork -framework SystemConfiguration -framework CoreFoundation -framework Foundation -framework Network -framework NetworkExtension
 
 test_ipv4_routelist_reference.txt: test_ipv4_routelist
@@ -152,7 +149,7 @@ test_ipv4_routelist_coverage: test_ipv4_routelist
 test_ipv6_routelist.o: ip_plugin.c
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_IPV6_ROUTELIST=1 ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -c -o $@ $^
 
-test_ipv6_routelist: test_ipv6_routelist.o IPMonitorControlPrefs.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o serviceIDNumber.o
+test_ipv6_routelist: test_ipv6_routelist.o IPMonitorControlPrefs.o dnsinfo_create.o dnsinfo_flatfile.o dnsinfo_server.o dns-configuration.o proxy-configuration.o set-hostname.o smb-configuration.o libSystemConfiguration_client.o libSystemConfiguration_server.o
 	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -Wall -O0 -g -o test_ipv6_routelist $^ ${EXTRA_CFLAGS} -lnetwork -framework SystemConfiguration -framework CoreFoundation -framework Foundation -framework Network -framework NetworkExtension
 
 test_ipv6_routelist_reference.txt: test_ipv6_routelist
@@ -174,15 +171,10 @@ IPMonitor: IPMonitor.o IPMonitorControlPrefs.o agent-monitor.o configAgent.o con
 
 # ----------
 
-serviceIDNumberTest: serviceIDNumber.c
-	$(CC) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -DTEST_SERVICEID_NUMBER=1 ${TEST_INCLUDE} ${EXTRA_CFLAGS} -Wall -O0 -g -o $@ $^ -framework SystemConfiguration -framework CoreFoundation
-
-# ----------
-
 nat64: nat64-configuration.c
 	$(CC) -DTEST_NAT64_CONFIGURATION $(TEST_INCLUDE) $(PF_INC) $(ARCH_FLAGS) -isysroot $(SYSROOT) -lnetwork -framework CoreFoundation -framework SystemConfiguration -Wall -O0 -g -o $@ $^
 
 # ----------
 
 clean:
-	rm -rf *.dSYM *.o test_dns test_hostname test_proxy test_smb test_ipv4_routelist test_ipv6_routelist test_dns_order serviceIDNumberTest IPMonitor nat64
+	rm -rf *.dSYM *.o test_dns test_hostname test_proxy test_smb test_ipv4_routelist test_ipv6_routelist test_dns_order IPMonitor nat64

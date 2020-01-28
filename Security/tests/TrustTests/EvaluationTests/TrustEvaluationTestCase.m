@@ -23,6 +23,7 @@
  */
 #import <XCTest/XCTest.h>
 #include "trust/trustd/trustd_spi.h"
+#include "trust/trustd/SecRevocationDb.h"
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecPolicy.h>
@@ -80,6 +81,10 @@ static char *home_var = NULL;
                                                              attributes:NULL
                                                                   error:&error];
     }
+
+    /* Use the production Valid DB by default (so we'll have data to test against) */
+    CFPreferencesSetAppValue(CFSTR("ValidUpdateServer"), kValidUpdateProdServer, kSecurityPreferencesDomain);
+    CFPreferencesAppSynchronize(kSecurityPreferencesDomain);
 
     if (ok > 0) {
         /* Be trustd */

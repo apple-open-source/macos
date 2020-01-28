@@ -12,7 +12,7 @@ limited root privileges to users and log root activity.  \
 The basic philosophy is to give as few privileges as possible but \
 still allow people to get their work done."
 	vendor="Todd C. Miller"
-	copyright="(c) 1993-1996,1998-2015 Todd C. Miller"
+	copyright="(c) 1993-1996,1998-2019 Todd C. Miller"
 	sudoedit_man=`echo ${pp_destdir}$mandir/*/sudoedit.*|sed "s:^${pp_destdir}::"`
 	sudoedit_man_target=`basename $sudoedit_man | sed 's/edit//'`
 
@@ -39,6 +39,41 @@ still allow people to get their work done."
 	pp_solaris_pstamp=`/usr/bin/date "+%B %d, %Y"`
 %endif
 
+%if [macos]
+	# System Integrity Protection on macOS won't allow us to write
+	# directly to /etc or /var.  We must install in /private instead.
+	case "$sudoersdir" in
+	/etc|/etc/*)
+	    mkdir -p ${pp_destdir}/private
+	    chmod 755 ${pp_destdir}/private
+	    if test -d ${pp_destdir}/etc; then
+		mv ${pp_destdir}/etc ${pp_destdir}/private/etc
+	    fi
+	    sudoersdir="/private${sudoersdir}"
+	    ;;
+	esac
+	case "$vardir" in
+	/var|/var/*)
+	    mkdir -p ${pp_destdir}/private
+	    chmod 755 ${pp_destdir}/private
+	    if test -d ${pp_destdir}/var; then
+		mv ${pp_destdir}/var ${pp_destdir}/private/var
+	    fi
+	    vardir="/private${vardir}"
+	    ;;
+	esac
+	case "$rundir" in
+	/var|/var/*)
+	    mkdir -p ${pp_destdir}/private
+	    chmod 755 ${pp_destdir}/private
+	    if test -d ${pp_destdir}/var; then
+		mv ${pp_destdir}/var ${pp_destdir}/private/var
+	    fi
+	    rundir="/private${rundir}"
+	    ;;
+	esac
+%endif
+
 %if [rpm,deb]
 	# Convert patch level into release and remove from version
 	pp_rpm_release="`expr \( $version : '.*p\([0-9][0-9]*\)$' \| 0 \) + 1`"
@@ -46,14 +81,15 @@ still allow people to get their work done."
 	pp_rpm_license="BSD"
 	pp_rpm_url="https://www.sudo.ws"
 	pp_rpm_group="Applications/System"
-	pp_rpm_packager="Todd C. Miller <Todd.Miller@courtesan.com>"
+	pp_rpm_packager="Todd C. Miller <Todd.Miller@sudo.ws>"
 	if test -n "$linux_audit"; then
 		pp_rpm_requires="audit-libs >= $linux_audit"
 	fi
+	# The package manager will handle an existing sudoers file
+	rm -f ${pp_destdir}$sudoersdir/sudoers.dist
 %else
-	# For all but RPM and Debian we need to install sudoers with a different
-	# name and make a copy of it if there is no existing file.
-	mv ${pp_destdir}$sudoersdir/sudoers ${pp_destdir}$sudoersdir/sudoers.dist
+	# For all but RPM and Debian we copy sudoers in a post-install script.
+	rm -f ${pp_destdir}$sudoersdir/sudoers
 %endif
 
 %if [deb]
@@ -236,14 +272,15 @@ still allow people to get their work done."
 %if [macos]
 	pp_macos_pkg_type=flat
 	pp_macos_bundle_id=ws.sudo.pkg.sudo
-	pp_macos_pkg_license=doc/LICENSE
+	pp_macos_pkg_license=${pp_destdir}$docdir/LICENSE
 	pp_macos_pkg_readme=${pp_wrkdir}/ReadMe.txt
-	perl -pe 'last if (/^What/i && $seen++)' NEWS > ${pp_wrkdir}/ReadMe.txt
+	perl -pe 'last if (/^What/i && $seen++)' ${pp_destdir}$docdir/NEWS > ${pp_wrkdir}/ReadMe.txt
 %endif
 
 %if X"$aix_freeware" = X"true"
 	# Create links from /opt/freeware/{bin,sbin} -> /usr/{bin.sbin}
 	mkdir -p ${pp_destdir}/usr/bin ${pp_destdir}/usr/sbin
+	ln -s -f ${bindir}/cvtsudoers ${pp_destdir}/usr/bin
 	ln -s -f ${bindir}/sudo ${pp_destdir}/usr/bin
 	ln -s -f ${bindir}/sudoedit ${pp_destdir}/usr/bin
 	ln -s -f ${bindir}/sudoreplay ${pp_destdir}/usr/bin
@@ -290,10 +327,11 @@ still allow people to get their work done."
 %if X"$parentdirs" != X""
 	$parentdirs		-
 %endif
+	$bindir/cvtsudoers  	0755 root:
 	$bindir/sudo        	4755 root:
 	$bindir/sudoedit    	0755 root: symlink sudo
-	$sbindir/visudo     	0755
 	$bindir/sudoreplay  	0755
+	$sbindir/visudo     	0755
 	$includedir/sudo_plugin.h 0644
 	$libexecdir/sudo/	0755
 	$libexecdir/sudo/sesh	0755 optional,ignore-others
@@ -303,7 +341,6 @@ still allow people to get their work done."
 	$vardir/		0711 root: ignore-others
 	$vardir/lectured/	0700 root:
 	$docdir/		0755
-	$docdir/sudoers2ldif	0755 optional,ignore-others
 %if [deb]
 	$docdir/LICENSE		ignore,ignore-others
 	$docdir/ChangeLog	ignore,ignore-others
@@ -318,10 +355,11 @@ still allow people to get their work done."
 %if [rpm,deb]
 	$sudoersdir/sudoers $sudoers_mode $sudoers_uid:$sudoers_gid volatile
 %else
-	$sudoersdir/sudoers.dist $sudoers_mode $sudoers_uid:$sudoers_gid volatile
+	$sudoersdir/sudoers.dist $sudoers_mode $sudoers_uid:$sudoers_gid
 %endif
 %if X"$aix_freeware" = X"true"
 	# Links for binaries from /opt/freeware to /usr
+	/usr/bin/cvtsudoers    	0755 root: symlink $bindir/cvtsudoers
 	/usr/bin/sudo    	0755 root: symlink $bindir/sudo
 	/usr/bin/sudoedit    	0755 root: symlink $bindir/sudoedit
 	/usr/bin/sudoreplay    	0755 root: symlink $bindir/sudoreplay
@@ -421,8 +459,8 @@ still allow people to get their work done."
 %post [rpm]
 	case "%{pp_rpm_distro}" in
 	aix*)
-		# Create /etc/rc.d/rc2.d/S90sudo link if /etc/rc.d exists
-		if [ -d /etc/rc.d ]; then
+		# Create /etc/rc.d/rc2.d/S90sudo link if possible
+		if [ -d /etc/rc.d/rc2.d ]; then
 			rm -f /etc/rc.d/rc2.d/S90sudo
 			ln -s /etc/rc.d/init.d/sudo /etc/rc.d/rc2.d/S90sudo
 		fi

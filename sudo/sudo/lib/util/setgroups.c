@@ -1,5 +1,7 @@
 /*
- * Copyright (c) 2011-2012, 2014-2015 Todd C. Miller <Todd.Miller@courtesan.com>
+ * SPDX-License-Identifier: ISC
+ *
+ * Copyright (c) 2011-2012, 2014-2016 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,8 +14,11 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
  */
 
 #include <config.h>
@@ -33,17 +38,17 @@
 int
 sudo_setgroups_v1(int ngids, const GETGROUPS_T *gids)
 {
-    int maxgids, rval;
+    int maxgids, ret;
     debug_decl(sudo_setgroups, SUDO_DEBUG_UTIL)
 
-    rval = setgroups(ngids, (GETGROUPS_T *)gids);
-    if (rval == -1 && errno == EINVAL) {
+    ret = setgroups(ngids, (GETGROUPS_T *)gids);
+    if (ret == -1 && errno == EINVAL) {
 	/* Too many groups, try again with fewer. */
 	maxgids = (int)sysconf(_SC_NGROUPS_MAX);
 	if (maxgids == -1)
 	    maxgids = NGROUPS_MAX;
 	if (ngids > maxgids)
-	    rval = setgroups(maxgids, (GETGROUPS_T *)gids);
+	    ret = setgroups(maxgids, (GETGROUPS_T *)gids);
     }
-    debug_return_int(rval);
+    debug_return_int(ret);
 }

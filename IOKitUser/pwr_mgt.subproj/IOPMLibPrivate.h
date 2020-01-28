@@ -1456,6 +1456,8 @@ void IOPMUnregisterExceptionNotification(IOPMNotificationHandle handle);
 #define kIOPMCarrierModeVh                              "Carrier Mode High Voltage"
 #define kIOPMCarrierModeVl                              "Carrier Mode Low Voltage"
 
+#define kIOPMVact                                       "VAC-T"
+
 // Restart on Kernel panic
 // Deprecated in 10.8. Do not use.
 #define kIOPMRestartOnKernelPanicKey                    "RestartAfterKernelPanic"

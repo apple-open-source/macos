@@ -783,6 +783,9 @@ SPL_METHOD(SplObjectStorage, unserialize)
 
 	--p; /* for ';' */
 	count = Z_LVAL_P(pcount);
+	if (count < 0) {
+		goto outexcept;
+	}
 
 	ZVAL_UNDEF(&entry);
 	ZVAL_UNDEF(&inf);
@@ -800,12 +803,14 @@ SPL_METHOD(SplObjectStorage, unserialize)
 		}
 		/* store reference to allow cross-references between different elements */
 		if (!php_var_unserialize(&entry, &p, s + buf_len, &var_hash)) {
+			zval_ptr_dtor(&entry);
 			goto outexcept;
 		}
 		if (*p == ',') { /* new version has inf */
 			++p;
 			if (!php_var_unserialize(&inf, &p, s + buf_len, &var_hash)) {
 				zval_ptr_dtor(&entry);
+				zval_ptr_dtor(&inf);
 				goto outexcept;
 			}
 		}

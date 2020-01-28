@@ -313,15 +313,6 @@ All scripts must be absolute path names.
 The following variables are used by the standard scripts that reside in
 .Pa /etc/periodic/weekly :
 .Bl -tag -offset 4n -width 2n
-.It Va weekly_whatis_enable
-.Pq Vt bool
-Set to
-.Dq Li YES
-if you want to run
-.Pa /usr/libexec/makewhatis.local .
-This script regenerates the database used by the
-.Xr apropos 1
-command.
 .It Va weekly_local
 .Pq Vt str
 Set to a list of extra scripts that should be run after all other

@@ -1,7 +1,9 @@
 /* pathnames.h.  Generated from pathnames.h.in by configure.  */
 /*
+ * SPDX-License-Identifier: ISC
+ *
  * Copyright (c) 1996, 1998, 1999, 2001, 2004, 2005, 2007-2014
- *	Todd C. Miller <Todd.Miller@courtesan.com>.
+ *	Todd C. Miller <Todd.Miller@sudo.ws>.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -37,11 +39,11 @@
 #endif /* _PATH_DEV */
 
 #ifndef _PATH_TTY
-# define _PATH_TTY		"/dev/tty"
+# define _PATH_TTY		_PATH_DEV "tty"
 #endif /* _PATH_TTY */
 
 #ifndef _PATH_DEVNULL
-# define _PATH_DEVNULL		"/dev/null"
+# define _PATH_DEVNULL		_PATH_DEV "null"
 #endif /* _PATH_DEVNULL */
 
 #ifndef _PATH_DEFPATH
@@ -69,6 +71,13 @@
 #ifndef _PATH_SUDOERS
 # define _PATH_SUDOERS		"/etc/sudoers"
 #endif /* _PATH_SUDOERS */
+
+/*
+ * NOTE: _PATH_CVTSUDOERS_CONF is usually overridden by the Makefile.
+ */
+#ifndef _PATH_CVTSUDOERS_CONF
+# define _PATH_CVTSUDOERS_CONF		"/etc/cvtsudoers.conf"
+#endif /* _PATH_CVTSUDOERS_CONF */
 
 /*
  * The following paths are controlled via the configure script.
@@ -113,7 +122,7 @@
 #endif /* _PATH_SUDO_SENDMAIL */
 
 #ifndef _PATH_SUDO_NOEXEC
-/* # undef _PATH_SUDO_NOEXEC */
+# define _PATH_SUDO_NOEXEC NULL
 #endif /* _PATH_SUDO_NOEXEC */
 
 #ifndef _PATH_SUDO_ASKPASS
@@ -123,6 +132,10 @@
 #ifndef _PATH_SUDO_PLUGIN_DIR
 # define _PATH_SUDO_PLUGIN_DIR "/usr/local/libexec/sudo/"
 #endif /* _PATH_SUDO_PLUGIN_DIR */
+
+#ifndef _PATH_SUDO_DEVSEARCH
+# define _PATH_SUDO_DEVSEARCH _PATH_DEV "pts:" _PATH_DEV "vt:" _PATH_DEV "term:" _PATH_DEV "zcons:" _PATH_DEV "pty:" _PATH_DEV "" 
+#endif /* _PATH_SUDO_DEVSEARCH */
 
 #ifndef _PATH_VI
 # define _PATH_VI "/usr/bin/vi"
