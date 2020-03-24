@@ -50,7 +50,7 @@ WebCookieJar::WebCookieJar()
 
 String WebCookieJar::cookies(WebCore::Document& document, const URL& url) const
 {
-    Optional<uint64_t> frameID;
+    Optional<FrameIdentifier> frameID;
     Optional<PageIdentifier> pageID;
     if (auto* frame = document.frame()) {
         frameID = frame->loader().client().frameID();
@@ -59,7 +59,7 @@ String WebCookieJar::cookies(WebCore::Document& document, const URL& url) const
 
     String cookieString;
     bool secureCookiesAccessed = false;
-    if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::CookiesForDOM(document.sessionID(), document.firstPartyForCookies(), sameSiteInfo(document), url, frameID, pageID, shouldIncludeSecureCookies(document, url)), Messages::NetworkConnectionToWebProcess::CookiesForDOM::Reply(cookieString, secureCookiesAccessed), 0))
+    if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::CookiesForDOM(document.firstPartyForCookies(), sameSiteInfo(document), url, frameID, pageID, shouldIncludeSecureCookies(document, url)), Messages::NetworkConnectionToWebProcess::CookiesForDOM::Reply(cookieString, secureCookiesAccessed), 0))
         return { };
 
     return cookieString;
@@ -67,50 +67,50 @@ String WebCookieJar::cookies(WebCore::Document& document, const URL& url) const
 
 void WebCookieJar::setCookies(WebCore::Document& document, const URL& url, const String& cookieString)
 {
-    Optional<uint64_t> frameID;
+    Optional<FrameIdentifier> frameID;
     Optional<PageIdentifier> pageID;
     if (auto* frame = document.frame()) {
         frameID = frame->loader().client().frameID();
         pageID = frame->loader().client().pageID();
     }
 
-    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::SetCookiesFromDOM(document.sessionID(), document.firstPartyForCookies(), sameSiteInfo(document), url, frameID, pageID, cookieString), 0);
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::SetCookiesFromDOM(document.firstPartyForCookies(), sameSiteInfo(document), url, frameID, pageID, cookieString), 0);
 }
 
 bool WebCookieJar::cookiesEnabled(const WebCore::Document& document) const
 {
     bool result = false;
-    if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::CookiesEnabled(document.sessionID()), Messages::NetworkConnectionToWebProcess::CookiesEnabled::Reply(result), 0))
+    if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::CookiesEnabled(), Messages::NetworkConnectionToWebProcess::CookiesEnabled::Reply(result), 0))
         return false;
     return result;
 }
 
-std::pair<String, WebCore::SecureCookiesAccessed> WebCookieJar::cookieRequestHeaderFieldValue(const PAL::SessionID& sessionID, const URL& firstParty, const WebCore::SameSiteInfo& sameSiteInfo, const URL& url, Optional<uint64_t> frameID, Optional<PageIdentifier> pageID, WebCore::IncludeSecureCookies includeSecureCookies) const
+std::pair<String, WebCore::SecureCookiesAccessed> WebCookieJar::cookieRequestHeaderFieldValue(const URL& firstParty, const WebCore::SameSiteInfo& sameSiteInfo, const URL& url, Optional<FrameIdentifier> frameID, Optional<PageIdentifier> pageID, WebCore::IncludeSecureCookies includeSecureCookies) const
 {
     String cookieString;
     bool secureCookiesAccessed = false;
-    if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue(sessionID, firstParty, sameSiteInfo, url, frameID, pageID, includeSecureCookies), Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue::Reply(cookieString, secureCookiesAccessed), 0))
+    if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue(firstParty, sameSiteInfo, url, frameID, pageID, includeSecureCookies), Messages::NetworkConnectionToWebProcess::CookieRequestHeaderFieldValue::Reply(cookieString, secureCookiesAccessed), 0))
         return { };
     return { cookieString, secureCookiesAccessed ? WebCore::SecureCookiesAccessed::Yes : WebCore::SecureCookiesAccessed::No };
 }
 
 bool WebCookieJar::getRawCookies(const WebCore::Document& document, const URL& url, Vector<WebCore::Cookie>& rawCookies) const
 {
-    Optional<uint64_t> frameID;
+    Optional<FrameIdentifier> frameID;
     Optional<PageIdentifier> pageID;
     if (auto* frame = document.frame()) {
         frameID = frame->loader().client().frameID();
         pageID = frame->loader().client().pageID();
     }
 
-    if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::GetRawCookies(document.sessionID(), document.firstPartyForCookies(), sameSiteInfo(document), url, frameID, pageID), Messages::NetworkConnectionToWebProcess::GetRawCookies::Reply(rawCookies), 0))
+    if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::GetRawCookies(document.firstPartyForCookies(), sameSiteInfo(document), url, frameID, pageID), Messages::NetworkConnectionToWebProcess::GetRawCookies::Reply(rawCookies), 0))
         return false;
     return true;
 }
 
 void WebCookieJar::deleteCookie(const WebCore::Document& document, const URL& url, const String& cookieName)
 {
-    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::DeleteCookie(document.sessionID(), url, cookieName), 0);
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::DeleteCookie(url, cookieName), 0);
 }
 
 } // namespace WebKit

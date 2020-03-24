@@ -30,7 +30,8 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
         // Don't treat strings as having child nodes, even if they have a Structure.
         let hasChildren = node.hasChildren && node.className !== "string";
 
-        super(node, hasChildren);
+        // FIXME: Make instance grid nodes copyable.
+        super(node, {hasChildren, copyable: false});
 
         console.assert(node instanceof WI.HeapSnapshotNodeProxy);
         console.assert(!edge || edge instanceof WI.HeapSnapshotEdgeProxy);
@@ -40,9 +41,6 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
         this._tree = tree;
         this._edge = edge || null;
         this._base = base || null;
-
-        // FIXME: Make instance grid nodes copyable.
-        this.copyable = false;
 
         if (hasChildren)
             this.addEventListener("populate", this._populate, this);
@@ -81,12 +79,12 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
             const shouldRevealConsole = true;
 
             if (node.className === "string") {
-                HeapAgent.getPreview(node.id, function(error, string, functionDetails, objectPreviewPayload) {
+                WI.heapManager.getPreview(node, function(error, string, functionDetails, objectPreviewPayload) {
                     let remoteObject = error ? WI.RemoteObject.fromPrimitiveValue(undefined) : WI.RemoteObject.fromPrimitiveValue(string);
                     WI.consoleLogViewController.appendImmediateExecutionWithResult(text, remoteObject, addSpecialUserLogClass, shouldRevealConsole);
                 });
             } else {
-                HeapAgent.getRemoteObject(node.id, WI.RuntimeManager.ConsoleObjectGroup, function(error, remoteObjectPayload) {
+                WI.heapManager.getRemoteObject(node, WI.RuntimeManager.ConsoleObjectGroup, function(error, remoteObjectPayload) {
                     let remoteObject = error ? WI.RemoteObject.fromPrimitiveValue(undefined) : WI.RemoteObject.fromPayload(remoteObjectPayload, WI.assumingMainTarget());
                     WI.consoleLogViewController.appendImmediateExecutionWithResult(text, remoteObject, addSpecialUserLogClass, shouldRevealConsole);
                 });
@@ -265,7 +263,8 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
 
     _populateWindowPreview(containerElement)
     {
-        HeapAgent.getRemoteObject(this._node.id, (error, remoteObjectPayload) => {
+        const objectGroup = undefined;
+        WI.heapManager.getRemoteObject(this._node, objectGroup, (error, remoteObjectPayload) => {
             if (error) {
                 this._populateError(containerElement);
                 return;
@@ -291,15 +290,20 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
 
     _populatePreview(containerElement)
     {
-        HeapAgent.getPreview(this._node.id, (error, string, functionDetails, objectPreviewPayload) => {
+        WI.heapManager.getPreview(this._node, (error, string, functionDetails, objectPreviewPayload) => {
             if (error) {
                 this._populateError(containerElement);
                 return;
             }
 
             if (string) {
-                let primitiveRemoteObject = WI.RemoteObject.fromPrimitiveValue(string);
-                containerElement.appendChild(WI.FormattedValue.createElementForRemoteObject(primitiveRemoteObject));
+                if (this._node.className === "BigInt") {
+                    let bigIntRemoteObject = WI.RemoteObject.createBigIntFromDescriptionString(string + "n");
+                    containerElement.appendChild(WI.FormattedValue.createElementForRemoteObject(bigIntRemoteObject));
+                } else {
+                    let primitiveRemoteObject = WI.RemoteObject.fromPrimitiveValue(string);
+                    containerElement.appendChild(WI.FormattedValue.createElementForRemoteObject(primitiveRemoteObject));
+                }
                 return;
             }
 
@@ -428,7 +432,7 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
                 let goToArrowPlaceHolderElement = containerElement.appendChild(document.createElement("span"));
                 goToArrowPlaceHolderElement.style.display = "inline-block";
                 goToArrowPlaceHolderElement.style.width = "10px";
-                HeapAgent.getPreview(node.id, function(error, string, functionDetails, objectPreviewPayload) {
+                WI.heapManager.getPreview(node, function(error, string, functionDetails, objectPreviewPayload) {
                     if (functionDetails) {
                         let location = functionDetails.location;
                         let sourceCode = WI.debuggerManager.scriptForIdentifier(location.scriptId, WI.assumingMainTarget());

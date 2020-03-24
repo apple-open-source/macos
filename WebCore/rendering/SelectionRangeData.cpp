@@ -131,13 +131,13 @@ static SelectionData collect(const SelectionRangeData::Context& selection, bool 
     while (start && start != stop) {
         if (isValidRendererForSelection(*start, selection)) {
             // Blocks are responsible for painting line gaps and margin gaps. They must be examined as well.
-            oldSelectionData.renderers.set(start, std::make_unique<RenderSelectionInfo>(*start, true));
+            oldSelectionData.renderers.set(start, makeUnique<RenderSelectionInfo>(*start, true));
             if (repaintDifference) {
                 for (auto* block = containingBlockBelowView(*start); block; block = containingBlockBelowView(*block)) {
                     auto& blockInfo = oldSelectionData.blocks.add(block, nullptr).iterator->value;
                     if (blockInfo)
                         break;
-                    blockInfo = std::make_unique<RenderBlockSelectionInfo>(*block);
+                    blockInfo = makeUnique<RenderBlockSelectionInfo>(*block);
                 }
             }
         }
@@ -154,10 +154,47 @@ SelectionRangeData::SelectionRangeData(RenderView& view)
 {
 }
 
+void SelectionRangeData::setContext(const Context& context)
+{
+    ASSERT(context.start() && context.end());
+    m_selectionContext = context;
+}
+
+RenderObject::SelectionState SelectionRangeData::selectionStateForRenderer(RenderObject& renderer)
+{
+    // FIXME: we shouldln't have to check that a renderer is a descendant of the render node
+    // from the range. This is likely because we aren't using VisiblePositions yet.
+    // Planned fix in a followup: <rdar://problem/58095923>
+    // https://bugs.webkit.org/show_bug.cgi?id=205529
+    
+    if (&renderer == m_selectionContext.start() || renderer.isDescendantOf(m_selectionContext.start())) {
+        if (m_selectionContext.start() && m_selectionContext.end() && m_selectionContext.start() == m_selectionContext.end())
+            return RenderObject::SelectionBoth;
+        if (m_selectionContext.start())
+            return RenderObject::SelectionStart;
+    }
+    if (&renderer == m_selectionContext.end() || renderer.isDescendantOf(m_selectionContext.end()))
+        return RenderObject::SelectionEnd;
+
+    RenderObject* selectionEnd = nullptr;
+    auto* selectionDataEnd = m_selectionContext.end();
+    if (selectionDataEnd)
+        selectionEnd = rendererAfterPosition(*selectionDataEnd, m_selectionContext.endPosition().value());
+    SelectionIterator selectionIterator(m_selectionContext.start());
+    for (auto* currentRenderer = m_selectionContext.start(); currentRenderer && currentRenderer != m_selectionContext.end(); currentRenderer = selectionIterator.next()) {
+        if (currentRenderer == m_selectionContext.start() || currentRenderer == m_selectionContext.end())
+            continue;
+        if (!currentRenderer->canBeSelectionLeaf())
+            continue;
+        if (&renderer == currentRenderer)
+            return RenderObject::SelectionInside;
+    }
+    return RenderObject::SelectionNone;
+    
+}
+
 void SelectionRangeData::set(const Context& selection, RepaintMode blockRepaintMode)
 {
-    // Make sure both our start and end objects are defined.
-    // Check www.msnbc.com and try clicking around to find the case where this happened.
     if ((selection.start() && !selection.end()) || (selection.end() && !selection.start()))
         return;
     // Just return if the selection hasn't changed.
@@ -213,13 +250,13 @@ IntRect SelectionRangeData::collectBounds(ClipToVisibleContent clipToVisibleCont
         if ((start->canBeSelectionLeaf() || start == m_selectionContext.start() || start == m_selectionContext.end())
             && start->selectionState() != RenderObject::SelectionNone) {
             // Blocks are responsible for painting line gaps and margin gaps. They must be examined as well.
-            renderers.set(start, std::make_unique<RenderSelectionInfo>(*start, clipToVisibleContent == ClipToVisibleContent::Yes));
+            renderers.set(start, makeUnique<RenderSelectionInfo>(*start, clipToVisibleContent == ClipToVisibleContent::Yes));
             auto* block = start->containingBlock();
             while (block && !is<RenderView>(*block)) {
                 std::unique_ptr<RenderSelectionInfo>& blockInfo = renderers.add(block, nullptr).iterator->value;
                 if (blockInfo)
                     break;
-                blockInfo = std::make_unique<RenderSelectionInfo>(*block, clipToVisibleContent == ClipToVisibleContent::Yes);
+                blockInfo = makeUnique<RenderSelectionInfo>(*block, clipToVisibleContent == ClipToVisibleContent::Yes);
                 block = block->containingBlock();
             }
         }
@@ -281,7 +318,7 @@ void SelectionRangeData::apply(const Context& newSelection, RepaintMode blockRep
     selectionIterator = SelectionIterator(selectionStart);
     for (auto* currentRenderer = selectionStart; currentRenderer && currentRenderer != selectionEnd; currentRenderer = selectionIterator.next()) {
         if (isValidRendererForSelection(*currentRenderer, m_selectionContext)) {
-            std::unique_ptr<RenderSelectionInfo> selectionInfo = std::make_unique<RenderSelectionInfo>(*currentRenderer, true);
+            std::unique_ptr<RenderSelectionInfo> selectionInfo = makeUnique<RenderSelectionInfo>(*currentRenderer, true);
 #if ENABLE(SERVICE_CONTROLS)
             for (auto& rect : selectionInfo->collectedSelectionRects())
                 m_selectionRectGatherer.addRect(selectionInfo->repaintContainer(), rect);
@@ -294,7 +331,7 @@ void SelectionRangeData::apply(const Context& newSelection, RepaintMode blockRep
                 std::unique_ptr<RenderBlockSelectionInfo>& blockInfo = newSelectedBlocks.add(containingBlock, nullptr).iterator->value;
                 if (blockInfo)
                     break;
-                blockInfo = std::make_unique<RenderBlockSelectionInfo>(*containingBlock);
+                blockInfo = makeUnique<RenderBlockSelectionInfo>(*containingBlock);
                 containingBlock = containingBlock->containingBlock();
 #if ENABLE(SERVICE_CONTROLS)
                 m_selectionRectGatherer.addGapRects(blockInfo->repaintContainer(), blockInfo->rects());

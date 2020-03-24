@@ -45,7 +45,7 @@ namespace WebKit {
 
 PageClientImpl::PageClientImpl(WKWPE::View& view)
     : m_view(view)
-    , m_scrollGestureController(std::make_unique<ScrollGestureController>())
+    , m_scrollGestureController(makeUnique<ScrollGestureController>())
 {
 }
 
@@ -63,7 +63,7 @@ IPC::Attachment PageClientImpl::hostFileDescriptor()
 
 std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy& process)
 {
-    return std::make_unique<DrawingAreaProxyCoordinatedGraphics>(m_view.page(), process);
+    return makeUnique<DrawingAreaProxyCoordinatedGraphics>(m_view.page(), process);
 }
 
 void PageClientImpl::setViewNeedsDisplay(const WebCore::Region&)
@@ -419,5 +419,25 @@ AtkObject* PageClientImpl::accessible()
     return ATK_OBJECT(m_view.accessible());
 }
 #endif
+
+void PageClientImpl::didChangeWebPageID() const
+{
+    m_view.didChangePageID();
+}
+
+void PageClientImpl::sendMessageToWebView(UserMessage&& message, CompletionHandler<void(UserMessage&&)>&& completionHandler)
+{
+    m_view.didReceiveUserMessage(WTFMove(message), WTFMove(completionHandler));
+}
+
+void PageClientImpl::setInputMethodState(bool enabled)
+{
+    m_view.setInputMethodState(enabled);
+}
+
+void PageClientImpl::selectionDidChange()
+{
+    m_view.selectionDidChange();
+}
 
 } // namespace WebKit

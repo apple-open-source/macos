@@ -581,11 +581,6 @@ static inline bool SOSCircleIsDegenerateReset(SOSCircleRef deGenCircle){
     return SOSCircleHasDegenerateGeneration(deGenCircle) && SOSCircleIsEmpty(deGenCircle);
 }
 
-
-__unused static inline bool SOSCircleIsResignOffering(SOSCircleRef circle, SecKeyRef pubkey) {
-    return SOSCircleCountActiveValidPeers(circle, pubkey) == 1;
-}
-
 static inline SOSConcordanceStatus GetSignersStatus(SOSCircleRef signers_circle, SOSCircleRef status_circle,
                                                     SecKeyRef user_pubKey, SOSPeerInfoRef exclude, CFErrorRef *error) {
     CFStringRef excluded_id = exclude ? SOSPeerInfoGetPeerID(exclude) : NULL;
@@ -831,8 +826,9 @@ static CFStringRef SOSCircleCopyFormatDescription(CFTypeRef aObj, CFDictionaryRe
 }
 
 CFStringRef SOSCircleGetName(SOSCircleRef circle) {
-    assert(circle);
-    assert(circle->name);
+    if(!circle || !circle->name) {
+        return NULL;
+    }
     return circle->name;
 }
 

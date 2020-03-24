@@ -35,33 +35,60 @@
 #include <wtf/Lock.h>
 #include <wtf/Threading.h>
 #include <wtf/Vector.h>
-#include <wtf/WeakPtr.h>
 
 namespace Inspector {
 
-class MessageParser;
-class RemoteInspectorConnectionClient;
-
-class JS_EXPORT_PRIVATE RemoteInspectorSocketEndpoint {
+class RemoteInspectorSocketEndpoint {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static std::unique_ptr<RemoteInspectorSocketEndpoint> create(RemoteInspectorConnectionClient* inspectorClient, const char* name)
-    {
-        return std::make_unique<RemoteInspectorSocketEndpoint>(inspectorClient, name);
-    }
+    class Client {
+    public:
+        virtual void didReceive(ConnectionID, Vector<uint8_t>&&) = 0;
+        virtual void didClose(ConnectionID) = 0;
+    };
 
-    RemoteInspectorSocketEndpoint(RemoteInspectorConnectionClient*, const char*);
+    class Listener {
+    public:
+        virtual bool didAccept(ConnectionID acceptedID, ConnectionID listenerID, Socket::Domain) = 0;
+        virtual void didClose(ConnectionID) = 0;
+    };
+
+    static RemoteInspectorSocketEndpoint& singleton();
+
+    RemoteInspectorSocketEndpoint();
     ~RemoteInspectorSocketEndpoint();
 
-    Optional<ConnectionID> connectInet(const char* serverAddr, uint16_t serverPort);
-    Optional<ConnectionID> listenInet(const char* address, uint16_t port);
+    Optional<ConnectionID> connectInet(const char* serverAddr, uint16_t serverPort, Client&);
+    Optional<ConnectionID> listenInet(const char* address, uint16_t port, Listener&, Client&);
+    void invalidateClient(Client&);
+    void invalidateListener(Listener&);
 
     void send(ConnectionID, const uint8_t* data, size_t);
 
-    Optional<ConnectionID> createClient(PlatformSocketType fd);
+    Optional<ConnectionID> createClient(PlatformSocketType, Client&);
+    Optional<ConnectionID> createListener(PlatformSocketType, Listener&, Client&);
 
     Optional<uint16_t> getPort(ConnectionID) const;
 
 protected:
+    struct Connection {
+        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        explicit Connection(Client& client)
+            : client(client)
+        {
+        }
+
+        ConnectionID id;
+        Vector<uint8_t> sendBuffer;
+        PlatformSocketType socket { INVALID_SOCKET_VALUE };
+        PollingDescriptor poll;
+        Client& client;
+        Listener* listener { };
+    };
+
+    ConnectionID generateConnectionID();
+    std::unique_ptr<Connection> makeConnection(PlatformSocketType, Client&);
+
     void recvIfEnabled(ConnectionID);
     void sendIfEnabled(ConnectionID);
     void workerThread();
@@ -70,15 +97,14 @@ protected:
     bool isListening(ConnectionID);
 
     mutable Lock m_connectionsLock;
-    HashMap<ConnectionID, std::unique_ptr<Socket::Connection>> m_connections;
+    HashMap<ConnectionID, std::unique_ptr<Connection>> m_connections;
+    HashMap<ConnectionID, std::unique_ptr<Connection>> m_listeners;
 
     PlatformSocketType m_wakeupSendSocket { INVALID_SOCKET_VALUE };
     PlatformSocketType m_wakeupReceiveSocket { INVALID_SOCKET_VALUE };
 
     RefPtr<Thread> m_workerThread;
     std::atomic<bool> m_shouldAbortWorkerThread { false };
-
-    WeakPtr<RemoteInspectorConnectionClient> m_inspectorClient;
 };
 
 } // namespace Inspector

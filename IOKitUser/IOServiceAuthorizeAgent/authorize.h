@@ -23,4 +23,4 @@
 
 #include <IOKit/IOKitLib.h>
 
-IOReturn _Authorize( io_service_t service, uint64_t options, pid_t processID, uint64_t authorizationID );
+IOReturn _Authorize( io_service_t service, uint64_t options, pid_t processID, uint64_t authorizationID, const audit_token_t *auditToken );

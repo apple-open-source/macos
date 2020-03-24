@@ -93,6 +93,8 @@ SOFT_LINK_CONSTANT(UIFoundation, NSCocoaVersionDocumentAttribute, NSString *)
 #define NSCocoaVersionDocumentAttribute getNSCocoaVersionDocumentAttribute()
 SOFT_LINK_CONSTANT(UIFoundation, NSBackgroundColorDocumentAttribute, NSString *)
 #define NSBackgroundColorDocumentAttribute getNSBackgroundColorDocumentAttribute()
+SOFT_LINK_CONSTANT(UIFoundation, NSMarkedClauseSegmentAttributeName, NSString *)
+#define NSMarkedClauseSegmentAttributeName getNSMarkedClauseSegmentAttributeName()
 
 // We don't softlink NSSuperscriptAttributeName because UIFoundation stopped exporting it.
 // This attribute is being deprecated at the API level, but internally UIFoundation
@@ -109,7 +111,7 @@ static NSString *const NSSuperscriptAttributeName = @"NSSuperscript";
 
 #endif // PLATFORM(IOS_FAMILY)
 
-#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED < 101300)
+#if PLATFORM(IOS_FAMILY)
 static NSString *const NSTextListMarkerCircle = @"{circle}";
 static NSString *const NSTextListMarkerDisc = @"{disc}";
 static NSString *const NSTextListMarkerSquare = @"{square}";
@@ -123,4 +125,4 @@ static NSString *const NSTextListMarkerUppercaseLatin = @"{upper-latin}";
 static NSString *const NSTextListMarkerLowercaseRoman = @"{lower-roman}";
 static NSString *const NSTextListMarkerUppercaseRoman = @"{upper-roman}";
 static NSString *const NSTextListMarkerDecimal = @"{decimal}";
-#endif // PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED < 101300)
+#endif // PLATFORM(IOS_FAMILY)

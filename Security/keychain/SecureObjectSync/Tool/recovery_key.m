@@ -133,6 +133,7 @@ recovery_key(int argc, char * const *argv)
                 CDPFollowUpContext *context = [CDPFollowUpContext contextForRecoveryKeyRepair];
                 context.force = true;
 
+                secnotice("followup", "Posting a follow up (for SOS) of type recovery key");
                 [cdpd postFollowUpWithContext:context error:&localError];
                 if(localError){
                     printmsg(CFSTR("Request to CoreCDP to follow up failed: %@\n"), localError);

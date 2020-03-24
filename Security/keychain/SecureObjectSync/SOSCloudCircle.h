@@ -161,14 +161,6 @@ bool SOSCCWaitForInitialSync(CFErrorRef* error);
 bool SOSCCWaitForInitialSyncWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
- @function SOSCCCopyYetToSyncViewsList
- @abstract returns views not yet synced
- @param error error to fill in if we have one
- @return List of view names that we haven't synced yet.
- */
-CFArrayRef SOSCCCopyYetToSyncViewsList(CFErrorRef* error);
-
-/*!
  @function SOSCCCanAuthenticate
  @abstract Determines whether we currently have valid credentials to authenticate a circle operation.
  @param error What went wrong if we returned false.
@@ -269,14 +261,6 @@ bool SOSCCRequestToJoinCircleAfterRestore(CFErrorRef* error);
 bool SOSCCRequestToJoinCircleAfterRestoreWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
- @function SOSCCRequestEnsureFreshParameters
- @abstract function to help debug problems with EnsureFreshParameters
- @param error What went wrong if we tried to refresh parameters
- @result true if we successfully retrieved fresh parameters.  False if we failed.
-*/
-bool SOSCCRequestEnsureFreshParameters(CFErrorRef* error);
-
-/*!
  @function SOSCCAccountSetToNew
  @abstract reset account to new
  @param error What went wrong if we tried to refresh parameters
@@ -344,18 +328,6 @@ bool SOSCCLoggedOutOfAccount(CFErrorRef* error);
  erase.
  */
 bool SOSCCBailFromCircle_BestEffort(uint64_t limit_in_seconds, CFErrorRef* error);
-
-/*!
- @function SOSCCSignedOut
- @abstract Attempts to publish a retirement ticket for the current device.
- @param immediate If we should remove the device immediately or to leave the circle with best effort.
- @param error What went wrong trying to remove ourselves.
- @result true if we posted the ticket. False if there was an error.
- @discussion This attempts to post a retirement ticket that should
- result in other devices removing this device from the circle.  It does so
- with a 5 second timeout or immediately. 
- */
-bool SOSCCSignedOut(bool immediate, CFErrorRef* error);
 
 /*!
  @function SOSCCCopyApplicantPeerInfo
@@ -489,14 +461,6 @@ enum DepartureReason SOSCCGetLastDepartureReason(CFErrorRef *error);
  */
 
 bool SOSCCSetLastDepartureReason(enum DepartureReason reason, CFErrorRef *error);
-
-/*!
- @function SOSCCGetIncompatibilityInfo
- @abstract Returns the information (string, hopefully URL) that will lead to an explanation of why you have an incompatible circle.
- @param error What went wrong if we returned NULL.
- */
-CFStringRef SOSCCCopyIncompatibilityInfo(CFErrorRef *error);
-
 
 /*
     Views
@@ -652,34 +616,6 @@ CFDataRef SOSCopyDeviceBackupPublicKey(CFDataRef entropy, CFErrorRef *error);
  @discussion Asserts the keybag for use for backups when having a single secret. All views get backed up with this single bag.
  */
 bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool forV0Only, CFErrorRef *error);
-
-
-/*!
- @function SOSCCIsThisDeviceLastBackup
- @param error Why this query can't be accepted.
- @result true if this is the last backup device, false otherwise.
- */
-
-bool SOSCCIsThisDeviceLastBackup(CFErrorRef *error);
-
-/*!
- @function SOSCCSetEscrowRecord
- @param escrow_label Account label
- @param tries Number of attempts
- @param error What went wrong trying to set the escrow label
- @result true if we saved the escrow record, false if we had an error
- @discussion persist escrow records in the account object or the peer info
- */
-bool SOSCCSetEscrowRecord(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error);
-
-/*!
- @function SOSCCCopyEscrowRecord
- @param error What went wrong trying to set the escrow label
- @result dictionary of the escrow record, false if we had an error, dictionary will be of format: [account label: <dictionary>], dictionary will contain (ex):   "Burned Recovery Attempt Attestation Date" = "[2015-08-19 15:21]";
-                                     "Burned Recovery Attempt Count" = 8;
- @discussion for debugging - retrieve the escrow record
- */
-CFDictionaryRef SOSCCCopyEscrowRecord(CFErrorRef *error);
 
 /*!
  @function SOSCCCopyApplication

@@ -49,7 +49,6 @@ WK_EXPORT void WKBundleSetAllowStorageAccessFromFileURLS(WKBundleRef bundle, WKB
 WK_EXPORT void WKBundleSetMinimumLogicalFontSize(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, int size);
 WK_EXPORT void WKBundleSetFrameFlatteningEnabled(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, bool enabled);
 WK_EXPORT void WKBundleSetJavaScriptCanAccessClipboard(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, bool enabled);
-WK_EXPORT void WKBundleSetPrivateBrowsingEnabled(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, bool enabled);
 WK_EXPORT void WKBundleSetPopupBlockingEnabled(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, bool enabled);
 WK_EXPORT void WKBundleSetAuthorAndUserStylesEnabled(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, bool enabled);
 WK_EXPORT void WKBundleSetSpatialNavigationEnabled(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, bool enabled);
@@ -92,7 +91,7 @@ WK_EXPORT bool WKBundleIsProcessingUserGesture(WKBundleRef bundle);
 WK_EXPORT void WKBundleSetTabKeyCyclesThroughElements(WKBundleRef bundle, WKBundlePageRef page, bool enabled);
 
 WK_EXPORT void WKBundleClearResourceLoadStatistics(WKBundleRef);
-WK_EXPORT void WKBundleResourceLoadStatisticsNotifyObserver(WKBundleRef);
+WK_EXPORT bool WKBundleResourceLoadStatisticsNotifyObserver(WKBundleRef);
 
 WK_EXPORT void WKBundleExtendClassesForParameterCoder(WKBundleRef bundle, WKArrayRef classes);
 

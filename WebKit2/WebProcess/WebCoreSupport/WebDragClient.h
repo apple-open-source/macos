@@ -35,6 +35,7 @@ namespace WebKit {
 class WebPage;
 
 class WebDragClient : public WebCore::DragClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WebDragClient(WebPage* page)
         : m_page(page)
@@ -52,8 +53,6 @@ private:
 #if PLATFORM(COCOA)
     void declareAndWriteDragImage(const String& pasteboardName, WebCore::Element&, const URL&, const String&, WebCore::Frame*) override;
 #endif
-
-    void dragControllerDestroyed() override;
 
     WebPage* m_page;
 };

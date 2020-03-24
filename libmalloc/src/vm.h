@@ -37,11 +37,7 @@ mvm_aslr_init(void);
 
 MALLOC_NOEXPORT
 void *
-mvm_allocate_pages(size_t size, unsigned char align, unsigned debug_flags, int vm_page_label);
-
-MALLOC_NOEXPORT
-void *
-mvm_allocate_pages_securely(size_t size, unsigned char align, int vm_page_label, uint32_t debug_flags);
+mvm_allocate_pages(size_t size, unsigned char align, uint32_t debug_flags, int vm_page_label);
 
 MALLOC_NOEXPORT
 void

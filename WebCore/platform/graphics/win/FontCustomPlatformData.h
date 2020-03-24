@@ -41,6 +41,7 @@ template <typename T> class FontTaggedSettings;
 typedef FontTaggedSettings<int> FontFeatureSettings;
 
 struct FontCustomPlatformData {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(FontCustomPlatformData);
 public:
     FontCustomPlatformData(HANDLE fontReference, const String& name)
@@ -51,7 +52,7 @@ public:
 
     ~FontCustomPlatformData();
 
-    FontPlatformData fontPlatformData(const FontDescription&, bool bold, bool italic, const FontFeatureSettings&, const FontVariantSettings&, FontSelectionSpecifiedCapabilities);
+    FontPlatformData fontPlatformData(const FontDescription&, bool bold, bool italic, const FontFeatureSettings&, FontSelectionSpecifiedCapabilities);
 
     static bool supportsFormat(const String&);
 

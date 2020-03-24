@@ -28,11 +28,11 @@
 #if ENABLE(WEBGPU)
 
 #include "WHLSLExpression.h"
-#include "WHLSLLexer.h"
 #include "WHLSLQualifier.h"
 #include "WHLSLSemantic.h"
 #include "WHLSLType.h"
 #include <memory>
+#include <wtf/FastMalloc.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
@@ -44,16 +44,28 @@ namespace WHLSL {
 namespace AST {
 
 class VariableDeclaration final {
+    WTF_MAKE_FAST_ALLOCATED;
 // Final because we made the destructor non-virtual.
 public:
-    VariableDeclaration(CodeLocation codeLocation, Qualifiers&& qualifiers, Optional<UniqueRef<UnnamedType>>&& type, String&& name, std::unique_ptr<Semantic>&& semantic, std::unique_ptr<Expression>&& initializer)
+    struct RareData {
+        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        RareData(Qualifiers&& qualifiersArgument, std::unique_ptr<Semantic>&& semanticArgument)
+            : qualifiers(WTFMove(qualifiersArgument))
+            , semantic(WTFMove(semanticArgument))
+        {
+        }
+        Qualifiers qualifiers;
+        std::unique_ptr<Semantic> semantic;
+    };
+
+    VariableDeclaration(CodeLocation codeLocation, Qualifiers&& qualifiers, RefPtr<UnnamedType> type, String&& name, std::unique_ptr<Semantic>&& semantic, std::unique_ptr<Expression>&& initializer)
         : m_codeLocation(codeLocation)
-        , m_qualifiers(WTFMove(qualifiers))
         , m_type(WTFMove(type))
-        , m_name(WTFMove(name))
-        , m_semantic(WTFMove(semantic))
         , m_initializer(WTFMove(initializer))
+        , m_name(WTFMove(name))
     {
+        if (semantic || !qualifiers.isEmpty())
+            m_rareData = makeUnique<RareData>(WTFMove(qualifiers), WTFMove(semantic));
     }
 
     ~VariableDeclaration() = default;
@@ -66,14 +78,13 @@ public:
     // We use this for ReadModifyWrite expressions, since we don't know the type of their
     // internal variables until the checker runs. All other variables should start life out
     // with a type.
-    void setType(UniqueRef<UnnamedType> type)
+    void setType(Ref<UnnamedType> type)
     {
         ASSERT(!m_type);
         m_type = WTFMove(type);
     }
-    const Optional<UniqueRef<UnnamedType>>& type() const { return m_type; }
+    const RefPtr<UnnamedType>& type() const { return m_type; }
     UnnamedType* type() { return m_type ? &*m_type : nullptr; }
-    Semantic* semantic() { return m_semantic.get(); }
     Expression* initializer() { return m_initializer.get(); }
     bool isAnonymous() const { return m_name.isNull(); }
     std::unique_ptr<Expression> takeInitializer() { return WTFMove(m_initializer); }
@@ -85,13 +96,14 @@ public:
     }
     CodeLocation codeLocation() const { return m_codeLocation; }
 
+    Semantic* semantic() { return m_rareData ? m_rareData->semantic.get() : nullptr; }
+
 private:
     CodeLocation m_codeLocation;
-    Qualifiers m_qualifiers;
-    Optional<UniqueRef<UnnamedType>> m_type;
-    String m_name;
-    std::unique_ptr<Semantic> m_semantic;
+    RefPtr<UnnamedType> m_type;
     std::unique_ptr<Expression> m_initializer;
+    std::unique_ptr<RareData> m_rareData { nullptr };
+    String m_name;
 };
 
 using VariableDeclarations = Vector<UniqueRef<VariableDeclaration>>;

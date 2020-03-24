@@ -99,7 +99,7 @@
     // Add some current item pointers. They don't necessarily need to point to anything...
 
     CKKSCurrentItemPointer* cip = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice"
-                                                                    currentItemUUID:@"DD7C2F9B-B22D-3B90-C299-E3B48174BFA3"
+                                                                    currentItemUUID:@"50184A35-4480-E8BA-769B-567CF72F1EC0"
                                                                               state:SecCKKSProcessedStateRemote
                                                                              zoneID:self.keychainZoneID
                                                                     encodedCKRecord:nil];
@@ -109,7 +109,7 @@
     XCTAssertNotNil(currentPointerRecord, "Found record in CloudKit at expected UUID");
 
     CKKSCurrentItemPointer* cip2 = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"com.apple.security.ckks-pcsservice2"
-                                                                     currentItemUUID:@"3AB8E78D-75AF-CFEF-F833-FA3E3E90978A"
+                                                                     currentItemUUID:@"10E76B80-CE1C-A52A-B0CB-462A2EBA05AF"
                                                                                state:SecCKKSProcessedStateRemote
                                                                               zoneID:self.keychainZoneID
                                                                      encodedCKRecord:nil];
@@ -138,7 +138,7 @@
 
         // And add a garbage CIP
         CKKSCurrentItemPointer* cip3 = [[CKKSCurrentItemPointer alloc] initForIdentifier:@"garbage"
-                                                                         currentItemUUID:@"3AB8E78D-75AF-CFEF-F833-FA3E3E90978A"
+                                                                         currentItemUUID:@"10E76B80-CE1C-A52A-B0CB-462A2EBA05AF"
                                                                                    state:SecCKKSProcessedStateLocal
                                                                                   zoneID:self.keychainZoneID
                                                                          encodedCKRecord:nil];

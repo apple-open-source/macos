@@ -26,6 +26,9 @@
 #include "RenderElement.h"
 
 #include "AXObjectCache.h"
+#if PLATFORM(IOS_FAMILY)
+#include "ContentChangeObserver.h"
+#endif
 #include "ContentData.h"
 #include "CursorList.h"
 #include "ElementChildIterator.h"
@@ -161,7 +164,6 @@ RenderPtr<RenderElement> RenderElement::createFor(Element& element, RenderStyle&
     case DisplayType::Block:
     case DisplayType::FlowRoot:
     case DisplayType::InlineBlock:
-    case DisplayType::Compact:
         return createRenderer<RenderBlockFlow>(element, WTFMove(style));
     case DisplayType::ListItem:
         return createRenderer<RenderListItem>(element, WTFMove(style));
@@ -467,7 +469,7 @@ void RenderElement::didAttachChild(RenderObject& child, RenderObject*)
     // To avoid the problem alltogether, detect early if we're inside a hidden SVG subtree
     // and stop creating layers at all for these cases - they're not used anyways.
     if (child.hasLayer() && !layerCreationAllowedForSubtree())
-        downcast<RenderLayerModelObject>(child).layer()->removeOnlyThisLayer();
+        downcast<RenderLayerModelObject>(child).layer()->removeOnlyThisLayer(RenderLayer::LayerChangeTiming::RenderTreeConstruction);
 }
 
 RenderObject* RenderElement::attachRendererInternal(RenderPtr<RenderObject> child, RenderObject* beforeChild)
@@ -708,8 +710,8 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         // If our z-index changes value or our visibility changes,
         // we need to dirty our stacking context's z-order list.
         bool visibilityChanged = m_style.visibility() != newStyle.visibility()
-            || m_style.zIndex() != newStyle.zIndex()
-            || m_style.hasAutoZIndex() != newStyle.hasAutoZIndex();
+            || m_style.usedZIndex() != newStyle.usedZIndex()
+            || m_style.hasAutoUsedZIndex() != newStyle.hasAutoUsedZIndex();
 
         if (visibilityChanged)
             document().invalidateRenderingDependentRegions();
@@ -766,6 +768,7 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
             setFloating(false);
             clearPositionedState();
         }
+
         if (newStyle.hasPseudoStyle(PseudoId::FirstLine) || oldStyle->hasPseudoStyle(PseudoId::FirstLine))
             invalidateCachedFirstLineStyle();
 
@@ -774,6 +777,15 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         setHasOverflowClip(false);
         setHasTransformRelatedProperty(false);
         setHasReflection(false);
+    }
+
+    bool hadOutline = oldStyle && oldStyle->hasOutline();
+    bool hasOutline = newStyle.hasOutline();
+    if (hadOutline != hasOutline) {
+        if (hasOutline)
+            view().incrementRendersWithOutline();
+        else
+            view().decrementRendersWithOutline();
     }
 
     bool newStyleSlowScroll = false;
@@ -848,6 +860,7 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
     if (oldStyle && !areCursorsEqual(oldStyle, &style()))
         frame().eventHandler().scheduleCursorUpdate();
 #endif
+
     bool hadOutlineAuto = oldStyle && oldStyle->outlineStyleIsAuto() == OutlineIsAuto::On;
     bool hasOutlineAuto = outlineStyleForRepaint().outlineStyleIsAuto() == OutlineIsAuto::On;
     if (hasOutlineAuto != hadOutlineAuto) {
@@ -919,6 +932,10 @@ inline void RenderElement::clearSubtreeLayoutRootIfNeeded() const
 
 void RenderElement::willBeDestroyed()
 {
+#if PLATFORM(IOS_FAMILY)
+    if (!renderTreeBeingDestroyed() && element())
+        document().contentChangeObserver().rendererWillBeDestroyed(*element());
+#endif
     if (m_style.hasFixedBackgroundImage() && !settings().fixedBackgroundsPaintRelativeToDocument())
         view().frameView().removeSlowRepaintObject(*this);
 
@@ -926,6 +943,9 @@ void RenderElement::willBeDestroyed()
 
     if (hasCounterNodeMap())
         RenderCounter::destroyCounterNodes(*this);
+
+    if (style().hasOutline())
+        view().decrementRendersWithOutline();
 
     RenderObject::willBeDestroyed();
 
@@ -1337,15 +1357,15 @@ const RenderStyle* RenderElement::getCachedPseudoStyle(PseudoId pseudo, const Re
     if (cachedStyle)
         return cachedStyle;
 
-    std::unique_ptr<RenderStyle> result = getUncachedPseudoStyle(PseudoStyleRequest(pseudo), parentStyle);
+    std::unique_ptr<RenderStyle> result = getUncachedPseudoStyle({ pseudo }, parentStyle);
     if (result)
         return const_cast<RenderStyle&>(m_style).addCachedPseudoStyle(WTFMove(result));
     return nullptr;
 }
 
-std::unique_ptr<RenderStyle> RenderElement::getUncachedPseudoStyle(const PseudoStyleRequest& pseudoStyleRequest, const RenderStyle* parentStyle, const RenderStyle* ownStyle) const
+std::unique_ptr<RenderStyle> RenderElement::getUncachedPseudoStyle(const Style::PseudoElementRequest& pseudoElementRequest, const RenderStyle* parentStyle, const RenderStyle* ownStyle) const
 {
-    if (pseudoStyleRequest.pseudoId < PseudoId::FirstInternalPseudoId && !ownStyle && !style().hasPseudoStyle(pseudoStyleRequest.pseudoId))
+    if (pseudoElementRequest.pseudoId < PseudoId::FirstInternalPseudoId && !ownStyle && !style().hasPseudoStyle(pseudoElementRequest.pseudoId))
         return nullptr;
 
     if (!parentStyle) {
@@ -1358,7 +1378,7 @@ std::unique_ptr<RenderStyle> RenderElement::getUncachedPseudoStyle(const PseudoS
 
     auto& styleResolver = element()->styleResolver();
 
-    std::unique_ptr<RenderStyle> style = styleResolver.pseudoStyleForElement(*element(), pseudoStyleRequest, *parentStyle);
+    std::unique_ptr<RenderStyle> style = styleResolver.pseudoStyleForElement(*element(), pseudoElementRequest, *parentStyle);
 
     if (style)
         Style::loadPendingResources(*style, document(), element());
@@ -1394,11 +1414,11 @@ std::unique_ptr<RenderStyle> RenderElement::selectionPseudoStyle() const
     if (ShadowRoot* root = element()->containingShadowRoot()) {
         if (root->mode() == ShadowRootMode::UserAgent) {
             if (Element* shadowHost = element()->shadowHost())
-                return shadowHost->renderer()->getUncachedPseudoStyle(PseudoStyleRequest(PseudoId::Selection));
+                return shadowHost->renderer()->getUncachedPseudoStyle({ PseudoId::Selection });
         }
     }
 
-    return getUncachedPseudoStyle(PseudoStyleRequest(PseudoId::Selection));
+    return getUncachedPseudoStyle({ PseudoId::Selection });
 }
 
 Color RenderElement::selectionForegroundColor() const
@@ -2012,7 +2032,7 @@ void RenderElement::updateOutlineAutoAncestor(bool hasOutlineAuto)
 
 bool RenderElement::hasOutlineAnnotation() const
 {
-    return element() && element()->isLink() && document().printing();
+    return element() && element()->isLink() && (document().printing() || (view().frameView().paintBehavior() & PaintBehavior::AnnotateLinks));
 }
 
 bool RenderElement::hasSelfPaintingLayer() const
@@ -2030,16 +2050,9 @@ bool RenderElement::checkForRepaintDuringLayout() const
     return !settings().repaintOutsideLayoutEnabled();
 }
 
-RespectImageOrientationEnum RenderElement::shouldRespectImageOrientation() const
+ImageOrientation RenderElement::imageOrientation() const
 {
-#if USE(CG) || USE(CAIRO)
-    // This can only be enabled for ports which honor the orientation flag in their drawing code.
-    if (document().isImageDocument())
-        return RespectImageOrientation;
-#endif
-    // Respect the image's orientation if it's being used as a full-page image or it's
-    // an <img> and the setting to respect it everywhere is set.
-    return settings().shouldRespectImageOrientation() && is<HTMLImageElement>(element()) ? RespectImageOrientation : DoNotRespectImageOrientation;
+    return style().imageOrientation();
 }
 
 void RenderElement::adjustFragmentedFlowStateOnContainingBlockChangeIfNeeded()

@@ -37,6 +37,10 @@ class OTMockSecureBackup: NSObject, OctagonEscrowRecovererPrococol {
         }
         return nil
     }
+
+    func disable(withInfo info: [AnyHashable: Any]!) -> Error? {
+        return nil
+    }
 }
 
 class OTMockFollowUpController: NSObject, OctagonFollowUpControllerProtocol {

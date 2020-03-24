@@ -28,6 +28,7 @@
 #include "PlatformStrategies.h"
 #include "SelectionData.h"
 #include <wtf/NeverDestroyed.h>
+#include <wtf/Optional.h>
 #include <wtf/URL.h>
 
 namespace WebCore {
@@ -43,24 +44,24 @@ enum ClipboardDataType {
 
 std::unique_ptr<Pasteboard> Pasteboard::createForCopyAndPaste()
 {
-    return std::make_unique<Pasteboard>("CLIPBOARD");
+    return makeUnique<Pasteboard>("CLIPBOARD");
 }
 
 std::unique_ptr<Pasteboard> Pasteboard::createForGlobalSelection()
 {
-    return std::make_unique<Pasteboard>("PRIMARY");
+    return makeUnique<Pasteboard>("PRIMARY");
 }
 
 #if ENABLE(DRAG_SUPPORT)
 std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop()
 {
-    return std::make_unique<Pasteboard>(SelectionData::create());
+    return makeUnique<Pasteboard>(SelectionData::create());
 }
 
 std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop(const DragData& dragData)
 {
     ASSERT(dragData.platformData());
-    return std::make_unique<Pasteboard>(*dragData.platformData());
+    return makeUnique<Pasteboard>(*dragData.platformData());
 }
 #endif
 
@@ -231,13 +232,13 @@ void Pasteboard::setDragImage(DragImage, const IntPoint&)
 }
 #endif
 
-void Pasteboard::read(PasteboardPlainText& text)
+void Pasteboard::read(PasteboardPlainText& text, PlainTextURLReadingPolicy, Optional<size_t>)
 {
     readFromClipboard();
     text.text = m_selectionData->text();
 }
 
-void Pasteboard::read(PasteboardWebContentReader&, WebContentReadingPolicy)
+void Pasteboard::read(PasteboardWebContentReader&, WebContentReadingPolicy, Optional<size_t>)
 {
 }
 
@@ -329,7 +330,7 @@ void Pasteboard::writeMarkup(const String&)
 {
 }
 
-void Pasteboard::writeCustomData(const PasteboardCustomData&)
+void Pasteboard::writeCustomData(const Vector<PasteboardCustomData>&)
 {
 }
 

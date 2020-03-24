@@ -226,9 +226,12 @@ VideoFullscreenControllerContext::~VideoFullscreenControllerContext()
         while (!m_fullscreenClients.isEmpty())
             (*m_fullscreenClients.begin())->modelDestroyed();
     };
-    if (isUIThread())
+    if (isUIThread()) {
+        WebThreadLock();
         notifyClientsModelWasDestroyed();
-    else
+        m_playbackModel = nullptr;
+        m_fullscreenModel = nullptr;
+    } else
         dispatch_sync(dispatch_get_main_queue(), WTFMove(notifyClientsModelWasDestroyed));
 }
 
@@ -586,18 +589,16 @@ void VideoFullscreenControllerContext::setVideoLayerFrame(FloatRect frame)
     RetainPtr<CALayer> videoFullscreenLayer = [m_videoFullscreenView layer];
     [videoFullscreenLayer setSublayerTransform:[videoFullscreenLayer transform]];
 
-    dispatch_async(dispatch_get_main_queue(), [protectedThis = makeRefPtr(this), this, frame, videoFullscreenLayer = WTFMove(videoFullscreenLayer)] () mutable {
-        WebThreadRun([protectedThis = WTFMove(protectedThis), this, frame, videoFullscreenLayer = WTFMove(videoFullscreenLayer)] {
-            [CATransaction begin];
-            [CATransaction setDisableActions:YES];
-            [CATransaction setAnimationDuration:0];
-            
-            [videoFullscreenLayer setSublayerTransform:CATransform3DIdentity];
-            
-            if (m_fullscreenModel)
-                m_fullscreenModel->setVideoLayerFrame(frame);
-            [CATransaction commit];
-        });
+    dispatchAsyncOnMainThreadWithWebThreadLockIfNeeded([protectedThis = makeRefPtr(this), this, frame, videoFullscreenLayer = WTFMove(videoFullscreenLayer)] {
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        [CATransaction setAnimationDuration:0];
+
+        [videoFullscreenLayer setSublayerTransform:CATransform3DIdentity];
+
+        if (m_fullscreenModel)
+            m_fullscreenModel->setVideoLayerFrame(frame);
+        [CATransaction commit];
     });
 }
 
@@ -977,6 +978,7 @@ void VideoFullscreenControllerContext::setUpFullscreen(HTMLVideoElement& videoEl
 
     dispatch_async(dispatch_get_main_queue(), [protectedThis = makeRefPtr(this), this, videoElementClientRect, viewRef, mode, allowsPictureInPicture] {
         ASSERT(isUIThread());
+        WebThreadLock();
 
         Ref<PlaybackSessionInterfaceAVKit> sessionInterface = PlaybackSessionInterfaceAVKit::create(*this);
         m_interface = VideoFullscreenInterfaceAVKit::create(sessionInterface.get());

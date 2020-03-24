@@ -53,9 +53,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property NSCalendar* utcCalendar;
 
-- (NSSet<NSString*>*)managedViewList;
-
-
 - (ZoneKeys*)keychainZoneKeys;
 
 @end

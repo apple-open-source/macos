@@ -2783,8 +2783,8 @@ if (__PC_TYPE_MEMBER_##TRUSTRESULT && CFEqual(key,CFSTR(#NAME))) { \
    policy->_options is a caller provided dictionary, only its cf type has
    been checked.
  */
-bool SecPVCSetResultForced(SecPVCRef pvc,
-	CFStringRef key, CFIndex ix, CFTypeRef result, bool force) {
+bool SecPVCSetResultForcedWithTrustResult(SecPVCRef pvc, CFStringRef key, CFIndex ix, CFTypeRef result, bool force,
+                                          SecTrustResultType overrideDefaultTR) {
 
     /* If this is not something the current policy cares about ignore
        this error and return true so our caller continues evaluation. */
@@ -2797,17 +2797,27 @@ bool SecPVCSetResultForced(SecPVCRef pvc,
         }
     }
 
-	/* Check to see if the SecTrustSettings for the certificate in question
-	   tell us to ignore this error. */
-	if (SecPVCIsAllowedError(pvc, ix, key)) {
-        secinfo("policy", "cert[%d]: skipped allowed error %@", (int) ix, key);
-		return true;
-	}
+    /* Get the default trust result for this key and override it if the caller needs to
+     * set a different trust result than the default. */
+    SecTrustResultType trustResult = trust_result_for_key(key);
+    if (overrideDefaultTR != kSecTrustResultInvalid) {
+        trustResult = overrideDefaultTR;
+    }
 
-    /* Check to see if exceptions tells us to ignore this error. */
-    if (SecPVCIsExceptedError(pvc, ix, key, result)) {
-        secinfo("policy", "cert[%d]: skipped exception error %@", (int) ix, key);
-        return true;
+    /* only recoverable errors can be allowed/excepted */
+    if (trustResult == kSecTrustResultRecoverableTrustFailure) {
+        /* Check to see if the SecTrustSettings for the certificate in question
+         tell us to ignore this error. */
+        if (SecPVCIsAllowedError(pvc, ix, key)) {
+            secinfo("policy", "cert[%d]: skipped allowed error %@", (int) ix, key);
+            return true;
+        }
+
+        /* Check to see if exceptions tells us to ignore this error. */
+        if (SecPVCIsExceptedError(pvc, ix, key, result)) {
+            secinfo("policy", "cert[%d]: skipped exception error %@", (int) ix, key);
+            return true;
+        }
     }
 
     secnotice("policy", "cert[%d]: %@ =(%s)[%s]> %@", (int) ix, key,
@@ -2817,7 +2827,6 @@ bool SecPVCSetResultForced(SecPVCRef pvc,
               (force ? "force" : ""), result);
 
 	/* Avoid resetting deny or fatal to recoverable */
-    SecTrustResultType trustResult = trust_result_for_key(key);
     if (SecPVCIsOkResult(pvc) || trustResult == kSecTrustResultFatalTrustFailure) {
         pvc->result = trustResult;
     } else if (trustResult == kSecTrustResultDeny &&
@@ -2841,6 +2850,10 @@ bool SecPVCSetResultForced(SecPVCRef pvc,
 	CFDictionarySetValue(detail, key, result);
 
 	return true;
+}
+
+bool SecPVCSetResultForced(SecPVCRef pvc, CFStringRef key, CFIndex ix, CFTypeRef result, bool force) {
+    return SecPVCSetResultForcedWithTrustResult(pvc, key, ix, result, force, kSecTrustResultInvalid);
 }
 
 bool SecPVCSetResult(SecPVCRef pvc,
@@ -3649,12 +3662,12 @@ static void SecPVCCheckRequireCTConstraints(SecPVCRef pvc) {
     if (!SecOTAPKIKillSwitchEnabled(otaref, kOTAPKIKillSwitchCT) &&
         SecOTAPKIAssetStalenessLessThanSeconds(otaref, kSecOTAPKIAssetStalenessDisable)) {
         /* CT was required. Error is always set on leaf certificate. */
-        SecPVCSetResultForced(pvc, kSecPolicyCheckCTRequired,
-                              0, kCFBooleanFalse, true);
         if (ctp != kSecPathCTRequiredOverridable) {
-            /* Normally kSecPolicyCheckCTRequired is recoverable,
-             so need to manually change trust result here. */
-            pvc->result = kSecTrustResultFatalTrustFailure;
+            /* Normally kSecPolicyCheckCTRequired is recoverable */
+            SecPVCSetResultForcedWithTrustResult(pvc, kSecPolicyCheckCTRequired, 0, kCFBooleanFalse, true,
+                                                 kSecTrustResultFatalTrustFailure);
+        } else {
+            SecPVCSetResultForced(pvc, kSecPolicyCheckCTRequired, 0, kCFBooleanFalse, true);
         }
     }
     CFReleaseNull(otaref);

@@ -77,7 +77,7 @@ nl{
         CF{"Centraal-Afrikaanse Republiek"}
         CG{"Congo-Brazzaville"}
         CH{"Zwitserland"}
-        CI{"Ivoorkust"}
+        CI{"Côte d’Ivoire"}
         CK{"Cookeilanden"}
         CL{"Chili"}
         CM{"Kameroen"}

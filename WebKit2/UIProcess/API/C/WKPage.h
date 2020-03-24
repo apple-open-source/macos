@@ -43,6 +43,7 @@
 #include <WebKit/WKPageLoaderClient.h>
 #include <WebKit/WKPageNavigationClient.h>
 #include <WebKit/WKPagePolicyClient.h>
+#include <WebKit/WKPageStateClient.h>
 #include <WebKit/WKPageUIClient.h>
 #include <WebKit/WKPageVisibilityTypes.h>
 
@@ -54,7 +55,7 @@
 extern "C" {
 #endif
 
-WK_EXPORT WKTypeID WKPageGetTypeID();
+WK_EXPORT WKTypeID WKPageGetTypeID(void);
 
 WK_EXPORT WKContextRef WKPageGetContext(WKPageRef page);
 WK_EXPORT WKPageGroupRef WKPageGetPageGroup(WKPageRef page);
@@ -150,7 +151,7 @@ WK_EXPORT void WKPageRestoreFromSessionState(WKPageRef page, WKTypeRef sessionSt
 
 WK_EXPORT double WKPageGetBackingScaleFactor(WKPageRef page);
 WK_EXPORT void WKPageSetCustomBackingScaleFactor(WKPageRef page, double customScaleFactor);
-WK_EXPORT void WKPageClearWheelEventTestTrigger(WKPageRef page);
+WK_EXPORT void WKPageClearWheelEventTestMonitor(WKPageRef page);
 
 WK_EXPORT bool WKPageSupportsTextZoom(WKPageRef page);
 WK_EXPORT double WKPageGetTextZoomFactor(WKPageRef page);
@@ -228,6 +229,8 @@ WK_EXPORT void WKPageSetPageInjectedBundleClient(WKPageRef page, const WKPageInj
 WK_EXPORT void WKPageSetPageLoaderClient(WKPageRef page, const WKPageLoaderClientBase* client) WK_C_API_DEPRECATED_WITH_REPLACEMENT(WKPageSetPageNavigationClient, macos(10.14.4));
 WK_EXPORT void WKPageSetPagePolicyClient(WKPageRef page, const WKPagePolicyClientBase* client) WK_C_API_DEPRECATED_WITH_REPLACEMENT(WKPageSetPageNavigationClient, macos(10.14.4));
 WK_EXPORT void WKPageSetPageNavigationClient(WKPageRef page, const WKPageNavigationClientBase* client);
+
+WK_EXPORT void WKPageSetPageStateClient(WKPageRef page, WKPageStateClientBase* client);
 
 typedef void (*WKPageRunJavaScriptFunction)(WKSerializedScriptValueRef, WKErrorRef, void*);
 WK_EXPORT void WKPageRunJavaScriptInMainFrame(WKPageRef page, WKStringRef script, void* context, WKPageRunJavaScriptFunction function);

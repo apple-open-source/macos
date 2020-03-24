@@ -17,10 +17,7 @@ KEY=/var/db/SystemKey
 /usr/bin/security -R show-keychain-info "$KEYCHAIN" 2>/dev/null
 if [ $? -ne 0 ] ; then
 	# can't unlock System.keychain
-	NOW=$(date "+%F.%T")
 	/usr/bin/logger -p daemon.alert "Recreating System.keychain because it cannot unlock; see $0"
-	/bin/mv -f "$KEYCHAIN" "$KEYCHAIN.$NOW" 2>/dev/null
-	/bin/mv -f "$KEY" "$KEY.$NOW" 2>/dev/null
 	/usr/sbin/systemkeychain -C -f
 fi
 

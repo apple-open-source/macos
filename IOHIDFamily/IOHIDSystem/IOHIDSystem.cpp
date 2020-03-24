@@ -31,6 +31,7 @@
 #include "IOHIDEvent.h"
 #include <IOKit/system.h>
 #include <IOKit/assert.h>
+#include <IOKit/IOReporter.h>
 
 #include <libkern/c++/OSContainers.h>
 #include <libkern/c++/OSCollectionIterator.h>

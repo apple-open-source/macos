@@ -41,6 +41,41 @@
 #define kHIDVendor2ArrayMaskScoreIncrement  925
 #define kHIDVendor3ScoreIncrement           100
 
+
+IOFixed getFixedValue(uint32_t value, uint32_t unit, uint32_t exponent)
+{
+    int64_t  orgValue   = (int64_t)value;
+    IOFixed returnValue     = 0;
+
+    uint32_t numExp   = 1;
+    uint32_t denomExp = 1;
+    int resExponent  = exponent & 0x0F;
+
+    // Value in MM
+    switch (unit) {
+       case 0x11:
+           // cm to mm
+           orgValue = orgValue * 10;
+           break;
+       default: {
+           return (IOFixed)orgValue;
+       }
+    }
+
+    if (resExponent < 8) {
+       for (int i = resExponent; i > 0; i--) {
+           numExp *=  10;
+       }
+    } else {
+       for (int i = 0x10 - resExponent; i > 0; i--) {
+           denomExp *= 10;
+       }
+    }
+
+    returnValue = (IOFixed)(((orgValue << 16) / denomExp) * numExp);
+    return returnValue;
+}
+
 //---------------------------------------------------------------------------
 // Compare the properties in the supplied table to this object's properties.
 bool CompareProperty( IOService * owner, OSDictionary * matching, const char * key, SInt32 * score, SInt32 increment)

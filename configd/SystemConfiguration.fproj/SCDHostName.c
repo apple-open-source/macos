@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2011, 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2011, 2013-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,6 +35,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFStringDefaultEncoding.h>	// for __CFStringGetUserDefaultEncoding
 #include "SCPreferencesInternal.h"
+#include "SCNetworkConfigurationInternal.h"
 #include "dy_framework.h"
 
 
@@ -227,12 +228,7 @@ SCPreferencesSetComputerName(SCPreferencesRef	prefs,
 		CFDictionaryRemoveValue(newDict, kSCPropSystemComputerNameRegion);
 	}
 
-	if (CFDictionaryGetCount(newDict) > 0) {
-		ok = SCPreferencesPathSetValue(prefs, path, newDict);
-	} else {
-		ok = SCPreferencesPathRemoveValue(prefs, path);
-	}
-
+	ok = __SCNetworkConfigurationSetValue(prefs, path, newDict, FALSE);
 	if (ok) {
 		if (name != NULL) {
 			SC_log(LOG_NOTICE, "attempting to set the computer name to \"%@\"", name);
@@ -327,12 +323,7 @@ SCPreferencesSetHostName(SCPreferencesRef	prefs,
 		CFDictionaryRemoveValue(newDict, kSCPropSystemHostName);
 	}
 
-	if (CFDictionaryGetCount(newDict) > 0) {
-		ok = SCPreferencesPathSetValue(prefs, path, newDict);
-	} else {
-		ok = SCPreferencesPathRemoveValue(prefs, path);
-	}
-
+	ok = __SCNetworkConfigurationSetValue(prefs, path, newDict, FALSE);
 	if (ok) {
 		if (name != NULL) {
 			SC_log(LOG_NOTICE, "attempting to set the host name to \"%@\"", name);
@@ -571,12 +562,7 @@ SCPreferencesSetLocalHostName(SCPreferencesRef	prefs,
 		CFDictionaryRemoveValue(newDict, kSCPropNetLocalHostName);
 	}
 
-	if (CFDictionaryGetCount(newDict) > 0) {
-		ok = SCPreferencesPathSetValue(prefs, path, newDict);
-	} else {
-		ok = SCPreferencesPathRemoveValue(prefs, path);
-	}
-
+	ok = __SCNetworkConfigurationSetValue(prefs, path, newDict, FALSE);
 	if (ok) {
 		if (name != NULL) {
 			SC_log(LOG_NOTICE, "attempting to set the local host name to \"%@\"", name);

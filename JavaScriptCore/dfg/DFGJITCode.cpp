@@ -58,7 +58,7 @@ JITCode* JITCode::dfg()
     return this;
 }
 
-void JITCode::shrinkToFit()
+void JITCode::shrinkToFit(const ConcurrentJSLocker&)
 {
     common.shrinkToFit();
     osrEntry.shrinkToFit();
@@ -76,16 +76,14 @@ void JITCode::reconstruct(
         codeBlock, codeOrigin, minifiedDFG, streamIndex, result);
 }
 
-void JITCode::reconstruct(
-    ExecState* exec, CodeBlock* codeBlock, CodeOrigin codeOrigin, unsigned streamIndex,
-    Operands<Optional<JSValue>>& result)
+void JITCode::reconstruct(CallFrame* callFrame, CodeBlock* codeBlock, CodeOrigin codeOrigin, unsigned streamIndex, Operands<Optional<JSValue>>& result)
 {
     Operands<ValueRecovery> recoveries;
     reconstruct(codeBlock, codeOrigin, streamIndex, recoveries);
     
     result = Operands<Optional<JSValue>>(OperandsLike, recoveries);
     for (size_t i = result.size(); i--;)
-        result[i] = recoveries[i].recover(exec);
+        result[i] = recoveries[i].recover(callFrame);
 }
 
 RegisterSet JITCode::liveRegistersToPreserveAtExceptionHandlingCallSite(CodeBlock* codeBlock, CallSiteIndex callSiteIndex)
@@ -216,7 +214,7 @@ void JITCode::clearOSREntryBlockAndResetThresholds(CodeBlock *dfgCodeBlock)
 { 
     ASSERT(m_osrEntryBlock);
 
-    unsigned osrEntryBytecode = m_osrEntryBlock->jitCode()->ftlForOSREntry()->bytecodeIndex();
+    BytecodeIndex osrEntryBytecode = m_osrEntryBlock->jitCode()->ftlForOSREntry()->bytecodeIndex();
     m_osrEntryBlock.clear();
     osrEntryRetry = 0;
     tierUpEntryTriggers.set(osrEntryBytecode, JITCode::TriggerReason::DontTrigger);

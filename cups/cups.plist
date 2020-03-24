@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2019-07-16</string>
+		<string>2019-11-18</string>
 		<key>OpenSourceLicense</key>
 		<string>ASL2</string>
 		<key>OpenSourceLicenseFile</key>
@@ -19,9 +19,9 @@
 		<key>OpenSourceURL</key>
 		<string>https://github.com/apple/cups/releases</string>
 		<key>OpenSourceVersion</key>
-		<string>2.3.0</string>
+		<string>2.3.1</string>
 		<key>OpenSourceRevision</key>
-		<string>6647894889968030cfe8f567fb3a9ab410d8f1ea</string>
+		<string>56ba2f512297cff5cc629aa920b0b3858bfa304e</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>https://www.cups.org/</string>
 	</dict>

@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2018 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2019 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2007 Maks Orlovich
  *  Copyright (C) 2007 Eric Seidel <eric@webkit.org>
@@ -27,6 +27,7 @@
 
 #include "BytecodeIntrinsicRegistry.h"
 #include "JITCode.h"
+#include "Label.h"
 #include "ParserArena.h"
 #include "ParserModes.h"
 #include "ParserTokens.h"
@@ -45,7 +46,6 @@ namespace JSC {
     class BytecodeGenerator;
     class FunctionMetadataNode;
     class FunctionParameters;
-    class Label;
     class ModuleAnalyzer;
     class ModuleScopeData;
     class PropertyListNode;
@@ -128,8 +128,9 @@ namespace JSC {
     private: \
         typedef int __thisIsHereToForceASemicolonAfterThisMacro
 
+    DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ParserArenaRoot);
     class ParserArenaRoot {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ParserArenaRoot);
     protected:
         ParserArenaRoot(ParserArena&);
 
@@ -205,6 +206,8 @@ namespace JSC {
         virtual bool isBytecodeIntrinsicNode() const { return false; }
         virtual bool isBinaryOpNode() const { return false; }
         virtual bool isFunctionCall() const { return false; }
+        virtual bool isDeleteNode() const { return false; }
+        virtual bool isOptionalChain() const { return false; }
 
         virtual void emitBytecodeInConditionContext(BytecodeGenerator&, Label&, Label&, FallThroughMode);
 
@@ -212,8 +215,12 @@ namespace JSC {
 
         ResultType resultDescriptor() const { return m_resultType; }
 
+        bool isOptionalChainBase() const { return m_isOptionalChainBase; }
+        void setIsOptionalChainBase() { m_isOptionalChainBase = true; }
+
     private:
         ResultType m_resultType;
+        bool m_isOptionalChainBase { false };
     };
 
     class StatementNode : public Node {
@@ -938,14 +945,12 @@ namespace JSC {
             Function
         };
 
-        typedef RegisterID* (BytecodeIntrinsicNode::* EmitterType)(BytecodeGenerator&, RegisterID*);
-
-        BytecodeIntrinsicNode(Type, const JSTokenLocation&, EmitterType, const Identifier&, ArgumentsNode*, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
+        BytecodeIntrinsicNode(Type, const JSTokenLocation&, BytecodeIntrinsicRegistry::Entry, const Identifier&, ArgumentsNode*, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
 
         bool isBytecodeIntrinsicNode() const override { return true; }
 
         Type type() const { return m_type; }
-        EmitterType emitter() const { return m_emitter; }
+        BytecodeIntrinsicRegistry::Entry entry() const { return m_entry; }
         const Identifier& identifier() const { return m_ident; }
 
 #define JSC_DECLARE_BYTECODE_INTRINSIC_FUNCTIONS(name) RegisterID* emit_intrinsic_##name(BytecodeGenerator&, RegisterID*);
@@ -958,7 +963,7 @@ namespace JSC {
 
         bool isFunctionCall() const override { return m_type == Type::Function; }
 
-        EmitterType m_emitter;
+        BytecodeIntrinsicRegistry::Entry m_entry;
         const Identifier& m_ident;
         ArgumentsNode* m_args;
         Type m_type;
@@ -989,6 +994,8 @@ namespace JSC {
     private:
         RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = 0) override;
 
+        bool isDeleteNode() const final { return true; }
+
         const Identifier& m_ident;
     };
 
@@ -998,6 +1005,8 @@ namespace JSC {
 
     private:
         RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = 0) override;
+
+        bool isDeleteNode() const final { return true; }
 
         ExpressionNode* m_base;
         ExpressionNode* m_subscript;
@@ -1010,6 +1019,8 @@ namespace JSC {
     private:
         RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = 0) override;
 
+        bool isDeleteNode() const final { return true; }
+
         ExpressionNode* m_base;
         const Identifier& m_ident;
     };
@@ -1020,6 +1031,8 @@ namespace JSC {
 
     private:
         RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = 0) override;
+
+        bool isDeleteNode() const final { return true; }
 
         ExpressionNode* m_expr;
     };
@@ -1303,6 +1316,34 @@ namespace JSC {
         LogicalOperator m_operator;
         ExpressionNode* m_expr1;
         ExpressionNode* m_expr2;
+    };
+
+    class CoalesceNode final : public ExpressionNode {
+    public:
+        CoalesceNode(const JSTokenLocation&, ExpressionNode* expr1, ExpressionNode* expr2, bool);
+
+    private:
+        RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = nullptr) final;
+
+        ExpressionNode* m_expr1;
+        ExpressionNode* m_expr2;
+        bool m_hasAbsorbedOptionalChain;
+    };
+
+    class OptionalChainNode final : public ExpressionNode {
+    public:
+        OptionalChainNode(const JSTokenLocation&, ExpressionNode*, bool);
+
+        void setExpr(ExpressionNode* expr) { m_expr = expr; }
+        ExpressionNode* expr() const { return m_expr; }
+
+    private:
+        RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = nullptr) final;
+
+        bool isOptionalChain() const final { return true; }
+
+        ExpressionNode* m_expr;
+        bool m_isOutermost;
     };
 
     // The ternary operator, "m_logical ? m_expr1 : m_expr2"
@@ -1757,6 +1798,11 @@ namespace JSC {
         bool captures(const Identifier& ident) { return captures(ident.impl()); }
         bool hasSloppyModeHoistedFunction(UniquedStringImpl* uid) const { return m_sloppyModeHoistedFunctions.contains(uid); }
 
+        bool needsNewTargetRegisterForThisScope() const
+        {
+            return usesSuperCall() || usesNewTarget();
+        }
+
         VariableEnvironment& varDeclarations() { return m_varDeclarations; }
 
         int neededConstants()
@@ -1797,7 +1843,7 @@ namespace JSC {
         unsigned startColumn() const { return m_startColumn; }
         unsigned endColumn() const { return m_endColumn; }
 
-        static const bool scopeIsFunction = false;
+        static constexpr bool scopeIsFunction = false;
 
     private:
         void emitBytecode(BytecodeGenerator&, RegisterID* = 0) override;
@@ -1812,7 +1858,7 @@ namespace JSC {
         ALWAYS_INLINE unsigned startColumn() const { return 0; }
         unsigned endColumn() const { return m_endColumn; }
 
-        static const bool scopeIsFunction = false;
+        static constexpr bool scopeIsFunction = false;
 
     private:
         void emitBytecode(BytecodeGenerator&, RegisterID* = 0) override;
@@ -1827,7 +1873,7 @@ namespace JSC {
         unsigned startColumn() const { return m_startColumn; }
         unsigned endColumn() const { return m_endColumn; }
 
-        static const bool scopeIsFunction = false;
+        static constexpr bool scopeIsFunction = false;
 
         ModuleScopeData& moduleScopeData()
         {
@@ -2084,7 +2130,7 @@ namespace JSC {
         unsigned startColumn() const { return m_startColumn; }
         unsigned endColumn() const { return m_endColumn; }
 
-        static const bool scopeIsFunction = true;
+        static constexpr bool scopeIsFunction = true;
 
     private:
         Identifier m_ident;
@@ -2445,7 +2491,7 @@ namespace JSC {
 
     private:
         SwitchInfo::SwitchType tryTableSwitch(Vector<ExpressionNode*, 8>& literalVector, int32_t& min_num, int32_t& max_num);
-        static const size_t s_tableSwitchMinimum = 3;
+        static constexpr size_t s_tableSwitchMinimum = 3;
         ClauseListNode* m_list1;
         CaseClauseNode* m_defaultClause;
         ClauseListNode* m_list2;

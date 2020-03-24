@@ -27,8 +27,10 @@
 
 #include "MessageReceiver.h"
 #include "NetworkProcessSupplement.h"
+#include "WebPageProxyIdentifier.h"
 #include "WebProcessSupplement.h"
 #include <WebCore/AuthenticationChallenge.h>
+#include <WebCore/FrameIdentifier.h>
 #include <WebCore/PageIdentifier.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
@@ -39,9 +41,14 @@ namespace IPC {
 class MessageSender;
 }
 
+namespace PAL {
+class SessionID;
+}
+
 namespace WebCore {
 class AuthenticationChallenge;
 class Credential;
+struct SecurityOriginData;
 }
 
 namespace WebKit {
@@ -50,27 +57,29 @@ class Download;
 class DownloadID;
 class NetworkProcess;
 class WebFrame;
+enum class NegotiatedLegacyTLS : bool { No, Yes };
 
 enum class AuthenticationChallengeDisposition : uint8_t;
 using ChallengeCompletionHandler = CompletionHandler<void(AuthenticationChallengeDisposition, const WebCore::Credential&)>;
 
 class AuthenticationManager : public NetworkProcessSupplement, public IPC::MessageReceiver, public CanMakeWeakPtr<AuthenticationManager> {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(AuthenticationManager);
 public:
     explicit AuthenticationManager(NetworkProcess&);
 
     static const char* supplementName();
 
-    void didReceiveAuthenticationChallenge(WebCore::PageIdentifier, uint64_t frameID, const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler&&);
+    void didReceiveAuthenticationChallenge(PAL::SessionID, WebPageProxyIdentifier, const WebCore::SecurityOriginData* , const WebCore::AuthenticationChallenge&, NegotiatedLegacyTLS, ChallengeCompletionHandler&&);
     void didReceiveAuthenticationChallenge(IPC::MessageSender& download, const WebCore::AuthenticationChallenge&, ChallengeCompletionHandler&&);
 
     void completeAuthenticationChallenge(uint64_t challengeID, AuthenticationChallengeDisposition, WebCore::Credential&&);
 
-    uint64_t outstandingAuthenticationChallengeCount() const { return m_challenges.size(); }
+    void negotiatedLegacyTLS(WebPageProxyIdentifier) const;
 
 private:
     struct Challenge {
-        WebCore::PageIdentifier pageID;
+        WebPageProxyIdentifier pageID;
         WebCore::AuthenticationChallenge challenge;
         ChallengeCompletionHandler completionHandler;
     };
@@ -84,7 +93,7 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     uint64_t addChallengeToChallengeMap(Challenge&&);
-    bool shouldCoalesceChallenge(WebCore::PageIdentifier, uint64_t challengeID, const WebCore::AuthenticationChallenge&) const;
+    bool shouldCoalesceChallenge(WebPageProxyIdentifier, uint64_t challengeID, const WebCore::AuthenticationChallenge&) const;
 
     Vector<uint64_t> coalesceChallengesMatching(uint64_t challengeID) const;
 

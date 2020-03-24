@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011, 2015 Google Inc. All rights reserved.
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,7 +39,7 @@
 #include "Page.h"
 #include "SWContextManager.h"
 #include "ServiceWorkerGlobalScope.h"
-#include "WheelEventTestTrigger.h"
+#include "WheelEventTestMonitor.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/CallFrame.h>
 #include <JavaScriptCore/IdentifierInlines.h>
@@ -56,22 +56,23 @@ using namespace WebCore;
 
 void injectInternalsObject(JSContextRef context)
 {
-    ExecState* exec = toJS(context);
-    JSLockHolder lock(exec);
-    JSDOMGlobalObject* globalObject = jsCast<JSDOMGlobalObject*>(exec->lexicalGlobalObject());
+    JSGlobalObject* lexicalGlobalObject = toJS(context);
+    VM& vm = lexicalGlobalObject->vm();
+    JSLockHolder lock(vm);
+    JSDOMGlobalObject* globalObject = jsCast<JSDOMGlobalObject*>(lexicalGlobalObject);
     ScriptExecutionContext* scriptContext = globalObject->scriptExecutionContext();
     if (is<Document>(*scriptContext)) {
-        VM& vm = exec->vm();
-        globalObject->putDirect(vm, Identifier::fromString(&vm, Internals::internalsId), toJS(exec, globalObject, Internals::create(downcast<Document>(*scriptContext))));
+        globalObject->putDirect(vm, Identifier::fromString(vm, Internals::internalsId), toJS(lexicalGlobalObject, globalObject, Internals::create(downcast<Document>(*scriptContext))));
+        Options::useDollarVM() = true;
         globalObject->exposeDollarVM(vm);
     }
 }
 
 void resetInternalsObject(JSContextRef context)
 {
-    ExecState* exec = toJS(context);
-    JSLockHolder lock(exec);
-    JSDOMGlobalObject* globalObject = jsCast<JSDOMGlobalObject*>(exec->lexicalGlobalObject());
+    JSGlobalObject* lexicalGlobalObject = toJS(context);
+    JSLockHolder lock(lexicalGlobalObject);
+    JSDOMGlobalObject* globalObject = jsCast<JSDOMGlobalObject*>(lexicalGlobalObject);
     ScriptExecutionContext* scriptContext = globalObject->scriptExecutionContext();
     Page* page = downcast<Document>(scriptContext)->frame()->page();
     Internals::resetToConsistentState(*page);
@@ -84,30 +85,30 @@ void monitorWheelEvents(WebCore::Frame& frame)
     if (!page)
         return;
 
-    page->ensureTestTrigger();
+    page->ensureWheelEventTestMonitor();
 }
 
 void setTestCallbackAndStartNotificationTimer(WebCore::Frame& frame, JSContextRef context, JSObjectRef jsCallbackFunction)
 {
     Page* page = frame.page();
-    if (!page || !page->expectsWheelEventTriggers())
+    if (!page || !page->isMonitoringWheelEvents())
         return;
 
     JSValueProtect(context, jsCallbackFunction);
     
-    page->ensureTestTrigger().setTestCallbackAndStartNotificationTimer([=](void) {
+    page->ensureWheelEventTestMonitor().setTestCallbackAndStartNotificationTimer([=](void) {
         JSObjectCallAsFunction(context, jsCallbackFunction, nullptr, 0, nullptr, nullptr);
         JSValueUnprotect(context, jsCallbackFunction);
     });
 }
 
-void clearWheelEventTestTrigger(WebCore::Frame& frame)
+void clearWheelEventTestMonitor(WebCore::Frame& frame)
 {
     Page* page = frame.page();
     if (!page)
         return;
     
-    page->clearTrigger();
+    page->clearWheelEventTestMonitor();
 }
 
 void setLogChannelToAccumulate(const String& name)
@@ -116,6 +117,13 @@ void setLogChannelToAccumulate(const String& name)
     WebCore::setLogChannelToAccumulate(name);
 #else
     UNUSED_PARAM(name);
+#endif
+}
+
+void clearAllLogChannelsToAccumulate()
+{
+#if !LOG_DISABLED
+    WebCore::clearAllLogChannelsToAccumulate();
 #endif
 }
 
@@ -200,9 +208,10 @@ void setupNewlyCreatedServiceWorker(uint64_t serviceWorkerIdentifier)
             return;
 
         auto& state = *globalScope.execState();
-        JSLockHolder locker(state.vm());
+        auto& vm = state.vm();
+        JSLockHolder locker(vm);
         auto* contextWrapper = script->workerGlobalScopeWrapper();
-        contextWrapper->putDirect(state.vm(), Identifier::fromString(&state, Internals::internalsId), toJS(&state, contextWrapper, ServiceWorkerInternals::create(identifier)));
+        contextWrapper->putDirect(vm, Identifier::fromString(vm, Internals::internalsId), toJS(&state, contextWrapper, ServiceWorkerInternals::create(identifier)));
     });
 #else
     UNUSED_PARAM(serviceWorkerIdentifier);

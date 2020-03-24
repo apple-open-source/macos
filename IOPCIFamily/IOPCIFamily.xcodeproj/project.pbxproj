@@ -7,6 +7,74 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		9808E63A234E4C9200F4FC53 /* IOPCIFamily_macOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 9808E641234E4C9200F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_macOS" */;
+			buildPhases = (
+			);
+			dependencies = (
+				9807B1E62367C592005B29F6 /* PBXTargetDependency */,
+				9874FC43234E74EA00096401 /* PBXTargetDependency */,
+			);
+			name = IOPCIFamily_macOS;
+			productName = IOPCIFamily_macOS;
+		};
+		9808E642234E4CA900F4FC53 /* IOPCIFamily_iOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 9808E643234E4CA900F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_iOS" */;
+			buildPhases = (
+			);
+			dependencies = (
+				9874FC50234E80A600096401 /* PBXTargetDependency */,
+			);
+			name = IOPCIFamily_iOS;
+			productName = IOPCIFamily_iOS;
+		};
+		9808E649234E4CBE00F4FC53 /* IOPCIFamily_watchOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 9808E64A234E4CBE00F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_watchOS" */;
+			buildPhases = (
+			);
+			dependencies = (
+				9874FC47234E750200096401 /* PBXTargetDependency */,
+			);
+			name = IOPCIFamily_watchOS;
+			productName = IOPCIFamily_watchOS;
+		};
+		9808E650234E4CEE00F4FC53 /* IOPCIFamily_bridgeOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 9808E651234E4CEE00F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_bridgeOS" */;
+			buildPhases = (
+			);
+			dependencies = (
+				9874FC49234E752E00096401 /* PBXTargetDependency */,
+			);
+			name = IOPCIFamily_bridgeOS;
+			productName = IOPCIFamily_bridgeOS;
+		};
+		9808E657234E4D0F00F4FC53 /* IOPCIFamily_tvOS */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 9808E658234E4D0F00F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_tvOS" */;
+			buildPhases = (
+			);
+			dependencies = (
+				9874FC4B234E753A00096401 /* PBXTargetDependency */,
+			);
+			name = IOPCIFamily_tvOS;
+			productName = IOPCIFamily_tvOS;
+		};
+		9808E65E234E4D5B00F4FC53 /* IOPCIFamily_DriverKit */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 9808E65F234E4D5C00F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_DriverKit" */;
+			buildPhases = (
+			);
+			dependencies = (
+				98B022F5235156E7003AE82B /* PBXTargetDependency */,
+				98E0BEF1237C74CA009E695F /* PBXTargetDependency */,
+			);
+			name = IOPCIFamily_DriverKit;
+			productName = IOPCIFamily_driverkit;
+		};
 		A613B2A50D46AA65007BA726 /* AppleSamplePCI */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = A613B2A70D46AA65007BA726 /* Build configuration list for PBXAggregateTarget "AppleSamplePCI" */;
@@ -21,37 +89,94 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		A613B27C0D46AA65007BA726 /* IOPCIConfigurator.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
-		A613B27D0D46AA65007BA726 /* IOPCIPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
+		9807B1EA2367CA7E005B29F6 /* driverKit.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 9807B1E92367CA7E005B29F6 /* driverKit.xcconfig */; };
+		9831214723A09E550043A189 /* PEX8733Definitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 9831214623A09E550043A189 /* PEX8733Definitions.h */; };
+		984A9E06235D1E9900EFD510 /* IOPCIDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 984A9E05235D1E9900EFD510 /* IOPCIDevice.cpp */; };
+		984D5C572361662C0073E2CD /* IOPCIDevice.iig in Sources */ = {isa = PBXBuildFile; fileRef = 98CFE2A5234FA35800E9B02A /* IOPCIDevice.iig */; };
+		9874FC53234E9ECB00096401 /* IOAGPDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		9874FC54234E9ED900096401 /* IOPCIBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1085033AA50A03CA2A5F /* IOPCIBridge.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		9874FC55234E9EE300096401 /* IOPCIDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		9874FC74234EA7A800096401 /* IOPCIPrivate.h in Copy IOKit.framework User Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
+		9874FC75234EA7A800096401 /* IOPCIDevice.h in Copy IOKit.framework User Headers */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
+		9876A93C236131D7000531FC /* PCIDriverKitPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 9876A93B236131D7000531FC /* PCIDriverKitPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		9876A93D236131F4000531FC /* PCIDriverKitPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 9876A93B236131D7000531FC /* PCIDriverKitPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		9876A96623616B52000531FC /* IOPCIFamilyDefinitions.h in Copy IOKit.framework User Headers */ = {isa = PBXBuildFile; fileRef = 98B353A5235E950200CFFDBC /* IOPCIFamilyDefinitions.h */; };
+		987ECFC12368B0C100792271 /* DriverKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9874FC71234EA69F00096401 /* DriverKit.framework */; };
+		987ECFC42368B0C100792271 /* PCIDriverKitPEX8733.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 987ECFC32368B0C100792271 /* PCIDriverKitPEX8733.cpp */; };
+		987ECFC62368B0C100792271 /* PCIDriverKitPEX8733.iig in Sources */ = {isa = PBXBuildFile; fileRef = 987ECFC52368B0C100792271 /* PCIDriverKitPEX8733.iig */; };
+		987ECFD02368B11500792271 /* PCIDriverKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98CFE299234FA1F900E9B02A /* PCIDriverKit.framework */; };
+		98B353A6235E950200CFFDBC /* IOPCIFamilyDefinitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 98B353A5235E950200CFFDBC /* IOPCIFamilyDefinitions.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		98B353A7235E950200CFFDBC /* IOPCIFamilyDefinitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 98B353A5235E950200CFFDBC /* IOPCIFamilyDefinitions.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		98CFE29D234FA1F900E9B02A /* PCIDriverKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 98CFE29B234FA1F900E9B02A /* PCIDriverKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		98CFE2A7234FA35800E9B02A /* IOPCIDevice.iig in Sources */ = {isa = PBXBuildFile; fileRef = 98CFE2A5234FA35800E9B02A /* IOPCIDevice.iig */; settings = {ATTRIBUTES = (Public, ); }; };
+		98CFE2AC234FA80600E9B02A /* DriverKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9874FC71234EA69F00096401 /* DriverKit.framework */; };
+		A613B27C0D46AA65007BA726 /* IOPCIConfigurator.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A613B27D0D46AA65007BA726 /* IOPCIPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		A613B2800D46AA65007BA726 /* IOPCIBridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */; };
 		A613B2810D46AA65007BA726 /* IOPCIDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */; };
 		A613B2820D46AA65007BA726 /* IOPCIDeviceI386.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */; };
 		A613B2840D46AA65007BA726 /* IOPCIConfigurator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1590524609368A190010639A /* IOPCIConfigurator.cpp */; };
-		A613B2900D46AA65007BA726 /* IOAGPDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */; };
-		A613B2910D46AA65007BA726 /* IOPCIBridge.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1085033AA50A03CA2A5F /* IOPCIBridge.h */; };
-		A613B2920D46AA65007BA726 /* IOPCIDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
-		A613B2930D46AA65007BA726 /* IOPCIConfigurator.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
-		A613B2940D46AA65007BA726 /* IOPCIPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
-		A613B2990D46AA65007BA726 /* IOAGPDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */; };
-		A613B29A0D46AA65007BA726 /* IOPCIBridge.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1085033AA50A03CA2A5F /* IOPCIBridge.h */; };
-		A613B29B0D46AA65007BA726 /* IOPCIDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
-		A613B29D0D46AA65007BA726 /* IOPCIConfigurator.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */; };
-		A613B29E0D46AA65007BA726 /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
-		A6287C1A2166E94F0091A0F5 /* IOPCIDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6287C192166E94F0091A0F5 /* IOPCIDevice.h */; };
-		A637FAF40F2FE2B80008E04C /* IOPCIPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */; };
 		A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */; };
 		A6849D13126539090033F95C /* IOPCIRange.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A6849D12126539090033F95C /* IOPCIRange.cpp */; };
-		A6CFCA001C56ED2C0035C68E /* IOPCIDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 03DB1086033AA50A03CA2A5F /* IOPCIDevice.h */; };
 		B1BA52AC15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B1BA52AB15DF1B1A00C147D3 /* IOPCIMessagedInterruptController.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		A613B2AB0D46AA65007BA726 /* PBXContainerItemProxy */ = {
+		9807B1E52367C592005B29F6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = A613B28E0D46AA65007BA726;
-			remoteInfo = "IOPCIFamily Headers (Upgraded)";
+			remoteGlobalIDString = 98CFE298234FA1F900E9B02A;
+			remoteInfo = PCIDriverKit;
+		};
+		9874FC42234E74EA00096401 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A613B2750D46AA65007BA726;
+			remoteInfo = IOPCIFamily;
+		};
+		9874FC46234E750200096401 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A613B2750D46AA65007BA726;
+			remoteInfo = IOPCIFamily;
+		};
+		9874FC48234E752E00096401 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A613B2750D46AA65007BA726;
+			remoteInfo = IOPCIFamily;
+		};
+		9874FC4A234E753A00096401 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A613B2750D46AA65007BA726;
+			remoteInfo = IOPCIFamily;
+		};
+		9874FC4F234E80A600096401 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A613B2750D46AA65007BA726;
+			remoteInfo = IOPCIFamily;
+		};
+		98B022F4235156E7003AE82B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 98CFE298234FA1F900E9B02A;
+			remoteInfo = PCIDriverKit;
+		};
+		98E0BEF0237C74CA009E695F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 987ECFBF2368B0C100792271;
+			remoteInfo = PCIDriverKitPEX8733;
 		};
 		A6F210D30A78022400875EC6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -63,48 +188,17 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		A613B2980D46AA65007BA726 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/pci";
-			dstSubfolderSpec = 0;
-			files = (
-				A613B2990D46AA65007BA726 /* IOAGPDevice.h in CopyFiles */,
-				A613B29A0D46AA65007BA726 /* IOPCIBridge.h in CopyFiles */,
-				A613B29B0D46AA65007BA726 /* IOPCIDevice.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		A613B29C0D46AA65007BA726 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 12;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/pci";
-			dstSubfolderSpec = 0;
-			files = (
-				A613B29D0D46AA65007BA726 /* IOPCIConfigurator.h in CopyFiles */,
-				A613B29E0D46AA65007BA726 /* IOPCIPrivate.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A6287C182166E83F0091A0F5 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKitUser";
-			dstSubfolderSpec = 0;
-			files = (
-				A6287C1A2166E94F0091A0F5 /* IOPCIDevice.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		A637FAF30F2FE2630008E04C /* CopyFiles */ = {
+		9874FC73234EA77900096401 /* Copy IOKit.framework User Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/pci";
 			dstSubfolderSpec = 0;
 			files = (
-				A6CFCA001C56ED2C0035C68E /* IOPCIDevice.h in CopyFiles */,
-				A637FAF40F2FE2B80008E04C /* IOPCIPrivate.h in CopyFiles */,
+				9876A96623616B52000531FC /* IOPCIFamilyDefinitions.h in Copy IOKit.framework User Headers */,
+				9874FC74234EA7A800096401 /* IOPCIPrivate.h in Copy IOKit.framework User Headers */,
+				9874FC75234EA7A800096401 /* IOPCIDevice.h in Copy IOKit.framework User Headers */,
 			);
+			name = "Copy IOKit.framework User Headers";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -117,11 +211,24 @@
 		4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIBridge.cpp; sourceTree = "<group>"; };
 		4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDevice.cpp; sourceTree = "<group>"; };
 		4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDeviceI386.cpp; sourceTree = "<group>"; };
+		9807B1E92367CA7E005B29F6 /* driverKit.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = driverKit.xcconfig; sourceTree = "<group>"; };
+		9831214623A09E550043A189 /* PEX8733Definitions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PEX8733Definitions.h; sourceTree = "<group>"; };
+		984A9E05235D1E9900EFD510 /* IOPCIDevice.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDevice.cpp; sourceTree = "<group>"; };
+		9874FC71234EA69F00096401 /* DriverKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DriverKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/DriverKit19.0.sdk/System/DriverKit/System/Library/Frameworks/DriverKit.framework; sourceTree = DEVELOPER_DIR; };
+		9876A93B236131D7000531FC /* PCIDriverKitPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PCIDriverKitPrivate.h; sourceTree = "<group>"; };
+		987ECFC02368B0C100792271 /* com.apple.PCIDriverKitPEX8733.dext */ = {isa = PBXFileReference; explicitFileType = "wrapper.driver-extension"; includeInIndex = 0; path = com.apple.PCIDriverKitPEX8733.dext; sourceTree = BUILT_PRODUCTS_DIR; };
+		987ECFC32368B0C100792271 /* PCIDriverKitPEX8733.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PCIDriverKitPEX8733.cpp; sourceTree = "<group>"; };
+		987ECFC52368B0C100792271 /* PCIDriverKitPEX8733.iig */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.iig; path = PCIDriverKitPEX8733.iig; sourceTree = "<group>"; };
+		987ECFC72368B0C100792271 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		987ECFC82368B0C100792271 /* PCIDriverKitPEX8733.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PCIDriverKitPEX8733.entitlements; sourceTree = "<group>"; };
+		98B353A5235E950200CFFDBC /* IOPCIFamilyDefinitions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOPCIFamilyDefinitions.h; sourceTree = "<group>"; };
+		98CFE299234FA1F900E9B02A /* PCIDriverKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PCIDriverKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		98CFE29B234FA1F900E9B02A /* PCIDriverKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PCIDriverKit.h; sourceTree = "<group>"; };
+		98CFE29C234FA1F900E9B02A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		98CFE2A5234FA35800E9B02A /* IOPCIDevice.iig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.iig; path = IOPCIDevice.iig; sourceTree = "<group>"; };
+		98CFE2A8234FA36000E9B02A /* iigFramework.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = iigFramework.sh; sourceTree = "<group>"; };
 		A613B28C0D46AA65007BA726 /* Info-IOPCIFamily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOPCIFamily.plist"; sourceTree = "<group>"; };
 		A613B28D0D46AA65007BA726 /* IOPCIFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOPCIFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		A613B2A30D46AA65007BA726 /* IOPCIFamily Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IOPCIFamily Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
-		A6287C172166E8230091A0F5 /* Gravity */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Gravity; path = /Volumes/Disk/sandbox/IOPCIFamily/Gravity; sourceTree = "<absolute>"; };
-		A6287C192166E94F0091A0F5 /* IOPCIDevice.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = IOPCIDevice.h; path = Gravity/Headers/IOKitUser/IOPCIDevice.h; sourceTree = "<group>"; };
 		A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDeviceMappedIO.cpp; sourceTree = "<group>"; };
 		A6849D12126539090033F95C /* IOPCIRange.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIRange.cpp; sourceTree = "<group>"; };
 		A6C9653C2058A50E00C7FBBE /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
@@ -137,6 +244,23 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		987ECFBD2368B0C100792271 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				987ECFD02368B11500792271 /* PCIDriverKit.framework in Frameworks */,
+				987ECFC12368B0C100792271 /* DriverKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		98CFE296234FA1F900E9B02A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				98CFE2AC234FA80600E9B02A /* DriverKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A613B2850D46AA65007BA726 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -158,6 +282,7 @@
 		03DB1083033AA50A03CA2A5F /* pci */ = {
 			isa = PBXGroup;
 			children = (
+				98B353A5235E950200CFFDBC /* IOPCIFamilyDefinitions.h */,
 				A6DD8EEE0937A0EC000A918D /* IOPCIConfigurator.h */,
 				A6DD8EEF0937A0EC000A918D /* IOPCIPrivate.h */,
 				03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */,
@@ -170,12 +295,15 @@
 		089C166AFE841209C02AAC07 /* IOPCIFamily */ = {
 			isa = PBXGroup;
 			children = (
-				A6287C192166E94F0091A0F5 /* IOPCIDevice.h */,
 				A6C9653C2058A50E00C7FBBE /* kext.xcconfig */,
+				9807B1E92367CA7E005B29F6 /* driverKit.xcconfig */,
 				A6F210C00A78022400875EC6 /* AppleSamplePCI */,
 				247142CAFF3F8F9811CA285C /* Source */,
+				98CFE29A234FA1F900E9B02A /* PCIDriverKit */,
+				987ECFC22368B0C100792271 /* PEX8733 */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 				A613B28C0D46AA65007BA726 /* Info-IOPCIFamily.plist */,
+				9874FC70234EA69F00096401 /* Frameworks */,
 			);
 			name = IOPCIFamily;
 			sourceTree = "<group>";
@@ -184,7 +312,8 @@
 			isa = PBXGroup;
 			children = (
 				A613B28D0D46AA65007BA726 /* IOPCIFamily.kext */,
-				A613B2A30D46AA65007BA726 /* IOPCIFamily Headers */,
+				98CFE299234FA1F900E9B02A /* PCIDriverKit.framework */,
+				987ECFC02368B0C100792271 /* com.apple.PCIDriverKitPEX8733.dext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -199,10 +328,50 @@
 				4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */,
 				4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */,
 				A655D6E40E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp */,
-				A6287C172166E8230091A0F5 /* Gravity */,
 				03DB1082033AA50A03CA2A5F /* IOKit */,
 			);
 			name = Source;
+			sourceTree = "<group>";
+		};
+		9874FC70234EA69F00096401 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				9874FC71234EA69F00096401 /* DriverKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		987ECFC22368B0C100792271 /* PEX8733 */ = {
+			isa = PBXGroup;
+			children = (
+				9831214623A09E550043A189 /* PEX8733Definitions.h */,
+				98AC326923BFEC03000EEE46 /* PCIDriverKitPEX8733 */,
+			);
+			path = PEX8733;
+			sourceTree = "<group>";
+		};
+		98AC326923BFEC03000EEE46 /* PCIDriverKitPEX8733 */ = {
+			isa = PBXGroup;
+			children = (
+				987ECFC52368B0C100792271 /* PCIDriverKitPEX8733.iig */,
+				987ECFC32368B0C100792271 /* PCIDriverKitPEX8733.cpp */,
+				987ECFC72368B0C100792271 /* Info.plist */,
+				987ECFC82368B0C100792271 /* PCIDriverKitPEX8733.entitlements */,
+			);
+			path = PCIDriverKitPEX8733;
+			sourceTree = "<group>";
+		};
+		98CFE29A234FA1F900E9B02A /* PCIDriverKit */ = {
+			isa = PBXGroup;
+			children = (
+				98CFE29B234FA1F900E9B02A /* PCIDriverKit.h */,
+				9876A93B236131D7000531FC /* PCIDriverKitPrivate.h */,
+				98CFE2A5234FA35800E9B02A /* IOPCIDevice.iig */,
+				984A9E05235D1E9900EFD510 /* IOPCIDevice.cpp */,
+				98CFE29C234FA1F900E9B02A /* Info.plist */,
+				98CFE2A8234FA36000E9B02A /* iigFramework.sh */,
+			);
+			path = PCIDriverKit;
 			sourceTree = "<group>";
 		};
 		A6F210C00A78022400875EC6 /* AppleSamplePCI */ = {
@@ -229,36 +398,88 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		987ECFBB2368B0C100792271 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9831214723A09E550043A189 /* PEX8733Definitions.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		98CFE294234FA1F900E9B02A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				98B353A7235E950200CFFDBC /* IOPCIFamilyDefinitions.h in Headers */,
+				9876A93C236131D7000531FC /* PCIDriverKitPrivate.h in Headers */,
+				98CFE29D234FA1F900E9B02A /* PCIDriverKit.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A613B27B0D46AA65007BA726 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9874FC55234E9EE300096401 /* IOPCIDevice.h in Headers */,
+				9874FC54234E9ED900096401 /* IOPCIBridge.h in Headers */,
+				98B353A6235E950200CFFDBC /* IOPCIFamilyDefinitions.h in Headers */,
+				9874FC53234E9ECB00096401 /* IOAGPDevice.h in Headers */,
 				A613B27C0D46AA65007BA726 /* IOPCIConfigurator.h in Headers */,
 				A613B27D0D46AA65007BA726 /* IOPCIPrivate.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		A613B28F0D46AA65007BA726 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A613B2900D46AA65007BA726 /* IOAGPDevice.h in Headers */,
-				A613B2910D46AA65007BA726 /* IOPCIBridge.h in Headers */,
-				A613B2920D46AA65007BA726 /* IOPCIDevice.h in Headers */,
-				A613B2930D46AA65007BA726 /* IOPCIConfigurator.h in Headers */,
-				A613B2940D46AA65007BA726 /* IOPCIPrivate.h in Headers */,
+				9876A93D236131F4000531FC /* PCIDriverKitPrivate.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		987ECFBF2368B0C100792271 /* PCIDriverKitPEX8733 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 987ECFCF2368B0C100792271 /* Build configuration list for PBXNativeTarget "PCIDriverKitPEX8733" */;
+			buildPhases = (
+				987ECFBB2368B0C100792271 /* Headers */,
+				987ECFBC2368B0C100792271 /* Sources */,
+				987ECFBD2368B0C100792271 /* Frameworks */,
+				987ECFBE2368B0C100792271 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PCIDriverKitPEX8733;
+			productName = PCIDriverKitPEX8733;
+			productReference = 987ECFC02368B0C100792271 /* com.apple.PCIDriverKitPEX8733.dext */;
+			productType = "com.apple.product-type.driver-extension";
+		};
+		98CFE298234FA1F900E9B02A /* PCIDriverKit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 98CFE29E234FA1F900E9B02A /* Build configuration list for PBXNativeTarget "PCIDriverKit" */;
+			buildPhases = (
+				98CFE2A9234FA3A100E9B02A /* Install *.iig files */,
+				98CFE2AA234FA3ED00E9B02A /* Stage Frameworks */,
+				98CFE2AB234FA43600E9B02A /* *.iig Framework */,
+				98CFE294234FA1F900E9B02A /* Headers */,
+				98CFE295234FA1F900E9B02A /* Sources */,
+				98CFE296234FA1F900E9B02A /* Frameworks */,
+				98CFE297234FA1F900E9B02A /* Resources */,
+				9876A98523638FBD000531FC /* Install Kernel.framework Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PCIDriverKit;
+			productName = PCIDriverKit;
+			productReference = 98CFE299234FA1F900E9B02A /* PCIDriverKit.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		A613B2750D46AA65007BA726 /* IOPCIFamily */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A613B2880D46AA65007BA726 /* Build configuration list for PBXNativeTarget "IOPCIFamily" */;
 			buildPhases = (
 				A613B27A0D46AA65007BA726 /* ShellScript */,
 				A613B27B0D46AA65007BA726 /* Headers */,
+				9874FC73234EA77900096401 /* Copy IOKit.framework User Headers */,
 				A613B27E0D46AA65007BA726 /* Resources */,
 				A613B27F0D46AA65007BA726 /* Sources */,
 				A613B2850D46AA65007BA726 /* Frameworks */,
@@ -268,7 +489,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				A613B2AC0D46AA65007BA726 /* PBXTargetDependency */,
 			);
 			name = IOPCIFamily;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -276,38 +496,53 @@
 			productReference = A613B28D0D46AA65007BA726 /* IOPCIFamily.kext */;
 			productType = "com.apple.product-type.kernel-extension.iokit.shallow";
 		};
-		A613B28E0D46AA65007BA726 /* IOPCIFamily Headers */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = A613B29F0D46AA65007BA726 /* Build configuration list for PBXNativeTarget "IOPCIFamily Headers" */;
-			buildPhases = (
-				A613B28F0D46AA65007BA726 /* Headers */,
-				A613B2980D46AA65007BA726 /* CopyFiles */,
-				A613B29C0D46AA65007BA726 /* CopyFiles */,
-				A637FAF30F2FE2630008E04C /* CopyFiles */,
-				A6287C182166E83F0091A0F5 /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "IOPCIFamily Headers";
-			productInstallPath = /usr/local/bin;
-			productName = "IOPCIFamily Headers";
-			productReference = A613B2A30D46AA65007BA726 /* IOPCIFamily Headers */;
-			productType = "com.apple.product-type.tool";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				TargetAttributes = {
+					9808E63A234E4C9200F4FC53 = {
+						CreatedOnToolsVersion = 11.0;
+						ProvisioningStyle = Automatic;
+					};
+					9808E642234E4CA900F4FC53 = {
+						CreatedOnToolsVersion = 11.0;
+						ProvisioningStyle = Automatic;
+					};
+					9808E649234E4CBE00F4FC53 = {
+						CreatedOnToolsVersion = 11.0;
+						ProvisioningStyle = Automatic;
+					};
+					9808E650234E4CEE00F4FC53 = {
+						CreatedOnToolsVersion = 11.0;
+						ProvisioningStyle = Automatic;
+					};
+					9808E657234E4D0F00F4FC53 = {
+						CreatedOnToolsVersion = 11.0;
+						ProvisioningStyle = Automatic;
+					};
+					9808E65E234E4D5B00F4FC53 = {
+						CreatedOnToolsVersion = 11.0;
+						ProvisioningStyle = Automatic;
+					};
+					987ECFBF2368B0C100792271 = {
+						CreatedOnToolsVersion = 11.2;
+						ProvisioningStyle = Automatic;
+					};
+					98CFE298234FA1F900E9B02A = {
+						CreatedOnToolsVersion = 11.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 1590525209368A190010639A /* Build configuration list for PBXProject "IOPCIFamily" */;
 			compatibilityVersion = "Xcode 8.0";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IOPCIFamily */;
@@ -321,8 +556,15 @@
 			projectRoot = "";
 			targets = (
 				A613B2750D46AA65007BA726 /* IOPCIFamily */,
-				A613B28E0D46AA65007BA726 /* IOPCIFamily Headers */,
+				9808E63A234E4C9200F4FC53 /* IOPCIFamily_macOS */,
+				9808E642234E4CA900F4FC53 /* IOPCIFamily_iOS */,
+				9808E649234E4CBE00F4FC53 /* IOPCIFamily_watchOS */,
+				9808E650234E4CEE00F4FC53 /* IOPCIFamily_bridgeOS */,
+				9808E657234E4D0F00F4FC53 /* IOPCIFamily_tvOS */,
+				9808E65E234E4D5B00F4FC53 /* IOPCIFamily_DriverKit */,
+				98CFE298234FA1F900E9B02A /* PCIDriverKit */,
 				A613B2A50D46AA65007BA726 /* AppleSamplePCI */,
+				987ECFBF2368B0C100792271 /* PCIDriverKitPEX8733 */,
 			);
 		};
 /* End PBXProject section */
@@ -338,6 +580,21 @@
 /* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
+		987ECFBE2368B0C100792271 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		98CFE297234FA1F900E9B02A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9807B1EA2367CA7E005B29F6 /* driverKit.xcconfig in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A613B27E0D46AA65007BA726 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -358,6 +615,83 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		9876A98523638FBD000531FC /* Install Kernel.framework Headers */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)",
+			);
+			name = "Install Kernel.framework Headers";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(INSTALL_ROOT)/$(DRIVERKITRUNTIMEROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/$(PRODUCT_NAME)",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = "/bin/bash -ex";
+			shellScript = "ditto ${SCRIPT_INPUT_FILE_0}/Headers ${SCRIPT_OUTPUT_FILE_0}\n";
+		};
+		98CFE2A9234FA3A100E9B02A /* Install *.iig files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/PCIDriverKit/IOPCIDevice.iig",
+			);
+			name = "Install *.iig files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/bash -ex";
+			shellScript = "if [[ \"${ACTION}\" == installhdrs || \"${ACTION}\" == installapi ]]; then\nfor (( i=0; i < ${SCRIPT_INPUT_FILE_COUNT}; i++ )); do\nf=\"SCRIPT_INPUT_FILE_${i}\"\nditto ${!f} ${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}/Headers/\ndone\nfi\n";
+		};
+		98CFE2AA234FA3ED00E9B02A /* Stage Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks/DriverKit.framework",
+			);
+			name = "Stage Frameworks";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/bash -ex";
+			shellScript = "if [[ \"${ACTION}\" == installapi && -f $SDKROOT/$DRIVERKITROOT/System/Library/Frameworks/DriverKit.framework/Headers/stageFrameworks.sh ]]; then\n    . $SDKROOT/$DRIVERKITROOT/System/Library/Frameworks/DriverKit.framework/Headers/stageFrameworks.sh;\nfi\n";
+		};
+		98CFE2AB234FA43600E9B02A /* *.iig Framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)",
+			);
+			name = "*.iig Framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/bash -ex";
+			shellScript = "if [[ \"${ACTION}\" == installapi ]]; then\n. ${SRCROOT}/PCIDriverKit/iigFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\nfi\n";
+		};
 		A613B27A0D46AA65007BA726 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -365,7 +699,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
 		};
 		A613B2870D46AA65007BA726 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -374,7 +708,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
 		};
 		A613B2A60D46AA65007BA726 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -392,12 +726,31 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		987ECFBC2368B0C100792271 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				987ECFC62368B0C100792271 /* PCIDriverKitPEX8733.iig in Sources */,
+				987ECFC42368B0C100792271 /* PCIDriverKitPEX8733.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		98CFE295234FA1F900E9B02A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				984A9E06235D1E9900EFD510 /* IOPCIDevice.cpp in Sources */,
+				98CFE2A7234FA35800E9B02A /* IOPCIDevice.iig in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A613B27F0D46AA65007BA726 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				A613B2800D46AA65007BA726 /* IOPCIBridge.cpp in Sources */,
 				A613B2810D46AA65007BA726 /* IOPCIDevice.cpp in Sources */,
+				984D5C572361662C0073E2CD /* IOPCIDevice.iig in Sources */,
 				A613B2820D46AA65007BA726 /* IOPCIDeviceI386.cpp in Sources */,
 				A613B2840D46AA65007BA726 /* IOPCIConfigurator.cpp in Sources */,
 				A655D6E50E4BB51D00550BCC /* IOPCIDeviceMappedIO.cpp in Sources */,
@@ -409,10 +762,45 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		A613B2AC0D46AA65007BA726 /* PBXTargetDependency */ = {
+		9807B1E62367C592005B29F6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = A613B28E0D46AA65007BA726 /* IOPCIFamily Headers */;
-			targetProxy = A613B2AB0D46AA65007BA726 /* PBXContainerItemProxy */;
+			target = 98CFE298234FA1F900E9B02A /* PCIDriverKit */;
+			targetProxy = 9807B1E52367C592005B29F6 /* PBXContainerItemProxy */;
+		};
+		9874FC43234E74EA00096401 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A613B2750D46AA65007BA726 /* IOPCIFamily */;
+			targetProxy = 9874FC42234E74EA00096401 /* PBXContainerItemProxy */;
+		};
+		9874FC47234E750200096401 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A613B2750D46AA65007BA726 /* IOPCIFamily */;
+			targetProxy = 9874FC46234E750200096401 /* PBXContainerItemProxy */;
+		};
+		9874FC49234E752E00096401 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A613B2750D46AA65007BA726 /* IOPCIFamily */;
+			targetProxy = 9874FC48234E752E00096401 /* PBXContainerItemProxy */;
+		};
+		9874FC4B234E753A00096401 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A613B2750D46AA65007BA726 /* IOPCIFamily */;
+			targetProxy = 9874FC4A234E753A00096401 /* PBXContainerItemProxy */;
+		};
+		9874FC50234E80A600096401 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A613B2750D46AA65007BA726 /* IOPCIFamily */;
+			targetProxy = 9874FC4F234E80A600096401 /* PBXContainerItemProxy */;
+		};
+		98B022F5235156E7003AE82B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 98CFE298234FA1F900E9B02A /* PCIDriverKit */;
+			targetProxy = 98B022F4235156E7003AE82B /* PBXContainerItemProxy */;
+		};
+		98E0BEF1237C74CA009E695F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 987ECFBF2368B0C100792271 /* PCIDriverKitPEX8733 */;
+			targetProxy = 98E0BEF0237C74CA009E695F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -420,21 +808,1045 @@
 		1590525309368A190010639A /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
 				INFOPLIST_OUTPUT_FORMAT = XML;
+				SDKROOT = macosx.internal;
 			};
 			name = Development;
 		};
 		1590525409368A190010639A /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
 				INFOPLIST_OUTPUT_FORMAT = XML;
+				SDKROOT = macosx.internal;
 			};
 			name = Deployment;
 		};
 		1590525509368A190010639A /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
 				INFOPLIST_OUTPUT_FORMAT = XML;
+				SDKROOT = macosx.internal;
+			};
+			name = Default;
+		};
+		9808E63B234E4C9200F4FC53 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Development;
+		};
+		9808E63C234E4C9200F4FC53 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = "Development-Embedded";
+		};
+		9808E63D234E4C9200F4FC53 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Deployment;
+		};
+		9808E63E234E4C9200F4FC53 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = "Deployment-Embedded";
+		};
+		9808E63F234E4C9200F4FC53 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
+			};
+			name = Default;
+		};
+		9808E644234E4CA900F4FC53 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = Development;
+		};
+		9808E645234E4CA900F4FC53 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = "Development-Embedded";
+		};
+		9808E646234E4CA900F4FC53 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = Deployment;
+		};
+		9808E647234E4CA900F4FC53 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = "Deployment-Embedded";
+		};
+		9808E648234E4CA900F4FC53 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+			};
+			name = Default;
+		};
+		9808E64B234E4CBE00F4FC53 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos.internal;
+			};
+			name = Development;
+		};
+		9808E64C234E4CBE00F4FC53 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos.internal;
+			};
+			name = "Development-Embedded";
+		};
+		9808E64D234E4CBE00F4FC53 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos.internal;
+			};
+			name = Deployment;
+		};
+		9808E64E234E4CBE00F4FC53 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos.internal;
+			};
+			name = "Deployment-Embedded";
+		};
+		9808E64F234E4CBE00F4FC53 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos.internal;
+			};
+			name = Default;
+		};
+		9808E652234E4CEE00F4FC53 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = bridgeos.internal;
+			};
+			name = Development;
+		};
+		9808E653234E4CEE00F4FC53 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = bridgeos.internal;
+			};
+			name = "Development-Embedded";
+		};
+		9808E654234E4CEE00F4FC53 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = bridgeos.internal;
+			};
+			name = Deployment;
+		};
+		9808E655234E4CEE00F4FC53 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = bridgeos.internal;
+			};
+			name = "Deployment-Embedded";
+		};
+		9808E656234E4CEE00F4FC53 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = bridgeos.internal;
+			};
+			name = Default;
+		};
+		9808E659234E4D0F00F4FC53 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos.internal;
+			};
+			name = Development;
+		};
+		9808E65A234E4D0F00F4FC53 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos.internal;
+			};
+			name = "Development-Embedded";
+		};
+		9808E65B234E4D0F00F4FC53 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos.internal;
+			};
+			name = Deployment;
+		};
+		9808E65C234E4D0F00F4FC53 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos.internal;
+			};
+			name = "Deployment-Embedded";
+		};
+		9808E65D234E4D0F00F4FC53 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos.internal;
+			};
+			name = Default;
+		};
+		9808E660234E4D5C00F4FC53 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = driverkit.internal;
+			};
+			name = Development;
+		};
+		9808E661234E4D5C00F4FC53 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = driverkit.internal;
+			};
+			name = "Development-Embedded";
+		};
+		9808E662234E4D5C00F4FC53 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = driverkit.internal;
+			};
+			name = Deployment;
+		};
+		9808E663234E4D5C00F4FC53 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = driverkit.internal;
+			};
+			name = "Deployment-Embedded";
+		};
+		9808E664234E4D5C00F4FC53 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = driverkit.internal;
+			};
+			name = Default;
+		};
+		987ECFC92368B0C100792271 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = PEX8733/PCIDriverKitPEX8733/PCIDriverKitPEX8733.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = PEX8733/PCIDriverKitPEX8733/Info.plist;
+				INSTALL_PATH = /AppleInternal/CoreOS/IOPCIFamily/PCIDriverKitTests;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.PCIDriverKitPEX8733;
+				PRODUCT_NAME = "$(inherited)";
+				SDKROOT = driverkit;
+				SKIP_INSTALL = NO;
+			};
+			name = Development;
+		};
+		987ECFCA2368B0C100792271 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = PEX8733/PCIDriverKitPEX8733/PCIDriverKitPEX8733.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = PEX8733/PCIDriverKitPEX8733/Info.plist;
+				INSTALL_PATH = /AppleInternal/CoreOS/IOPCIFamily/PCIDriverKitTests;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.PCIDriverKitPEX8733;
+				PRODUCT_NAME = "$(inherited)";
+				SDKROOT = driverkit;
+				SKIP_INSTALL = NO;
+			};
+			name = "Development-Embedded";
+		};
+		987ECFCB2368B0C100792271 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = PEX8733/PCIDriverKitPEX8733/PCIDriverKitPEX8733.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = PEX8733/PCIDriverKitPEX8733/Info.plist;
+				INSTALL_PATH = /AppleInternal/CoreOS/IOPCIFamily/PCIDriverKitTests;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.PCIDriverKitPEX8733;
+				PRODUCT_NAME = "$(inherited)";
+				SDKROOT = driverkit;
+				SKIP_INSTALL = NO;
+			};
+			name = Deployment;
+		};
+		987ECFCC2368B0C100792271 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = PEX8733/PCIDriverKitPEX8733/PCIDriverKitPEX8733.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = PEX8733/PCIDriverKitPEX8733/Info.plist;
+				INSTALL_PATH = /AppleInternal/CoreOS/IOPCIFamily/PCIDriverKitTests;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.PCIDriverKitPEX8733;
+				PRODUCT_NAME = "$(inherited)";
+				SDKROOT = driverkit;
+				SKIP_INSTALL = NO;
+			};
+			name = "Deployment-Embedded";
+		};
+		987ECFCD2368B0C100792271 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = PEX8733/PCIDriverKitPEX8733/PCIDriverKitPEX8733.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = PEX8733/PCIDriverKitPEX8733/Info.plist;
+				INSTALL_PATH = /AppleInternal/CoreOS/IOPCIFamily/PCIDriverKitTests;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.PCIDriverKitPEX8733;
+				PRODUCT_NAME = "$(inherited)";
+				SDKROOT = driverkit;
+				SKIP_INSTALL = NO;
+			};
+			name = Default;
+		};
+		98CFE29F234FA1F900E9B02A /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9807B1E92367CA7E005B29F6 /* driverKit.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = PCIDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(DRIVERKITROOT)/System/Library/Frameworks";
+				LD_DYLIB_INSTALL_NAME = "$(DRIVERKITROOT)/System/Library/Frameworks/$(EXECUTABLE_PATH)";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -I$(SDKROOT)/$(DRIVERKITROOT)/usr/local/include -I$(SDKROOT)/$(DRIVERKITROOT)/usr/include -F$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks $(inherited)";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0]" = "-x c++ -std=gnu++1z -fno-rtti";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.PCIDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = driverkit.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = ErrorsOnly;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Development;
+		};
+		98CFE2A0234FA1F900E9B02A /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9807B1E92367CA7E005B29F6 /* driverKit.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = PCIDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(DRIVERKITROOT)/System/Library/Frameworks";
+				LD_DYLIB_INSTALL_NAME = "$(DRIVERKITROOT)/System/Library/Frameworks/$(EXECUTABLE_PATH)";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -I$(SDKROOT)/$(DRIVERKITROOT)/usr/local/include -I$(SDKROOT)/$(DRIVERKITROOT)/usr/include -F$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks $(inherited)";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0]" = "-x c++ -std=gnu++1z -fno-rtti";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.PCIDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = driverkit.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = ErrorsOnly;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = "Development-Embedded";
+		};
+		98CFE2A1234FA1F900E9B02A /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9807B1E92367CA7E005B29F6 /* driverKit.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = PCIDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(DRIVERKITROOT)/System/Library/Frameworks";
+				LD_DYLIB_INSTALL_NAME = "$(DRIVERKITROOT)/System/Library/Frameworks/$(EXECUTABLE_PATH)";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -I$(SDKROOT)/$(DRIVERKITROOT)/usr/local/include -I$(SDKROOT)/$(DRIVERKITROOT)/usr/include -F$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks $(inherited)";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0]" = "-x c++ -std=gnu++1z -fno-rtti";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.PCIDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = driverkit.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = ErrorsOnly;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = Deployment;
+		};
+		98CFE2A2234FA1F900E9B02A /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9807B1E92367CA7E005B29F6 /* driverKit.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = PCIDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(DRIVERKITROOT)/System/Library/Frameworks";
+				LD_DYLIB_INSTALL_NAME = "$(DRIVERKITROOT)/System/Library/Frameworks/$(EXECUTABLE_PATH)";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -I$(SDKROOT)/$(DRIVERKITROOT)/usr/local/include -I$(SDKROOT)/$(DRIVERKITROOT)/usr/include -F$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks $(inherited)";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0]" = "-x c++ -std=gnu++1z -fno-rtti";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.PCIDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = driverkit.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = ErrorsOnly;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+			};
+			name = "Deployment-Embedded";
+		};
+		98CFE2A3234FA1F900E9B02A /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9807B1E92367CA7E005B29F6 /* driverKit.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = PCIDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(DRIVERKITROOT)/System/Library/Frameworks";
+				LD_DYLIB_INSTALL_NAME = "$(DRIVERKITROOT)/System/Library/Frameworks/$(EXECUTABLE_PATH)";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -I$(SDKROOT)/$(DRIVERKITROOT)/usr/local/include -I$(SDKROOT)/$(DRIVERKITROOT)/usr/include -F$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks $(inherited)";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0]" = "-x c++ -std=gnu++1z -fno-rtti";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.PCIDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = driverkit.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				TAPI_VERIFY_MODE = ErrorsOnly;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
 			};
 			name = Default;
 		};
@@ -442,10 +1854,14 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUNDLE_STYLE = SHALLOW;
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
+				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -455,7 +1871,8 @@
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				IIG_FRAMEWORK_NAME = PCIDriverKit;
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_GROUP = wheel;
@@ -467,10 +1884,16 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT)";
+				OTHER_IIG_FLAGS = "--framework $(IIG_FRAMEWORK_NAME) $(inherited)";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/pci";
 				PRODUCT_NAME = IOPCIFamily;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -486,17 +1909,22 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUNDLE_STYLE = SHALLOW;
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
+				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				IIG_FRAMEWORK_NAME = PCIDriverKit;
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_GROUP = wheel;
@@ -508,10 +1936,16 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT)";
+				OTHER_IIG_FLAGS = "--framework $(IIG_FRAMEWORK_NAME) $(inherited)";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/pci";
 				PRODUCT_NAME = IOPCIFamily;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -527,15 +1961,20 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUNDLE_STYLE = SHALLOW;
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
+				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				IIG_FRAMEWORK_NAME = PCIDriverKit;
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_GROUP = wheel;
@@ -547,10 +1986,16 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT)";
+				OTHER_IIG_FLAGS = "--framework $(IIG_FRAMEWORK_NAME) $(inherited)";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/pci";
 				PRODUCT_NAME = IOPCIFamily;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -558,72 +2003,6 @@
 					"-Wconditional-uninitialized",
 				);
 				WRAPPER_EXTENSION = kext;
-			};
-			name = Default;
-		};
-		A613B2A00D46AA65007BA726 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALLHDRS_COPY_PHASE = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOPCIFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-					"-Wconditional-uninitialized",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		A613B2A10D46AA65007BA726 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALLHDRS_COPY_PHASE = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOPCIFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-					"-Wconditional-uninitialized",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		A613B2A20D46AA65007BA726 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALLHDRS_COPY_PHASE = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOPCIFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-					"-Wconditional-uninitialized",
-				);
 			};
 			name = Default;
 		};
@@ -659,7 +2038,9 @@
 		B169ED9415BA2B4F00A1A90A /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
 				INFOPLIST_OUTPUT_FORMAT = XML;
+				SDKROOT = macosx.internal;
 			};
 			name = "Development-Embedded";
 		};
@@ -667,10 +2048,14 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUNDLE_STYLE = SHALLOW;
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
+				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -681,7 +2066,8 @@
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				IIG_FRAMEWORK_NAME = PCIDriverKit;
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_GROUP = wheel;
@@ -693,10 +2079,16 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT)";
+				OTHER_IIG_FLAGS = "--framework $(IIG_FRAMEWORK_NAME) $(inherited)";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/pci";
 				PRODUCT_NAME = IOPCIFamily;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -704,31 +2096,6 @@
 					"-Wconditional-uninitialized",
 				);
 				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = YES;
-			};
-			name = "Development-Embedded";
-		};
-		B169ED9615BA2B4F00A1A90A /* Development-Embedded */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALLHDRS_COPY_PHASE = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOPCIFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-					"-Wconditional-uninitialized",
-				);
 				ZERO_LINK = YES;
 			};
 			name = "Development-Embedded";
@@ -747,7 +2114,9 @@
 		B169ED9815BA2B6000A1A90A /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
 				INFOPLIST_OUTPUT_FORMAT = XML;
+				SDKROOT = macosx.internal;
 			};
 			name = "Deployment-Embedded";
 		};
@@ -755,15 +2124,20 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUNDLE_STYLE = SHALLOW;
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
+				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)\"";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				IIG_FRAMEWORK_NAME = PCIDriverKit;
 				INFOPLIST_FILE = "Info-IOPCIFamily.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_GROUP = wheel;
@@ -775,10 +2149,16 @@
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
 				OTHER_CFLAGS = "";
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT)";
+				OTHER_IIG_FLAGS = "--framework $(IIG_FRAMEWORK_NAME) $(inherited)";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/pci";
 				PRODUCT_NAME = IOPCIFamily;
+				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -786,28 +2166,6 @@
 					"-Wconditional-uninitialized",
 				);
 				WRAPPER_EXTENSION = kext;
-			};
-			name = "Deployment-Embedded";
-		};
-		B169ED9A15BA2B6000A1A90A /* Deployment-Embedded */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALLHDRS_COPY_PHASE = YES;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "IOPCIFamily Headers";
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-					"-Wconditional-uninitialized",
-				);
-				ZERO_LINK = NO;
 			};
 			name = "Deployment-Embedded";
 		};
@@ -837,6 +2195,102 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;
 		};
+		9808E641234E4C9200F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9808E63B234E4C9200F4FC53 /* Development */,
+				9808E63C234E4C9200F4FC53 /* Development-Embedded */,
+				9808E63D234E4C9200F4FC53 /* Deployment */,
+				9808E63E234E4C9200F4FC53 /* Deployment-Embedded */,
+				9808E63F234E4C9200F4FC53 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		9808E643234E4CA900F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9808E644234E4CA900F4FC53 /* Development */,
+				9808E645234E4CA900F4FC53 /* Development-Embedded */,
+				9808E646234E4CA900F4FC53 /* Deployment */,
+				9808E647234E4CA900F4FC53 /* Deployment-Embedded */,
+				9808E648234E4CA900F4FC53 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		9808E64A234E4CBE00F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_watchOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9808E64B234E4CBE00F4FC53 /* Development */,
+				9808E64C234E4CBE00F4FC53 /* Development-Embedded */,
+				9808E64D234E4CBE00F4FC53 /* Deployment */,
+				9808E64E234E4CBE00F4FC53 /* Deployment-Embedded */,
+				9808E64F234E4CBE00F4FC53 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		9808E651234E4CEE00F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_bridgeOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9808E652234E4CEE00F4FC53 /* Development */,
+				9808E653234E4CEE00F4FC53 /* Development-Embedded */,
+				9808E654234E4CEE00F4FC53 /* Deployment */,
+				9808E655234E4CEE00F4FC53 /* Deployment-Embedded */,
+				9808E656234E4CEE00F4FC53 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		9808E658234E4D0F00F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_tvOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9808E659234E4D0F00F4FC53 /* Development */,
+				9808E65A234E4D0F00F4FC53 /* Development-Embedded */,
+				9808E65B234E4D0F00F4FC53 /* Deployment */,
+				9808E65C234E4D0F00F4FC53 /* Deployment-Embedded */,
+				9808E65D234E4D0F00F4FC53 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		9808E65F234E4D5C00F4FC53 /* Build configuration list for PBXAggregateTarget "IOPCIFamily_DriverKit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9808E660234E4D5C00F4FC53 /* Development */,
+				9808E661234E4D5C00F4FC53 /* Development-Embedded */,
+				9808E662234E4D5C00F4FC53 /* Deployment */,
+				9808E663234E4D5C00F4FC53 /* Deployment-Embedded */,
+				9808E664234E4D5C00F4FC53 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		987ECFCF2368B0C100792271 /* Build configuration list for PBXNativeTarget "PCIDriverKitPEX8733" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				987ECFC92368B0C100792271 /* Development */,
+				987ECFCA2368B0C100792271 /* Development-Embedded */,
+				987ECFCB2368B0C100792271 /* Deployment */,
+				987ECFCC2368B0C100792271 /* Deployment-Embedded */,
+				987ECFCD2368B0C100792271 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		98CFE29E234FA1F900E9B02A /* Build configuration list for PBXNativeTarget "PCIDriverKit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				98CFE29F234FA1F900E9B02A /* Development */,
+				98CFE2A0234FA1F900E9B02A /* Development-Embedded */,
+				98CFE2A1234FA1F900E9B02A /* Deployment */,
+				98CFE2A2234FA1F900E9B02A /* Deployment-Embedded */,
+				98CFE2A3234FA1F900E9B02A /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
 		A613B2880D46AA65007BA726 /* Build configuration list for PBXNativeTarget "IOPCIFamily" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -845,18 +2299,6 @@
 				A613B28A0D46AA65007BA726 /* Deployment */,
 				B169ED9915BA2B6000A1A90A /* Deployment-Embedded */,
 				A613B28B0D46AA65007BA726 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		A613B29F0D46AA65007BA726 /* Build configuration list for PBXNativeTarget "IOPCIFamily Headers" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A613B2A00D46AA65007BA726 /* Development */,
-				B169ED9615BA2B4F00A1A90A /* Development-Embedded */,
-				A613B2A10D46AA65007BA726 /* Deployment */,
-				B169ED9A15BA2B6000A1A90A /* Deployment-Embedded */,
-				A613B2A20D46AA65007BA726 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

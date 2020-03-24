@@ -73,7 +73,7 @@ static void getSysdiagnoseDump(void)
     [connection invalidate];
 }
 
-static void getLoggingJSON(char *topicName)
+static void createLoggingJSON(char *topicName)
 {
     NSString *topic = topicName ? [NSString stringWithUTF8String:topicName] : SFAnalyticsTopicKeySync;
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
@@ -81,7 +81,31 @@ static void getLoggingJSON(char *topicName)
     [[connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         nsprintf(@"Could not communicate with supd: %@", error);
         dispatch_semaphore_signal(sema);
-    }] getLoggingJSON:YES topic:topic reply:^(NSData* data, NSError* error) {
+    }] createLoggingJSON:YES topic:topic reply:^(NSData* data, NSError* error) {
+        if (data) {
+            // Success! Only print the JSON blob to make output easier to parse
+            nsprintf(@"%@", [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+        } else {
+            nsprintf(@"supd gave us an error: %@", error);
+        }
+        dispatch_semaphore_signal(sema);
+    }];
+
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 20)) != 0) {
+        printf("\n\nError: timed out waiting for response from supd\n");
+    }
+    [connection invalidate];
+}
+
+static void createChunkedLoggingJSON(char *topicName)
+{
+    NSString *topic = topicName ? [NSString stringWithUTF8String:topicName] : SFAnalyticsTopicKeySync;
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    NSXPCConnection* connection = getConnection();
+    [[connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
+        nsprintf(@"Could not communicate with supd: %@", error);
+        dispatch_semaphore_signal(sema);
+    }] createChunkedLoggingJSON:YES topic:topic reply:^(NSData* data, NSError* error) {
         if (data) {
             // Success! Only print the JSON blob to make output easier to parse
             nsprintf(@"%@", [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
@@ -168,6 +192,7 @@ forceOldUploadDate(void)
 
 static int forceUpload = false;
 static int getJSON = false;
+static int getChunkedJSON = false;
 static int getSysdiagnose = false;
 static int getInfo = false;
 static int setOldUploadDate = false;
@@ -177,9 +202,9 @@ int main(int argc, char **argv)
 {
     static struct argument options[] = {
         { .shortname='t', .longname="topicName", .argument=&topicName, .description="Operate on a non-default topic"},
-
         { .command="sysdiagnose", .flag=&getSysdiagnose, .flagval=true, .description="Retrieve the current sysdiagnose dump for security analytics"},
         { .command="get", .flag=&getJSON, .flagval=true, .description="Get the JSON blob we would upload to the server if an upload were due"},
+        { .command="getChunked", .flag=&getChunkedJSON, .flagval=true, .description="Chunk the JSON blob"},
         { .command="upload", .flag=&forceUpload, .flagval=true, .description="Force an upload of analytics data to server (ignoring privacy settings)"},
         { .command="info", .flag=&getInfo, .flagval=true, .description="Request info about clients"},
         { .command="set-old-upload-date", .flag=&setOldUploadDate, .flagval=true, .description="Clear last upload date"},
@@ -206,7 +231,9 @@ int main(int argc, char **argv)
         if (forceUpload) {
             forceUploadAnalytics();
         } else if (getJSON) {
-            getLoggingJSON(topicName);
+            createLoggingJSON(topicName);
+        } else if (getChunkedJSON) {
+            createChunkedLoggingJSON(topicName);
         } else if (getSysdiagnose) {
             getSysdiagnoseDump();
         } else if (getInfo) {

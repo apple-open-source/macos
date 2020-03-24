@@ -44,6 +44,7 @@ class WebRTCMonitor final : public rtc::NetworkManagerBase {
 public:
     WebRTCMonitor() = default;
 
+    void networkProcessCrashed();
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
 private:
@@ -51,6 +52,7 @@ private:
 
     void StartUpdating() final;
     void StopUpdating() final;
+    webrtc::MdnsResponderInterface* GetMdnsResponder() const final { return nullptr; }
 
     static void sendOnMainThread(Function<void(IPC::Connection&)>&&);
 

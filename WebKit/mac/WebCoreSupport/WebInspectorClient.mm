@@ -51,6 +51,7 @@
 #import <WebCore/InspectorFrontendClient.h>
 #import <WebCore/Page.h>
 #import <WebCore/ScriptController.h>
+#import <WebCore/Settings.h>
 #import <WebKitLegacy/DOMExtensions.h>
 #import <algorithm>
 #import <wtf/text/Base64.h>
@@ -109,7 +110,7 @@ FrontendChannel* WebInspectorClient::openLocalFrontend(InspectorController* insp
     [windowController.get() setInspectorClient:this];
 
     m_frontendPage = core([windowController.get() frontendWebView]);
-    m_frontendClient = std::make_unique<WebInspectorFrontendClient>(m_inspectedWebView, windowController.get(), inspectedPageController, m_frontendPage, createFrontendSettings());
+    m_frontendClient = makeUnique<WebInspectorFrontendClient>(m_inspectedWebView, windowController.get(), inspectedPageController, m_frontendPage, createFrontendSettings());
 
     RetainPtr<WebInspectorFrontend> webInspectorFrontend = adoptNS([[WebInspectorFrontend alloc] initWithFrontendClient:m_frontendClient.get()]);
     [[m_inspectedWebView inspector] setFrontend:webInspectorFrontend.get()];
@@ -219,7 +220,7 @@ void WebInspectorFrontendClient::startWindowDrag()
     [[m_frontendWindowController window] performWindowDragWithEvent:[NSApp currentEvent]];
 }
 
-String WebInspectorFrontendClient::localizedStringsURL()
+String WebInspectorFrontendClient::localizedStringsURL() const
 {
     NSBundle *bundle = [NSBundle bundleWithIdentifier:@"com.apple.WebInspectorUI"];
     if (!bundle)
@@ -325,6 +326,20 @@ void WebInspectorFrontendClient::showCertificate(const CertificateInfo& certific
     [certificateView setDetailsDisclosed:YES];
 }
 
+#if ENABLE(INSPECTOR_TELEMETRY)
+bool WebInspectorFrontendClient::supportsDiagnosticLogging()
+{
+    auto* page = frontendPage();
+    return page ? page->settings().diagnosticLoggingEnabled() : false;
+}
+
+void WebInspectorFrontendClient::logDiagnosticEvent(const String& eventName, const DiagnosticLoggingClient::ValueDictionary& dictionary)
+{
+    if (auto* page = frontendPage())
+        page->diagnosticLoggingClient().logDiagnosticMessageWithValueDictionary(eventName, "Legacy Web Inspector Frontend Diagnostics"_s, dictionary, ShouldSample::No);
+}
+#endif
+
 void WebInspectorFrontendClient::updateWindowTitle() const
 {
     NSString *title = [NSString stringWithFormat:UI_STRING_INTERNAL("Web Inspector — %@", "Web Inspector window title"), (NSString *)m_inspectedURL];
@@ -364,7 +379,7 @@ void WebInspectorFrontendClient::save(const String& suggestedURL, const String& 
         } else
             [contentCopy writeToURL:actualURL atomically:YES encoding:NSUTF8StringEncoding error:NULL];
 
-        core([m_frontendWindowController frontendWebView])->mainFrame().script().executeScript([NSString stringWithFormat:@"InspectorFrontendAPI.savedURL(\"%@\")", actualURL.absoluteString]);
+        core([m_frontendWindowController frontendWebView])->mainFrame().script().executeScriptIgnoringException([NSString stringWithFormat:@"InspectorFrontendAPI.savedURL(\"%@\")", actualURL.absoluteString]);
     };
 
     if (!forceSaveDialog) {
@@ -410,7 +425,7 @@ void WebInspectorFrontendClient::append(const String& suggestedURL, const String
     [handle writeData:[content dataUsingEncoding:NSUTF8StringEncoding]];
     [handle closeFile];
 
-    core([m_frontendWindowController frontendWebView])->mainFrame().script().executeScript([NSString stringWithFormat:@"InspectorFrontendAPI.appendedToURL(\"%@\")", [actualURL absoluteString]]);
+    core([m_frontendWindowController frontendWebView])->mainFrame().script().executeScriptIgnoringException([NSString stringWithFormat:@"InspectorFrontendAPI.appendedToURL(\"%@\")", [actualURL absoluteString]]);
 }
 
 // MARK: -

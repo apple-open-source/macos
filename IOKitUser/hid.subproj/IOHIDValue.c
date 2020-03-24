@@ -183,7 +183,7 @@ IOHIDValueRef IOHIDValueCreateWithIntegerValue(CFAllocatorRef allocator, IOHIDEl
         
     tempValue = value;
     
-    __IOHIDValueConvertLongWordToByte((const uint64_t *)&tempValue, event->bytes, min(length, sizeof(uint32_t)));
+    __IOHIDValueConvertLongWordToByte((const uint64_t *)&tempValue, event->bytes, min(length, sizeof(uint64_t)));
     
     return event;
 }

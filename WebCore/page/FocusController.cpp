@@ -331,7 +331,7 @@ static inline int shadowAdjustedTabIndex(Element& element, KeyboardEvent* event)
         if (!element.tabIndexSetExplicitly())
             return 0; // Treat a shadow host without tabindex if it has tabindex=0 even though HTMLElement::tabIndex returns -1 on such an element.
     }
-    return element.tabIndex();
+    return element.shouldBeIgnoredInSequentialFocusNavigation() ? -1 : element.tabIndexSetExplicitly().valueOr(0);
 }
 
 FocusController::FocusController(Page& page, OptionSet<ActivityState::Flag> activityState)
@@ -620,7 +620,7 @@ static Element* nextElementWithGreaterTabIndex(const FocusNavigationScope& scope
         if (!is<Element>(*node))
             continue;
         Element& candidate = downcast<Element>(*node);
-        int candidateTabIndex = candidate.tabIndex();
+        int candidateTabIndex = shadowAdjustedTabIndex(candidate, event);
         if (isFocusableElementOrScopeOwner(candidate, event) && candidateTabIndex > tabIndex && (!winner || candidateTabIndex < winningTabIndex)) {
             winner = &candidate;
             winningTabIndex = candidateTabIndex;

@@ -44,12 +44,9 @@ void InteractionInformationAtPosition::encode(IPC::Encoder& encoder) const
     encoder << request;
 
     encoder << canBeValid;
-    encoder << nodeAtPositionIsFocusedElement;
     encoder << nodeAtPositionHasDoubleClickHandler;
-#if ENABLE(DATA_INTERACTION)
-    encoder << hasSelectionAtPosition;
-#endif
     encoder << isSelectable;
+    encoder << prefersDraggingOverTextSelection;
     encoder << isNearMarkedText;
     encoder << touchCalloutEnabled;
     encoder << isLink;
@@ -69,6 +66,9 @@ void InteractionInformationAtPosition::encode(IPC::Encoder& encoder) const
 #endif
     encoder << textBefore;
     encoder << textAfter;
+    encoder << caretHeight;
+    encoder << lineCaretExtent;
+    encoder << cursor;
     encoder << linkIndicator;
 
     ShareableBitmap::Handle handle;
@@ -85,6 +85,8 @@ void InteractionInformationAtPosition::encode(IPC::Encoder& encoder) const
 #if ENABLE(DATALIST_ELEMENT)
     encoder << preventTextInteraction;
 #endif
+    encoder << shouldNotUseIBeamInEditableContent;
+    encoder << elementContext;
 }
 
 bool InteractionInformationAtPosition::decode(IPC::Decoder& decoder, InteractionInformationAtPosition& result)
@@ -95,18 +97,13 @@ bool InteractionInformationAtPosition::decode(IPC::Decoder& decoder, Interaction
     if (!decoder.decode(result.canBeValid))
         return false;
 
-    if (!decoder.decode(result.nodeAtPositionIsFocusedElement))
-        return false;
-
     if (!decoder.decode(result.nodeAtPositionHasDoubleClickHandler))
         return false;
 
-#if ENABLE(DATA_INTERACTION)
-    if (!decoder.decode(result.hasSelectionAtPosition))
-        return false;
-#endif
-
     if (!decoder.decode(result.isSelectable))
+        return false;
+
+    if (!decoder.decode(result.prefersDraggingOverTextSelection))
         return false;
 
     if (!decoder.decode(result.isNearMarkedText))
@@ -161,6 +158,15 @@ bool InteractionInformationAtPosition::decode(IPC::Decoder& decoder, Interaction
     
     if (!decoder.decode(result.textAfter))
         return false;
+
+    if (!decoder.decode(result.caretHeight))
+        return false;
+
+    if (!decoder.decode(result.lineCaretExtent))
+        return false;
+
+    if (!decoder.decode(result.cursor))
+        return false;
     
     Optional<WebCore::TextIndicatorData> linkIndicator;
     decoder >> linkIndicator;
@@ -195,6 +201,12 @@ bool InteractionInformationAtPosition::decode(IPC::Decoder& decoder, Interaction
     if (!decoder.decode(result.preventTextInteraction))
         return false;
 #endif
+
+    if (!decoder.decode(result.shouldNotUseIBeamInEditableContent))
+        return false;
+
+    if (!decoder.decode(result.elementContext))
+        return false;
 
     return true;
 }

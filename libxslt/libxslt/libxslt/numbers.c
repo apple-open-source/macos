@@ -36,7 +36,7 @@
 
 #define SYMBOL_QUOTE		((xmlChar)'\'')
 
-#define DEFAULT_TOKEN		(xmlChar)'0'
+#define DEFAULT_TOKEN		'0'
 #define DEFAULT_SEPARATOR	"."
 
 #define MAX_TOKENS		1024
@@ -45,7 +45,7 @@ typedef struct _xsltFormatToken xsltFormatToken;
 typedef xsltFormatToken *xsltFormatTokenPtr;
 struct _xsltFormatToken {
     xmlChar	*separator;
-    xmlChar	 token;
+    int		 token;
     int		 width;
 };
 
@@ -107,20 +107,22 @@ xsltUTF8Charcmp(xmlChar *utf1, xmlChar *utf2) {
      (xsltUTF8Charcmp((letter), (self)->patternSeparator) == 0))
 
 #define IS_DIGIT_ZERO(x) xsltIsDigitZero(x)
-#define IS_DIGIT_ONE(x) xsltIsDigitZero((xmlChar)(x)-1)
+#define IS_DIGIT_ONE(x) xsltIsDigitZero((x)-1)
 
 static int
 xsltIsDigitZero(unsigned int ch)
 {
     /*
      * Reference: ftp://ftp.unicode.org/Public/UNIDATA/UnicodeData.txt
+     *
+     * There a many more digit ranges in newer Unicode versions. These
+     * are only the zeros that match Digit in XML 1.0 (IS_DIGIT macro).
      */
     switch (ch) {
     case 0x0030: case 0x0660: case 0x06F0: case 0x0966:
     case 0x09E6: case 0x0A66: case 0x0AE6: case 0x0B66:
     case 0x0C66: case 0x0CE6: case 0x0D66: case 0x0E50:
-    case 0x0E60: case 0x0F20: case 0x1040: case 0x17E0:
-    case 0x1810: case 0xFF10:
+    case 0x0ED0: case 0x0F20:
 	return TRUE;
     default:
 	return FALSE;
@@ -175,7 +177,7 @@ xsltNumberFormatDecimal(xmlBufferPtr buffer,
 	        i = -1;
 		break;
 	    }
-	    *(--pointer) = val;
+	    *(--pointer) = (xmlChar)val;
 	}
 	else {
 	/*
@@ -383,13 +385,13 @@ xsltNumberFormatTokenize(const xmlChar *format,
 		ix += len;
 		val = xmlStringCurrentChar(NULL, format+ix, &len);
 	    } else {
-                tokens->tokens[tokens->nTokens].token = (xmlChar)'0';
+                tokens->tokens[tokens->nTokens].token = '0';
                 tokens->tokens[tokens->nTokens].width = 1;
             }
-	} else if ( (val == (xmlChar)'A') ||
-		    (val == (xmlChar)'a') ||
-		    (val == (xmlChar)'I') ||
-		    (val == (xmlChar)'i') ) {
+	} else if ( (val == 'A') ||
+		    (val == 'a') ||
+		    (val == 'I') ||
+		    (val == 'i') ) {
 	    tokens->tokens[tokens->nTokens].token = val;
 	    ix += len;
 	    val = xmlStringCurrentChar(NULL, format+ix, &len);
@@ -400,7 +402,7 @@ xsltNumberFormatTokenize(const xmlChar *format,
 	     *  not support a numbering sequence that starts with that
 	     *  token, it must use a format token of 1."
 	     */
-	    tokens->tokens[tokens->nTokens].token = (xmlChar)'0';
+	    tokens->tokens[tokens->nTokens].token = '0';
 	    tokens->tokens[tokens->nTokens].width = 1;
 	}
 	/*
@@ -948,7 +950,7 @@ xsltFormatNumberConversion(xsltDecimalFormatPtr self,
     xmlChar *nprefix, *nsuffix = NULL;
     int	    prefix_length, suffix_length = 0, nprefix_length, nsuffix_length;
     double  scale;
-    int	    j, len;
+    int	    j, len = 0;
     int     self_grouping_len;
     xsltFormatNumberInfo format_info;
     /*

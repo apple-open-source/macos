@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009, 2010 Google Inc. All rights reserved.
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -54,11 +54,11 @@ struct CrossThreadCopierBaseHelper {
     };
 
     template<typename T> struct IsEnumOrConvertibleToInteger {
-        static const bool value = std::is_integral<T>::value || std::is_enum<T>::value || std::is_convertible<T, long double>::value;
+        static constexpr bool value = std::is_integral<T>::value || std::is_enum<T>::value || std::is_convertible<T, long double>::value;
     };
 
     template<typename T> struct IsThreadSafeRefCountedPointer {
-        static const bool value = std::is_convertible<typename RemovePointer<T>::Type*, ThreadSafeRefCounted<typename RemovePointer<T>::Type>*>::value;
+        static constexpr bool value = std::is_convertible<typename RemovePointer<T>::Type*, ThreadSafeRefCounted<typename RemovePointer<T>::Type>*>::value;
     };
 };
 
@@ -142,6 +142,15 @@ template<typename K, typename V> struct CrossThreadCopierBase<false, false, Hash
         for (auto& keyValue : source)
             destination.add(CrossThreadCopier<K>::copy(keyValue.key), CrossThreadCopier<V>::copy(keyValue.value));
         return destination;
+    }
+};
+
+// Default specialization for pairs of CrossThreadCopyable classes
+template<typename F, typename S> struct CrossThreadCopierBase<false, false, std::pair<F, S> > {
+    typedef std::pair<F, S> Type;
+    static Type copy(const Type& source)
+    {
+        return std::make_pair(CrossThreadCopier<F>::copy(source.first), CrossThreadCopier<S>::copy(source.second));
     }
 };
 

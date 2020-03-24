@@ -55,14 +55,14 @@ static AudioDeviceID defaultDevice()
 class AudioSessionPrivate {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    AudioSessionPrivate(bool mutedState)
+    explicit AudioSessionPrivate(bool mutedState)
         : lastMutedState(mutedState) { }
     bool lastMutedState;
     AudioSession::CategoryType category { AudioSession::None };
 };
 
 AudioSession::AudioSession()
-    : m_private(std::make_unique<AudioSessionPrivate>(isMuted()))
+    : m_private(makeUnique<AudioSessionPrivate>(isMuted()))
 {
 }
 

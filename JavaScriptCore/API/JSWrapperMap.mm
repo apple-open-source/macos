@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2015, 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,11 +46,11 @@
 
 #if PLATFORM(APPLETV)
 #else
-static const int32_t firstJavaScriptCoreVersionWithInitConstructorSupport = 0x21A0400; // 538.4.0
+static constexpr int32_t firstJavaScriptCoreVersionWithInitConstructorSupport = 0x21A0400; // 538.4.0
 #if PLATFORM(IOS_FAMILY)
-static const uint32_t firstSDKVersionWithInitConstructorSupport = DYLD_IOS_VERSION_10_0;
+static constexpr uint32_t firstSDKVersionWithInitConstructorSupport = DYLD_IOS_VERSION_10_0;
 #elif PLATFORM(MAC)
-static const uint32_t firstSDKVersionWithInitConstructorSupport = 0xA0A00; // OSX 10.10.0
+static constexpr uint32_t firstSDKVersionWithInitConstructorSupport = 0xA0A00; // OSX 10.10.0
 #endif
 #endif
 
@@ -62,7 +62,7 @@ static const uint32_t firstSDKVersionWithInitConstructorSupport = 0xA0A00; // OS
 
 @end
 
-static const constexpr unsigned InitialBufferSize { 256 };
+static constexpr unsigned InitialBufferSize { 256 };
 
 // Default conversion of selectors to property names.
 // All semicolons are removed, lowercase letters following a semicolon are capitalized.
@@ -108,25 +108,25 @@ done:
 
 static bool constructorHasInstance(JSContextRef ctx, JSObjectRef constructorRef, JSValueRef possibleInstance, JSValueRef*)
 {
-    JSC::ExecState* exec = toJS(ctx);
-    JSC::VM& vm = exec->vm();
+    JSC::JSGlobalObject* globalObject = toJS(ctx);
+    JSC::VM& vm = globalObject->vm();
     JSC::JSLockHolder locker(vm);
 
     JSC::JSObject* constructor = toJS(constructorRef);
-    JSC::JSValue instance = toJS(exec, possibleInstance);
-    return JSC::JSObject::defaultHasInstance(exec, instance, constructor->get(exec, vm.propertyNames->prototype));
+    JSC::JSValue instance = toJS(globalObject, possibleInstance);
+    return JSC::JSObject::defaultHasInstance(globalObject, instance, constructor->get(globalObject, vm.propertyNames->prototype));
 }
 
 static JSC::JSObject* makeWrapper(JSContextRef ctx, JSClassRef jsClass, id wrappedObject)
 {
-    JSC::ExecState* exec = toJS(ctx);
-    JSC::VM& vm = exec->vm();
+    JSC::JSGlobalObject* globalObject = toJS(ctx);
+    JSC::VM& vm = globalObject->vm();
     JSC::JSLockHolder locker(vm);
 
     ASSERT(jsClass);
-    JSC::JSCallbackObject<JSC::JSAPIWrapperObject>* object = JSC::JSCallbackObject<JSC::JSAPIWrapperObject>::create(exec, exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->objcWrapperObjectStructure(), jsClass, 0);
+    JSC::JSCallbackObject<JSC::JSAPIWrapperObject>* object = JSC::JSCallbackObject<JSC::JSAPIWrapperObject>::create(globalObject, globalObject->objcWrapperObjectStructure(), jsClass, 0);
     object->setWrappedObject((__bridge void*)wrappedObject);
-    if (JSC::JSObject* prototype = jsClass->prototype(exec))
+    if (JSC::JSObject* prototype = jsClass->prototype(globalObject))
         object->setPrototypeDirect(vm, prototype);
 
     return object;
@@ -183,26 +183,26 @@ inline void putNonEnumerable(JSContext *context, JSValue *base, NSString *proper
 {
     if (![base isObject])
         return;
-    JSC::ExecState* exec = toJS([context JSGlobalContextRef]);
-    JSC::VM& vm = exec->vm();
+    JSC::JSGlobalObject* globalObject = toJS([context JSGlobalContextRef]);
+    JSC::VM& vm = globalObject->vm();
     JSC::JSLockHolder locker(vm);
     auto scope = DECLARE_CATCH_SCOPE(vm);
 
-    JSC::JSObject* baseObject = JSC::asObject(toJS(exec, [base JSValueRef]));
+    JSC::JSObject* baseObject = JSC::asObject(toJS(globalObject, [base JSValueRef]));
     auto name = OpaqueJSString::tryCreate(propertyName);
     if (!name)
         return;
 
     JSC::PropertyDescriptor descriptor;
-    descriptor.setValue(toJS(exec, [value JSValueRef]));
+    descriptor.setValue(toJS(globalObject, [value JSValueRef]));
     descriptor.setEnumerable(false);
     descriptor.setConfigurable(true);
     descriptor.setWritable(true);
     bool shouldThrow = false;
-    baseObject->methodTable(vm)->defineOwnProperty(baseObject, exec, name->identifier(&vm), descriptor, shouldThrow);
+    baseObject->methodTable(vm)->defineOwnProperty(baseObject, globalObject, name->identifier(&vm), descriptor, shouldThrow);
 
     JSValueRef exception = 0;
-    if (handleExceptionIfNeeded(scope, exec, &exception) == ExceptionStatus::DidThrow)
+    if (handleExceptionIfNeeded(scope, [context JSGlobalContextRef], &exception) == ExceptionStatus::DidThrow)
         [context valueFromNotifyException:exception];
 }
 
@@ -268,7 +268,7 @@ static void copyMethodsToObject(JSContext *context, Class objcClass, Protocol *p
             name = renameMap[name];
             if (!name)
                 name = selectorToPropertyName(nameCStr);
-            auto exec = toJS([context JSGlobalContextRef]);
+            JSC::JSGlobalObject* globalObject = toJS([context JSGlobalContextRef]);
             JSValue *existingMethod = object[name];
             // ObjCCallbackFunction does a dynamic lookup for the
             // selector before calling the method. In order to save
@@ -277,7 +277,7 @@ static void copyMethodsToObject(JSContext *context, Class objcClass, Protocol *p
             // to override normal builtins e.g. "toString" we check if
             // the existing value on the prototype chain is an ObjC
             // callback already.
-            if ([existingMethod isObject] && JSC::jsDynamicCast<JSC::ObjCCallbackFunction*>(exec->vm(), toJS(exec, [existingMethod JSValueRef])))
+            if ([existingMethod isObject] && JSC::jsDynamicCast<JSC::ObjCCallbackFunction*>(globalObject->vm(), toJS(globalObject, [existingMethod JSValueRef])))
                 return;
             JSObjectRef method = objCCallbackFunctionForMethod(context, objcClass, protocol, isInstanceMethod, sel, types);
             if (method)
@@ -547,11 +547,11 @@ typedef std::pair<JSC::JSObject*, JSC::JSObject*> ConstructorPrototypePair;
 
     JSC::Structure* structure = [self structureInContext:context];
 
-    JSC::ExecState* exec = toJS([context JSGlobalContextRef]);
-    JSC::VM& vm = exec->vm();
+    JSC::JSGlobalObject* globalObject = toJS([context JSGlobalContextRef]);
+    JSC::VM& vm = globalObject->vm();
     JSC::JSLockHolder locker(vm);
 
-    auto wrapper = JSC::JSCallbackObject<JSC::JSAPIWrapperObject>::create(exec, exec->lexicalGlobalObject(), structure, m_classRef, 0);
+    auto wrapper = JSC::JSCallbackObject<JSC::JSAPIWrapperObject>::create(globalObject, structure, m_classRef, 0);
     wrapper->setWrappedObject((__bridge void*)object);
     return wrapper;
 }
@@ -580,10 +580,9 @@ typedef std::pair<JSC::JSObject*, JSC::JSObject*> ConstructorPrototypePair;
     if (structure)
         return structure;
 
-    JSC::ExecState* exec = toJS([context JSGlobalContextRef]);
     JSC::JSGlobalObject* globalObject = toJSGlobalObject([context JSGlobalContextRef]);
     JSC::JSObject* prototype = [self prototypeInContext:context];
-    m_structure = JSC::JSCallbackObject<JSC::JSAPIWrapperObject>::createStructure(exec->vm(), globalObject, prototype);
+    m_structure = JSC::JSCallbackObject<JSC::JSAPIWrapperObject>::createStructure(globalObject->vm(), globalObject, prototype);
 
     return m_structure.get();
 }
@@ -606,7 +605,7 @@ typedef std::pair<JSC::JSObject*, JSC::JSObject*> ConstructorPrototypePair;
     NSPointerFunctionsOptions valueOptions = NSPointerFunctionsWeakMemory | NSPointerFunctionsObjectPersonality;
     m_cachedObjCWrappers = [[NSMapTable alloc] initWithKeyOptions:keyOptions valueOptions:valueOptions capacity:0];
 
-    m_cachedJSWrappers = std::make_unique<JSC::WeakGCMap<__unsafe_unretained id, JSC::JSObject>>(toJS(context)->vm());
+    m_cachedJSWrappers = makeUnique<JSC::WeakGCMap<__unsafe_unretained id, JSC::JSObject>>(toJS(context)->vm());
 
     ASSERT(!toJSGlobalObject(context)->wrapperMap());
     toJSGlobalObject(context)->setWrapperMap(self);

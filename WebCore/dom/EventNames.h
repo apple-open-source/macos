@@ -107,6 +107,7 @@ namespace WebCore {
     macro(devicemotion) \
     macro(deviceorientation) \
     macro(dischargingtimechange) \
+    macro(disconnect) \
     macro(downloading) \
     macro(drag) \
     macro(dragend) \
@@ -122,6 +123,7 @@ namespace WebCore {
     macro(endEvent) \
     macro(ended) \
     macro(enter) \
+    macro(enterpictureinpicture) \
     macro(error) \
     macro(exit) \
     macro(fetch) \
@@ -153,6 +155,7 @@ namespace WebCore {
     macro(keystatuseschange) \
     macro(keyup) \
     macro(languagechange) \
+    macro(leavepictureinpicture) \
     macro(levelchange) \
     macro(load) \
     macro(loadeddata) \
@@ -213,6 +216,7 @@ namespace WebCore {
     macro(ratechange) \
     macro(readystatechange) \
     macro(rejectionhandled) \
+    macro(remove) \
     macro(removesourcebuffer) \
     macro(removestream) \
     macro(removetrack) \
@@ -267,6 +271,7 @@ namespace WebCore {
     macro(transitionend) \
     macro(transitionrun) \
     macro(transitionstart) \
+    macro(uncapturederror) \
     macro(unhandledrejection) \
     macro(unload) \
     macro(unmute) \
@@ -339,13 +344,13 @@ public:
     DOM_EVENT_NAMES_FOR_EACH(DOM_EVENT_NAMES_DECLARE)
 #undef DOM_EVENT_NAMES_DECLARE
 
-    // FIXME: The friend declaration to std::make_unique below does not work in windows port.
+    // FIXME: The friend declaration to makeUnique below does not work in windows port.
     //
     // template<class T, class... Args>
-    // friend typename std::_Unique_if<T>::_Single_object std::make_unique(Args&&...);
+    // friend typename std::_Unique_if<T>::_Single_object makeUnique(Args&&...);
     //
     // This create function should be deleted later and is only for keeping EventNames as private.
-    // std::make_unique should be used instead.
+    // makeUnique should be used instead.
     //
     template<class... Args>
     static std::unique_ptr<EventNames> create(Args&&... args)
@@ -395,7 +400,7 @@ inline bool EventNames::isTouchScrollBlockingEventType(const AtomString& eventTy
 inline bool EventNames::isTouchRelatedEventType(const Document& document, const AtomString& eventType) const
 {
 #if ENABLE(TOUCH_EVENTS)
-    if (document.quirks().shouldDispatchSimulatedMouseEvents() || RuntimeEnabledFeatures::sharedFeatures().mouseEventsSimulationEnabled()) {
+    if (document.quirks().shouldDispatchSimulatedMouseEvents()) {
         if (eventType == mousedownEvent || eventType == mousemoveEvent || eventType == mouseupEvent)
             return true;
     }

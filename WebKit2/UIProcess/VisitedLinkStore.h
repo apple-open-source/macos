@@ -28,11 +28,11 @@
 #include "APIObject.h"
 #include "MessageReceiver.h"
 #include "SharedStringHashStore.h"
-#include <WebCore/PageIdentifier.h>
+#include "WebPageProxyIdentifier.h"
 #include <wtf/Forward.h>
-#include <wtf/HashSet.h>
 #include <wtf/Identified.h>
 #include <wtf/RefCounted.h>
+#include <wtf/WeakHashSet.h>
 
 namespace WebKit {
 
@@ -61,11 +61,11 @@ private:
     void didInvalidateSharedMemory() final;
     void didUpdateSharedStringHashes(const Vector<WebCore::SharedStringHash>& addedHashes, const Vector<WebCore::SharedStringHash>& removedHashes) final;
 
-    void addVisitedLinkHashFromPage(WebCore::PageIdentifier, WebCore::SharedStringHash);
+    void addVisitedLinkHashFromPage(WebPageProxyIdentifier, WebCore::SharedStringHash);
 
     void sendStoreHandleToProcess(WebProcessProxy&);
 
-    HashSet<WebProcessProxy*> m_processes;
+    WeakHashSet<WebProcessProxy> m_processes;
     SharedStringHashStore m_linkHashStore;
 };
 

@@ -222,7 +222,7 @@ public:
         return adoptRef(*new DatabaseLoader(context, WTFMove(requestCallback)));
     }
 
-    virtual ~DatabaseLoader() = default;
+    ~DatabaseLoader() override = default;
 
     void execute(IDBDatabase& database) override
     {
@@ -356,7 +356,7 @@ public:
         return adoptRef(*new OpenCursorCallback(injectedScript, WTFMove(requestCallback), skipCount, pageSize));
     }
 
-    virtual ~OpenCursorCallback() = default;
+    ~OpenCursorCallback() override = default;
 
     bool operator==(const EventListener& other) const override
     {
@@ -404,10 +404,10 @@ public:
             return;
         }
 
-        auto* state = context.execState();
-        auto key =  toJS(*state, *state->lexicalGlobalObject(), cursor->key());
-        auto primaryKey = toJS(*state, *state->lexicalGlobalObject(), cursor->primaryKey());
-        auto value = deserializeIDBValueToJSValue(*state, cursor->value());
+        auto* lexicalGlobalObject = context.execState();
+        auto key =  toJS(*lexicalGlobalObject, *lexicalGlobalObject, cursor->key());
+        auto primaryKey = toJS(*lexicalGlobalObject, *lexicalGlobalObject, cursor->primaryKey());
+        auto value = deserializeIDBValueToJSValue(*lexicalGlobalObject, cursor->value());
         auto dataEntry = DataEntry::create()
             .setKey(m_injectedScript.wrapObject(key, String(), true))
             .setPrimaryKey(m_injectedScript.wrapObject(primaryKey, String(), true))
@@ -447,7 +447,7 @@ public:
         return adoptRef(*new DataLoader(context, WTFMove(requestCallback), injectedScript, objectStoreName, indexName, WTFMove(idbKeyRange), skipCount, pageSize));
     }
 
-    virtual ~DataLoader() = default;
+    ~DataLoader() override = default;
 
     void execute(IDBDatabase& database) override
     {
@@ -527,14 +527,16 @@ InspectorIndexedDBAgent::InspectorIndexedDBAgent(PageAgentContext& context)
 {
 }
 
+InspectorIndexedDBAgent::~InspectorIndexedDBAgent() = default;
+
 void InspectorIndexedDBAgent::didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*)
 {
 }
 
 void InspectorIndexedDBAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReason)
 {
-    ErrorString unused;
-    disable(unused);
+    ErrorString ignored;
+    disable(ignored);
 }
 
 void InspectorIndexedDBAgent::enable(ErrorString&)
@@ -549,7 +551,7 @@ static ErrorStringOr<Document*> documentFromFrame(Frame* frame)
 {
     Document* document = frame ? frame->document() : nullptr;
     if (!document)
-        return makeUnexpected("No document for given frame found"_s);
+        return makeUnexpected("Missing document for given frame"_s);
     
     return document;
 }
@@ -558,11 +560,11 @@ static ErrorStringOr<IDBFactory*> IDBFactoryFromDocument(Document* document)
 {
     DOMWindow* domWindow = document->domWindow();
     if (!domWindow)
-        return makeUnexpected("No IndexedDB factory for given frame found"_s);
+        return makeUnexpected("Missing window for given document"_s);
 
     IDBFactory* idbFactory = DOMWindowIndexedDatabase::indexedDB(*domWindow);
     if (!idbFactory)
-        makeUnexpected("No IndexedDB factory for given frame found"_s);
+        makeUnexpected("Missing IndexedDB factory of window for given document"_s);
     
     return idbFactory;
 }
@@ -631,7 +633,7 @@ void InspectorIndexedDBAgent::requestData(const String& securityOrigin, const St
     InjectedScript injectedScript = m_injectedScriptManager.injectedScriptFor(mainWorldExecState(frame));
     RefPtr<IDBKeyRange> idbKeyRange = keyRange ? idbKeyRangeFromKeyRange(keyRange) : nullptr;
     if (keyRange && !idbKeyRange) {
-        callback->sendFailure("Can not parse key range."_s);
+        callback->sendFailure("Could not parse key range."_s);
         return;
     }
 
@@ -649,7 +651,7 @@ public:
         return adoptRef(*new ClearObjectStoreListener(WTFMove(requestCallback)));
     }
 
-    virtual ~ClearObjectStoreListener() = default;
+    ~ClearObjectStoreListener() override = default;
 
     bool operator==(const EventListener& other) const override
     {

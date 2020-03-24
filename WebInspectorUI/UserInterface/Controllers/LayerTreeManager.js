@@ -27,19 +27,124 @@
 
 WI.LayerTreeManager = class LayerTreeManager extends WI.Object
 {
+    constructor()
+    {
+        super();
+
+        this._showPaintRects = false;
+        this._compositingBordersVisible = false;
+    }
+
     // Target
 
     initializeTarget(target)
     {
-        if (target.LayerTreeAgent)
+        if (target.hasDomain("LayerTree"))
             target.LayerTreeAgent.enable();
+
+        if (target.hasDomain("Page")) {
+            if (target.hasCommand("Page.setShowPaintRects") && this._showPaintRects)
+                target.PageAgent.setShowPaintRects(this._showPaintRects);
+
+            if (this._compositingBordersVisible) {
+                // COMPATIBILITY(iOS 13.1): Page.setCompositingBordersVisible was replaced by Page.Setting.ShowDebugBorders and Page.Setting.ShowRepaintCounter.
+                if (target.hasCommand("Page.overrideSetting") && InspectorBackend.Enum.Page.Setting.ShowDebugBorders && InspectorBackend.Enum.Page.Setting.ShowRepaintCounter) {
+                    target.PageAgent.overrideSetting(InspectorBackend.Enum.Page.Setting.ShowDebugBorders, this._compositingBordersVisible);
+                    target.PageAgent.overrideSetting(InspectorBackend.Enum.Page.Setting.ShowRepaintCounter, this._compositingBordersVisible);
+                } else if (target.hasCommand("Page.setCompositingBordersVisible"))
+                    target.PageAgent.setCompositingBordersVisible(this._compositingBordersVisible);
+            }
+        }
+    }
+
+    // Static
+
+    static supportsShowingPaintRects()
+    {
+        return InspectorBackend.hasCommand("Page.setShowPaintRects");
+    }
+
+    static supportsVisibleCompositingBorders()
+    {
+        return InspectorBackend.hasCommand("Page.setCompositingBordersVisible")
+            || (InspectorBackend.Enum.Page.Setting.ShowDebugBorders && InspectorBackend.Enum.Page.Setting.ShowRepaintCounter);
     }
 
     // Public
 
     get supported()
     {
-        return !!window.LayerTreeAgent;
+        return InspectorBackend.hasDomain("LayerTree");
+    }
+
+    get showPaintRects()
+    {
+        return this._showPaintRects;
+    }
+
+    set showPaintRects(showPaintRects)
+    {
+        if (this._showPaintRects === showPaintRects)
+            return;
+
+        this._showPaintRects = showPaintRects;
+
+        for (let target of WI.targets) {
+            // COMPATIBILITY (iOS 9): Page.setCompositingBordersVisible did not exist yet.
+            if (target.hasCommand("Page.setShowPaintRects"))
+                target.PageAgent.setShowPaintRects(this._showPaintRects);
+        }
+
+        this.dispatchEventToListeners(LayerTreeManager.Event.ShowPaintRectsChanged);
+    }
+
+    get compositingBordersVisible()
+    {
+        return this._compositingBordersVisible;
+    }
+
+    set compositingBordersVisible(compositingBordersVisible)
+    {
+        if (this._compositingBordersVisible === compositingBordersVisible)
+            return;
+
+        this._compositingBordersVisible = compositingBordersVisible;
+
+        for (let target of WI.targets) {
+            // COMPATIBILITY(iOS 13.1): Page.setCompositingBordersVisible was replaced by Page.Setting.ShowDebugBorders and Page.Setting.ShowRepaintCounter.
+            if (target.hasCommand("Page.overrideSetting") && InspectorBackend.Enum.Page.Setting.ShowDebugBorders && InspectorBackend.Enum.Page.Setting.ShowRepaintCounter) {
+                target.PageAgent.overrideSetting(InspectorBackend.Enum.Page.Setting.ShowDebugBorders, this._compositingBordersVisible);
+                target.PageAgent.overrideSetting(InspectorBackend.Enum.Page.Setting.ShowRepaintCounter, this._compositingBordersVisible);
+            } else if (target.hasCommand("Page.setCompositingBordersVisible"))
+                target.PageAgent.setCompositingBordersVisible(this._compositingBordersVisible);
+        }
+
+        this.dispatchEventToListeners(LayerTreeManager.Event.CompositingBordersVisibleChanged);
+    }
+
+    updateCompositingBordersVisibleFromPageIfNeeded()
+    {
+        if (!WI.targetsAvailable()) {
+            WI.whenTargetsAvailable().then(() => {
+                this.updateCompositingBordersVisibleFromPageIfNeeded();
+            });
+            return;
+        }
+
+        let target = WI.assumingMainTarget();
+
+        // COMPATIBILITY(iOS 13.1): Page.getCompositingBordersVisible was replaced by Page.Setting.ShowDebugBorders and Page.Setting.ShowRepaintCounter.
+        if (!target.hasCommand("Page.getCompositingBordersVisible"))
+            return;
+
+        target.PageAgent.getCompositingBordersVisible((error, compositingBordersVisible) => {
+            if (error) {
+                WI.reportInternalError(error);
+                return;
+            }
+
+            this.compositingBordersVisible = compositingBordersVisible;
+        });
     }
 
     layerTreeMutations(previousLayers, newLayers)
@@ -76,7 +181,8 @@ WI.LayerTreeManager = class LayerTreeManager extends WI.Object
     {
         console.assert(this.supported);
 
-        LayerTreeAgent.layersForNode(node.id, (error, layers) => {
+        let target = WI.assumingMainTarget();
+        target.LayerTreeAgent.layersForNode(node.id, (error, layers) => {
             callback(error ? [] : layers.map(WI.Layer.fromPayload));
         });
     }
@@ -85,10 +191,13 @@ WI.LayerTreeManager = class LayerTreeManager extends WI.Object
     {
         console.assert(this.supported);
 
-        LayerTreeAgent.reasonsForCompositingLayer(layer.layerId, function(error, reasons) {
+        let target = WI.assumingMainTarget();
+        target.LayerTreeAgent.reasonsForCompositingLayer(layer.layerId, function(error, reasons) {
             callback(error ? 0 : reasons);
         });
     }
+
+    // LayerTreeObserver
 
     layerTreeDidChange()
     {
@@ -97,5 +206,7 @@ WI.LayerTreeManager = class LayerTreeManager extends WI.Object
 };
 
 WI.LayerTreeManager.Event = {
-    LayerTreeDidChange: "layer-tree-did-change"
+    ShowPaintRectsChanged: "show-paint-rects-changed",
+    CompositingBordersVisibleChanged: "compositing-borders-visible-changed",
+    LayerTreeDidChange: "layer-tree-did-change",
 };

@@ -31,13 +31,12 @@
 #include "SharedTimer.h"
 #include "ThreadGlobalData.h"
 #include "ThreadTimers.h"
-#include <limits.h>
 #include <limits>
 #include <math.h>
 #include <wtf/MainThread.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(IOS_FAMILY) || PLATFORM(MAC)
+#if PLATFORM(COCOA)
 #include <wtf/spi/darwin/dyldSPI.h>
 #endif
 
@@ -259,8 +258,8 @@ TimerBase::TimerBase()
 
 TimerBase::~TimerBase()
 {
-    ASSERT(canAccessThreadLocalDataForThread(m_thread.get()));
-    RELEASE_ASSERT(canAccessThreadLocalDataForThread(m_thread.get()) || shouldSuppressThreadSafetyCheck());
+    ASSERT(canCurrentThreadAccessThreadLocalData(m_thread));
+    RELEASE_ASSERT(canCurrentThreadAccessThreadLocalData(m_thread) || shouldSuppressThreadSafetyCheck());
     stop();
     ASSERT(!inHeap());
     if (m_heapItem)
@@ -270,7 +269,7 @@ TimerBase::~TimerBase()
 
 void TimerBase::start(Seconds nextFireInterval, Seconds repeatInterval)
 {
-    ASSERT(canAccessThreadLocalDataForThread(m_thread.get()));
+    ASSERT(canCurrentThreadAccessThreadLocalData(m_thread));
 
     m_repeatInterval = repeatInterval;
     setNextFireTime(MonotonicTime::now() + nextFireInterval);
@@ -278,7 +277,7 @@ void TimerBase::start(Seconds nextFireInterval, Seconds repeatInterval)
 
 void TimerBase::stop()
 {
-    ASSERT(canAccessThreadLocalDataForThread(m_thread.get()));
+    ASSERT(canCurrentThreadAccessThreadLocalData(m_thread));
 
     m_repeatInterval = 0_s;
     setNextFireTime(MonotonicTime { });
@@ -462,8 +461,8 @@ void TimerBase::updateHeapIfNeeded(MonotonicTime oldTime)
 
 void TimerBase::setNextFireTime(MonotonicTime newTime)
 {
-    ASSERT(canAccessThreadLocalDataForThread(m_thread.get()));
-    RELEASE_ASSERT(canAccessThreadLocalDataForThread(m_thread.get()) || shouldSuppressThreadSafetyCheck());
+    ASSERT(canCurrentThreadAccessThreadLocalData(m_thread));
+    RELEASE_ASSERT(canCurrentThreadAccessThreadLocalData(m_thread) || shouldSuppressThreadSafetyCheck());
     bool timerHasBeenDeleted = std::isnan(m_unalignedNextFireTime);
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(!timerHasBeenDeleted);
 
@@ -481,9 +480,7 @@ void TimerBase::setNextFireTime(MonotonicTime newTime)
     }
 
     if (oldTime != newTime) {
-        // FIXME: This should be part of ThreadTimers, or another per-thread structure.
-        static std::atomic<unsigned> currentHeapInsertionOrder;
-        auto newOrder = currentHeapInsertionOrder++;
+        auto newOrder = threadGlobalData().threadTimers().nextHeapInsertionCount();
 
         if (!m_heapItem)
             m_heapItem = ThreadTimerHeapItem::create(*this, newTime, 0);

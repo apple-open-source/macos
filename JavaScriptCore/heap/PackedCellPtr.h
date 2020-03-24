@@ -25,12 +25,21 @@
 
 #pragma once
 
+#include "IsoSubspace.h"
 #include "MarkedBlock.h"
+#include "MarkedSpace.h"
 #include <wtf/Packed.h>
 
 namespace JSC {
 
 template<typename T>
-using PackedCellPtr = PackedAlignedPtr<T, MarkedBlock::atomSize>;
+class PackedCellPtr : public PackedAlignedPtr<T, 8> {
+public:
+    using Base = PackedAlignedPtr<T, 8>;
+    PackedCellPtr(T* pointer)
+        : Base(pointer)
+    {
+    }
+};
 
 } // namespace JSC

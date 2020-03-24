@@ -29,7 +29,7 @@
 
 #include "WHLSLExpression.h"
 #include "WHLSLFunctionDeclaration.h"
-#include "WHLSLLexer.h"
+#include <wtf/FastMalloc.h>
 #include <wtf/UniqueRef.h>
 
 namespace WebCore {
@@ -39,48 +39,19 @@ namespace WHLSL {
 namespace AST {
 
 class PropertyAccessExpression : public Expression {
+    WTF_MAKE_FAST_ALLOCATED;
+protected:
+    ~PropertyAccessExpression() = default;
+
 public:
-    PropertyAccessExpression(CodeLocation location, UniqueRef<Expression>&& base)
-        : Expression(location)
+    PropertyAccessExpression(CodeLocation location, Kind kind, UniqueRef<Expression>&& base)
+        : Expression(location, kind)
         , m_base(WTFMove(base))
     {
     }
 
-    virtual ~PropertyAccessExpression() = default;
-
     PropertyAccessExpression(const PropertyAccessExpression&) = delete;
     PropertyAccessExpression(PropertyAccessExpression&&) = default;
-
-    bool isPropertyAccessExpression() const override { return true; }
-
-    virtual String getterFunctionName() const = 0;
-    virtual String setterFunctionName() const = 0;
-    virtual String anderFunctionName() const = 0;
-
-    FunctionDeclaration* getterFunction() { return m_getterFunction; }
-    FunctionDeclaration* anderFunction() { return m_anderFunction; }
-    FunctionDeclaration* threadAnderFunction() { return m_threadAnderFunction; }
-    FunctionDeclaration* setterFunction() { return m_setterFunction; }
-
-    void setGetterFunction(FunctionDeclaration* getterFunction)
-    {
-        m_getterFunction = getterFunction;
-    }
-
-    void setAnderFunction(FunctionDeclaration* anderFunction)
-    {
-        m_anderFunction = anderFunction;
-    }
-
-    void setThreadAnderFunction(FunctionDeclaration* threadAnderFunction)
-    {
-        m_threadAnderFunction = threadAnderFunction;
-    }
-
-    void setSetterFunction(FunctionDeclaration* setterFunction)
-    {
-        m_setterFunction = setterFunction;
-    }
 
     Expression& base() { return m_base; }
     UniqueRef<Expression>& baseReference() { return m_base; }
@@ -88,10 +59,6 @@ public:
 
 private:
     UniqueRef<Expression> m_base;
-    FunctionDeclaration* m_getterFunction { nullptr };
-    FunctionDeclaration* m_anderFunction { nullptr };
-    FunctionDeclaration* m_threadAnderFunction { nullptr };
-    FunctionDeclaration* m_setterFunction { nullptr };
 };
 
 } // namespace AST

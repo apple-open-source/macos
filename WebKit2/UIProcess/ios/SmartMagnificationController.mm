@@ -29,6 +29,7 @@
 #if PLATFORM(IOS_FAMILY)
 
 #import "SmartMagnificationControllerMessages.h"
+#import "UserInterfaceIdiom.h"
 #import "ViewGestureGeometryCollectorMessages.h"
 #import "WKContentView.h"
 #import "WKScrollView.h"
@@ -36,12 +37,6 @@
 #import "WebPageMessages.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
-
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-
-#import "UIKitSPI.h"
-
-ALLOW_DEPRECATED_DECLARATIONS_END
 
 static const float smartMagnificationPanScrollThresholdZoomedOut = 60;
 static const float smartMagnificationPanScrollThresholdIPhone = 100;
@@ -58,17 +53,17 @@ SmartMagnificationController::SmartMagnificationController(WKContentView *conten
     : m_webPageProxy(*contentView.page)
     , m_contentView(contentView)
 {
-    m_webPageProxy.process().addMessageReceiver(Messages::SmartMagnificationController::messageReceiverName(), m_webPageProxy.pageID(), *this);
+    m_webPageProxy.process().addMessageReceiver(Messages::SmartMagnificationController::messageReceiverName(), m_webPageProxy.webPageID(), *this);
 }
 
 SmartMagnificationController::~SmartMagnificationController()
 {
-    m_webPageProxy.process().removeMessageReceiver(Messages::SmartMagnificationController::messageReceiverName(), m_webPageProxy.pageID());
+    m_webPageProxy.process().removeMessageReceiver(Messages::SmartMagnificationController::messageReceiverName(), m_webPageProxy.webPageID());
 }
 
 void SmartMagnificationController::handleSmartMagnificationGesture(FloatPoint origin)
 {
-    m_webPageProxy.process().send(Messages::ViewGestureGeometryCollector::CollectGeometryForSmartMagnificationGesture(origin), m_webPageProxy.pageID());
+    m_webPageProxy.process().send(Messages::ViewGestureGeometryCollector::CollectGeometryForSmartMagnificationGesture(origin), m_webPageProxy.webPageID());
 }
 
 void SmartMagnificationController::handleResetMagnificationGesture(FloatPoint origin)

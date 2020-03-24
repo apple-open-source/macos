@@ -69,7 +69,7 @@ namespace WebCore {
 LegacyTileCache::LegacyTileCache(WAKWindow* window)
     : m_window(window)
     , m_tombstone(adoptNS([[LegacyTileCacheTombstone alloc] init]))
-    , m_zoomedOutTileGrid(std::make_unique<LegacyTileGrid>(*this, m_tileSize))
+    , m_zoomedOutTileGrid(makeUnique<LegacyTileGrid>(*this, m_tileSize))
     , m_tileCreationTimer(*this, &LegacyTileCache::tileCreationTimerFired)
 {
     [hostLayer() insertSublayer:m_zoomedOutTileGrid->tileHostLayer() atIndex:0];
@@ -236,7 +236,7 @@ void LegacyTileCache::commitScaleChange()
 
     if (m_currentScale != m_zoomedOutTileGrid->scale()) {
         if (!m_zoomedInTileGrid) {
-            m_zoomedInTileGrid = std::make_unique<LegacyTileGrid>(*this, m_tileSize);
+            m_zoomedInTileGrid = makeUnique<LegacyTileGrid>(*this, m_tileSize);
             [hostLayer() addSublayer:m_zoomedInTileGrid->tileHostLayer()];
             hostLayerSizeChanged();
         }
@@ -462,9 +462,9 @@ unsigned LegacyTileCache::tileCapacityForGrid(LegacyTileGrid* grid)
 Color LegacyTileCache::colorForGridTileBorder(LegacyTileGrid* grid) const
 {
     if (grid == m_zoomedOutTileGrid.get())
-        return Color(.3f, .0f, 0.4f, 0.5f);
+        return Color(0.2f, 1.0f, 0.f, 0.5f);
 
-    return Color(.0f, .0f, 0.4f, 0.5f);
+    return Color(0.2f, 0.9f, 0.f, 0.5f);
 }
 
 static bool shouldRepaintInPieces(const CGRect& dirtyRect, CGSRegionObj dirtyRegion, CGFloat contentsScale)

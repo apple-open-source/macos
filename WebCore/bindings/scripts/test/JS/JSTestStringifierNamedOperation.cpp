@@ -21,6 +21,7 @@
 #include "config.h"
 #include "JSTestStringifierNamedOperation.h"
 
+#include "ActiveDOMObject.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
 #include "JSDOMConvertStrings.h"
@@ -29,7 +30,7 @@
 #include "JSDOMWrapperCache.h"
 #include "ScriptExecutionContext.h"
 #include <JavaScriptCore/FunctionPrototype.h>
-#include <JavaScriptCore/HeapSnapshotBuilder.h>
+#include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
@@ -41,13 +42,13 @@ using namespace JSC;
 
 // Functions
 
-JSC::EncodedJSValue JSC_HOST_CALL jsTestStringifierNamedOperationPrototypeFunctionIdentifier(JSC::ExecState*);
-JSC::EncodedJSValue JSC_HOST_CALL jsTestStringifierNamedOperationPrototypeFunctionToString(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL jsTestStringifierNamedOperationPrototypeFunctionIdentifier(JSC::JSGlobalObject*, JSC::CallFrame*);
+JSC::EncodedJSValue JSC_HOST_CALL jsTestStringifierNamedOperationPrototypeFunctionToString(JSC::JSGlobalObject*, JSC::CallFrame*);
 
 // Attributes
 
-JSC::EncodedJSValue jsTestStringifierNamedOperationConstructor(JSC::ExecState*, JSC::EncodedJSValue, JSC::PropertyName);
-bool setJSTestStringifierNamedOperationConstructor(JSC::ExecState*, JSC::EncodedJSValue, JSC::EncodedJSValue);
+JSC::EncodedJSValue jsTestStringifierNamedOperationConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
+bool setJSTestStringifierNamedOperationConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 
 class JSTestStringifierNamedOperationPrototype : public JSC::JSNonFinalObject {
 public:
@@ -73,6 +74,7 @@ private:
 
     void finishCreation(JSC::VM&);
 };
+STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestStringifierNamedOperationPrototype, JSTestStringifierNamedOperationPrototype::Base);
 
 using JSTestStringifierNamedOperationConstructor = JSDOMConstructorNotConstructable<JSTestStringifierNamedOperation>;
 
@@ -85,7 +87,7 @@ template<> JSValue JSTestStringifierNamedOperationConstructor::prototypeForStruc
 template<> void JSTestStringifierNamedOperationConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestStringifierNamedOperation::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String("TestStringifierNamedOperation"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("TestStringifierNamedOperation"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -120,6 +122,8 @@ void JSTestStringifierNamedOperation::finishCreation(VM& vm)
     Base::finishCreation(vm);
     ASSERT(inherits(vm, info()));
 
+    static_assert(!std::is_base_of<ActiveDOMObject, TestStringifierNamedOperation>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
+
 }
 
 JSObject* JSTestStringifierNamedOperation::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -143,67 +147,69 @@ void JSTestStringifierNamedOperation::destroy(JSC::JSCell* cell)
     thisObject->JSTestStringifierNamedOperation::~JSTestStringifierNamedOperation();
 }
 
-template<> inline JSTestStringifierNamedOperation* IDLOperation<JSTestStringifierNamedOperation>::cast(ExecState& state)
+template<> inline JSTestStringifierNamedOperation* IDLOperation<JSTestStringifierNamedOperation>::cast(JSGlobalObject& lexicalGlobalObject, CallFrame& callFrame)
 {
-    return jsDynamicCast<JSTestStringifierNamedOperation*>(state.vm(), state.thisValue());
+    return jsDynamicCast<JSTestStringifierNamedOperation*>(JSC::getVM(&lexicalGlobalObject), callFrame.thisValue());
 }
 
-EncodedJSValue jsTestStringifierNamedOperationConstructor(ExecState* state, EncodedJSValue thisValue, PropertyName)
+EncodedJSValue jsTestStringifierNamedOperationConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
 {
-    VM& vm = state->vm();
+    VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestStringifierNamedOperationPrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
-        return throwVMTypeError(state, throwScope);
-    return JSValue::encode(JSTestStringifierNamedOperation::getConstructor(state->vm(), prototype->globalObject()));
+        return throwVMTypeError(lexicalGlobalObject, throwScope);
+    return JSValue::encode(JSTestStringifierNamedOperation::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-bool setJSTestStringifierNamedOperationConstructor(ExecState* state, EncodedJSValue thisValue, EncodedJSValue encodedValue)
+bool setJSTestStringifierNamedOperationConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, EncodedJSValue encodedValue)
 {
-    VM& vm = state->vm();
+    VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestStringifierNamedOperationPrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype)) {
-        throwVMTypeError(state, throwScope);
+        throwVMTypeError(lexicalGlobalObject, throwScope);
         return false;
     }
     // Shadowing a built-in constructor
     return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
 }
 
-static inline JSC::EncodedJSValue jsTestStringifierNamedOperationPrototypeFunctionIdentifierBody(JSC::ExecState* state, typename IDLOperation<JSTestStringifierNamedOperation>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestStringifierNamedOperationPrototypeFunctionIdentifierBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestStringifierNamedOperation>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
     auto& impl = castedThis->wrapped();
-    return JSValue::encode(toJS<IDLDOMString>(*state, impl.identifier()));
+    return JSValue::encode(toJS<IDLDOMString>(*lexicalGlobalObject, impl.identifier()));
 }
 
-EncodedJSValue JSC_HOST_CALL jsTestStringifierNamedOperationPrototypeFunctionIdentifier(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsTestStringifierNamedOperationPrototypeFunctionIdentifier(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSTestStringifierNamedOperation>::call<jsTestStringifierNamedOperationPrototypeFunctionIdentifierBody>(*state, "identifier");
+    return IDLOperation<JSTestStringifierNamedOperation>::call<jsTestStringifierNamedOperationPrototypeFunctionIdentifierBody>(*lexicalGlobalObject, *callFrame, "identifier");
 }
 
-static inline JSC::EncodedJSValue jsTestStringifierNamedOperationPrototypeFunctionToStringBody(JSC::ExecState* state, typename IDLOperation<JSTestStringifierNamedOperation>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestStringifierNamedOperationPrototypeFunctionToStringBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestStringifierNamedOperation>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
     auto& impl = castedThis->wrapped();
-    return JSValue::encode(toJS<IDLDOMString>(*state, impl.identifier()));
+    return JSValue::encode(toJS<IDLDOMString>(*lexicalGlobalObject, impl.identifier()));
 }
 
-EncodedJSValue JSC_HOST_CALL jsTestStringifierNamedOperationPrototypeFunctionToString(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsTestStringifierNamedOperationPrototypeFunctionToString(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSTestStringifierNamedOperation>::call<jsTestStringifierNamedOperationPrototypeFunctionToStringBody>(*state, "toString");
+    return IDLOperation<JSTestStringifierNamedOperation>::call<jsTestStringifierNamedOperationPrototypeFunctionToStringBody>(*lexicalGlobalObject, *callFrame, "toString");
 }
 
-void JSTestStringifierNamedOperation::heapSnapshot(JSCell* cell, HeapSnapshotBuilder& builder)
+void JSTestStringifierNamedOperation::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
 {
     auto* thisObject = jsCast<JSTestStringifierNamedOperation*>(cell);
-    builder.setWrappedObjectForCell(cell, &thisObject->wrapped());
+    analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        builder.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
-    Base::heapSnapshot(cell, builder);
+        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+    Base::analyzeHeap(cell, analyzer);
 }
 
 bool JSTestStringifierNamedOperationOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor, const char** reason)
@@ -230,7 +236,7 @@ extern "C" { extern void* _ZTVN7WebCore29TestStringifierNamedOperationE[]; }
 #endif
 #endif
 
-JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, Ref<TestStringifierNamedOperation>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestStringifierNamedOperation>&& impl)
 {
 
 #if ENABLE(BINDING_INTEGRITY)
@@ -254,9 +260,9 @@ JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, 
     return createWrapper<TestStringifierNamedOperation>(globalObject, WTFMove(impl));
 }
 
-JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestStringifierNamedOperation& impl)
+JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestStringifierNamedOperation& impl)
 {
-    return wrap(state, globalObject, impl);
+    return wrap(lexicalGlobalObject, globalObject, impl);
 }
 
 TestStringifierNamedOperation* JSTestStringifierNamedOperation::toWrapped(JSC::VM& vm, JSC::JSValue value)

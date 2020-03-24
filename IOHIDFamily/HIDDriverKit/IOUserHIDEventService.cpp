@@ -118,8 +118,8 @@ IMPL(IOUserHIDEventService, Start)
                            &_reportAction);
     require_noerr_action(ret, exit, HIDServiceLogError("CreateActionReportAvailable%x", ret));
     
-    ret = IOHIDEventService::KernelStart(provider);
-    require_noerr_action(ret, exit, HIDServiceLogError("IOHIDEventService::KernelStart:%x", ret));
+    ret = _Start(provider);
+    require_noerr_action(ret, exit, HIDServiceLogError("_Start(provider):%x", ret));
     
     _elements = _interface->getElements();
     require(_elements, exit);
@@ -347,8 +347,11 @@ exit:
 void IOUserHIDEventService::dispatchEvent(IOHIDEvent *event)
 {
     bzero(_eventMemory, _maxEventSize);
+    require(event->getLength() <= _maxEventSize,exit);
     event->readBytes(_eventMemory, event->getLength());
     EventAvailable(event->getLength());
+exit:
+    return;
 }
 
 static inline void setButtonState(uint32_t *state, uint32_t bit, uint32_t value)

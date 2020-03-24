@@ -34,6 +34,7 @@ namespace JSC {
 class CallLinkStatus;
 
 class PutByIdVariant {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     enum Kind {
         NotSet,
@@ -136,6 +137,11 @@ public:
     
     void dump(PrintStream&) const;
     void dumpInContext(PrintStream&, DumpContext*) const;
+
+    bool overlaps(const PutByIdVariant& other)
+    {
+        return structureSet().overlaps(other.structureSet());
+    }
 
 private:
     bool attemptToMergeTransitionWithReplace(const PutByIdVariant& replace);

@@ -32,6 +32,7 @@
 #include "GPUBasedCanvasRenderingContext.h"
 #include "GraphicsContext3D.h"
 #include "ImageBuffer.h"
+#include "SuspendableTimer.h"
 #include "Timer.h"
 #include "WebGLAny.h"
 #include "WebGLBuffer.h"
@@ -68,12 +69,16 @@ class OESTextureHalfFloat;
 class OESTextureHalfFloatLinear;
 class OESVertexArrayObject;
 class OESElementIndexUint;
+#if ENABLE(OFFSCREEN_CANVAS)
 class OffscreenCanvas;
+#endif
 class WebGLActiveInfo;
 class WebGLContextGroup;
 class WebGLContextObject;
 class WebGLCompressedTextureASTC;
 class WebGLCompressedTextureATC;
+class WebGLCompressedTextureETC;
+class WebGLCompressedTextureETC1;
 class WebGLCompressedTexturePVRTC;
 class WebGLCompressedTextureS3TC;
 class WebGLDebugRendererInfo;
@@ -92,7 +97,11 @@ class WebGLUniformLocation;
 class HTMLVideoElement;
 #endif
 
+#if ENABLE(OFFSCREEN_CANVAS)
 using WebGLCanvas = WTF::Variant<RefPtr<HTMLCanvasElement>, RefPtr<OffscreenCanvas>>;
+#else
+using WebGLCanvas = WTF::Variant<RefPtr<HTMLCanvasElement>>;
+#endif
 
 class WebGLRenderingContextBase : public GraphicsContext3D::Client, public GPUBasedCanvasRenderingContext, private ActivityStateChangeObserver {
     WTF_MAKE_ISO_ALLOCATED(WebGLRenderingContextBase);
@@ -364,6 +373,9 @@ public:
     void recycleContext() override;
     void dispatchContextChangedNotification() override;
 
+    // ActiveDOMObject
+    bool hasPendingActivity() const final;
+
 protected:
     WebGLRenderingContextBase(CanvasBase&, WebGLContextAttributes);
     WebGLRenderingContextBase(CanvasBase&, Ref<GraphicsContext3D>&&, WebGLContextAttributes);
@@ -375,6 +387,8 @@ protected:
     friend class WebGLDebugShaders;
     friend class WebGLCompressedTextureASTC;
     friend class WebGLCompressedTextureATC;
+    friend class WebGLCompressedTextureETC;
+    friend class WebGLCompressedTextureETC1;
     friend class WebGLCompressedTexturePVRTC;
     friend class WebGLCompressedTextureS3TC;
     friend class WebGLRenderingContextErrorMessageCallback;
@@ -387,10 +401,10 @@ protected:
     void setupFlags();
 
     // ActiveDOMObject
-    bool hasPendingActivity() const override;
     void stop() override;
     const char* activeDOMObjectName() const override;
-    bool canSuspendForDocumentSuspension() const override;
+    void suspend(ReasonForSuspension) override;
+    void resume() override;
 
     void addSharedObject(WebGLSharedObject&);
     void addContextObject(WebGLContextObject&);
@@ -451,9 +465,10 @@ protected:
     // likely that there's no JavaScript on the stack, but that might be dependent
     // on how exactly the platform discovers that the context was lost. For better
     // portability we always defer the dispatch of the event.
-    Timer m_dispatchContextLostEventTimer;
+    SuspendableTimer m_dispatchContextLostEventTimer;
+    SuspendableTimer m_dispatchContextChangedEventTimer;
     bool m_restoreAllowed { false };
-    Timer m_restoreTimer;
+    SuspendableTimer m_restoreTimer;
 
     bool m_needsUpdate;
     bool m_markedCanvasDirty;
@@ -602,6 +617,8 @@ protected:
     std::unique_ptr<WebGLDebugShaders> m_webglDebugShaders;
     std::unique_ptr<WebGLCompressedTextureASTC> m_webglCompressedTextureASTC;
     std::unique_ptr<WebGLCompressedTextureATC> m_webglCompressedTextureATC;
+    std::unique_ptr<WebGLCompressedTextureETC> m_webglCompressedTextureETC;
+    std::unique_ptr<WebGLCompressedTextureETC1> m_webglCompressedTextureETC1;
     std::unique_ptr<WebGLCompressedTexturePVRTC> m_webglCompressedTexturePVRTC;
     std::unique_ptr<WebGLCompressedTextureS3TC> m_webglCompressedTextureS3TC;
     std::unique_ptr<WebGLDepthTexture> m_webglDepthTexture;
@@ -627,9 +644,9 @@ protected:
     void restoreStateAfterClear();
 
     void texImage2DBase(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dint border, GC3Denum format, GC3Denum type, const void* pixels);
-    void texImage2DImpl(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Denum format, GC3Denum type, Image*, GraphicsContext3D::ImageHtmlDomSource, bool flipY, bool premultiplyAlpha);
+    void texImage2DImpl(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Denum format, GC3Denum type, Image*, GraphicsContext3D::DOMSource, bool flipY, bool premultiplyAlpha);
     void texSubImage2DBase(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dsizei width, GC3Dsizei height, GC3Denum internalformat, GC3Denum format, GC3Denum type, const void* pixels);
-    void texSubImage2DImpl(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Denum format, GC3Denum type, Image*, GraphicsContext3D::ImageHtmlDomSource, bool flipY, bool premultiplyAlpha);
+    void texSubImage2DImpl(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Denum format, GC3Denum type, Image*, GraphicsContext3D::DOMSource, bool flipY, bool premultiplyAlpha);
 
     bool checkTextureCompleteness(const char*, bool);
 
@@ -806,10 +823,6 @@ protected:
     bool validateSimulatedVertexAttrib0(GC3Duint numVertex);
     void restoreStatesAfterVertexAttrib0Simulation();
 
-    void dispatchContextLostEvent();
-    // Helper for restoration after context lost.
-    void maybeRestoreContext();
-
     // Wrapper for GraphicsContext3D::synthesizeGLError that sends a message to the JavaScript console.
     enum ConsoleDisplayPreference { DisplayInConsole, DontDisplayInConsole };
     void synthesizeGLError(GC3Denum, const char* functionName, const char* description, ConsoleDisplayPreference = DisplayInConsole);
@@ -836,13 +849,19 @@ protected:
     // Check if EXT_draw_buffers extension is supported and if it satisfies the WebGL requirements.
     bool supportsDrawBuffers();
 
-    HTMLCanvasElement* htmlCanvas();
+#if ENABLE(OFFSCREEN_CANVAS)
     OffscreenCanvas* offscreenCanvas();
+#endif
 
     template <typename T> inline Optional<T> checkedAddAndMultiply(T value, T add, T multiply);
     template <typename T> unsigned getMaxIndex(const RefPtr<JSC::ArrayBuffer> elementArrayBuffer, GC3Dintptr uoffset, GC3Dsizei n);
 
 private:
+    void dispatchContextLostEvent();
+    void dispatchContextChangedEvent();
+    // Helper for restoration after context lost.
+    void maybeRestoreContext();
+
     bool validateArrayBufferType(const char* functionName, GC3Denum type, Optional<JSC::TypedArrayType>);
     void registerWithWebGLStateTracker();
     void checkForContextLossHandling();
@@ -851,6 +870,7 @@ private:
 
     WebGLStateTracker::Token m_trackerToken;
     Timer m_checkForContextLossHandlingTimer;
+    bool m_isSuspended { false };
 };
 
 template <typename T>

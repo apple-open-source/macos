@@ -56,6 +56,17 @@
 			name = Security_frameworks_ios;
 			productName = kernel;
 		};
+		0CA378E123876DD100090B7E /* reset_account */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 0CA378E323876DD100090B7E /* Build configuration list for PBXAggregateTarget "reset_account" */;
+			buildPhases = (
+				0CA378E623876DEC00090B7E /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = reset_account;
+			productName = codesigning_DTrace;
+		};
 		4C541F840F250BF500E508AE /* Security_executables_ios */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 4C541FA30F250C8C00E508AE /* Build configuration list for PBXAggregateTarget "Security_executables_ios" */;
@@ -371,6 +382,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				0CA378EB23876E1000090B7E /* PBXTargetDependency */,
 				D4E0E9BC2224E15500A802E0 /* PBXTargetDependency */,
 				D45D8F5C2224D9F100D6C124 /* PBXTargetDependency */,
 				D45D8F5A2224D8A100D6C124 /* PBXTargetDependency */,
@@ -389,6 +401,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				0CA378E923876E0900090B7E /* PBXTargetDependency */,
 				D4EB53C9223C4AB5009101F8 /* PBXTargetDependency */,
 				D4E0E9BE2224E15E00A802E0 /* PBXTargetDependency */,
 				D45D8F902224DC9900D6C124 /* PBXTargetDependency */,
@@ -887,6 +900,7 @@
 		0C9FB40720D872A600864612 /* CoreCDP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C9FB40120D8729A00864612 /* CoreCDP.framework */; };
 		0C9FB40920D8735500864612 /* CoreCDP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0C9FB40120D8729A00864612 /* CoreCDP.framework */; };
 		0CA2282F2187A5CA00A1C56C /* BottledPeer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C0C4F84216FB56B00C14C61 /* BottledPeer.swift */; };
+		0CA378E723876DFC00090B7E /* reset_ick_account in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0C7382F023863AD5004F98CB /* reset_ick_account */; };
 		0CA4B4722171410200B17169 /* EscrowKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C0C4F83216FB55600C14C61 /* EscrowKeys.swift */; };
 		0CA4EBF3202B8D9C002B1D96 /* CloudKitKeychainSyncingTestsBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CA4EBF2202B8D1D002B1D96 /* CloudKitKeychainSyncingTestsBase.m */; };
 		0CA4EBF4202B8DBE002B1D96 /* CloudKitKeychainSyncingTestsBase.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CA4EBF2202B8D1D002B1D96 /* CloudKitKeychainSyncingTestsBase.m */; };
@@ -899,7 +913,6 @@
 		0CAD1E591E1C5CBD00537693 /* secd-52-offering-gencount-reset.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78C4F1D8085D800865A7C /* secd-52-offering-gencount-reset.m */; };
 		0CAD1E5A1E1C5CD100537693 /* secd-71-engine-save.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78C641D8085D800865A7C /* secd-71-engine-save.m */; };
 		0CAD1E5D1E1C5CF900537693 /* secd-80-views-alwayson.m in Sources */ = {isa = PBXBuildFile; fileRef = 7281E08B1DFD0A380021E1B7 /* secd-80-views-alwayson.m */; };
-		0CAD1E5E1E1C5D0600537693 /* secd-95-escrow-persistence.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78C741D8085D800865A7C /* secd-95-escrow-persistence.m */; };
 		0CADDF0721545CF100DF8B06 /* OctagonPairingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CADDF0421545C8E00DF8B06 /* OctagonPairingTests.swift */; };
 		0CB50A0D20AA486800FE4675 /* SOSAccountTrustClassic+Expansion.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CE760471E12F2F200B4381E /* SOSAccountTrustClassic+Expansion.m */; };
 		0CB50A0E20AA4C2F00FE4675 /* SOSAccountTrustClassic+Circle.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CE760491E12F30200B4381E /* SOSAccountTrustClassic+Circle.m */; };
@@ -915,7 +928,6 @@
 		0CB5C678218B803C0044F730 /* OTPrivateKey+SF.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C3BB3522188E18A0018FC14 /* OTPrivateKey+SF.m */; };
 		0CB72D9D21E42FCF00D8BC9B /* OTApplicantToSponsorRound2M1.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C9AE28E214054F6003BFDB5 /* OTApplicantToSponsorRound2M1.m */; };
 		0CB72D9E21E42FCF00D8BC9B /* OTPairingMessage.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C9AE2A2214055CF003BFDB5 /* OTPairingMessage.m */; };
-		0CB72D9F21E42FCF00D8BC9B /* OTSOSMessage.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CE9C98A21B8891A006BDD80 /* OTSOSMessage.m */; };
 		0CB72DA021E42FCF00D8BC9B /* OTSponsorToApplicantRound1M2.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C9AE28D214054F6003BFDB5 /* OTSponsorToApplicantRound1M2.m */; };
 		0CB72DA121E42FCF00D8BC9B /* OTSponsorToApplicantRound2M2.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C9AE290214054F7003BFDB5 /* OTSponsorToApplicantRound2M2.m */; };
 		0CB8DC9A2194B14C0021A7C8 /* OTVouchWithBottleOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CB8DC992194B1440021A7C8 /* OTVouchWithBottleOperation.m */; };
@@ -969,6 +981,7 @@
 		0CE887D22299A8CF0082D120 /* libMobileGestalt.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = BE53602C209BBF2F0027E25A /* libMobileGestalt.tbd */; };
 		0CE887D32299A9090082D120 /* libutilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC0BCC361D8C684F00070CB0 /* libutilities.a */; };
 		0CE887D52299A9C70082D120 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E71F3E3016EA69A900FAF9B4 /* SystemConfiguration.framework */; };
+		0CE902352395D0A3005E3F8C /* AuthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4A7DD7320A26CF900F51F3F /* AuthKit.framework */; };
 		0CF406522072E422003D6A7F /* SFSignInAnalyticsTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 0CF405F42072E2BF003D6A7F /* SFSignInAnalyticsTests.m */; };
 		0CF70BD9218BED1000EC3515 /* CuttlefishExtensionWorkaround.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF70BD6218BECF500EC3515 /* CuttlefishExtensionWorkaround.swift */; };
 		0CF70BDA218BEFAE00EC3515 /* CuttlefishExtensionWorkaround.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF70BD6218BECF500EC3515 /* CuttlefishExtensionWorkaround.swift */; };
@@ -995,7 +1008,6 @@
 		1B5EAADD2252ABCD008D27E7 /* OTFetchViewsOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = 1B5EAADB2252ABCC008D27E7 /* OTFetchViewsOperation.m */; };
 		1B8341B92239AD3A002BF18A /* TPPBPolicyKeyViewMapping.proto in Sources */ = {isa = PBXBuildFile; fileRef = 1B8341B72239AD39002BF18A /* TPPBPolicyKeyViewMapping.proto */; };
 		1B8D2D96226E1FA500C94238 /* SetValueTransformer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CE15E2A222DF63500B7EAA5 /* SetValueTransformer.swift */; };
-		1B916CD0223FFF25006657FD /* ProtocolBuffer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C0B0C441E2537CC007F95E5 /* ProtocolBuffer.framework */; };
 		1B995259226681FA00A2D6CD /* PolicyReporter.h in Sources */ = {isa = PBXBuildFile; fileRef = 1B995256226681ED00A2D6CD /* PolicyReporter.h */; };
 		1B99525A226681FA00A2D6CD /* PolicyReporter.m in Sources */ = {isa = PBXBuildFile; fileRef = 1B995258226681EE00A2D6CD /* PolicyReporter.m */; };
 		1BB1CAB7232C05BD001D0C71 /* CuttlefishXPCWrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = 1BB1CAB4232C05BB001D0C71 /* CuttlefishXPCWrapper.m */; };
@@ -1470,8 +1482,6 @@
 		483E798F1DC87605005C0008 /* secd-67-prefixedKeyIDs.m in Sources */ = {isa = PBXBuildFile; fileRef = 483E79891DC875F2005C0008 /* secd-67-prefixedKeyIDs.m */; };
 		48AC7B73232B1DA600F02B6F /* SOSIntervalEvent.m in Sources */ = {isa = PBXBuildFile; fileRef = 48AC7B71232B1A7000F02B6F /* SOSIntervalEvent.m */; };
 		48CC589F1DA5FF2700EBD9DB /* secd-66-account-recovery.m in Sources */ = {isa = PBXBuildFile; fileRef = 48CC58971DA5FF0B00EBD9DB /* secd-66-account-recovery.m */; };
-		48E617211DBEC6BA0098EAAD /* SOSBackupInformation.m in Sources */ = {isa = PBXBuildFile; fileRef = 48E6171A1DBEC40D0098EAAD /* SOSBackupInformation.m */; };
-		48E617221DBEC6C60098EAAD /* SOSBackupInformation.h in Headers */ = {isa = PBXBuildFile; fileRef = 48E6171B1DBEC40D0098EAAD /* SOSBackupInformation.h */; };
 		48FE669620E6E69D00FAEF17 /* SOSAuthKitHelpers.m in Sources */ = {isa = PBXBuildFile; fileRef = 48FE668F20E6E69B00FAEF17 /* SOSAuthKitHelpers.m */; };
 		48FE669720E6E69D00FAEF17 /* SOSAuthKitHelpers.h in Headers */ = {isa = PBXBuildFile; fileRef = 48FE669520E6E69C00FAEF17 /* SOSAuthKitHelpers.h */; };
 		4AF7000115AFB73800B9D400 /* SecOTRMath.h in Headers */ = {isa = PBXBuildFile; fileRef = 4AF7FFF715AFB73800B9D400 /* SecOTRMath.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1603,7 +1613,6 @@
 		4C7391790B01745000C4CBFA /* vmdh.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C7391770B01745000C4CBFA /* vmdh.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4C7416040F1D71A2008E0E4D /* SecSCEP.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C7416020F1D71A2008E0E4D /* SecSCEP.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4C7608B30AC34A8100980096 /* SecCertificatePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C7608B10AC34A8100980096 /* SecCertificatePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		4C7913251799A5CC00A9633E /* MobileCoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C7913241799A5CB00A9633E /* MobileCoreServices.framework */; };
 		4C7CE5700DC7DC6600AE53FC /* SecEntitlements.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C7CE56E0DC7DB0A00AE53FC /* SecEntitlements.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4C84DA551720698900AEE225 /* AppleAccount.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C84DA541720698900AEE225 /* AppleAccount.framework */; };
 		4C87F3A80D611C26000E7104 /* SecTrustPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C87F3A70D611C26000E7104 /* SecTrustPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1668,6 +1677,7 @@
 		52A23EDD161DEC3F00E271E0 /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 52A23EDB161DEC3700E271E0 /* Default-568h@2x.png */; };
 		52D82BDF16A621F70078DFE5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
 		52D82BEE16A622370078DFE5 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D82BD316A5EADA0078DFE5 /* Security.framework */; };
+		52DA3C7123C7E63600FEEDFF /* KCTLKRequestTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 52DA3C6F23C7E63500FEEDFF /* KCTLKRequestTest.m */; };
 		5328C0521738903F00708984 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C32C0AF0A4975F6002891BD /* Security.framework */; };
 		533B5D4F177CD63100995334 /* SpringBoardServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52222CC0167BDAE100EDD09C /* SpringBoardServices.framework */; };
 		5346480217331E1200FE9172 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7FCBE431314471B000DE34E /* Foundation.framework */; };
@@ -2437,6 +2447,10 @@
 		D4707A2D2114C1E8005BCFDA /* SecCmsContentInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = D4707A2B2114B31A005BCFDA /* SecCmsContentInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		D4707A2F2114C315005BCFDA /* SecCmsDigestContext.h in Headers */ = {isa = PBXBuildFile; fileRef = D4707A2E2114C30A005BCFDA /* SecCmsDigestContext.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		D4707A302114C316005BCFDA /* SecCmsDigestContext.h in Headers */ = {isa = PBXBuildFile; fileRef = D4707A2E2114C30A005BCFDA /* SecCmsDigestContext.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		D477CB78237E482800C02355 /* si-88-sectrust-valid-data in Resources */ = {isa = PBXBuildFile; fileRef = D477CB76237E453C00C02355 /* si-88-sectrust-valid-data */; };
+		D477CB79237E484300C02355 /* si-88-sectrust-valid-data in Resources */ = {isa = PBXBuildFile; fileRef = D477CB76237E453C00C02355 /* si-88-sectrust-valid-data */; };
+		D477CB7B237E4BD700C02355 /* ExceptionTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D477CB7A237E4BD700C02355 /* ExceptionTests.m */; };
+		D477CB7C237E4BD700C02355 /* ExceptionTests.m in Sources */ = {isa = PBXBuildFile; fileRef = D477CB7A237E4BD700C02355 /* ExceptionTests.m */; };
 		D479F6E21F980FAB00388D28 /* Trust.strings in Resources */ = {isa = PBXBuildFile; fileRef = D479F6DF1F980F8F00388D28 /* Trust.strings */; };
 		D479F6E31F981FD600388D28 /* OID.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4C198F1F0ACDB4BF00AAB142 /* OID.strings */; };
 		D479F6E41F981FD600388D28 /* Certificate.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4C198F1D0ACDB4BF00AAB142 /* Certificate.strings */; };
@@ -2531,7 +2545,6 @@
 		D4B68C66211A8186009FED69 /* trustd_spi.h in Headers */ = {isa = PBXBuildFile; fileRef = D4B68C64211A8186009FED69 /* trustd_spi.h */; };
 		D4B68C68211A827C009FED69 /* trustd_spi.c in Sources */ = {isa = PBXBuildFile; fileRef = D4B68C65211A8186009FED69 /* trustd_spi.c */; };
 		D4B6D57C2069D8450099FBEF /* si-34-cms-timestamp.m in Sources */ = {isa = PBXBuildFile; fileRef = D4B6D57B2069D8450099FBEF /* si-34-cms-timestamp.m */; };
-		D4B858671D370D9A003B2D95 /* MobileCoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4B858661D370D9A003B2D95 /* MobileCoreServices.framework */; };
 		D4BD5E83228A6823001650A7 /* util.m in Sources */ = {isa = PBXBuildFile; fileRef = 1BC6F79621C9955D005ED67A /* util.m */; };
 		D4BD5E85228A6854001650A7 /* util.m in Sources */ = {isa = PBXBuildFile; fileRef = 1BC6F79621C9955D005ED67A /* util.m */; };
 		D4BD5E86228A6855001650A7 /* util.m in Sources */ = {isa = PBXBuildFile; fileRef = 1BC6F79621C9955D005ED67A /* util.m */; };
@@ -2660,6 +2673,7 @@
 		DC00C92420B3B82600628BEB /* libz.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = D4119E72202BDF2B0048587B /* libz.tbd */; };
 		DC00C93420B48B4100628BEB /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E71F3E3016EA69A900FAF9B4 /* SystemConfiguration.framework */; };
 		DC00C93520B48BA800628BEB /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CBCE5A90BE7F69100FF81F5 /* IOKit.framework */; };
+		DC03592D235FCCD500F14883 /* KCInitialMessageData.m in Sources */ = {isa = PBXBuildFile; fileRef = 5A47FFB5228F5E9000F781B8 /* KCInitialMessageData.m */; };
 		DC047081218BB21E0078BDAA /* OTCuttlefishAccountStateHolder.h in Headers */ = {isa = PBXBuildFile; fileRef = DC04707F218BB21E0078BDAA /* OTCuttlefishAccountStateHolder.h */; };
 		DC047082218BB21E0078BDAA /* OTCuttlefishAccountStateHolder.m in Sources */ = {isa = PBXBuildFile; fileRef = DC047080218BB21E0078BDAA /* OTCuttlefishAccountStateHolder.m */; };
 		DC047087218BCEF20078BDAA /* OTOperationDependencies.h in Headers */ = {isa = PBXBuildFile; fileRef = DC047085218BCEF20078BDAA /* OTOperationDependencies.h */; };
@@ -3166,6 +3180,11 @@
 		DC0BD4F621BB0610006B9154 /* CKKSKeychainBackedKey.m in Sources */ = {isa = PBXBuildFile; fileRef = DC0BD4F021BB05F2006B9154 /* CKKSKeychainBackedKey.m */; };
 		DC0C343821FA7DEB00417D04 /* SecEscrowRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = DC90A4C021F27680001300EB /* SecEscrowRequest.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		DC0C343A21FA7DEB00417D04 /* SecEscrowRequest.h in Headers */ = {isa = PBXBuildFile; fileRef = DC90A4C021F27680001300EB /* SecEscrowRequest.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		DC0D16012363A1D6007F0951 /* OTSetCDPBitOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC0D15FF2363A1D6007F0951 /* OTSetCDPBitOperation.h */; };
+		DC0D16022363A1D6007F0951 /* OTSetCDPBitOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC0D16002363A1D6007F0951 /* OTSetCDPBitOperation.m */; };
+		DC0D16062363BAF4007F0951 /* OTDetermineCDPBitStatusOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC0D16042363BAF4007F0951 /* OTDetermineCDPBitStatusOperation.h */; };
+		DC0D16072363BAF4007F0951 /* OTDetermineCDPBitStatusOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC0D16052363BAF4007F0951 /* OTDetermineCDPBitStatusOperation.m */; };
+		DC0DE87123750340006E2EAE /* OTPairingMessage.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C9AE2A2214055CF003BFDB5 /* OTPairingMessage.m */; };
 		DC0EF8F2208697C600AB9E95 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC0EF8F1208697C600AB9E95 /* main.swift */; };
 		DC0FA6B02291F63F00FE01C4 /* OctagonPendingFlag.h in Headers */ = {isa = PBXBuildFile; fileRef = DC0FA6AE2291F63F00FE01C4 /* OctagonPendingFlag.h */; };
 		DC0FA6B12291F63F00FE01C4 /* OctagonPendingFlag.m in Sources */ = {isa = PBXBuildFile; fileRef = DC0FA6AF2291F63F00FE01C4 /* OctagonPendingFlag.m */; };
@@ -3177,6 +3196,7 @@
 		DC14478A1F5764C600236DB4 /* CKKSResultOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC1447881F5764C600236DB4 /* CKKSResultOperation.h */; };
 		DC14478C1F5764C600236DB4 /* CKKSResultOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC1447891F5764C600236DB4 /* CKKSResultOperation.m */; };
 		DC1447961F5766D200236DB4 /* NSOperationCategories.h in Headers */ = {isa = PBXBuildFile; fileRef = DC1447941F5766D200236DB4 /* NSOperationCategories.h */; };
+		DC14C4C223AAACED007F673F /* Container_BottledPeers.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC3A9B2523A9D6120073ED06 /* Container_BottledPeers.swift */; };
 		DC15F7661E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC15F7641E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.h */; };
 		DC15F7681E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC15F7651E67A6F6003B9A40 /* CKKSHealKeyHierarchyOperation.m */; };
 		DC15F79C1E68EAD5003B9A40 /* CKKSTests+API.m in Sources */ = {isa = PBXBuildFile; fileRef = DC15F79B1E68EAD5003B9A40 /* CKKSTests+API.m */; };
@@ -3414,6 +3434,8 @@
 		DC311E7A2124B8EF002F5EAE /* aks_real_witness.h in Headers */ = {isa = PBXBuildFile; fileRef = DC311E782124B8EF002F5EAE /* aks_real_witness.h */; };
 		DC311E7B2124B8EF002F5EAE /* aks_real_witness.c in Sources */ = {isa = PBXBuildFile; fileRef = DC311E792124B8EF002F5EAE /* aks_real_witness.c */; };
 		DC337B1F1EA04E2100B3A1F0 /* SecBase64.h in Headers */ = {isa = PBXBuildFile; fileRef = 18351B8F14CB65870097860E /* SecBase64.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		DC33D7BD2374FD0500A68155 /* OTSponsorToApplicantRound1M2.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C9AE28D214054F6003BFDB5 /* OTSponsorToApplicantRound1M2.m */; };
+		DC33D7BE2374FD0A00A68155 /* OTSponsorToApplicantRound2M2.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C9AE290214054F7003BFDB5 /* OTSponsorToApplicantRound2M2.m */; };
 		DC340C54208E828F004D7EEC /* TrustedPeers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BEF88C281EAFFC3F00357577 /* TrustedPeers.framework */; };
 		DC3502B81E0208BE00BC0587 /* CKKSTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DC3502B71E0208BE00BC0587 /* CKKSTests.m */; };
 		DC3502C51E020D5100BC0587 /* libASN1.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC8834081D8A218F00CE0ACA /* libASN1.a */; };
@@ -3461,6 +3483,8 @@
 		DC3A81D61D99D57F000C7419 /* libcoretls.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CFC029B1D41650700E6283B /* libcoretls.dylib */; };
 		DC3A81D71D99D58A000C7419 /* libcoretls_cfhelpers.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = DC3A81D41D99D567000C7419 /* libcoretls_cfhelpers.dylib */; };
 		DC3A81EC1D99F568000C7419 /* libcoretls.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 0CFC029B1D41650700E6283B /* libcoretls.dylib */; };
+		DC3A9B2723A9D8BD0073ED06 /* Container_BottledPeers.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC3A9B2523A9D6120073ED06 /* Container_BottledPeers.swift */; };
+		DC3A9B2823A9D8C40073ED06 /* Container_BottledPeers.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC3A9B2523A9D6120073ED06 /* Container_BottledPeers.swift */; };
 		DC3AA2782097DF70007CA68A /* readline.c in Sources */ = {isa = PBXBuildFile; fileRef = DC65E7BE1D8CBB1500152EF0 /* readline.c */; };
 		DC3AA2792097DF71007CA68A /* readline.c in Sources */ = {isa = PBXBuildFile; fileRef = DC65E7BE1D8CBB1500152EF0 /* readline.c */; };
 		DC3AA27A2097DF84007CA68A /* not_on_this_platorm.c in Sources */ = {isa = PBXBuildFile; fileRef = DC0BCDB41D8C6A5B00070CB0 /* not_on_this_platorm.c */; };
@@ -3533,8 +3557,10 @@
 		DC4269101E82FD9F002B7110 /* server_security_helpers.m in Sources */ = {isa = PBXBuildFile; fileRef = DC4269061E82FBDF002B7110 /* server_security_helpers.m */; };
 		DC4269111E82FDA0002B7110 /* server_security_helpers.m in Sources */ = {isa = PBXBuildFile; fileRef = DC4269061E82FBDF002B7110 /* server_security_helpers.m */; };
 		DC4269121E82FDA1002B7110 /* server_security_helpers.m in Sources */ = {isa = PBXBuildFile; fileRef = DC4269061E82FBDF002B7110 /* server_security_helpers.m */; };
+		DC4415B423610BF40087981C /* OctagonTests+Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC4415B323610BF40087981C /* OctagonTests+Account.swift */; };
 		DC45D43D22EB619D00CEB6B7 /* OctagonStateMachineObservers.h in Headers */ = {isa = PBXBuildFile; fileRef = DC45D43B22EB619D00CEB6B7 /* OctagonStateMachineObservers.h */; };
 		DC45D43E22EB619D00CEB6B7 /* OctagonStateMachineObservers.m in Sources */ = {isa = PBXBuildFile; fileRef = DC45D43C22EB619D00CEB6B7 /* OctagonStateMachineObservers.m */; };
+		DC4A73C5235E69D800DB1E6E /* OTApplicantToSponsorRound2M1.m in Sources */ = {isa = PBXBuildFile; fileRef = 0C9AE28E214054F6003BFDB5 /* OTApplicantToSponsorRound2M1.m */; };
 		DC4A76A02212676D006F2D8F /* CloudServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C8A38C817B93DF10001B4C0 /* CloudServices.framework */; };
 		DC4A76A3221267D4006F2D8F /* EscrowRequestServerHelpers.m in Sources */ = {isa = PBXBuildFile; fileRef = DC4A76A2221267D4006F2D8F /* EscrowRequestServerHelpers.m */; };
 		DC4A76A5221268A6006F2D8F /* CloudServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C8A38C817B93DF10001B4C0 /* CloudServices.framework */; };
@@ -3546,6 +3572,7 @@
 		DC4A76AC221269E4006F2D8F /* CloudServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C8A38C817B93DF10001B4C0 /* CloudServices.framework */; };
 		DC4A76AD22126A17006F2D8F /* CloudServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C8A38C817B93DF10001B4C0 /* CloudServices.framework */; };
 		DC4A76AE22126C49006F2D8F /* CloudServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C8A38C817B93DF10001B4C0 /* CloudServices.framework */; };
+		DC4CD9842372294E00EF55FC /* OctagonTests+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC4CD9822372294D00EF55FC /* OctagonTests+Helpers.swift */; };
 		DC4DB1501E24692100CD6769 /* CKKSKey.h in Headers */ = {isa = PBXBuildFile; fileRef = DC4DB14E1E24692100CD6769 /* CKKSKey.h */; };
 		DC4DB1521E24692100CD6769 /* CKKSKey.m in Sources */ = {isa = PBXBuildFile; fileRef = DC4DB14F1E24692100CD6769 /* CKKSKey.m */; };
 		DC4DB15F1E2590B100CD6769 /* CKKSAESSIVEncryptionTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DC4DB15E1E2590B100CD6769 /* CKKSAESSIVEncryptionTests.m */; };
@@ -3630,7 +3657,6 @@
 		DC52EC381D80CFDB00B0A59C /* secToolFileIO.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78D931D8085F200865A7C /* secToolFileIO.c */; };
 		DC52EC391D80CFDF00B0A59C /* secViewDisplay.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78D9E1D8085F200865A7C /* secViewDisplay.c */; };
 		DC52EC3A1D80CFE400B0A59C /* keychain_log.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78D9B1D8085F200865A7C /* keychain_log.m */; };
-		DC52EC3B1D80CFE900B0A59C /* syncbackup.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78D9D1D8085F200865A7C /* syncbackup.m */; };
 		DC52EC4E1D80D01F00B0A59C /* swcagent_client.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78EA01D80860C00865A7C /* swcagent_client.c */; };
 		DC52EC4F1D80D02400B0A59C /* SecuritydXPC.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E9A1D8085FC00865A7C /* SecuritydXPC.c */; };
 		DC52EC5D1D80D06300B0A59C /* SecLogging.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E651D8085FC00865A7C /* SecLogging.c */; };
@@ -3642,7 +3668,6 @@
 		DC52EC731D80D12E00B0A59C /* sc-20-keynames.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78CFD1D8085F200865A7C /* sc-20-keynames.m */; };
 		DC52EC741D80D13500B0A59C /* SOSTestDataSource.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78D0C1D8085F200865A7C /* SOSTestDataSource.c */; };
 		DC52EC751D80D13B00B0A59C /* sc-42-circlegencount.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78D021D8085F200865A7C /* sc-42-circlegencount.c */; };
-		DC52EC761D80D13F00B0A59C /* sc-150-ring.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78D061D8085F200865A7C /* sc-150-ring.m */; };
 		DC52EC771D80D14400B0A59C /* sc-130-resignationticket.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78D041D8085F200865A7C /* sc-130-resignationticket.c */; };
 		DC52EC781D80D14800B0A59C /* SOSRegressionUtilities.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78D0A1D8085F200865A7C /* SOSRegressionUtilities.m */; };
 		DC52EC791D80D14D00B0A59C /* sc-45-digestvector.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78D031D8085F200865A7C /* sc-45-digestvector.c */; };
@@ -3691,7 +3716,6 @@
 		DC52ECE81D80D2FA00B0A59C /* pbkdf2-00-hmac-sha1.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DA41D8085FC00865A7C /* pbkdf2-00-hmac-sha1.c */; };
 		DC52ECE91D80D2FA00B0A59C /* spbkdf-00-hmac-sha1.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DA51D8085FC00865A7C /* spbkdf-00-hmac-sha1.c */; };
 		DC52ECEA1D80D30900B0A59C /* so_01_serverencryption.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78E171D8085FC00865A7C /* so_01_serverencryption.c */; };
-		DC52ED9E1D80D4ED00B0A59C /* secd-95-escrow-persistence.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78C741D8085D800865A7C /* secd-95-escrow-persistence.m */; };
 		DC52ED9F1D80D4F200B0A59C /* SOSTransportTestTransports.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78C7C1D8085D800865A7C /* SOSTransportTestTransports.m */; };
 		DC52EDA01D80D4F700B0A59C /* sd-10-policytree.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78C3D1D8085D800865A7C /* sd-10-policytree.m */; };
 		DC52EDB51D80D5C500B0A59C /* secd-03-corrupted-items.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78C391D8085D800865A7C /* secd-03-corrupted-items.m */; };
@@ -3757,7 +3781,6 @@
 		DC52EE4A1D80D71900B0A59C /* si-24-sectrust-itms.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DC31D8085FC00865A7C /* si-24-sectrust-itms.c */; };
 		DC52EE4C1D80D71900B0A59C /* si-24-sectrust-passbook.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DC51D8085FC00865A7C /* si-24-sectrust-passbook.c */; };
 		DC52EE4D1D80D71900B0A59C /* si-26-sectrust-copyproperties.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DC61D8085FC00865A7C /* si-26-sectrust-copyproperties.c */; };
-		DC52EE4E1D80D71900B0A59C /* si-27-sectrust-exceptions.c in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DC71D8085FC00865A7C /* si-27-sectrust-exceptions.c */; };
 		DC52EE4F1D80D71900B0A59C /* si-28-sectrustsettings.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DC81D8085FC00865A7C /* si-28-sectrustsettings.m */; };
 		DC52EE531D80D73800B0A59C /* si-44-seckey-gen.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DD31D8085FC00865A7C /* si-44-seckey-gen.m */; };
 		DC52EE541D80D73800B0A59C /* si-44-seckey-rsa.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC78DD41D8085FC00865A7C /* si-44-seckey-rsa.m */; };
@@ -4120,6 +4143,7 @@
 		DC797E1A1DD3F9A400CC9E42 /* CKKSSQLDatabaseObject.m in Sources */ = {isa = PBXBuildFile; fileRef = DC797E131DD3F88300CC9E42 /* CKKSSQLDatabaseObject.m */; };
 		DC7A17ED1E36ABC200EF14CE /* CKKSProcessReceivedKeysOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC7A17EB1E36ABC200EF14CE /* CKKSProcessReceivedKeysOperation.h */; };
 		DC7A17EF1E36ABC200EF14CE /* CKKSProcessReceivedKeysOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC7A17EC1E36ABC200EF14CE /* CKKSProcessReceivedKeysOperation.m */; };
+		DC7F6A7D233D7FAC00DF5769 /* OctagonTests+ForwardCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC7F6A7C233D7FAC00DF5769 /* OctagonTests+ForwardCompatibility.swift */; };
 		DC7F79B622EA4ED4001FB69A /* OctagonTests+CKKS.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC7F79B522EA4ED4001FB69A /* OctagonTests+CKKS.swift */; };
 		DC7F79BA22EA5C73001FB69A /* OTLocalCKKSResetOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DC7F79B822EA5C72001FB69A /* OTLocalCKKSResetOperation.h */; };
 		DC7F79BB22EA5C73001FB69A /* OTLocalCKKSResetOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DC7F79B922EA5C72001FB69A /* OTLocalCKKSResetOperation.m */; };
@@ -4170,6 +4194,8 @@
 		DC8834931D8A21AB00CE0ACA /* oidsattr.c in Sources */ = {isa = PBXBuildFile; fileRef = DC88344B1D8A21AA00CE0ACA /* oidsattr.c */; };
 		DC8834961D8A21AB00CE0ACA /* oidsocsp.c in Sources */ = {isa = PBXBuildFile; fileRef = DC88344E1D8A21AA00CE0ACA /* oidsocsp.c */; };
 		DC88466B22373A5E00738068 /* TPPBDictionaryMatchingRule.proto in Sources */ = {isa = PBXBuildFile; fileRef = DC88466922373A4000738068 /* TPPBDictionaryMatchingRule.proto */; };
+		DC89608D2395C75600D339D9 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC89608C2395C75500D339D9 /* CoreServices.framework */; };
+		DC89608E2395C76300D339D9 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DC89608C2395C75500D339D9 /* CoreServices.framework */; };
 		DC8D238D2064649400E163C8 /* CKKSAPSHandlingTests.m in Sources */ = {isa = PBXBuildFile; fileRef = DC8D238C2064649400E163C8 /* CKKSAPSHandlingTests.m */; };
 		DC8DF6DC212F8A7C007B3FE8 /* OTSOSAdapter.m in Sources */ = {isa = PBXBuildFile; fileRef = DCB9475C2127562100ED9272 /* OTSOSAdapter.m */; };
 		DC8DF6DF212F8A7D007B3FE8 /* OTSOSAdapter.m in Sources */ = {isa = PBXBuildFile; fileRef = DCB9475C2127562100ED9272 /* OTSOSAdapter.m */; };
@@ -4265,6 +4291,9 @@
 		DCA9D84821FFEE9800B27421 /* EscrowRequestXPCProtocol.m in Sources */ = {isa = PBXBuildFile; fileRef = DCA9D84521FFE7CF00B27421 /* EscrowRequestXPCProtocol.m */; };
 		DCA9D84D21FFF04700B27421 /* EscrowRequestServer.h in Headers */ = {isa = PBXBuildFile; fileRef = DCA9D84B21FFF04600B27421 /* EscrowRequestServer.h */; };
 		DCA9D84E21FFF04700B27421 /* EscrowRequestServer.m in Sources */ = {isa = PBXBuildFile; fileRef = DCA9D84C21FFF04700B27421 /* EscrowRequestServer.m */; };
+		DCAA209A23AAF8F600DCB594 /* Container_RecoveryKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAA209823AAF8BD00DCB594 /* Container_RecoveryKey.swift */; };
+		DCAA209B23AAF8FD00DCB594 /* Container_RecoveryKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAA209823AAF8BD00DCB594 /* Container_RecoveryKey.swift */; };
+		DCAA209C23AAF93700DCB594 /* Container_RecoveryKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAA209823AAF8BD00DCB594 /* Container_RecoveryKey.swift */; };
 		DCAB14271E40039600C81511 /* libASN1.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC8834081D8A218F00CE0ACA /* libASN1.a */; };
 		DCAB17CE21FFF75B00E1DFCF /* MockSynchronousEscrowServer.m in Sources */ = {isa = PBXBuildFile; fileRef = DCAB17CC21FFF6C400E1DFCF /* MockSynchronousEscrowServer.m */; };
 		DCAB17D12200D26900E1DFCF /* SecEscrowPendingRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = DCAB17CF2200D26700E1DFCF /* SecEscrowPendingRecord.h */; };
@@ -4709,7 +4738,6 @@
 		DCC093801D80B0B700F984E4 /* SecCFAllocator.h in Headers */ = {isa = PBXBuildFile; fileRef = D47F514B1C3B812500A7CEFE /* SecCFAllocator.h */; };
 		DCC19518214C53FD00C9E0B6 /* AuthKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D4A7DD7320A26CF900F51F3F /* AuthKit.framework */; };
 		DCC1951C214C668A00C9E0B6 /* AppleAccount.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C84DA541720698900AEE225 /* AppleAccount.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
-		DCC19F711EB9151B00B7D70F /* KeychainCKKS.plist in Copy BATS Test Discovery Plist */ = {isa = PBXBuildFile; fileRef = 6CB5F4781E402E5700DBF3F0 /* KeychainCKKS.plist */; };
 		DCC51C99209B7C1500A40387 /* print_cert.c in Sources */ = {isa = PBXBuildFile; fileRef = DC52EA951D80CC2A00B0A59C /* print_cert.c */; };
 		DCC54181225C05180095D926 /* OTUploadNewCKKSTLKsOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DCC5417F225C05170095D926 /* OTUploadNewCKKSTLKsOperation.h */; };
 		DCC54182225C05180095D926 /* OTUploadNewCKKSTLKsOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DCC54180225C05180095D926 /* OTUploadNewCKKSTLKsOperation.m */; };
@@ -5348,6 +5376,7 @@
 		DCE278DF1ED789EF0083B485 /* CKKSCurrentItemPointer.m in Sources */ = {isa = PBXBuildFile; fileRef = DCE278DC1ED789EF0083B485 /* CKKSCurrentItemPointer.m */; };
 		DCE278E81ED7A5B40083B485 /* CKKSUpdateCurrentItemPointerOperation.h in Headers */ = {isa = PBXBuildFile; fileRef = DCE278E61ED7A5B40083B485 /* CKKSUpdateCurrentItemPointerOperation.h */; };
 		DCE278EA1ED7A5B40083B485 /* CKKSUpdateCurrentItemPointerOperation.m in Sources */ = {isa = PBXBuildFile; fileRef = DCE278E71ED7A5B40083B485 /* CKKSUpdateCurrentItemPointerOperation.m */; };
+		DCE405C523A04A7F00C4343B /* OctagonTests+CKKSConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE405C423A04A7F00C4343B /* OctagonTests+CKKSConfiguration.swift */; };
 		DCE4E6921D7A37FA00AFB96E /* security_tool_commands.c in Sources */ = {isa = PBXBuildFile; fileRef = E7104A0B169E171900DB0045 /* security_tool_commands.c */; };
 		DCE4E6931D7A37FA00AFB96E /* NSFileHandle+Formatting.m in Sources */ = {isa = PBXBuildFile; fileRef = E78A9AD91D34959200006B5B /* NSFileHandle+Formatting.m */; };
 		DCE4E6961D7A37FA00AFB96E /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5E43C48C1B00D07000E5ECB2 /* CoreFoundation.framework */; };
@@ -6049,7 +6078,6 @@
 		EB5E3BCC2003C67A00F1631B /* SecSignpost.h in Headers */ = {isa = PBXBuildFile; fileRef = EB5E3BC62003C66300F1631B /* SecSignpost.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EB5E3BCD2003C67B00F1631B /* SecSignpost.h in Headers */ = {isa = PBXBuildFile; fileRef = EB5E3BC62003C66300F1631B /* SecSignpost.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EB627A73233E339200F32437 /* MockAKSOptionalParameters.proto in Sources */ = {isa = PBXBuildFile; fileRef = EB627A6F233E323600F32437 /* MockAKSOptionalParameters.proto */; };
-		EB627A79233E375A00F32437 /* MockAKSOptionalParameters.proto in Sources */ = {isa = PBXBuildFile; fileRef = EB627A6F233E323600F32437 /* MockAKSOptionalParameters.proto */; };
 		EB627A7E233E3C1300F32437 /* MockAKSOptionalParameters.m in Sources */ = {isa = PBXBuildFile; fileRef = EB627A77233E342B00F32437 /* MockAKSOptionalParameters.m */; };
 		EB627A7F233E3C1600F32437 /* MockAKSRefKey.m in Sources */ = {isa = PBXBuildFile; fileRef = EB627A75233E342800F32437 /* MockAKSRefKey.m */; };
 		EB6667C7204CD69F000B404F /* testPlistDER.m in Sources */ = {isa = PBXBuildFile; fileRef = EB6667BE204CD65E000B404F /* testPlistDER.m */; };
@@ -6229,7 +6257,6 @@
 		EBD531772198AF19003A57E6 /* Accounts.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CF4C19C171E0EA600877419 /* Accounts.framework */; };
 		EBDAA7E920EC4838003EA6E5 /* SecurityLocalKeychain.plist in Install BATS plist */ = {isa = PBXBuildFile; fileRef = EBDAA7E320EC46CF003EA6E5 /* SecurityLocalKeychain.plist */; };
 		EBDAF15D21C75FF200EAE89F /* NSXPCConnectionMock.h in Headers */ = {isa = PBXBuildFile; fileRef = EBDAF15B21C75FF200EAE89F /* NSXPCConnectionMock.h */; };
-		EBDCC001233DD3E000806566 /* MockAKSRefKey.proto in Sources */ = {isa = PBXBuildFile; fileRef = EBDCBFFE233DD31700806566 /* MockAKSRefKey.proto */; };
 		EBDCC002233DD45700806566 /* MockAKSRefKey.proto in Sources */ = {isa = PBXBuildFile; fileRef = EBDCBFFE233DD31700806566 /* MockAKSRefKey.proto */; };
 		EBDE5E0E22BA3DE900A229C8 /* CKKSMockOctagonAdapter.m in Sources */ = {isa = PBXBuildFile; fileRef = EBDE5DFA22BA3D5D00A229C8 /* CKKSMockOctagonAdapter.m */; };
 		EBDE5E0F22BA3DEA00A229C8 /* CKKSMockOctagonAdapter.m in Sources */ = {isa = PBXBuildFile; fileRef = EBDE5DFA22BA3D5D00A229C8 /* CKKSMockOctagonAdapter.m */; };
@@ -6418,6 +6445,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = DC1789031D77980500B50D50;
 			remoteInfo = Security_osx;
+		};
+		0CA378E823876E0900090B7E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0CA378E123876DD100090B7E;
+			remoteInfo = reset_account;
+		};
+		0CA378EA23876E1000090B7E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4C35DB69094F906D002917C4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0CA378E123876DD100090B7E;
+			remoteInfo = reset_account;
 		};
 		0CC593F72299EDFC006C34B5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -10401,6 +10442,16 @@
 			name = "Embed OCMock";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0CA378E623876DEC00090B7E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/bin;
+			dstSubfolderSpec = 0;
+			files = (
+				0CA378E723876DFC00090B7E /* reset_ick_account in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		0CF4064A2072E3E3003D6A7F /* Embed OCMock */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -11019,17 +11070,6 @@
 			files = (
 				DC6BC2721D90D05900DD57B3 /* com.apple.securityd.plist in CopyFiles */,
 			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		DC7162D41EB4154D000D2BB5 /* Copy BATS Test Discovery Plist */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
-			dstSubfolderSpec = 0;
-			files = (
-				DCC19F711EB9151B00B7D70F /* KeychainCKKS.plist in Copy BATS Test Discovery Plist */,
-			);
-			name = "Copy BATS Test Discovery Plist";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		DC7FC44F21EE9175003C39B8 /* Install Security FeatureFlags plist */ = {
@@ -11653,6 +11693,7 @@
 		0C664AB2175926B20092D3D9 /* secdtests-entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "secdtests-entitlements.plist"; sourceTree = "<group>"; };
 		0C6C2B682258211800C53C96 /* AppleAccount.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppleAccount.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS13.0.Internal.sdk/System/Library/PrivateFrameworks/AppleAccount.framework; sourceTree = DEVELOPER_DIR; };
 		0C6C2B6C2258295D00C53C96 /* UIKitCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKitCore.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS13.0.Internal.sdk/System/Library/PrivateFrameworks/UIKitCore.framework; sourceTree = DEVELOPER_DIR; };
+		0C7382F023863AD5004F98CB /* reset_ick_account */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = reset_ick_account; sourceTree = "<group>"; };
 		0C75AC642141F18D0073A2F9 /* KeychainCircle.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = KeychainCircle.framework; path = System/Library/PrivateFrameworks/KeychainCircle.framework; sourceTree = SDKROOT; };
 		0C78F1C916A5E13400654E08 /* sectask_regressions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sectask_regressions.h; sourceTree = "<group>"; };
 		0C78F1CA16A5E1BF00654E08 /* sectask-10-sectask.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sectask-10-sectask.c"; sourceTree = "<group>"; };
@@ -11747,8 +11788,6 @@
 		0CE760531E13155100B4381E /* SOSAccountTrustClassic+Circle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "SOSAccountTrustClassic+Circle.h"; path = "SecureObjectSync/SOSAccountTrustClassic+Circle.h"; sourceTree = "<group>"; };
 		0CE760551E1316E900B4381E /* SOSAccountTrustClassic+Retirement.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "SOSAccountTrustClassic+Retirement.h"; path = "SecureObjectSync/SOSAccountTrustClassic+Retirement.h"; sourceTree = "<group>"; };
 		0CE98B5B1FA9360700CF1D54 /* libprequelite.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libprequelite.tbd; path = usr/lib/libprequelite.tbd; sourceTree = SDKROOT; };
-		0CE9C98921B88919006BDD80 /* OTSOSMessage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OTSOSMessage.h; sourceTree = "<group>"; };
-		0CE9C98A21B8891A006BDD80 /* OTSOSMessage.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OTSOSMessage.m; sourceTree = "<group>"; };
 		0CF0E2E31F8EE3B000BD18E4 /* SFSignInAnalytics.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SFSignInAnalytics.m; sourceTree = "<group>"; };
 		0CF0E2E71F8EE40700BD18E4 /* SFSignInAnalytics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SFSignInAnalytics.h; sourceTree = "<group>"; };
 		0CF405F42072E2BF003D6A7F /* SFSignInAnalyticsTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SFSignInAnalyticsTests.m; sourceTree = "<group>"; };
@@ -11961,8 +12000,6 @@
 		48C2F9321E4BCFC30093D70C /* accountCirclesViewsPrint.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = accountCirclesViewsPrint.m; sourceTree = "<group>"; };
 		48C2F9331E4BCFC30093D70C /* accountCirclesViewsPrint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = accountCirclesViewsPrint.h; sourceTree = "<group>"; };
 		48CC58971DA5FF0B00EBD9DB /* secd-66-account-recovery.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "secd-66-account-recovery.m"; sourceTree = "<group>"; };
-		48E6171A1DBEC40D0098EAAD /* SOSBackupInformation.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SOSBackupInformation.m; sourceTree = "<group>"; };
-		48E6171B1DBEC40D0098EAAD /* SOSBackupInformation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSBackupInformation.h; sourceTree = "<group>"; };
 		48FE668F20E6E69B00FAEF17 /* SOSAuthKitHelpers.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SOSAuthKitHelpers.m; sourceTree = "<group>"; };
 		48FE669520E6E69C00FAEF17 /* SOSAuthKitHelpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOSAuthKitHelpers.h; sourceTree = "<group>"; };
 		4AF7FFF315AFB73800B9D400 /* SecOTR.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecOTR.h; sourceTree = "<group>"; };
@@ -12096,6 +12133,7 @@
 		52AA92881E662A4A004301A6 /* SecBackupKeybagEntry.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SecBackupKeybagEntry.m; sourceTree = "<group>"; };
 		52D82BD316A5EADA0078DFE5 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		52D82BDE16A621F70078DFE5 /* CloudKeychainProxy.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CloudKeychainProxy.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		52DA3C6F23C7E63500FEEDFF /* KCTLKRequestTest.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = KCTLKRequestTest.m; path = Tests/KCTLKRequestTest.m; sourceTree = "<group>"; };
 		5346480117331E1200FE9172 /* KeychainSyncAccountNotification.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KeychainSyncAccountNotification.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		5346480517331E1200FE9172 /* KeychainSyncAccountNotification-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "KeychainSyncAccountNotification-Info.plist"; sourceTree = "<group>"; };
 		5346480717331E1200FE9172 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -12228,7 +12266,6 @@
 		6CA837612210C5E7002770F1 /* kc-45-change-password.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = "kc-45-change-password.c"; path = "regressions/kc-45-change-password.c"; sourceTree = "<group>"; };
 		6CAA8D201F842FB3007B6E03 /* securityuploadd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = securityuploadd; sourceTree = BUILT_PRODUCTS_DIR; };
 		6CB5F4751E4025AB00DBF3F0 /* CKKSCloudKitTestsInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = CKKSCloudKitTestsInfo.plist; sourceTree = "<group>"; };
-		6CB5F4781E402E5700DBF3F0 /* KeychainCKKS.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = KeychainCKKS.plist; path = testrunner/KeychainCKKS.plist; sourceTree = "<group>"; };
 		6CB5F4791E402E5700DBF3F0 /* KeychainEntitledTestRunner-Entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "KeychainEntitledTestRunner-Entitlements.plist"; sourceTree = "<group>"; };
 		6CB5F47A1E402E5700DBF3F0 /* KeychainEntitledTestRunner.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KeychainEntitledTestRunner.m; sourceTree = "<group>"; };
 		6CB6CC022198D4BC0080AD6F /* SecDbBackupRecoverySet.proto */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.protobuf; path = SecDbBackupRecoverySet.proto; sourceTree = "<group>"; };
@@ -12646,6 +12683,9 @@
 		D4707A282113ECA0005BCFDA /* SecCmsMessage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecCmsMessage.h; path = CMS/SecCmsMessage.h; sourceTree = "<group>"; };
 		D4707A2B2114B31A005BCFDA /* SecCmsContentInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecCmsContentInfo.h; path = CMS/SecCmsContentInfo.h; sourceTree = "<group>"; };
 		D4707A2E2114C30A005BCFDA /* SecCmsDigestContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecCmsDigestContext.h; path = CMS/SecCmsDigestContext.h; sourceTree = "<group>"; };
+		D477CB76237E453C00C02355 /* si-88-sectrust-valid-data */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "si-88-sectrust-valid-data"; path = "SecurityTests/si-88-sectrust-valid-data"; sourceTree = "<group>"; };
+		D477CB7A237E4BD700C02355 /* ExceptionTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; name = ExceptionTests.m; path = tests/TrustTests/EvaluationTests/ExceptionTests.m; sourceTree = "<group>"; };
+		D477CB7D237F321400C02355 /* ExceptionTests_data.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = ExceptionTests_data.h; path = tests/TrustTests/EvaluationTests/ExceptionTests_data.h; sourceTree = "<group>"; };
 		D479F6E01F980F8F00388D28 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = en.lproj/Trust.strings; sourceTree = "<group>"; };
 		D47AB2CA2356AD72005A3801 /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		D47C56AB1DCA831C00E18518 /* lib_ios_x64.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = lib_ios_x64.xcconfig; path = xcconfig/lib_ios_x64.xcconfig; sourceTree = "<group>"; };
@@ -13292,6 +13332,10 @@
 		DC0BCDB41D8C6A5B00070CB0 /* not_on_this_platorm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = not_on_this_platorm.c; sourceTree = "<group>"; };
 		DC0BD4EF21BB05F2006B9154 /* CKKSKeychainBackedKey.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSKeychainBackedKey.h; sourceTree = "<group>"; };
 		DC0BD4F021BB05F2006B9154 /* CKKSKeychainBackedKey.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSKeychainBackedKey.m; sourceTree = "<group>"; };
+		DC0D15FF2363A1D6007F0951 /* OTSetCDPBitOperation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTSetCDPBitOperation.h; sourceTree = "<group>"; };
+		DC0D16002363A1D6007F0951 /* OTSetCDPBitOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OTSetCDPBitOperation.m; sourceTree = "<group>"; };
+		DC0D16042363BAF4007F0951 /* OTDetermineCDPBitStatusOperation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTDetermineCDPBitStatusOperation.h; sourceTree = "<group>"; };
+		DC0D16052363BAF4007F0951 /* OTDetermineCDPBitStatusOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OTDetermineCDPBitStatusOperation.m; sourceTree = "<group>"; };
 		DC0EF8EF208697C600AB9E95 /* tpctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tpctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		DC0EF8F1208697C600AB9E95 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		DC0FA6AE2291F63F00FE01C4 /* OctagonPendingFlag.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OctagonPendingFlag.h; sourceTree = "<group>"; };
@@ -13540,6 +13584,7 @@
 		DC3A4B601D91EAC500E46D4A /* com.apple.CodeSigningHelper.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = com.apple.CodeSigningHelper.sb; sourceTree = "<group>"; };
 		DC3A4B621D91EAC500E46D4A /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; usesTabs = 1; };
 		DC3A81D41D99D567000C7419 /* libcoretls_cfhelpers.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcoretls_cfhelpers.dylib; path = usr/lib/libcoretls_cfhelpers.dylib; sourceTree = SDKROOT; };
+		DC3A9B2523A9D6120073ED06 /* Container_BottledPeers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Container_BottledPeers.swift; sourceTree = "<group>"; };
 		DC3AA27C2097DF94007CA68A /* security_tool_commands_table.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = security_tool_commands_table.h; sourceTree = "<group>"; };
 		DC3AF52A2229E6C0006577E8 /* CKKSListenerCollection.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSListenerCollection.h; sourceTree = "<group>"; };
 		DC3AF52B2229E6C0006577E8 /* CKKSListenerCollection.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSListenerCollection.m; sourceTree = "<group>"; };
@@ -13549,11 +13594,13 @@
 		DC4269031E82EDAC002B7110 /* SecItem.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SecItem.m; sourceTree = "<group>"; };
 		DC4269061E82FBDF002B7110 /* server_security_helpers.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = server_security_helpers.m; sourceTree = "<group>"; };
 		DC4269071E82FBDF002B7110 /* server_security_helpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = server_security_helpers.h; sourceTree = "<group>"; };
+		DC4415B323610BF40087981C /* OctagonTests+Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OctagonTests+Account.swift"; sourceTree = "<group>"; };
 		DC45D43B22EB619D00CEB6B7 /* OctagonStateMachineObservers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OctagonStateMachineObservers.h; sourceTree = "<group>"; };
 		DC45D43C22EB619D00CEB6B7 /* OctagonStateMachineObservers.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OctagonStateMachineObservers.m; sourceTree = "<group>"; };
 		DC4A76A2221267D4006F2D8F /* EscrowRequestServerHelpers.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EscrowRequestServerHelpers.m; sourceTree = "<group>"; };
 		DC4A76A4221267FB006F2D8F /* EscrowRequestServerHelpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EscrowRequestServerHelpers.h; sourceTree = "<group>"; };
 		DC4A76A92212698B006F2D8F /* CloudServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CloudServices.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS13.0.Internal.sdk/System/Library/PrivateFrameworks/CloudServices.framework; sourceTree = DEVELOPER_DIR; };
+		DC4CD9822372294D00EF55FC /* OctagonTests+Helpers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "OctagonTests+Helpers.swift"; sourceTree = "<group>"; };
 		DC4D49D81F857728007AF2B8 /* CKKSSerializedKey.proto */ = {isa = PBXFileReference; lastKnownFileType = text; path = CKKSSerializedKey.proto; sourceTree = "<group>"; };
 		DC4DB14E1E24692100CD6769 /* CKKSKey.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CKKSKey.h; sourceTree = "<group>"; };
 		DC4DB14F1E24692100CD6769 /* CKKSKey.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = CKKSKey.m; sourceTree = "<group>"; };
@@ -13865,6 +13912,7 @@
 		DC7EB920211E17E500516452 /* OTAccountMetadataClassC+KeychainSupport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "OTAccountMetadataClassC+KeychainSupport.h"; sourceTree = "<group>"; };
 		DC7EB921211E17E500516452 /* OTAccountMetadataClassC+KeychainSupport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "OTAccountMetadataClassC+KeychainSupport.m"; sourceTree = "<group>"; };
 		DC7EB928211E20DF00516452 /* OctagonDataPersistenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OctagonDataPersistenceTests.swift; sourceTree = "<group>"; };
+		DC7F6A7C233D7FAC00DF5769 /* OctagonTests+ForwardCompatibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OctagonTests+ForwardCompatibility.swift"; sourceTree = "<group>"; };
 		DC7F79B522EA4ED4001FB69A /* OctagonTests+CKKS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OctagonTests+CKKS.swift"; sourceTree = "<group>"; };
 		DC7F79B822EA5C72001FB69A /* OTLocalCKKSResetOperation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OTLocalCKKSResetOperation.h; sourceTree = "<group>"; };
 		DC7F79B922EA5C72001FB69A /* OTLocalCKKSResetOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = OTLocalCKKSResetOperation.m; sourceTree = "<group>"; };
@@ -13936,6 +13984,7 @@
 		DC88466C2237407500738068 /* TPDictionaryMatchingRuleTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TPDictionaryMatchingRuleTests.m; sourceTree = "<group>"; };
 		DC88467F2237431400738068 /* TPDictionaryMatchingRules.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TPDictionaryMatchingRules.h; sourceTree = "<group>"; };
 		DC8846802237431400738068 /* TPDictionaryMatchingRules.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TPDictionaryMatchingRules.m; sourceTree = "<group>"; };
+		DC89608C2395C75500D339D9 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = System/Library/Frameworks/CoreServices.framework; sourceTree = SDKROOT; };
 		DC8D238C2064649400E163C8 /* CKKSAPSHandlingTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSAPSHandlingTests.m; sourceTree = "<group>"; };
 		DC8E04901D7F6780006D80EB /* lib_ios.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = lib_ios.xcconfig; path = xcconfig/lib_ios.xcconfig; sourceTree = "<group>"; };
 		DC9061B822B02BA30071474D /* TPTypes.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TPTypes.m; sourceTree = "<group>"; };
@@ -13983,6 +14032,7 @@
 		DCA9D84521FFE7CF00B27421 /* EscrowRequestXPCProtocol.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EscrowRequestXPCProtocol.m; sourceTree = "<group>"; };
 		DCA9D84B21FFF04600B27421 /* EscrowRequestServer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EscrowRequestServer.h; sourceTree = "<group>"; };
 		DCA9D84C21FFF04700B27421 /* EscrowRequestServer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = EscrowRequestServer.m; sourceTree = "<group>"; };
+		DCAA209823AAF8BD00DCB594 /* Container_RecoveryKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Container_RecoveryKey.swift; sourceTree = "<group>"; };
 		DCAB17CB21FFF6C400E1DFCF /* MockSynchronousEscrowServer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MockSynchronousEscrowServer.h; sourceTree = "<group>"; };
 		DCAB17CC21FFF6C400E1DFCF /* MockSynchronousEscrowServer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MockSynchronousEscrowServer.m; sourceTree = "<group>"; };
 		DCAB17CF2200D26700E1DFCF /* SecEscrowPendingRecord.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecEscrowPendingRecord.h; sourceTree = "<group>"; };
@@ -14436,7 +14486,6 @@
 		DCC78C701D8085D800865A7C /* secd-83-item-match-valid-on-date.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "secd-83-item-match-valid-on-date.m"; sourceTree = "<group>"; };
 		DCC78C711D8085D800865A7C /* secd-83-item-match-trusted.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "secd-83-item-match-trusted.m"; sourceTree = "<group>"; };
 		DCC78C721D8085D800865A7C /* secd-83-item-match.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "secd-83-item-match.h"; sourceTree = "<group>"; };
-		DCC78C741D8085D800865A7C /* secd-95-escrow-persistence.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "secd-95-escrow-persistence.m"; sourceTree = "<group>"; };
 		DCC78C751D8085D800865A7C /* secd-100-initialsync.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "secd-100-initialsync.m"; sourceTree = "<group>"; };
 		DCC78C761D8085D800865A7C /* secd-130-other-peer-views.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "secd-130-other-peer-views.m"; sourceTree = "<group>"; };
 		DCC78C771D8085D800865A7C /* secd-154-engine-backoff.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "secd-154-engine-backoff.m"; sourceTree = "<group>"; };
@@ -14486,7 +14535,6 @@
 		DCC78D021D8085F200865A7C /* sc-42-circlegencount.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sc-42-circlegencount.c"; sourceTree = "<group>"; };
 		DCC78D031D8085F200865A7C /* sc-45-digestvector.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sc-45-digestvector.c"; sourceTree = "<group>"; };
 		DCC78D041D8085F200865A7C /* sc-130-resignationticket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sc-130-resignationticket.c"; sourceTree = "<group>"; };
-		DCC78D061D8085F200865A7C /* sc-150-ring.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "sc-150-ring.m"; sourceTree = "<group>"; };
 		DCC78D071D8085F200865A7C /* sc-150-backupkeyderivation.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sc-150-backupkeyderivation.c"; sourceTree = "<group>"; };
 		DCC78D081D8085F200865A7C /* sc-153-backupslicekeybag.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "sc-153-backupslicekeybag.c"; sourceTree = "<group>"; };
 		DCC78D091D8085F200865A7C /* SOSCircle_regressions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SOSCircle_regressions.h; sourceTree = "<group>"; };
@@ -14617,8 +14665,6 @@
 		DCC78D991D8085F200865A7C /* keychain_sync_test.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = keychain_sync_test.m; sourceTree = "<group>"; };
 		DCC78D9A1D8085F200865A7C /* keychain_log.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keychain_log.h; sourceTree = "<group>"; };
 		DCC78D9B1D8085F200865A7C /* keychain_log.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; lineEnding = 0; path = keychain_log.m; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objc; };
-		DCC78D9C1D8085F200865A7C /* syncbackup.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = syncbackup.h; sourceTree = "<group>"; };
-		DCC78D9D1D8085F200865A7C /* syncbackup.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = syncbackup.m; sourceTree = "<group>"; };
 		DCC78D9E1D8085F200865A7C /* secViewDisplay.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = secViewDisplay.c; sourceTree = "<group>"; };
 		DCC78D9F1D8085F200865A7C /* secViewDisplay.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = secViewDisplay.h; sourceTree = "<group>"; };
 		DCC78DA21D8085FC00865A7C /* Security_regressions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Security_regressions.h; path = Regressions/Security_regressions.h; sourceTree = "<group>"; };
@@ -14650,7 +14696,6 @@
 		DCC78DC31D8085FC00865A7C /* si-24-sectrust-itms.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-24-sectrust-itms.c"; sourceTree = "<group>"; };
 		DCC78DC51D8085FC00865A7C /* si-24-sectrust-passbook.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-24-sectrust-passbook.c"; sourceTree = "<group>"; };
 		DCC78DC61D8085FC00865A7C /* si-26-sectrust-copyproperties.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-26-sectrust-copyproperties.c"; sourceTree = "<group>"; };
-		DCC78DC71D8085FC00865A7C /* si-27-sectrust-exceptions.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-27-sectrust-exceptions.c"; sourceTree = "<group>"; };
 		DCC78DC81D8085FC00865A7C /* si-28-sectrustsettings.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "si-28-sectrustsettings.m"; sourceTree = "<group>"; };
 		DCC78DC91D8085FC00865A7C /* si-28-sectrustsettings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "si-28-sectrustsettings.h"; sourceTree = "<group>"; };
 		DCC78DCA1D8085FC00865A7C /* si-30-keychain-upgrade.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "si-30-keychain-upgrade.c"; sourceTree = "<group>"; };
@@ -15147,6 +15192,7 @@
 		DCE278DC1ED789EF0083B485 /* CKKSCurrentItemPointer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSCurrentItemPointer.m; sourceTree = "<group>"; };
 		DCE278E61ED7A5B40083B485 /* CKKSUpdateCurrentItemPointerOperation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CKKSUpdateCurrentItemPointerOperation.h; sourceTree = "<group>"; };
 		DCE278E71ED7A5B40083B485 /* CKKSUpdateCurrentItemPointerOperation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CKKSUpdateCurrentItemPointerOperation.m; sourceTree = "<group>"; };
+		DCE405C423A04A7F00C4343B /* OctagonTests+CKKSConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OctagonTests+CKKSConfiguration.swift"; sourceTree = "<group>"; };
 		DCE4E6A41D7A37FA00AFB96E /* security2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = security2; sourceTree = BUILT_PRODUCTS_DIR; };
 		DCE4E6A71D7A38C000AFB96E /* security2.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = security2.1; sourceTree = "<group>"; };
 		DCE4E6D41D7A41E400AFB96E /* bc-10-knife-on-bread.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "bc-10-knife-on-bread.m"; path = "OSX/Breadcrumb/bc-10-knife-on-bread.m"; sourceTree = "<group>"; };
@@ -15960,6 +16006,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0C84D83D1FCF449700B822E3 /* Security.framework in Frameworks */,
+				0CE902352395D0A3005E3F8C /* AuthKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -16226,12 +16273,12 @@
 				0C9FB40720D872A600864612 /* CoreCDP.framework in Frameworks */,
 				43DB54551BB1F8920083C3F1 /* ProtectedCloudStorage.framework in Frameworks */,
 				4C8A38C917B93DF10001B4C0 /* CloudServices.framework in Frameworks */,
-				4C7913251799A5CC00A9633E /* MobileCoreServices.framework in Frameworks */,
 				4381603B1B4DCEFF00C54D58 /* AggregateDictionary.framework in Frameworks */,
 				4C3DD6BD179760280093F9D8 /* libMobileGestalt.dylib in Frameworks */,
 				533B5D4F177CD63100995334 /* SpringBoardServices.framework in Frameworks */,
 				7200D76F177B9999009BB396 /* ManagedConfiguration.framework in Frameworks */,
 				433E519E1B66D5F600482618 /* AppSupport.framework in Frameworks */,
+				DC89608D2395C75600D339D9 /* CoreServices.framework in Frameworks */,
 				4C84DA551720698900AEE225 /* AppleAccount.framework in Frameworks */,
 				4CF4C19D171E0EA600877419 /* Accounts.framework in Frameworks */,
 				438168C41B4ED43800C54D58 /* CoreFoundation.framework in Frameworks */,
@@ -16631,12 +16678,12 @@
 				DC00AB9A1D821D8800513D74 /* libSWCAgent.a in Frameworks */,
 				DCD22D981D8CCF78001C9B81 /* libutilities.a in Frameworks */,
 				BE442BB318B7FDB800F24DAE /* Security.framework in Frameworks */,
+				DC89608E2395C76300D339D9 /* CoreServices.framework in Frameworks */,
 				BE442BB418B7FDB800F24DAE /* SystemConfiguration.framework in Frameworks */,
 				BE442BB618B7FDB800F24DAE /* CFNetwork.framework in Frameworks */,
 				BE25C41618B83491003320E0 /* Foundation.framework in Frameworks */,
 				BE442BB718B7FDB800F24DAE /* IOKit.framework in Frameworks */,
 				438168C61B4ED43F00C54D58 /* CoreFoundation.framework in Frameworks */,
-				D4B858671D370D9A003B2D95 /* MobileCoreServices.framework in Frameworks */,
 				BE442BB818B7FDB800F24DAE /* libsqlite3.dylib in Frameworks */,
 				BE442BB918B7FDB800F24DAE /* libbsm.dylib in Frameworks */,
 			);
@@ -16709,7 +16756,6 @@
 			files = (
 				DC730E2922401F5E0051DD48 /* ProtocolBuffer.framework in Frameworks */,
 				DC730E2522401E310051DD48 /* TrustedPeers.framework in Frameworks */,
-				1B916CD0223FFF25006657FD /* ProtocolBuffer.framework in Frameworks */,
 				BE72782C209D2C1400F0DA77 /* SecurityFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -18158,10 +18204,16 @@
 			isa = PBXGroup;
 			children = (
 				0C9FB40120D8729A00864612 /* CoreCDP.framework */,
-				DCD067E71D8CDF7E007602F1 /* SecCodeHostLib.h */,
-				DCD067E81D8CDF7E007602F1 /* SecCodeHostLib.c */,
 			);
 			name = "Recovered References";
+			sourceTree = "<group>";
+		};
+		0C7382E52386379E004F98CB /* ResetCloudKeychainAccount */ = {
+			isa = PBXGroup;
+			children = (
+				0C7382F023863AD5004F98CB /* reset_ick_account */,
+			);
+			path = ResetCloudKeychainAccount;
 			sourceTree = "<group>";
 		};
 		0C78F1C816A5E13400654E08 /* regressions */ = {
@@ -19310,8 +19362,6 @@
 				0C9AE28E214054F6003BFDB5 /* OTApplicantToSponsorRound2M1.m */,
 				0C9AE2A1214055CE003BFDB5 /* OTPairingMessage.h */,
 				0C9AE2A2214055CF003BFDB5 /* OTPairingMessage.m */,
-				0CE9C98921B88919006BDD80 /* OTSOSMessage.h */,
-				0CE9C98A21B8891A006BDD80 /* OTSOSMessage.m */,
 				0C9AE289214054F4003BFDB5 /* OTSponsorToApplicantRound1M2.h */,
 				0C9AE28D214054F6003BFDB5 /* OTSponsorToApplicantRound1M2.m */,
 				0C9AE28A214054F5003BFDB5 /* OTSponsorToApplicantRound2M2.h */,
@@ -19395,6 +19445,8 @@
 				DC754C712228B57B00A39C8E /* TrustedPeersHelperProtocol.m */,
 				BE55C77B2044D0C90045863D /* Client.swift */,
 				BE9F8D0F206C099800B53D16 /* Container.swift */,
+				DC3A9B2523A9D6120073ED06 /* Container_BottledPeers.swift */,
+				DCAA209823AAF8BD00DCB594 /* Container_RecoveryKey.swift */,
 				DCAD8F8422C43EAD007C3872 /* Container_MachineIDs.swift */,
 				BE9F8D18206C4AD300B53D16 /* ContainerMap.swift */,
 				BE9F8D11206C121400B53D16 /* Decrypter.swift */,
@@ -19683,6 +19735,8 @@
 				D4AC5767214E195300A32C01 /* ECTests_data.h */,
 				D458C4AE214E198E0043D982 /* EvaluationBasicTests_data.h */,
 				D458C4AF214E198E0043D982 /* EvaluationBasicTests.m */,
+				D477CB7A237E4BD700C02355 /* ExceptionTests.m */,
+				D477CB7D237F321400C02355 /* ExceptionTests_data.h */,
 				D458C4B5214E19AE0043D982 /* iAPTests.m */,
 				D458C4AD214E198E0043D982 /* iAPTests_data.h */,
 				D4AC5768214E195400A32C01 /* KeySizeTests.m */,
@@ -19733,6 +19787,7 @@
 				D458C51B214E2CFF0043D982 /* si-20-sectrust-policies-data */,
 				D4A0F8C1211E6A2F00443CA1 /* si-82-sectrust-ct-data */,
 				D4056A1E22712D750026E24E /* si-87-sectrust-name-constraints */,
+				D477CB76237E453C00C02355 /* si-88-sectrust-valid-data */,
 				D4056A1D22712D740026E24E /* ssl-policy-certs */,
 			);
 			name = TestData;
@@ -21840,6 +21895,7 @@
 				BEF88C451EAFFFED00357577 /* TrustedPeers */,
 				BEAA002C202A832500E51F45 /* TrustedPeersHelper */,
 				BED987D42099145300607A5F /* TrustedPeersHelperUnitTests */,
+				0C7382E52386379E004F98CB /* ResetCloudKeychainAccount */,
 			);
 			path = keychain;
 			sourceTree = "<group>";
@@ -21994,14 +22050,18 @@
 				DCC0A4C52152C4AB000AF654 /* Pairing */,
 				DC27C3C820EADD8200F7839C /* OctagonTests-BridgingHeader.h */,
 				DC85687C2284E7850088D3EF /* OctagonTestMocks.swift */,
+				DC4CD9822372294D00EF55FC /* OctagonTests+Helpers.swift */,
 				DC27C3C020EAD9C300F7839C /* OctagonTests.swift */,
+				DC4415B323610BF40087981C /* OctagonTests+Account.swift */,
 				DC7F79B522EA4ED4001FB69A /* OctagonTests+CKKS.swift */,
+				DCE405C423A04A7F00C4343B /* OctagonTests+CKKSConfiguration.swift */,
+				DC5BEACC2217509A001681F0 /* OctagonTests+CloudKitAccount.swift */,
 				DC5F2BBD2310B941001ADA5D /* OctagonTests+CoreFollowUp.swift */,
 				DC2819B822F8F6FE007829F5 /* OctagonTests+DeviceList.swift */,
+				DC7F6A7C233D7FAC00DF5769 /* OctagonTests+ForwardCompatibility.swift */,
 				0C4CDE6D22922E360050C499 /* OctagonTests+RecoveryKey.swift */,
 				DC07090222936BCC002711B9 /* OctagonTests+ErrorHandling.swift */,
 				DCDF03112284E34B008055BA /* OctagonTests+EscrowRecovery.swift */,
-				DC5BEACC2217509A001681F0 /* OctagonTests+CloudKitAccount.swift */,
 				0C5824A322860001009E8C15 /* OctagonTests+HealthCheck.swift */,
 				DC72502D229600A800493D88 /* OctagonTests+Reset.swift */,
 				DCB947592127534C00ED9272 /* OctagonTests+SOSUpgrade.swift */,
@@ -22086,7 +22146,6 @@
 		DCA4D2121E5651950056214F /* Tests (Live CloudKit) */ = {
 			isa = PBXGroup;
 			children = (
-				6CB5F4781E402E5700DBF3F0 /* KeychainCKKS.plist */,
 				6CF4A0B51E45488B00ECD7B5 /* KeychainEntitledTestApp_mac */,
 				6CF4A0E11E4549F200ECD7B5 /* KeychainEntitledTestApp_ios */,
 				6CB5F4771E402D6D00DBF3F0 /* testrunner */,
@@ -22702,6 +22761,10 @@
 				0CC8A9012123AEF7005D7F6A /* OTJoinWithVoucherOperation.m */,
 				0C66046E2134985100BFBBB8 /* OTEstablishOperation.h */,
 				0C6604692134983900BFBBB8 /* OTEstablishOperation.m */,
+				DC0D15FF2363A1D6007F0951 /* OTSetCDPBitOperation.h */,
+				DC0D16002363A1D6007F0951 /* OTSetCDPBitOperation.m */,
+				DC0D16042363BAF4007F0951 /* OTDetermineCDPBitStatusOperation.h */,
+				DC0D16052363BAF4007F0951 /* OTDetermineCDPBitStatusOperation.m */,
 				DCFF82722162876400D54B02 /* OTResetOperation.h */,
 				DCFF82732162876400D54B02 /* OTResetOperation.m */,
 				0C00FC85217A972E00C8BF00 /* OTLocalCuttlefishReset.h */,
@@ -22794,7 +22857,6 @@
 				DCC78C701D8085D800865A7C /* secd-83-item-match-valid-on-date.m */,
 				DCC78C711D8085D800865A7C /* secd-83-item-match-trusted.m */,
 				DCC78C721D8085D800865A7C /* secd-83-item-match.h */,
-				DCC78C741D8085D800865A7C /* secd-95-escrow-persistence.m */,
 				DCC78C751D8085D800865A7C /* secd-100-initialsync.m */,
 				DCC78C761D8085D800865A7C /* secd-130-other-peer-views.m */,
 				DCC78C771D8085D800865A7C /* secd-154-engine-backoff.m */,
@@ -22901,7 +22963,6 @@
 				DCC78D021D8085F200865A7C /* sc-42-circlegencount.c */,
 				DCC78D031D8085F200865A7C /* sc-45-digestvector.c */,
 				DCC78D041D8085F200865A7C /* sc-130-resignationticket.c */,
-				DCC78D061D8085F200865A7C /* sc-150-ring.m */,
 				DCC78D071D8085F200865A7C /* sc-150-backupkeyderivation.c */,
 				DCC78D081D8085F200865A7C /* sc-153-backupslicekeybag.c */,
 				DCC78D091D8085F200865A7C /* SOSCircle_regressions.h */,
@@ -22948,8 +23009,6 @@
 				DCC78D2A1D8085F200865A7C /* SOSBackupSliceKeyBag.h */,
 				48776C731DA5BB4200CC09B9 /* SOSRecoveryKeyBag.m */,
 				48776C741DA5BB4200CC09B9 /* SOSRecoveryKeyBag.h */,
-				48E6171A1DBEC40D0098EAAD /* SOSBackupInformation.m */,
-				48E6171B1DBEC40D0098EAAD /* SOSBackupInformation.h */,
 				DCC78D2B1D8085F200865A7C /* SOSUserKeygen.m */,
 				DCC78D2C1D8085F200865A7C /* SOSUserKeygen.h */,
 				485B64081DC16E8300B771B9 /* SOSKeyedPubKeyIdentifier.c */,
@@ -23131,8 +23190,6 @@
 				DCC78D9B1D8085F200865A7C /* keychain_log.m */,
 				0C0CEC9D1DA45EA200C22FBC /* recovery_key.h */,
 				0C0CEC9E1DA45EA200C22FBC /* recovery_key.m */,
-				DCC78D9D1D8085F200865A7C /* syncbackup.m */,
-				DCC78D9C1D8085F200865A7C /* syncbackup.h */,
 				DCC78D9E1D8085F200865A7C /* secViewDisplay.c */,
 				DCC78D9F1D8085F200865A7C /* secViewDisplay.h */,
 				48C2F9321E4BCFC30093D70C /* accountCirclesViewsPrint.m */,
@@ -23240,7 +23297,6 @@
 				DC0B62261D90973900D43BCB /* si-25-cms-skid.h */,
 				DC0B62271D90973900D43BCB /* si-25-cms-skid.m */,
 				DCC78DC61D8085FC00865A7C /* si-26-sectrust-copyproperties.c */,
-				DCC78DC71D8085FC00865A7C /* si-27-sectrust-exceptions.c */,
 				DCC78DC81D8085FC00865A7C /* si-28-sectrustsettings.m */,
 				DCC78DC91D8085FC00865A7C /* si-28-sectrustsettings.h */,
 				D4AA0D9922FB959600D77FA4 /* si-29-cms-chain-mode.m */,
@@ -25128,6 +25184,7 @@
 		E7D848031C6BEFAB0025BB44 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				52DA3C6F23C7E63500FEEDFF /* KCTLKRequestTest.m */,
 				E7CFF7221C8660A000E3484E /* KeychainCircle.plist */,
 				E7D848061C6BEFFA0025BB44 /* Info.plist */,
 				E7D848041C6BEFC10025BB44 /* KCSRPTests.m */,
@@ -25145,6 +25202,7 @@
 		E7FCBE401314471B000DE34E /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				DC89608C2395C75500D339D9 /* CoreServices.framework */,
 				BEC6A9142331992800080069 /* Network.framework */,
 				D47AB2CA2356AD72005A3801 /* Network.framework */,
 				0C6C2B6C2258295D00C53C96 /* UIKitCore.framework */,
@@ -26674,6 +26732,7 @@
 				DC9082C61EA027DB00D0C1C5 /* CKKSZoneChangeFetcher.h in Headers */,
 				DC614C5122A9BDB500E16ADA /* CKKSZoneModifier.h in Headers */,
 				DCA4D2151E5684220056214F /* CKKSReencryptOutgoingItemsOperation.h in Headers */,
+				DC0D16012363A1D6007F0951 /* OTSetCDPBitOperation.h in Headers */,
 				0C38AA96212B2D1E00C90A1D /* OTClientVoucherOperation.h in Headers */,
 				DC378B3C1DF0CA7200A3DAFA /* CKKSIncomingQueueEntry.h in Headers */,
 				DC5F65AE2225C22C0051E9FA /* CKKSProvideKeySetOperation.h in Headers */,
@@ -26682,6 +26741,7 @@
 				DC52E7E61D80BE7B00B0A59C /* SecItemDb.h in Headers */,
 				DCF12673218A757A000124C6 /* OTLeaveCliqueOperation.h in Headers */,
 				DCAD9B441F8D939C00C5E2AE /* CKKSFixups.h in Headers */,
+				DC0D16062363BAF4007F0951 /* OTDetermineCDPBitStatusOperation.h in Headers */,
 				DC9C95B41F79CFD1000D19E5 /* CKKSControl.h in Headers */,
 				DC52E7EA1D80BE9500B0A59C /* SecItemSchema.h in Headers */,
 				DC7F79BA22EA5C73001FB69A /* OTLocalCKKSResetOperation.h in Headers */,
@@ -26747,7 +26807,6 @@
 				DC52E9161D80C41A00B0A59C /* SOSPeerInfoInternal.h in Headers */,
 				DC3C735A1D837C0000F6A832 /* SOSPeerInfoPriv.h in Headers */,
 				DC52E91A1D80C43500B0A59C /* SOSRing.h in Headers */,
-				48E617221DBEC6C60098EAAD /* SOSBackupInformation.h in Headers */,
 				CD198F971DE27B9E00F6FB83 /* SOSAccountPriv.h in Headers */,
 				DC52E9231D80C47100B0A59C /* SOSTransportCircleKVS.h in Headers */,
 				DC52E92C1D80C4AF00B0A59C /* SOSTransportKeyParameter.h in Headers */,
@@ -29632,7 +29691,6 @@
 				DC3502B11E0208BE00BC0587 /* Sources */,
 				DC3502B21E0208BE00BC0587 /* Frameworks */,
 				DC9A2C791EB40A64008FAC27 /* Embed OCMock */,
-				DC7162D41EB4154D000D2BB5 /* Copy BATS Test Discovery Plist */,
 				DC7162D61EB4157D000D2BB5 /* ShellScript */,
 			);
 			buildRules = (
@@ -31199,7 +31257,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1000;
-				LastUpgradeCheck = 1000;
+				LastUpgradeCheck = 1120;
 				TargetAttributes = {
 					4381690B1B4EDCBD00C54D58 = {
 						CreatedOnToolsVersion = 7.0;
@@ -31843,6 +31901,7 @@
 				EB7E90F12193F90700B1FA21 /* Build C2 Metrics */,
 				3D58392D21890FFB000ACA44 /* SecExperimentTests */,
 				5A442F81233C330F00918373 /* experimentTool */,
+				0CA378E123876DD100090B7E /* reset_account */,
 			);
 		};
 /* End PBXProject section */
@@ -32019,6 +32078,7 @@
 				D458C51A214E2CC80043D982 /* si-20-sectrust-policies-data in Resources */,
 				D453A4BC2122236D00850A26 /* si-82-sectrust-ct-data in Resources */,
 				D4FD4226217D7C41002B7EE2 /* si-87-sectrust-name-constraints in Resources */,
+				D477CB79237E484300C02355 /* si-88-sectrust-valid-data in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -32043,6 +32103,7 @@
 				D458C517214E2C690043D982 /* si-20-sectrust-policies-data in Resources */,
 				D4A0F8C2211E6A2F00443CA1 /* si-82-sectrust-ct-data in Resources */,
 				D4FD4227217D7C4F002B7EE2 /* si-87-sectrust-name-constraints in Resources */,
+				D477CB78237E482800C02355 /* si-88-sectrust-valid-data in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -32628,7 +32689,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "[ \"$(whoami)\" == \"root\" ] || exit 0\nchown -f root:wheel ${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/*.plist\n";
+			shellScript = "CKKSTESTS_DIR=${SRCROOT}/keychain/ckks/tests\npython ${CKKSTESTS_DIR}/gen_test_plist.py ${CKKSTESTS_DIR} ${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/KeychainCKKS.plist\n\n[ \"$(whoami)\" == \"root\" ] || exit 0\nchown -f root:wheel ${DSTROOT}/AppleInternal/CoreOS/BATS/unit_tests/*.plist\n";
 		};
 		DC82FFE61D90D3F60085674B /* security_utilities DTrace */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -33692,9 +33753,11 @@
 				0CB582D1218920090040C5F2 /* OTAuthenticatedCiphertext.m in Sources */,
 				0CF70BD9218BED1000EC3515 /* CuttlefishExtensionWorkaround.swift in Sources */,
 				DC754C742228B59000A39C8E /* TrustedPeersHelperProtocol.m in Sources */,
+				DC3A9B2823A9D8C40073ED06 /* Container_BottledPeers.swift in Sources */,
 				DC391FA621C04D1500772585 /* OctagonPeerKeys.swift in Sources */,
 				DCF6320521C074F30030CCC0 /* CuttlefishAPIHelpers.swift in Sources */,
 				DC391F8C21BF222B00772585 /* CKKSTLKShare.m in Sources */,
+				DCAA209C23AAF93700DCB594 /* Container_RecoveryKey.swift in Sources */,
 				BE9F8D19206C4AD300B53D16 /* ContainerMap.swift in Sources */,
 				BE9F4F8C2072D881004A52C2 /* Cuttlefish.pb.swift in Sources */,
 				DC391F9D21BF2F8100772585 /* CKKSConstants.m in Sources */,
@@ -33768,6 +33831,7 @@
 				BED987E120991B9B00607A5F /* Decrypter.swift in Sources */,
 				DC391FA721C04D6800772585 /* OctagonPeerKeys.swift in Sources */,
 				BE536033209BC3B30027E25A /* server_entitlement_helpers.c in Sources */,
+				DCAA209B23AAF8FD00DCB594 /* Container_RecoveryKey.swift in Sources */,
 				BED987E020991B1100607A5F /* TrustedPeersHelper.xcdatamodeld in Sources */,
 				BED987D62099145300607A5F /* TrustedPeersHelperUnitTests.swift in Sources */,
 				BE4C6AB820CAF4F700EAD6BE /* ContainerSync.swift in Sources */,
@@ -33781,6 +33845,7 @@
 				DCAD8F8922C43EDB007C3872 /* Container_MachineIDs.swift in Sources */,
 				0CF70BDA218BEFAE00EC3515 /* CuttlefishExtensionWorkaround.swift in Sources */,
 				DCD24DEC228C9A480052604C /* SetValueTransformer.swift in Sources */,
+				DC14C4C223AAACED007F673F /* Container_BottledPeers.swift in Sources */,
 				BEC0A96520B362EC00DBD772 /* Utils.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -33949,6 +34014,7 @@
 				D4FD4221217D7B2E002B7EE2 /* PathScoringTests.m in Sources */,
 				D40881F42175738C00180E81 /* SecPolicyLeafCallbacks.c in Sources */,
 				D40881F32175733F00180E81 /* SecPolicy.c in Sources */,
+				D477CB7C237E4BD700C02355 /* ExceptionTests.m in Sources */,
 				D40881F22175733500180E81 /* SecSignatureVerificationSupport.c in Sources */,
 				D40881F12175732E00180E81 /* SecCertificate.c in Sources */,
 				D40881F02175732600180E81 /* SecTrustStore.c in Sources */,
@@ -34026,6 +34092,7 @@
 				D458C525214E33440043D982 /* VerifyDateTests.m in Sources */,
 				D49A370623873BD30065719F /* TrustDaemonTestCase.m in Sources */,
 				D458C515214E286C0043D982 /* PolicyTests.m in Sources */,
+				D477CB7B237E4BD700C02355 /* ExceptionTests.m in Sources */,
 				D4EF32182156DDEB000A31A5 /* TrustSettingsInterfaceTests.m in Sources */,
 				D44282FF22D68564001746B3 /* TrustEvaluationTestHelpers.m in Sources */,
 			);
@@ -34685,6 +34752,7 @@
 				DCDCCB901DF7B8D4006E840E /* CKKSItem.m in Sources */,
 				DC1ED8C11DD5197E002BDCFA /* CKKSItemEncrypter.m in Sources */,
 				0CDD6F79226E83F6009094C2 /* OTTriggerEscrowUpdateOperation.m in Sources */,
+				DC0D16072363BAF4007F0951 /* OTDetermineCDPBitStatusOperation.m in Sources */,
 				DC6D2C921DD2835A00BE372D /* CKKSOutgoingQueueEntry.m in Sources */,
 				DC378B3D1DF0CA7200A3DAFA /* CKKSIncomingQueueEntry.m in Sources */,
 				6C880FCB21C3351400D38D66 /* SecDbBackupMetadataClassKey.m in Sources */,
@@ -34711,6 +34779,7 @@
 				DCB41DFC216D5E5B00F219E0 /* OTAccountMetadataClassC+KeychainSupport.m in Sources */,
 				6C880FCC21C3351400D38D66 /* SecDbBackupRecoverySet.m in Sources */,
 				DCA4D1FF1E552DD50056214F /* CKKSCurrentKeyPointer.m in Sources */,
+				DC0D16022363A1D6007F0951 /* OTSetCDPBitOperation.m in Sources */,
 				EB7E91212194849900B1FA21 /* SECC2MPMetric.m in Sources */,
 				DA6AA1651FE88AFB004565B0 /* CKKSControlServer.m in Sources */,
 				DCFE1C531F1825F7007640C8 /* CKKSUpdateDeviceStateOperation.m in Sources */,
@@ -34844,7 +34913,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				48E617211DBEC6BA0098EAAD /* SOSBackupInformation.m in Sources */,
 				DC52E8F11D80C34000B0A59C /* SOSAccount.m in Sources */,
 				DC52E8F31D80C34000B0A59C /* SOSAccountBackup.m in Sources */,
 				DCB332591F478C3C00178C30 /* SOSUserKeygen.m in Sources */,
@@ -34912,7 +34980,6 @@
 			files = (
 				DCD7EE841F4E46F9007D9804 /* accountCirclesViewsPrint.m in Sources */,
 				0C0CECA41DA45ED700C22FBC /* recovery_key.m in Sources */,
-				DC52EC3B1D80CFE900B0A59C /* syncbackup.m in Sources */,
 				DC52EC3A1D80CFE400B0A59C /* keychain_log.m in Sources */,
 				DC52EC391D80CFDF00B0A59C /* secViewDisplay.c in Sources */,
 				DC52EC381D80CFDB00B0A59C /* secToolFileIO.c in Sources */,
@@ -34947,7 +35014,6 @@
 				DC52EC791D80D14D00B0A59C /* sc-45-digestvector.c in Sources */,
 				DC52EC781D80D14800B0A59C /* SOSRegressionUtilities.m in Sources */,
 				DC52EC771D80D14400B0A59C /* sc-130-resignationticket.c in Sources */,
-				DC52EC761D80D13F00B0A59C /* sc-150-ring.m in Sources */,
 				DC52EC751D80D13B00B0A59C /* sc-42-circlegencount.c in Sources */,
 				DC52EC741D80D13500B0A59C /* SOSTestDataSource.c in Sources */,
 				DC52EC731D80D12E00B0A59C /* sc-20-keynames.m in Sources */,
@@ -35016,7 +35082,6 @@
 			files = (
 				DC52EDA01D80D4F700B0A59C /* sd-10-policytree.m in Sources */,
 				DC52ED9F1D80D4F200B0A59C /* SOSTransportTestTransports.m in Sources */,
-				DC52ED9E1D80D4ED00B0A59C /* secd-95-escrow-persistence.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -35038,7 +35103,6 @@
 				DC52EDF51D80D62E00B0A59C /* SecdTestKeychainUtilities.c in Sources */,
 				DC52EDF61D80D62E00B0A59C /* SOSTransportTestTransports.m in Sources */,
 				EB9C02481E8A15B40040D3C6 /* secd-37-pairing-initial-sync.m in Sources */,
-				0CAD1E5E1E1C5D0600537693 /* secd-95-escrow-persistence.m in Sources */,
 				DC52EDB51D80D5C500B0A59C /* secd-03-corrupted-items.m in Sources */,
 				0CAD1E5D1E1C5CF900537693 /* secd-80-views-alwayson.m in Sources */,
 				DC52EDB61D80D5C500B0A59C /* secd-04-corrupted-items.m in Sources */,
@@ -35133,7 +35197,6 @@
 				DC52EE4C1D80D71900B0A59C /* si-24-sectrust-passbook.c in Sources */,
 				DC52EE4D1D80D71900B0A59C /* si-26-sectrust-copyproperties.c in Sources */,
 				5E7793751E5F025A0074A2D1 /* si-44-seckey-aks.m in Sources */,
-				DC52EE4E1D80D71900B0A59C /* si-27-sectrust-exceptions.c in Sources */,
 				DC52EE4F1D80D71900B0A59C /* si-28-sectrustsettings.m in Sources */,
 				DC52EE531D80D73800B0A59C /* si-44-seckey-gen.m in Sources */,
 				DC52EE541D80D73800B0A59C /* si-44-seckey-rsa.m in Sources */,
@@ -35382,6 +35445,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DCE405C523A04A7F00C4343B /* OctagonTests+CKKSConfiguration.swift in Sources */,
 				1B8D2D96226E1FA500C94238 /* SetValueTransformer.swift in Sources */,
 				DC5F2BBE2310B941001ADA5D /* OctagonTests+CoreFollowUp.swift in Sources */,
 				DCB468E520EC262C00BA7E5B /* ContainerMap.swift in Sources */,
@@ -35396,6 +35460,8 @@
 				DC27C3C920EADEE700F7839C /* MockCloudKit.m in Sources */,
 				0CF70BE0218CF26600EC3515 /* BottledPeer.swift in Sources */,
 				DC99B86B20EACA470065B73B /* spi.c in Sources */,
+				DC4CD9842372294E00EF55FC /* OctagonTests+Helpers.swift in Sources */,
+				DCAA209A23AAF8F600DCB594 /* Container_RecoveryKey.swift in Sources */,
 				DCDF03122284E34B008055BA /* OctagonTests+EscrowRecovery.swift in Sources */,
 				DCFF82712162834D00D54B02 /* OctagonTestsXPCConnections.swift in Sources */,
 				DC5BEACD2217509A001681F0 /* OctagonTests+CloudKitAccount.swift in Sources */,
@@ -35405,6 +35471,7 @@
 				0CBEF3432242CA0600015691 /* TestsObjcTranslation.m in Sources */,
 				5A04BB0222982733001848A0 /* OTFollowupTests.m in Sources */,
 				DCB24B45221B901700BE73FE /* CKKSMockSOSPresentAdapter.m in Sources */,
+				DC33D7BE2374FD0A00A68155 /* OTSponsorToApplicantRound2M2.m in Sources */,
 				0CE15E31222DF63600B7EAA4 /* RecoverKeySet.swift in Sources */,
 				0CADDF0721545CF100DF8B06 /* OctagonPairingTests.swift in Sources */,
 				DC99B86D20EACA470065B73B /* SecdWatchdog.m in Sources */,
@@ -35417,15 +35484,19 @@
 				DCB0C291222F5E130083AECB /* CuttlefishErrors.swift in Sources */,
 				DC99B86F20EACA470065B73B /* SecFramework.c in Sources */,
 				0C5258BB21BB128000B32C96 /* FakeSOSControl.m in Sources */,
+				DC3A9B2723A9D8BD0073ED06 /* Container_BottledPeers.swift in Sources */,
 				DC99B87020EACA470065B73B /* server_endpoint.m in Sources */,
 				0CD5797A21498F8200C43496 /* OctagonPairingTests+Piggybacking.swift in Sources */,
+				DC4A73C5235E69D800DB1E6E /* OTApplicantToSponsorRound2M1.m in Sources */,
 				DCAD8F8722C43ECA007C3872 /* Container_MachineIDs.swift in Sources */,
+				DC03592D235FCCD500F14883 /* KCInitialMessageData.m in Sources */,
 				DC99B87120EACA470065B73B /* server_security_helpers.m in Sources */,
 				0CF70BE1218CF27600EC3515 /* EscrowKeys.swift in Sources */,
 				DC7F79B622EA4ED4001FB69A /* OctagonTests+CKKS.swift in Sources */,
 				0CBA047D214C4E4D005B3A2F /* OctagonPairingTests+ProxMultiClients.swift in Sources */,
 				DCF6320821C09DCE0030CCC0 /* CuttlefishAPIHelpers.swift in Sources */,
 				0CE15E44222DF6A800B7EAA4 /* Recovery.m in Sources */,
+				DC4415B423610BF40087981C /* OctagonTests+Account.swift in Sources */,
 				DC725030229600C000493D88 /* OctagonTests+Reset.swift in Sources */,
 				0C3E316B21372FA50093C04B /* OctagonPairingTests+ProximitySetup.swift in Sources */,
 				DC2819B922F8F6FE007829F5 /* OctagonTests+DeviceList.swift in Sources */,
@@ -35435,6 +35506,7 @@
 				0CF70BE2218CF2AA00EC3515 /* OTAuthenticatedCiphertext.m in Sources */,
 				DCB41E01216D5FE500F219E0 /* OctagonDataPersistenceTests.swift in Sources */,
 				DC85687E2284E7860088D3EF /* OctagonTestMocks.swift in Sources */,
+				DC0DE87123750340006E2EAE /* OTPairingMessage.m in Sources */,
 				DC99B87320EACA470065B73B /* Decrypter.swift in Sources */,
 				DC99B87420EACA470065B73B /* server_entitlement_helpers.c in Sources */,
 				DC99B87520EACA470065B73B /* TrustedPeersHelper.xcdatamodeld in Sources */,
@@ -35442,7 +35514,9 @@
 				DC27C3C120EAD9C300F7839C /* OctagonTests.swift in Sources */,
 				0CE15E3F222DF6A800B7EAA4 /* OTRecovery.m in Sources */,
 				DCB9475A2127534C00ED9272 /* OctagonTests+SOSUpgrade.swift in Sources */,
+				DC7F6A7D233D7FAC00DF5769 /* OctagonTests+ForwardCompatibility.swift in Sources */,
 				DC99B87720EACA470065B73B /* ContainerSync.swift in Sources */,
+				DC33D7BD2374FD0500A68155 /* OTSponsorToApplicantRound1M2.m in Sources */,
 				0C61F1F62194FC79009566D4 /* OTPrivateKey+SF.m in Sources */,
 				DC391FA821C04DAE00772585 /* OctagonPeerKeys.swift in Sources */,
 				DC99B87820EACA470065B73B /* Container.swift in Sources */,
@@ -36449,7 +36523,6 @@
 				0CB72DA121E42FCF00D8BC9B /* OTSponsorToApplicantRound2M2.m in Sources */,
 				E7F480151C73980D00390FDB /* KCJoiningRequestSecretSession.m in Sources */,
 				E7F480331C73FC4C00390FDB /* KCAESGCMDuplexSession.m in Sources */,
-				0CB72D9F21E42FCF00D8BC9B /* OTSOSMessage.m in Sources */,
 				DC6063B221B09AB200069B82 /* KCJoiningRequestCircleSession.m in Sources */,
 				E794BB001C7598F900339A0F /* KCJoiningMessages.m in Sources */,
 				5A47FFB9228F5F2A00F781B8 /* KCInitialMessageData.m in Sources */,
@@ -36472,6 +36545,7 @@
 				E7F4809C1C74E85200390FDB /* KCDerTest.m in Sources */,
 				E7D848051C6BEFCD0025BB44 /* KCSRPTests.m in Sources */,
 				E7F4809E1C74E86D00390FDB /* KCAESGCMTest.m in Sources */,
+				52DA3C7123C7E63600FEEDFF /* KCTLKRequestTest.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -36548,7 +36622,6 @@
 				EB49B2D9202DF1F7003F34A0 /* server_security_helpers.m in Sources */,
 				EBC73F2B2099785900AE3350 /* SFObjCType.m in Sources */,
 				480ADDB22155A0CE00318FC6 /* SOSAnalytics.m in Sources */,
-				EB627A79233E375A00F32437 /* MockAKSOptionalParameters.proto in Sources */,
 				EB49B2E0202DF5D7003F34A0 /* server_entitlement_helpers.c in Sources */,
 				5A061196229ED6E8006AF14A /* NSDate+SFAnalytics.m in Sources */,
 				EBC73F2A20996AD400AE3350 /* SFSQLiteStatement.m in Sources */,
@@ -36561,7 +36634,6 @@
 				EB49B2D1202DF15F003F34A0 /* SFAnalyticsActivityTracker.m in Sources */,
 				EB49B2D0202DF14D003F34A0 /* SFAnalytics.m in Sources */,
 				EBC73F2820993FDA00AE3350 /* SFAnalyticsSampler.m in Sources */,
-				EBDCC001233DD3E000806566 /* MockAKSRefKey.proto in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -36778,6 +36850,16 @@
 			isa = PBXTargetDependency;
 			target = DC1789031D77980500B50D50 /* Security_osx */;
 			targetProxy = 0C9AEEB920783FE000BF6237 /* PBXContainerItemProxy */;
+		};
+		0CA378E923876E0900090B7E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0CA378E123876DD100090B7E /* reset_account */;
+			targetProxy = 0CA378E823876E0900090B7E /* PBXContainerItemProxy */;
+		};
+		0CA378EB23876E1000090B7E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0CA378E123876DD100090B7E /* reset_account */;
+			targetProxy = 0CA378EA23876E1000090B7E /* PBXContainerItemProxy */;
 		};
 		0CC593F82299EDFC006C34B5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -40080,7 +40162,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CODE_SIGN_IDENTITY = "";
@@ -40155,7 +40236,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CODE_SIGN_IDENTITY = "";
@@ -40222,6 +40302,20 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				USE_XCTRUNNER = YES;
 				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		0CA378E423876DD100090B7E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		0CA378E523876DD100090B7E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -40954,7 +41048,6 @@
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -41003,7 +41096,6 @@
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -41143,7 +41235,6 @@
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -41178,7 +41269,6 @@
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -41211,7 +41301,6 @@
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -41258,7 +41347,6 @@
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -42031,7 +42119,6 @@
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -42086,7 +42173,6 @@
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -43124,7 +43210,7 @@
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -43211,7 +43297,7 @@
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -43287,7 +43373,6 @@
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -43306,7 +43391,6 @@
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_WARN_DOCUMENTATION_COMMENTS = NO;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -43532,7 +43616,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -43543,7 +43626,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -43737,12 +43819,12 @@
 					"$(OTHER_LDFLAGS_AKS_LIBRARY)",
 					"$(OTHER_LDFLAGS_UPWARD_PROTOCOLBUFFER)",
 					"$(OTHER_LDFLAGS_UPWARD_FOUNDATION)",
-					"$(OTHER_LDFLAGS_UPWARD_SECURITY)",
 					"$(OTHER_LDFLAGS_UPWARD_SECURITYFOUNDATION)",
 					"$(OTHER_LDFLAGS_APPLEIDAUTHSUPPORT)",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.TrustedPeers;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				TAPI_VERIFY_MODE = Pedantic;
 				VERSION_INFO_PREFIX = "";
 			};
 			name = Debug;
@@ -43772,12 +43854,12 @@
 					"$(OTHER_LDFLAGS_AKS_LIBRARY)",
 					"$(OTHER_LDFLAGS_UPWARD_PROTOCOLBUFFER)",
 					"$(OTHER_LDFLAGS_UPWARD_FOUNDATION)",
-					"$(OTHER_LDFLAGS_UPWARD_SECURITY)",
 					"$(OTHER_LDFLAGS_UPWARD_SECURITYFOUNDATION)",
 					"$(OTHER_LDFLAGS_APPLEIDAUTHSUPPORT)",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.TrustedPeers;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				TAPI_VERIFY_MODE = Pedantic;
 				VERSION_INFO_PREFIX = "";
 			};
 			name = Release;
@@ -43896,7 +43978,6 @@
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -43919,7 +44000,6 @@
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -44042,7 +44122,6 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -44075,7 +44154,6 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -44106,7 +44184,6 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -44143,7 +44220,6 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -44446,7 +44522,6 @@
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -44465,7 +44540,6 @@
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -44793,7 +44867,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -44808,7 +44881,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -44823,7 +44895,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -44838,7 +44909,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -44869,7 +44939,6 @@
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -44908,7 +44977,6 @@
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -44946,7 +45014,6 @@
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -44975,7 +45042,6 @@
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -45006,7 +45072,6 @@
 				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -45036,7 +45101,6 @@
 				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -45062,7 +45126,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -45076,7 +45139,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -45090,7 +45152,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -45103,7 +45164,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -45117,7 +45177,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -45137,7 +45196,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -45156,7 +45214,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -45176,7 +45233,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -45193,7 +45249,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -45204,7 +45259,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -45216,7 +45270,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -45233,7 +45286,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -45250,7 +45302,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				HEADER_SEARCH_PATHS = (
@@ -45267,7 +45318,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				HEADER_SEARCH_PATHS = (
@@ -45284,7 +45334,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -45297,7 +45346,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -45310,7 +45358,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
@@ -45324,7 +45371,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
@@ -45338,7 +45384,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -45351,7 +45396,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -45364,7 +45408,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -45379,7 +45422,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -45394,7 +45436,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -45407,7 +45448,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -45420,7 +45460,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -45433,7 +45472,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -45572,7 +45610,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -45585,7 +45622,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -45776,7 +45812,6 @@
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -45814,7 +45849,6 @@
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
@@ -45849,7 +45883,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -45896,7 +45929,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -45942,7 +45974,6 @@
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -45962,7 +45993,6 @@
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -46029,6 +46059,8 @@
 					"-framework",
 					Security,
 					"$(OTHER_LDFLAGS_FOR_SECURITYD)",
+					"-framework",
+					TrustedPeers,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.security.CKKSTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -46090,6 +46122,8 @@
 					"-framework",
 					Security,
 					"$(OTHER_LDFLAGS_FOR_SECURITYD)",
+					"-framework",
+					TrustedPeers,
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.security.CKKSTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -46104,7 +46138,6 @@
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -46125,7 +46158,6 @@
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -46144,7 +46176,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -46173,7 +46204,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -46722,7 +46752,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -46759,7 +46788,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -46797,7 +46825,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
@@ -46834,7 +46861,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
@@ -46868,7 +46894,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
@@ -46913,7 +46938,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
@@ -46961,7 +46985,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47003,7 +47026,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47086,7 +47108,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47118,7 +47139,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47150,7 +47170,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47180,7 +47199,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47211,7 +47229,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47242,7 +47259,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47285,7 +47301,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -47301,7 +47316,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
@@ -47374,7 +47388,6 @@
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -47397,7 +47410,6 @@
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -47499,7 +47511,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47541,7 +47552,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47577,7 +47587,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47619,7 +47628,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47655,7 +47663,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47697,7 +47704,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47733,7 +47739,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47775,7 +47780,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47811,7 +47815,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47853,7 +47856,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47889,7 +47891,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47931,7 +47932,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -47967,7 +47967,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -48009,7 +48008,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -48045,7 +48043,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -48087,7 +48084,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -48123,7 +48119,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -48165,7 +48160,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -48304,7 +48298,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -48317,7 +48310,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -48330,7 +48322,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -48344,7 +48335,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -48358,7 +48348,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -48371,7 +48360,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -48384,7 +48372,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -48397,7 +48384,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -48410,7 +48396,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
@@ -48428,7 +48413,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
@@ -48447,7 +48431,6 @@
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
@@ -48462,7 +48445,6 @@
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
@@ -48726,7 +48708,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -48768,7 +48749,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -48798,7 +48778,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -48812,7 +48791,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -48826,7 +48804,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -48840,7 +48817,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -49264,7 +49240,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49295,7 +49270,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49328,7 +49302,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49382,7 +49355,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49437,7 +49409,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49481,7 +49452,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49523,7 +49493,6 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49556,7 +49525,6 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49593,7 +49561,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49641,7 +49608,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49685,7 +49651,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49729,7 +49694,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49812,7 +49776,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49854,7 +49817,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -49885,7 +49847,6 @@
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = NO;
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -49909,7 +49870,6 @@
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = NO;
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -49932,7 +49892,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -49956,7 +49915,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -49980,7 +49938,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -49993,7 +49950,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -50006,7 +49962,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -50019,7 +49974,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -50032,7 +49986,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -50045,7 +49998,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -50063,7 +50015,6 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -50097,7 +50048,6 @@
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -50123,7 +50073,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = YES;
@@ -50136,7 +50085,6 @@
 			baseConfigurationReference = DC0067911D87816C005AF8DB /* macos_legacy_lib.xcconfig */;
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
@@ -50154,7 +50102,6 @@
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -50196,7 +50143,6 @@
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -50238,7 +50184,6 @@
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -50273,7 +50218,6 @@
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -50308,7 +50252,6 @@
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -50352,7 +50295,6 @@
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -50698,7 +50640,6 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
-					"$(OTHER_LDFLAGS_MOBILEGESTALT)",
 					"$(OTHER_LDFLAGS_UPWARD_FOUNDATION)",
 					"$(OTHER_LDFLAGS_UPWARD_PROTOCOLBUFFER)",
 				);
@@ -50748,7 +50689,6 @@
 				MODULEMAP_FILE = Modules/KeychainCircle.modulemap;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_LDFLAGS = (
-					"$(OTHER_LDFLAGS_MOBILEGESTALT)",
 					"$(OTHER_LDFLAGS_UPWARD_FOUNDATION)",
 					"$(OTHER_LDFLAGS_UPWARD_PROTOCOLBUFFER)",
 				);
@@ -51035,7 +50975,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -51077,7 +51016,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
@@ -51109,7 +51047,6 @@
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				COPY_PHASE_STRIP = NO;
@@ -51136,7 +51073,6 @@
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				COPY_PHASE_STRIP = NO;
@@ -51906,7 +51842,6 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -51943,7 +51878,6 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -52494,7 +52428,6 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -52516,7 +52449,6 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVES = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
@@ -52541,7 +52473,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
@@ -52578,7 +52509,6 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
@@ -52726,6 +52656,15 @@
 			buildConfigurations = (
 				0C9AEEB520783FBB00BF6237 /* Debug */,
 				0C9AEEB620783FBB00BF6237 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0CA378E323876DD100090B7E /* Build configuration list for PBXAggregateTarget "reset_account" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CA378E423876DD100090B7E /* Debug */,
+				0CA378E523876DD100090B7E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -64,45 +64,29 @@ static ThreadSpecific<BlobUrlOriginMap>& originMap()
     return *map;
 }
 
-static void postToMainThread(CrossThreadTask&& task)
-{
-    static std::once_flag onceFlag;
-    static CrossThreadQueue<CrossThreadTask>* queue;
-    std::call_once(onceFlag, [] {
-        queue = new CrossThreadQueue<CrossThreadTask>;
-    });
-
-    queue->append(WTFMove(task));
-
-    callOnMainThread([] {
-        auto task = queue->tryGetMessage();
-        ASSERT(task);
-        task->performTask();
-    });
-}
-
 void ThreadableBlobRegistry::registerFileBlobURL(const URL& url, const String& path, const String& contentType)
 {
-    if (isMainThread())
+    if (isMainThread()) {
         blobRegistry().registerFileBlobURL(url, BlobDataFileReference::create(path), contentType);
-    else {
-        callOnMainThread([url = url.isolatedCopy(), path = path.isolatedCopy(), contentType = contentType.isolatedCopy()] {
-            blobRegistry().registerFileBlobURL(url, BlobDataFileReference::create(path), contentType);
-        });
+        return;
     }
+
+    callOnMainThread([url = url.isolatedCopy(), path = path.isolatedCopy(), contentType = contentType.isolatedCopy()] {
+        blobRegistry().registerFileBlobURL(url, BlobDataFileReference::create(path), contentType);
+    });
 }
 
 void ThreadableBlobRegistry::registerBlobURL(const URL& url, Vector<BlobPart>&& blobParts, const String& contentType)
 {
-    if (isMainThread())
+    if (isMainThread()) {
         blobRegistry().registerBlobURL(url, WTFMove(blobParts), contentType);
-    else {
-        for (auto& part : blobParts)
-            part.detachFromCurrentThread();
-        callOnMainThread([url = url.isolatedCopy(), blobParts = WTFMove(blobParts), contentType = contentType.isolatedCopy()]() mutable {
-            blobRegistry().registerBlobURL(url, WTFMove(blobParts), contentType);
-        });
+        return;
     }
+    for (auto& part : blobParts)
+        part.detachFromCurrentThread();
+    callOnMainThread([url = url.isolatedCopy(), blobParts = WTFMove(blobParts), contentType = contentType.isolatedCopy()]() mutable {
+        blobRegistry().registerBlobURL(url, WTFMove(blobParts), contentType);
+    });
 }
 
 static inline bool isBlobURLContainsNullOrigin(const URL& url)
@@ -117,47 +101,51 @@ void ThreadableBlobRegistry::registerBlobURL(SecurityOrigin* origin, const URL& 
     if (origin && isBlobURLContainsNullOrigin(url))
         originMap()->add(url.string(), origin);
 
-    if (isMainThread())
+    if (isMainThread()) {
         blobRegistry().registerBlobURL(url, srcURL);
-    else {
-        callOnMainThread([url = url.isolatedCopy(), srcURL = srcURL.isolatedCopy()] {
-            blobRegistry().registerBlobURL(url, srcURL);
-        });
+        return;
     }
+
+    callOnMainThread([url = url.isolatedCopy(), srcURL = srcURL.isolatedCopy()] {
+        blobRegistry().registerBlobURL(url, srcURL);
+    });
 }
 
 void ThreadableBlobRegistry::registerBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, const String& fileBackedPath, const String& contentType)
 {
-    if (isMainThread())
+    if (isMainThread()) {
         blobRegistry().registerBlobURLOptionallyFileBacked(url, srcURL, BlobDataFileReference::create(fileBackedPath), contentType);
-    else
-        postToMainThread(createCrossThreadTask(ThreadableBlobRegistry::registerBlobURLOptionallyFileBacked, url, srcURL, fileBackedPath, contentType));
+        return;
+    }
+    callOnMainThread([url = url.isolatedCopy(), srcURL = srcURL.isolatedCopy(), fileBackedPath = fileBackedPath.isolatedCopy(), contentType = contentType.isolatedCopy()] {
+        blobRegistry().registerBlobURLOptionallyFileBacked(url, srcURL, BlobDataFileReference::create(fileBackedPath), contentType);
+    });
 }
 
 void ThreadableBlobRegistry::registerBlobURLForSlice(const URL& newURL, const URL& srcURL, long long start, long long end)
 {
-    if (isMainThread())
+    if (isMainThread()) {
         blobRegistry().registerBlobURLForSlice(newURL, srcURL, start, end);
-    else {
-        callOnMainThread([newURL = newURL.isolatedCopy(), srcURL = srcURL.isolatedCopy(), start, end] {
-            blobRegistry().registerBlobURLForSlice(newURL, srcURL, start, end);
-        });
+        return;
     }
+
+    callOnMainThread([newURL = newURL.isolatedCopy(), srcURL = srcURL.isolatedCopy(), start, end] {
+        blobRegistry().registerBlobURLForSlice(newURL, srcURL, start, end);
+    });
 }
 
 unsigned long long ThreadableBlobRegistry::blobSize(const URL& url)
 {
-    unsigned long long resultSize;
     if (isMainThread())
+        return blobRegistry().blobSize(url);
+
+    unsigned long long resultSize;
+    BinarySemaphore semaphore;
+    callOnMainThread([url = url.isolatedCopy(), &semaphore, &resultSize] {
         resultSize = blobRegistry().blobSize(url);
-    else {
-        BinarySemaphore semaphore;
-        callOnMainThread([url = url.isolatedCopy(), &semaphore, &resultSize] {
-            resultSize = blobRegistry().blobSize(url);
-            semaphore.signal();
-        });
-        semaphore.wait();
-    }
+        semaphore.signal();
+    });
+    semaphore.wait();
     return resultSize;
 }
 
@@ -166,13 +154,13 @@ void ThreadableBlobRegistry::unregisterBlobURL(const URL& url)
     if (isBlobURLContainsNullOrigin(url))
         originMap()->remove(url.string());
 
-    if (isMainThread())
+    if (isMainThread()) {
         blobRegistry().unregisterBlobURL(url);
-    else {
-        callOnMainThread([url = url.isolatedCopy()] {
-            blobRegistry().unregisterBlobURL(url);
-        });
+        return;
     }
+    callOnMainThread([url = url.isolatedCopy()] {
+        blobRegistry().unregisterBlobURL(url);
+    });
 }
 
 RefPtr<SecurityOrigin> ThreadableBlobRegistry::getCachedOrigin(const URL& url)

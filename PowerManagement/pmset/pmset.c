@@ -119,7 +119,7 @@
 #define ARG_POWERNAP        "powernap"
 #define ARG_RESTOREDEFAULTS "restoredefaults"
 #if TARGET_OS_OSX
-#define ARG_VACT            "vact-disable"
+#define ARG_VACT            "vactdisabled"
 #endif // TARGET_OS_OSX
 
 // Scheduling options
@@ -1137,6 +1137,11 @@ static void show_system_power_settings(void)
     if((b = CFDictionaryGetValue(system_power_settings, CFSTR(kIOPMDestroyFVKeyOnStandbyKey))))
     {
         printf(" DestroyFVKeyOnStandby\t\t%d\n", (b==kCFBooleanTrue) ? 1:0);
+    }
+
+    if((b = CFDictionaryGetValue(system_power_settings, CFSTR(kIOPMVact))))
+    {
+        printf(" VACTDisabled\t\t%d\n", (b==kCFBooleanTrue) ? 1:0);
     }
 exit:
     if (system_power_settings)
@@ -5291,20 +5296,6 @@ static int parseArgs(int argc,
                 }
                 modified |= kModSettings;
                 i+=2;
-#if TARGET_OS_OSX
-            } else if(0 == strncmp(argv[i], ARG_VACT, kMaxArgStringLength))
-            {
-                if(-1 == checkAndSetIntValue(argv[i+1],
-                                             CFSTR(kIOPMVact),
-                                             apply, true, kNoMultiplier,
-                                             ac, battery, ups))
-                {
-                    ret = kParseBadArgs;
-                    goto exit;
-                }
-                modified |= kModSettings;
-                i+=2;
-#endif // TARGET_OS_OSX
             } else if(0 == strncmp(argv[i], ARG_WOMP, kMaxArgStringLength))
             {
                 if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMWakeOnLANKey),

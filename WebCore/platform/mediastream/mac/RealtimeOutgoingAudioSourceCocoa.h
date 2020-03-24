@@ -50,8 +50,9 @@ private:
     bool isReachingBufferedAudioDataHighLimit() final;
     bool isReachingBufferedAudioDataLowLimit() final;
     bool hasBufferedEnoughData() final;
+    void sourceUpdated() final;
 
-    void pullAudioData() final;
+    void pullAudioData();
 
     Ref<AudioSampleDataSource> m_sampleConverter;
     CAAudioStreamDescription m_inputStreamDescription;

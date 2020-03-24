@@ -146,6 +146,15 @@ Object.defineProperty(Map.prototype, "getOrInitialize",
     }
 });
 
+Object.defineProperty(Set.prototype, "addAll",
+{
+    value(iterable)
+    {
+        for (let item of iterable)
+            this.add(item);
+    },
+});
+
 Object.defineProperty(Set.prototype, "take",
 {
     value(key)
@@ -690,15 +699,13 @@ Object.defineProperty(Array.prototype, "insertAtIndex",
     }
 });
 
-Object.defineProperty(Array.prototype, "keySet",
+Object.defineProperty(Array.prototype, "pushAll",
 {
-    value()
+    value(iterable)
     {
-        let keys = Object.create(null);
-        for (var i = 0; i < this.length; ++i)
-            keys[this[i]] = true;
-        return keys;
-    }
+        for (let item of iterable)
+            this.push(item);
+    },
 });
 
 Object.defineProperty(Array.prototype, "partition",
@@ -731,6 +738,18 @@ Object.defineProperty(String.prototype, "isUpperCase",
     value()
     {
         return String(this) === this.toUpperCase();
+    }
+});
+
+Object.defineProperty(String.prototype, "isJSON",
+{
+    value(predicate)
+    {
+        try {
+            let json = JSON.parse(this);
+            return !predicate || predicate(json);
+        } catch { }
+        return false;
     }
 });
 
@@ -1192,6 +1211,25 @@ Object.defineProperty(Math, "roundTo",
     }
 });
 
+// https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Matrix_math_for_the_web#Multiplying_a_matrix_and_a_point
+Object.defineProperty(Math, "multiplyMatrixByVector",
+{
+    value(matrix, vector)
+    {
+        let height = matrix.length;
+        let width = matrix[0].length;
+        console.assert(width === vector.length);
+
+        let result = Array(width).fill(0);
+        for (let i = 0; i < width; ++i) {
+            for (let rowIndex = 0; rowIndex < height; ++rowIndex)
+                result[i] += vector[rowIndex] * matrix[i][rowIndex];
+        }
+
+        return result;
+    }
+});
+
 Object.defineProperty(Number, "constrain",
 {
     value(num, min, max)
@@ -1575,6 +1613,11 @@ function appendWebInspectorConsoleEvaluationSourceURL(string)
     return "\n//# sourceURL=__WebInspectorConsoleEvaluation__\n" + string;
 }
 
+function isWebInspectorBootstrapScript(url)
+{
+    return url === WI.NetworkManager.bootstrapScriptURL;
+}
+
 function isWebInspectorInternalScript(url)
 {
     return url === "__WebInspectorInternal__";
@@ -1639,7 +1682,7 @@ function isTextLikelyMinified(content)
     if (startRatio < autoFormatWhitespaceRatio)
         return true;
 
-    let endRatio = whitespaceRatio(content, content.length - autoFormatMaxCharactersToCheck, content.length)
+    let endRatio = whitespaceRatio(content, content.length - autoFormatMaxCharactersToCheck, content.length);
     if (endRatio < autoFormatWhitespaceRatio)
         return true;
 
@@ -1663,41 +1706,4 @@ function insertionIndexForObjectInListSortedByFunction(object, list, comparator,
 function insertObjectIntoSortedArray(object, array, comparator)
 {
     array.splice(insertionIndexForObjectInListSortedByFunction(object, array, comparator), 0, object);
-}
-
-function decodeBase64ToBlob(base64Data, mimeType)
-{
-    mimeType = mimeType || "";
-
-    const sliceSize = 1024;
-    var byteCharacters = atob(base64Data);
-    var bytesLength = byteCharacters.length;
-    var slicesCount = Math.ceil(bytesLength / sliceSize);
-    var byteArrays = new Array(slicesCount);
-
-    for (var sliceIndex = 0; sliceIndex < slicesCount; ++sliceIndex) {
-        var begin = sliceIndex * sliceSize;
-        var end = Math.min(begin + sliceSize, bytesLength);
-
-        var bytes = new Array(end - begin);
-        for (var offset = begin, i = 0; offset < end; ++i, ++offset)
-            bytes[i] = byteCharacters[offset].charCodeAt(0);
-
-        byteArrays[sliceIndex] = new Uint8Array(bytes);
-    }
-
-    return new Blob(byteArrays, {type: mimeType});
-}
-
-function textToBlob(text, mimeType)
-{
-    return new Blob([text], {type: mimeType});
-}
-
-function blobAsText(blob, callback)
-{
-    console.assert(blob instanceof Blob);
-    let fileReader = new FileReader;
-    fileReader.addEventListener("loadend", () => { callback(fileReader.result); });
-    fileReader.readAsText(blob);
 }

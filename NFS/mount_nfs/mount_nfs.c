@@ -388,7 +388,7 @@ main(int argc, char *argv[])
 	bzero(&options, sizeof(options));
 	config_read(&config);
 
-	while ((c = getopt(argc, argv, "234a:bcdF:g:I:iLlo:Pp:R:r:sTt:Uvw:x:z")) != EOF)
+	while ((c = getopt(argc, argv, "234a:bcdF:g:I:iLlmo:Pp:R:r:sTt:Uvw:x:z")) != EOF)
 		switch (c) {
 		case '4':
 			setNFSVersion(VER2PVER(4,0), 0);
@@ -459,6 +459,9 @@ main(int argc, char *argv[])
 			break;
 		case 'l':
 			SETFLAG(NFS_MFLAG_RDIRPLUS, 1);
+			break;
+		case 'm':
+			SETFLAG(NFS_MFLAG_RDIRPLUS, 0);
 			break;
 		case 'o':
 			handle_mntopts(optarg);

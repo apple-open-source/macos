@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 166
+Submission	= 167
 
 
 #
@@ -52,7 +52,7 @@ CFLAGS += -DNETSNMP_NO_INLINE
 
 DEFINES			= -DBUILD=$(Submission) \
 			-DMACOSX_DEPLOYMENT_TARGET=$(MACOSX_DEPLOYMENT_TARGET)
-INCLUDES		= -F$(SDKROOT)/System/Library/PrivateFrameworks/ -F$(SDKROOT)/System/Library/Frameworks/ -I/usr/local/libressl/include
+INCLUDES		= -F$(SDKROOT)/System/Library/PrivateFrameworks/ -F$(SDKROOT)/System/Library/Frameworks/ -I$(SDKROOT)/usr/local/libressl-2.2/include
 
 # For Perl to build correctly, both CFLAGS (CC_Flags) and CCFLAGS (Cxx_Flags)
 # must be properly defined.

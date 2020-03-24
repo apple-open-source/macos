@@ -34,7 +34,6 @@
 #import "PlatformPopupMenuData.h"
 #import "StringUtilities.h"
 #import "WebPopupItem.h"
-#import <pal/spi/cocoa/CoreTextSPI.h>
 #import <pal/system/mac/PopupMenu.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/ProcessPrivilege.h>

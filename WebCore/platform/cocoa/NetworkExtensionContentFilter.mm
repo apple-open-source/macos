@@ -43,11 +43,6 @@
 SOFT_LINK_FRAMEWORK_OPTIONAL(NetworkExtension);
 SOFT_LINK_CLASS_OPTIONAL(NetworkExtension, NEFilterSource);
 
-// FIXME: Remove this once -setSourceAppPid: is declared in an SDK used by the builders
-@interface NEFilterSource ()
-- (void)setSourceAppPid:(pid_t)sourceAppPid;
-@end
-
 static inline NSData *replacementDataFromDecisionInfo(NSDictionary *decisionInfo)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(!decisionInfo || [decisionInfo isKindOfClass:[NSDictionary class]]);
@@ -56,16 +51,29 @@ static inline NSData *replacementDataFromDecisionInfo(NSDictionary *decisionInfo
 
 namespace WebCore {
 
+NetworkExtensionContentFilter::SandboxExtensionsState NetworkExtensionContentFilter::m_sandboxExtensionsState = SandboxExtensionsState::NotSet;
+
 bool NetworkExtensionContentFilter::enabled()
 {
-    bool enabled = [getNEFilterSourceClass() filterRequired];
+    bool enabled = false;
+    switch (m_sandboxExtensionsState) {
+    case SandboxExtensionsState::Consumed:
+        enabled = true;
+        break;
+    case SandboxExtensionsState::NotConsumed:
+        enabled = false;
+        break;
+    case SandboxExtensionsState::NotSet:
+        enabled = [getNEFilterSourceClass() filterRequired];
+        break;
+    }
     LOG(ContentFiltering, "NetworkExtensionContentFilter is %s.\n", enabled ? "enabled" : "not enabled");
     return enabled;
 }
 
 std::unique_ptr<NetworkExtensionContentFilter> NetworkExtensionContentFilter::create()
 {
-    return std::make_unique<NetworkExtensionContentFilter>();
+    return makeUnique<NetworkExtensionContentFilter>();
 }
 
 void NetworkExtensionContentFilter::initialize(const URL* url)
@@ -75,12 +83,8 @@ void NetworkExtensionContentFilter::initialize(const URL* url)
     m_queue = adoptOSObject(dispatch_queue_create("WebKit NetworkExtension Filtering", DISPATCH_QUEUE_SERIAL));
     ASSERT_UNUSED(url, !url);
     m_neFilterSource = adoptNS([allocNEFilterSourceInstance() initWithDecisionQueue:m_queue.get()]);
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
     [m_neFilterSource setSourceAppIdentifier:applicationBundleIdentifier()];
-    // FIXME: Remove the -respondsToSelector: check once -setSourceAppPid: is defined in an SDK used by the builders.
-    if ([m_neFilterSource respondsToSelector:@selector(setSourceAppPid:)])
-        [m_neFilterSource setSourceAppPid:presentingApplicationPID()];
-#endif
+    [m_neFilterSource setSourceAppPid:presentingApplicationPID()];
 }
 
 void NetworkExtensionContentFilter::willSendRequest(ResourceRequest& request, const ResourceResponse& redirectResponse)
@@ -222,6 +226,11 @@ void NetworkExtensionContentFilter::handleDecision(NEFilterSourceStatus status, 
     if (!needsMoreData())
         LOG(ContentFiltering, "NetworkExtensionContentFilter stopped buffering with status %zd and replacement data length %zu.\n", status, replacementData.length);
 #endif
+}
+
+void NetworkExtensionContentFilter::setHasConsumedSandboxExtensions(bool hasConsumedSandboxExtensions)
+{
+    m_sandboxExtensionsState = (hasConsumedSandboxExtensions ? SandboxExtensionsState::Consumed : SandboxExtensionsState::NotConsumed);
 }
 
 } // namespace WebCore

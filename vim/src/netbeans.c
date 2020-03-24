@@ -321,7 +321,7 @@ postpone_keycommand(char_u *keystr)
 {
     keyQ_T *node;
 
-    node = (keyQ_T *)alloc(sizeof(keyQ_T));
+    node = ALLOC_ONE(keyQ_T);
     if (node == NULL)
 	return;  /* out of memory, drop the key */
 
@@ -667,7 +667,7 @@ nb_get_buf(int bufno)
     if (!buf_list)
     {
 	/* initialize */
-	buf_list = (nbbuf_T *)alloc_clear(100 * sizeof(nbbuf_T));
+	buf_list = alloc_clear(100 * sizeof(nbbuf_T));
 	buf_list_size = 100;
     }
     if (bufno >= buf_list_used) /* new */
@@ -678,8 +678,7 @@ nb_get_buf(int bufno)
 
 	    incr = bufno - buf_list_size + 90;
 	    buf_list_size += incr;
-	    buf_list = (nbbuf_T *)vim_realloc(
-				   buf_list, buf_list_size * sizeof(nbbuf_T));
+	    buf_list = vim_realloc(buf_list, buf_list_size * sizeof(nbbuf_T));
 	    if (buf_list == NULL)
 	    {
 		vim_free(t_buf_list);
@@ -790,7 +789,7 @@ nb_reply_text(int cmdno, char_u *result)
 
     nbdebug(("REP %d: %s\n", cmdno, (char *)result));
 
-    reply = alloc((unsigned)STRLEN(result) + 32);
+    reply = alloc(STRLEN(result) + 32);
     sprintf((char *)reply, "%d %s\n", cmdno, (char *)result);
     nb_send((char *)reply, "nb_reply_text");
 
@@ -819,7 +818,7 @@ nb_reply_nr(int cmdno, long result)
     static char_u *
 nb_quote(char_u *txt)
 {
-    char_u *buf = alloc((unsigned)(2 * STRLEN(txt) + 1));
+    char_u *buf = alloc(2 * STRLEN(txt) + 1);
     char_u *p = txt;
     char_u *q = buf;
 
@@ -863,7 +862,7 @@ nb_unquote(char_u *p, char_u **endp)
     int done = 0;
 
     /* result is never longer than input */
-    result = (char *)alloc_clear((unsigned)STRLEN(p) + 1);
+    result = alloc_clear(STRLEN(p) + 1);
     if (result == NULL)
 	return NULL;
 
@@ -951,7 +950,7 @@ nb_joinlines(linenr_T first, linenr_T other)
 
     len_first = (int)STRLEN(ml_get(first));
     len_other = (int)STRLEN(ml_get(other));
-    p = alloc((unsigned)(len_first + len_other + 1));
+    p = alloc(len_first + len_other + 1);
     if (p != NULL)
     {
       mch_memmove(p, ml_get(first), len_first);
@@ -1084,8 +1083,7 @@ nb_do_cmd(
 	    {
 		len = get_buf_size(buf->bufp);
 		nlines = buf->bufp->b_ml.ml_line_count;
-		text = alloc((unsigned)((len > 0)
-						 ? ((len + nlines) * 2) : 4));
+		text = alloc((len > 0) ? ((len + nlines) * 2) : 4);
 		if (text == NULL)
 		{
 		    nbdebug(("    nb_do_cmd: getText has null text field\n"));
@@ -1391,18 +1389,18 @@ nb_do_cmd(
 			    && ((pos != NULL && pos->col > 0)
 				|| (lnum == 1 && buf_was_empty)))
 		    {
-			char_u *oldline = ml_get(lnum);
-			char_u *newline;
+			char_u	*oldline = ml_get(lnum);
+			char_u	*newline;
+			int	col = pos == NULL ? 0 : pos->col;
 
 			/* Insert halfway a line. */
-			newline = alloc_check(
-				       (unsigned)(STRLEN(oldline) + len + 1));
+			newline = alloc(STRLEN(oldline) + len + 1);
 			if (newline != NULL)
 			{
-			    mch_memmove(newline, oldline, (size_t)pos->col);
-			    newline[pos->col] = NUL;
+			    mch_memmove(newline, oldline, (size_t)col);
+			    newline[col] = NUL;
 			    STRCAT(newline, args);
-			    STRCAT(newline, oldline + pos->col);
+			    STRCAT(newline, oldline + col);
 			    ml_replace(lnum, newline, FALSE);
 			}
 		    }
@@ -2472,7 +2470,7 @@ netbeans_beval_cb(
 	 * length. */
 	if (text != NULL && text[0] != NUL && STRLEN(text) < MAXPATHL)
 	{
-	    buf = (char *)alloc(MAXPATHL * 2 + 25);
+	    buf = alloc(MAXPATHL * 2 + 25);
 	    if (buf != NULL)
 	    {
 		p = nb_quote(text);
@@ -2979,16 +2977,16 @@ netbeans_deleted_all_lines(buf_T *bufp)
     int
 netbeans_is_guarded(linenr_T top, linenr_T bot)
 {
-    signlist_T	*p;
-    int		lnum;
+    sign_entry_T	*p;
+    int			lnum;
 
     if (!NETBEANS_OPEN)
 	return FALSE;
 
-    for (p = curbuf->b_signlist; p != NULL; p = p->next)
-	if (p->id >= GUARDEDOFFSET)
+    for (p = curbuf->b_signlist; p != NULL; p = p->se_next)
+	if (p->se_id >= GUARDEDOFFSET)
 	    for (lnum = top + 1; lnum < bot; lnum++)
-		if (lnum == p->lnum)
+		if (lnum == p->se_lnum)
 		    return TRUE;
 
     return FALSE;
@@ -3093,36 +3091,36 @@ netbeans_draw_multisign_indicator(int row)
     void
 netbeans_gutter_click(linenr_T lnum)
 {
-    signlist_T	*p;
+    sign_entry_T	*p;
 
     if (!NETBEANS_OPEN)
 	return;
 
-    for (p = curbuf->b_signlist; p != NULL; p = p->next)
+    for (p = curbuf->b_signlist; p != NULL; p = p->se_next)
     {
-	if (p->lnum == lnum && p->next && p->next->lnum == lnum)
+	if (p->se_lnum == lnum && p->se_next && p->se_next->se_lnum == lnum)
 	{
-	    signlist_T *tail;
+	    sign_entry_T *tail;
 
 	    /* remove "p" from list, reinsert it at the tail of the sublist */
-	    if (p->prev)
-		p->prev->next = p->next;
+	    if (p->se_prev)
+		p->se_prev->se_next = p->se_next;
 	    else
-		curbuf->b_signlist = p->next;
-	    p->next->prev = p->prev;
+		curbuf->b_signlist = p->se_next;
+	    p->se_next->se_prev = p->se_prev;
 	    /* now find end of sublist and insert p */
-	    for (tail = p->next;
-		  tail->next && tail->next->lnum == lnum
-					    && tail->next->id < GUARDEDOFFSET;
-		  tail = tail->next)
+	    for (tail = p->se_next;
+		  tail->se_next && tail->se_next->se_lnum == lnum
+				       && tail->se_next->se_id < GUARDEDOFFSET;
+		  tail = tail->se_next)
 		;
 	    /* tail now points to last entry with same lnum (except
 	     * that "guarded" annotations are always last) */
-	    p->next = tail->next;
-	    if (tail->next)
-		tail->next->prev = p;
-	    p->prev = tail;
-	    tail->next = p;
+	    p->se_next = tail->se_next;
+	    if (tail->se_next)
+		tail->se_next->se_prev = p;
+	    p->se_prev = tail;
+	    tail->se_next = p;
 	    update_debug_sign(curbuf, lnum);
 	    break;
 	}
@@ -3212,7 +3210,7 @@ addsigntype(
 	    if (globalsignmaplen == 0) /* first allocation */
 	    {
 		globalsignmaplen = 20;
-		globalsignmap = (char **)alloc_clear(globalsignmaplen*sizeof(char *));
+		globalsignmap = ALLOC_CLEAR_MULT(char *, globalsignmaplen);
 	    }
 	    else    /* grow it */
 	    {
@@ -3222,7 +3220,7 @@ addsigntype(
 
 		globalsignmaplen *= 2;
 		incr = globalsignmaplen - oldlen;
-		globalsignmap = (char **)vim_realloc(globalsignmap,
+		globalsignmap = vim_realloc(globalsignmap,
 					   globalsignmaplen * sizeof(char *));
 		if (globalsignmap == NULL)
 		{
@@ -3249,7 +3247,7 @@ addsigntype(
 	if (buf->signmaplen == 0) /* first allocation */
 	{
 	    buf->signmaplen = 5;
-	    buf->signmap = (int *)alloc_clear(buf->signmaplen * sizeof(int));
+	    buf->signmap = ALLOC_CLEAR_MULT(int, buf->signmaplen);
 	}
 	else    /* grow it */
 	{
@@ -3259,7 +3257,7 @@ addsigntype(
 
 	    buf->signmaplen *= 2;
 	    incr = buf->signmaplen - oldlen;
-	    buf->signmap = (int *)vim_realloc(buf->signmap,
+	    buf->signmap = vim_realloc(buf->signmap,
 					       buf->signmaplen * sizeof(int));
 	    if (buf->signmap == NULL)
 	    {

@@ -51,7 +51,7 @@ IMPL(IOUserHIDDevice, Start)
     //
     //  finalize start of IOHIDDevice in kernel
     //
-    ret = KernelStart (provider);
+    ret = _Start (provider);
     
 exit:
     

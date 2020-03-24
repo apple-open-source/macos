@@ -4007,9 +4007,11 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
 	}
 	if (!mxd) {
 		mxd = get_expdir();
-		if (mxd)
+		if (mxd) {
 			mxd->xd_dir = strdup(dir);
-		if (!mxd || !mxd->xd_dir) {
+			mxd->xd_realpath = mountd_realpath(dir, NULL);
+		}
+		if (!mxd || !mxd->xd_dir || !mxd->xd_realpath) {
 			if (mxd)
 				free_expdir(mxd);
 			log(LOG_ERR, "can't allocate memory for mountable sub-directory; %s", dir);

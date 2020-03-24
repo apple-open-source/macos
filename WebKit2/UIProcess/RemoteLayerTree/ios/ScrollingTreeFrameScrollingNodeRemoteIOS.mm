@@ -57,17 +57,17 @@ void ScrollingTreeFrameScrollingNodeRemoteIOS::commitStateBeforeChildren(const S
     const auto& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(stateNode);
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::CounterScrollingLayer))
-        m_counterScrollingLayer = scrollingStateNode.counterScrollingLayer();
+        m_counterScrollingLayer = static_cast<CALayer*>(scrollingStateNode.counterScrollingLayer());
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::HeaderLayer))
-        m_headerLayer = scrollingStateNode.headerLayer();
+        m_headerLayer = static_cast<CALayer*>(scrollingStateNode.headerLayer());
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::FooterLayer))
-        m_footerLayer = scrollingStateNode.footerLayer();
+        m_footerLayer = static_cast<CALayer*>(scrollingStateNode.footerLayer());
 
     if (stateNode.hasChangedProperty(ScrollingStateScrollingNode::ScrollContainerLayer)) {
         if (scrollContainerLayer())
-            m_scrollingNodeDelegate = std::make_unique<ScrollingTreeScrollingNodeDelegateIOS>(*this);
+            m_scrollingNodeDelegate = makeUnique<ScrollingTreeScrollingNodeDelegateIOS>(*this);
         else
             m_scrollingNodeDelegate = nullptr;
     }
@@ -89,8 +89,8 @@ void ScrollingTreeFrameScrollingNodeRemoteIOS::commitStateAfterChildren(const Sc
 
     // Update the scroll position after child nodes have been updated, because they need to have updated their constraints before any scrolling happens.
     if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::RequestedScrollPosition)) {
-        auto scrollType = scrollingStateNode.requestedScrollPositionRepresentsProgrammaticScroll() ? ScrollType::Programmatic : ScrollType::User;
-        scrollTo(scrollingStateNode.requestedScrollPosition(), scrollType);
+        const auto& requestedScrollData = scrollingStateNode.requestedScrollData();
+        scrollTo(requestedScrollData.scrollPosition, requestedScrollData.scrollType, requestedScrollData.clamping);
     }
 }
 

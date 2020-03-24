@@ -12,9 +12,23 @@
         "description": "Resources are saved for offline use using a manifest."
     },
     {
+        "name": "Async Clipboard API",
+        "status": {
+            "status": "In Development"
+        },
+        "url": "https://www.w3.org/TR/clipboard-apis/#async-clipboard-api",
+        "category": "webapps",
+        "description": "An API that allows reading from and writing to the system clipboard.",
+        "contact": {
+            "name": "Wenson Hsieh",
+            "email": "wenson_hsieh@apple.com",
+            "twitter": "@wensonhsieh"
+        }
+    },
+    {
         "name": "Battery Status API",
         "status": {
-            "status": "Removed"
+            "status": "Not Considering"
         },
         "url": "https://w3c.github.io/battery/",
         "webkit-url": "https://webkit.org/b/62698",
@@ -117,6 +131,21 @@
         "category": "css"
     },
     {
+        "name": "CSS Masking Level 1",
+        "url": "https://drafts.fxtf.org/css-masking-1/",
+        "status": {
+            "status": "In Development",
+            "enabled-by-default": true
+        },
+        "keywords": ["css masking", "clip-path", "clipping", "masking", "mask"],
+        "category": "css",
+        "contact": {
+            "name": "Dirk Schulze",
+            "twitter": "@dirkschulze",
+            "email": "dschulze@adobe.com"
+        }
+    },
+    {
         "name": "CSS Layout API Level 1",
         "status": {
             "status": "Under Consideration"
@@ -216,7 +245,8 @@
     {
         "name": "CSS Shadow Parts",
         "status": {
-            "status": "Under Consideration"
+            "status": "Supported",
+            "enabled-by-default": true
         },
         "url": "https://drafts.csswg.org/css-shadow-parts/",
         "webkit-url": "https://webkit.org/b/149443",
@@ -550,6 +580,21 @@
         }
     },
     {
+        "name": "SVG 2",
+        "url": "https://svgwg.org/svg2-draft/",
+        "status": {
+            "status": "In Development",
+            "enabled-by-default": true
+        },
+        "keywords": ["svg"],
+        "category": "svg",
+        "contact": {
+            "name": "Dirk Schulze",
+            "twitter": "@dirkschulze",
+            "email": "dschulze@adobe.com"
+        }
+    },
+    {
         "name": "SVG in OpenType Fonts",
         "status": {
             "status": "Supported"
@@ -702,7 +747,7 @@
     {
         "name": "WebGL 2",
         "status": {
-            "status": "Supported In Preview",
+            "status": "In Development",
             "enabled-by-default": true
         },
         "url": "https://www.khronos.org/registry/webgl/specs/latest/2.0/",
@@ -929,6 +974,22 @@
         }
     },
     {
+        "name": "Dialog Element",
+        "status": {
+            "status": "Under Consideration"
+        },
+        "url": "https://html.spec.whatwg.org/multipage/interactive-elements.html#the-dialog-element",
+        "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=84635",
+        "specification": "HTML5",
+        "category": "html",
+        "description": "The dialog element represents a part of an application that a user interacts with to perform a task, for example a dialog box, inspector, or window.",
+        "contact": {
+            "name": "Jon Davis",
+            "twitter": "@jonathandavis",
+            "email": "web-evangelist@apple.com"
+        }
+    },
+    {
         "name": "Download Attribute",
         "status": {
             "status": "Supported"
@@ -1069,6 +1130,16 @@
         "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=163112",
         "documentation-url": "https://w3c.github.io/input-events",
         "description": "Allows pages to override default editing behaviors and to monitor DOM changes due to user input."
+    },
+    {
+        "name": "Input modalities (inputmode attribute)",
+        "status": {
+            "status": "Supported",
+            "enabled-by-default": false
+        },
+        "url": "https://html.spec.whatwg.org/multipage/interaction.html#input-modalities:-the-inputmode-attribute",
+        "documentation-url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/inputmode",
+        "description": "Allows pages to specify what kind of input mechanism would be most suitable to a given form control or a contenteditable element."
     },
     {
         "name": "Interaction Media Features (pointer, hover, any-pointer, any-hover)",
@@ -1329,7 +1400,7 @@
     {
         "name": "Web Authentication",
         "status": {
-            "status": "Supported In Preview"
+            "status": "Supported"
         },
         "url": "https://w3c.github.io/webauthn/",
         "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=181943",

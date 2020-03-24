@@ -41,6 +41,7 @@
 #include "TrustSettingsSchema.h"
 #include <Security/SecTrustPriv.h>
 #include "utilities/array_size.h"
+#include "utilities/SecCFWrappers.h"
 
 #include <AssertMacros.h>
 #include <syslog.h>
@@ -4309,7 +4310,7 @@ SecItemCreateFromAttributeDictionary_osx(CFDictionaryRef refAttributes) {
 		CFTypeRef v;
 
     Item item = Item(item_class, &attrs, 0, "");
-		v = CFDictionaryGetValue(refAttributes, kSecValuePersistentRef);
+		v = CFCast(CFData, CFDictionaryGetValue(refAttributes, kSecValuePersistentRef));
 		if (v) {
 			item->setPersistentRef((CFDataRef)v);
 		}

@@ -32,6 +32,7 @@
 #include <JavaScriptCore/InspectorFrontendChannel.h>
 #include <WebCore/COMPtr.h>
 #include <WebCore/InspectorClient.h>
+#include <WebCore/InspectorDebuggableType.h>
 #include <WebCore/InspectorFrontendClientLocal.h>
 #include <WebCore/WindowMessageListener.h>
 #include <windows.h>
@@ -50,6 +51,7 @@ class WebNodeHighlight;
 class WebView;
 
 class WebInspectorClient final : public WebCore::InspectorClient, public Inspector::FrontendChannel {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit WebInspectorClient(WebView*);
 
@@ -94,6 +96,7 @@ private:
 };
 
 class WebInspectorFrontendClient final : public WebCore::InspectorFrontendClientLocal, WebCore::WindowMessageListener {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WebInspectorFrontendClient(WebView* inspectedWebView, HWND inspectedWebViewHwnd, HWND frontendHwnd, const COMPtr<WebView>& frotnendWebView, HWND frontendWebViewHwnd, WebInspectorClient*, std::unique_ptr<Settings>);
     virtual ~WebInspectorFrontendClient();
@@ -101,7 +104,12 @@ public:
     // InspectorFrontendClient API.
     void frontendLoaded() override;
 
-    WTF::String localizedStringsURL() override;
+    WTF::String localizedStringsURL() const override;
+    Inspector::DebuggableType debuggableType() const final { return Inspector::DebuggableType::Page; };
+    String targetPlatformName() const final { return "Windows"_s; }
+    String targetBuildVersion() const final { return "Unknown"_s; }
+    String targetProductVersion() const final { return "Unknown"_s; }
+    bool targetIsSimulator() const final { return false; }
 
     void bringToFront() override;
     void closeWindow() override;

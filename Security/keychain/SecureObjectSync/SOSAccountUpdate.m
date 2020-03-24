@@ -162,8 +162,6 @@ bool SOSAccountSyncingV0(SOSAccount* account) {
 
 void SOSAccountNotifyEngines(SOSAccount* account)
 {
-    dispatch_assert_queue(account.queue);
-
     SOSAccountTrustClassic *trust = account.trust;
     SOSFullPeerInfoRef identity = trust.fullPeerInfo;
     SOSCircleRef circle = trust.trustedCircle;

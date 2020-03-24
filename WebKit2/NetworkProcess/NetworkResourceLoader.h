@@ -28,7 +28,8 @@
 #include "DownloadID.h"
 #include "MessageSender.h"
 #include "NetworkCache.h"
-#include "NetworkConnectionToWebProcessMessages.h"
+#include "NetworkConnectionToWebProcess.h"
+#include "NetworkConnectionToWebProcessMessagesReplies.h"
 #include "NetworkLoadClient.h"
 #include "NetworkResourceLoadParameters.h"
 #include <WebCore/AdClickAttribution.h>
@@ -50,6 +51,10 @@ namespace WebKit {
 class NetworkConnectionToWebProcess;
 class NetworkLoad;
 class NetworkLoadChecker;
+class ServiceWorkerFetchTask;
+class WebSWServerConnection;
+
+enum class NegotiatedLegacyTLS : bool;
 
 namespace NetworkCache {
 class Entry;
@@ -62,7 +67,7 @@ class NetworkResourceLoader final
     , public WebCore::ContentSecurityPolicyClient
     , public CanMakeWeakPtr<NetworkResourceLoader> {
 public:
-    static Ref<NetworkResourceLoader> create(NetworkResourceLoadParameters&& parameters, NetworkConnectionToWebProcess& connection, Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply&& reply = nullptr)
+    static Ref<NetworkResourceLoader> create(NetworkResourceLoadParameters&& parameters, NetworkConnectionToWebProcess& connection, Messages::NetworkConnectionToWebProcess::PerformSynchronousLoadDelayedReply&& reply = nullptr)
     {
         return adoptRef(*new NetworkResourceLoader(WTFMove(parameters), connection, WTFMove(reply)));
     }
@@ -83,10 +88,13 @@ public:
     const WebCore::ResourceResponse& response() const { return m_response; }
 
     NetworkConnectionToWebProcess& connectionToWebProcess() const { return m_connection; }
-    PAL::SessionID sessionID() const { return m_parameters.sessionID; }
+    PAL::SessionID sessionID() const { return m_connection->sessionID(); }
     ResourceLoadIdentifier identifier() const { return m_parameters.identifier; }
-    uint64_t frameID() const { return m_parameters.webFrameID; }
+    WebCore::FrameIdentifier frameID() const { return m_parameters.webFrameID; }
     WebCore::PageIdentifier pageID() const { return m_parameters.webPageID; }
+    const NetworkResourceLoadParameters& parameters() const { return m_parameters; }
+
+    NetworkCache::GlobalFrameID globalFrameID() { return { m_parameters.webPageProxyID, pageID(), frameID() }; }
 
     struct SynchronousLoadData;
 
@@ -112,15 +120,22 @@ public:
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
     static bool shouldLogCookieInformation(NetworkConnectionToWebProcess&, const PAL::SessionID&);
-    static void logCookieInformation(NetworkConnectionToWebProcess&, const String& label, const void* loggedObject, const WebCore::NetworkStorageSession&, const URL& firstParty, const WebCore::SameSiteInfo&, const URL&, const String& referrer, Optional<uint64_t> frameID, Optional<WebCore::PageIdentifier>, Optional<uint64_t> identifier);
+    static void logCookieInformation(NetworkConnectionToWebProcess&, const String& label, const void* loggedObject, const WebCore::NetworkStorageSession&, const URL& firstParty, const WebCore::SameSiteInfo&, const URL&, const String& referrer, Optional<WebCore::FrameIdentifier>, Optional<WebCore::PageIdentifier>, Optional<uint64_t> identifier);
 #endif
 
     void disableExtraNetworkLoadMetricsCapture() { m_shouldCaptureExtraNetworkLoadMetrics = false; }
 
     bool isKeptAlive() const { return m_isKeptAlive; }
 
+    void consumeSandboxExtensionsIfNeeded();
+
+#if ENABLE(SERVICE_WORKER)
+    void startWithServiceWorker();
+    void serviceWorkerDidNotHandle(ServiceWorkerFetchTask*);
+#endif
+
 private:
-    NetworkResourceLoader(NetworkResourceLoadParameters&&, NetworkConnectionToWebProcess&, Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply&&);
+    NetworkResourceLoader(NetworkResourceLoadParameters&&, NetworkConnectionToWebProcess&, Messages::NetworkConnectionToWebProcess::PerformSynchronousLoadDelayedReply&&);
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const override;
@@ -131,6 +146,7 @@ private:
 
     void tryStoreAsCacheEntry();
     void retrieveCacheEntry(const WebCore::ResourceRequest&);
+    void retrieveCacheEntryInternal(std::unique_ptr<NetworkCache::Entry>&&, WebCore::ResourceRequest&&);
     void didRetrieveCacheEntry(std::unique_ptr<NetworkCache::Entry>);
     void sendResultForCacheEntry(std::unique_ptr<NetworkCache::Entry>);
     void validateCacheEntry(std::unique_ptr<NetworkCache::Entry>);
@@ -143,6 +159,7 @@ private:
     void startNetworkLoad(WebCore::ResourceRequest&&, FirstLoad);
     void restartNetworkLoad(WebCore::ResourceRequest&&);
     void continueDidReceiveResponse();
+    void didReceiveMainResourceResponse(const WebCore::ResourceResponse&);
 
     enum class LoadResult {
         Unknown,
@@ -216,6 +233,9 @@ private:
     bool m_isKeptAlive { false };
 
     Optional<NetworkActivityTracker> m_networkActivityTracker;
+#if ENABLE(SERVICE_WORKER)
+    std::unique_ptr<ServiceWorkerFetchTask> m_serviceWorkerFetchTask;
+#endif
 };
 
 } // namespace WebKit

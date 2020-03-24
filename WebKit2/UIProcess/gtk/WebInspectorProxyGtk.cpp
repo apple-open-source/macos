@@ -36,6 +36,7 @@
 #include "WKMutableArray.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebInspectorProxyClient.h"
+#include "WebInspectorUIMessages.h"
 #include "WebKitInspectorWindow.h"
 #include "WebKitWebViewBasePrivate.h"
 #include "WebPageGroup.h"
@@ -45,6 +46,7 @@
 #include <WebCore/GtkUtilities.h>
 #include <WebCore/NotImplemented.h>
 #include <wtf/FileSystem.h>
+#include <wtf/text/Base64.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
@@ -362,6 +364,12 @@ String WebInspectorProxy::inspectorBaseURL()
     return String("resource:///org/webkit/inspector/UserInterface/");
 }
 
+DebuggableInfoData WebInspectorProxy::infoForLocalDebuggable()
+{
+    // FIXME <https://webkit.org/b/205536>: this should infer more useful data about the debug target.
+    return DebuggableInfoData::empty();
+}
+
 unsigned WebInspectorProxy::platformInspectedWindowHeight()
 {
     return gtk_widget_get_allocated_height(inspectedPage()->viewWidget());
@@ -458,9 +466,56 @@ void WebInspectorProxy::platformStartWindowDrag()
     notImplemented();
 }
 
-void WebInspectorProxy::platformSave(const String&, const String&, bool, bool)
+static void fileReplaceContentsCallback(GObject* sourceObject, GAsyncResult* result, gpointer userData)
 {
-    notImplemented();
+    GFile* file = G_FILE(sourceObject);
+    if (!g_file_replace_contents_finish(file, result, nullptr, nullptr))
+        return;
+
+    auto* page = static_cast<WebPageProxy*>(userData);
+    GUniquePtr<char> path(g_file_get_path(file));
+    page->process().send(Messages::WebInspectorUI::DidSave(path.get()), page->webPageID());
+}
+
+void WebInspectorProxy::platformSave(const String& suggestedURL, const String& content, bool base64Encoded, bool forceSaveDialog)
+{
+    UNUSED_PARAM(forceSaveDialog);
+
+    GtkWidget* parent = gtk_widget_get_toplevel(m_inspectorView);
+    if (!WebCore::widgetIsOnscreenToplevelWindow(parent))
+        return;
+
+    GRefPtr<GtkFileChooserNative> dialog = adoptGRef(gtk_file_chooser_native_new("Save File",
+        GTK_WINDOW(parent), GTK_FILE_CHOOSER_ACTION_SAVE, "Save", "Cancel"));
+
+    GtkFileChooser* chooser = GTK_FILE_CHOOSER(dialog.get());
+    gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
+
+    // Some inspector views (Audits for instance) use a custom URI scheme, such
+    // as web-inspector. So we can't rely on the URL being a valid file:/// URL
+    // unfortunately.
+    URL url(URL(), suggestedURL);
+    // Strip leading / character.
+    gtk_file_chooser_set_current_name(chooser, url.path().substring(1).utf8().data());
+
+    if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(dialog.get())) != GTK_RESPONSE_ACCEPT)
+        return;
+
+    Vector<char> dataVector;
+    CString dataString;
+    if (base64Encoded) {
+        if (!base64Decode(content, dataVector, Base64ValidatePadding))
+            return;
+        dataVector.shrinkToFit();
+    } else
+        dataString = content.utf8();
+
+    const char* data = !dataString.isNull() ? dataString.data() : dataVector.data();
+    size_t dataLength = !dataString.isNull() ? dataString.length() : dataVector.size();
+    GRefPtr<GFile> file = adoptGRef(gtk_file_chooser_get_file(chooser));
+    GUniquePtr<char> path(g_file_get_path(file.get()));
+    g_file_replace_contents_async(file.get(), data, dataLength, nullptr, false,
+        G_FILE_CREATE_REPLACE_DESTINATION, nullptr, fileReplaceContentsCallback, m_inspectorPage);
 }
 
 void WebInspectorProxy::platformAppend(const String&, const String&)

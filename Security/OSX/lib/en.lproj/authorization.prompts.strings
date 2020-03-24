@@ -173,3 +173,5 @@
 "com.apple.configurationprofiles.userenrollment.install" = "__APPNAME__ is trying to enroll you in a remote management (MDM) service.";
 
 "com.apple.system-extensions.admin" = "__APPNAME__ is trying to modify a System Extension.";
+
+"com.apple.tcc.util.admin" = "__APPNAME__ is trying to modify your Security & Privacy settings.";

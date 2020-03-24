@@ -753,3 +753,144 @@ hfs_truncate(struct vnode *vp, off_t length, int flags, int truncateflags)
 
     return error;
 }
+
+/*
+ * Preallocate file storage space.
+ */
+int
+hfs_vnop_preallocate(struct vnode * vp, LIFilePreallocateArgs_t* psPreAllocReq, LIFilePreallocateArgs_t* psPreAllocRes)
+{
+    struct cnode *cp = VTOC(vp);
+    struct filefork *fp = VTOF(vp);
+    struct hfsmount *hfsmp = VTOHFS(vp);
+    ExtendedVCB *vcb = VTOVCB(vp);
+    int retval = E_NONE , retval2 = E_NONE;
+
+    off_t length = psPreAllocReq->length;
+    psPreAllocRes->bytesallocated = 0;
+
+    if (vnode_isdir(vp) || vnode_islnk(vp)) {
+        LFHFS_LOG(LEVEL_ERROR, "hfs_vnop_preallocate: Cannot change size of a directory or symlink!");
+        return EPERM;
+    }
+    
+    if (length == 0)
+        return (0);
+    
+     if (psPreAllocReq->flags & LI_PREALLOCATE_ALLOCATEFROMVOL){
+         LFHFS_LOG(LEVEL_ERROR, "hfs_vnop_preallocate: Not supporting LI_PREALLOCATE_ALLOCATEFROMVOL mode\n");
+         return ENOTSUP;
+     }
+        
+    hfs_lock_truncate(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT);
+
+    if ((retval = hfs_lock(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT))) {
+        goto err_exit;
+    }
+    
+    off_t filebytes = (off_t)fp->ff_blocks * (off_t)vcb->blockSize;
+    off_t startingPEOF = filebytes;
+
+    /* If no changes are necesary, then we're done */
+    if (filebytes == length)
+        goto exit;
+
+    u_int32_t extendFlags = kEFNoClumpMask;
+    if (psPreAllocReq->flags & LI_PREALLOCATE_ALLOCATECONTIG)
+        extendFlags |= kEFContigMask;
+    if (psPreAllocReq->flags & LI_PREALLOCATE_ALLOCATEALL)
+        extendFlags |= kEFAllMask;
+
+    
+    /*
+     * Lengthen the size of the file. We must ensure that the
+     * last byte of the file is allocated. Since the smallest
+     * value of filebytes is 0, length will be at least 1.
+     */
+    if (length > filebytes)
+    {
+        off_t total_bytes_added = 0, orig_request_size, moreBytesRequested, actualBytesAdded;
+        orig_request_size = moreBytesRequested = length - filebytes;
+
+        while ((length > filebytes) && (retval == E_NONE))
+        {
+            off_t bytesRequested;
+            
+            if (hfs_start_transaction(hfsmp) != 0)
+            {
+                retval = EINVAL;
+                goto err_exit;
+            }
+
+            /* Protect extents b-tree and allocation bitmap */
+            int lockflags = SFL_BITMAP;
+            if (overflow_extents(fp)) 
+                lockflags |= SFL_EXTENTS;
+            lockflags = hfs_systemfile_lock(hfsmp, lockflags, HFS_EXCLUSIVE_LOCK);
+
+            if (moreBytesRequested >= HFS_BIGFILE_SIZE) {
+                bytesRequested = HFS_BIGFILE_SIZE;
+            } else {
+                bytesRequested = moreBytesRequested;
+            }
+
+            retval = MacToVFSError(ExtendFileC(vcb,
+                        (FCB*)fp,
+                        bytesRequested,
+                        0,
+                        extendFlags,
+                        &actualBytesAdded));
+
+            if (retval == E_NONE)
+            {
+                psPreAllocRes->bytesallocated += actualBytesAdded;
+                total_bytes_added += actualBytesAdded;
+                moreBytesRequested -= actualBytesAdded;
+            }
+            
+            filebytes = (off_t)fp->ff_blocks * (off_t)vcb->blockSize;
+            hfs_systemfile_unlock(hfsmp, lockflags);
+
+            if (hfsmp->jnl) {
+                (void) hfs_update(vp, 0);
+                (void) hfs_volupdate(hfsmp, VOL_UPDATE, 0);
+            }
+
+            hfs_end_transaction(hfsmp);
+        }
+
+        /*
+         * if we get an error and no changes were made then exit
+         * otherwise we must do the hfs_update to reflect the changes
+         */
+        if (retval && (startingPEOF == filebytes))
+            goto err_exit;
+        
+        /*
+         * Adjust actualBytesAdded to be allocation block aligned, not
+         * clump size aligned.
+         * NOTE: So what we are reporting does not affect reality
+         * until the file is closed, when we truncate the file to allocation
+         * block size.
+         */
+        if (total_bytes_added != 0 && orig_request_size < total_bytes_added)
+            psPreAllocRes->bytesallocated = roundup(orig_request_size, (off_t)vcb->blockSize);
+    } else {
+        //No need to touch anything else, just unlock and go out
+        goto err_exit;
+    }
+
+exit:
+    cp->c_flag |= C_MODIFIED;
+    cp->c_touch_chgtime = TRUE;
+    cp->c_touch_modtime = TRUE;
+    retval2 = hfs_update(vp, 0);
+
+    if (retval == 0)
+        retval = retval2;
+    
+err_exit:
+    hfs_unlock_truncate(cp, HFS_LOCK_DEFAULT);
+    hfs_unlock(cp);
+    return (retval);
+}

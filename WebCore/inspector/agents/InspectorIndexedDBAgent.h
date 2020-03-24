@@ -52,8 +52,9 @@ class InspectorIndexedDBAgent final : public InspectorAgentBase, public Inspecto
     WTF_MAKE_FAST_ALLOCATED;
 public:
     InspectorIndexedDBAgent(PageAgentContext&);
-    virtual ~InspectorIndexedDBAgent() = default;
+    ~InspectorIndexedDBAgent() override;
 
+    // InspectorAgentBase
     void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) override;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
 
@@ -63,7 +64,7 @@ public:
     void requestDatabaseNames(const String& securityOrigin, Ref<RequestDatabaseNamesCallback>&&) override;
     void requestDatabase(const String& securityOrigin, const String& databaseName, Ref<RequestDatabaseCallback>&&) override;
     void requestData(const String& securityOrigin, const String& databaseName, const String& objectStoreName, const String& indexName, int skipCount, int pageSize, const JSON::Object* keyRange, Ref<RequestDataCallback>&&) override;
-    void clearObjectStore(const String& in_securityOrigin, const String& in_databaseName, const String& in_objectStoreName, Ref<ClearObjectStoreCallback>&&) override;
+    void clearObjectStore(const String& securityOrigin, const String& databaseName, const String& objectStoreName, Ref<ClearObjectStoreCallback>&&) override;
 
 private:
     Inspector::InjectedScriptManager& m_injectedScriptManager;

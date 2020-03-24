@@ -43,9 +43,9 @@
 #import "WebPluginController.h"
 #import "WebTypesInternal.h"
 #import <JavaScriptCore/InitializeThreading.h>
+#import <WebCore/BackForwardCache.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/Image.h>
-#import <WebCore/PageCache.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/Assertions.h>
@@ -125,7 +125,6 @@ void WKNotifyHistoryItemChanged(HistoryItem&)
 {
 #if !PLATFORM(IOS_FAMILY)
     JSC::initializeThreading();
-    WTF::initializeMainThreadToProcessMainThread();
     RunLoop::initializeMainRunLoop();
 #endif
 }
@@ -348,7 +347,7 @@ WebHistoryItem *kit(HistoryItem* item)
         core(_private)->setLastVisitWasFailure(true);
     
     if (NSArray *redirectURLs = [dict _webkit_arrayForKey:redirectURLsKey]) {
-        auto redirectURLsVector = std::make_unique<Vector<String>>();
+        auto redirectURLsVector = makeUnique<Vector<String>>();
         redirectURLsVector->reserveInitialCapacity([redirectURLs count]);
 
         for (id redirectURL in redirectURLs) {
@@ -436,7 +435,7 @@ WebHistoryItem *kit(HistoryItem* item)
                  forKey:lastVisitedTimeIntervalKey];
     }
     if (coreItem->lastVisitWasFailure())
-        [dict setObject:[NSNumber numberWithBool:YES] forKey:lastVisitWasFailureKey];
+        [dict setObject:@YES forKey:lastVisitWasFailureKey];
     if (Vector<String>* redirectURLs = _private->_redirectURLs.get()) {
         size_t size = redirectURLs->size();
         ASSERT(size);
@@ -599,9 +598,9 @@ WebHistoryItem *kit(HistoryItem* item)
 
 #endif // PLATFORM(IOS_FAMILY)
 
-- (BOOL)_isInPageCache
+- (BOOL)_isInBackForwardCache
 {
-    return core(_private)->isInPageCache();
+    return core(_private)->isInBackForwardCache();
 }
 
 - (BOOL)_hasCachedPageExpired

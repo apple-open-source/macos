@@ -28,6 +28,7 @@
 
 #if USE(LIBWEBRTC)
 
+#include "LibWebRTCSocketClient.h"
 #include "Logging.h"
 #include "NetworkConnectionToWebProcess.h"
 #include "NetworkProcess.h"
@@ -36,7 +37,7 @@
 #include "WebRTCResolverMessages.h"
 #include "WebRTCSocketMessages.h"
 #include <WebCore/LibWebRTCMacros.h>
-#include <webrtc/rtc_base/asyncpacketsocket.h>
+#include <webrtc/rtc_base/async_packet_socket.h>
 #include <webrtc/rtc_base/logging.h>
 #include <wtf/MainThread.h>
 #include <wtf/text/WTFString.h>
@@ -46,6 +47,13 @@
 #endif
 
 namespace WebKit {
+using namespace WebCore;
+
+#undef RELEASE_LOG_IF_ALLOWED
+#undef RELEASE_LOG_ERROR_IF_ALLOWED
+
+#define RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(canLog(), Network, "%p - NetworkRTCProvider::" fmt, this, ##__VA_ARGS__)
+#define RELEASE_LOG_ERROR_IF_ALLOWED(fmt, ...) RELEASE_LOG_ERROR_IF(canLog(), Network, "%p - NetworkRTCProvider::" fmt, this, ##__VA_ARGS__)
 
 static inline std::unique_ptr<rtc::Thread> createThread()
 {
@@ -56,17 +64,25 @@ static inline std::unique_ptr<rtc::Thread> createThread()
     return thread;
 }
 
+#if !RELEASE_LOG_DISABLED
+static void doReleaseLogging(rtc::LoggingSeverity severity, const char* message)
+{
+    if (severity == rtc::LS_ERROR)
+        RELEASE_LOG_ERROR(WebRTC, "LibWebRTC error: %{public}s", message);
+    else
+        RELEASE_LOG(WebRTC, "LibWebRTC message: %{public}s", message);
+}
+#endif
+
 NetworkRTCProvider::NetworkRTCProvider(NetworkConnectionToWebProcess& connection)
     : m_connection(&connection)
     , m_rtcMonitor(*this)
     , m_rtcNetworkThread(createThread())
-    , m_packetSocketFactory(makeUniqueRef<rtc::BasicPacketSocketFactory>(m_rtcNetworkThread.get()))
+    , m_packetSocketFactory(makeUniqueRefWithoutFastMallocCheck<rtc::BasicPacketSocketFactory>(m_rtcNetworkThread.get()))
+    , m_canLog(connection.sessionID().isAlwaysOnLoggingAllowed())
 {
-#if defined(NDEBUG)
-    rtc::LogMessage::LogToDebug(rtc::LS_NONE);
-#else
-    if (WebKit2LogWebRTC.state != WTFLogChannelState::On)
-        rtc::LogMessage::LogToDebug(rtc::LS_WARNING);
+#if !RELEASE_LOG_DISABLED
+    rtc::LogMessage::SetLogOutput(WebKit2LogWebRTC.state == WTFLogChannelState::On ? rtc::LS_INFO : rtc::LS_WARNING, doReleaseLogging);
 #endif
 }
 
@@ -79,6 +95,8 @@ NetworkRTCProvider::~NetworkRTCProvider()
 
 void NetworkRTCProvider::close()
 {
+    RELEASE_LOG_IF_ALLOWED("close");
+
     // Cancel all pending DNS resolutions.
     while (!m_resolvers.isEmpty())
         stopResolver(*m_resolvers.keys().begin());
@@ -95,27 +113,27 @@ void NetworkRTCProvider::close()
     });
 }
 
-void NetworkRTCProvider::createSocket(uint64_t identifier, std::unique_ptr<rtc::AsyncPacketSocket>&& socket, LibWebRTCSocketClient::Type type)
+void NetworkRTCProvider::createSocket(LibWebRTCSocketIdentifier identifier, std::unique_ptr<rtc::AsyncPacketSocket>&& socket, Socket::Type type)
 {
     if (!socket) {
-        sendFromMainThread([identifier, size = m_sockets.size()](IPC::Connection& connection) {
-            RELEASE_LOG_ERROR(WebRTC, "NetworkRTCProvider with %u sockets is unable to create a new socket", size);
+        sendFromMainThread([this, identifier, size = m_sockets.size()](IPC::Connection& connection) {
+            RELEASE_LOG_ERROR_IF_ALLOWED("createSocket with %u sockets is unable to create a new socket", size);
             connection.send(Messages::WebRTCSocket::SignalClose(1), identifier);
         });
         return;
     }
-    addSocket(identifier, std::make_unique<LibWebRTCSocketClient>(identifier, *this, WTFMove(socket), type));
+    addSocket(identifier, makeUnique<LibWebRTCSocketClient>(identifier, *this, WTFMove(socket), type));
 }
 
-void NetworkRTCProvider::createUDPSocket(uint64_t identifier, const RTCNetwork::SocketAddress& address, uint16_t minPort, uint16_t maxPort)
+void NetworkRTCProvider::createUDPSocket(LibWebRTCSocketIdentifier identifier, const RTCNetwork::SocketAddress& address, uint16_t minPort, uint16_t maxPort)
 {
     callOnRTCNetworkThread([this, identifier, address = RTCNetwork::isolatedCopy(address.value), minPort, maxPort]() {
         std::unique_ptr<rtc::AsyncPacketSocket> socket(m_packetSocketFactory->CreateUdpSocket(address, minPort, maxPort));
-        createSocket(identifier, WTFMove(socket), LibWebRTCSocketClient::Type::UDP);
+        createSocket(identifier, WTFMove(socket), Socket::Type::UDP);
     });
 }
 
-void NetworkRTCProvider::createServerTCPSocket(uint64_t identifier, const RTCNetwork::SocketAddress& address, uint16_t minPort, uint16_t maxPort, int options)
+void NetworkRTCProvider::createServerTCPSocket(LibWebRTCSocketIdentifier identifier, const RTCNetwork::SocketAddress& address, uint16_t minPort, uint16_t maxPort, int options)
 {
     if (!m_isListeningSocketAuthorized) {
         if (m_connection)
@@ -125,47 +143,62 @@ void NetworkRTCProvider::createServerTCPSocket(uint64_t identifier, const RTCNet
 
     callOnRTCNetworkThread([this, identifier, address = RTCNetwork::isolatedCopy(address.value), minPort, maxPort, options]() {
         std::unique_ptr<rtc::AsyncPacketSocket> socket(m_packetSocketFactory->CreateServerTcpSocket(address, minPort, maxPort, options));
-        createSocket(identifier, WTFMove(socket), LibWebRTCSocketClient::Type::ServerTCP);
+        createSocket(identifier, WTFMove(socket), Socket::Type::ServerTCP);
     });
 }
 
-void NetworkRTCProvider::createClientTCPSocket(uint64_t identifier, const RTCNetwork::SocketAddress& localAddress, const RTCNetwork::SocketAddress& remoteAddress, int options)
+#if !PLATFORM(COCOA)
+rtc::ProxyInfo NetworkRTCProvider::proxyInfoFromSession(const RTCNetwork::SocketAddress&, NetworkSession&)
 {
-    callOnRTCNetworkThread([this, identifier, localAddress = RTCNetwork::isolatedCopy(localAddress.value), remoteAddress = RTCNetwork::isolatedCopy(remoteAddress.value), options]() {
-        std::unique_ptr<rtc::AsyncPacketSocket> socket(m_packetSocketFactory->CreateClientTcpSocket(localAddress, remoteAddress, { }, { }, options));
-        createSocket(identifier, WTFMove(socket), LibWebRTCSocketClient::Type::ClientTCP);
+    return { };
+}
+#endif
+
+void NetworkRTCProvider::createClientTCPSocket(LibWebRTCSocketIdentifier identifier, const RTCNetwork::SocketAddress& localAddress, const RTCNetwork::SocketAddress& remoteAddress, String&& userAgent, int options)
+{
+    auto* session = m_connection->networkSession();
+    if (!session) {
+        m_connection->connection().send(Messages::WebRTCSocket::SignalClose(1), identifier);
+        return;
+    }
+    callOnRTCNetworkThread([this, identifier, localAddress = RTCNetwork::isolatedCopy(localAddress.value), remoteAddress = RTCNetwork::isolatedCopy(remoteAddress.value), proxyInfo = proxyInfoFromSession(remoteAddress, *session), userAgent = WTFMove(userAgent).isolatedCopy(), options]() {
+        rtc::PacketSocketTcpOptions tcpOptions;
+        tcpOptions.opts = options;
+        std::unique_ptr<rtc::AsyncPacketSocket> socket(m_packetSocketFactory->CreateClientTcpSocket(localAddress, remoteAddress, proxyInfo, userAgent.utf8().data(), tcpOptions));
+        createSocket(identifier, WTFMove(socket), Socket::Type::ClientTCP);
     });
 }
 
-void NetworkRTCProvider::wrapNewTCPConnection(uint64_t identifier, uint64_t newConnectionSocketIdentifier)
+void NetworkRTCProvider::wrapNewTCPConnection(LibWebRTCSocketIdentifier identifier, LibWebRTCSocketIdentifier newConnectionSocketIdentifier)
 {
     callOnRTCNetworkThread([this, identifier, newConnectionSocketIdentifier]() {
         std::unique_ptr<rtc::AsyncPacketSocket> socket = m_pendingIncomingSockets.take(newConnectionSocketIdentifier);
-        addSocket(identifier, std::make_unique<LibWebRTCSocketClient>(identifier, *this, WTFMove(socket), LibWebRTCSocketClient::Type::ServerConnectionTCP));
+        addSocket(identifier, makeUnique<LibWebRTCSocketClient>(identifier, *this, WTFMove(socket), Socket::Type::ServerConnectionTCP));
     });
 }
 
-void NetworkRTCProvider::addSocket(uint64_t identifier, std::unique_ptr<LibWebRTCSocketClient>&& socket)
+void NetworkRTCProvider::addSocket(LibWebRTCSocketIdentifier identifier, std::unique_ptr<Socket>&& socket)
 {
     m_sockets.add(identifier, WTFMove(socket));
 }
 
-std::unique_ptr<LibWebRTCSocketClient> NetworkRTCProvider::takeSocket(uint64_t identifier)
+std::unique_ptr<NetworkRTCProvider::Socket> NetworkRTCProvider::takeSocket(LibWebRTCSocketIdentifier identifier)
 {
     return m_sockets.take(identifier);
 }
 
-void NetworkRTCProvider::newConnection(LibWebRTCSocketClient& serverSocket, std::unique_ptr<rtc::AsyncPacketSocket>&& newSocket)
+void NetworkRTCProvider::newConnection(Socket& serverSocket, std::unique_ptr<rtc::AsyncPacketSocket>&& newSocket)
 {
-    sendFromMainThread([identifier = serverSocket.identifier(), incomingSocketIdentifier = ++m_incomingSocketIdentifier, remoteAddress = RTCNetwork::isolatedCopy(newSocket->GetRemoteAddress())](IPC::Connection& connection) {
+    auto incomingSocketIdentifier = LibWebRTCSocketIdentifier::generate();
+    sendFromMainThread([identifier = serverSocket.identifier(), incomingSocketIdentifier, remoteAddress = RTCNetwork::isolatedCopy(newSocket->GetRemoteAddress())](IPC::Connection& connection) {
         connection.send(Messages::WebRTCSocket::SignalNewConnection(incomingSocketIdentifier, RTCNetwork::SocketAddress(remoteAddress)), identifier);
     });
-    m_pendingIncomingSockets.add(m_incomingSocketIdentifier, WTFMove(newSocket));
+    m_pendingIncomingSockets.add(incomingSocketIdentifier, WTFMove(newSocket));
 }
 
 void NetworkRTCProvider::didReceiveNetworkRTCSocketMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    NetworkRTCSocket(decoder.destinationID(), *this).didReceiveMessage(connection, decoder);
+    NetworkRTCSocket(makeObjectIdentifier<LibWebRTCSocketIdentifierType>(decoder.destinationID()), *this).didReceiveMessage(connection, decoder);
 }
 
 #if PLATFORM(COCOA)
@@ -232,9 +265,9 @@ void NetworkRTCProvider::closeListeningSockets(Function<void()>&& completionHand
 
     m_isListeningSocketAuthorized = false;
     callOnRTCNetworkThread([this, completionHandler = WTFMove(completionHandler)]() mutable {
-        Vector<uint64_t> listeningSocketIdentifiers;
+        Vector<LibWebRTCSocketIdentifier> listeningSocketIdentifiers;
         for (auto& keyValue : m_sockets) {
-            if (keyValue.value->type() == LibWebRTCSocketClient::Type::ServerTCP)
+            if (keyValue.value->type() == Socket::Type::ServerTCP)
                 listeningSocketIdentifiers.append(keyValue.key);
         }
         for (auto id : listeningSocketIdentifiers)
@@ -272,7 +305,7 @@ void NetworkRTCProvider::callOnRTCNetworkThread(Function<void()>&& callback)
     m_rtcNetworkThread->Post(RTC_FROM_HERE, this, 1, new NetworkMessageData(*this, WTFMove(callback)));
 }
 
-void NetworkRTCProvider::callSocket(uint64_t identifier, Function<void(LibWebRTCSocketClient&)>&& callback)
+void NetworkRTCProvider::callSocket(LibWebRTCSocketIdentifier identifier, Function<void(Socket&)>&& callback)
 {
     callOnRTCNetworkThread([this, identifier, callback = WTFMove(callback)]() {
         if (auto* socket = m_sockets.get(identifier))

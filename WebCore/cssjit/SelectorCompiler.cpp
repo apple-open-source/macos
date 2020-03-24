@@ -396,12 +396,23 @@ static FunctionType constructFragments(const CSSSelector* rootSelector, Selector
 
 static void computeBacktrackingInformation(SelectorFragmentList& selectorFragments, unsigned level = 0);
 
-SelectorCompilationStatus compileSelector(const CSSSelector* lastSelector, SelectorContext selectorContext, JSC::MacroAssemblerCodeRef<CSSSelectorPtrTag>& codeRef)
+void compileSelector(CompiledSelector& compiledSelector, const CSSSelector* selector, SelectorContext selectorContext)
 {
-    if (!JSC::VM::canUseJIT())
-        return SelectorCompilationStatus::CannotCompile;
-    SelectorCodeGenerator codeGenerator(lastSelector, selectorContext);
-    return codeGenerator.compile(codeRef);
+    ASSERT(compiledSelector.status == SelectorCompilationStatus::NotCompiled);
+
+    if (!JSC::VM::canUseJIT()) {
+        compiledSelector.status = SelectorCompilationStatus::CannotCompile;
+        return;
+    }
+    
+    SelectorCodeGenerator codeGenerator(selector, selectorContext);
+    compiledSelector.status = codeGenerator.compile(compiledSelector.codeRef);
+
+#if defined(CSS_SELECTOR_JIT_PROFILING) && CSS_SELECTOR_JIT_PROFILING
+    compiledSelector.selector = selector;
+#endif
+
+    ASSERT(compiledSelector.status != SelectorCompilationStatus::NotCompiled);
 }
 
 static inline FragmentRelation fragmentRelationForSelectorRelation(CSSSelector::RelationType relation)
@@ -540,6 +551,9 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
     case CSSSelector::PseudoClassAutofillStrongPassword:
         fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<CSSOperationPtrTag>(isAutofilledStrongPassword));
         return FunctionType::SimpleSelectorChecker;
+    case CSSSelector::PseudoClassAutofillStrongPasswordViewable:
+        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<CSSOperationPtrTag>(isAutofilledStrongPasswordViewable));
+        return FunctionType::SimpleSelectorChecker;
     case CSSSelector::PseudoClassChecked:
         fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<CSSOperationPtrTag>(isChecked));
         return FunctionType::SimpleSelectorChecker;
@@ -554,6 +568,9 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
         return FunctionType::SimpleSelectorChecker;
     case CSSSelector::PseudoClassDefined:
         fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<CSSOperationPtrTag>(isDefinedElement));
+        return FunctionType::SimpleSelectorChecker;
+    case CSSSelector::PseudoClassDirectFocus:
+        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<CSSOperationPtrTag>(SelectorChecker::matchesDirectFocusPseudoClass));
         return FunctionType::SimpleSelectorChecker;
     case CSSSelector::PseudoClassFocus:
         fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<CSSOperationPtrTag>(SelectorChecker::matchesFocusPseudoClass));
@@ -610,6 +627,13 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
         fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<CSSOperationPtrTag>(matchesFullScreenControlsHiddenPseudoClass));
         return FunctionType::SimpleSelectorChecker;
 #endif
+
+#if ENABLE(PICTURE_IN_PICTURE_API)
+    case CSSSelector::PseudoClassPictureInPicture:
+        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<CSSOperationPtrTag>(matchesPictureInPicturePseudoClass));
+        return FunctionType::SimpleSelectorChecker;
+#endif
+
 #if ENABLE(VIDEO_TRACK)
     case CSSSelector::PseudoClassFuture:
         fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<CSSOperationPtrTag>(matchesFutureCuePseudoClass));
@@ -781,7 +805,7 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
 
     case CSSSelector::PseudoClassLang:
         {
-            const Vector<AtomString>* selectorLangArgumentList = selector.langArgumentList();
+            const Vector<AtomString>* selectorLangArgumentList = selector.argumentList();
             ASSERT(selectorLangArgumentList && !selectorLangArgumentList->isEmpty());
             fragment.languageArgumentsList.append(selectorLangArgumentList);
             return FunctionType::SimpleSelectorChecker;
@@ -3599,10 +3623,12 @@ void SelectorCodeGenerator::generateElementIsNthChild(Assembler::JumpList& failu
 
         Assembler::JumpList noCachedChildIndexCases;
         generateWalkToPreviousAdjacentElement(noMoreSiblingsCases, previousSibling);
-        noCachedChildIndexCases.append(m_assembler.branchTest32(Assembler::Zero, Assembler::Address(previousSibling, Node::nodeFlagsMemoryOffset()), Assembler::TrustedImm32(Node::flagHasRareData())));
+
+        LocalRegister elementRareData(m_registerAllocator);
+        m_assembler.loadPtr(Assembler::Address(previousSibling, Node::rareDataMemoryOffset()), elementRareData);
+
+        noCachedChildIndexCases.append(m_assembler.branchTestPtr(Assembler::Zero, elementRareData));
         {
-            LocalRegister elementRareData(m_registerAllocator);
-            m_assembler.loadPtr(Assembler::Address(previousSibling, Node::rareDataMemoryOffset()), elementRareData);
             LocalRegister cachedChildIndex(m_registerAllocator);
             m_assembler.load16(Assembler::Address(elementRareData, ElementRareData::childIndexMemoryOffset()), cachedChildIndex);
             noCachedChildIndexCases.append(m_assembler.branchTest32(Assembler::Zero, cachedChildIndex));

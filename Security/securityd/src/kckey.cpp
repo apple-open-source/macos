@@ -40,7 +40,9 @@ KeychainKey::KeychainKey(Database &db, const KeyBlob *blob)
 	: LocalKey(db, n2h(blob->header.attributes()))
 {
     // perform basic validation on the incoming blob
-	assert(blob);
+	if (blob == NULL) {
+		CssmError::throwMe(CSSMERR_APPLEDL_INVALID_KEY_BLOB);
+	}
     blob->validate(CSSMERR_APPLEDL_INVALID_KEY_BLOB);
     if (blob->startCryptoBlob > blob->totalLength) {
         CssmError::throwMe(CSSMERR_APPLEDL_INVALID_KEY_BLOB);

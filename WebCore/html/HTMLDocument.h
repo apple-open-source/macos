@@ -70,11 +70,6 @@ inline Ref<HTMLDocument> HTMLDocument::create(Frame* frame, const URL& url)
     return adoptRef(*new HTMLDocument(frame, url, HTMLDocumentClass));
 }
 
-inline Ref<HTMLDocument> HTMLDocument::createSynthesizedDocument(Frame& frame, const URL& url)
-{
-    return adoptRef(*new HTMLDocument(&frame, url, HTMLDocumentClass, Synthesized));
-}
-
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::HTMLDocument)

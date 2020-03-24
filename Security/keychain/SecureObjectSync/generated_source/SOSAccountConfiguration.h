@@ -15,9 +15,9 @@ __attribute__((visibility("hidden")))
 @interface SOSAccountConfiguration : PBCodable <NSCopying>
 {
     NSMutableArray<NSString *> *_pendingBackupPeers;
-    BOOL _ringUpdateFlag;
+    BOOL _sbdBackup;
     struct {
-        int ringUpdateFlag:1;
+        int sbdBackup:1;
     } _has;
 }
 
@@ -29,8 +29,8 @@ __attribute__((visibility("hidden")))
 - (NSString *)pendingBackupPeersAtIndex:(NSUInteger)idx;
 + (Class)pendingBackupPeersType;
 
-@property (nonatomic) BOOL hasRingUpdateFlag;
-@property (nonatomic) BOOL ringUpdateFlag;
+@property (nonatomic) BOOL hasSbdBackup;
+@property (nonatomic) BOOL sbdBackup;
 
 // Performs a shallow copy into other
 - (void)copyTo:(SOSAccountConfiguration *)other;

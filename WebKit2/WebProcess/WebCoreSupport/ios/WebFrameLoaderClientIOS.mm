@@ -53,7 +53,7 @@ void WebFrameLoaderClient::didRestoreFrameHierarchyForCachedFrame()
     notImplemented();
 }
 
-bool WebFrameLoaderClient::forceLayoutOnRestoreFromPageCache()
+bool WebFrameLoaderClient::forceLayoutOnRestoreFromBackForwardCache()
 {
     return false;
 }
@@ -65,7 +65,7 @@ RetainPtr<CFDictionaryRef> WebFrameLoaderClient::connectionProperties(DocumentLo
 }
 
 #if USE(QUICK_LOOK)
-RefPtr<PreviewLoaderClient> WebFrameLoaderClient::createPreviewLoaderClient(const String& fileName, const String& uti)
+RefPtr<LegacyPreviewLoaderClient> WebFrameLoaderClient::createPreviewLoaderClient(const String& fileName, const String& uti)
 {
     if (!m_frame->isMainFrame())
         return nullptr;
@@ -74,7 +74,7 @@ RefPtr<PreviewLoaderClient> WebFrameLoaderClient::createPreviewLoaderClient(cons
     if (!webPage)
         return nullptr;
 
-    return WebPreviewLoaderClient::create(fileName, uti, webPage->pageID());
+    return WebPreviewLoaderClient::create(fileName, uti, webPage->identifier());
 }
 #endif
 

@@ -19,7 +19,6 @@ pt_PT{
         CC{"Ilhas dos Cocos (Keeling)"}
         CD{"Congo-Kinshasa"}
         CG{"Congo-Brazzaville"}
-        CI{"Côte d’Ivoire (Costa do Marfim)"}
         CW{"Curaçau"}
         CX{"Ilha do Natal"}
         CZ{"Chéquia"}
@@ -78,7 +77,6 @@ pt_PT{
     }
     Countries%variant{
         CG{"República do Congo"}
-        CI{"Costa do Marfim"}
         CZ{"República Checa"}
         FK{"Ilhas Falkland (Malvinas)"}
     }

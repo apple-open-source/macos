@@ -58,6 +58,7 @@
 #include "RenderObject.h"
 #include "RenderTheme.h"
 #include "ScriptController.h"
+#include "ScriptSourceCode.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
 #include "StyleScope.h"
@@ -93,6 +94,9 @@ using namespace Inspector;
     macro(MockCaptureDevicesEnabled) \
     macro(NeedsSiteSpecificQuirks) \
     macro(ScriptEnabled) \
+    macro(ShowDebugBorders) \
+    macro(ShowRepaintCounter) \
+    macro(WebRTCEncryptionEnabled) \
     macro(WebSecurityEnabled)
 
 static bool decodeBuffer(const char* buffer, unsigned size, const String& textEncodingName, String* result)
@@ -180,7 +184,7 @@ void InspectorPageAgent::resourceContent(ErrorString& errorString, Frame* frame,
     }
 
     if (!success)
-        errorString = "No resource with given URL found"_s;
+        errorString = "Missing resource for given url"_s;
 }
 
 String InspectorPageAgent::sourceMapURLForResource(CachedResource* cachedResource)
@@ -232,8 +236,8 @@ Inspector::Protocol::Page::ResourceType InspectorPageAgent::resourceTypeJSON(Ins
         return Inspector::Protocol::Page::ResourceType::Image;
     case FontResource:
         return Inspector::Protocol::Page::ResourceType::Font;
-    case StylesheetResource:
-        return Inspector::Protocol::Page::ResourceType::Stylesheet;
+    case StyleSheetResource:
+        return Inspector::Protocol::Page::ResourceType::StyleSheet;
     case ScriptResource:
         return Inspector::Protocol::Page::ResourceType::Script;
     case XHRResource:
@@ -270,7 +274,7 @@ InspectorPageAgent::ResourceType InspectorPageAgent::inspectorResourceType(Cache
     case CachedResource::Type::XSLStyleSheet:
 #endif
     case CachedResource::Type::CSSStyleSheet:
-        return InspectorPageAgent::StylesheetResource;
+        return InspectorPageAgent::StyleSheetResource;
     case CachedResource::Type::Script:
         return InspectorPageAgent::ScriptResource;
     case CachedResource::Type::MainResource:
@@ -326,19 +330,21 @@ DocumentLoader* InspectorPageAgent::assertDocumentLoader(ErrorString& errorStrin
     FrameLoader& frameLoader = frame->loader();
     DocumentLoader* documentLoader = frameLoader.documentLoader();
     if (!documentLoader)
-        errorString = "No documentLoader for given frame found"_s;
+        errorString = "Missing document loader for given frame"_s;
     return documentLoader;
 }
 
 InspectorPageAgent::InspectorPageAgent(PageAgentContext& context, InspectorClient* client, InspectorOverlay* overlay)
     : InspectorAgentBase("Page"_s, context)
-    , m_frontendDispatcher(std::make_unique<Inspector::PageFrontendDispatcher>(context.frontendRouter))
+    , m_frontendDispatcher(makeUnique<Inspector::PageFrontendDispatcher>(context.frontendRouter))
     , m_backendDispatcher(Inspector::PageBackendDispatcher::create(context.backendDispatcher, this))
     , m_inspectedPage(context.inspectedPage)
     , m_client(client)
     , m_overlay(overlay)
 {
 }
+
+InspectorPageAgent::~InspectorPageAgent() = default;
 
 void InspectorPageAgent::didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*)
 {
@@ -350,15 +356,12 @@ void InspectorPageAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReas
     disable(unused);
 }
 
-double InspectorPageAgent::timestamp()
+void InspectorPageAgent::enable(ErrorString& errorString)
 {
-    return m_environment.executionStopwatch()->elapsedTime().seconds();
-}
-
-void InspectorPageAgent::enable(ErrorString&)
-{
-    if (m_instrumentingAgents.inspectorPageAgent() == this)
+    if (m_instrumentingAgents.inspectorPageAgent() == this) {
+        errorString = "Page domain already enabled"_s;
         return;
+    }
 
     m_instrumentingAgents.setInspectorPageAgent(this);
 
@@ -373,6 +376,8 @@ void InspectorPageAgent::enable(ErrorString&)
 
 void InspectorPageAgent::disable(ErrorString&)
 {
+    m_instrumentingAgents.setInspectorPageAgent(nullptr);
+
     ErrorString unused;
     setShowPaintRects(unused, false);
     setShowRulers(unused, false);
@@ -388,8 +393,11 @@ void InspectorPageAgent::disable(ErrorString&)
 #undef DISABLE_INSPECTOR_OVERRIDE_SETTING
 
     m_client->setMockCaptureDevicesEnabledOverride(WTF::nullopt);
+}
 
-    m_instrumentingAgents.setInspectorPageAgent(nullptr);
+double InspectorPageAgent::timestamp()
+{
+    return m_environment.executionStopwatch()->elapsedTime().seconds();
 }
 
 void InspectorPageAgent::reload(ErrorString&, const bool* optionalReloadFromOrigin, const bool* optionalRevalidateAllResources)
@@ -421,28 +429,32 @@ void InspectorPageAgent::overrideUserAgent(ErrorString&, const String* value)
     m_userAgentOverride = value ? *value : String();
 }
 
+static inline Optional<bool> asOptionalBool(const bool* value)
+{
+    if (!value)
+        return WTF::nullopt;
+    return *value;
+}
+
 void InspectorPageAgent::overrideSetting(ErrorString& errorString, const String& settingString, const bool* value)
 {
     if (settingString.isEmpty()) {
-        errorString = "Preference is empty"_s;
+        errorString = "settingString is empty"_s;
         return;
     }
 
     auto setting = Inspector::Protocol::InspectorHelpers::parseEnumValueFromString<Inspector::Protocol::Page::Setting>(settingString);
     if (!setting) {
-        errorString = makeString("Unknown setting: "_s, settingString);
+        errorString = makeString("Unknown settingString: "_s, settingString);
         return;
     }
 
+    auto overrideValue = asOptionalBool(value);
     switch (setting.value()) {
 #define CASE_INSPECTOR_OVERRIDE_SETTING(name) \
-    case Inspector::Protocol::Page::Setting::name: {                               \
-        if (value)                                                                 \
-            m_inspectedPage.settings().set##name##InspectorOverride(*value);       \
-        else                                                                       \
-            m_inspectedPage.settings().set##name##InspectorOverride(WTF::nullopt); \
-        break;                                                                     \
-    }                                                                              \
+    case Inspector::Protocol::Page::Setting::name:                              \
+        m_inspectedPage.settings().set##name##InspectorOverride(overrideValue); \
+        break;                                                                  \
 
     FOR_EACH_INSPECTOR_OVERRIDE_SETTING(CASE_INSPECTOR_OVERRIDE_SETTING)
 
@@ -451,7 +463,7 @@ void InspectorPageAgent::overrideSetting(ErrorString& errorString, const String&
 
     // Update the UIProcess / client for particular overrides.
     if (setting.value() == Inspector::Protocol::Page::Setting::MockCaptureDevicesEnabled)
-        m_client->setMockCaptureDevicesEnabledOverride(value);
+        m_client->setMockCaptureDevicesEnabledOverride(overrideValue);
 }
 
 static Inspector::Protocol::Page::CookieSameSitePolicy cookieSameSitePolicyJSON(Cookie::SameSitePolicy policy)
@@ -572,6 +584,11 @@ void InspectorPageAgent::getResourceContent(ErrorString& errorString, const Stri
     resourceContent(errorString, frame, URL({ }, url), content, base64Encoded);
 }
 
+void InspectorPageAgent::setBootstrapScript(ErrorString&, const String* optionalSource)
+{
+    m_bootstrapScript = optionalSource ? *optionalSource : nullString();
+}
+
 void InspectorPageAgent::searchInResource(ErrorString& errorString, const String& frameId, const String& url, const String& query, const bool* optionalCaseSensitive, const bool* optionalIsRegex, const String* optionalRequestId, RefPtr<JSON::ArrayOf<Inspector::Protocol::GenericTypes::SearchMatch>>& results)
 {
     results = JSON::ArrayOf<Inspector::Protocol::GenericTypes::SearchMatch>::create();
@@ -629,9 +646,11 @@ void InspectorPageAgent::searchInResources(ErrorString&, const String& text, con
 {
     result = JSON::ArrayOf<Inspector::Protocol::Page::SearchResult>::create();
 
-    bool isRegex = optionalIsRegex ? *optionalIsRegex : false;
     bool caseSensitive = optionalCaseSensitive ? *optionalCaseSensitive : false;
-    JSC::Yarr::RegularExpression regex = ContentSearchUtilities::createSearchRegex(text, caseSensitive, isRegex);
+    bool isRegex = optionalIsRegex ? *optionalIsRegex : false;
+
+    auto searchStringType = isRegex ? ContentSearchUtilities::SearchStringType::Regex : ContentSearchUtilities::SearchStringType::ContainsString;
+    auto regex = ContentSearchUtilities::createRegularExpressionForSearchString(text, caseSensitive, searchStringType);
 
     for (Frame* frame = &m_inspectedPage.mainFrame(); frame; frame = frame->tree().traverseNext()) {
         for (auto* cachedResource : cachedResourcesForFrame(frame)) {
@@ -717,7 +736,7 @@ Frame* InspectorPageAgent::assertFrame(ErrorString& errorString, const String& f
 {
     Frame* frame = frameForId(frameId);
     if (!frame)
-        errorString = "No frame for given id found"_s;
+        errorString = "Missing frame for given frameId"_s;
     return frame;
 }
 
@@ -749,6 +768,14 @@ void InspectorPageAgent::frameClearedScheduledNavigation(Frame& frame)
 void InspectorPageAgent::defaultAppearanceDidChange(bool useDarkAppearance)
 {
     m_frontendDispatcher->defaultAppearanceDidChange(useDarkAppearance ? Inspector::Protocol::Page::Appearance::Dark : Inspector::Protocol::Page::Appearance::Light);
+}
+
+void InspectorPageAgent::didClearWindowObjectInWorld(Frame& frame)
+{
+    if (m_bootstrapScript.isEmpty())
+        return;
+
+    frame.script().evaluateIgnoringException(ScriptSourceCode(m_bootstrapScript, URL { URL(), "web-inspector://bootstrap.js"_s }));
 }
 
 void InspectorPageAgent::didPaint(RenderObject& renderer, const LayoutRect& rect)
@@ -863,10 +890,15 @@ void InspectorPageAgent::setEmulatedMedia(ErrorString&, const String& media)
 
     m_emulatedMedia = media;
 
+    // FIXME: Schedule a rendering update instead of synchronously updating the layout.
     m_inspectedPage.updateStyleAfterChangeInEnvironment();
 
-    if (auto* document = m_inspectedPage.mainFrame().document())
-        document->updateLayout();
+    auto document = makeRefPtr(m_inspectedPage.mainFrame().document());
+    if (!document)
+        return;
+
+    document->updateLayout();
+    document->evaluateMediaQueriesAndReportChanges();
 }
 
 void InspectorPageAgent::setForcedAppearance(ErrorString&, const String& appearance)
@@ -894,17 +926,6 @@ void InspectorPageAgent::applyEmulatedMedia(String& media)
 {
     if (!m_emulatedMedia.isEmpty())
         media = m_emulatedMedia;
-}
-
-void InspectorPageAgent::getCompositingBordersVisible(ErrorString&, bool* outParam)
-{
-    *outParam = m_inspectedPage.settings().showDebugBorders() || m_inspectedPage.settings().showRepaintCounter();
-}
-
-void InspectorPageAgent::setCompositingBordersVisible(ErrorString&, bool visible)
-{
-    m_inspectedPage.settings().setShowDebugBorders(visible);
-    m_inspectedPage.settings().setShowRepaintCounter(visible);
 }
 
 void InspectorPageAgent::snapshotNode(ErrorString& errorString, int nodeId, String* outDataURL)
@@ -954,7 +975,7 @@ void InspectorPageAgent::archive(ErrorString& errorString, String* data)
     *data = base64Encode(CFDataGetBytePtr(buffer.get()), CFDataGetLength(buffer.get()));
 #else
     UNUSED_PARAM(data);
-    errorString = "No support for creating archives"_s;
+    errorString = "Not supported"_s;
 #endif
 }
 

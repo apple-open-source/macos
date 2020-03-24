@@ -1261,10 +1261,8 @@ void EditingStyle::mergeStyle(const StyleProperties* style, CSSPropertyOverrideM
 static Ref<MutableStyleProperties> styleFromMatchedRulesForElement(Element& element, unsigned rulesToInclude)
 {
     auto style = MutableStyleProperties::create();
-    for (auto& matchedRule : element.styleResolver().styleRulesForElement(&element, rulesToInclude)) {
-        if (matchedRule->isStyleRule())
-            style->mergeAndOverrideOnConflict(static_pointer_cast<StyleRule>(matchedRule)->properties());
-    }
+    for (auto& matchedRule : element.styleResolver().styleRulesForElement(&element, rulesToInclude))
+        style->mergeAndOverrideOnConflict(matchedRule->properties());
     
     return style;
 }
@@ -1272,7 +1270,7 @@ static Ref<MutableStyleProperties> styleFromMatchedRulesForElement(Element& elem
 void EditingStyle::mergeStyleFromRules(StyledElement& element)
 {
     RefPtr<MutableStyleProperties> styleFromMatchedRules = styleFromMatchedRulesForElement(element,
-        StyleResolver::AuthorCSSRules);
+        Style::Resolver::AuthorCSSRules);
     // Styles from the inline style declaration, held in the variable "style", take precedence 
     // over those from matched rules.
     if (m_mutableStyle)
@@ -1358,7 +1356,7 @@ void EditingStyle::removeStyleFromRulesAndContext(StyledElement& element, Node* 
         return;
 
     // 1. Remove style from matched rules because style remain without repeating it in inline style declaration
-    RefPtr<MutableStyleProperties> styleFromMatchedRules = styleFromMatchedRulesForElement(element, StyleResolver::AllButEmptyCSSRules);
+    RefPtr<MutableStyleProperties> styleFromMatchedRules = styleFromMatchedRulesForElement(element, Style::Resolver::AllButEmptyCSSRules);
     if (styleFromMatchedRules && !styleFromMatchedRules->isEmpty())
         m_mutableStyle = getPropertiesNotIn(*m_mutableStyle, *styleFromMatchedRules);
 
@@ -1387,7 +1385,7 @@ void EditingStyle::removePropertiesInElementDefaultStyle(Element& element)
     if (!m_mutableStyle || m_mutableStyle->isEmpty())
         return;
 
-    RefPtr<MutableStyleProperties> defaultStyle = styleFromMatchedRulesForElement(element, StyleResolver::UAAndUserCSSRules);
+    RefPtr<MutableStyleProperties> defaultStyle = styleFromMatchedRulesForElement(element, Style::Resolver::UAAndUserCSSRules);
 
     removePropertiesInStyle(m_mutableStyle.get(), defaultStyle.get());
 }
@@ -1884,7 +1882,7 @@ static bool isCSSValueLength(CSSPrimitiveValue* value)
 int legacyFontSizeFromCSSValue(Document& document, CSSPrimitiveValue* value, bool shouldUseFixedFontDefaultSize, LegacyFontSizeMode mode)
 {
     if (isCSSValueLength(value)) {
-        int pixelFontSize = value->intValue(CSSPrimitiveValue::CSS_PX);
+        int pixelFontSize = value->intValue(CSSUnitType::CSS_PX);
         int legacyFontSize = Style::legacyFontSizeForPixelSize(pixelFontSize, shouldUseFixedFontDefaultSize, document);
         // Use legacy font size only if pixel value matches exactly to that of legacy font size.
         int cssPrimitiveEquivalent = legacyFontSize - 1 + CSSValueXSmall;

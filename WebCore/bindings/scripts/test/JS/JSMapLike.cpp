@@ -21,6 +21,7 @@
 #include "config.h"
 #include "JSMapLike.h"
 
+#include "ActiveDOMObject.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -33,7 +34,7 @@
 #include "ScriptExecutionContext.h"
 #include <JavaScriptCore/BuiltinNames.h>
 #include <JavaScriptCore/FunctionPrototype.h>
-#include <JavaScriptCore/HeapSnapshotBuilder.h>
+#include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
@@ -45,21 +46,21 @@ using namespace JSC;
 
 // Functions
 
-JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionGet(JSC::ExecState*);
-JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionHas(JSC::ExecState*);
-JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionEntries(JSC::ExecState*);
-JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionKeys(JSC::ExecState*);
-JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionValues(JSC::ExecState*);
-JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionForEach(JSC::ExecState*);
-JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionAdd(JSC::ExecState*);
-JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionClear(JSC::ExecState*);
-JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionDelete(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionGet(JSC::JSGlobalObject*, JSC::CallFrame*);
+JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionHas(JSC::JSGlobalObject*, JSC::CallFrame*);
+JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionEntries(JSC::JSGlobalObject*, JSC::CallFrame*);
+JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionKeys(JSC::JSGlobalObject*, JSC::CallFrame*);
+JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionValues(JSC::JSGlobalObject*, JSC::CallFrame*);
+JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionForEach(JSC::JSGlobalObject*, JSC::CallFrame*);
+JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionSet(JSC::JSGlobalObject*, JSC::CallFrame*);
+JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionClear(JSC::JSGlobalObject*, JSC::CallFrame*);
+JSC::EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionDelete(JSC::JSGlobalObject*, JSC::CallFrame*);
 
 // Attributes
 
-JSC::EncodedJSValue jsMapLikeConstructor(JSC::ExecState*, JSC::EncodedJSValue, JSC::PropertyName);
-bool setJSMapLikeConstructor(JSC::ExecState*, JSC::EncodedJSValue, JSC::EncodedJSValue);
-JSC::EncodedJSValue jsMapLikeSize(JSC::ExecState*, JSC::EncodedJSValue, JSC::PropertyName);
+JSC::EncodedJSValue jsMapLikeConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
+bool setJSMapLikeConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
+JSC::EncodedJSValue jsMapLikeSize(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
 
 class JSMapLikePrototype : public JSC::JSNonFinalObject {
 public:
@@ -85,6 +86,7 @@ private:
 
     void finishCreation(JSC::VM&);
 };
+STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSMapLikePrototype, JSMapLikePrototype::Base);
 
 using JSMapLikeConstructor = JSDOMConstructorNotConstructable<JSMapLike>;
 
@@ -97,7 +99,7 @@ template<> JSValue JSMapLikeConstructor::prototypeForStructure(JSC::VM& vm, cons
 template<> void JSMapLikeConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSMapLike::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String("MapLike"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("MapLike"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -115,7 +117,7 @@ static const HashTableValue JSMapLikePrototypeTableValues[] =
     { "keys", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsMapLikePrototypeFunctionKeys), (intptr_t) (0) } },
     { "values", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsMapLikePrototypeFunctionValues), (intptr_t) (0) } },
     { "forEach", static_cast<unsigned>(JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsMapLikePrototypeFunctionForEach), (intptr_t) (1) } },
-    { "add", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsMapLikePrototypeFunctionAdd), (intptr_t) (1) } },
+    { "set", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsMapLikePrototypeFunctionSet), (intptr_t) (2) } },
     { "clear", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsMapLikePrototypeFunctionClear), (intptr_t) (0) } },
     { "delete", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::Function), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsMapLikePrototypeFunctionDelete), (intptr_t) (1) } },
 };
@@ -141,7 +143,8 @@ void JSMapLike::finishCreation(VM& vm)
     Base::finishCreation(vm);
     ASSERT(inherits(vm, info()));
 
-    synchronizeBackingMap(*globalObject()->globalExec(), *globalObject(), *this);
+    static_assert(!std::is_base_of<ActiveDOMObject, MapLike>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
+
 }
 
 JSObject* JSMapLike::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -165,188 +168,199 @@ void JSMapLike::destroy(JSC::JSCell* cell)
     thisObject->JSMapLike::~JSMapLike();
 }
 
-template<> inline JSMapLike* IDLAttribute<JSMapLike>::cast(ExecState& state, EncodedJSValue thisValue)
+template<> inline JSMapLike* IDLAttribute<JSMapLike>::cast(JSGlobalObject& lexicalGlobalObject, EncodedJSValue thisValue)
 {
-    return jsDynamicCast<JSMapLike*>(state.vm(), JSValue::decode(thisValue));
+    return jsDynamicCast<JSMapLike*>(JSC::getVM(&lexicalGlobalObject), JSValue::decode(thisValue));
 }
 
-template<> inline JSMapLike* IDLOperation<JSMapLike>::cast(ExecState& state)
+template<> inline JSMapLike* IDLOperation<JSMapLike>::cast(JSGlobalObject& lexicalGlobalObject, CallFrame& callFrame)
 {
-    return jsDynamicCast<JSMapLike*>(state.vm(), state.thisValue());
+    return jsDynamicCast<JSMapLike*>(JSC::getVM(&lexicalGlobalObject), callFrame.thisValue());
 }
 
-EncodedJSValue jsMapLikeConstructor(ExecState* state, EncodedJSValue thisValue, PropertyName)
+EncodedJSValue jsMapLikeConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
 {
-    VM& vm = state->vm();
+    VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSMapLikePrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
-        return throwVMTypeError(state, throwScope);
-    return JSValue::encode(JSMapLike::getConstructor(state->vm(), prototype->globalObject()));
+        return throwVMTypeError(lexicalGlobalObject, throwScope);
+    return JSValue::encode(JSMapLike::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-bool setJSMapLikeConstructor(ExecState* state, EncodedJSValue thisValue, EncodedJSValue encodedValue)
+bool setJSMapLikeConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, EncodedJSValue encodedValue)
 {
-    VM& vm = state->vm();
+    VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSMapLikePrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype)) {
-        throwVMTypeError(state, throwScope);
+        throwVMTypeError(lexicalGlobalObject, throwScope);
         return false;
     }
     // Shadowing a built-in constructor
     return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
 }
 
-static inline JSValue jsMapLikeSizeGetter(ExecState& state, JSMapLike& thisObject, ThrowScope& throwScope)
+static inline JSValue jsMapLikeSizeGetter(JSGlobalObject& lexicalGlobalObject, JSMapLike& thisObject, ThrowScope& throwScope)
 {
     UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(state);
-    JSValue result = toJS<IDLAny>(state, throwScope, forwardSizeToMapLike(state, thisObject));
+    UNUSED_PARAM(lexicalGlobalObject);
+    JSValue result = toJS<IDLAny>(lexicalGlobalObject, throwScope, forwardSizeToMapLike(lexicalGlobalObject, thisObject));
     return result;
 }
 
-EncodedJSValue jsMapLikeSize(ExecState* state, EncodedJSValue thisValue, PropertyName)
+EncodedJSValue jsMapLikeSize(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
 {
-    return IDLAttribute<JSMapLike>::get<jsMapLikeSizeGetter>(*state, thisValue, "size");
+    return IDLAttribute<JSMapLike>::get<jsMapLikeSizeGetter>(*lexicalGlobalObject, thisValue, "size");
 }
 
-static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionGetBody(JSC::ExecState* state, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionGetBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
-    if (UNLIKELY(state->argumentCount() < 1))
-        return throwVMError(state, throwScope, createNotEnoughArgumentsError(state));
-    auto key = convert<IDLDOMString>(*state, state->uncheckedArgument(0));
+    if (UNLIKELY(callFrame->argumentCount() < 1))
+        return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
+    auto key = convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(toJS<IDLAny>(forwardGetToMapLike(*state, *castedThis, WTFMove(key))));
+    return JSValue::encode(toJS<IDLAny>(forwardGetToMapLike(*lexicalGlobalObject, *callFrame, *castedThis, WTFMove(key))));
 }
 
-EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionGet(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionGet(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionGetBody>(*state, "get");
+    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionGetBody>(*lexicalGlobalObject, *callFrame, "get");
 }
 
-static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionHasBody(JSC::ExecState* state, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionHasBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
-    if (UNLIKELY(state->argumentCount() < 1))
-        return throwVMError(state, throwScope, createNotEnoughArgumentsError(state));
-    auto key = convert<IDLDOMString>(*state, state->uncheckedArgument(0));
+    if (UNLIKELY(callFrame->argumentCount() < 1))
+        return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
+    auto key = convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(toJS<IDLAny>(forwardHasToMapLike(*state, *castedThis, WTFMove(key))));
+    return JSValue::encode(toJS<IDLAny>(forwardHasToMapLike(*lexicalGlobalObject, *callFrame, *castedThis, WTFMove(key))));
 }
 
-EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionHas(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionHas(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionHasBody>(*state, "has");
+    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionHasBody>(*lexicalGlobalObject, *callFrame, "has");
 }
 
-static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionEntriesBody(JSC::ExecState* state, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionEntriesBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
-    return JSValue::encode(toJS<IDLAny>(forwardEntriesToMapLike(*state, *castedThis)));
+    return JSValue::encode(toJS<IDLAny>(forwardEntriesToMapLike(*lexicalGlobalObject, *callFrame, *castedThis)));
 }
 
-EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionEntries(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionEntries(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionEntriesBody>(*state, "entries");
+    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionEntriesBody>(*lexicalGlobalObject, *callFrame, "entries");
 }
 
-static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionKeysBody(JSC::ExecState* state, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionKeysBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
-    return JSValue::encode(toJS<IDLAny>(forwardKeysToMapLike(*state, *castedThis)));
+    return JSValue::encode(toJS<IDLAny>(forwardKeysToMapLike(*lexicalGlobalObject, *callFrame, *castedThis)));
 }
 
-EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionKeys(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionKeys(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionKeysBody>(*state, "keys");
+    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionKeysBody>(*lexicalGlobalObject, *callFrame, "keys");
 }
 
-static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionValuesBody(JSC::ExecState* state, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionValuesBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
-    return JSValue::encode(toJS<IDLAny>(forwardValuesToMapLike(*state, *castedThis)));
+    return JSValue::encode(toJS<IDLAny>(forwardValuesToMapLike(*lexicalGlobalObject, *callFrame, *castedThis)));
 }
 
-EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionValues(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionValues(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionValuesBody>(*state, "values");
+    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionValuesBody>(*lexicalGlobalObject, *callFrame, "values");
 }
 
-static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionForEachBody(JSC::ExecState* state, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionForEachBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
-    if (UNLIKELY(state->argumentCount() < 1))
-        return throwVMError(state, throwScope, createNotEnoughArgumentsError(state));
-    auto callback = convert<IDLAny>(*state, state->uncheckedArgument(0));
+    if (UNLIKELY(callFrame->argumentCount() < 1))
+        return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
+    auto callback = convert<IDLAny>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(toJS<IDLAny>(forwardForEachToMapLike(*state, *castedThis, WTFMove(callback))));
+    return JSValue::encode(toJS<IDLAny>(forwardForEachToMapLike(*lexicalGlobalObject, *callFrame, *castedThis, WTFMove(callback))));
 }
 
-EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionForEach(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionForEach(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionForEachBody>(*state, "forEach");
+    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionForEachBody>(*lexicalGlobalObject, *callFrame, "forEach");
 }
 
-static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionAddBody(JSC::ExecState* state, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionSetBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
-    if (UNLIKELY(state->argumentCount() < 1))
-        return throwVMError(state, throwScope, createNotEnoughArgumentsError(state));
-    auto key = convert<IDLDOMString>(*state, state->uncheckedArgument(0));
+    if (UNLIKELY(callFrame->argumentCount() < 2))
+        return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
+    auto key = convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(toJS<IDLAny>(forwardAddToMapLike(*state, *castedThis, WTFMove(key))));
+    auto value = convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(1));
+    RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
+    return JSValue::encode(toJS<IDLAny>(forwardSetToMapLike(*lexicalGlobalObject, *callFrame, *castedThis, WTFMove(key), WTFMove(value))));
 }
 
-EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionAdd(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionSet(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionAddBody>(*state, "add");
+    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionSetBody>(*lexicalGlobalObject, *callFrame, "set");
 }
 
-static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionClearBody(JSC::ExecState* state, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionClearBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
-    forwardClearToMapLike(*state, *castedThis);
+    forwardClearToMapLike(*lexicalGlobalObject, *callFrame, *castedThis);
     return JSValue::encode(jsUndefined());
 }
 
-EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionClear(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionClear(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionClearBody>(*state, "clear");
+    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionClearBody>(*lexicalGlobalObject, *callFrame, "clear");
 }
 
-static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionDeleteBody(JSC::ExecState* state, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsMapLikePrototypeFunctionDeleteBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSMapLike>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
-    if (UNLIKELY(state->argumentCount() < 1))
-        return throwVMError(state, throwScope, createNotEnoughArgumentsError(state));
-    auto key = convert<IDLDOMString>(*state, state->uncheckedArgument(0));
+    if (UNLIKELY(callFrame->argumentCount() < 1))
+        return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
+    auto key = convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(toJS<IDLAny>(forwardDeleteToMapLike(*state, *castedThis, WTFMove(key))));
+    return JSValue::encode(toJS<IDLAny>(forwardDeleteToMapLike(*lexicalGlobalObject, *callFrame, *castedThis, WTFMove(key))));
 }
 
-EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionDelete(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsMapLikePrototypeFunctionDelete(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionDeleteBody>(*state, "delete");
+    return IDLOperation<JSMapLike>::call<jsMapLikePrototypeFunctionDeleteBody>(*lexicalGlobalObject, *callFrame, "delete");
 }
 
-void JSMapLike::heapSnapshot(JSCell* cell, HeapSnapshotBuilder& builder)
+void JSMapLike::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
 {
     auto* thisObject = jsCast<JSMapLike*>(cell);
-    builder.setWrappedObjectForCell(cell, &thisObject->wrapped());
+    analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        builder.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
-    Base::heapSnapshot(cell, builder);
+        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+    Base::analyzeHeap(cell, analyzer);
 }
 
 bool JSMapLikeOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor, const char** reason)
@@ -373,7 +387,7 @@ extern "C" { extern void* _ZTVN7WebCore7MapLikeE[]; }
 #endif
 #endif
 
-JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, Ref<MapLike>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<MapLike>&& impl)
 {
 
 #if ENABLE(BINDING_INTEGRITY)
@@ -397,9 +411,9 @@ JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, 
     return createWrapper<MapLike>(globalObject, WTFMove(impl));
 }
 
-JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, MapLike& impl)
+JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, MapLike& impl)
 {
-    return wrap(state, globalObject, impl);
+    return wrap(lexicalGlobalObject, globalObject, impl);
 }
 
 MapLike* JSMapLike::toWrapped(JSC::VM& vm, JSC::JSValue value)

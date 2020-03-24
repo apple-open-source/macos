@@ -27,8 +27,8 @@
 
 #if ENABLE(WEBGPU)
 
-#include "WHLSLLexer.h"
 #include "WHLSLStructureElement.h"
+#include <wtf/FastMalloc.h>
 #include <wtf/UniqueRef.h>
 
 namespace WebCore {
@@ -37,18 +37,19 @@ namespace WHLSL {
 
 namespace AST {
 
-class GlobalVariableReference : public Expression {
+class GlobalVariableReference final : public Expression {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     GlobalVariableReference(CodeLocation location, UniqueRef<Expression>&& base, StructureElement* structField)
-        : Expression(location)
+        : Expression(location, Kind::GlobalVariableReference)
         , m_base(WTFMove(base))
         , m_structField(*structField)
     {
         ASSERT(structField);
     }
 
-    virtual ~GlobalVariableReference() = default;
-    bool isGlobalVariableReference() const override { return true; }
+    ~GlobalVariableReference() = default;
+    
     StructureElement& structField() { return m_structField; }
 
     Expression& base() { return m_base.get(); }
@@ -63,6 +64,8 @@ private:
 }
 
 }
+
+DEFINE_DEFAULT_DELETE(GlobalVariableReference)
 
 SPECIALIZE_TYPE_TRAITS_WHLSL_EXPRESSION(GlobalVariableReference, isGlobalVariableReference())
 

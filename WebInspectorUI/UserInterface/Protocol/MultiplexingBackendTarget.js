@@ -32,23 +32,22 @@ WI.MultiplexingBackendTarget = class MultiplexingBackendTarget extends WI.Target
 {
     constructor()
     {
-        const type = WI.Target.Type.Page;
-        const displayName = WI.UIString("Page");
+        const parentTarget = null;
+        const targetId = "multi";
+        super(parentTarget, targetId, WI.UIString("Web Page"), WI.TargetType.WebPage, InspectorBackend.backendConnection);
 
-        super("multi", displayName, type, InspectorBackend.backendConnection);
-
-        let agents = this._agents;
-        this._agents = {
-            Target: agents.Target,
-        };
+        console.assert(Array.shallowEqual(Object.keys(this._agents), ["Target"]), "A WebPage target should only have a single agent.");
     }
 
     // Target
 
     initialize()
     {
-        // Intentionally do nothing, including not calling super.
-        // No agents other than the TargetAgent, nothing to initialize.
+        // Intentionally not calling super. No agents other than the TargetAgent.
+
+        // COMPATIBILITY (iOS 13): Target.setPauseOnStart did not exist yet.
+        if (this.hasCommand("Target.setPauseOnStart"))
+            this.TargetAgent.setPauseOnStart(true);
     }
 
     // Protected (Target)

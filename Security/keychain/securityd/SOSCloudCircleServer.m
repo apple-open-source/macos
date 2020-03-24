@@ -45,7 +45,6 @@
 #include "keychain/SecureObjectSync/SOSInternal.h"
 #include "keychain/SecureObjectSync/SOSUserKeygen.h"
 #include "keychain/SecureObjectSync/SOSMessage.h"
-#include "keychain/SecureObjectSync/SOSBackupInformation.h"
 #include "keychain/SecureObjectSync/SOSDataSource.h"
 #include "keychain/SecureObjectSync/SOSKVSKeys.h"
 #import "keychain/SecureObjectSync/SOSAccountTrustClassic.h"
@@ -258,7 +257,7 @@ static SOSAccount* SOSKeychainAccountCreateSharedAccount(CFDictionaryRef our_ges
             secerror("Got NULL creating account");
     }
 
-    [account startStateMachine];
+    //[account startStateMachine];
 
 done:
     CFReleaseNull(savedAccount);
@@ -1152,21 +1151,6 @@ bool SOSCCAccountHasPublicKey_Server(CFErrorRef *error)
     return hasPublicKey;
 }
 
-bool SOSCCAccountIsNew_Server(CFErrorRef *error)
-{
-    __block bool result = true;
-    __block CFErrorRef localError = NULL;
-    
-    (void) do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        result = SOSAccountIsNew(txn.account, &localError);
-        return result;
-    });
-    
-    if(error != NULL && localError != NULL)
-        *error = localError;
-    
-    return result;
-}
 bool SOSCCRequestToJoinCircleAfterRestore_Server(CFErrorRef* error)
 {
     __block bool result = true;
@@ -1207,99 +1191,6 @@ bool SOSCCRequestToJoinCircleAfterRestoreWithAnalytics_Server(CFDataRef parentEv
     OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore, OctagonSignpostNumber1(SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore), (int)result);
     return returned;
 
-}
-
-bool SOSCCRequestEnsureFreshParameters_Server(CFErrorRef* error)
-{
-    bool returned = false;
-    returned = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-            return SyncKVSAndWait(block_error);
-        });
-    if (returned) {
-        returned = Flush(error);
-    }
-    return returned;
-}
-
-bool SOSCCApplyToARing_Server(CFStringRef ringName, CFErrorRef *error){
-    __block bool result = true;
-    bool returned = false;
-    returned = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        SOSFullPeerInfoRef fpi = txn.account.fullPeerInfo;
-        SOSRingRef ring = [txn.account.trust copyRing:ringName err:error];
-
-        if(fpi && ring) {
-            result = SOSRingApply(ring, txn.account.accountKey, fpi , error);
-        }
-        CFReleaseNull(ring);
-        return result;
-    });
-    return returned;
-}
-
-bool SOSCCWithdrawlFromARing_Server(CFStringRef ringName, CFErrorRef *error){
-    __block bool result = true;
-    bool returned = false;
-    returned = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        SOSFullPeerInfoRef fpi = txn.account.fullPeerInfo;
-        SOSRingRef ring = [txn.account.trust copyRing:ringName err:error];
-        if(fpi && ring) {
-            result = SOSRingWithdraw(ring, txn.account.accountKey, fpi , error);
-        }
-        CFReleaseNull(ring);
-        return result;
-    });
-    return returned;
-}
-
-bool SOSCCEnableRing_Server(CFStringRef ringName, CFErrorRef *error){
-    __block bool result = true;
-    bool returned = false;
-    returned = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        SOSFullPeerInfoRef fpi = txn.account.fullPeerInfo;
-        SOSRingRef ring = [txn.account.trust copyRing:ringName err:error];
-        if(fpi && ring) {
-            result = SOSRingResetToOffering(ring, NULL, fpi, error);
-        }
-        CFReleaseNull(ring);
-        return result;
-    });
-    return returned;
-}
-
-CFStringRef SOSCCGetAllTheRings_Server(CFErrorRef *error){
-    __block CFMutableDictionaryRef result = NULL;
-    __block CFMutableStringRef description = CFStringCreateMutable(kCFAllocatorDefault, 0);
-    
-    (void) do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-        SOSAccountForEachRing(txn.account, ^SOSRingRef(CFStringRef name, SOSRingRef ring) {
-            CFStringAppendFormat(description, NULL, CFSTR("%@\n"), ring);
-            return NULL;
-        });
-        if(result)
-            return true;
-        return false;
-    });
-    
-    return description;
-}
-
-SOSRingStatus SOSCCRingStatus_Server(CFStringRef ringName, CFErrorRef *error){
-    __block bool result = true;
-    SOSRingStatus returned;
-    returned = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        SOSFullPeerInfoRef fpi = txn.account.fullPeerInfo;
-        SOSPeerInfoRef myPeer = SOSFullPeerInfoGetPeerInfo(fpi);
-        
-        SOSRingRef ring = [txn.account.trust copyRing:ringName err:error];
-        if(myPeer && ring) {
-            result = SOSRingDeviceIsInRing(ring, SOSPeerInfoGetPeerID(myPeer));
-        }
-        CFReleaseNull(ring);
-
-        return result;
-    });
-    return returned;
 }
 
 bool SOSCCAccountSetToNew_Server(CFErrorRef *error)
@@ -1440,7 +1331,7 @@ bool SOSCCBailFromCircle_Server(uint64_t limit_in_seconds, CFErrorRef* error)
 {
     return do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         bool waitForeverForSynchronization = false;
-        
+
         bool result = SOSAccountBail(txn.account, limit_in_seconds, block_error);
 
         [txn restart]; // Make sure this gets finished before we set to new.
@@ -1764,220 +1655,6 @@ fail:
     return result;
 }
 
-
-static CFArrayRef SOSAccountCopyYetToSyncViews(SOSAccount* account, CFErrorRef *error) {
-    __block CFArrayRef result = NULL;
-
-    CFTypeRef valueFetched = SOSAccountGetValue(account, kSOSUnsyncedViewsKey, error);
-    if (valueFetched == kCFBooleanTrue) {
-        SOSPeerInfoRef myPI = account.peerInfo;
-        if (myPI) {
-            SOSPeerInfoWithEnabledViewSet(myPI, ^(CFSetRef enabled) {
-                result = CFSetCopyValues(enabled);
-            });
-        }
-    } else if (isSet(valueFetched)) {
-        result = CFSetCopyValues((CFSetRef)valueFetched);
-    }
-
-    if (result == NULL) {
-        result = CFArrayCreateForCFTypes(kCFAllocatorDefault, NULL);
-    }
-
-    return result;
-}
-
-CFArrayRef SOSCCCopyYetToSyncViewsList_Server(CFErrorRef* error) {
-
-    __block CFArrayRef views = NULL;
-
-    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        views = SOSAccountCopyYetToSyncViews(txn.account, error);
-
-        return true;
-    });
-
-    return views;
-}
-
-bool SOSWrapToBackupSliceKeyBagForView_Server(CFStringRef viewName, CFDataRef input, CFDataRef* output, CFDataRef* bskbEncoded, CFErrorRef* error) {
-    CFErrorRef localerror = NULL;
-    SOSBackupSliceKeyBagRef bskb = SOSBackupSliceKeyBagForView(viewName, &localerror);
-
-    if(bskbEncoded && bskb) {
-        *bskbEncoded = SOSBSKBCopyEncoded(bskb, &localerror);
-    }
-
-    if(output) {
-        *output = SOSWrapToBackupSliceKeyBag(bskb, input, &localerror);
-    }
-
-    if(error) {
-        *error = localerror;
-    }
-    return localerror == NULL;
-}
-
-SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagForView(CFStringRef viewName, CFErrorRef* error){
-    __block SOSBackupSliceKeyBagRef bskb = NULL;
-    (void) do_with_account(^ (SOSAccountTransaction* txn) {
-            bskb = SOSAccountBackupSliceKeyBagForView(txn.account, viewName, error);
-            });
-    return bskb;
-}
-
-CFDataRef SOSWrapToBackupSliceKeyBag(SOSBackupSliceKeyBagRef bskb, CFDataRef input, CFErrorRef* error) {
-    CFDataRef encrypted = NULL;
-    bskb_keybag_handle_t bskb_handle = 0;
-
-    require_quiet(bskb, exit);
-
-    bskb_handle = SOSBSKBLoadLocked(bskb, error);
-    require_quiet(bskb_handle, exit);
-
-    SecAccessControlRef access = NULL;
-    require_quiet(access = SecAccessControlCreate(kCFAllocatorDefault, error), exit);
-    require_quiet(SecAccessControlSetProtection(access, kSecAttrAccessibleWhenUnlocked, error), exit);
-
-    // ks_encrypt_data takes a dictionary as its plaintext.
-    CFMutableDictionaryRef plaintext = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(plaintext, CFSTR("data"), input);
-
-    require_quiet(ks_encrypt_data_legacy(bskb_handle, access, NULL, plaintext, NULL, &encrypted, false, error), exit);
-
-exit:
-    CFReleaseNull(bskb);
-    if(bskb_handle != 0) {
-        ks_close_keybag(bskb_handle, error);
-    }
-    if(error && *error) {
-        secnotice("backup", "Failed to wrap to a BKSB: %@", *error);
-    }
-    return encrypted;
-
-}
-
-CFDictionaryRef SOSCCCopyEscrowRecord_Server(CFErrorRef *error){
-    
-    __block CFDictionaryRef result = NULL;
-
-    (void) do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-       CFErrorRef localError = NULL;
-       SOSCCStatus status = [txn.account getCircleStatus:&localError];
-
-        CFStringRef dsid = SOSAccountGetValue(txn.account, kSOSDSIDKey, error);
-        CFDictionaryRef escrowRecords = NULL;
-        CFDictionaryRef record = NULL;
-        switch(status) {
-            case kSOSCCInCircle:
-                //get the escrow record in the peer info!
-                escrowRecords = SOSPeerInfoCopyEscrowRecord(txn.account.peerInfo);
-                if(escrowRecords){
-                    record = CFDictionaryGetValue(escrowRecords, dsid);
-                    if(record)
-                        result = CFRetainSafe(record);
-                }
-                CFReleaseNull(escrowRecords);
-                break;
-            case kSOSCCRequestPending:
-                //set the escrow record in the peer info/application?
-                break;
-            case kSOSCCNotInCircle:
-            case kSOSCCCircleAbsent:
-                //set the escrow record in the account expansion!
-                escrowRecords = SOSAccountGetValue(txn.account, kSOSEscrowRecord, error);
-                if(escrowRecords){
-                    record = CFDictionaryGetValue(escrowRecords, dsid);
-                    if(record)
-                        result = CFRetainSafe(record);
-                }
-                break;
-            default:
-                secdebug("account", "no circle status!");
-                break;
-        }
-        return true;
-    });
-    
-    return result;
-}
-
-CFDictionaryRef SOSCCCopyBackupInformation_Server(CFErrorRef *error) {
-    __block CFDictionaryRef result = NULL;
-    
-    (void) do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-        result = SOSBackupInformation(txn, error);
-        return true;
-    });
-    return result;
-}
-
-bool SOSCCSetEscrowRecord_Server(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error){
-   
-    if (escrow_label == NULL) {
-        return false;
-    }
-
-    __block bool result = true;
-    __block CFErrorRef block_error = NULL;
-    
-    (void) do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-        SOSCCStatus status = [txn.account getCircleStatus:&block_error];
-
-        CFStringRef dsid = SOSAccountGetValue(txn.account, kSOSDSIDKey, error);
-
-        CFMutableStringRef timeDescription = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, CFSTR("["));
-        CFAbsoluteTime currentTimeAndDate = CFAbsoluteTimeGetCurrent();
-        
-        withStringOfAbsoluteTime(currentTimeAndDate, ^(CFStringRef decription) {
-            CFStringAppend(timeDescription, decription);
-        });
-        CFStringAppend(timeDescription, CFSTR("]"));
-       
-        CFNumberRef attempts = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongLongType, (const void*)&tries);
-        
-        CFMutableDictionaryRef escrowTimeAndTries = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
-        CFDictionaryAddValue(escrowTimeAndTries, kSOSBurnedRecoveryAttemptCount, attempts);
-        CFDictionaryAddValue(escrowTimeAndTries, kSOSBurnedRecoveryAttemptAttestationDate, timeDescription);
-       
-        CFMutableDictionaryRef escrowRecord = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
-        CFDictionaryAddValue(escrowRecord, escrow_label, escrowTimeAndTries);
-
-        switch(status) {
-            case kSOSCCInCircle:
-                //set the escrow record in the peer info!
-                if(!SOSFullPeerInfoAddEscrowRecord(txn.account.fullPeerInfo, dsid, escrowRecord, error)){
-                    secdebug("accout", "Could not set escrow record in the full peer info");
-                    result = false;
-                }
-                break;
-            case kSOSCCRequestPending:
-                //set the escrow record in the peer info/application?
-                break;
-            case kSOSCCNotInCircle:
-            case kSOSCCCircleAbsent:
-                //set the escrow record in the account expansion!
-                
-                if(!SOSAccountAddEscrowRecords(txn.account, dsid, escrowRecord, error)) {
-                    secdebug("account", "Could not set escrow record in expansion data");
-                    result = false;
-                }
-                break;
-            default:
-                secdebug("account", "no circle status!");
-                break;
-        }
-        CFReleaseNull(attempts);
-        CFReleaseNull(timeDescription);
-        CFReleaseNull(escrowTimeAndTries);
-        CFReleaseNull(escrowRecord);
-        
-        return true;
-    });
-    
-    return result;
-}
-
 bool SOSCCAcceptApplicants_Server(CFArrayRef applicants, CFErrorRef* error)
 {
     OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCAcceptApplicants);
@@ -2043,60 +1720,6 @@ SOSPeerInfoRef SOSCCCopyMyPeerInfo_Server(CFErrorRef* error)
     return result;
 }
 
-CFDataRef SOSCCCopyAccountState_Server(CFErrorRef* error)
-{
-    __block CFDataRef accountState = NULL;
-    
-    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        // Copy account state from the keychain
-        accountState = SOSAccountCopyAccountStateFromKeychain(block_error);
-        return accountState != NULL;
-    });
-    
-    return accountState;
-}
-
-bool SOSCCDeleteAccountState_Server(CFErrorRef* error)
-{
-    __block bool result = NULL;
-    
-    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        // Delete account state from the keychain
-        result = SOSAccountDeleteAccountStateFromKeychain(block_error);
-        return result;
-    });
-    
-    return result;
-}
-
-CFDataRef SOSCCCopyEngineData_Server(CFErrorRef* error)
-{
-    __block CFDataRef engineState = NULL;
-    
-    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        // Copy engine state from the keychain
-        engineState = SOSAccountCopyEngineStateFromKeychain(block_error);
-        return engineState != NULL;
-    });
-    
-    return engineState;
-}
-
-bool SOSCCDeleteEngineState_Server(CFErrorRef* error)
-{
-    __block bool result = NULL;
-    
-    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        // Delete engine state from the keychain
-        result = SOSAccountDeleteEngineStateFromKeychain(block_error);
-        return result;
-    });
-    
-    return result;
-}
-
-
-
 SOSPeerInfoRef SOSCCSetNewPublicBackupKey_Server(CFDataRef newPublicBackup, CFErrorRef *error){
     __block SOSPeerInfoRef result = NULL;
     OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCSetNewPublicBackupKey);
@@ -2132,25 +1755,6 @@ bool SOSCCRegisterSingleRecoverySecret_Server(CFDataRef aks_bag, bool setupV0Onl
     });
     OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRegisterSingleRecoverySecret, OctagonSignpostNumber1(SOSSignpostNameSOSCCRegisterSingleRecoverySecret), (int)registerResult);
     return registerResult;
-}
-
-CFStringRef SOSCCCopyIncompatibilityInfo_Server(CFErrorRef* error)
-{
-    __block CFStringRef result = NULL;
-
-    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        result = SOSAccountCopyIncompatibilityInfo(txn.account, block_error);
-        return result != NULL;
-    });
-
-    return result;
-}
-
-bool SOSCCkSecXPCOpIsThisDeviceLastBackup_Server(CFErrorRef *error) {
-    bool result = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        return SOSAccountIsLastBackupPeer(txn.account, block_error);
-    });
-    return result;
 }
 
 enum DepartureReason SOSCCGetLastDepartureReason_Server(CFErrorRef* error)
@@ -2351,14 +1955,6 @@ bool SOSCCCleanupKVSKeys_Server(CFErrorRef *error) {
     return result;
 }
 
-bool SOSCCTestPopulateKVSWithBadKeys_Server(CFErrorRef *error)
-{
-    __block bool result = false;
-    do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
-        return SOSAccountPopulateKVSWithBadKeys(txn.account, error);
-    });
-    return result;
-}
 CFDataRef SOSCCCopyCircleJoiningBlob_Server(SOSPeerInfoRef applicant, CFErrorRef *error) {
     __block CFDataRef pbblob = NULL;
     OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCCopyCircleJoiningBlob);

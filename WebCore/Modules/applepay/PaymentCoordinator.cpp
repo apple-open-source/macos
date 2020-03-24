@@ -258,17 +258,17 @@ Optional<String> PaymentCoordinator::validatedPaymentNetwork(Document&, unsigned
 
 bool PaymentCoordinator::shouldEnableApplePayAPIs(Document& document) const
 {
-    if (m_client.supportsUnrestrictedApplePay()) {
-        RELEASE_LOG_IF_ALLOWED("shouldEnableApplePayAPIs() -> true (unrestricted client)");
+    if (m_client.supportsUnrestrictedApplePay())
         return true;
-    }
 
     bool shouldEnableAPIs = true;
     document.page()->userContentProvider().forEachUserScript([&](DOMWrapperWorld&, const UserScript&) {
         shouldEnableAPIs = false;
     });
 
-    RELEASE_LOG_IF_ALLOWED("shouldEnableApplePayAPIs() -> %d", shouldEnableAPIs);
+    if (!shouldEnableAPIs)
+        RELEASE_LOG_IF_ALLOWED("shouldEnableApplePayAPIs() -> false (user scripts)");
+
     return shouldEnableAPIs;
 }
 
@@ -289,15 +289,15 @@ bool PaymentCoordinator::setApplePayIsActiveIfAllowed(Document& document) const
     return true;
 }
 
-bool PaymentCoordinator::shouldAllowUserAgentScripts(Document& document) const
+Expected<void, ExceptionDetails> PaymentCoordinator::shouldAllowUserAgentScripts(Document& document) const
 {
     if (m_client.supportsUnrestrictedApplePay() || !document.isApplePayActive())
-        return true;
+        return { };
 
     ASSERT(!document.hasEvaluatedUserAgentScripts());
     ASSERT(!document.isRunningUserScripts());
     RELEASE_LOG_ERROR_IF_ALLOWED("shouldAllowUserAgentScripts() -> false (active session)");
-    return false;
+    return makeUnexpected(ExceptionDetails { m_client.userAgentScriptsBlockedErrorMessage() });
 }
 
 } // namespace WebCore

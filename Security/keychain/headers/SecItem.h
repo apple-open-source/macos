@@ -770,7 +770,8 @@ extern const CFStringRef kSecAttrKeyClassSymmetric
     @discussion Predefined item attribute constants used to get or set values
         in a dictionary. The kSecAttrKeyType constant is the key
         and its value is one of the constants defined here.
-    @constant kSecAttrKeyTypeECSECPrimeRandom.
+    @constant kSecAttrKeyTypeECSECPrimeRandom. The used curve is P-192, P-256, P-384 or P-521.
+        The size is specified by kSecAttrKeySizeInBits attribute. Curves are defined in FIPS PUB 186-4 standard.
     @constant kSecAttrKeyTypeEC This is the legacy name for kSecAttrKeyTypeECSECPrimeRandom, new applications should not use it.
     @constant kSecAttrKeyTypeDSA (OSX only)
     @constant kSecAttrKeyTypeAES (OSX only)

@@ -37,6 +37,9 @@
 /* visible name of the network process. The argument is the application name. */
 "%@ Networking" = "%@ Networking";
 
+/* visible name of the GPU process. The argument is the application name. */
+"%@ Graphics and Media" = "%@ Graphics and Media";
+
 /* Text track contains subtitles for the deaf and hard of hearing */
 "%@ SDH" = "%@ SDH";
 
@@ -1316,10 +1319,10 @@
 "reset content" = "reset content";
 
 /* accessibility help text for return streaming movie to real time button */
-"return streaming movie to real time" = "return streaming movie to real time";
+"resume real time streaming" = "resume real time streaming";
 
 /* accessibility label for return to real time button */
-"return to realtime" = "return to realtime";
+"return to real time" = "return to real time";
 
 /* An ARIA accessibility group that contains a search feature of a website. */
 "search" = "search";

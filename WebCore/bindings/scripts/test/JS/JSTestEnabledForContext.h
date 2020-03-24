@@ -49,9 +49,9 @@ public:
     }
 
     static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
-    static void heapSnapshot(JSCell*, JSC::HeapSnapshotBuilder&);
+    static void analyzeHeap(JSCell*, JSC::HeapAnalyzer&);
 public:
-    static const unsigned StructureFlags = Base::StructureFlags | JSC::HasStaticPropertyTable;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::HasStaticPropertyTable;
 protected:
     JSTestEnabledForContext(JSC::Structure*, JSDOMGlobalObject&, Ref<TestEnabledForContext>&&);
 
@@ -75,10 +75,10 @@ inline void* wrapperKey(TestEnabledForContext* wrappableObject)
     return wrappableObject;
 }
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestEnabledForContext&);
-inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestEnabledForContext* impl) { return impl ? toJS(state, globalObject, *impl) : JSC::jsNull(); }
-JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<TestEnabledForContext>&&);
-inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<TestEnabledForContext>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
+JSC::JSValue toJS(JSC::JSGlobalObject*, JSDOMGlobalObject*, TestEnabledForContext&);
+inline JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestEnabledForContext* impl) { return impl ? toJS(lexicalGlobalObject, globalObject, *impl) : JSC::jsNull(); }
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject*, Ref<TestEnabledForContext>&&);
+inline JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, RefPtr<TestEnabledForContext>&& impl) { return impl ? toJSNewlyCreated(lexicalGlobalObject, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 template<> struct JSDOMWrapperConverterTraits<TestEnabledForContext> {
     using WrapperClass = JSTestEnabledForContext;

@@ -104,6 +104,8 @@ static void PSKeychainSyncIsUsingICDP(void)
     NSError *localError = NULL;
     CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
     CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+
+    secnotice("followup", "Posting a follow up (for SOS) of type repair");
     [cdpd postFollowUpWithContext:context error:&localError ];
     if(localError){
         secnotice("kcn", "request to CoreCDP to follow up failed: %@", localError);

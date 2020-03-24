@@ -1241,6 +1241,26 @@ void SecDbReleaseAllConnections(SecDbRef db) {
     });
 }
 
+// Please make sure you want to do this. Any use of the outstanding connections to this DB will cause a crash.
+void SecDbForceClose(SecDbRef db) {
+    dispatch_sync(db->queue, ^{
+        CFArrayForEach(db->connections, ^(const void* p) {
+            SecDbConnectionRef connection = (SecDbConnectionRef)p;
+
+            // this pointer is claimed to be nonretained
+            connection->db = NULL;
+
+            if(connection->handle) {
+                sqlite3_close(connection->handle);
+                connection->handle = NULL;
+            }
+        });
+        CFArrayRemoveAllValues(db->connections);
+        dispatch_semaphore_signal(db->write_semaphore);
+        dispatch_semaphore_signal(db->read_semaphore);
+    });
+}
+
 bool SecDbPerformRead(SecDbRef db, CFErrorRef *error, void (^perform)(SecDbConnectionRef dbconn)) {
     SecDbConnectionRef dbconn = SecDbConnectionAcquire(db, true, error);
     bool success = false;

@@ -20,24 +20,6 @@
 #include <CommonCrypto/CommonRandomSPI.h>
 
 
-__unused static SOSFullPeerInfoRef SOSNSFullPeerInfoCreate(NSDictionary* gestalt,
-                                                           NSData* backupKey, SecKeyRef signingKey,
-                                                           SecKeyRef octagonSigningKey,
-                                                           SecKeyRef octagonEncryptionKey,
-                                                           NSError**error)
-{
-    CFErrorRef errorRef = NULL;
-
-    SOSFullPeerInfoRef result = SOSFullPeerInfoCreate(NULL, (__bridge CFDictionaryRef) gestalt, (__bridge CFDataRef) backupKey, signingKey, octagonSigningKey, octagonEncryptionKey, &errorRef);
-
-    if (errorRef && error) {
-        *error = (__bridge_transfer NSError*) errorRef;
-        errorRef = NULL;
-    }
-
-    return result;
-}
-
 static SecKeyRef GenerateFullECKey_internal(int keySize,  NSError** error)
 {
     SecKeyRef full_key = NULL;

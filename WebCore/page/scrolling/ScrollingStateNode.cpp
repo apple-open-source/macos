@@ -54,7 +54,6 @@ ScrollingStateNode::ScrollingStateNode(const ScrollingStateNode& stateNode, Scro
     if (hasChangedProperty(Layer))
         setLayer(stateNode.layer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
 
-    relaxAdoptionRequirement();
     scrollingStateTree().addNode(*this);
 }
 
@@ -102,7 +101,7 @@ void ScrollingStateNode::appendChild(Ref<ScrollingStateNode>&& childNode)
     childNode->setParent(this);
 
     if (!m_children)
-        m_children = std::make_unique<Vector<RefPtr<ScrollingStateNode>>>();
+        m_children = makeUnique<Vector<RefPtr<ScrollingStateNode>>>();
     m_children->append(WTFMove(childNode));
     setPropertyChanged(ChildNodes);
 }
@@ -113,7 +112,7 @@ void ScrollingStateNode::insertChild(Ref<ScrollingStateNode>&& childNode, size_t
 
     if (!m_children) {
         ASSERT(!index);
-        m_children = std::make_unique<Vector<RefPtr<ScrollingStateNode>>>();
+        m_children = makeUnique<Vector<RefPtr<ScrollingStateNode>>>();
     }
 
     if (index > m_children->size()) {

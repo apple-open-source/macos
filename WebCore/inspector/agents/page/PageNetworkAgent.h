@@ -36,15 +36,15 @@ class PageNetworkAgent final : public InspectorNetworkAgent {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     PageNetworkAgent(PageAgentContext&);
-    virtual ~PageNetworkAgent() = default;
+    ~PageNetworkAgent() override;
 
 private:
-    String loaderIdentifier(DocumentLoader*) final;
-    String frameIdentifier(DocumentLoader*) final;
-    Vector<WebSocket*> activeWebSockets(const LockHolder&) final;
-    void setResourceCachingDisabled(bool) final;
-    ScriptExecutionContext* scriptExecutionContext(ErrorString&, const String& frameId) final;
-    bool shouldForceBufferingNetworkResourceData() const final { return false; }
+    String loaderIdentifier(DocumentLoader*) override;
+    String frameIdentifier(DocumentLoader*) override;
+    Vector<WebSocket*> activeWebSockets(const LockHolder&) override;
+    void setResourceCachingDisabled(bool) override;
+    ScriptExecutionContext* scriptExecutionContext(ErrorString&, const String& frameId) override;
+    bool shouldForceBufferingNetworkResourceData() const override { return false; }
 
     Page& m_inspectedPage;
 };

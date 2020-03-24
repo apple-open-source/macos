@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@ class ConservativeRoots;
 class GCThreadSharedData;
 class Heap;
 class HeapCell;
-class HeapSnapshotBuilder;
+class HeapAnalyzer;
 class MarkedBlock;
 class MarkingConstraint;
 class MarkingConstraintSolver;
@@ -119,6 +119,8 @@ public:
 
     bool isEmpty() { return m_collectorStack.isEmpty() && m_mutatorStack.isEmpty(); }
 
+    bool isFirstVisit() const { return m_isFirstVisit; }
+
     void didStartMarking();
     void reset();
     void clearMarkStacks();
@@ -158,8 +160,8 @@ public:
     
     void dump(PrintStream&) const;
 
-    bool isBuildingHeapSnapshot() const { return !!m_heapSnapshotBuilder; }
-    HeapSnapshotBuilder* heapSnapshotBuilder() const { return m_heapSnapshotBuilder; }
+    bool isAnalyzingHeap() const { return !!m_heapAnalyzer; }
+    HeapAnalyzer* heapAnalyzer() const { return m_heapAnalyzer; }
     
     RootMarkReason rootMarkReason() const { return m_rootMarkReason; }
     void setRootMarkReason(RootMarkReason reason) { m_rootMarkReason = reason; }
@@ -211,8 +213,6 @@ private:
     template<typename ContainerType>
     void appendToMarkStack(ContainerType&, JSCell*);
     
-    void appendToMutatorMarkStack(const JSCell*);
-    
     void noteLiveAuxiliaryCell(HeapCell*);
     
     void visitChildren(const JSCell*);
@@ -250,7 +250,7 @@ private:
     
     Heap& m_heap;
 
-    HeapSnapshotBuilder* m_heapSnapshotBuilder { nullptr };
+    HeapAnalyzer* m_heapAnalyzer { nullptr };
     JSCell* m_currentCell { nullptr };
     RootMarkReason m_rootMarkReason { RootMarkReason::None };
     bool m_isFirstVisit { false };

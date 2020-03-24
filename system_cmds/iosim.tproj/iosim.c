@@ -17,6 +17,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include "panic.h"
 #include <IOKit/IOKitLib.h>
+#include <spawn.h>
 
 #define IO_MODE_SEQ		0
 #define IO_MODE_RANDOM		1
@@ -92,6 +93,7 @@ void print_test_setup(int value, char *option, char *units, char *comment);
 void setup_process_io_policy(int io_tier);
 void setup_qos_device(void);
 void print_latency_histogram(int64_t *data, int latency_bins, int latency_bin_size, double io_count);
+int system_cmd(char *command);
 
 void
 print_usage(void)
@@ -254,7 +256,7 @@ void assertASP(CFRunLoopTimerRef timer, void *info )
 
 	// Assert ASP
 	printf("Command : %s\n", command);
-	system(command);
+	system_cmd(command);
 
 	// Panic the system as well
 	panic("IO time > QoS timeout");
@@ -583,12 +585,12 @@ int main(int argc, char *argv[])
 			snprintf(fname, MAX_FILENAME, "iosim-%d-%d", (int)getpid(), i);
 			snprintf(dd_command, MAX_CMD_SIZE, "dd if=/dev/urandom of=%s bs=4096 count=%d", fname, file_size);
 			printf("Creating file %s of size %lld...\n", fname, ((int64_t)file_size * 4096));
-			system(dd_command);
+			system_cmd(dd_command);
 		}
 	} else {
 		printf("Using user specified file %s for all threads...\n", user_fname);
 	}
-	system("purge");
+	system_cmd("purge");
 	setup_process_io_policy(io_tier);
 
 	setup_qos_device();
@@ -636,4 +638,23 @@ int main(int argc, char *argv[])
 	pthread_join(throughput_thread, NULL);
 
 	pthread_exit(0);
+}
+
+extern char **environ;
+
+int system_cmd(char *command)
+{
+    // workaround for rdar://problem/53281655
+    pid_t pid;
+    char *argv[] = {"sh", "-c", command, NULL};
+    int status;
+    status = posix_spawn(&pid, "/bin/sh", NULL, NULL, argv, environ);
+    if (status == 0) {
+        if (waitpid(pid, &status, 0) != -1) {
+            return status;
+        } else {
+            perror("waitpid");
+        }
+    }
+    return -1;
 }

@@ -73,7 +73,7 @@ AudioBufferSourceNode::AudioBufferSourceNode(AudioContext& context, float sample
     m_playbackRate = AudioParam::create(context, "playbackRate", 1.0, -MaxRate, MaxRate);
 
     // Default to mono.  A call to setBuffer() will set the number of output channels to that of the buffer.
-    addOutput(std::make_unique<AudioNodeOutput>(this, 1));
+    addOutput(makeUnique<AudioNodeOutput>(this, 1));
 
     initialize();
 }
@@ -441,7 +441,7 @@ unsigned AudioBufferSourceNode::numberOfChannels()
     return output(0)->numberOfChannels();
 }
 
-ExceptionOr<void> AudioBufferSourceNode::start(double when, double grainOffset, Optional<double> optionalGrainDuration)
+ExceptionOr<void> AudioBufferSourceNode::startLater(double when, double grainOffset, Optional<double> optionalGrainDuration)
 {
     double grainDuration = 0;
     if (optionalGrainDuration)

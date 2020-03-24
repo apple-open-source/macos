@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "DebuggableInfoData.h"
 #include "MessageReceiver.h"
 #include "WebInspectorFrontendAPIDispatcher.h"
 #include <WebCore/InspectorFrontendClient.h>
@@ -48,10 +49,14 @@ public:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     // Called by RemoteWebInspectorUI messages
-    void initialize(const String& debuggableType, const String& backendCommandsURL);
+    void initialize(DebuggableInfoData&&, const String& backendCommandsURL);
     void didSave(const String& url);
     void didAppend(const String& url);
     void sendMessageToFrontend(const String&);
+
+#if ENABLE(INSPECTOR_TELEMETRY)
+    void setDiagnosticLoggingAvailable(bool);
+#endif
 
     // WebCore::InspectorFrontendClient
     void windowObjectCleared() override;
@@ -61,9 +66,13 @@ public:
     void moveWindowBy(float x, float y) override;
 
     bool isRemote() const final { return true; }
-    String localizedStringsURL() override;
-    String backendCommandsURL() override { return m_backendCommandsURL; }
-    String debuggableType() override { return m_debuggableType; }
+    String localizedStringsURL() const override;
+    String backendCommandsURL() const final { return m_backendCommandsURL; }
+    Inspector::DebuggableType debuggableType() const override;
+    String targetPlatformName() const override;
+    String targetBuildVersion() const override;
+    String targetProductVersion() const override;
+    bool targetIsSimulator() const override;
 
     WebCore::UserInterfaceLayoutDirection userInterfaceLayoutDirection() const override;
 
@@ -79,6 +88,12 @@ public:
     void showCertificate(const WebCore::CertificateInfo&) override;
     void sendMessageToBackend(const String&) override;
 
+#if ENABLE(INSPECTOR_TELEMETRY)
+    bool supportsDiagnosticLogging() override;
+    bool diagnosticLoggingAvailable() override { return m_diagnosticLoggingAvailable; }
+    void logDiagnosticEvent(const String& eventName, const WebCore::DiagnosticLoggingClient::ValueDictionary&) override;
+#endif
+
     bool canSave() override { return true; }
     bool isUnderTest() override { return false; }
     unsigned inspectionLevel() const override { return 1; }
@@ -92,8 +107,12 @@ private:
     WebPage& m_page;
     WebInspectorFrontendAPIDispatcher m_frontendAPIDispatcher;
     RefPtr<WebCore::InspectorFrontendHost> m_frontendHost;
-    String m_debuggableType;
+    DebuggableInfoData m_debuggableInfo;
     String m_backendCommandsURL;
+
+#if ENABLE(INSPECTOR_TELEMETRY)
+    bool m_diagnosticLoggingAvailable { false };
+#endif
 };
 
 } // namespace WebKit

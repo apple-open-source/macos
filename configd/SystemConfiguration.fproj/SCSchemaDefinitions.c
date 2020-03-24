@@ -19,6 +19,7 @@ const CFStringRef kSCPrefCurrentSet                                = CFSTR("Curr
 const CFStringRef kSCPrefNetworkServices                           = CFSTR("NetworkServices");
 const CFStringRef kSCPrefSets                                      = CFSTR("Sets");
 const CFStringRef kSCPrefSystem                                    = CFSTR("System");
+const CFStringRef kSCPrefVersion                                   = CFSTR("__VERSION__");
 const CFStringRef kSCPrefVirtualNetworkInterfaces                  = CFSTR("VirtualNetworkInterfaces");
 const CFStringRef kSCCompNetwork                                   = CFSTR("Network");
 const CFStringRef kSCCompService                                   = CFSTR("Service");

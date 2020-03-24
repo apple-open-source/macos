@@ -26,12 +26,12 @@
 #include "config.h"
 #include "WKFramePolicyListener.h"
 
-#include "APIWebsiteDataStore.h"
 #include "APIWebsitePolicies.h"
 #include "WKAPICast.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebFrameProxy.h"
 #include "WebProcessPool.h"
+#include "WebsiteDataStore.h"
 #include "WebsitePoliciesData.h"
 
 using namespace WebKit;
@@ -53,11 +53,6 @@ void WKFramePolicyListenerUseInNewProcess(WKFramePolicyListenerRef policyListene
 
 static void useWithPolicies(WKFramePolicyListenerRef policyListenerRef, WKWebsitePoliciesRef websitePolicies, ProcessSwapRequestedByClient processSwapRequestedByClient)
 {
-    if (auto* websiteDataStore = toImpl(websitePolicies)->websiteDataStore()) {
-        auto sessionID = websiteDataStore->websiteDataStore().sessionID();
-        RELEASE_ASSERT_WITH_MESSAGE(sessionID.isEphemeral() || sessionID == PAL::SessionID::defaultSessionID(), "If WebsitePolicies specifies a WebsiteDataStore, the data store's session must be default or non-persistent.");
-    }
-
     toImpl(policyListenerRef)->use(toImpl(websitePolicies), processSwapRequestedByClient);
 }
 

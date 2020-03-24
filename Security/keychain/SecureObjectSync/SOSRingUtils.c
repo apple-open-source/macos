@@ -82,12 +82,6 @@ SOSRingRef SOSRingAllocate(void) {
     return (SOSRingRef) CFTypeAllocate(SOSRing, struct __OpaqueSOSRing, ALLOCATOR);
 }
 
-__unused static bool addValueToDict(CFMutableDictionaryRef thedict, CFStringRef key, CFTypeRef value) {
-    if(!value) return false;
-    CFDictionaryAddValue(thedict, key, value);
-    return true;
-}
-
 static bool setValueInDict(CFMutableDictionaryRef thedict, CFStringRef key, CFTypeRef value) {
     if(!value) return false;
     CFDictionarySetValue(thedict, key, value);

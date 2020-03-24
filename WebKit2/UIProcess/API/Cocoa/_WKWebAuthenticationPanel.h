@@ -42,11 +42,24 @@ typedef NS_ENUM(NSInteger, _WKWebAuthenticationPanelResult) {
 typedef NS_ENUM(NSInteger, _WKWebAuthenticationPanelUpdate) {
     _WKWebAuthenticationPanelUpdateMultipleNFCTagsPresent,
     _WKWebAuthenticationPanelUpdateNoCredentialsFound,
+    _WKWebAuthenticationPanelUpdatePINBlocked,
+    _WKWebAuthenticationPanelUpdatePINAuthBlocked,
+    _WKWebAuthenticationPanelUpdatePINInvalid,
 } WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 typedef NS_ENUM(NSInteger, _WKWebAuthenticationResult) {
     _WKWebAuthenticationResultSucceeded,
     _WKWebAuthenticationResultFailed,
+} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+typedef NS_ENUM(NSInteger, _WKWebAuthenticationTransport) {
+    _WKWebAuthenticationTransportUSB,
+    _WKWebAuthenticationTransportNFC,
+} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
+typedef NS_ENUM(NSInteger, _WKWebAuthenticationType) {
+    _WKWebAuthenticationTypeCreate,
+    _WKWebAuthenticationTypeGet,
 } WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @protocol _WKWebAuthenticationPanelDelegate <NSObject>
@@ -55,6 +68,7 @@ typedef NS_ENUM(NSInteger, _WKWebAuthenticationResult) {
 
 - (void)panel:(_WKWebAuthenticationPanel *)panel updateWebAuthenticationPanel:(_WKWebAuthenticationPanelUpdate)update WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 - (void)panel:(_WKWebAuthenticationPanel *)panel dismissWebAuthenticationPanelWithResult:(_WKWebAuthenticationResult)result WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)panel:(_WKWebAuthenticationPanel *)panel requestPINWithRemainingRetries:(NSUInteger)retries completionHandler:(void (^)(NSString *))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @end
 
@@ -63,6 +77,8 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA))
 
 @property (nullable, nonatomic, weak) id <_WKWebAuthenticationPanelDelegate> delegate;
 @property (nonatomic, readonly, copy) NSString *relyingPartyID;
+@property (nonatomic, readonly, copy) NSArray *transports;
+@property (nonatomic, readonly) _WKWebAuthenticationType type;
 
 - (void)cancel;
 

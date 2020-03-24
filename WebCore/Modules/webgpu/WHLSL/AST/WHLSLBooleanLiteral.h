@@ -28,7 +28,7 @@
 #if ENABLE(WEBGPU)
 
 #include "WHLSLExpression.h"
-#include "WHLSLLexer.h"
+#include <wtf/FastMalloc.h>
 
 namespace WebCore {
 
@@ -36,15 +36,16 @@ namespace WHLSL {
 
 namespace AST {
 
-class BooleanLiteral : public Expression {
+class BooleanLiteral final : public Expression {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     BooleanLiteral(CodeLocation location, bool value)
-        : Expression(location)
+        : Expression(location, Kind::BooleanLiteral)
         , m_value(value)
     {
     }
 
-    virtual ~BooleanLiteral() = default;
+    ~BooleanLiteral() = default;
 
     BooleanLiteral(const BooleanLiteral&) = delete;
     BooleanLiteral(BooleanLiteral&&) = default;
@@ -53,8 +54,6 @@ public:
     BooleanLiteral& operator=(BooleanLiteral&&) = default;
 
     bool value() const { return m_value; }
-
-    bool isBooleanLiteral() const override { return true; }
 
     BooleanLiteral clone() const
     {
@@ -72,6 +71,8 @@ private:
 }
 
 }
+
+DEFINE_DEFAULT_DELETE(BooleanLiteral)
 
 SPECIALIZE_TYPE_TRAITS_WHLSL_EXPRESSION(BooleanLiteral, isBooleanLiteral())
 

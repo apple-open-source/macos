@@ -1,6 +1,7 @@
 #if OCTAGON
 
-@objcMembers class OctagonEscrowRecoveryTests: OctagonTestsBase {
+@objcMembers
+class OctagonEscrowRecoveryTests: OctagonTestsBase {
     override func setUp() {
         super.setUp()
     }
@@ -16,6 +17,7 @@
         ckacctinfo.accountPartition = .production
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
+        XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -40,8 +42,8 @@
         XCTAssertNotNil(entropy, "entropy should not be nil")
 
         // Fake that this peer also created some TLKShares for itself
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        try self.putSelfTLKShareInCloudKit(context: bottlerContext, zoneID: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: bottlerContext)
 
         let bottle = self.fakeCuttlefishServer.state.bottles[0]
 
@@ -53,7 +55,7 @@
         self.holdCloudKitFetches()
 
         // Note: CKKS will want to upload a TLKShare for its self
-        self.expectCKModifyKeyRecords(0, currentKeyPointerRecords: 0, tlkShareRecords: 1, zoneID: self.manateeZoneID)
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
 
         // Before you call joinWithBottle, you need to call fetchViableBottles.
         let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
@@ -65,7 +67,7 @@
         self.wait(for: [fetchViableExpectation], timeout: 10)
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
+        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNil(error, "error should be nil")
             joinWithBottleExpectation.fulfill()
         }
@@ -76,14 +78,13 @@
         self.wait(for: [joinWithBottleExpectation], timeout: 100)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             dumpCallback.fulfill()
@@ -100,6 +101,7 @@
 
         let initiatorContextID = "initiator-context-id"
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -126,7 +128,7 @@
         initiatorContext.startOctagonStateMachine()
         let restoreExpectation = self.expectation(description: "restore returns")
 
-        self.manager!.restore(OTCKContainerName, contextID: initiatorContextID, bottleSalt: self.otcliqueContext.altDSID, entropy: entropy!, bottleID: bottle.bottleID) { error in
+        self.manager!.restore(OTCKContainerName, contextID: initiatorContextID, bottleSalt: self.otcliqueContext.altDSID!, entropy: entropy!, bottleID: bottle.bottleID) { error in
             XCTAssertNil(error, "error should be nil")
             restoreExpectation.fulfill()
         }
@@ -135,14 +137,13 @@
         self.assertEnters(context: initiatorContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -162,6 +163,7 @@
         ckacctinfo.accountPartition = .production
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
+        XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -189,11 +191,11 @@
 
         // During the join, there's a CKKS key race
         self.silentFetchesAllowed = false
-        self.expectCKFetchAndRun(beforeFinished: {
-            self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-            self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
+        self.expectCKFetchAndRun {
+            self.putFakeKeyHierarchiesInCloudKit()
+            self.putFakeDeviceStatusesInCloudKit()
             self.silentFetchesAllowed = true
-        })
+        }
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
@@ -209,7 +211,7 @@
         self.wait(for: [fetchViableExpectation], timeout: 10)
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
+        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNil(error, "error should be nil")
             joinWithBottleExpectation.fulfill()
         }
@@ -225,6 +227,7 @@
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -252,7 +255,7 @@
         differentDevice.startOctagonStateMachine()
         differentDevice.join(withBottle: bottle.bottleID,
                             entropy: entropy!,
-                            bottleSalt: self.otcliqueContext.altDSID) { error in
+                            bottleSalt: self.otcliqueContext.altDSID!) { error in
                                 XCTAssertNil(error, "error should be nil")
                                 differentRestoreExpectation.fulfill()
         }
@@ -276,7 +279,7 @@
         let restoreExpectation = self.expectation(description: "restore returns")
         restoreContext.join(withBottle: bottle.bottleID,
                             entropy: entropy!,
-                            bottleSalt: self.otcliqueContext.altDSID) { error in
+                            bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNil(error, "error should be nil")
             restoreExpectation.fulfill()
         }
@@ -303,6 +306,7 @@
 
         let initiatorContextID = "initiator-context-id"
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -327,25 +331,25 @@
 
         initiatorContext.startOctagonStateMachine()
 
+        XCTAssertNoThrow(try initiatorContext.setCDPEnabled())
         self.assertEnters(context: initiatorContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let restoreExpectation = self.expectation(description: "restore returns")
 
-        self.manager!.restore(OTCKContainerName, contextID: initiatorContextID, bottleSalt: self.otcliqueContext.altDSID, entropy: entropy!, bottleID: bottle.bottleID) { error in
+        self.manager!.restore(OTCKContainerName, contextID: initiatorContextID, bottleSalt: self.otcliqueContext.altDSID!, entropy: entropy!, bottleID: bottle.bottleID) { error in
             XCTAssertNil(error, "error should be nil")
             restoreExpectation.fulfill()
         }
         self.wait(for: [restoreExpectation], timeout: 10)
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -359,6 +363,7 @@
 
         let initiatorContextID = "initiator-context-id"
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -386,7 +391,7 @@
 
         let restoreExpectation = self.expectation(description: "restore returns")
 
-        self.manager!.restore(OTCKContainerName, contextID: initiatorContextID, bottleSalt: self.otcliqueContext.altDSID, entropy: entropy!, bottleID: "bad escrow record ID") { error in
+        self.manager!.restore(OTCKContainerName, contextID: initiatorContextID, bottleSalt: self.otcliqueContext.altDSID!, entropy: entropy!, bottleID: "bad escrow record ID") { error in
             XCTAssertNotNil(error, "error should not be nil")
             restoreExpectation.fulfill()
         }
@@ -394,14 +399,13 @@
         self.assertEnters(context: initiatorContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 1, "should be 1 peer ids")
 
@@ -537,7 +541,8 @@
         // We will upload a new TLK for the new peer
         self.assertAllCKKSViewsUpload(tlkShares: 1)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
 
         self.sendContainerChangeWaitForFetch(context: initiatorContext)
 
@@ -547,11 +552,10 @@
         XCTAssertEqual(bottleIDs.partialRecoveryBottleIDs.count, 0, "partialRecoveryBottleIDs should be empty")
 
         let dumpExpectation = self.expectation(description: "dump callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, error in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, error in
             XCTAssertNil(error, "Should be no error dumping data")
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
             let peerID = egoSelf!["peerID"] as? String
             XCTAssertNotNil(peerID, "peerID should not be nil")
@@ -561,7 +565,7 @@
         self.wait(for: [dumpExpectation], timeout: 10)
 
         self.otControlCLI.status(OTCKContainerName,
-                                 context: newOTCliqueContext.context!,
+                                 context: newOTCliqueContext.context,
                                  json: false)
     }
 
@@ -673,6 +677,7 @@
 
         let initiatorContextID = "initiator-context-id"
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -699,7 +704,7 @@
         initiatorContext.startOctagonStateMachine()
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        initiatorContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
+        initiatorContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNotNil(error, "error should not be nil")
             joinWithBottleExpectation.fulfill()
         }
@@ -713,6 +718,7 @@
         let initiatorContextID = "initiator-context-id"
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -739,7 +745,7 @@
         initiatorContext.startOctagonStateMachine()
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        initiatorContext.join(withBottle: "sos peer id", entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
+        initiatorContext.join(withBottle: "sos peer id", entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNotNil(error, "error should be nil")
             joinWithBottleExpectation.fulfill()
         }
@@ -752,6 +758,7 @@
 
         let initiatorContextID = "initiator-context-id"
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -779,7 +786,7 @@
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        initiatorContext.join(withBottle: bottle.bottleID, entropy: Data(count: 72), bottleSalt: self.otcliqueContext.altDSID) { error in
+        initiatorContext.join(withBottle: bottle.bottleID, entropy: Data(count: 72), bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNotNil(error, "error should not be nil, when entropy is missing")
             joinWithBottleExpectation.fulfill()
         }
@@ -792,6 +799,7 @@
 
         let initiatorContextID = "initiator-context-id"
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -865,12 +873,12 @@
         bNewOTCliqueContext.otControl = self.otcliqueContext.otControl
         bNewOTCliqueContext.sbd = OTMockSecureBackup(bottleID: bottle.bottleID, entropy: entropy!)
 
-        let deviceBmockAuthKit = OTMockAuthKitAdapter(altDSID: self.otcliqueContext.altDSID,
+        let deviceBmockAuthKit = OTMockAuthKitAdapter(altDSID: self.otcliqueContext.altDSID!,
                                                       machineID: "b-machine-id",
                                                       otherDevices: [self.mockAuthKit.currentMachineID])
 
         let bRestoreContext = self.manager.context(forContainerName: OTCKContainerName,
-                                                   contextID: bNewOTCliqueContext.context!,
+                                                   contextID: bNewOTCliqueContext.context,
                                                    sosAdapter: OTSOSMissingAdapter(),
                                                    authKitAdapter: deviceBmockAuthKit,
                                                    lockStateTracker: self.lockStateTracker,
@@ -889,7 +897,7 @@
 
         // And introduce C, which will kick out A
         // During the next sign in, the machine ID list has changed to just the new one
-        let restoremockAuthKit = OTMockAuthKitAdapter(altDSID: self.otcliqueContext.altDSID,
+        let restoremockAuthKit = OTMockAuthKitAdapter(altDSID: self.otcliqueContext.altDSID!,
                                                       machineID: "c-machine-id",
                                                       otherDevices: [self.mockAuthKit.currentMachineID, deviceBmockAuthKit.currentMachineID])
         let restoreContext = self.manager.context(forContainerName: OTCKContainerName,
@@ -922,14 +930,13 @@
         self.assertConsidersSelfTrusted(context: restoreContext)
 
         let restoreDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: newOTCliqueContext.context!) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: newOTCliqueContext.context) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 3, "should be 3 peer id included")
 
@@ -972,6 +979,7 @@
         ckacctinfo.accountPartition = .production
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
+        XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -996,8 +1004,8 @@
         XCTAssertNotNil(entropy, "entropy should not be nil")
 
         // Fake that this peer also created some TLKShares for itself
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        try self.putSelfTLKShareInCloudKit(context: bottlerContext, zoneID: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: bottlerContext)
 
         let bottle = self.fakeCuttlefishServer.state.bottles[0]
 
@@ -1009,10 +1017,10 @@
         self.holdCloudKitFetches()
 
         // Note: CKKS will want to upload a TLKShare for its self
-        self.expectCKModifyKeyRecords(0, currentKeyPointerRecords: 0, tlkShareRecords: 1, zoneID: self.manateeZoneID)
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
+        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNil(error, "error should be nil")
             joinWithBottleExpectation.fulfill()
         }
@@ -1023,14 +1031,13 @@
         self.wait(for: [joinWithBottleExpectation], timeout: 100)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             dumpCallback.fulfill()
@@ -1098,6 +1105,7 @@
         ckacctinfo.accountPartition = .production
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
+        XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -1122,23 +1130,24 @@
         XCTAssertNotNil(entropy, "entropy should not be nil")
 
         // Fake that this peer also created some TLKShares for itself
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        try self.putSelfTLKShareInCloudKit(context: bottlerContext, zoneID: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: bottlerContext)
 
         let bottle = self.fakeCuttlefishServer.state.bottles[0]
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         // Try to enforce that that CKKS doesn't know about the key hierarchy until Octagon asks it
         self.holdCloudKitFetches()
 
         // Note: CKKS will want to upload a TLKShare for its self
-        self.expectCKModifyKeyRecords(0, currentKeyPointerRecords: 0, tlkShareRecords: 1, zoneID: self.manateeZoneID)
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
+        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNil(error, "error should be nil")
             joinWithBottleExpectation.fulfill()
         }
@@ -1149,14 +1158,13 @@
         self.wait(for: [joinWithBottleExpectation], timeout: 100)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             dumpCallback.fulfill()
@@ -1224,6 +1232,7 @@
         ckacctinfo.accountPartition = .production
 
         bottlerContext.cloudkitAccountStateChange(nil, to: ckacctinfo)
+        XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -1248,8 +1257,8 @@
         XCTAssertNotNil(entropy, "entropy should not be nil")
 
         // Fake that this peer also created some TLKShares for itself
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        try self.putSelfTLKShareInCloudKit(context: bottlerContext, zoneID: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: bottlerContext)
 
         let bottle = self.fakeCuttlefishServer.state.bottles[0]
 
@@ -1261,10 +1270,10 @@
         self.holdCloudKitFetches()
 
         // Note: CKKS will want to upload a TLKShare for its self
-        self.expectCKModifyKeyRecords(0, currentKeyPointerRecords: 0, tlkShareRecords: 1, zoneID: self.manateeZoneID)
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
+        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNil(error, "error should be nil")
             joinWithBottleExpectation.fulfill()
         }
@@ -1277,15 +1286,14 @@
         var egoPeerID: String?
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
             egoPeerID = egoSelf!["peerID"] as? String
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             dumpCallback.fulfill()
@@ -1345,6 +1353,40 @@
         }
         self.wait(for: [FetchAllViableBottles], timeout: 10)
         self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 10)
+    }
+
+    func testRecoverTLKSharesSendByPeers() throws {
+        // First, set up the world: two peers, one of which has sent TLKs tto itself and the other
+        let noSelfSharesContext = self.makeInitiatorContext(contextID: "noShares", authKitAdapter: self.mockAuthKit2)
+        let allSharesContext = self.makeInitiatorContext(contextID: "allShares", authKitAdapter: self.mockAuthKit3)
+
+        self.startCKAccountStatusMock()
+        let noSelfSharesPeerID = self.assertResetAndBecomeTrusted(context: noSelfSharesContext)
+        let allSharesPeerID = self.assertJoinViaEscrowRecovery(joiningContext: allSharesContext, sponsor: noSelfSharesContext)
+
+        self.sendContainerChangeWaitForFetch(context: noSelfSharesContext)
+        self.assertEnters(context: noSelfSharesContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: noSelfSharesPeerID, opinion: .trusts, target: allSharesPeerID)),
+                       "noShares should trust allShares")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: noSelfSharesPeerID, opinion: .trusts, target: noSelfSharesPeerID)),
+                      "No shares should trust itself")
+
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: allSharesContext)
+        try self.putAllTLKSharesInCloudKit(to: noSelfSharesContext, from: allSharesContext)
+
+        try self.ckksZones.forEach { zone in
+            XCTAssertFalse(try self.tlkShareInCloudKit(receiverPeerID: noSelfSharesPeerID, senderPeerID: noSelfSharesPeerID, zoneID: zone as! CKRecordZone.ID), "Should not have self shares for noSelfShares")
+            XCTAssertTrue(try self.tlkShareInCloudKit(receiverPeerID: noSelfSharesPeerID, senderPeerID: allSharesPeerID, zoneID: zone as! CKRecordZone.ID), "Should have a share for noSelfShares from allShares")
+        }
+
+        // Now, recover from noSelfShares
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
+        self.assertJoinViaEscrowRecovery(joiningContext: self.cuttlefishContext, sponsor: noSelfSharesContext)
+        // And CKKS should enter ready!
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
     }
 }
 

@@ -5,6 +5,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         _ = try self.cuttlefishContext.accountAvailable("13453464")
@@ -21,6 +22,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         self.cuttlefishContext.rpcResetAndEstablish(.testGenerated) { resetError in
@@ -37,6 +39,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         self.cuttlefishContext.rpcResetAndEstablish(.testGenerated) { resetError in
@@ -58,7 +61,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         // Before resetAndEstablish, there shouldn't be any stored account state
-               XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName), "Before doing anything, loading a non-existent account state should fail")
+        XCTAssertThrowsError(try OTAccountMetadataClassC.loadFromKeychain(forContainer: containerName, contextID: contextName), "Before doing anything, loading a non-existent account state should fail")
 
         let resetAndEstablishExpectation = self.expectation(description: "resetAndEstablish callback occurs")
         let escrowRequestNotification = expectation(forNotification: OTMockEscrowRequestNotification,
@@ -94,6 +97,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
@@ -116,7 +120,7 @@ class OctagonResetTests: OctagonTestsBase {
         let waitfortrusts = self.ckksViews.compactMap { view in
             (view as! CKKSKeychainView).keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] as? CKKSCondition
         }
-        XCTAssert(waitfortrusts.count > 0, "Should have at least one waitfortrust condition")
+        XCTAssert(!waitfortrusts.isEmpty, "Should have at least one waitfortrust condition")
 
         let resetAndEstablishExpectation = self.expectation(description: "resetAndEstablish callback occurs")
         let escrowRequestNotification = expectation(forNotification: OTMockEscrowRequestNotification,
@@ -143,14 +147,15 @@ class OctagonResetTests: OctagonTestsBase {
     }
 
     func testOctagonResetAlsoResetsCKKSViewsMissingTLKs() {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
 
-        let zoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
+        let zoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
         XCTAssertNotNil(zoneKeys, "Should have some zone keys")
         XCTAssertNotNil(zoneKeys?.tlk, "Should have a tlk in the original key set")
 
         self.startCKAccountStatusMock()
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTrust, within: 10 * NSEC_PER_SEC)
 
@@ -164,7 +169,7 @@ class OctagonResetTests: OctagonTestsBase {
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        let laterZoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
+        let laterZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
         XCTAssertNotNil(laterZoneKeys, "Should have some zone keys")
         XCTAssertNotNil(laterZoneKeys?.tlk, "Should have a tlk in the newly created keyset")
         XCTAssertNotEqual(zoneKeys?.tlk?.uuid, laterZoneKeys?.tlk?.uuid, "CKKS zone should now have different keys")
@@ -172,23 +177,39 @@ class OctagonResetTests: OctagonTestsBase {
 
     func testOctagonResetIgnoresOldRemoteDevicesWithKeysAndResetsCKKS() {
         // CKKS has no keys, and there's another device claiming to have them already, but it's old
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putFakeDeviceStatusesInCloudKit()
 
+        #if !os(tvOS)
         (self.zones![self.manateeZoneID!]! as! FakeCKZone).currentDatabase.allValues.forEach { record in
             let r = record as! CKRecord
-            if(r.recordType == SecCKRecordDeviceStateType) {
+            if r.recordType == SecCKRecordDeviceStateType {
+                r.creationDate = NSDate.distantPast
+                r.modificationDate = NSDate.distantPast
+            }
+        }
+        #endif
+        (self.zones![self.limitedPeersAllowedZoneID!]! as! FakeCKZone).currentDatabase.allValues.forEach { record in
+            let r = record as! CKRecord
+            if r.recordType == SecCKRecordDeviceStateType {
                 r.creationDate = NSDate.distantPast
                 r.modificationDate = NSDate.distantPast
             }
         }
 
+        #if !os(tvOS)
         let zoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
-        XCTAssertNotNil(zoneKeys, "Should have some zone keys")
-        XCTAssertNotNil(zoneKeys?.tlk, "Should have a tlk in the original key set")
+        XCTAssertNotNil(zoneKeys, "Should have some zone keys for Manatee")
+        XCTAssertNotNil(zoneKeys?.tlk, "Should have a tlk in the original key set for Manatee")
+        #endif
+
+        let lpZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
+        XCTAssertNotNil(lpZoneKeys, "Should have some zone keys for LimitedPeers")
+        XCTAssertNotNil(lpZoneKeys?.tlk, "Should have a tlk in the original key set for LimitedPeers")
 
         self.startCKAccountStatusMock()
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         self.silentZoneDeletesAllowed = true
@@ -199,25 +220,42 @@ class OctagonResetTests: OctagonTestsBase {
             XCTFail("failed to make new friends: \(error)")
         }
 
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
+        #if !os(tvOS)
         let laterZoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
-        XCTAssertNotNil(laterZoneKeys, "Should have some zone keys")
-        XCTAssertNotNil(laterZoneKeys?.tlk, "Should have a tlk in the newly created keyset")
-        XCTAssertNotEqual(zoneKeys?.tlk?.uuid, laterZoneKeys?.tlk?.uuid, "CKKS zone should now have different keys")
+        XCTAssertNotNil(laterZoneKeys, "Should have some zone keys for Manatee")
+        XCTAssertNotNil(laterZoneKeys?.tlk, "Should have a tlk in the newly created keyset for Manatee")
+        XCTAssertNotEqual(zoneKeys?.tlk?.uuid, laterZoneKeys?.tlk?.uuid, "CKKS zone should now have different keys for Manatee")
+        #else
+        let laterZoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
+        XCTAssertNil(laterZoneKeys, "Should have no Manatee zone keys for aTV")
+        #endif
+
+        let laterLpZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
+        XCTAssertNotNil(laterLpZoneKeys, "Should have some zone keys for LimitedPeers")
+        XCTAssertNotNil(laterLpZoneKeys?.tlk, "Should have a tlk in the newly created keyset for LimitedPeers")
+        XCTAssertNotEqual(lpZoneKeys?.tlk?.uuid, laterLpZoneKeys?.tlk?.uuid, "CKKS zone should now have different keys for LimitedPeers")
     }
 
     func testOctagonResetWithRemoteDevicesWithKeysDoesNotResetCKKS() {
         // CKKS has no keys, and there's another device claiming to have them already, so CKKS won't immediately reset it
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putFakeDeviceStatusesInCloudKit()
 
+        #if !os(tvOS)
         let zoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
         XCTAssertNotNil(zoneKeys, "Should have some zone keys")
         XCTAssertNotNil(zoneKeys?.tlk, "Should have a tlk in the original key set")
+        #endif
+
+        let lpZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
+        XCTAssertNotNil(lpZoneKeys, "Should have some zone keys for LimitedPeers")
+        XCTAssertNotNil(lpZoneKeys?.tlk, "Should have a tlk in the original key set for LimitedPeers")
 
         self.startCKAccountStatusMock()
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         self.silentZoneDeletesAllowed = true
@@ -230,23 +268,40 @@ class OctagonResetTests: OctagonTestsBase {
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLK, within: 10 * NSEC_PER_SEC)
 
+        #if !os(tvOS)
         let laterZoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
         XCTAssertNotNil(laterZoneKeys, "Should have some zone keys")
         XCTAssertNotNil(laterZoneKeys?.tlk, "Should have a tlk in the newly created keyset")
         XCTAssertEqual(zoneKeys?.tlk?.uuid, laterZoneKeys?.tlk?.uuid, "CKKS zone should now have the same keys")
+        #else
+        let laterZoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
+        XCTAssertNil(laterZoneKeys, "Should have no Manatee zone keys for aTV")
+        #endif
+
+        let lpLaterZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
+        XCTAssertNotNil(lpLaterZoneKeys, "Should have some zone keys for LimitedPeersAllowed")
+        XCTAssertNotNil(lpLaterZoneKeys?.tlk, "Should have a tlk in the newly created keyset for LimitedPeersAllowed")
+        XCTAssertEqual(lpZoneKeys?.tlk?.uuid, lpLaterZoneKeys?.tlk?.uuid, "CKKS zone should now have the same keys for LimitedPeersAllowed")
     }
 
     func testOctagonResetWithTLKsDoesNotResetCKKS() {
         // CKKS has the keys keys
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
+        #if !os(tvOS)
         let zoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
         XCTAssertNotNil(zoneKeys, "Should have some zone keys")
         XCTAssertNotNil(zoneKeys?.tlk, "Should have a tlk in the original key set")
+        #endif
+
+        let lpZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
+        XCTAssertNotNil(lpZoneKeys, "Should have some zone keys for LimitedPeers")
+        XCTAssertNotNil(lpZoneKeys?.tlk, "Should have a tlk in the original key set for LimitedPeers")
 
         self.startCKAccountStatusMock()
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
@@ -258,10 +313,20 @@ class OctagonResetTests: OctagonTestsBase {
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
+        #if !os(tvOS)
         let laterZoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
         XCTAssertNotNil(laterZoneKeys, "Should have some zone keys")
         XCTAssertNotNil(laterZoneKeys?.tlk, "Should have a tlk in the newly created keyset")
         XCTAssertEqual(zoneKeys?.tlk?.uuid, laterZoneKeys?.tlk?.uuid, "CKKS zone should now have the same keys")
+        #else
+        let laterZoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
+        XCTAssertNil(laterZoneKeys, "Should have no Manatee zone keys for aTV")
+        #endif
+
+        let lpLaterZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
+        XCTAssertNotNil(lpLaterZoneKeys, "Should have some zone keys for LimitedPeersAllowed")
+        XCTAssertNotNil(lpLaterZoneKeys?.tlk, "Should have a tlk in the newly created keyset for LimitedPeersAllowed")
+        XCTAssertEqual(lpZoneKeys?.tlk?.uuid, lpLaterZoneKeys?.tlk?.uuid, "CKKS zone should now have the same keys for LimitedPeersAllowed")
     }
 
     func testOctagonResetAndEstablishFail() throws {
@@ -269,6 +334,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         _ = try self.cuttlefishContext.accountAvailable("13453464")
@@ -297,6 +363,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         _ = try self.cuttlefishContext.accountAvailable("13453464")
@@ -322,13 +389,14 @@ class OctagonResetTests: OctagonTestsBase {
     }
 
     func testResetReasonUserInitiatedReset() throws {
-          // Make sure if establish fail we end up in untrusted instead of error
-          self.startCKAccountStatusMock()
+        // Make sure if establish fail we end up in untrusted instead of error
+        self.startCKAccountStatusMock()
 
-          self.cuttlefishContext.startOctagonStateMachine()
-          self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-          _ = try self.cuttlefishContext.accountAvailable("13453464")
+        _ = try self.cuttlefishContext.accountAvailable("13453464")
 
         let resetExpectation = self.expectation(description: "resetExpectation")
 
@@ -366,6 +434,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         _ = try self.cuttlefishContext.accountAvailable("13453464")
@@ -404,6 +473,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let initiatorContext = self.manager.context(forContainerName: OTCKContainerName,
@@ -448,6 +518,7 @@ class OctagonResetTests: OctagonTestsBase {
         let contextName = OTDefaultContext
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.startCKAccountStatusMock()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -497,10 +568,9 @@ class OctagonResetTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) {
-            dump, _ in
+        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
             dumpCallback.fulfill()
         }
@@ -513,6 +583,7 @@ class OctagonResetTests: OctagonTestsBase {
     func testLegacyJoinCircleDoesNotReset() throws {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
@@ -556,6 +627,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         _ = try self.cuttlefishContext.accountAvailable("13453464")
@@ -577,6 +649,62 @@ class OctagonResetTests: OctagonTestsBase {
         self.wait(for: [establishAndResetExpectation, resetExpectation], timeout: 10)
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+    }
+
+    func testCliqueResetAllSPI() throws {
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+        OctagonSetSOSFeatureEnabled(false)
+
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let establishAndResetExpectation = self.expectation(description: "resetExpectation")
+        let clique: OTClique
+        let otcliqueContext = OTConfigurationContext()
+        var firstCliqueIdentifier: String?
+
+        otcliqueContext.context = OTDefaultContext
+        otcliqueContext.dsid = "13453464"
+        otcliqueContext.altDSID = self.mockAuthKit.altDSID!
+        otcliqueContext.authenticationAppleID = "appleID"
+        otcliqueContext.passwordEquivalentToken = "petpetpetpetpet"
+        otcliqueContext.otControl = self.otControl
+        otcliqueContext.ckksControl = self.ckksControl
+        otcliqueContext.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
+
+        do {
+            clique = try OTClique.newFriends(withContextData: otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+            firstCliqueIdentifier = clique.cliqueMemberIdentifier
+            establishAndResetExpectation.fulfill()
+        } catch {
+            XCTFail("Shouldn't have errored making new friends everything: \(error)")
+            throw error
+        }
+        self.wait(for: [establishAndResetExpectation], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+
+        self.silentZoneDeletesAllowed = true
+
+        let newClique: OTClique
+        do {
+            newClique = try OTClique.resetProtectedData(otcliqueContext)
+            XCTAssertNotEqual(newClique.cliqueMemberIdentifier, firstCliqueIdentifier, "clique identifiers should be different")
+        } catch {
+            XCTFail("Shouldn't have errored resetting everything: \(error)")
+            throw error
+        }
+        XCTAssertNotNil(newClique, "newClique should not be nil")
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
     }
 }

@@ -1542,6 +1542,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		6C1C283E22FB822900E0AC67 /* su_entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = su_entitlements.plist; sourceTree = "<group>"; };
 		C6868576154725700025D623 /* systime */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = systime; sourceTree = BUILT_PRODUCTS_DIR; };
 		C6868579154725700025D623 /* systime.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = systime.c; sourceTree = "<group>"; };
 		C686857B154725700025D623 /* systime.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = systime.1; sourceTree = "<group>"; };
@@ -2679,6 +2680,7 @@
 		FCBA13EE14A141A300AA698B /* su */ = {
 			isa = PBXGroup;
 			children = (
+				6C1C283E22FB822900E0AC67 /* su_entitlements.plist */,
 				FCBA13F014A141A300AA698B /* su.1 */,
 				FCBA13F114A141A300AA698B /* su.c */,
 				FCBA13F214A141A300AA698B /* su.pam */,
@@ -5296,6 +5298,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = su/su_entitlements.plist;
 				INSTALL_MODE_FLAG = "u+s,u+w,go-w,a+rX";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

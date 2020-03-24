@@ -13,22 +13,25 @@ list(APPEND WTF_PUBLIC_HEADERS
     cf/CFURLExtras.h
     cf/TypeCastsCF.h
 
+    cocoa/CrashReporter.h
     cocoa/Entitlements.h
     cocoa/NSURLExtras.h
     cocoa/SoftLinking.h
 
     darwin/WeakLinking.h
 
-    mac/AppKitCompatibilityDeclarations.h
-
     spi/cf/CFBundleSPI.h
     spi/cf/CFStringSPI.h
 
     spi/cocoa/CFXPCBridgeSPI.h
+    spi/cocoa/CrashReporterClientSPI.h
+    spi/cocoa/MachVMSPI.h
+    spi/cocoa/NSLocaleSPI.h
     spi/cocoa/SecuritySPI.h
     spi/cocoa/objcSPI.h
 
     spi/darwin/DataVaultSPI.h
+    spi/darwin/ProcessMemoryFootprint.h
     spi/darwin/SandboxSPI.h
     spi/darwin/XPCSPI.h
     spi/darwin/dyldSPI.h
@@ -51,13 +54,16 @@ list(APPEND WTF_SOURCES
 
     cocoa/AutodrainedPool.cpp
     cocoa/CPUTimeCocoa.cpp
+    cocoa/CrashReporter.cpp
     cocoa/Entitlements.mm
     cocoa/FileSystemCocoa.mm
+    cocoa/LanguageCocoa.mm
     cocoa/MachSendRight.cpp
     cocoa/MainThreadCocoa.mm
     cocoa/MemoryFootprintCocoa.cpp
     cocoa/MemoryPressureHandlerCocoa.mm
     cocoa/NSURLExtras.mm
+    cocoa/ResourceUsageCocoa.cpp
     cocoa/URLCocoa.mm
     cocoa/WorkQueueCocoa.cpp
 

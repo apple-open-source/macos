@@ -431,12 +431,12 @@ aix.i: $(srcdir)/aix.c $(incdir)/compat/stdbool.h $(incdir)/sudo_compat.h \
 aix.plog: aix.i
 	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/aix.c --i-file $< --output-file $@
 arc4random.lo: $(srcdir)/arc4random.c $(incdir)/sudo_compat.h \
-               $(incdir)/sudo_rand.h $(srcdir)/arc4random.h \
-               $(srcdir)/chacha_private.h $(top_builddir)/config.h
+               $(incdir)/sudo_rand.h $(srcdir)/chacha_private.h \
+               $(top_builddir)/config.h
 	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c -o $@ $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/arc4random.c
 arc4random.i: $(srcdir)/arc4random.c $(incdir)/sudo_compat.h \
-               $(incdir)/sudo_rand.h $(srcdir)/arc4random.h \
-               $(srcdir)/chacha_private.h $(top_builddir)/config.h
+               $(incdir)/sudo_rand.h $(srcdir)/chacha_private.h \
+               $(top_builddir)/config.h
 	$(CC) -E -o $@ $(CPPFLAGS) $<
 arc4random.plog: arc4random.i
 	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/arc4random.c --i-file $< --output-file $@
@@ -678,6 +678,18 @@ gettime.i: $(srcdir)/gettime.c $(incdir)/compat/stdbool.h \
 	$(CC) -E -o $@ $(CPPFLAGS) $<
 gettime.plog: gettime.i
 	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/gettime.c --i-file $< --output-file $@
+getusershell.lo: $(srcdir)/getusershell.c $(incdir)/compat/stdbool.h \
+                 $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
+                 $(incdir)/sudo_gettext.h $(incdir)/sudo_queue.h \
+                 $(incdir)/sudo_util.h $(top_builddir)/config.h
+	$(LIBTOOL) $(LTFLAGS) --mode=compile $(CC) -c -o $@ $(CPPFLAGS) $(CFLAGS) $(ASAN_CFLAGS) $(PIE_CFLAGS) $(SSP_CFLAGS) $(srcdir)/getusershell.c
+getusershell.i: $(srcdir)/getusershell.c $(incdir)/compat/stdbool.h \
+                 $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
+                 $(incdir)/sudo_gettext.h $(incdir)/sudo_queue.h \
+                 $(incdir)/sudo_util.h $(top_builddir)/config.h
+	$(CC) -E -o $@ $(CPPFLAGS) $<
+getusershell.plog: getusershell.i
+	rm -f $@; pvs-studio --cfg $(PVS_CFG) --sourcetree-root $(top_srcdir) --skip-cl-exe yes --source-file $(srcdir)/getusershell.c --i-file $< --output-file $@
 gidlist.lo: $(srcdir)/gidlist.c $(incdir)/compat/stdbool.h \
             $(incdir)/sudo_compat.h $(incdir)/sudo_debug.h \
             $(incdir)/sudo_fatal.h $(incdir)/sudo_gettext.h \

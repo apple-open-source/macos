@@ -41,12 +41,8 @@ WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& 
     : WebEvent(type, modifiers, timestamp)
     , m_text(text)
     , m_unmodifiedText(unmodifiedText)
-#if ENABLE(KEYBOARD_KEY_ATTRIBUTE)
     , m_key(key)
-#endif
-#if ENABLE(KEYBOARD_CODE_ATTRIBUTE)
     , m_code(code)
-#endif
     , m_keyIdentifier(keyIdentifier)
     , m_windowsVirtualKeyCode(windowsVirtualKeyCode)
     , m_nativeVirtualKeyCode(nativeVirtualKeyCode)
@@ -62,7 +58,7 @@ WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& 
 
 #elif PLATFORM(GTK)
 
-WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool handledByInputMethod, Vector<String>&& commands, bool isKeypad, OptionSet<Modifier> modifiers, WallTime timestamp)
+WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool handledByInputMethod, Optional<Vector<WebCore::CompositionUnderline>>&& preeditUnderlines, Optional<EditingRange>&& preeditSelectionRange, Vector<String>&& commands, bool isKeypad, OptionSet<Modifier> modifiers, WallTime timestamp)
     : WebEvent(type, modifiers, timestamp)
     , m_text(text)
     , m_unmodifiedText(text)
@@ -73,6 +69,8 @@ WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& 
     , m_nativeVirtualKeyCode(nativeVirtualKeyCode)
     , m_macCharCode(0)
     , m_handledByInputMethod(handledByInputMethod)
+    , m_preeditUnderlines(WTFMove(preeditUnderlines))
+    , m_preeditSelectionRange(WTFMove(preeditSelectionRange))
     , m_commands(WTFMove(commands))
     , m_isAutoRepeat(false)
     , m_isKeypad(isKeypad)
@@ -87,12 +85,8 @@ WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& 
     : WebEvent(type, modifiers, timestamp)
     , m_text(text)
     , m_unmodifiedText(unmodifiedText)
-#if ENABLE(KEYBOARD_KEY_ATTRIBUTE)
     , m_key(key)
-#endif
-#if ENABLE(KEYBOARD_CODE_ATTRIBUTE)
     , m_code(code)
-#endif
     , m_keyIdentifier(keyIdentifier)
     , m_windowsVirtualKeyCode(windowsVirtualKeyCode)
     , m_nativeVirtualKeyCode(nativeVirtualKeyCode)
@@ -109,20 +103,19 @@ WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& 
 
 #elif USE(LIBWPE)
 
-WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool isKeypad, OptionSet<Modifier> modifiers, WallTime timestamp)
+WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, bool handledByInputMethod, Optional<Vector<WebCore::CompositionUnderline>>&& preeditUnderlines, Optional<EditingRange>&& preeditSelectionRange, bool isKeypad, OptionSet<Modifier> modifiers, WallTime timestamp)
     : WebEvent(type, modifiers, timestamp)
     , m_text(text)
     , m_unmodifiedText(text)
-#if ENABLE(KEYBOARD_KEY_ATTRIBUTE)
     , m_key(key)
-#endif
-#if ENABLE(KEYBOARD_CODE_ATTRIBUTE)
     , m_code(code)
-#endif
     , m_keyIdentifier(keyIdentifier)
     , m_windowsVirtualKeyCode(windowsVirtualKeyCode)
     , m_nativeVirtualKeyCode(nativeVirtualKeyCode)
     , m_macCharCode(0)
+    , m_handledByInputMethod(handledByInputMethod)
+    , m_preeditUnderlines(WTFMove(preeditUnderlines))
+    , m_preeditSelectionRange(WTFMove(preeditSelectionRange))
     , m_isAutoRepeat(false)
     , m_isKeypad(isKeypad)
     , m_isSystemKey(false)
@@ -132,10 +125,12 @@ WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& 
 
 #else
 
-WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& unmodifiedText, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, int macCharCode, bool isAutoRepeat, bool isKeypad, bool isSystemKey, OptionSet<Modifier> modifiers, WallTime timestamp)
+WebKeyboardEvent::WebKeyboardEvent(Type type, const String& text, const String& unmodifiedText, const String& key, const String& code, const String& keyIdentifier, int windowsVirtualKeyCode, int nativeVirtualKeyCode, int macCharCode, bool isAutoRepeat, bool isKeypad, bool isSystemKey, OptionSet<Modifier> modifiers, WallTime timestamp)
     : WebEvent(type, modifiers, timestamp)
     , m_text(text)
     , m_unmodifiedText(unmodifiedText)
+    , m_key(key)
+    , m_code(code)
     , m_keyIdentifier(keyIdentifier)
     , m_windowsVirtualKeyCode(windowsVirtualKeyCode)
     , m_nativeVirtualKeyCode(nativeVirtualKeyCode)
@@ -159,18 +154,18 @@ void WebKeyboardEvent::encode(IPC::Encoder& encoder) const
 
     encoder << m_text;
     encoder << m_unmodifiedText;
-#if ENABLE(KEYBOARD_KEY_ATTRIBUTE)
     encoder << m_key;
-#endif
-#if ENABLE(KEYBOARD_CODE_ATTRIBUTE)
     encoder << m_code;
-#endif
     encoder << m_keyIdentifier;
     encoder << m_windowsVirtualKeyCode;
     encoder << m_nativeVirtualKeyCode;
     encoder << m_macCharCode;
-#if USE(APPKIT) || USE(UIKIT_KEYBOARD_ADDITIONS) || PLATFORM(GTK)
+#if USE(APPKIT) || USE(UIKIT_KEYBOARD_ADDITIONS) || PLATFORM(GTK) || USE(LIBWPE)
     encoder << m_handledByInputMethod;
+#endif
+#if PLATFORM(GTK) || USE(LIBWPE)
+    encoder << m_preeditUnderlines;
+    encoder << m_preeditSelectionRange;
 #endif
 #if USE(APPKIT) || PLATFORM(GTK)
     encoder << m_commands;
@@ -189,14 +184,10 @@ bool WebKeyboardEvent::decode(IPC::Decoder& decoder, WebKeyboardEvent& result)
         return false;
     if (!decoder.decode(result.m_unmodifiedText))
         return false;
-#if ENABLE(KEYBOARD_KEY_ATTRIBUTE)
     if (!decoder.decode(result.m_key))
         return false;
-#endif
-#if ENABLE(KEYBOARD_CODE_ATTRIBUTE)
     if (!decoder.decode(result.m_code))
         return false;
-#endif
     if (!decoder.decode(result.m_keyIdentifier))
         return false;
     if (!decoder.decode(result.m_windowsVirtualKeyCode))
@@ -205,8 +196,14 @@ bool WebKeyboardEvent::decode(IPC::Decoder& decoder, WebKeyboardEvent& result)
         return false;
     if (!decoder.decode(result.m_macCharCode))
         return false;
-#if USE(APPKIT) || USE(UIKIT_KEYBOARD_ADDITIONS) || PLATFORM(GTK)
+#if USE(APPKIT) || USE(UIKIT_KEYBOARD_ADDITIONS) || PLATFORM(GTK) || USE(LIBWPE)
     if (!decoder.decode(result.m_handledByInputMethod))
+        return false;
+#endif
+#if PLATFORM(GTK) || USE(LIBWPE)
+    if (!decoder.decode(result.m_preeditUnderlines))
+        return false;
+    if (!decoder.decode(result.m_preeditSelectionRange))
         return false;
 #endif
 #if USE(APPKIT) || PLATFORM(GTK)

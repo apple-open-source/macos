@@ -34,7 +34,7 @@ namespace WebKit {
 
 class MockHidService final : public HidService {
 public:
-    MockHidService(Observer&, const MockWebAuthenticationConfiguration&);
+    MockHidService(Observer&, const WebCore::MockWebAuthenticationConfiguration&);
 
 private:
     void platformStartDiscovery() final;

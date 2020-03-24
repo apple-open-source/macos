@@ -52,7 +52,7 @@
         return nil;
 
     _page = WTFMove(page);
-    _observer = std::make_unique<WebKit::PageLoadStateObserver>(self, @"URL");
+    _observer = makeUnique<WebKit::PageLoadStateObserver>(self, @"URL");
     _page->pageLoadState().addObserver(*_observer);
 
     return self;
@@ -132,9 +132,8 @@ _WKRemoteObjectRegistry *WKPageGetObjectRegistry(WKPageRef pageRef)
 bool WKPageIsURLKnownHSTSHost(WKPageRef page, WKURLRef url)
 {
     WebKit::WebPageProxy* webPageProxy = WebKit::toImpl(page);
-    bool privateBrowsingEnabled = webPageProxy->pageGroup().preferences().privateBrowsingEnabled();
 
-    return webPageProxy->process().processPool().isURLKnownHSTSHost(WebKit::toImpl(url)->string(), privateBrowsingEnabled);
+    return webPageProxy->process().processPool().isURLKnownHSTSHost(WebKit::toImpl(url)->string());
 }
 
 WKNavigation *WKPageLoadURLRequestReturningNavigation(WKPageRef pageRef, WKURLRequestRef urlRequestRef)

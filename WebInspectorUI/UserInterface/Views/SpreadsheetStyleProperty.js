@@ -73,8 +73,6 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
                 this._toggle();
                 this._select();
             }, this._element);
-
-            this._element.copyHandler = this;
         }
     }
 
@@ -182,7 +180,10 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         colonElement.classList.add("colon");
         colonElement.textContent = ": ";
 
-        this._valueElement = this._contentElement.appendChild(document.createElement("span"));
+        let valueContainer = this._contentElement.appendChild(document.createElement("span"));
+        valueContainer.className = "value-container";
+
+        this._valueElement = valueContainer.appendChild(document.createElement("span"));
         this._valueElement.classList.add("value");
         this._renderValue(this._property.rawValue);
 
@@ -204,7 +205,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
             this._setupJumpToSymbol(this._valueElement);
         }
 
-        let semicolonElement = this._contentElement.appendChild(document.createElement("span"));
+        let semicolonElement = valueContainer.appendChild(document.createElement("span"));
         semicolonElement.classList.add("semicolon");
         semicolonElement.textContent = ";";
 
@@ -214,7 +215,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         } else
             this._contentElement.append(" */");
 
-        if (!this._property.implicit && this._property.ownerStyle.type === WI.CSSStyleDeclaration.Type.Computed) {
+        if (!this._property.implicit && this._property.ownerStyle.type === WI.CSSStyleDeclaration.Type.Computed && !this._property.isShorthand) {
             let effectiveProperty = this._property.ownerStyle.nodeStyles.effectivePropertyForName(this._property.name);
             if (effectiveProperty && !effectiveProperty.styleSheetTextRange)
                 effectiveProperty = effectiveProperty.relatedShorthandProperty;
@@ -319,6 +320,9 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         if (this._selected)
             classNames.push("selected");
 
+        if (this._valueTextField && this._valueTextField.value.includes("\n"))
+            classNames.push("has-newline");
+
         this._element.className = classNames.join(" ");
         this._element.title = elementTitle;
     }
@@ -336,17 +340,17 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         return matches;
     }
 
-    handleCopyEvent(event)
-    {
-        this._delegate.spreadsheetStylePropertyCopy(event, this);
-    }
-
     // SpreadsheetTextField delegate
 
     spreadsheetTextFieldWillStartEditing(textField)
     {
         let isEditingName = textField === this._nameTextField;
         textField.value = isEditingName ? this._property.name : this._property.rawValue;
+    }
+
+    spreadsheetTextFieldAllowsNewlines(textField)
+    {
+        return textField === this._valueTextField;
     }
 
     spreadsheetTextFieldDidChange(textField)
@@ -405,8 +409,11 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         if (typeof this._delegate.spreadsheetStylePropertyFocusMoved === "function")
             this._delegate.spreadsheetStylePropertyFocusMoved(this, {direction: null});
 
-        if (changed && window.DOMAgent)
-            DOMAgent.markUndoableState();
+        if (changed) {
+            let target = WI.assumingMainTarget();
+            if (target.hasDomain("DOM"))
+                target.DOMAgent.markUndoableState();
+        }
     }
 
     spreadsheetTextFieldDidBackspace(textField)
@@ -454,18 +461,8 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         const maxValueLength = 150;
         let tokens = WI.tokenizeCSSValue(value);
 
-        if (this._property.enabled) {
-            // FIXME: <https://webkit.org/b/178636> Web Inspector: Styles: Make inline widgets work with CSS functions (var(), calc(), etc.)
-
-            // CSS variables may contain color - display color picker for them.
-            if (this._property.variable || WI.CSSKeywordCompletions.isColorAwareProperty(this._property.name)) {
-                tokens = this._addGradientTokens(tokens);
-                tokens = this._addColorTokens(tokens);
-            }
-            tokens = this._addTimingFunctionTokens(tokens, "cubic-bezier");
-            tokens = this._addTimingFunctionTokens(tokens, "spring");
-            tokens = this._addVariableTokens(tokens);
-        }
+        if (this._property.enabled)
+            tokens = this._replaceSpecialTokens(tokens);
 
         tokens = tokens.map((token) => {
             if (token instanceof Element)
@@ -500,11 +497,18 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         this._valueElement.append(...tokens);
     }
 
-    _createInlineSwatch(type, text, valueObject)
+    _createInlineSwatch(type, contents, valueObject)
     {
         let tokenElement = document.createElement("span");
         let innerElement = document.createElement("span");
-        innerElement.textContent = text;
+        for (let item of contents) {
+            if (item instanceof Node)
+                innerElement.appendChild(item);
+            else if (typeof item === "object")
+                innerElement.append(item.value);
+            else
+                innerElement.append(item);
+        }
 
         let readOnly = !this._isEditable();
         let swatch = new WI.InlineSwatch(type, valueObject, readOnly);
@@ -521,6 +525,12 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
                 this._renderValue(this._property.rawValue);
         }, this);
 
+        if (type === WI.InlineSwatch.Type.Variable) {
+            swatch.value = () => {
+                return this._property.ownerStyle.nodeStyles.computedStyle.resolveVariableValue(innerElement.textContent);
+            };
+        }
+
         if (this._delegate && typeof this._delegate.stylePropertyInlineSwatchActivated === "function") {
             swatch.addEventListener(WI.InlineSwatch.Event.Activated, () => {
                 this._delegate.stylePropertyInlineSwatchActivated();
@@ -536,6 +546,25 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         tokenElement.append(swatch.element, innerElement);
 
         return tokenElement;
+    }
+
+    _replaceSpecialTokens(tokens)
+    {
+        // FIXME: <https://webkit.org/b/178636> Web Inspector: Styles: Make inline widgets work with CSS functions (var(), calc(), etc.)
+
+        tokens = this._addVariableTokens(tokens);
+
+        if (this._property.isVariable || WI.CSSKeywordCompletions.isColorAwareProperty(this._property.name)) {
+            tokens = this._addGradientTokens(tokens);
+            tokens = this._addColorTokens(tokens);
+        }
+
+        if (this._property.isVariable || WI.CSSKeywordCompletions.isTimingFunctionAwareProperty(this._property.name)) {
+            tokens = this._addTimingFunctionTokens(tokens, "cubic-bezier");
+            tokens = this._addTimingFunctionTokens(tokens, "spring");
+        }
+
+        return tokens;
     }
 
     _addGradientTokens(tokens)
@@ -563,9 +592,9 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
                 let text = rawTokens.map((token) => token.value).join("");
                 let gradient = WI.Gradient.fromString(text);
                 if (gradient)
-                    newTokens.push(this._createInlineSwatch(WI.InlineSwatch.Type.Gradient, text, gradient));
+                    newTokens.push(this._createInlineSwatch(WI.InlineSwatch.Type.Gradient, rawTokens, gradient));
                 else
-                    newTokens.push(...rawTokens);
+                    newTokens.pushAll(rawTokens);
 
                 gradientStartIndex = NaN;
             } else if (isNaN(gradientStartIndex))
@@ -582,9 +611,9 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         let pushPossibleColorToken = (text, ...rawTokens) => {
             let color = WI.Color.fromString(text);
             if (color)
-                newTokens.push(this._createInlineSwatch(WI.InlineSwatch.Type.Color, text, color));
+                newTokens.push(this._createInlineSwatch(WI.InlineSwatch.Type.Color, rawTokens, color));
             else
-                newTokens.push(...rawTokens);
+                newTokens.pushAll(rawTokens);
         };
 
         let colorFunctionStartIndex = NaN;
@@ -649,12 +678,14 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
                 }
 
                 if (valueObject)
-                    newTokens.push(this._createInlineSwatch(inlineSwatchType, text, valueObject));
+                    newTokens.push(this._createInlineSwatch(inlineSwatchType, rawTokens, valueObject));
                 else
-                    newTokens.push(...rawTokens);
+                    newTokens.pushAll(rawTokens);
 
                 startIndex = NaN;
-            } else if (isNaN(startIndex))
+            } else if (token.value in WI.CubicBezier.keywordValues)
+                newTokens.push(this._createInlineSwatch(WI.InlineSwatch.Type.Bezier, [token], WI.CubicBezier.fromString(token.value)));
+            else if (isNaN(startIndex))
                 newTokens.push(token);
         }
 
@@ -670,8 +701,10 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         for (let i = 0; i < tokens.length; i++) {
             let token = tokens[i];
             if (token.value === "var" && token.type && token.type.includes("atom")) {
-                startIndex = i;
-                openParenthesis = 0;
+                if (isNaN(startIndex)) {
+                    startIndex = i;
+                    openParenthesis = 0;
+                }
             } else if (token.value === "(" && !isNaN(startIndex))
                 ++openParenthesis;
             else if (token.value === ")" && !isNaN(startIndex)) {
@@ -680,17 +713,25 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
                     continue;
 
                 let rawTokens = tokens.slice(startIndex, i + 1);
-                let tokenValues = rawTokens.map((token) => token.value);
-                let variableName = tokenValues.find((value, i) => value.startsWith("--") && /\bvariable-2\b/.test(rawTokens[i].type));
+                let variableNameIndex = rawTokens.findIndex((token) => token.value.startsWith("--") && /\bvariable-2\b/.test(token.type));
+                if (variableNameIndex !== -1) {
+                    let contents = [];
+                    let fallbackStartIndex = rawTokens.findIndex((value, i) => i > variableNameIndex + 1 && /\bm-css\b/.test(value.type));
+                    if (fallbackStartIndex !== -1) {
+                        contents.pushAll(rawTokens.slice(0, fallbackStartIndex));
+                        contents.pushAll(this._replaceSpecialTokens(rawTokens.slice(fallbackStartIndex, i)));
+                    } else
+                        contents.pushAll(rawTokens.slice(0, i));
+                    contents.push(token);
 
-                const dontCreateIfMissing = true;
-                let variableProperty = this._property.ownerStyle.nodeStyles.computedStyle.propertyForName(variableName, dontCreateIfMissing);
-                if (variableProperty) {
-                    let valueObject = variableProperty.value.trim();
-                    newTokens.push(this._createInlineSwatch(WI.InlineSwatch.Type.Variable, tokenValues.join(""), valueObject));
+                    let text = rawTokens.reduce((accumulator, token) => accumulator + token.value, "");
+                    if (this._property.ownerStyle.nodeStyles.computedStyle.resolveVariableValue(text))
+                        newTokens.push(this._createInlineSwatch(WI.InlineSwatch.Type.Variable, contents));
+                    else
+                        newTokens.pushAll(contents);
                 } else {
                     this._hasInvalidVariableValue = true;
-                    newTokens.push(...rawTokens);
+                    newTokens.pushAll(rawTokens);
                 }
 
                 startIndex = NaN;
@@ -708,7 +749,11 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
     _handleValueChange()
     {
-        this._property.rawValue = this._valueElement.textContent.trim();
+        let value = this._valueElement.textContent;
+
+        this._property.rawValue = value.trim();
+
+        this._element.classList.toggle("has-newline", value.includes("\n"));
     }
 
     _handleNameBeforeInput(event)
@@ -807,6 +852,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
             const options = {
                 ignoreNetworkTab: true,
                 ignoreSearchTab: true,
+                initiatorHint: WI.TabBrowser.TabNavigationInitiator.LinkClick,
             };
             let sourceCode = sourceCodeLocation.sourceCode;
             WI.showSourceCodeLocation(sourceCode.createSourceCodeLocation(range.startLine, range.startColumn), options);

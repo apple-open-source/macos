@@ -33,9 +33,9 @@
 
 namespace WebCore {
 
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(Region);
 class Region {
-    WTF_MAKE_FAST_ALLOCATED;
-
+    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Region);
 public:
     WEBCORE_EXPORT Region();
     WEBCORE_EXPORT Region(const IntRect&);
@@ -91,6 +91,7 @@ private:
     };
 
     class Shape {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         Shape() = default;
         Shape(const IntRect&);
@@ -148,7 +149,7 @@ private:
         friend bool operator==(const Shape&, const Shape&);
     };
 
-    std::unique_ptr<Shape> copyShape() const { return m_shape ? std::make_unique<Shape>(*m_shape) : nullptr; }
+    std::unique_ptr<Shape> copyShape() const { return m_shape ? makeUnique<Shape>(*m_shape) : nullptr; }
     void setShape(Shape&&);
 
     IntRect m_bounds;
@@ -289,7 +290,7 @@ Optional<Region> Region::decode(Decoder& decoder)
         decoder >> shape;
         if (!shape)
             return WTF::nullopt;
-        region.m_shape = std::make_unique<Shape>(WTFMove(*shape));
+        region.m_shape = makeUnique<Shape>(WTFMove(*shape));
     }
 
     return { region };

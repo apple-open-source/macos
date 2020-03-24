@@ -25,6 +25,7 @@
  *
  */
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFPreferences_Private.h>
 #include <CoreFoundation/CFXPCBridge.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <IOKit/pwr_mgt/IOPMPrivate.h>

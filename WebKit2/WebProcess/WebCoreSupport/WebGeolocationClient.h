@@ -32,6 +32,7 @@ namespace WebKit {
 class WebPage;
 
 class WebGeolocationClient : public WebCore::GeolocationClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WebGeolocationClient(WebPage& page)
         : m_page(page)
@@ -43,11 +44,12 @@ public:
 private:
     void geolocationDestroyed() override;
 
-    void startUpdating() override;
+    void startUpdating(const String& authorizationToken) override;
     void stopUpdating() override;
+    void revokeAuthorizationToken(const String&) override;
     void setEnableHighAccuracy(bool) override;
 
-    Optional<WebCore::GeolocationPosition> lastPosition() override;
+    Optional<WebCore::GeolocationPositionData> lastPosition() override;
 
     void requestPermission(WebCore::Geolocation&) override;
     void cancelPermissionRequest(WebCore::Geolocation&) override;

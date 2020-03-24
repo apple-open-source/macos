@@ -25,15 +25,15 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/fetch/FetchLoader.h
     Modules/fetch/FetchLoaderClient.h
 
-    Modules/geolocation/Coordinates.h
     Modules/geolocation/Geolocation.h
     Modules/geolocation/GeolocationClient.h
     Modules/geolocation/GeolocationController.h
+    Modules/geolocation/GeolocationCoordinates.h
     Modules/geolocation/GeolocationError.h
     Modules/geolocation/GeolocationPosition.h
-    Modules/geolocation/Geoposition.h
+    Modules/geolocation/GeolocationPositionData.h
+    Modules/geolocation/GeolocationPositionError.h
     Modules/geolocation/PositionCallback.h
-    Modules/geolocation/PositionError.h
     Modules/geolocation/PositionErrorCallback.h
     Modules/geolocation/PositionOptions.h
 
@@ -79,7 +79,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/indexeddb/shared/IDBResourceIdentifier.h
     Modules/indexeddb/shared/IDBResultData.h
     Modules/indexeddb/shared/IDBTransactionInfo.h
-    Modules/indexeddb/shared/InProcessIDBServer.h
 
     Modules/mediasession/MediaSessionEvents.h
     Modules/mediasession/MediaSessionMetadata.h
@@ -90,7 +89,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/mediastream/DoubleRange.h
     Modules/mediastream/LongRange.h
-    Modules/mediastream/MediaDevicesEnumerationRequest.h
     Modules/mediastream/MediaStreamTrack.h
     Modules/mediastream/MediaTrackConstraints.h
     Modules/mediastream/RTCController.h
@@ -114,11 +112,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/webauthn/AttestationConveyancePreference.h
     Modules/webauthn/AuthenticationExtensionsClientInputs.h
+    Modules/webauthn/AuthenticationExtensionsClientOutputs.h
     Modules/webauthn/AuthenticatorCoordinator.h
     Modules/webauthn/AuthenticatorCoordinatorClient.h
+    Modules/webauthn/AuthenticatorResponseData.h
     Modules/webauthn/AuthenticatorTransport.h
     Modules/webauthn/PublicKeyCredentialCreationOptions.h
-    Modules/webauthn/PublicKeyCredentialData.h
     Modules/webauthn/PublicKeyCredentialDescriptor.h
     Modules/webauthn/PublicKeyCredentialRequestOptions.h
     Modules/webauthn/PublicKeyCredentialType.h
@@ -177,6 +176,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     animation/CompositeOperation.h
     animation/EffectTiming.h
     animation/FillMode.h
+    animation/GetAnimationsOptions.h
     animation/IterationCompositeOperation.h
     animation/KeyframeAnimationOptions.h
     animation/KeyframeEffectOptions.h
@@ -188,6 +188,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/CachedScriptFetcher.h
     bindings/js/CommonVM.h
     bindings/js/DOMWrapperWorld.h
+    bindings/js/ExceptionDetails.h
     bindings/js/GCController.h
     bindings/js/IDBBindingUtilities.h
     bindings/js/JSCSSRuleCustom.h
@@ -240,6 +241,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/JSValueInWrappedObject.h
     bindings/js/JSWindowProxy.h
     bindings/js/ReadableStreamDefaultController.h
+    bindings/js/RunJavaScriptParameters.h
     bindings/js/ScriptCachedFrameData.h
     bindings/js/ScriptController.h
     bindings/js/ScriptState.h
@@ -307,7 +309,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/CSSPrimitiveValue.h
     css/CSSPrimitiveValueMappings.h
     css/CSSProperty.h
-    css/CSSReflectionDirection.h
     css/CSSRegisteredCustomProperty.h
     css/CSSRule.h
     css/CSSRuleList.h
@@ -315,6 +316,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/CSSStyleRule.h
     css/CSSStyleSheet.h
     css/CSSToLengthConversionData.h
+    css/CSSUnits.h
     css/CSSUnknownRule.h
     css/CSSValue.h
     css/CSSValueList.h
@@ -336,6 +338,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/Rect.h
     css/StyleColor.h
     css/StyleProperties.h
+    css/StyleRuleType.h
     css/StyleSheet.h
     css/StyleSheetContents.h
     css/StyleSheetList.h
@@ -372,7 +375,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/DeviceOrientationData.h
     dom/DeviceOrientationOrMotionPermissionState.h
     dom/Document.h
-    dom/DocumentEventQueue.h
     dom/DocumentFragment.h
     dom/DocumentFullscreen.h
     dom/DocumentIdentifier.h
@@ -451,6 +453,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/SpaceSplitString.h
     dom/StyledElement.h
     dom/SuccessOr.h
+    dom/TaskSource.h
     dom/Text.h
     dom/TextEvent.h
     dom/TextEventInputType.h
@@ -478,6 +481,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/messageports/MessageWithMessagePorts.h
 
     editing/ClipboardAccessPolicy.h
+    editing/CompositionHighlight.h
     editing/CompositionUnderline.h
     editing/DictationAlternative.h
     editing/DictionaryPopupInfo.h
@@ -504,6 +508,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     editing/TextGranularity.h
     editing/TextIterator.h
     editing/TextIteratorBehavior.h
+    editing/TextManipulationController.h
     editing/UndoStep.h
     editing/VisiblePosition.h
     editing/VisibleSelection.h
@@ -521,14 +526,15 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     fileapi/FileList.h
     fileapi/FileReaderLoader.h
     fileapi/FileReaderLoaderClient.h
+    fileapi/NetworkSendQueue.h
 
+    history/BackForwardCache.h
     history/BackForwardClient.h
     history/BackForwardController.h
     history/BackForwardItemIdentifier.h
     history/CachedFrame.h
     history/CachedFramePlatformData.h
     history/HistoryItem.h
-    history/PageCache.h
 
     html/Autocapitalize.h
     html/AutocapitalizeTypes.h
@@ -539,6 +545,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/CollectionType.h
     html/DOMTokenList.h
     html/DataListSuggestionInformation.h
+    html/EnterKeyHint.h
     html/FeaturePolicy.h
     html/FormAssociatedElement.h
     html/FormNamedItem.h
@@ -654,9 +661,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     inspector/InspectorClient.h
     inspector/InspectorController.h
+    inspector/InspectorDebuggableType.h
     inspector/InspectorFrontendClient.h
     inspector/InspectorFrontendClientLocal.h
     inspector/InspectorFrontendHost.h
+    inspector/InspectorInstrumentationPublic.h
+    inspector/InspectorInstrumentationWebKit.h
     inspector/InspectorOverlay.h
     inspector/InspectorWebAgentBase.h
     inspector/PageScriptDebugServer.h
@@ -743,7 +753,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/ActivityStateChangeObserver.h
     page/AdjustViewSizeOrNot.h
     page/AlternativeTextClient.h
-    page/ApplicationStateChangeListener.h
     page/AutoplayEvent.h
     page/Base64Utilities.h
     page/CacheStorageProvider.h
@@ -778,6 +787,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/FocusDirection.h
     page/Frame.h
     page/FrameDestructionObserver.h
+    page/FrameIdentifier.h
     page/FrameSnapshotting.h
     page/FrameTree.h
     page/FrameView.h
@@ -789,6 +799,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/MediaCanStartListener.h
     page/MediaProducer.h
     page/MemoryRelease.h
+    page/NavigatorIsLoggedIn.h
     page/Page.h
     page/PageConfiguration.h
     page/PageConsoleClient.h
@@ -801,6 +812,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/PlugInClient.h
     page/PointerCaptureController.h
     page/PointerLockController.h
+    page/PostMessageOptions.h
     page/PrewarmInformation.h
     page/PrintContext.h
     page/ProcessWarming.h
@@ -839,7 +851,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/WebCoreKeyboardUIMode.h
     page/WebKitNamespace.h
     page/WheelEventDeltaFilter.h
-    page/WheelEventTestTrigger.h
+    page/WheelEventTestMonitor.h
     page/WindowFeatures.h
 
     page/animation/AnimationBase.h
@@ -908,6 +920,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/KeyedCoding.h
     platform/KeypressCommand.h
     platform/LayoutUnit.h
+    platform/LegacySchemeRegistry.h
     platform/Length.h
     platform/LengthBox.h
     platform/LengthPoint.h
@@ -926,6 +939,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/PODIntervalTree.h
     platform/PODRedBlackTree.h
     platform/Pasteboard.h
+    platform/PasteboardCustomData.h
     platform/PasteboardItemInfo.h
     platform/PasteboardStrategy.h
     platform/PasteboardWriterData.h
@@ -955,7 +969,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/RemoteCommandListener.h
     platform/RuntimeApplicationChecks.h
     platform/SSLKeyGenerator.h
-    platform/SchemeRegistry.h
     platform/ScreenProperties.h
     platform/ScrollAnimator.h
     platform/ScrollTypes.h
@@ -1003,6 +1016,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/gamepad/PlatformGamepad.h
 
     platform/graphics/ANGLEWebKitBridge.h
+    platform/graphics/AnimationFrameRate.h
     platform/graphics/AudioTrackPrivate.h
     platform/graphics/BitmapImage.h
     platform/graphics/Color.h
@@ -1047,6 +1061,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/Gradient.h
     platform/graphics/GraphicsContext.h
     platform/graphics/GraphicsContext3D.h
+    platform/graphics/GraphicsContext3DBase.h
     platform/graphics/GraphicsContext3DAttributes.h
     platform/graphics/GraphicsContext3DManager.h
     platform/graphics/GraphicsContextImpl.h
@@ -1065,6 +1080,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ImageFrame.h
     platform/graphics/ImageObserver.h
     platform/graphics/ImageOrientation.h
+    platform/graphics/ImagePaintingOptions.h
     platform/graphics/ImageSource.h
     platform/graphics/ImageTypes.h
     platform/graphics/InbandTextTrackPrivate.h
@@ -1109,6 +1125,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/VideoTrackPrivate.h
     platform/graphics/WidthCache.h
     platform/graphics/WindRule.h
+
+    platform/graphics/angle/Extensions3DANGLE.h
+
+    platform/graphics/displaylists/DisplayList.h
+    platform/graphics/displaylists/DisplayListItems.h
 
     platform/graphics/cv/ImageTransferSessionVT.h
 
@@ -1156,6 +1177,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/mediastream/libwebrtc/LibWebRTCMacros.h
     platform/mediastream/libwebrtc/LibWebRTCProvider.h
+    platform/mediastream/libwebrtc/LibWebRTCSocketIdentifier.h
 
     platform/mock/DeviceOrientationClientMock.h
     platform/mock/MediaPlaybackTargetMock.h
@@ -1240,6 +1262,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/BreakLines.h
     rendering/ClipPathOperation.h
     rendering/ClipRect.h
+    rendering/ComplexLineLayout.h
     rendering/EventRegion.h
     rendering/FloatingObjects.h
     rendering/GapRects.h
@@ -1247,7 +1270,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/HitTestRequest.h
     rendering/HitTestResult.h
     rendering/InlineBox.h
+    rendering/InlineElementBox.h
     rendering/InlineFlowBox.h
+    rendering/InlineTextBox.h
     rendering/LayerAncestorClippingStack.h
     rendering/LayerFragment.h
     rendering/MarkedText.h
@@ -1299,7 +1324,13 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/SelectionRangeData.h
     rendering/SimpleLineLayout.h
     rendering/SimpleLineLayoutCoverage.h
+    rendering/SimpleLineLayoutFlowContents.h
+    rendering/SimpleLineLayoutResolver.h
 
+    rendering/line/LineLayoutTraversal.h
+    rendering/line/LineLayoutTraversalComplexPath.h
+    rendering/line/LineLayoutTraversalDisplayRunPath.h
+    rendering/line/LineLayoutTraversalSimplePath.h
     rendering/line/LineWidth.h
     rendering/line/TrailingObjects.h
 
@@ -1361,7 +1392,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     storage/StorageNamespace.h
     storage/StorageNamespaceProvider.h
     storage/StorageQuotaManager.h
-    storage/StorageQuotaUser.h
     storage/StorageType.h
 
     style/StyleChange.h

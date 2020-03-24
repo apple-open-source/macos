@@ -72,7 +72,15 @@ static inline Element* parentOrPseudoHostElement(const RenderElement& renderer)
 {
     if (renderer.isPseudoElement())
         return renderer.generatingElement();
-    return renderer.element() ? renderer.element()->parentElement() : nullptr;
+
+    ASSERT(renderer.element());
+    auto parent = makeRefPtr(renderer.element()->parentElement());
+    while (parent) {
+        if (!parent->hasDisplayContents())
+            break;
+        parent = parent->parentElement();
+    }
+    return parent.get();
 }
 
 // This function processes the renderer tree in the order of the DOM tree
@@ -312,7 +320,7 @@ static CounterNode* makeCounterNode(RenderElement& renderer, const AtomString& i
     if (place.parent)
         place.parent->insertAfter(newNode, place.previousSibling.get(), identifier);
 
-    maps.add(&renderer, std::make_unique<CounterMap>()).iterator->value->add(identifier, newNode.copyRef());
+    maps.add(&renderer, makeUnique<CounterMap>()).iterator->value->add(identifier, newNode.copyRef());
     renderer.setHasCounterNodeMap(true);
 
     if (newNode->parent())

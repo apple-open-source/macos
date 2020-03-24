@@ -1202,7 +1202,8 @@ relock:
         hfs_unlock_truncate(cp, HFS_LOCK_DEFAULT);
         if (rvp)
         {
-            hfs_free(rvp);
+            hfs_chash_lower_OpenLookupCounter(cp);
+            rvp = NULL;
         }
         return (error);
     }
@@ -1228,7 +1229,7 @@ relock:
         {
             /* We need to acquire the rsrc vnode */
             rvp = cp->c_rsrc_vp;
-
+            hfs_chash_raise_OpenLookupCounter(cp);
             /* Unlock everything to acquire iocount on the rsrc vnode */
             hfs_unlock_truncate (cp, HFS_LOCK_DEFAULT);
             hfs_unlockpair (dcp, cp);
@@ -1263,8 +1264,10 @@ rm_done:
     hfs_unlock_truncate(cp, HFS_LOCK_DEFAULT);
 
     if (rvp)
-        hfs_free(rvp);
-
+    {
+        hfs_chash_lower_OpenLookupCounter(cp);
+        rvp = NULL;
+    }
     return (error);
 }
 
@@ -2342,7 +2345,6 @@ retry:
         if (tvp_rsrc && tcp)
         {
             hfs_chash_lower_OpenLookupCounter(tcp);
-            hfs_free(tvp_rsrc);
             tvp_rsrc = NULL;
         }
 
@@ -2398,7 +2400,6 @@ retry:
                 hfs_unlock_truncate (VTOC(tvp), HFS_LOCK_DEFAULT);
                 took_trunc_lock = 0;
             }
-            
             
             hfs_unlockfour(fdcp, fcp, tdcp, tcp);
             
@@ -2760,7 +2761,7 @@ retry:
             if ((error == 0) && (tcp->c_flag & C_DELETED) && (tvp_rsrc))
             {
                 hfs_chash_lower_OpenLookupCounter(tcp);
-                hfs_free(tvp_rsrc);
+                tvp_rsrc = NULL;
             }
         }
 
@@ -2947,7 +2948,6 @@ out:
     if (tvp_rsrc)
     {
         hfs_chash_lower_OpenLookupCounter(tcp);
-        hfs_free(tvp_rsrc);
         tvp_rsrc = NULL;
     }
     
@@ -3171,3 +3171,175 @@ int hfs_removefile_callback(GenericLFBuf *psBuff, void *pvArgs) {
     return (0);
 }
 
+
+/*
+ * hfs_vgetrsrc acquires a resource fork vnode corresponding to the
+ * cnode that is found in 'vp'.  The cnode should be locked upon entry
+ * and will be returned locked, but it may be dropped temporarily.
+ *
+ * If the resource fork vnode does not exist, HFS will attempt to acquire an
+ * empty (uninitialized) vnode from VFS so as to avoid deadlocks with
+ * jetsam. If we let the normal getnewvnode code produce the vnode for us
+ * we would be doing so while holding the cnode lock of our cnode.
+ *
+ * On success, *rvpp wlll hold the resource fork vnode with an
+ * iocount.  *Don't* forget the vnode_put.
+ */
+int
+hfs_vgetrsrc( struct vnode *vp, struct vnode **rvpp)
+{
+    struct hfsmount *hfsmp = VTOHFS(vp);
+    struct vnode *rvp = NULL;
+    struct cnode *cp = VTOC(vp);
+    int error = 0;
+    
+restart:
+    /* Attempt to use existing vnode */
+    if ((rvp = cp->c_rsrc_vp)) {
+        hfs_lock(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT);
+        hfs_chash_raise_OpenLookupCounter(cp);
+
+    } else {
+        struct cat_fork rsrcfork;
+        struct cat_desc *descptr = NULL;
+        struct cat_desc to_desc;
+        int newvnode_flags = 0;
+        
+        hfs_lock(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT);
+        
+        /*
+         * We could have raced with another thread here while we dropped our cnode
+         * lock.  See if the cnode now has a resource fork vnode and restart if appropriate.
+         *
+         * Note: We just released the cnode lock, so there is a possibility that the
+         * cnode that we just acquired has been deleted or even removed from disk
+         * completely, though this is unlikely. If the file is open-unlinked, the
+         * check below will resolve it for us.  If it has been completely
+         * removed (even from the catalog!), then when we examine the catalog
+         * directly, below, while holding the catalog lock, we will not find the
+         * item and we can fail out properly.
+         */
+        if (cp->c_rsrc_vp) {
+            /* Drop the empty vnode before restarting */
+            hfs_unlock(cp);
+            rvp = NULL;
+            goto restart;
+        }
+        
+        /*
+         * hfs_vgetsrc may be invoked for a cnode that has already been marked
+         * C_DELETED.  This is because we need to continue to provide rsrc
+         * fork access to open-unlinked files.  In this case, build a fake descriptor
+         * like in hfs_removefile.  If we don't do this, buildkey will fail in
+         * cat_lookup because this cnode has no name in its descriptor.
+         */
+        if ((cp->c_flag & C_DELETED ) && (cp->c_desc.cd_namelen == 0)) {
+            char delname[32];
+            bzero (&to_desc, sizeof(to_desc));
+            bzero (delname, 32);
+            MAKE_DELETED_NAME(delname, sizeof(delname), cp->c_fileid);
+            to_desc.cd_nameptr = (const u_int8_t*) delname;
+            to_desc.cd_namelen = strlen(delname);
+            to_desc.cd_parentcnid = hfsmp->hfs_private_desc[FILE_HARDLINKS].cd_cnid;
+            to_desc.cd_flags = 0;
+            to_desc.cd_cnid = cp->c_cnid;
+            
+            descptr = &to_desc;
+        }
+        else {
+            descptr = &cp->c_desc;
+        }
+        
+        
+        int lockflags = hfs_systemfile_lock(hfsmp, SFL_CATALOG, HFS_SHARED_LOCK);
+        
+        /*
+         * We call cat_idlookup (instead of cat_lookup) below because we can't
+         * trust the descriptor in the provided cnode for lookups at this point.
+         * Between the time of the original lookup of this vnode and now, the
+         * descriptor could have gotten swapped or replaced.  If this occurred,
+         * the parent/name combo originally desired may not necessarily be provided
+         * if we use the descriptor.  Even worse, if the vnode represents
+         * a hardlink, we could have removed one of the links from the namespace
+         * but left the descriptor alone, since hfs_unlink does not invalidate
+         * the descriptor in the cnode if other links still point to the inode.
+         *
+         * Consider the following (slightly contrived) scenario:
+         * /tmp/a <--> /tmp/b (hardlinks).
+         * 1. Thread A: open rsrc fork on /tmp/b.
+         * 1a. Thread A: does lookup, goes out to lunch right before calling getnamedstream.
+         * 2. Thread B does 'mv /foo/b /tmp/b'
+         * 2. Thread B succeeds.
+         * 3. Thread A comes back and wants rsrc fork info for /tmp/b.
+         *
+         * Even though the hardlink backing /tmp/b is now eliminated, the descriptor
+         * is not removed/updated during the unlink process.  So, if you were to
+         * do a lookup on /tmp/b, you'd acquire an entirely different record's resource
+         * fork.
+         *
+         * As a result, we use the fileid, which should be invariant for the lifetime
+         * of the cnode (possibly barring calls to exchangedata).
+         *
+         * Addendum: We can't do the above for HFS standard since we aren't guaranteed to
+         * have thread records for files.  They were only required for directories.  So
+         * we need to do the lookup with the catalog name. This is OK since hardlinks were
+         * never allowed on HFS standard.
+         */
+        
+        /* Get resource fork data */
+        error = cat_idlookup (hfsmp, cp->c_fileid, 0, 1, NULL, NULL, &rsrcfork);
+        
+        hfs_systemfile_unlock(hfsmp, lockflags);
+        if (error) {
+            LFHFS_LOG(LEVEL_ERROR, "hfs_vgetrsrc: cat_idlookup failed with error [%d]\n", error);
+            hfs_unlock(cp);
+            hfs_chash_lower_OpenLookupCounter(cp);
+            return (error);
+        }
+        /*
+         * Supply hfs_getnewvnode with a component name.
+         */
+        struct componentname cn;
+        cn.cn_pnbuf = NULL;
+        if (descptr->cd_nameptr) {
+            void *buf = hfs_malloc(MAXPATHLEN);
+            
+            cn = (struct componentname){
+                .cn_nameiop = LOOKUP,
+                .cn_flags    = ISLASTCN,
+                .cn_pnlen    = MAXPATHLEN,
+                .cn_pnbuf    = buf,
+                .cn_nameptr = buf,
+                .cn_namelen = snprintf(buf, MAXPATHLEN,
+                                       "%s%s", descptr->cd_nameptr,
+                                       _PATH_RSRCFORKSPEC)
+            };
+            
+            // Should never happen because cn.cn_nameptr won't ever be long...
+            if (cn.cn_namelen >= MAXPATHLEN) {
+                hfs_free(buf);
+                LFHFS_LOG(LEVEL_ERROR, "hfs_vgetrsrc: cnode name too long [ENAMETOOLONG]\n");
+                hfs_unlock(cp);
+                hfs_chash_lower_OpenLookupCounter(cp);
+                return ENAMETOOLONG;
+            }
+        }
+        
+        /*
+         * We are about to call hfs_getnewvnode and pass in the vnode that we acquired
+         * earlier when we were not holding any locks. The semantics of GNV_USE_VP require that
+         * either hfs_getnewvnode consume the vnode and vend it back to us, properly initialized,
+         * or it will consume/dispose of it properly if it errors out.
+         */
+        error = hfs_getnewvnode(hfsmp, NULL, cn.cn_pnbuf ? &cn : NULL,
+                                descptr, (GNV_WANTRSRC | GNV_SKIPLOCK),
+                                &cp->c_attr, &rsrcfork, &rvp, &newvnode_flags);
+                
+        hfs_free(cn.cn_pnbuf);
+        if (error)
+            return (error);
+    }  /* End 'else' for rsrc fork not existing */
+    
+    *rvpp = rvp;
+    return (0);
+}

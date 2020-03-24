@@ -3374,19 +3374,36 @@ static ImageLoader* loadPhase5load(const char* path, const char* orgPath, const 
 			return sAllCacheImagesProxy;
 	}
 #endif
-#if TARGET_OS_SIMULATOR
-	// in simulators, 'path' has DYLD_ROOT_PATH prepended, but cache index does not have the prefix, so use orgPath
-	const char* pathToFindInCache = orgPath;
-#else
-	const char* pathToFindInCache = path;
-#endif
 	uint statErrNo;
 	struct stat statBuf;
 	bool didStat = false;
 	bool existsOnDisk;
-	dyld3::SharedCacheFindDylibResults shareCacheResults;
+	__block dyld3::SharedCacheFindDylibResults shareCacheResults;
 	shareCacheResults.image = nullptr;
-	if ( dyld3::findInSharedCacheImage(sSharedCacheLoadInfo, pathToFindInCache, &shareCacheResults) ) {
+
+#if TARGET_OS_SIMULATOR
+
+	auto findSharedCacheImage = ^() {
+		// in simulators, 'path' has DYLD_ROOT_PATH prepended, but cache index does not have the prefix, so use orgPath
+		return dyld3::findInSharedCacheImage(sSharedCacheLoadInfo, orgPath, &shareCacheResults);
+	};
+
+#else
+
+	auto findSharedCacheImage = ^() {
+#if __MAC_OS_X_VERSION_MIN_REQUIRED
+		if ( gLinkContext.iOSonMac ) {
+			// On iOSMac, we are also running with DYLD_ROOT_PATH set, but want to look up the orgPath
+			if ( dyld3::findInSharedCacheImage(sSharedCacheLoadInfo, orgPath, &shareCacheResults) )
+				return true;
+		}
+#endif
+		return dyld3::findInSharedCacheImage(sSharedCacheLoadInfo, path, &shareCacheResults);
+	};
+
+#endif
+
+	if ( findSharedCacheImage() ) {
 		// see if this image in the cache was already loaded via a different path
 		for (std::vector<ImageLoader*>::iterator it=sAllImages.begin(); it != sAllImages.end(); ++it) {
 			ImageLoader* anImage = *it;
@@ -5210,14 +5227,11 @@ void notifyKernelAboutImage(const struct macho_header* mh, const char* fileInfo)
 }
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED
-typedef int (*open_proc_t)(const char*, int, int);
-typedef int (*fcntl_proc_t)(int, int, void*);
-typedef int (*ioctl_proc_t)(int, unsigned long, void*);
 static void* getProcessInfo() { return dyld::gProcessInfo; }
 static const SyscallHelpers sSysCalls = {
 		12,
 		// added in version 1
-		(open_proc_t)&open, 
+		&open,
 		&close, 
 		&pread, 
 		&write, 
@@ -5225,8 +5239,8 @@ static const SyscallHelpers sSysCalls = {
 		&munmap, 
 		&madvise,
 		&stat, 
-		(fcntl_proc_t)&fcntl, 
-		(ioctl_proc_t)&ioctl, 
+		&fcntl,
+		&ioctl, 
 		&issetugid, 
 		&getcwd, 
 		&realpath, 
@@ -5904,6 +5918,21 @@ static bool launchWithClosure(const dyld3::closure::LaunchClosure* mainClosure,
 
 	// send info on all images to libdyld.dylb
 	libDyldEntry->setVars(mainExecutableMH, argc, argv, envp, apple);
+#if __MAC_OS_X_VERSION_MIN_REQUIRED
+	uint32_t progVarsOffset;
+	if ( mainClosure->hasProgramVars(progVarsOffset) ) {
+		if ( libDyldEntry->vectorVersion >= 8 ) {
+			// main executable contains globals to hold argc, argv, envp, and progname, but they need to be filled in
+			ProgramVars* vars = (ProgramVars*)((uint8_t*)mainExecutableMH + progVarsOffset);
+			*vars->NXArgcPtr 	= argc;
+			*vars->NXArgvPtr 	= argv;
+			*vars->environPtr 	= envp;
+			*vars->__prognamePtr = (argv[0] != NULL) ? basename(argv[0]) : "";
+			// set up so libSystem gets ProgramVars struct embedded in main executable
+			libDyldEntry->setProgramVars(vars);
+		}
+	}
+#endif
 	if ( libDyldEntry->vectorVersion > 4 )
 		libDyldEntry->setRestrictions(gLinkContext.allowAtPaths, gLinkContext.allowEnvVarsPath, gLinkContext.allowClassicFallbackPaths);
 	libDyldEntry->setHaltFunction(&halt);
@@ -6466,6 +6495,7 @@ _main(const macho_header* mainExecutableMH, uintptr_t mainExecutableSlide,
 				}
 			}
 			if ( launched ) {
+				gLinkContext.startedInitializingMainExecutable = true;
 #if __has_feature(ptrauth_calls)
 				// start() calls the result pointer as a function pointer so we need to sign it.
 				result = (uintptr_t)__builtin_ptrauth_sign_unauthenticated((void*)result, 0, 0);

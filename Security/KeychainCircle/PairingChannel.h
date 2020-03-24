@@ -61,5 +61,9 @@ extern KCPairingIntent_Type KCPairingIntent_Type_UserDriven;
 - (void)setOctagonMessageFailForTesting:(BOOL)value;
 + (bool)isSupportedPlatform;
 - (void)setSessionSupportsOctagonForTesting:(bool)value;
+
++ (NSData *)pairingChannelCompressData:(NSData *)data;
++ (NSData *)pairingChannelDecompressData:(NSData *)data;
+
 @end
 

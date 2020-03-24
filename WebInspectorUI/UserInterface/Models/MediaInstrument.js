@@ -36,8 +36,8 @@ WI.MediaInstrument = class MediaInstrument extends WI.Instrument
 
     static supported()
     {
-        // COMPATIBILITY (iOS 12): DOM.didFireEvent.
-        return InspectorBackend.domains.DOM && InspectorBackend.domains.DOM.hasEvent("didFireEvent");
+        // COMPATIBILITY (iOS 12): DOM.didFireEvent did not exist yet.
+        return InspectorBackend.hasEvent("DOM.didFireEvent");
     }
 
     // Protected
@@ -49,11 +49,27 @@ WI.MediaInstrument = class MediaInstrument extends WI.Instrument
 
     startInstrumentation(initiatedByBackend)
     {
-        // Nothing to do, media instrumentation is always happening.
+        // Audio/Video/Picture instrumentation is always happening.
+
+        if (!initiatedByBackend) {
+            // COMPATIBILITY (iOS 13): Animation domain did not exist yet.
+            if (InspectorBackend.hasDomain("Animation")) {
+                let target = WI.assumingMainTarget();
+                target.AnimationAgent.startTracking();
+            }
+        }
     }
 
     stopInstrumentation(initiatedByBackend)
     {
-        // Nothing to do, media instrumentation is always happening.
+        // Audio/Video/Picture instrumentation is always happening.
+
+        if (!initiatedByBackend) {
+            // COMPATIBILITY (iOS 13): Animation domain did not exist yet.
+            if (InspectorBackend.hasDomain("Animation")) {
+                let target = WI.assumingMainTarget();
+                target.AnimationAgent.stopTracking();
+            }
+        }
     }
 };

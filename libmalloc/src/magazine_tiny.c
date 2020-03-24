@@ -74,7 +74,7 @@ get_tiny_previous_free_msize(const void *ptr)
 	// check whether the previous block is in the tiny region and a block header
 	// if so, then the size of the previous block is one, and there is no stored
 	// size.
-	if (ptr != TINY_REGION_FOR_PTR(ptr)) {
+	if (ptr != TINY_REGION_HEAP_BASE(TINY_REGION_FOR_PTR(ptr))) {
 		void *prev_block = (void *)((uintptr_t)ptr - TINY_QUANTUM);
 		uint32_t *prev_header = TINY_BLOCK_HEADER_FOR_PTR(prev_block);
 		msize_t prev_index = TINY_INDEX_FOR_PTR(prev_block);
@@ -277,7 +277,7 @@ tiny_previous_preceding_free(void *ptr, msize_t *prev_msize)
 	}
 
 	previous_index = index - previous_msize;
-	previous_ptr = (void *)((uintptr_t)TINY_REGION_FOR_PTR(ptr) + TINY_BYTES_FOR_MSIZE(previous_index));
+	previous_ptr = TINY_PTR_FOR_INDEX(previous_index, TINY_REGION_FOR_PTR(ptr));
 	if (!BITARRAY_BIT(block_header, previous_index)) {
 		return NULL;
 	}
@@ -566,7 +566,7 @@ tiny_finalize_region(rack_t *rack, magazine_t *tiny_mag_ptr)
 	//
 
 	if (tiny_mag_ptr->mag_bytes_free_at_end) {
-		last_block = (void *)((uintptr_t)TINY_REGION_END(tiny_mag_ptr->mag_last_region) - tiny_mag_ptr->mag_bytes_free_at_end);
+		last_block = (void *)((uintptr_t)TINY_REGION_HEAP_END(tiny_mag_ptr->mag_last_region) - tiny_mag_ptr->mag_bytes_free_at_end);
 		last_msize = TINY_MSIZE_FOR_BYTES(tiny_mag_ptr->mag_bytes_free_at_end);
 		last_header = TINY_BLOCK_HEADER_FOR_PTR(last_block);
 		last_index = TINY_INDEX_FOR_PTR(last_block);
@@ -601,7 +601,7 @@ tiny_finalize_region(rack_t *rack, magazine_t *tiny_mag_ptr)
 #if CONFIG_ASLR_INTERNAL
 	// Coalesce the big free block at start with any following free blocks
 	if (tiny_mag_ptr->mag_bytes_free_at_start) {
-		last_block = TINY_REGION_ADDRESS(tiny_mag_ptr->mag_last_region);
+		last_block = TINY_REGION_HEAP_BASE(tiny_mag_ptr->mag_last_region);
 		last_msize = TINY_MSIZE_FOR_BYTES(tiny_mag_ptr->mag_bytes_free_at_start);
 
 		void *next_block = (void *)((uintptr_t)last_block + tiny_mag_ptr->mag_bytes_free_at_start);
@@ -629,9 +629,9 @@ tiny_finalize_region(rack_t *rack, magazine_t *tiny_mag_ptr)
 int
 tiny_free_detach_region(rack_t *rack, magazine_t *tiny_mag_ptr, region_t r)
 {
-	uintptr_t start = (uintptr_t)TINY_REGION_ADDRESS(r);
+	uintptr_t start = (uintptr_t)TINY_REGION_HEAP_BASE(r);
 	uintptr_t current = start;
-	uintptr_t limit = (uintptr_t)TINY_REGION_END(r);
+	uintptr_t limit = (uintptr_t)TINY_REGION_HEAP_END(r);
 	boolean_t is_free;
 	msize_t msize;
 	region_trailer_t *trailer = REGION_TRAILER_FOR_TINY_REGION(r);
@@ -659,9 +659,9 @@ tiny_free_detach_region(rack_t *rack, magazine_t *tiny_mag_ptr, region_t r)
 size_t
 tiny_free_reattach_region(rack_t *rack, magazine_t *tiny_mag_ptr, region_t r)
 {
-	uintptr_t start = (uintptr_t)TINY_REGION_ADDRESS(r);
+	uintptr_t start = (uintptr_t)TINY_REGION_HEAP_BASE(r);
 	uintptr_t current = start;
-	uintptr_t limit = (uintptr_t)TINY_REGION_END(r);
+	uintptr_t limit = (uintptr_t)TINY_REGION_HEAP_END(r);
 	boolean_t is_free;
 	msize_t msize;
 	size_t bytes_used = REGION_TRAILER_FOR_TINY_REGION(r)->bytes_used;
@@ -693,12 +693,12 @@ typedef struct {
 void
 tiny_free_scan_madvise_free(rack_t *rack, magazine_t *depot_ptr, region_t r)
 {
-	uintptr_t start = (uintptr_t)TINY_REGION_ADDRESS(r);
+	uintptr_t start = (uintptr_t)TINY_REGION_HEAP_BASE(r);
 	uintptr_t current = start;
-	uintptr_t limit = (uintptr_t)TINY_REGION_END(r);
+	uintptr_t limit = (uintptr_t)TINY_REGION_HEAP_END(r);
 	boolean_t is_free;
 	msize_t msize;
-	tiny_pg_pair_t advisory[((TINY_REGION_PAYLOAD_BYTES + vm_kernel_page_size - 1) >> vm_kernel_page_shift) >>
+	tiny_pg_pair_t advisory[((TINY_HEAP_SIZE + vm_kernel_page_size - 1) >> vm_kernel_page_shift) >>
 							1]; // 256bytes stack allocated
 	int advisories = 0;
 
@@ -733,7 +733,7 @@ tiny_free_scan_madvise_free(rack_t *rack, magazine_t *depot_ptr, region_t r)
 			uintptr_t pgHi = trunc_page_kernel(current + TINY_BYTES_FOR_MSIZE(msize) - sizeof(msize_t));
 
 			if (pgLo < pgHi) {
-				advisory[advisories].pnum = (pgLo - start) >> vm_kernel_page_shift;
+				advisory[advisories].pnum = (pgLo - (uintptr_t)r) >> vm_kernel_page_shift;
 				advisory[advisories].size = (pgHi - pgLo) >> vm_kernel_page_shift;
 				advisories++;
 			}
@@ -754,7 +754,7 @@ tiny_free_scan_madvise_free(rack_t *rack, magazine_t *depot_ptr, region_t r)
 		OSAtomicIncrement32Barrier(&(REGION_TRAILER_FOR_TINY_REGION(r)->pinned_to_depot));
 		SZONE_MAGAZINE_PTR_UNLOCK(depot_ptr);
 		for (i = 0; i < advisories; ++i) {
-			uintptr_t addr = (advisory[i].pnum << vm_kernel_page_shift) + start;
+			uintptr_t addr = (advisory[i].pnum << vm_kernel_page_shift) + (uintptr_t)r;
 			size_t size = advisory[i].size << vm_kernel_page_shift;
 
 			mvm_madvise_free(rack, r, addr, addr + size, NULL, rack->debug_flags & MALLOC_DO_SCRIBBLE);
@@ -881,14 +881,14 @@ tiny_madvise_pressure_relief(rack_t *rack)
 
 			/* Fix up the metadata of the target magazine while the region is in the depot. */
 			mag_ptr->mag_num_bytes_in_objects -= bytes_inplay;
-			mag_ptr->num_bytes_in_magazine -= TINY_REGION_PAYLOAD_BYTES;
+			mag_ptr->num_bytes_in_magazine -= TINY_HEAP_SIZE;
 			mag_ptr->mag_num_objects -= objects_in_use;
 
 			/* Now we can drop the magazine lock of the source mag. */
 			SZONE_MAGAZINE_PTR_UNLOCK(mag_ptr);
 
 			tiny_depot_ptr->mag_num_bytes_in_objects += bytes_inplay;
-			tiny_depot_ptr->num_bytes_in_magazine += TINY_REGION_PAYLOAD_BYTES;
+			tiny_depot_ptr->num_bytes_in_magazine += TINY_HEAP_SIZE;
 			tiny_depot_ptr->mag_num_objects -= objects_in_use;
 
 			recirc_list_splice_last(rack, tiny_depot_ptr, REGION_TRAILER_FOR_TINY_REGION(tiny));
@@ -1013,11 +1013,11 @@ tiny_get_region_from_depot(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 	size_t bytes_inplay = tiny_free_reattach_region(rack, tiny_mag_ptr, sparse_region);
 
 	depot_ptr->mag_num_bytes_in_objects -= bytes_inplay;
-	depot_ptr->num_bytes_in_magazine -= TINY_REGION_PAYLOAD_BYTES;
+	depot_ptr->num_bytes_in_magazine -= TINY_HEAP_SIZE;
 	depot_ptr->mag_num_objects -= objects_in_use;
 
 	tiny_mag_ptr->mag_num_bytes_in_objects += bytes_inplay;
-	tiny_mag_ptr->num_bytes_in_magazine += TINY_REGION_PAYLOAD_BYTES;
+	tiny_mag_ptr->num_bytes_in_magazine += TINY_HEAP_SIZE;
 	tiny_mag_ptr->mag_num_objects += objects_in_use;
 
 	// connect to magazine as last node
@@ -1061,7 +1061,7 @@ tiny_free_try_depot_unmap_no_lock(rack_t *rack, magazine_t *depot_ptr, region_tr
 			return NULL;
 		}
 		*pSlot = HASHRING_REGION_DEALLOCATED;
-		depot_ptr->num_bytes_in_magazine -= TINY_REGION_PAYLOAD_BYTES;
+		depot_ptr->num_bytes_in_magazine -= TINY_HEAP_SIZE;
 
 		// Atomically increment num_regions_dealloc
 #ifdef __LP64___
@@ -1132,13 +1132,13 @@ tiny_free_do_recirc_to_depot(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t
 	size_t bytes_inplay = tiny_free_reattach_region(rack, depot_ptr, sparse_region);
 
 	tiny_mag_ptr->mag_num_bytes_in_objects -= bytes_inplay;
-	tiny_mag_ptr->num_bytes_in_magazine -= TINY_REGION_PAYLOAD_BYTES;
+	tiny_mag_ptr->num_bytes_in_magazine -= TINY_HEAP_SIZE;
 	tiny_mag_ptr->mag_num_objects -= objects_in_use;
 
 	SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr); // Unlock the originating magazine
 
 	depot_ptr->mag_num_bytes_in_objects += bytes_inplay;
-	depot_ptr->num_bytes_in_magazine += TINY_REGION_PAYLOAD_BYTES;
+	depot_ptr->num_bytes_in_magazine += TINY_HEAP_SIZE;
 	depot_ptr->mag_num_objects += objects_in_use;
 
 	// connect to Depot as last node
@@ -1156,7 +1156,8 @@ tiny_free_do_recirc_to_depot(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t
 	region_t r_dealloc = tiny_free_try_depot_unmap_no_lock(rack, depot_ptr, node);
 	SZONE_MAGAZINE_PTR_UNLOCK(depot_ptr);
 	if (r_dealloc) {
-		mvm_deallocate_pages(r_dealloc, TINY_REGION_SIZE, 0);
+		mvm_deallocate_pages(r_dealloc, TINY_REGION_SIZE,
+				MALLOC_FIX_GUARD_PAGE_FLAGS(rack->debug_flags));
 	}
 	return FALSE; // Caller need not unlock the originating magazine
 }
@@ -1211,7 +1212,8 @@ tiny_free_try_recirc_to_depot(rack_t *rack,
 			region_t r_dealloc = tiny_free_try_depot_unmap_no_lock(rack, tiny_mag_ptr, node);
 			SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
 			if (r_dealloc) {
-				mvm_deallocate_pages(r_dealloc, TINY_REGION_SIZE, 0);
+				mvm_deallocate_pages(r_dealloc, TINY_REGION_SIZE,
+						MALLOC_FIX_GUARD_PAGE_FLAGS(rack->debug_flags));
 			}
 			return FALSE; // Caller need not unlock
 		}
@@ -1244,8 +1246,7 @@ tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index,
 #endif
 
 	// Check that the region cookie is intact.
-	region_trailer_t *trailer = REGION_TRAILER_FOR_TINY_REGION(region);
-	region_check_cookie(region, trailer);
+	region_check_cookie(region, &REGION_COOKIE_FOR_TINY_REGION(region));
 
 	// We try to coalesce this block with the preceeding one
 	previous = tiny_previous_preceding_free(ptr, &previous_msize);
@@ -1263,7 +1264,7 @@ tiny_free_no_lock(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t mag_index,
 		msize += previous_msize;
 	}
 	// We try to coalesce with the next block
-	if ((next_block < TINY_REGION_END(region)) && tiny_meta_header_is_free(next_block)) {
+	if ((next_block < TINY_REGION_HEAP_END(region)) && tiny_meta_header_is_free(next_block)) {
 		next_msize = get_tiny_free_size(next_block);
 #if DEBUG_MALLOC
 		if (LOG(szone, ptr) || LOG(szone, next_block)) {
@@ -1330,6 +1331,7 @@ tiny_free_ending:
 	tiny_mag_ptr->mag_num_bytes_in_objects -= original_size;
 
 	// Update this region's bytes in use count
+	region_trailer_t *trailer = REGION_TRAILER_FOR_TINY_REGION(region);
 	size_t bytes_used = trailer->bytes_used - original_size;
 	trailer->bytes_used = (unsigned int)bytes_used;
 
@@ -1372,26 +1374,28 @@ tiny_malloc_from_region_no_lock(rack_t *rack,
 		tiny_finalize_region(rack, tiny_mag_ptr);
 	}
 
+	tiny_region_t region = (tiny_region_t)aligned_address;
+
 	// We set the unused bits of the header in the last pair to be all ones, and those of the inuse to zeroes.
 #if NUM_TINY_BLOCKS & 31
 	const uint32_t header = 0xFFFFFFFFU << (NUM_TINY_BLOCKS & 31);
 #else
 	const uint32_t header = 0;
 #endif
-	((tiny_region_t)aligned_address)->pairs[CEIL_NUM_TINY_BLOCKS_WORDS - 1].header = header;
-	((tiny_region_t)aligned_address)->pairs[CEIL_NUM_TINY_BLOCKS_WORDS - 1].inuse = 0;
+	region->pairs[CEIL_NUM_TINY_BLOCKS_WORDS - 1].header = header;
+	region->pairs[CEIL_NUM_TINY_BLOCKS_WORDS - 1].inuse = 0;
 
 	// Tag the region at "aligned_address" as belonging to us,
 	// and so put it under the protection of the magazine lock we are holding.
 	// Do this before advertising "aligned_address" on the hash ring(!)
-	MAGAZINE_INDEX_FOR_TINY_REGION(aligned_address) = mag_index;
+	MAGAZINE_INDEX_FOR_TINY_REGION(region) = mag_index;
 
 	// Insert the new region into the hash ring
-	rack_region_insert(rack, (region_t)aligned_address);
+	rack_region_insert(rack, region);
 
-	tiny_mag_ptr->mag_last_region = aligned_address;
-	BYTES_USED_FOR_TINY_REGION(aligned_address) = TINY_BYTES_FOR_MSIZE(msize);
-	OBJECTS_IN_USE_FOR_TINY_REGION(aligned_address) = 1;
+	tiny_mag_ptr->mag_last_region = region;
+	BYTES_USED_FOR_TINY_REGION(region) = TINY_BYTES_FOR_MSIZE(msize);
+	OBJECTS_IN_USE_FOR_TINY_REGION(region) = 1;
 
 #if CONFIG_ASLR_INTERNAL
 	int offset_msize = malloc_entropy[0] & TINY_ENTROPY_MASK;
@@ -1400,17 +1404,17 @@ tiny_malloc_from_region_no_lock(rack_t *rack,
 		offset_msize = strtol(getenv("MallocASLRForce"), NULL, 0) & TINY_ENTROPY_MASK;
 	}
 	if (getenv("MallocASLRPrint")) {
-		malloc_report(ASL_LEVEL_INFO, "Region: %p offset: %d\n", aligned_address, offset_msize);
+		malloc_report(ASL_LEVEL_INFO, "Region: %p offset: %d\n", region, offset_msize);
 	}
 #endif
 #else
 	int offset_msize = 0;
 #endif
-	ptr = (void *)((uintptr_t)aligned_address + TINY_BYTES_FOR_MSIZE(offset_msize));
+	ptr = (void *)(TINY_REGION_HEAP_BASE(region) + TINY_BYTES_FOR_MSIZE(offset_msize));
 	set_tiny_meta_header_in_use(ptr, msize);
 	tiny_mag_ptr->mag_num_objects++;
 	tiny_mag_ptr->mag_num_bytes_in_objects += TINY_BYTES_FOR_MSIZE(msize);
-	tiny_mag_ptr->num_bytes_in_magazine += TINY_REGION_PAYLOAD_BYTES;
+	tiny_mag_ptr->num_bytes_in_magazine += TINY_HEAP_SIZE;
 
 	// We put a header on the last block so that it appears in use (for coalescing, etc...)
 	set_tiny_meta_header_in_use_1((void *)((uintptr_t)ptr + TINY_BYTES_FOR_MSIZE(msize)));
@@ -1427,7 +1431,7 @@ tiny_malloc_from_region_no_lock(rack_t *rack,
 #endif
 
 	// connect to magazine as last node
-	recirc_list_splice_last(rack, tiny_mag_ptr, REGION_TRAILER_FOR_TINY_REGION(aligned_address));
+	recirc_list_splice_last(rack, tiny_mag_ptr, REGION_TRAILER_FOR_TINY_REGION(region));
 
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {
@@ -1498,7 +1502,8 @@ boolean_t
 tiny_claimed_address(rack_t *rack, void *ptr)
 {
 	region_t r = tiny_region_for_ptr_no_lock(rack, ptr);
-	return r && ptr < TINY_REGION_END(r);
+	return r && ptr >= TINY_REGION_HEAP_BASE(r)
+			&& ptr < TINY_REGION_HEAP_END(r);
 }
 
 void *
@@ -1587,7 +1592,7 @@ tiny_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_s
 		 * Try to expand into unused space immediately after this block.
 		 */
 		msize_t unused_msize = TINY_MSIZE_FOR_BYTES(tiny_mag_ptr->mag_bytes_free_at_end);
-		void *unused_start = TINY_REGION_END(TINY_REGION_FOR_PTR(ptr)) - tiny_mag_ptr->mag_bytes_free_at_end;
+		void *unused_start = TINY_REGION_HEAP_END(TINY_REGION_FOR_PTR(ptr)) - tiny_mag_ptr->mag_bytes_free_at_end;
 		if (tiny_mag_ptr->mag_last_region == TINY_REGION_FOR_PTR(ptr)
 				&& coalesced_msize < unused_msize && unused_start == ptr + old_size) {
 			// The block at the start of mag_bytes_free_at_end is marked as
@@ -1649,7 +1654,7 @@ tiny_try_realloc_in_place(rack_t *rack, void *ptr, size_t old_size, size_t new_s
 	node->bytes_used = (unsigned int)bytes_used;
 
 	// Emptiness discriminant
-	if (bytes_used < DENSITY_THRESHOLD(TINY_REGION_PAYLOAD_BYTES)) {
+	if (bytes_used < DENSITY_THRESHOLD(TINY_HEAP_SIZE)) {
 		/* After this reallocation the region is still sparse, so it must have been even more so before
 		 * the reallocation. That implies the region is already correctly marked. Do nothing. */
 	} else {
@@ -1695,7 +1700,7 @@ tiny_check_region(rack_t *rack, region_t region, size_t region_index,
 	}
 
 	/* establish region limits */
-	start = (uintptr_t)TINY_REGION_ADDRESS(region);
+	start = (uintptr_t)TINY_REGION_HEAP_BASE(region);
 	ptr = start;
 	if (region == tiny_mag_ptr->mag_last_region) {
 		ptr += tiny_mag_ptr->mag_bytes_free_at_start;
@@ -1712,7 +1717,7 @@ tiny_check_region(rack_t *rack, region_t region, size_t region_index,
 			}
 		}
 	}
-	region_end = (uintptr_t)TINY_REGION_END(region);
+	region_end = (uintptr_t)TINY_REGION_HEAP_END(region);
 
 	/*
 	 * The last region may have a trailing chunk which has not been converted into inuse/freelist
@@ -1786,9 +1791,9 @@ tiny_check_region(rack_t *rack, region_t region, size_t region_index,
 			 */
 			follower = FOLLOWING_TINY_PTR(ptr, msize);
 			if (((uintptr_t)follower != region_end) && (get_tiny_previous_free_msize(follower) != msize)) {
-				TINY_CHECK_FAIL("*** invariant broken for tiny free %p followed by %p in region [%p-%p] "
+				TINY_CHECK_FAIL("*** invariant broken for tiny free %p followed by %p in region %p [%p-%p] "
 						"(end marker incorrect) should be %d; in fact %d\n",
-						(void *)ptr, follower, TINY_REGION_ADDRESS(region), (void *)region_end,
+						(void *)ptr, follower, region, TINY_REGION_HEAP_BASE(region), (void *)region_end,
 						msize, get_tiny_previous_free_msize(follower));
 				return 0;
 			}
@@ -1871,20 +1876,20 @@ tiny_in_use_enumerator(task_t task,
 	for (index = 0; index < num_regions; ++index) {
 		region = regions[index];
 		if (HASHRING_OPEN_ENTRY != region && HASHRING_REGION_DEALLOCATED != region) {
-			range.address = (vm_address_t)TINY_REGION_ADDRESS(region);
-			range.size = (vm_size_t)TINY_REGION_SIZE;
+			range.address = (vm_address_t)TINY_REGION_HEAP_BASE(region);
+			range.size = (vm_size_t)TINY_HEAP_SIZE;
 			if (type_mask & MALLOC_ADMIN_REGION_RANGE_TYPE) {
-				admin_range.address = range.address + TINY_METADATA_START;
+				admin_range.address = TINY_REGION_METADATA(region);
 				admin_range.size = TINY_METADATA_SIZE;
 				recorder(task, context, MALLOC_ADMIN_REGION_RANGE_TYPE, &admin_range, 1);
 			}
 			if (type_mask & (MALLOC_PTR_REGION_RANGE_TYPE | MALLOC_ADMIN_REGION_RANGE_TYPE)) {
 				ptr_range.address = range.address;
-				ptr_range.size = NUM_TINY_BLOCKS * TINY_QUANTUM;
+				ptr_range.size = TINY_HEAP_SIZE;
 				recorder(task, context, MALLOC_PTR_REGION_RANGE_TYPE, &ptr_range, 1);
 			}
 			if (type_mask & MALLOC_PTR_IN_USE_RANGE_TYPE) {
-				err = reader(task, range.address, range.size, (void **)&mapped_region);
+				err = reader(task, (vm_address_t)region, (vm_size_t)TINY_REGION_SIZE, (void **)&mapped_region);
 				if (err) {
 					return err;
 				}
@@ -1897,13 +1902,13 @@ tiny_in_use_enumerator(task_t task,
 				// Each magazine could have a pointer to a cached free block from
 				// this region. Count the regions that have such a pointer.
 				for (mag_index = 0; mag_index < szone->tiny_rack.num_magazines; mag_index++) {
-					if ((void *)range.address == (tiny_mag_base + mag_index)->mag_last_free_rgn) {
+					if (region == (tiny_mag_base + mag_index)->mag_last_free_rgn) {
 						cached_free_blocks++;
 					}
 				}
 #endif // CONFIG_TINY_CACHE
 
-				block_header = (uint32_t *)(mapped_region + TINY_METADATA_START + sizeof(region_trailer_t));
+				block_header = TINY_BLOCK_HEADER_FOR_REGION(mapped_region);
 				in_use = TINY_INUSE_FOR_HEADER(block_header);
 				block_index = 0;
 				block_limit = NUM_TINY_BLOCKS;
@@ -1916,7 +1921,7 @@ tiny_in_use_enumerator(task_t task,
 					vm_size_t block_offset = TINY_BYTES_FOR_MSIZE(block_index);
 					is_free = !BITARRAY_BIT(in_use, block_index);
 					if (is_free) {
-						mapped_ptr = mapped_region + block_offset;
+						mapped_ptr = TINY_REGION_HEAP_BASE(mapped_region) + block_offset;
 
 						// mapped_region, the address at which 'range' in 'task' has been
 						// mapped into our process, is not necessarily aligned to
@@ -1937,11 +1942,11 @@ tiny_in_use_enumerator(task_t task,
 						// If there are still magazines that have cached free
 						// blocks in this region, check whether this is one of
 						// them and don't return the block pointer if it is.
-						vm_address_t ptr = range.address + block_offset;
+						void *ptr = TINY_REGION_HEAP_BASE(region) + block_offset;
 						boolean_t block_cached = false;
 						if (cached_free_blocks) {
 							for (mag_index = 0; mag_index < szone->tiny_rack.num_magazines; mag_index++) {
-								if ((void *)ptr == (tiny_mag_base + mag_index)->mag_last_free) {
+								if (ptr == (tiny_mag_base + mag_index)->mag_last_free) {
 									block_cached = true;
 									cached_free_blocks--;
 									msize = (tiny_mag_base + mag_index)->mag_last_free_msize;
@@ -1962,7 +1967,7 @@ tiny_in_use_enumerator(task_t task,
 							bit++;
 							msize++;
 						}
-						buffer[count].address = range.address + block_offset;
+						buffer[count].address = (vm_address_t)TINY_REGION_HEAP_BASE(region) + block_offset;
 						buffer[count].size = TINY_BYTES_FOR_MSIZE(msize);
 						count++;
 						if (count >= MAX_RECORDER_BUFFER) {
@@ -2106,7 +2111,7 @@ tiny_malloc_from_free_list(rack_t *rack, magazine_t *tiny_mag_ptr, mag_index_t m
 try_tiny_malloc_from_end:
 	// Let's see if we can use tiny_mag_ptr->mag_bytes_free_at_end
 	if (tiny_mag_ptr->mag_bytes_free_at_end >= TINY_BYTES_FOR_MSIZE(msize)) {
-		ptr = (tiny_free_list_t *)((uintptr_t)TINY_REGION_END(tiny_mag_ptr->mag_last_region) - tiny_mag_ptr->mag_bytes_free_at_end);
+		ptr = (tiny_free_list_t *)((uintptr_t)TINY_REGION_HEAP_END(tiny_mag_ptr->mag_last_region) - tiny_mag_ptr->mag_bytes_free_at_end);
 		tiny_mag_ptr->mag_bytes_free_at_end -= TINY_BYTES_FOR_MSIZE(msize);
 		if (tiny_mag_ptr->mag_bytes_free_at_end) {
 			// let's add an in use block after ptr to serve as boundary
@@ -2123,7 +2128,7 @@ try_tiny_malloc_from_end:
 #if CONFIG_ASLR_INTERNAL
 	// Try from start if nothing left at end
 	if (tiny_mag_ptr->mag_bytes_free_at_start >= TINY_BYTES_FOR_MSIZE(msize)) {
-		ptr = (tiny_free_list_t *)(TINY_REGION_ADDRESS(tiny_mag_ptr->mag_last_region) + tiny_mag_ptr->mag_bytes_free_at_start -
+		ptr = (tiny_free_list_t *)(TINY_REGION_HEAP_BASE(tiny_mag_ptr->mag_last_region) + tiny_mag_ptr->mag_bytes_free_at_start -
 							  TINY_BYTES_FOR_MSIZE(msize));
 		tiny_mag_ptr->mag_bytes_free_at_start -= TINY_BYTES_FOR_MSIZE(msize);
 		if (tiny_mag_ptr->mag_bytes_free_at_start) {
@@ -2159,15 +2164,16 @@ return_tiny_alloc:
 	tiny_mag_ptr->mag_num_bytes_in_objects += TINY_BYTES_FOR_MSIZE(this_msize);
 
 	// Check that the region cookie is intact and update the region's bytes in use count
-	region_t *region = TINY_REGION_FOR_PTR(ptr);
+	tiny_region_t region = TINY_REGION_FOR_PTR(ptr);
+	region_check_cookie(region, &REGION_COOKIE_FOR_TINY_REGION(region));
+
 	region_trailer_t *trailer = REGION_TRAILER_FOR_TINY_REGION(region);
-	region_check_cookie(region, trailer);
 	size_t bytes_used = trailer->bytes_used + TINY_BYTES_FOR_MSIZE(this_msize);
 	trailer->bytes_used = (unsigned int)bytes_used;
 	trailer->objects_in_use++;
 
 	// Emptiness discriminant
-	if (bytes_used < DENSITY_THRESHOLD(TINY_REGION_PAYLOAD_BYTES)) {
+	if (bytes_used < DENSITY_THRESHOLD(TINY_HEAP_SIZE)) {
 		/* After this allocation the region is still sparse, so it must have been even more so before
 		 * the allocation. That implies the region is already correctly marked. Do nothing. */
 	} else {
@@ -2271,7 +2277,10 @@ tiny_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requeste
 			tiny_mag_ptr->alloc_underway = TRUE;
 			OSMemoryBarrier();
 			SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr);
-			fresh_region = mvm_allocate_pages_securely(TINY_REGION_SIZE, TINY_BLOCKS_ALIGN, VM_MEMORY_MALLOC_TINY, rack->debug_flags);
+			fresh_region = mvm_allocate_pages(TINY_REGION_SIZE,
+					TINY_BLOCKS_ALIGN,
+					MALLOC_FIX_GUARD_PAGE_FLAGS(rack->debug_flags),
+					VM_MEMORY_MALLOC_TINY);
 			SZONE_MAGAZINE_PTR_LOCK(tiny_mag_ptr);
 
 			// DTrace USDT Probe
@@ -2284,7 +2293,7 @@ tiny_malloc_should_clear(rack_t *rack, msize_t msize, boolean_t cleared_requeste
 				return NULL;
 			}
 
-			region_set_cookie(REGION_TRAILER_FOR_TINY_REGION(fresh_region));
+			region_set_cookie(&REGION_COOKIE_FOR_TINY_REGION(fresh_region));
 			ptr = tiny_malloc_from_region_no_lock(rack, tiny_mag_ptr, mag_index, msize, fresh_region);
 
 			// we don't clear because this freshly allocated space is pristine
@@ -2307,6 +2316,7 @@ tiny_size(rack_t *rack, const void *ptr)
 {
 	if (tiny_region_for_ptr_no_lock(rack, ptr)) {
 		if (TINY_INDEX_FOR_PTR(ptr) >= NUM_TINY_BLOCKS) {
+malloc_printf("NO ZONE for ptr %p\n", ptr);
 			return 0;
 		}
 
@@ -2595,9 +2605,9 @@ print_tiny_region(task_t task, memory_reader_t reader,
 {
 	unsigned counts[1024];
 	unsigned in_use = 0;
-	uintptr_t start = (uintptr_t)TINY_REGION_ADDRESS(region);
+	uintptr_t start = (uintptr_t)TINY_REGION_HEAP_BASE(region);
 	uintptr_t current = start + bytes_at_start;
-	uintptr_t limit = (uintptr_t)TINY_REGION_END(region) - bytes_at_end;
+	uintptr_t limit = (uintptr_t)TINY_REGION_HEAP_END(region) - bytes_at_end;
 	uintptr_t mapped_start;
 	boolean_t is_free;
 	msize_t msize;
@@ -2660,7 +2670,7 @@ print_tiny_region(task_t task, memory_reader_t reader,
 	}
 	if ((b = _simple_salloc()) != NULL) {
 		mag_index_t mag_index = MAGAZINE_INDEX_FOR_TINY_REGION(mapped_region);
-		_simple_sprintf(b, "Tiny region [%p-%p, %y] \t", (void *)start, TINY_REGION_END(region), (int)TINY_REGION_SIZE);
+		_simple_sprintf(b, "Tiny region [%p-%p, %y] \t", (void *)start, TINY_REGION_HEAP_END(region), (int)TINY_REGION_SIZE);
         if (mag_index == DEPOT_MAGAZINE_INDEX) {
             _simple_sprintf(b, "Recirc depot \t");
         } else {

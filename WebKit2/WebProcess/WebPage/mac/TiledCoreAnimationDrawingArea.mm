@@ -66,10 +66,6 @@
 #import <WebCore/ScrollingTree.h>
 #endif
 
-@interface CATransaction (Details)
-+ (void)synchronize;
-@end
-
 namespace WebKit {
 using namespace WebCore;
 
@@ -87,7 +83,7 @@ TiledCoreAnimationDrawingArea::TiledCoreAnimationDrawingArea(WebPage& webPage, c
     [m_hostingLayer setOpaque:YES];
     [m_hostingLayer setGeometryFlipped:YES];
 
-    m_layerFlushRunLoopObserver = std::make_unique<WebCore::RunLoopObserver>(static_cast<CFIndex>(RunLoopObserver::WellKnownRunLoopOrders::LayerFlush), [this]() {
+    m_layerFlushRunLoopObserver = makeUnique<RunLoopObserver>(static_cast<CFIndex>(RunLoopObserver::WellKnownRunLoopOrders::LayerFlush), [this]() {
         this->layerFlushRunLoopCallback();
     });
 
@@ -141,6 +137,7 @@ void TiledCoreAnimationDrawingArea::setRootCompositingLayer(GraphicsLayer* graph
         return;
     }
 
+    m_pendingRootLayer = nullptr;
     setRootCompositingLayer(rootLayer);
 }
 
@@ -514,7 +511,7 @@ void TiledCoreAnimationDrawingArea::flushLayers(FlushType flushType)
     }
 }
 
-void TiledCoreAnimationDrawingArea::activityStateDidChange(OptionSet<WebCore::ActivityState::Flag> changed, ActivityStateChangeID activityStateChangeID, const Vector<CallbackID>& nextActivityStateChangeCallbackIDs)
+void TiledCoreAnimationDrawingArea::activityStateDidChange(OptionSet<ActivityState::Flag> changed, ActivityStateChangeID activityStateChangeID, const Vector<CallbackID>& nextActivityStateChangeCallbackIDs)
 {
     m_nextActivityStateChangeCallbackIDs.appendVector(nextActivityStateChangeCallbackIDs);
     m_activityStateChangeID = std::max(m_activityStateChangeID, activityStateChangeID);
@@ -566,10 +563,21 @@ void TiledCoreAnimationDrawingArea::resumePainting()
     [[NSNotificationCenter defaultCenter] postNotificationName:@"NSCAViewRenderDidResumeNotification" object:nil userInfo:[NSDictionary dictionaryWithObject:m_hostingLayer.get() forKey:@"layer"]];
 }
 
-void TiledCoreAnimationDrawingArea::setViewExposedRect(Optional<WebCore::FloatRect> viewExposedRect)
+void TiledCoreAnimationDrawingArea::setViewExposedRect(Optional<FloatRect> viewExposedRect)
 {
     m_viewExposedRect = viewExposedRect;
     updateScrolledExposedRect();
+}
+
+FloatRect TiledCoreAnimationDrawingArea::exposedContentRect() const
+{
+    ASSERT_NOT_REACHED();
+    return { };
+}
+
+void TiledCoreAnimationDrawingArea::setExposedContentRect(const FloatRect&)
+{
+    ASSERT_NOT_REACHED();
 }
 
 void TiledCoreAnimationDrawingArea::updateScrolledExposedRect()
@@ -597,7 +605,7 @@ void TiledCoreAnimationDrawingArea::updateGeometry(const IntSize& viewSize, bool
     IntSize size = viewSize;
     IntSize contentSize = IntSize(-1, -1);
 
-    if (!m_webPage.viewLayoutSize().width() || m_webPage.autoSizingShouldExpandToViewHeight())
+    if (!m_webPage.minimumSizeForAutoLayout().width() || m_webPage.autoSizingShouldExpandToViewHeight())
         m_webPage.setSize(size);
 
     FrameView* frameView = m_webPage.mainFrameView();
@@ -607,7 +615,7 @@ void TiledCoreAnimationDrawingArea::updateGeometry(const IntSize& viewSize, bool
 
     m_webPage.layoutIfNeeded();
 
-    if (m_webPage.viewLayoutSize().width() && frameView) {
+    if (m_webPage.minimumSizeForAutoLayout().width() && frameView) {
         contentSize = frameView->autoSizingIntrinsicContentSize();
         size = contentSize;
     }
@@ -727,7 +735,7 @@ void TiledCoreAnimationDrawingArea::updateDebugInfoLayer(bool showLayer)
     }
 }
 
-bool TiledCoreAnimationDrawingArea::shouldUseTiledBackingForFrameView(const FrameView& frameView)
+bool TiledCoreAnimationDrawingArea::shouldUseTiledBackingForFrameView(const FrameView& frameView) const
 {
     return frameView.frame().isMainFrame() || m_webPage.corePage()->settings().asyncFrameScrollingEnabled();
 }
@@ -941,11 +949,11 @@ void TiledCoreAnimationDrawingArea::scheduleLayerFlushRunLoopObserver()
     m_layerFlushRunLoopObserver->schedule(CFRunLoopGetCurrent());
 }
 
-bool TiledCoreAnimationDrawingArea::adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags flags)
+bool TiledCoreAnimationDrawingArea::adjustLayerFlushThrottling(LayerFlushThrottleState::Flags flags)
 {
     bool wasThrottlingLayerFlushes = m_isThrottlingLayerFlushes;
-    m_isThrottlingLayerFlushes = flags & WebCore::LayerFlushThrottleState::Enabled;
-    m_isLayerFlushThrottlingTemporarilyDisabledForInteraction = flags & WebCore::LayerFlushThrottleState::UserIsInteracting;
+    m_isThrottlingLayerFlushes = flags & LayerFlushThrottleState::Enabled;
+    m_isLayerFlushThrottlingTemporarilyDisabledForInteraction = flags & LayerFlushThrottleState::UserIsInteracting;
 
     if (wasThrottlingLayerFlushes == m_isThrottlingLayerFlushes)
         return true;

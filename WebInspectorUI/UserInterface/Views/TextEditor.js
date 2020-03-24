@@ -182,7 +182,7 @@ WI.TextEditor = class TextEditor extends WI.View
     hasFormatter()
     {
         let mode = this._codeMirror.getMode().name;
-        return mode === "javascript" || mode === "css";
+        return mode === "javascript" || mode === "css" || mode === "htmlmixed" || mode === "xml";
     }
 
     canBeFormatted()
@@ -853,17 +853,9 @@ WI.TextEditor = class TextEditor extends WI.View
 
             if (!pretty)
                 this._undoFormatting(beforePrettyPrintState, resolve);
-            else if (this._canUseFormatterWorker())
-                this._startWorkerPrettyPrint(beforePrettyPrintState, resolve);
             else
-                this._startCodeMirrorPrettyPrint(beforePrettyPrintState, resolve);
+                this._startWorkerPrettyPrint(beforePrettyPrintState, resolve);
         });
-    }
-
-    _canUseFormatterWorker()
-    {
-        let mode = this._codeMirror.getMode().name;
-        return mode === "javascript" || mode === "css";
     }
 
     _attemptToDetermineMIMEType()
@@ -901,26 +893,26 @@ WI.TextEditor = class TextEditor extends WI.View
         };
 
         let mode = this._codeMirror.getMode().name;
-        if (mode === "javascript") {
+        switch (mode) {
+        case "javascript": {
             let sourceType = this._delegate ? this._delegate.textEditorScriptSourceType(this) : WI.Script.SourceType.Program;
             const isModule = sourceType === WI.Script.SourceType.Module;
             workerProxy.formatJavaScript(sourceText, isModule, indentString, includeSourceMapData, formatCallback);
-        } else if (mode === "css")
+            break;
+        }
+        case "css":
             workerProxy.formatCSS(sourceText, indentString, includeSourceMapData, formatCallback);
-    }
-
-    _startCodeMirrorPrettyPrint(beforePrettyPrintState, callback)
-    {
-        let indentString = WI.indentString();
-        let start = {line: 0, ch: 0};
-        let end = {line: this._codeMirror.lineCount() - 1};
-        let builder = new FormatterContentBuilder(indentString);
-        let formatter = new WI.Formatter(this._codeMirror, builder);
-        formatter.format(start, end);
-
-        let formattedText = builder.formattedContent;
-        let sourceMapData = builder.sourceMapData;
-        this._finishPrettyPrint(beforePrettyPrintState, formattedText, sourceMapData, callback);
+            break;
+        case "htmlmixed":
+            workerProxy.formatHTML(sourceText, indentString, includeSourceMapData, formatCallback);
+            break;
+        case "xml":
+            workerProxy.formatXML(sourceText, indentString, includeSourceMapData, formatCallback);
+            break;
+        default:
+            console.assert(false, "Unexpected mode attempted to pretty print.");
+            break;
+        }
     }
 
     _finishPrettyPrint(beforePrettyPrintState, formattedText, sourceMapData, callback)

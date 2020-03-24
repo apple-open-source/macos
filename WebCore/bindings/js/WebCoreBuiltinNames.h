@@ -1,6 +1,6 @@
 /*
  *  Copyright (c) 2015, Canon Inc. All rights reserved.
- *  Copyright (C) 2018 Apple Inc. All rights reserved.
+ *  Copyright (C) 2018-2019 Apple Inc. All rights reserved.
  *
  *  Redistribution and use in source and binary forms, with or without
  *  modification, are permitted provided that the following conditions
@@ -55,6 +55,8 @@ namespace WebCore {
     macro(CacheStorage) \
     macro(Client) \
     macro(Clients) \
+    macro(Clipboard) \
+    macro(ClipboardItem) \
     macro(Credential) \
     macro(CredentialsContainer) \
     macro(CSSAnimation) \
@@ -70,6 +72,7 @@ namespace WebCore {
     macro(DataTransferItem) \
     macro(DataTransferItemList) \
     macro(DocumentTimeline) \
+    macro(EnterPictureInPictureEvent) \
     macro(ExtendableEvent) \
     macro(ExtendableMessageEvent) \
     macro(FetchEvent) \
@@ -88,12 +91,13 @@ namespace WebCore {
     macro(GPUBuffer) \
     macro(GPUBufferUsage) \
     macro(GPUCanvasContext) \
-    macro(GPUColorWriteBits) \
+    macro(GPUColorWrite) \
     macro(GPUCommandBuffer) \
     macro(GPUCommandEncoder) \
     macro(GPUComputePassEncoder) \
     macro(GPUComputePipeline) \
     macro(GPUDevice) \
+    macro(GPUOutOfMemoryError) \
     macro(GPUPipelineLayout) \
     macro(GPUProgrammablePassEncoder) \
     macro(GPUQueue) \
@@ -101,15 +105,21 @@ namespace WebCore {
     macro(GPURenderPipeline) \
     macro(GPUSampler) \
     macro(GPUShaderModule) \
-    macro(GPUShaderStageBit) \
+    macro(GPUShaderStage) \
     macro(GPUSwapChain) \
     macro(GPUTexture) \
     macro(GPUTextureUsage) \
     macro(GPUTextureView) \
+    macro(GPUUncapturedErrorEvent) \
+    macro(GPUValidationError) \
+    macro(HighlightMap) \
+    macro(HighlightRangeGroup) \
     macro(HTMLAttachmentElement) \
     macro(HTMLAudioElement) \
+    macro(HTMLDialogElement) \
     macro(HTMLDataListElement) \
     macro(HTMLMenuItemElement) \
+    macro(HTMLKeygenElement) \
     macro(HTMLSlotElement) \
     macro(Headers) \
     macro(IDBCursor) \
@@ -125,12 +135,14 @@ namespace WebCore {
     macro(IDBVersionChangeEvent) \
     macro(ImageBitmap) \
     macro(ImageBitmapRenderingContext) \
+    macro(IdleDeadline) \
     macro(InputEvent) \
     macro(IntersectionObserver) \
     macro(IntersectionObserverEntry) \
     macro(KeyframeEffect) \
     macro(MediaCapabilities) \
     macro(MediaCapabilitiesInfo) \
+    macro(MediaDevices) \
     macro(MediaEncryptedEvent) \
     macro(MediaKeyMessageEvent) \
     macro(MediaKeySession) \
@@ -155,6 +167,7 @@ namespace WebCore {
     macro(PaymentRequest) \
     macro(PaymentRequestUpdateEvent) \
     macro(PaymentResponse) \
+    macro(PictureInPictureWindow) \
     macro(SQLError) \
     macro(SQLResultSet) \
     macro(SQLResultSetRowList) \
@@ -193,6 +206,7 @@ namespace WebCore {
     macro(ReadableStreamBYOBRequest) \
     macro(ReadableStreamDefaultController) \
     macro(ReadableStreamDefaultReader) \
+    macro(RemotePlayback) \
     macro(Request) \
     macro(Response) \
     macro(ScreenLuminance) \
@@ -205,6 +219,7 @@ namespace WebCore {
     macro(StaticRange) \
     macro(StylePropertyMapReadOnly) \
     macro(StylePropertyMap) \
+    macro(TextTrackCue) \
     macro(UndoItem) \
     macro(UndoManager) \
     macro(VRDisplay) \
@@ -232,11 +247,13 @@ namespace WebCore {
     macro(associatedReadableByteStreamController) \
     macro(autoAllocateChunkSize) \
     macro(backingMap) \
+    macro(backingSet) \
     macro(blur) \
     macro(body) \
     macro(byobRequest) \
     macro(caches) \
     macro(cancel) \
+    macro(cancelIdleCallback) \
     macro(cloneArrayBuffer) \
     macro(close) \
     macro(closeRequested) \
@@ -281,6 +298,7 @@ namespace WebCore {
     macro(ontouchmove) \
     macro(ontouchstart) \
     macro(ontouchforcechange) \
+    macro(onuncapturederror) \
     macro(onvrdisplayactivate) \
     macro(onvrdisplayblur) \
     macro(onvrdisplayconnect) \
@@ -310,6 +328,7 @@ namespace WebCore {
     macro(readableStreamController) \
     macro(reader) \
     macro(readyPromiseCapability) \
+    macro(requestIdleCallback) \
     macro(response) \
     macro(responseCacheIsValid) \
     macro(retrieveResponse) \
@@ -333,6 +352,7 @@ namespace WebCore {
     macro(streamWritable) \
     macro(structuredCloneArrayBuffer) \
     macro(structuredCloneArrayBufferView) \
+    macro(timeline) \
     macro(top) \
     macro(underlyingByteSource) \
     macro(underlyingSink) \
@@ -356,8 +376,8 @@ namespace WebCore {
 
 class WebCoreBuiltinNames {
 public:
-    explicit WebCoreBuiltinNames(JSC::VM* vm)
-        : m_vm(*vm)
+    explicit WebCoreBuiltinNames(JSC::VM& vm)
+        : m_vm(vm)
         WEBCORE_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(INITIALIZE_BUILTIN_NAMES)
     {
 #define EXPORT_NAME(name) m_vm.propertyNames->appendExternalName(name##PublicName(), name##PrivateName());

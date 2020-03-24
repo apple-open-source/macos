@@ -57,7 +57,6 @@ enum class UnitlessQuirk {
 };
 
 RefPtr<CSSPrimitiveValue> consumeInteger(CSSParserTokenRange&, double minimumValue = -std::numeric_limits<double>::max());
-bool consumePositiveIntegerRaw(CSSParserTokenRange&, int& result);
 RefPtr<CSSPrimitiveValue> consumePositiveInteger(CSSParserTokenRange&);
 bool consumeNumberRaw(CSSParserTokenRange&, double& result);
 RefPtr<CSSPrimitiveValue> consumeNumber(CSSParserTokenRange&, ValueRange);
@@ -81,8 +80,13 @@ RefPtr<CSSPrimitiveValue> consumeUrl(CSSParserTokenRange&);
 
 RefPtr<CSSPrimitiveValue> consumeColor(CSSParserTokenRange&, CSSParserMode, bool acceptQuirkyColors = false);
 
-RefPtr<CSSPrimitiveValue> consumePosition(CSSParserTokenRange&, CSSParserMode, UnitlessQuirk);
-bool consumePosition(CSSParserTokenRange&, CSSParserMode, UnitlessQuirk, RefPtr<CSSPrimitiveValue>& resultX, RefPtr<CSSPrimitiveValue>& resultY);
+enum class PositionSyntax {
+    Position, // <position>
+    BackgroundPosition // <bg-position>
+};
+
+RefPtr<CSSPrimitiveValue> consumePosition(CSSParserTokenRange&, CSSParserMode, UnitlessQuirk, PositionSyntax);
+bool consumePosition(CSSParserTokenRange&, CSSParserMode, UnitlessQuirk, PositionSyntax, RefPtr<CSSPrimitiveValue>& resultX, RefPtr<CSSPrimitiveValue>& resultY);
 bool consumeOneOrTwoValuedPosition(CSSParserTokenRange&, CSSParserMode, UnitlessQuirk, RefPtr<CSSPrimitiveValue>& resultX, RefPtr<CSSPrimitiveValue>& resultY);
 
 enum class ConsumeGeneratedImage {

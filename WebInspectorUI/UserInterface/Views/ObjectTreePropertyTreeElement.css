@@ -40,6 +40,10 @@
     content: url(../Images/TypeNumber.svg);
 }
 
+.object-tree-property.bigint > .icon {
+    content: url(../Images/TypeBigInt.svg);
+}
+
 .object-tree-property.object > .icon {
     content: url(../Images/TypeObject.svg);
 }
@@ -120,7 +124,7 @@
 .object-tree-property .getter {
     top: 1px;
 
-    content: url(../Images/Eye.svg);
+    content: url(../Images/Show.svg);
 
     width: 16px;
     height: 11px;

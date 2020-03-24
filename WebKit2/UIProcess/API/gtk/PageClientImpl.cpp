@@ -35,6 +35,7 @@
 #include "ViewSnapshotStore.h"
 #include "WebColorPickerGtk.h"
 #include "WebContextMenuProxyGtk.h"
+#include "WebDataListSuggestionsDropdownGtk.h"
 #include "WebEventFactory.h"
 #include "WebKitColorChooser.h"
 #include "WebKitPopupMenu.h"
@@ -64,7 +65,7 @@ PageClientImpl::PageClientImpl(GtkWidget* viewWidget)
 // PageClient's pure virtual functions
 std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy& process)
 {
-    return std::make_unique<DrawingAreaProxyCoordinatedGraphics>(*webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(m_viewWidget)), process);
+    return makeUnique<DrawingAreaProxyCoordinatedGraphics>(*webkitWebViewBaseGetPage(WEBKIT_WEB_VIEW_BASE(m_viewWidget)), process);
 }
 
 void PageClientImpl::setViewNeedsDisplay(const WebCore::Region& region)
@@ -223,8 +224,6 @@ void PageClientImpl::doneWithKeyEvent(const NativeWebKeyboardEvent& event, bool 
 {
     if (wasEventHandled)
         return;
-    if (event.isFakeEventForComposition())
-        return;
 
     WebKitWebViewBase* webkitWebViewBase = WEBKIT_WEB_VIEW_BASE(m_viewWidget);
     webkitWebViewBaseForwardNextKeyEvent(webkitWebViewBase);
@@ -249,6 +248,13 @@ RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy* page, con
         return WebKitColorChooser::create(*page, color, rect);
     return WebColorPickerGtk::create(*page, color, rect);
 }
+
+#if ENABLE(DATALIST_ELEMENT)
+RefPtr<WebDataListSuggestionsDropdown> PageClientImpl::createDataListSuggestionsDropdown(WebPageProxy& page)
+{
+    return WebDataListSuggestionsDropdownGtk::create(m_viewWidget, page);
+}
+#endif
 
 void PageClientImpl::enterAcceleratedCompositingMode(const LayerTreeContext& layerTreeContext)
 {
@@ -553,13 +559,13 @@ bool PageClientImpl::effectiveAppearanceIsDark() const
     if (preferDarkTheme)
         return true;
 
+    if (auto* themeNameEnv = g_getenv("GTK_THEME"))
+        return g_str_has_suffix(themeNameEnv, "-dark") || g_str_has_suffix(themeNameEnv, ":dark");
+
     GUniqueOutPtr<char> themeName;
     g_object_get(settings, "gtk-theme-name", &themeName.outPtr(), nullptr);
     if (g_str_has_suffix(themeName.get(), "-dark"))
         return true;
-
-    if (auto* themeNameEnv = g_getenv("GTK_THEME"))
-        return g_str_has_suffix(themeNameEnv, ":dark");
 
     return false;
 }
@@ -570,5 +576,11 @@ IPC::Attachment PageClientImpl::hostFileDescriptor()
     return webkitWebViewBaseRenderHostFileDescriptor(WEBKIT_WEB_VIEW_BASE(m_viewWidget));
 }
 #endif
+
+void PageClientImpl::didChangeWebPageID() const
+{
+    if (WEBKIT_IS_WEB_VIEW(m_viewWidget))
+        webkitWebViewDidChangePageID(WEBKIT_WEB_VIEW(m_viewWidget));
+}
 
 } // namespace WebKit

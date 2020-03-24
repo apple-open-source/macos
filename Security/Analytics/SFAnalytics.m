@@ -40,6 +40,12 @@
 
 #import <utilities/SecCoreAnalytics.h>
 
+#if TARGET_OS_OSX
+#include <sys/sysctl.h>
+#else
+#import <sys/utsname.h>
+#endif
+
 // SFAnalyticsDefines constants
 NSString* const SFAnalyticsTableSuccessCount = @"success_count";
 NSString* const SFAnalyticsTableHardFailures = @"hard_failures";
@@ -53,6 +59,7 @@ NSString* const SFAnalyticsColumnSoftFailureCount = @"soft_failure_count";
 NSString* const SFAnalyticsColumnSampleValue = @"value";
 NSString* const SFAnalyticsColumnSampleName = @"name";
 
+NSString* const SFAnalyticsPostTime = @"postTime";
 NSString* const SFAnalyticsEventTime = @"eventTime";
 NSString* const SFAnalyticsEventType = @"eventType";
 NSString* const SFAnalyticsEventTypeErrorEvent = @"errorEvent";
@@ -130,6 +137,7 @@ NSString* const SFAnalyticsErrorDomain = @"com.apple.security.sfanalytics";
 // Local constants
 NSString* const SFAnalyticsEventBuild = @"build";
 NSString* const SFAnalyticsEventProduct = @"product";
+NSString* const SFAnalyticsEventModelID = @"modelid";
 NSString* const SFAnalyticsEventInternal = @"internal";
 const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
@@ -314,11 +322,37 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     return result;
 }
 
++ (NSString*)hwModelID
+{
+    static NSString *hwModel = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+#if TARGET_OS_SIMULATOR
+        // Asking for a real value in the simulator gives the results for the underlying mac. Not particularly useful.
+        hwModel = [NSString stringWithFormat:@"%s", getenv("SIMULATOR_MODEL_IDENTIFIER")];
+#elif TARGET_OS_OSX
+        size_t size;
+        sysctlbyname("hw.model", NULL, &size, NULL, 0);
+        char *sysctlString = malloc(size);
+        sysctlbyname("hw.model", sysctlString, &size, NULL, 0);
+        hwModel = [[NSString alloc] initWithUTF8String:sysctlString];
+        free(sysctlString);
+#else
+        struct utsname systemInfo;
+        uname(&systemInfo);
+
+        hwModel = [NSString stringWithCString:systemInfo.machine
+                                     encoding:NSUTF8StringEncoding];
+#endif
+    });
+    return hwModel;
+}
 
 + (void)addOSVersionToEvent:(NSMutableDictionary*)eventDict {
     static dispatch_once_t onceToken;
     static NSString *build = NULL;
     static NSString *product = NULL;
+    static NSString *modelID = nil;
     static BOOL internal = NO;
     dispatch_once(&onceToken, ^{
         NSDictionary *version = CFBridgingRelease(_CFCopySystemVersionDictionary());
@@ -327,12 +361,17 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         build = version[(__bridge NSString *)_kCFSystemVersionBuildVersionKey];
         product = version[(__bridge NSString *)_kCFSystemVersionProductNameKey];
         internal = os_variant_has_internal_diagnostics("com.apple.security");
+
+        modelID = [self hwModelID];
     });
     if (build) {
         eventDict[SFAnalyticsEventBuild] = build;
     }
     if (product) {
         eventDict[SFAnalyticsEventProduct] = product;
+    }
+    if (modelID) {
+        eventDict[SFAnalyticsEventModelID] = modelID;
     }
     if (internal) {
         eventDict[SFAnalyticsEventInternal] = @YES;

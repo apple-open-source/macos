@@ -225,8 +225,9 @@ static NSMutableArray<NSString*> *presetUUIDs;
         HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, dataBlockOneLength.integerValue == 64, "%ld", (long)dataBlockOneLength.integerValue);
         HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE |  COLLECT_HIDUTIL | COLLECT_IOREG, dataBlockTwoLength.integerValue == 192, "%ld", (long)dataBlockTwoLength.integerValue);
         
-        NSString * expectedName = [NSString stringWithFormat:@"TestPresetName_%ld",i];
-        NSString * expectedDesc = [NSString stringWithFormat:@"TestPresetDescription_%ld",i];
+        
+        NSString * expectedName = [NSString stringWithFormat:@"TestPresetName😀😀😀_%ld",i];
+        NSString * expectedDesc = [NSString stringWithFormat:@"TestPresetDescription😀😀😀😀😀_%ld",i];
         NSString * expectedDataBlockOne = [NSString stringWithFormat:@"TestPresetDataBlockOne_%ld",i];
         NSString * expectedDataBlockTwo = [NSString stringWithFormat:@"TestPresetDataBlockTwo_%ld",i];
         
@@ -253,7 +254,7 @@ static NSMutableArray<NSString*> *presetUUIDs;
         
         bool isValid = HIDDisplayIsPresetValid(_hidDisplayDevice, i);
         //valid preset (check __initPreset for description)
-        if (i%5 == 0) {
+        if (i < 10) {
             HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, isValid == true,"index : %lu",i);
             HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, HIDDisplaySetActivePresetIndex(_hidDisplayDevice, i, NULL) == true, "index : %lu",i);
             
@@ -263,20 +264,12 @@ static NSMutableArray<NSString*> *presetUUIDs;
         }
         
         //writable preset, valid preset
-        if (i%3 == 0 && i%5 == 0) {
+        if (i >=10) {
             
-            //invalidate preset
-            NSDictionary *info = @{(__bridge NSString*)kHIDDisplayPresetFieldValidKey : @(0)};
-            bool ret = HIDDisplaySetPreset(_hidDisplayDevice, i, (__bridge CFDictionaryRef)info, nil);
-            
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, ret == true, "index : %lu",i);
-            isValid = HIDDisplayIsPresetValid(_hidDisplayDevice, i);
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, isValid == false, "index : %lu",i);
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, HIDDisplaySetActivePresetIndex(_hidDisplayDevice, i, NULL) == false, "index : %lu",i);
-            
-            
-            NSString *expectedName = [NSString stringWithFormat:@"ModifiedTestPresetName_%ld",i];
-            NSString *expectedDesc = [NSString stringWithFormat:@"ModifiedTestPresetDescription_%ld",i];
+            NSDictionary *info = nil;
+            bool ret = false;
+            NSString *expectedName = [NSString stringWithFormat:@"User : 😀😀😀😀😀😀😀     😎 Let's 😎 do HID 😎😎😎 test $ _%lu",i];
+            NSString *expectedDesc = [NSString stringWithFormat:@"ModifiedTestPresetDescription😀😀😀😀_%ld",i];
             NSString *expectedDataBlockOne = [NSString stringWithFormat:@"ModifiedTestPresetDataBlockOne_%ld",i];
             NSString *expectedDataBlockTwo = [NSString stringWithFormat:@"ModifiedTestPresetDataBlockTwo_%ld",i];
             
@@ -289,9 +282,10 @@ static NSMutableArray<NSString*> *presetUUIDs;
                      (__bridge NSString*)kHIDDisplayPresetFieldDataBlockTwoKey : [expectedDataBlockTwo dataUsingEncoding:NSUTF8StringEncoding],
                      (__bridge NSString*)kHIDDisplayPresetFieldDataBlockOneLengthKey : @(12+i),
                      (__bridge NSString*)kHIDDisplayPresetFieldDataBlockTwoLengthKey : @(16+i),
+                     (__bridge NSString*)kHIDDisplayPresetFieldValidKey : i%3 == 0 ? @YES : @NO,
                      
                      };
-            
+
             ret = HIDDisplaySetPreset(_hidDisplayDevice, i, (__bridge CFDictionaryRef)info, nil);
             
             HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, ret == true);
@@ -300,15 +294,28 @@ static NSMutableArray<NSString*> *presetUUIDs;
             
             
             NSString * name = info[(__bridge NSString*)kHIDDisplayPresetFieldNameKey];
+            NSLog(@"%@",name);
             NSString * desc = info[(__bridge NSString*)kHIDDisplayPresetFieldDescriptionKey];
+            NSLog(@"%@",desc);
             
             NSString * dataBlockOne = [NSString stringWithUTF8String:[info[(__bridge NSString*)kHIDDisplayPresetFieldDataBlockOneKey] bytes]];
-            
+            NSLog(@"%@",dataBlockOne);
             NSString * dataBlockTwo = [NSString stringWithUTF8String:[info[(__bridge NSString*)kHIDDisplayPresetFieldDataBlockTwoKey] bytes]];
-            
+            NSLog(@"%@",dataBlockTwo);
             NSNumber * dataBlockOneLength = info[(__bridge NSString *)kHIDDisplayPresetFieldDataBlockOneLengthKey];
             
             NSNumber * dataBlockTwoLength = info[(__bridge NSString *)kHIDDisplayPresetFieldDataBlockTwoLengthKey];
+            NSNumber *valid = info[(__bridge NSString *)kHIDDisplayPresetFieldValidKey];
+            NSNumber *writable = info[(__bridge NSString *)kHIDDisplayPresetFieldWritableKey];
+            
+            NSLog(@"Valid %ld Writable %ld",valid.integerValue, writable.integerValue);
+            if (i%3) {
+                HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, valid.integerValue == 0);
+            } else {
+                HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, valid.integerValue == 1);
+            }
+            
+            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, writable.integerValue == 1);
             
             
             HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, name && [name containsString:expectedName], "name:  %@ expected name :%@ length name : %lu expected name length : %ld",name, expectedName, name ? name.length : 0, expectedName ? expectedName.length : 0);
@@ -319,14 +326,6 @@ static NSMutableArray<NSString*> *presetUUIDs;
             HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, (unsigned long)dataBlockOneLength.integerValue == 12+i, "data block one length : %lu expected  : %lu",(unsigned long)dataBlockOneLength.integerValue, 12+i);
             HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, (unsigned long)dataBlockTwoLength.integerValue == 16+i, "data block two length : %lu expected : %lu",(unsigned long)dataBlockTwoLength.integerValue,16+i);
             
-            
-        }
-        
-        //non writable preset
-        if (i%3 != 0) {
-            NSDictionary *info = @{(__bridge NSString*)kHIDDisplayPresetFieldValidKey : @(0)};
-            bool ret = HIDDisplaySetPreset(_hidDisplayDevice, i, (__bridge CFDictionaryRef)info, nil);
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, ret == false);
         }
         
     }
@@ -352,29 +351,35 @@ static NSMutableArray<NSString*> *presetUUIDs;
     
 }
 
+-(void) dumpBytes:(NSData*) data {
+    if (!data) return;
+    const uint8_t *bytes = (const uint8_t*)[data bytes];
+    for (NSUInteger i=0; i  < data.length; i++) {
+        printf("%02x\t",bytes[i]);
+    }
+    printf("\n");
+}
+
 - (void) initPresets {
     presetUUIDs = [[NSMutableArray alloc] init];
     
+    // First 10 presets are valid and non writable
+    // remaining are invalid and writable
     for (NSInteger i = 0; i < kTestPresetCount; i++) {
         
         memset(&presetData[i], 0, sizeof(AppleVendorDisplayFeatureReport17));
         presetData[i].reportId = 0x17;
-        presetData[i].AppleVendor_DisplayPresetWritable = (i%3 == 0);
-        presetData[i].AppleVendor_DisplayPresetValid =  (i%5 == 0);
+        presetData[i].AppleVendor_DisplayPresetWritable = i < 10 ? 0 : 1;
+        presetData[i].AppleVendor_DisplayPresetValid =  i < 10 ? 1 : 0;
         
-        NSString * testName = [NSString stringWithFormat:@"TestPresetName_%ld",i];
-        NSString * testDescription = [NSString stringWithFormat:@"TestPresetDescription_%ld",i];
-        unichar testNameUnichar[128];
-        unichar testDescriptionUnichar[256];
-        memset(&testNameUnichar, 0, 128 * sizeof(unichar));
-        memset(&testDescriptionUnichar, 0, 256 * sizeof(unichar));
-        
-        [testName getBytes:testNameUnichar maxLength:256 usedLength:NULL encoding:NSUTF16LittleEndianStringEncoding options:0 range:NSMakeRange(0, 256) remainingRange:NULL];
-        
-        [testDescription getBytes:testDescriptionUnichar maxLength:512 usedLength:NULL encoding:NSUTF16LittleEndianStringEncoding options:0 range:NSMakeRange(0, 512) remainingRange:NULL];
-        
-        memcpy(presetData[i].AppleVendor_DisplayPresetUnicodeStringName, testNameUnichar, 256);
-        memcpy(presetData[i].AppleVendor_DisplayPresetUnicodeStringDescription, testDescriptionUnichar, 512);
+        NSString * testName = [NSString stringWithFormat:@"TestPresetName😀😀😀_%ld",i];
+        NSString * testDescription = [NSString stringWithFormat:@"TestPresetDescription😀😀😀😀😀_%ld",i];
+        NSData * testNameData = [testName dataUsingEncoding:NSUTF16LittleEndianStringEncoding];
+        NSData * testDescriptionData = [testDescription dataUsingEncoding:NSUTF16LittleEndianStringEncoding];
+               
+        // FW would copy all data , so this should be validated here
+        memcpy(presetData[i].AppleVendor_DisplayPresetUnicodeStringName, [testNameData bytes], 256);
+        memcpy(presetData[i].AppleVendor_DisplayPresetUnicodeStringDescription, [testDescriptionData  bytes], 512);
         presetData[i].AppleVendor_DisplayPresetDataBlockOneLength = 64;
         snprintf((char*)presetData[i].AppleVendor_DisplayPresetDataBlockOne, 64, "TestPresetDataBlockOne_%ld",i);
         presetData[i].AppleVendor_DisplayPresetDataBlockTwoLength = 192;

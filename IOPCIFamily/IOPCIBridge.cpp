@@ -1467,6 +1467,14 @@ IOReturn IOPCIBridge::_restoreDeviceState(IOPCIDevice * device, IOOptionBits opt
 
 			if (expressV2(device))
 			{
+				// PCI Spec Table 7-25 LTR Mechanism Enable:
+				// For Downstream Ports, this bit must be reset to the default value if the Port goes to DL_Down status.
+				// enable LTR for upstream bridge if the LTR Enable was set in case the port had a DL_Down event
+				if((saved->savedDeviceControl2 & (1 << 10)) != 0)
+				{
+					device->parent->enableLTR(device, true);
+				}
+
 				device->configWrite16(device->reserved->expressCapability + 0x28,
 									  saved->savedDeviceControl2);
 			}
@@ -2212,6 +2220,47 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 			}
         }
         nub->setProperty(kIOServiceDEXTEntitlementsKey, kIOPCITransportDextEntitlement);
+
+        // Add DriverKit entitlement property
+        OSArray* entitlementArray    = OSArray::withCapacity(1);
+        if(entitlementArray == NULL)
+        {
+            DLOG("unable to allocate entitlmentArray");
+            return false;
+        }
+
+        OSArray* entitlementSubArray = OSArray::withCapacity(3);
+        if(entitlementSubArray == NULL)
+        {
+            DLOG("unable to allocate entitlementSubArray");
+            OSSafeReleaseNULL(entitlementArray);
+            return false;
+        }
+
+        OSString* entitlementString  = OSString::withCString(kIOPCITransportDextEntitlement);
+        if(entitlementString)
+        {
+            entitlementSubArray->setObject(entitlementString);
+            OSSafeReleaseNULL(entitlementString);
+        }
+
+        if (nub->reserved->headerType != kPCIHeaderType0)
+        {
+            entitlementString = OSString::withCString(kIOPCITransportBridgeDextEntitlement);
+            if (entitlementString != NULL)
+            {
+                entitlementSubArray->setObject(entitlementString);
+                OSSafeReleaseNULL(entitlementString);
+            }
+        }
+
+        // Note: built-in entitlement check is done in IOPCIDevice::matchPropertyTable(OSDictionary* table)
+        // this is because the platform expert determines if a device is "built-in" or not
+        // when the PCI device is registered for service matching
+        entitlementArray->setObject(entitlementSubArray);
+        nub->setProperty(kIOServiceDEXTEntitlementsKey, entitlementArray);
+        OSSafeReleaseNULL(entitlementSubArray);
+        OSSafeReleaseNULL(entitlementArray);
 
         checkProperties( nub );
 

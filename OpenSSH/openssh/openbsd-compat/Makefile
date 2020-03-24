@@ -4,15 +4,15 @@ srcdir=.
 top_srcdir=..
 
 
-CC=gcc
-LD=gcc
-CFLAGS=-g -O2 -pipe -Qunused-arguments -Wunknown-warning-option -Wall -Wpointer-arith -Wuninitialized -Wsign-compare -Wformat-security -Wsizeof-pointer-memaccess -Wno-pointer-sign -Wno-unused-result -fno-strict-aliasing -D_FORTIFY_SOURCE=2 -ftrapv -fno-builtin-memset -fstack-protector-strong -fPIE  
-CPPFLAGS=-I. -I.. -I$(srcdir) -I$(srcdir)/..  -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/usr/local/include/sshcrypto   -DHAVE_CONFIG_H
+CC=cc
+LD=cc
+CFLAGS=-g -O2 -pipe -Wunknown-warning-option -Qunused-arguments -Wall -Wpointer-arith -Wuninitialized -Wsign-compare -Wformat-security -Wsizeof-pointer-memaccess -Wno-pointer-sign -Wno-unused-result -fno-strict-aliasing -mretpoline -D_FORTIFY_SOURCE=2 -ftrapv -fno-builtin-memset -fstack-protector-strong -fPIE  
+CPPFLAGS=-I. -I.. -I$(srcdir) -I$(srcdir)/..  -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/usr/local/include/sshcrypto   -DHAVE_CONFIG_H
 LIBS=-lcrypto -lbsm -lz  -lresolv
 AR=ar
 RANLIB=ranlib
 INSTALL=/usr/bin/install -c
-LDFLAGS=-L.  -fstack-protector-strong -L/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/usr/local/lib/sshcrypto -pie 
+LDFLAGS=-L.  -fstack-protector-strong -L/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/usr/local/lib/sshcrypto -pie 
 
 OPENBSD=base64.o \
 	basename.o \
@@ -34,11 +34,11 @@ OPENBSD=base64.o \
 	inet_ntoa.o \
 	inet_ntop.o \
 	md5.o \
+	memmem.o \
 	mktemp.o \
 	pwcache.o \
 	readpassphrase.o \
 	reallocarray.o \
-	realpath.o \
 	recallocarray.o \
 	rmd160.o \
 	rresvport.o \

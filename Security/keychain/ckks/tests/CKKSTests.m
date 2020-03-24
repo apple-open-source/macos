@@ -340,7 +340,7 @@
     [self.keychainView dispatchSync:^bool {
         NSError* error = nil;
 
-        CKRecordID* ckrid = [[CKRecordID alloc] initWithRecordName:@"DD7C2F9B-B22D-3B90-C299-E3B48174BFA3" zoneID:self.keychainZoneID];
+        CKRecordID* ckrid = [[CKRecordID alloc] initWithRecordName:@"50184A35-4480-E8BA-769B-567CF72F1EC0" zoneID:self.keychainZoneID];
 
         CKKSItem* item = [self newItem:ckrid withNewItemData:[self fakeRecordDictionary:account zoneID:self.keychainZoneID] key:self.keychainZoneKeys.classC];
         XCTAssertNotNil(item, "Should be able to create a new fake item");
@@ -736,6 +736,7 @@
         XCTAssertNil(error, "No error loading IQEs");
         XCTAssertNotNil(iqes, "Could load IQEs");
         XCTAssertEqual(iqes.count, 0u, "Incoming queue is empty");
+        return false;
     }];
 }
 
@@ -1228,6 +1229,7 @@
                                                                          (id)kSecAttrAccessible: (id)kSecAttrAccessibleWhenUnlocked,
                                                                          (id)kSecAttrAccount : @"account-class-A",
                                                                          (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                                                         (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
                                                                          (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
                                                                          }, NULL), @"Adding class A item");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -2455,74 +2457,6 @@
     // Items are still here!
     [self checkGenericPassword: @"data" account: @"first"];
     [self checkGenericPassword: @"data" account: @"second"];
-}
-
-- (void)testMultipleZoneAdd {
-    // Bring up a new zone: we expect a key hierarchy upload.
-    CKKSKeychainView* atvView = [self.injectedManager findOrCreateView:(id)kSecAttrViewHintAppleTV];
-    [self.ckksViews addObject:atvView];
-    CKRecordZoneID* appleTVZoneID = [[CKRecordZoneID alloc] initWithZoneName:(__bridge NSString*) kSecAttrViewHintAppleTV ownerName:CKCurrentUserDefaultName];
-
-    // We also expect the view manager's notifyNewTLKsInKeychain call to fire once (after some delay)
-    OCMExpect([self.mockCKKSViewManager notifyNewTLKsInKeychain]);
-
-    // Let the horses loose
-    [self startCKKSSubsystem];
-    [self performOctagonTLKUpload:self.ckksViews];
-
-    // We expect a single record to be uploaded to the 'keychain' view
-    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
-    [self addGenericPassword: @"data" account: @"account-delete-me"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 20);
-
-    // We expect a single record to be uploaded to the 'atv' view
-    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:appleTVZoneID];
-    [self addGenericPassword: @"atv"
-                     account: @"tvaccount"
-                    viewHint:(__bridge NSString*) kSecAttrViewHintAppleTV
-                      access:(id)kSecAttrAccessibleAfterFirstUnlock
-                   expecting:errSecSuccess message:@"AppleTV view-hinted object"];
-
-    OCMVerifyAllWithDelay(self.mockDatabase, 20);
-
-    OCMVerifyAllWithDelay(self.mockCKKSViewManager, 10);
-}
-
-- (void)testMultipleZoneDelete {
-    [self startCKKSSubsystem];
-
-    // Bring up a new zone: we expect a key hierarchy and an item.
-    CKKSKeychainView* atvView = [self.injectedManager findOrCreateView:(id)kSecAttrViewHintAppleTV];
-    XCTAssertNotNil(atvView, "Should have a new ATV view");
-    [self.ckksViews addObject:atvView];
-    [self beginSOSTrustedViewOperation:atvView];
-    CKRecordZoneID* appleTVZoneID = [[CKRecordZoneID alloc] initWithZoneName:(__bridge NSString*) kSecAttrViewHintAppleTV ownerName:CKCurrentUserDefaultName];
-
-    [self performOctagonTLKUpload:self.ckksViews];
-
-    // We expect a single record to be uploaded.
-    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:self.keychainZoneID];
-    [self addGenericPassword: @"data" account: @"account-delete-me"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 20);
-
-    [self expectCKModifyItemRecords: 1 currentKeyPointerRecords: 1 zoneID:appleTVZoneID];
-    [self addGenericPassword: @"atv"
-                     account: @"tvaccount"
-                    viewHint:(__bridge NSString*) kSecAttrViewHintAppleTV
-                      access:(id)kSecAttrAccessibleAfterFirstUnlock
-                   expecting:errSecSuccess
-                     message:@"AppleTV view-hinted object"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 20);
-
-    // We expect a single record to be deleted from the ATV zone
-    [self expectCKDeleteItemRecords: 1 zoneID:appleTVZoneID];
-    [self deleteGenericPassword:@"tvaccount"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 20);
-
-    // Now we expect a single record to be deleted from the test zone
-    [self expectCKDeleteItemRecords: 1 zoneID:self.keychainZoneID];
-    [self deleteGenericPassword:@"account-delete-me"];
-    OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 
 - (void)testRestartWithoutRefetch {
@@ -4113,7 +4047,7 @@
 
     NSError* error = nil;
     NSDictionary* currentOQEs = [CKKSOutgoingQueueEntry countsByStateInZone:self.keychainZoneID error:&error];
-    XCTAssertNil(error, "Should be no error coutning OQEs");
+    XCTAssertNil(error, "Should be no error counting OQEs");
     XCTAssertEqual(0, currentOQEs.count, "Should be no OQEs");
 
     // Now, insert a restart to simulate securityd restarting (and throwing away all pending operations), then a real sign in
@@ -4128,6 +4062,42 @@
     [self putSelfTLKSharesInCloudKit:self.keychainZoneID];
     self.mockSOSAdapter.circleStatus = kSOSCCInCircle;
     [self.accountStateTracker notifyCircleStatusChangeAndWaitForSignal];
+    [self beginSOSTrustedViewOperation:self.keychainView];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered ready");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
+- (void)testSyncableItemAddedOnDaemonRestartBeforePolicyLoaded {
+    [self createAndSaveFakeKeyHierarchy:self.keychainZoneID];
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered ready");
+
+    [self.keychainView waitForOperationsOfClass:[CKKSScanLocalItemsOperation class]];
+    [self.keychainView waitForOperationsOfClass:[CKKSOutgoingQueueOperation class]];
+
+    // Daemon restarts
+    self.automaticallyBeginCKKSViewCloudKitOperation = false;
+    [self.injectedManager resetSyncingPolicy];
+    [self.injectedManager haltZone:self.keychainZoneID.zoneName];
+
+    // This item addition shouldn't be uploaded yet, or in any queues
+    [self addGenericPassword:@"data" account:@"account-delete-me-2"];
+
+    NSError* error = nil;
+    NSDictionary* currentOQEs = [CKKSOutgoingQueueEntry countsByStateInZone:self.keychainZoneID error:&error];
+    XCTAssertNil(error, "Should be no error counting OQEs");
+    XCTAssertEqual(0, currentOQEs.count, "Should be no OQEs");
+
+    [self.injectedManager setSyncingViews:self.managedViewList sortingPolicy:self.viewSortingPolicyForManagedViewList];
+    self.keychainView = [self.injectedManager findView:self.keychainZoneID.zoneName];
+    // end of daemon restart
+
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID
+                          checkItem:[self checkClassCBlock:self.keychainZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+
+    [self.injectedManager beginCloudKitOperationOfAllViews];
     [self beginSOSTrustedViewOperation:self.keychainView];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered ready");

@@ -48,8 +48,8 @@ void Download::resume(const IPC::DataReference& resumeData, const String& path, 
     auto& cocoaSession = static_cast<NetworkSessionCocoa&>(*networkSession);
     auto nsData = adoptNS([[NSData alloc] initWithBytes:resumeData.data() length:resumeData.size()]);
 
-    // FIXME: This is a temporary workaround for <rdar://problem/34745171>.
-#if (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400)
+    // FIXME: This is a temporary workaround for <rdar://problem/34745171>. Fixed in iOS 13 and macOS 10.15, but we still need to support macOS 10.14 for now.
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400 && __MAC_OS_X_VERSION_MIN_REQUIRED < 101500
     static NSSet<Class> *plistClasses = nil;
     static dispatch_once_t onceToken;
 
@@ -70,8 +70,10 @@ void Download::resume(const IPC::DataReference& resumeData, const String& path, 
     NSData *updatedData = [NSPropertyListSerialization dataWithPropertyList:dictionary format:NSPropertyListXMLFormat_v1_0 options:0 error:nullptr];
 #endif
 
-    m_downloadTask = cocoaSession.downloadTaskWithResumeData(updatedData);
-    cocoaSession.addDownloadID(m_downloadTask.get().taskIdentifier, m_downloadID);
+    m_downloadTask = [cocoaSession.sessionWrapperForDownloads().session downloadTaskWithResumeData:updatedData];
+    auto taskIdentifier = [m_downloadTask taskIdentifier];
+    ASSERT(!cocoaSession.sessionWrapperForDownloads().downloadMap.contains(taskIdentifier));
+    cocoaSession.sessionWrapperForDownloads().downloadMap.add(taskIdentifier, m_downloadID);
     m_downloadTask.get()._pathToDownloadTaskFile = path;
 
     [m_downloadTask resume];

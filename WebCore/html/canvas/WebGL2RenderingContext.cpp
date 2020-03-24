@@ -45,6 +45,8 @@
 #include "WebGLActiveInfo.h"
 #include "WebGLCompressedTextureASTC.h"
 #include "WebGLCompressedTextureATC.h"
+#include "WebGLCompressedTextureETC.h"
+#include "WebGLCompressedTextureETC1.h"
 #include "WebGLCompressedTexturePVRTC.h"
 #include "WebGLCompressedTextureS3TC.h"
 #include "WebGLDebugRendererInfo.h"
@@ -306,8 +308,8 @@ void WebGL2RenderingContext::getBufferSubData(GC3Denum target, long long srcByte
     // FIXME: Coalesce multiple getBufferSubData() calls to use a single map() call
     void* ptr = m_context->mapBufferRange(target, checkedSrcByteOffset.unsafeGet(), static_cast<GC3Dsizeiptr>(checkedCopyLengthPtr.unsafeGet() * checkedElementSize.unsafeGet()), GraphicsContext3D::MAP_READ_BIT);
     memcpy(static_cast<char*>(dstData->baseAddress()) + dstData->byteOffset() + dstOffset * elementSize, ptr, copyLength * elementSize);
-    bool success = m_context->unmapBuffer(target);
-    ASSERT_UNUSED(success, success);
+    if (!m_context->unmapBuffer(target))
+        synthesizeGLError(GraphicsContext3D::INVALID_OPERATION, "getBufferSubData", "Failed while unmapping buffer");
 #endif
     m_context->moveErrorsToSyntheticErrorList();
 }
@@ -879,13 +881,13 @@ void WebGL2RenderingContext::clear(GC3Dbitfield mask)
         synthesizeGLError(GraphicsContext3D::INVALID_VALUE, "clear", "invalid mask");
         return;
     }
-    if (m_framebufferBinding && (mask & GraphicsContext3D::COLOR_BUFFER_BIT) && isIntegerFormat(m_framebufferBinding->getColorBufferFormat())) {
-        synthesizeGLError(GraphicsContext3D::INVALID_OPERATION, "clear", "cannot clear an integer buffer");
-        return;
-    }
     const char* reason = "framebuffer incomplete";
     if (m_framebufferBinding && !m_framebufferBinding->onAccess(graphicsContext3D(), &reason)) {
         synthesizeGLError(GraphicsContext3D::INVALID_FRAMEBUFFER_OPERATION, "clear", reason);
+        return;
+    }
+    if (m_framebufferBinding && (mask & GraphicsContext3D::COLOR_BUFFER_BIT) && isIntegerFormat(m_framebufferBinding->getColorBufferFormat())) {
+        synthesizeGLError(GraphicsContext3D::INVALID_OPERATION, "clear", "cannot clear an integer buffer");
         return;
     }
     if (!clearIfComposited(mask))
@@ -1359,7 +1361,7 @@ WebGLExtension* WebGL2RenderingContext::getExtension(const String& name)
 #define ENABLE_IF_REQUESTED(type, variable, nameLiteral, canEnable) \
     if (equalIgnoringASCIICase(name, nameLiteral)) { \
         if (!variable) { \
-            variable = (canEnable) ? std::make_unique<type>(*this) : nullptr; \
+            variable = (canEnable) ? makeUnique<type>(*this) : nullptr; \
             if (variable != nullptr) \
                 InspectorInstrumentation::didEnableExtension(*this, name); \
         } \
@@ -1367,16 +1369,17 @@ WebGLExtension* WebGL2RenderingContext::getExtension(const String& name)
     }
 
     ENABLE_IF_REQUESTED(EXTTextureFilterAnisotropic, m_extTextureFilterAnisotropic, "EXT_texture_filter_anisotropic", enableSupportedExtension("GL_EXT_texture_filter_anisotropic"_s));
-    ENABLE_IF_REQUESTED(EXTTextureFilterAnisotropic, m_extTextureFilterAnisotropic, "WEBKIT_EXT_texture_filter_anisotropic", enableSupportedExtension("GL_OES_texture_float"_s));
     ENABLE_IF_REQUESTED(OESTextureFloat, m_oesTextureFloat, "OES_texture_float", enableSupportedExtension("GL_OES_texture_float"_s));
     ENABLE_IF_REQUESTED(OESTextureFloatLinear, m_oesTextureFloatLinear, "OES_texture_float_linear", enableSupportedExtension("GL_OES_texture_float_linear"_s));
     ENABLE_IF_REQUESTED(OESTextureHalfFloat, m_oesTextureHalfFloat, "OES_texture_half_float", enableSupportedExtension("GL_OES_texture_half_float"_s));
     ENABLE_IF_REQUESTED(OESTextureHalfFloatLinear, m_oesTextureHalfFloatLinear, "OES_texture_half_float_linear", enableSupportedExtension("GL_OES_texture_half_float_linear"_s));
     ENABLE_IF_REQUESTED(WebGLLoseContext, m_webglLoseContext, "WEBGL_lose_context", true);
+    ENABLE_IF_REQUESTED(WebGLCompressedTextureASTC, m_webglCompressedTextureASTC, "WEBGL_compressed_texture_astc", WebGLCompressedTextureASTC::supported(*this));
     ENABLE_IF_REQUESTED(WebGLCompressedTextureATC, m_webglCompressedTextureATC, "WEBKIT_WEBGL_compressed_texture_atc", WebGLCompressedTextureATC::supported(*this));
+    ENABLE_IF_REQUESTED(WebGLCompressedTextureETC, m_webglCompressedTextureETC, "WEBGL_compressed_texture_etc", WebGLCompressedTextureETC::supported(*this));
+    ENABLE_IF_REQUESTED(WebGLCompressedTextureETC1, m_webglCompressedTextureETC1, "WEBGL_compressed_texture_etc1", WebGLCompressedTextureETC1::supported(*this));
     ENABLE_IF_REQUESTED(WebGLCompressedTexturePVRTC, m_webglCompressedTexturePVRTC, "WEBKIT_WEBGL_compressed_texture_pvrtc", WebGLCompressedTexturePVRTC::supported(*this));
     ENABLE_IF_REQUESTED(WebGLCompressedTextureS3TC, m_webglCompressedTextureS3TC, "WEBGL_compressed_texture_s3tc", WebGLCompressedTextureS3TC::supported(*this));
-    ENABLE_IF_REQUESTED(WebGLCompressedTextureASTC, m_webglCompressedTextureASTC, "WEBGL_compressed_texture_astc", WebGLCompressedTextureASTC::supported(*this));
     ENABLE_IF_REQUESTED(WebGLDepthTexture, m_webglDepthTexture, "WEBGL_depth_texture", WebGLDepthTexture::supported(*graphicsContext3D()));
     ENABLE_IF_REQUESTED(WebGLDebugRendererInfo, m_webglDebugRendererInfo, "WEBGL_debug_renderer_info", true);
     ENABLE_IF_REQUESTED(WebGLDebugShaders, m_webglDebugShaders, "WEBGL_debug_shaders", m_context->getExtensions().supports("GL_ANGLE_translated_shader_source"_s));
@@ -1403,15 +1406,19 @@ Optional<Vector<String>> WebGL2RenderingContext::getSupportedExtensions()
     if (extensions.supports("GL_OES_texture_half_float_linear"_s))
         result.append("OES_texture_half_float_linear"_s);
     if (extensions.supports("GL_EXT_texture_filter_anisotropic"_s))
-        result.append("WEBKIT_EXT_texture_filter_anisotropic"_s);
+        result.append("EXT_texture_filter_anisotropic"_s);
+    if (WebGLCompressedTextureASTC::supported(*this))
+        result.append("WEBGL_compressed_texture_astc"_s);
     if (WebGLCompressedTextureATC::supported(*this))
         result.append("WEBKIT_WEBGL_compressed_texture_atc"_s);
+    if (WebGLCompressedTextureETC::supported(*this))
+        result.append("WEBGL_compressed_texture_etc"_s);
+    if (WebGLCompressedTextureETC1::supported(*this))
+        result.append("WEBGL_compressed_texture_etc1"_s);
     if (WebGLCompressedTexturePVRTC::supported(*this))
         result.append("WEBKIT_WEBGL_compressed_texture_pvrtc"_s);
     if (WebGLCompressedTextureS3TC::supported(*this))
         result.append("WEBGL_compressed_texture_s3tc"_s);
-    if (WebGLCompressedTextureASTC::supported(*this))
-        result.append("WEBGL_compressed_texture_astc"_s);
     if (WebGLDepthTexture::supported(*graphicsContext3D()))
         result.append("WEBGL_depth_texture"_s);
     result.append("WEBGL_lose_context"_s);
@@ -1771,6 +1778,8 @@ WebGLAny WebGL2RenderingContext::getParameter(GC3Denum pname)
     case GraphicsContext3D::ALIASED_POINT_SIZE_RANGE:
         return getWebGLFloatArrayParameter(pname);
     case GraphicsContext3D::ALPHA_BITS:
+        if (!m_framebufferBinding && !m_attributes.alpha)
+            return 0;
         return getIntParameter(pname);
     case GraphicsContext3D::ARRAY_BUFFER_BINDING:
         return m_boundArrayBuffer;
@@ -1961,7 +1970,7 @@ WebGLAny WebGL2RenderingContext::getParameter(GC3Denum pname)
         return nullptr;
     case Extensions3D::MAX_TEXTURE_MAX_ANISOTROPY_EXT: // EXT_texture_filter_anisotropic
         if (m_extTextureFilterAnisotropic)
-            return getUnsignedIntParameter(Extensions3D::MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+            return getFloatParameter(Extensions3D::MAX_TEXTURE_MAX_ANISOTROPY_EXT);
         synthesizeGLError(GraphicsContext3D::INVALID_ENUM, "getParameter", "invalid parameter name, EXT_texture_filter_anisotropic not enabled");
         return nullptr;
     case GraphicsContext3D::FRAGMENT_SHADER_DERIVATIVE_HINT:

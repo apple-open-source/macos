@@ -2788,7 +2788,7 @@ UInt64 IOBreaker::getBreakSize(
 
         if ( segment == 0 )
         {
-            segment = buffer->getPhysicalSegment(bufferOffset, &segmentSize, 0);
+            segment = buffer->getPhysicalSegment(bufferOffset, &segmentSize, kIOMemoryMapperNone);
 
             assert(segment);
             assert(segmentSize);
@@ -2810,7 +2810,7 @@ UInt64 IOBreaker::getBreakSize(
 
             segmentCount++;
         }
-        else if ( chunk + chunkSize == segment )
+		else if ( (chunk + chunkSize == segment) || (IOMapper::gSystem != NULL) )
         {
             breakSize  += segmentSize;
             chunkSize  += segmentSize;

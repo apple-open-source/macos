@@ -715,12 +715,13 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 
 - (BOOL)_shouldAllowDesignSystemUIFonts
 {
-    return _preferences->shouldAllowDesignSystemUIFonts();
+    // These fonts are always enabled. This function only exists for binary compatibility.
+    return YES;
 }
 
 - (void)_setShouldAllowDesignSystemUIFonts:(BOOL)_shouldAllowDesignSystemUIFonts
 {
-    _preferences->setShouldAllowDesignSystemUIFonts(_shouldAllowDesignSystemUIFonts);
+    // These fonts are always enabled. This function only exists for binary compatibility.
 }
 
 static _WKEditableLinkBehavior toAPI(WebCore::EditableLinkBehavior behavior)
@@ -851,6 +852,56 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     return _preferences->mediaSourceEnabled();
 }
 
+- (BOOL)_secureContextChecksEnabled
+{
+    return _preferences->secureContextChecksEnabled();
+}
+
+- (void)_setSecureContextChecksEnabled:(BOOL)enabled
+{
+    _preferences->setSecureContextChecksEnabled(enabled);
+}
+
+- (void)_setWebAudioEnabled:(BOOL)enabled
+{
+    _preferences->setWebAudioEnabled(enabled);
+}
+
+- (BOOL)_webAudioEnabled
+{
+    return _preferences->webAudioEnabled();
+}
+
+- (void)_setAcceleratedCompositingEnabled:(BOOL)enabled
+{
+    _preferences->setAcceleratedCompositingEnabled(enabled);
+}
+
+- (BOOL)_acceleratedCompositingEnabled
+{
+    return _preferences->acceleratedCompositingEnabled();
+}
+
+- (void)_setRequestAnimationFrameEnabled:(BOOL)enabled
+{
+    _preferences->setRequestAnimationFrameEnabled(enabled);
+}
+
+- (BOOL)_requestAnimationFrameEnabled
+{
+    return _preferences->requestAnimationFrameEnabled();
+}
+
+- (BOOL)_remotePlaybackEnabled
+{
+    return _preferences->remotePlaybackEnabled();
+}
+
+- (void)_setRemotePlaybackEnabled:(BOOL)enabled
+{
+    _preferences->setRemotePlaybackEnabled(enabled);
+}
+
 #if PLATFORM(MAC)
 - (void)_setJavaEnabledForLocalFiles:(BOOL)enabled
 {
@@ -870,16 +921,6 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (BOOL)_canvasUsesAcceleratedDrawing
 {
     return _preferences->canvasUsesAcceleratedDrawing();
-}
-
-- (void)_setAcceleratedCompositingEnabled:(BOOL)enabled
-{
-    _preferences->setAcceleratedCompositingEnabled(enabled);
-}
-
-- (BOOL)_acceleratedCompositingEnabled
-{
-    return _preferences->acceleratedCompositingEnabled();
 }
 
 - (void)_setDefaultTextEncodingName:(NSString *)name
@@ -934,22 +975,22 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 
 - (void)_setUsesPageCache:(BOOL)enabled
 {
-    _preferences->setUsesPageCache(enabled);
+    _preferences->setUsesBackForwardCache(enabled);
 }
 
 - (BOOL)_usesPageCache
 {
-    return _preferences->usesPageCache();
+    return _preferences->usesBackForwardCache();
 }
 
 - (void)_setPageCacheSupportsPlugins:(BOOL)enabled
 {
-    _preferences->setPageCacheSupportsPlugins(enabled);
+    _preferences->setBackForwardCacheSupportsPlugins(enabled);
 }
 
 - (BOOL)_pageCacheSupportsPlugins
 {
-    return _preferences->pageCacheSupportsPlugins();
+    return _preferences->backForwardCacheSupportsPlugins();
 }
 
 - (void)_setShouldPrintBackgrounds:(BOOL)enabled
@@ -1273,16 +1314,6 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (BOOL)_wantsBalancedSetDefersLoadingBehavior
 {
     return _preferences->wantsBalancedSetDefersLoadingBehavior();
-}
-
-- (void)_setWebAudioEnabled:(BOOL)enabled
-{
-    _preferences->setWebAudioEnabled(enabled);
-}
-
-- (BOOL)_webAudioEnabled
-{
-    return _preferences->webAudioEnabled();
 }
 
 - (void)_setAggressiveTileRetentionEnabled:(BOOL)enabled

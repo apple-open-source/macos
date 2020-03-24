@@ -44,7 +44,6 @@ enum {
     kIOHIDElementVariableSizeReport     = 0x2
 };
 
-
 //===========================================================================
 // An object that describes a single HID element.
     
@@ -276,6 +275,7 @@ public:
     virtual UInt32                          getScaledValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical) APPLE_KEXT_OVERRIDE;
     virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type=kIOHIDValueScaleTypePhysical) APPLE_KEXT_OVERRIDE;
     virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type, IOOptionBits options) APPLE_KEXT_OVERRIDE;
+    
     unsigned int getCount(void) const APPLE_KEXT_OVERRIDE;
     unsigned int getCapacity(void) const APPLE_KEXT_OVERRIDE;
     unsigned int getCapacityIncrement(void) const APPLE_KEXT_OVERRIDE;

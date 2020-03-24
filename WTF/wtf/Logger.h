@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/Lock.h>
+#include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WTF {
@@ -36,8 +38,8 @@ struct LogArgument {
     template<typename U = T> static typename std::enable_if<std::is_same<U, unsigned>::value, String>::type toString(unsigned argument) { return String::number(argument); }
     template<typename U = T> static typename std::enable_if<std::is_same<U, unsigned long>::value, String>::type toString(unsigned long argument) { return String::number(argument); }
     template<typename U = T> static typename std::enable_if<std::is_same<U, long>::value, String>::type toString(long argument) { return String::number(argument); }
-    template<typename U = T> static typename std::enable_if<std::is_same<U, unsigned long long>::value, String>::type toString(unsigned long argument) { return String::number(argument); }
-    template<typename U = T> static typename std::enable_if<std::is_same<U, long long>::value, String>::type toString(long argument) { return String::number(argument); }
+    template<typename U = T> static typename std::enable_if<std::is_same<U, unsigned long long>::value, String>::type toString(unsigned long long argument) { return String::number(argument); }
+    template<typename U = T> static typename std::enable_if<std::is_same<U, long long>::value, String>::type toString(long long argument) { return String::number(argument); }
     template<typename U = T> static typename std::enable_if<std::is_enum<U>::value, String>::type toString(U argument) { return String::number(static_cast<typename std::underlying_type<U>::type>(argument)); }
     template<typename U = T> static typename std::enable_if<std::is_same<U, float>::value, String>::type toString(float argument) { return String::numberToStringFixedPrecision(argument); }
     template<typename U = T> static typename std::enable_if<std::is_same<U, double>::value, String>::type toString(double argument) { return String::numberToStringFixedPrecision(argument); }
@@ -62,7 +64,7 @@ class HasToJSONString {
     template <class T> static std::false_type test(...);
 
 public:
-    static const bool value = decltype(test<C>(nullptr))::value;
+    static constexpr bool value = decltype(test<C>(nullptr))::value;
 };
 
 template<typename Argument, bool hasJSON = HasToJSONString<Argument>::value>
@@ -105,13 +107,14 @@ struct ConsoleLogValue<Argument, false> {
     }
 };
 
-class Logger : public RefCounted<Logger> {
+class Logger : public ThreadSafeRefCounted<Logger> {
     WTF_MAKE_NONCOPYABLE(Logger);
 public:
 
     class Observer {
     public:
         virtual ~Observer() = default;
+        // Can be called on any thread.
         virtual void didLogMessage(const WTFLogChannel&, WTFLogLevel, Vector<JSONLogValue>&&) = 0;
     };
 
@@ -182,7 +185,7 @@ public:
         if (channel.state == WTFLogChannelState::Off || level > channel.level)
             return false;
 
-        return m_enabled;
+        return true;
     }
 
     bool enabled() const { return m_enabled; }
@@ -216,10 +219,12 @@ public:
 
     static inline void addObserver(Observer& observer)
     {
+        auto lock = holdLock(observerLock());
         observers().append(observer);
     }
     static inline void removeObserver(Observer& observer)
     {
+        auto lock = holdLock(observerLock());
         observers().removeFirstMatching([&observer](auto anObserver) {
             return &anObserver.get() == &observer;
         });
@@ -247,6 +252,10 @@ private:
         if (channel.state == WTFLogChannelState::Off || level > channel.level)
             return;
 
+        auto lock = tryHoldLock(observerLock());
+        if (!lock)
+            return;
+
         for (Observer& observer : observers())
             observer.didLogMessage(channel, level, { ConsoleLogValue<Argument>::toValue(arguments)... });
     }
@@ -256,6 +265,13 @@ private:
         static NeverDestroyed<Vector<std::reference_wrapper<Observer>>> observers;
         return observers;
     }
+
+    static Lock& observerLock()
+    {
+        static NeverDestroyed<Lock> observerLock;
+        return observerLock;
+    }
+
 
     bool m_enabled { true };
     const void* m_owner;

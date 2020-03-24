@@ -232,7 +232,7 @@ static const InlineBox* logicallyPreviousBox(const VisiblePosition& visiblePosit
         if (!previousRoot)
             break;
 
-        previousBox = leafBoxes.previousTextOrLineBreakBox(previousRoot, 0);
+        previousBox = leafBoxes.previousTextOrLineBreakBox(previousRoot, &startBox->root() == previousRoot ? startBox : nullptr);
         if (previousBox) {
             previousBoxInDifferentLine = true;
             return previousBox;
@@ -273,7 +273,7 @@ static const InlineBox* logicallyNextBox(const VisiblePosition& visiblePosition,
         if (!nextRoot)
             break;
 
-        nextBox = leafBoxes.nextTextOrLineBreakBox(nextRoot, 0);
+        nextBox = leafBoxes.nextTextOrLineBreakBox(nextRoot, &startBox->root() == nextRoot ? startBox : nullptr);
         if (nextBox) {
             nextBoxInDifferentLine = true;
             return nextBox;
@@ -824,7 +824,7 @@ static VisiblePosition startPositionForLine(const VisiblePosition& c, LineEndpoi
     } else {
         // Generated content (e.g. list markers and CSS :before and :after pseudoelements) have no corresponding DOM element,
         // and so cannot be represented by a VisiblePosition. Use whatever follows instead.
-        startBox = rootBox->firstLeafChild();
+        startBox = rootBox->firstLeafDescendant();
         while (true) {
             if (!startBox)
                 return VisiblePosition();
@@ -833,7 +833,7 @@ static VisiblePosition startPositionForLine(const VisiblePosition& c, LineEndpoi
             if (startNode)
                 break;
 
-            startBox = startBox->nextLeafChild();
+            startBox = startBox->nextLeafOnLine();
         }
     }
 
@@ -898,7 +898,7 @@ static VisiblePosition endPositionForLine(const VisiblePosition& c, LineEndpoint
     } else {
         // Generated content (e.g. list markers and CSS :before and :after pseudoelements) have no corresponding DOM element,
         // and so cannot be represented by a VisiblePosition. Use whatever precedes instead.
-        endBox = rootBox->lastLeafChild();
+        endBox = rootBox->lastLeafDescendant();
         while (true) {
             if (!endBox)
                 return VisiblePosition();
@@ -907,7 +907,7 @@ static VisiblePosition endPositionForLine(const VisiblePosition& c, LineEndpoint
             if (endNode)
                 break;
             
-            endBox = endBox->prevLeafChild();
+            endBox = endBox->previousLeafOnLine();
         }
     }
 
@@ -1046,7 +1046,7 @@ VisiblePosition previousLinePosition(const VisiblePosition& visiblePosition, int
         root = box->root().prevRootBox();
         // We want to skip zero height boxes.
         // This could happen in case it is a TrailingFloatsRootInlineBox.
-        if (!root || !root->logicalHeight() || !root->firstLeafChild())
+        if (!root || !root->logicalHeight() || !root->firstLeafDescendant())
             root = nullptr;
     }
 
@@ -1101,7 +1101,7 @@ VisiblePosition nextLinePosition(const VisiblePosition& visiblePosition, int lin
         root = box->root().nextRootBox();
         // We want to skip zero height boxes.
         // This could happen in case it is a TrailingFloatsRootInlineBox.
-        if (!root || !root->logicalHeight() || !root->firstLeafChild())
+        if (!root || !root->logicalHeight() || !root->firstLeafDescendant())
             root = nullptr;
     }
 
@@ -1591,7 +1591,7 @@ bool atBoundaryOfGranularity(const VisiblePosition& vp, TextGranularity granular
         break;
 
     case SentenceGranularity:
-        boundary = useDownstream ? endOfSentence(vp) : startOfSentence(vp);
+        boundary = useDownstream ? endOfSentence(previousSentencePosition(vp)) : startOfSentence(nextSentencePosition(vp));
         break;
 
     case LineGranularity:
@@ -1776,7 +1776,8 @@ static VisiblePosition nextSentenceBoundaryInDirection(const VisiblePosition& vp
     if (result == vp)
         return VisiblePosition();
 
-    ASSERT(useDownstream ? (result > vp) : (result < vp));
+    // Positions can only be compared if they are in the same tree scope.
+    ASSERT_IMPLIES(areVisiblePositionsInSameTreeScope(result, vp), useDownstream ? (result > vp) : (result < vp));
 
     return result;
 }
@@ -1797,18 +1798,14 @@ static VisiblePosition nextLineBoundaryInDirection(const VisiblePosition& vp, Se
     return result;
 }
 
-static VisiblePosition nextParagraphBoundaryInDirection(const VisiblePosition& vp, SelectionDirection direction)
+static VisiblePosition nextParagraphBoundaryInDirection(const VisiblePosition& position, SelectionDirection direction)
 {
-    bool useDownstream = directionIsDownstream(direction);
-    bool withinUnitOfGranularity = withinTextUnitOfGranularity(vp, ParagraphGranularity, direction);
-    VisiblePosition result;
-
-    if (!withinUnitOfGranularity)
-        result =  useDownstream ? startOfParagraph(nextParagraphPosition(vp, vp.lineDirectionPointForBlockDirectionNavigation())) : endOfParagraph(previousParagraphPosition(vp, vp.lineDirectionPointForBlockDirectionNavigation()));
-    else
-        result = useDownstream ? endOfParagraph(vp) : startOfParagraph(vp);
-
-    return result;
+    auto useDownstream = directionIsDownstream(direction);
+    auto lineDirection = position.lineDirectionPointForBlockDirectionNavigation();
+    if (atBoundaryOfGranularity(position, ParagraphGranularity, direction))
+        return useDownstream ? startOfParagraph(nextParagraphPosition(position, lineDirection)) : endOfParagraph(previousParagraphPosition(position, lineDirection));
+    ASSERT(withinTextUnitOfGranularity(position, ParagraphGranularity, direction));
+    return useDownstream ? endOfParagraph(position) : startOfParagraph(position);
 }
 
 static VisiblePosition nextDocumentBoundaryInDirection(const VisiblePosition& vp, SelectionDirection direction)

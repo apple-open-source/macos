@@ -38,6 +38,7 @@
 #include "ChangeListTypeCommand.h"
 #include "ClipboardEvent.h"
 #include "CompositionEvent.h"
+#include "CompositionHighlight.h"
 #include "CreateLinkCommand.h"
 #include "CustomUndoStep.h"
 #include "DataTransfer.h"
@@ -302,6 +303,12 @@ void Editor::handleInputMethodKeydown(KeyboardEvent& event)
         client->handleInputMethodKeydown(event);
 }
 
+void Editor::didDispatchInputMethodKeydown(KeyboardEvent& event)
+{
+    if (auto* client = this->client())
+        client->didDispatchInputMethodKeydown(event);
+}
+
 bool Editor::handleTextEvent(TextEvent& event)
 {
     LOG(Editing, "Editor %p handleTextEvent (data %s)", this, event.data().utf8().data());
@@ -381,12 +388,12 @@ static Ref<DataTransfer> createDataTransferForClipboardEvent(Document& document,
     switch (kind) {
     case ClipboardEventKind::Copy:
     case ClipboardEventKind::Cut:
-        return DataTransfer::createForCopyAndPaste(document, DataTransfer::StoreMode::ReadWrite, std::make_unique<StaticPasteboard>());
+        return DataTransfer::createForCopyAndPaste(document, DataTransfer::StoreMode::ReadWrite, makeUnique<StaticPasteboard>());
     case ClipboardEventKind::PasteAsPlainText:
         if (RuntimeEnabledFeatures::sharedFeatures().customPasteboardDataEnabled()) {
             auto plainTextType = "text/plain"_s;
             auto plainText = Pasteboard::createForCopyAndPaste()->readString(plainTextType);
-            auto pasteboard = std::make_unique<StaticPasteboard>();
+            auto pasteboard = makeUnique<StaticPasteboard>();
             pasteboard->writeString(plainTextType, plainText);
             return DataTransfer::createForCopyAndPaste(document, DataTransfer::StoreMode::Readonly, WTFMove(pasteboard));
         }
@@ -397,10 +404,10 @@ static Ref<DataTransfer> createDataTransferForClipboardEvent(Document& document,
     case ClipboardEventKind::BeforeCopy:
     case ClipboardEventKind::BeforeCut:
     case ClipboardEventKind::BeforePaste:
-        return DataTransfer::createForCopyAndPaste(document, DataTransfer::StoreMode::Invalid, std::make_unique<StaticPasteboard>());
+        return DataTransfer::createForCopyAndPaste(document, DataTransfer::StoreMode::Invalid, makeUnique<StaticPasteboard>());
     }
     ASSERT_NOT_REACHED();
-    return DataTransfer::createForCopyAndPaste(document, DataTransfer::StoreMode::Invalid, std::make_unique<StaticPasteboard>());
+    return DataTransfer::createForCopyAndPaste(document, DataTransfer::StoreMode::Invalid, makeUnique<StaticPasteboard>());
 }
 
 // Returns whether caller should continue with "the default processing", which is the same as
@@ -1190,9 +1197,9 @@ void Editor::reappliedEditing(EditCommandComposition& composition)
 
 Editor::Editor(Frame& frame)
     : m_frame(frame)
-    , m_killRing(std::make_unique<PAL::KillRing>())
-    , m_spellChecker(std::make_unique<SpellChecker>(frame))
-    , m_alternativeTextController(std::make_unique<AlternativeTextController>(frame))
+    , m_killRing(makeUnique<PAL::KillRing>())
+    , m_spellChecker(makeUnique<SpellChecker>(frame))
+    , m_alternativeTextController(makeUnique<AlternativeTextController>(frame))
     , m_editorUIUpdateTimer(*this, &Editor::editorUIUpdateTimerFired)
 #if ENABLE(TELEPHONE_NUMBER_DETECTION) && !PLATFORM(IOS_FAMILY)
     , m_telephoneNumberDetectionUpdateTimer(*this, &Editor::scanSelectionForTelephoneNumbers)
@@ -1211,6 +1218,7 @@ void Editor::clear()
             client->discardedComposition(&m_frame);
     }
     m_customCompositionUnderlines.clear();
+    m_customCompositionHighlights.clear();
     m_shouldStyleWithCSS = false;
     m_defaultParagraphSeparator = EditorParagraphSeparatorIsDiv;
     m_mark = { };
@@ -1964,6 +1972,7 @@ void Editor::setComposition(const String& text, SetCompositionMode mode)
 
     m_compositionNode = nullptr;
     m_customCompositionUnderlines.clear();
+    m_customCompositionHighlights.clear();
 
     if (m_frame.selection().isNone())
         return;
@@ -1985,7 +1994,7 @@ void Editor::setComposition(const String& text, SetCompositionMode mode)
     }
 }
 
-void Editor::setComposition(const String& text, const Vector<CompositionUnderline>& underlines, unsigned selectionStart, unsigned selectionEnd)
+void Editor::setComposition(const String& text, const Vector<CompositionUnderline>& underlines, const Vector<CompositionHighlight>& highlights, unsigned selectionStart, unsigned selectionEnd)
 {
     SetCompositionScope setCompositionScope(m_frame);
 
@@ -2057,6 +2066,7 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
 
     m_compositionNode = nullptr;
     m_customCompositionUnderlines.clear();
+    m_customCompositionHighlights.clear();
 
     if (!text.isEmpty()) {
         TypingCommand::insertText(document(), text, TypingCommand::SelectInsertedText | TypingCommand::PreventSpellChecking, TypingCommand::TextCompositionPending);
@@ -2077,6 +2087,11 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
             for (auto& underline : m_customCompositionUnderlines) {
                 underline.startOffset += baseOffset;
                 underline.endOffset += baseOffset;
+            }
+            m_customCompositionHighlights = highlights;
+            for (auto& highlight : m_customCompositionHighlights) {
+                highlight.startOffset += baseOffset;
+                highlight.endOffset += baseOffset;
             }
             if (baseNode->renderer())
                 baseNode->renderer()->repaint();

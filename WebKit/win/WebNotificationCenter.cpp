@@ -45,6 +45,7 @@ typedef ObjectObserverList::iterator ObserverListIterator;
 typedef HashMap<String, ObjectObserverList> MappedObservers;
 
 struct WebNotificationCenterPrivate {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
     MappedObservers m_mappedObservers;
 };
 
@@ -53,7 +54,7 @@ struct WebNotificationCenterPrivate {
 IWebNotificationCenter* WebNotificationCenter::m_defaultCenter = 0;
 
 WebNotificationCenter::WebNotificationCenter()
-    : d(std::make_unique<WebNotificationCenterPrivate>())
+    : d(makeUnique<WebNotificationCenterPrivate>())
 {
     gClassCount++;
     gClassNameCount().add("WebNotificationCenter");

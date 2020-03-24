@@ -144,6 +144,8 @@ static void keybagDidUnlock()
         NSError *localError = nil;
         CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
         CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
+
+        secnotice("followup", "Posting a follow up (for SOS) of type repair");
         [cdpd postFollowUpWithContext:context error:&localError ];
         secnotice("cjr", "account is icdp");
         if(localError){
@@ -628,6 +630,8 @@ static void kickOutChoice(CFUserNotificationRef userNotification, CFOptionFlags 
               CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
                 NSError *localError = nil;
                 CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+
+                secnotice("followup", "Posting a follow up (for SOS) of type repair");
                 [cdpd postFollowUpWithContext:context error:&localError ];
                 if(localError){
                     secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
@@ -772,6 +776,8 @@ static void askForCDPFollowup() {
         NSError *localError = nil;
         CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
         CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+
+        secnotice("followup", "Posting a follow up (for SOS) of type repair");
         [cdpd postFollowUpWithContext:context error:&localError ];
         if(localError){
             secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);
@@ -910,6 +916,8 @@ static bool processEvents()
                 NSError *localError = nil;
                 CDPFollowUpController *cdpd = [[CDPFollowUpController alloc] init];
                 CDPFollowUpContext *context = [CDPFollowUpContext contextForStateRepair];
+
+                secnotice("followup", "Posting a follow up (for SOS) of type repair");
                 [cdpd postFollowUpWithContext:context error:&localError ];
                 if(localError){
                     secnotice("cjr", "request to CoreCDP to follow up failed: %@", localError);

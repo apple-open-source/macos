@@ -166,7 +166,7 @@ class BottledPeer: NSObject {
         let ciphertext = _SFAuthenticatedCiphertext.init(ciphertext: ac.ciphertext, authenticationCode: ac.authenticationCode, initializationVector: ac.initializationVector)
 
         let clearContentsData = try op.decrypt(ciphertext, with: escrowKeys.symmetricKey)
-        if clearContentsData.count == 0 {
+        if clearContentsData.isEmpty {
             throw Error.OTErrorDecryptionFailure
         }
 

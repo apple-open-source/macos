@@ -52,8 +52,10 @@ usagePage: %ld usage: %ld reportID: %ld value: %ld",
                                                 (__bridge IOHIDElementRef)self,
                                                 0,
                                                 integerValue);
-    self.valueRef = value;
-    CFRelease(value);
+    if (value) {
+        self.valueRef = value;
+        CFRelease(value);
+    }
 }
 
 - (nullable NSData *)dataValue
@@ -70,8 +72,10 @@ usagePage: %ld usage: %ld reportID: %ld value: %ld",
                                                 0,
                                                 [dataValue bytes],
                                                 [dataValue length]);
-    self.valueRef = value;
-    CFRelease(value);
+    if (value) {
+        self.valueRef = value;
+        CFRelease(value);
+    }
 }
 
 - (HIDElement *)parent

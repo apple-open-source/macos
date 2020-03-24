@@ -43,6 +43,12 @@ RemoteLayerTreeDisplayRefreshMonitor::~RemoteLayerTreeDisplayRefreshMonitor()
         m_drawingArea->willDestroyDisplayRefreshMonitor(this);
 }
 
+void RemoteLayerTreeDisplayRefreshMonitor::setPreferredFramesPerSecond(FramesPerSecond preferredFramesPerSecond)
+{
+    if (m_drawingArea)
+        m_drawingArea->setPreferredFramesPerSecond(preferredFramesPerSecond);
+}
+
 bool RemoteLayerTreeDisplayRefreshMonitor::requestRefreshCallback()
 {
     if (!m_drawingArea || !isActive())
@@ -65,6 +71,11 @@ void RemoteLayerTreeDisplayRefreshMonitor::didUpdateLayers()
 
     setIsPreviousFrameDone(false);
     handleDisplayRefreshedNotificationOnMainThread(this);
+}
+
+void RemoteLayerTreeDisplayRefreshMonitor::updateDrawingArea(RemoteLayerTreeDrawingArea& drawingArea)
+{
+    m_drawingArea = makeWeakPtr(drawingArea);
 }
 
 }

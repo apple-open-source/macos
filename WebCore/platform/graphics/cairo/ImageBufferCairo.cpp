@@ -165,7 +165,7 @@ void ImageBufferData::swapBuffersIfNeeded()
             [this](TextureMapperPlatformLayerProxy& proxy)
             {
                 LockHolder holder(proxy.lock());
-                proxy.pushNextBuffer(std::make_unique<TextureMapperPlatformLayerBuffer>(m_compositorTexture, m_size, TextureMapperGL::ShouldBlend, GL_RGBA));
+                proxy.pushNextBuffer(makeUnique<TextureMapperPlatformLayerBuffer>(m_compositorTexture, m_size, TextureMapperGL::ShouldBlend, GL_RGBA));
             };
 #if USE(NICOSIA)
         proxyOperation(downcast<Nicosia::ContentLayerTextureMapperImpl>(m_nicosiaLayer->impl()).proxy());
@@ -225,12 +225,8 @@ void ImageBufferData::createCairoGLSurface()
 #endif
 
 static RefPtr<cairo_surface_t>
-cairoSurfaceCoerceToImage(cairo_surface_t* surface)
+cairoSurfaceCopy(cairo_surface_t* surface)
 {
-    if (cairo_surface_get_type(surface) == CAIRO_SURFACE_TYPE_IMAGE
-        && cairo_surface_get_content(surface) == CAIRO_CONTENT_COLOR_ALPHA)
-        return surface;
-
     auto copy = adoptRef(cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
         cairo_image_surface_get_width(surface),
         cairo_image_surface_get_height(surface)));
@@ -241,6 +237,16 @@ cairoSurfaceCoerceToImage(cairo_surface_t* surface)
     cairo_paint(cr.get());
 
     return copy;
+}
+
+static RefPtr<cairo_surface_t>
+cairoSurfaceCoerceToImage(cairo_surface_t* surface)
+{
+    if (cairo_surface_get_type(surface) == CAIRO_SURFACE_TYPE_IMAGE
+        && cairo_surface_get_content(surface) == CAIRO_CONTENT_COLOR_ALPHA)
+        return surface;
+
+    return cairoSurfaceCopy(surface);
 }
 
 Vector<uint8_t> ImageBuffer::toBGRAData() const
@@ -257,6 +263,11 @@ Vector<uint8_t> ImageBuffer::toBGRAData() const
         cairo_image_surface_get_height(surface.get()));
 
     return imageData;
+}
+
+NativeImagePtr ImageBuffer::nativeImage() const
+{
+    return m_data.m_surface.get();
 }
 
 ImageBuffer::ImageBuffer(const FloatSize& size, float resolutionScale, ColorSpace, RenderingMode renderingMode, const HostWindow*, bool& success)
@@ -308,7 +319,7 @@ ImageBuffer::ImageBuffer(const FloatSize& size, float resolutionScale, ColorSpac
 
     RefPtr<cairo_t> cr = adoptRef(cairo_create(m_data.m_surface.get()));
     m_data.m_platformContext.setCr(cr.get());
-    m_data.m_context = std::make_unique<GraphicsContext>(GraphicsContextImplCairo::createFactory(m_data.m_platformContext));
+    m_data.m_context = makeUnique<GraphicsContext>(GraphicsContextImplCairo::createFactory(m_data.m_platformContext));
     success = true;
 }
 
@@ -316,7 +327,7 @@ ImageBuffer::~ImageBuffer() = default;
 
 std::unique_ptr<ImageBuffer> ImageBuffer::createCompatibleBuffer(const FloatSize& size, const GraphicsContext& context)
 {
-    return createCompatibleBuffer(size, ColorSpaceSRGB, context);
+    return createCompatibleBuffer(size, ColorSpace::SRGB, context);
 }
 
 GraphicsContext& ImageBuffer::context() const
@@ -344,24 +355,34 @@ BackingStoreCopy ImageBuffer::fastCopyImageMode()
     return DontCopyBackingStore;
 }
 
-void ImageBuffer::drawConsuming(std::unique_ptr<ImageBuffer> imageBuffer, GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator op, BlendMode blendMode)
+void ImageBuffer::drawConsuming(std::unique_ptr<ImageBuffer> imageBuffer, GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
-    imageBuffer->draw(destContext, destRect, srcRect, op, blendMode);
+    imageBuffer->draw(destContext, destRect, srcRect, options);
 }
 
-void ImageBuffer::draw(GraphicsContext& destinationContext, const FloatRect& destRect, const FloatRect& srcRect,
-    CompositeOperator op, BlendMode blendMode)
+void ImageBuffer::draw(GraphicsContext& destinationContext, const FloatRect& destRect, const FloatRect& srcRect,  const ImagePaintingOptions& options)
 {
-    BackingStoreCopy copyMode = &destinationContext == &context() ? CopyBackingStore : DontCopyBackingStore;
-    RefPtr<Image> image = copyImage(copyMode);
-    destinationContext.drawImage(*image, destRect, srcRect, ImagePaintingOptions(op, blendMode, DecodingMode::Synchronous, ImageOrientationDescription()));
+    if (destinationContext.paintingDisabled())
+        return;
+
+    if (auto surface = nativeImage()) {
+        if (&destinationContext == &context())
+            surface = cairoSurfaceCopy(surface.get());
+
+        InterpolationQualityMaintainer interpolationQualityForThisScope(destinationContext, options.interpolationQuality());
+        const auto& destinationContextState = destinationContext.state();
+        drawNativeImage(*destinationContext.platformContext(), surface.get(), destRect, srcRect, { options, destinationContextState.imageInterpolationQuality }, destinationContextState.alpha, WebCore::Cairo::ShadowState(destinationContextState));
+    }
 }
 
 void ImageBuffer::drawPattern(GraphicsContext& context, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform,
-    const FloatPoint& phase, const FloatSize& spacing, CompositeOperator op, BlendMode)
+    const FloatPoint& phase, const FloatSize&, const ImagePaintingOptions& options)
 {
-    if (RefPtr<Image> image = copyImage(DontCopyBackingStore))
-        image->drawPattern(context, destRect, srcRect, patternTransform, phase, spacing, op);
+    if (context.paintingDisabled())
+        return;
+
+    if (auto surface = nativeImage())
+        Cairo::drawPattern(*context.platformContext(), surface.get(), m_size, destRect, srcRect, patternTransform, phase, options);
 }
 
 void ImageBuffer::platformTransformColorSpace(const std::array<uint8_t, 256>& lookUpTable)

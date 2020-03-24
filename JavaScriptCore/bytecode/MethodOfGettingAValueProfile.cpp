@@ -41,7 +41,7 @@ MethodOfGettingAValueProfile MethodOfGettingAValueProfile::fromLazyOperand(
     MethodOfGettingAValueProfile result;
     result.m_kind = LazyOperand;
     result.u.lazyOperand.codeBlock = codeBlock;
-    result.u.lazyOperand.bytecodeOffset = key.bytecodeOffset();
+    result.u.lazyOperand.bytecodeOffset = key.bytecodeIndex();
     result.u.lazyOperand.operand = key.operand().offset();
     return result;
 }
@@ -66,10 +66,16 @@ void MethodOfGettingAValueProfile::emitReportValue(CCallHelpers& jit, JSValueReg
         return;
     }
         
-    case ArithProfileReady: {
-        u.arithProfile->emitObserveResult(jit, regs, DoNotHaveTagRegisters);
+    case UnaryArithProfileReady: {
+        u.unaryArithProfile->emitObserveResult(jit, regs, DoNotHaveTagRegisters);
         return;
-    } }
+    }
+
+    case BinaryArithProfileReady: {
+        u.binaryArithProfile->emitObserveResult(jit, regs, DoNotHaveTagRegisters);
+        return;
+    }
+    }
     
     RELEASE_ASSERT_NOT_REACHED();
 }
@@ -94,10 +100,16 @@ void MethodOfGettingAValueProfile::reportValue(JSValue value)
         return;
     }
 
-    case ArithProfileReady: {
-        u.arithProfile->observeResult(value);
+    case UnaryArithProfileReady: {
+        u.unaryArithProfile->observeResult(value);
         return;
-    } }
+    }
+
+    case BinaryArithProfileReady: {
+        u.binaryArithProfile->observeResult(value);
+        return;
+    }
+    }
 
     RELEASE_ASSERT_NOT_REACHED();
 }

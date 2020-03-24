@@ -55,15 +55,6 @@ bool SOSCCRemovePeersFromCircle_Server(CFArrayRef peers, CFErrorRef* error);
 bool SOSCCRemovePeersFromCircleWithAnalytics_Server(CFArrayRef peers, CFDataRef parentEvent, CFErrorRef* error);
 bool SOSCCLoggedOutOfAccount_Server(CFErrorRef *error);
 bool SOSCCBailFromCircle_Server(uint64_t limit_in_seconds, CFErrorRef* error);
-bool SOSCCRequestEnsureFreshParameters_Server(CFErrorRef* error);
-
-
-bool SOSCCApplyToARing_Server(CFStringRef ringName, CFErrorRef *error);
-bool SOSCCWithdrawlFromARing_Server(CFStringRef ringName, CFErrorRef *error);
-SOSRingStatus SOSCCRingStatus_Server(CFStringRef ringName, CFErrorRef *error);
-CF_RETURNS_RETAINED CFStringRef SOSCCGetAllTheRings_Server(CFErrorRef *error);
-bool SOSCCEnableRing_Server(CFStringRef ringName, CFErrorRef *error);
-
 
 CFArrayRef SOSCCCopyGenerationPeerInfo_Server(CFErrorRef* error);
 CFArrayRef SOSCCCopyApplicantPeerInfo_Server(CFErrorRef* error);
@@ -81,8 +72,6 @@ CFArrayRef SOSCCCopyEngineState_Server(CFErrorRef* error);
 
 CFArrayRef SOSCCCopyPeerPeerInfo_Server(CFErrorRef* error);
 CFArrayRef SOSCCCopyConcurringPeerPeerInfo_Server(CFErrorRef* error);
-bool SOSCCkSecXPCOpIsThisDeviceLastBackup_Server(CFErrorRef *error);
-bool SOSCCkSecXPCOpIsThisDeviceLastBackup_Server(CFErrorRef *error);
 bool SOSCCAccountSetToNew_Server(CFErrorRef *error);
 bool SOSCCResetToOffering_Server(CFErrorRef* error);
 bool SOSCCResetToEmpty_Server(CFErrorRef* error);
@@ -94,7 +83,6 @@ SOSViewResultCode SOSCCView_Server(CFStringRef view, SOSViewActionCode action, C
 bool SOSCCViewSetWithAnalytics_Server(CFSetRef enabledViews, CFSetRef disabledViews, CFDataRef parentEvent);
 bool SOSCCViewSet_Server(CFSetRef enabledViews, CFSetRef disabledViews);
 
-CFStringRef SOSCCCopyIncompatibilityInfo_Server(CFErrorRef* error);
 enum DepartureReason SOSCCGetLastDepartureReason_Server(CFErrorRef* error);
 bool SOSCCSetLastDepartureReason_Server(enum DepartureReason reason, CFErrorRef *error);
 
@@ -108,12 +96,6 @@ bool SOSCCRegisterSingleRecoverySecret_Server(CFDataRef backupSlice, bool setupV
 
 bool SOSCCWaitForInitialSync_Server(CFErrorRef*);
 bool SOSCCWaitForInitialSyncWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error);
-CFArrayRef SOSCCCopyYetToSyncViewsList_Server(CFErrorRef*);
-
-bool SOSWrapToBackupSliceKeyBagForView_Server(CFStringRef viewName, CFDataRef input, CFDataRef* output, CFDataRef* bskbEncoded, CFErrorRef* error);
-
-SOSBackupSliceKeyBagRef SOSBackupSliceKeyBagForView(CFStringRef viewName, CFErrorRef* error);
-CF_RETURNS_RETAINED CFDataRef SOSWrapToBackupSliceKeyBag(SOSBackupSliceKeyBagRef bskb, CFDataRef input, CFErrorRef* error);
 
 //
 // MARK: Internal kicks.
@@ -147,11 +129,6 @@ CFTypeRef SOSKeychainAccountGetSharedAccount(void);
 
 void SOSCCSetGestalt_Server(CFStringRef name, CFStringRef version, CFStringRef model, CFStringRef serial);
 CFStringRef SOSCCCopyOSVersion(void);
-CFDataRef SOSCCCopyAccountState_Server(CFErrorRef* error);
-CFDataRef SOSCCCopyEngineData_Server(CFErrorRef* error);
-bool SOSCCDeleteEngineState_Server(CFErrorRef* error);
-bool SOSCCDeleteAccountState_Server(CFErrorRef* error);
-
 
 //
 // MARK: Testing operations, dangerous to call in normal operation.
@@ -168,12 +145,8 @@ extern CFStringRef kSOSPeerDataLabel;
 CFDataRef SOSItemCopy(CFStringRef label, CFErrorRef* error);
 bool SOSItemUpdateOrAdd(CFStringRef label, CFStringRef accessibility, CFDataRef data, CFErrorRef *error);
 
-bool SOSCCSetEscrowRecord_Server(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error);
-CFDictionaryRef SOSCCCopyEscrowRecord_Server(CFErrorRef *error);
 bool SOSCCRegisterRecoveryPublicKey_Server(CFDataRef recovery_key, CFErrorRef *error);
 CFDataRef SOSCCCopyRecoveryPublicKey_Server(CFErrorRef *error);
-
-CFDictionaryRef SOSCCCopyBackupInformation_Server(CFErrorRef *error);
 
 SOSPeerInfoRef SOSCCCopyApplication_Server(CFErrorRef *error);
 CFDataRef SOSCCCopyCircleJoiningBlob_Server(SOSPeerInfoRef applicant, CFErrorRef *error);
@@ -182,8 +155,6 @@ CFDataRef SOSCCCopyInitialSyncData_Server(uint32_t flags, CFErrorRef *error);
 bool SOSCCCleanupKVSKeys_Server(CFErrorRef *error);
 
 bool SOSCCAccountHasPublicKey_Server(CFErrorRef *error);
-bool SOSCCAccountIsNew_Server(CFErrorRef *error);
-bool SOSCCTestPopulateKVSWithBadKeys_Server(CFErrorRef *error);
 
 void sync_the_last_data_to_kvs(CFTypeRef account, bool waitForeverForSynchronization);
 

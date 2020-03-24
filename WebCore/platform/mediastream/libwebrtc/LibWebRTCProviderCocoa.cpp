@@ -28,8 +28,6 @@
 
 #if USE(LIBWEBRTC)
 
-#include <webrtc/media/engine/webrtcvideodecoderfactory.h>
-#include <webrtc/media/engine/webrtcvideoencoderfactory.h>
 #include <webrtc/sdk/WebKit/WebKitUtilities.h>
 #include <wtf/MainThread.h>
 #include <wtf/darwin/WeakLinking.h>
@@ -73,7 +71,11 @@ void LibWebRTCProviderCocoa::setActive(bool value)
 
 bool LibWebRTCProvider::webRTCAvailable()
 {
+#if PLATFORM(IOS)
+    return true;
+#else
     return !isNullFunctionPointer(rtc::LogMessage::LogToDebug);
+#endif
 }
 
 } // namespace WebCore

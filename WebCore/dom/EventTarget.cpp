@@ -39,7 +39,6 @@
 #include "InspectorInstrumentation.h"
 #include "JSEventListener.h"
 #include "JSLazyEventListener.h"
-#include "RuntimeEnabledFeatures.h"
 #include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
 #include "Settings.h"
@@ -187,13 +186,13 @@ bool EventTarget::hasActiveEventListeners(const AtomString& eventType) const
 
 ExceptionOr<bool> EventTarget::dispatchEventForBindings(Event& event)
 {
-    event.setUntrusted();
-
     if (!event.isInitialized() || event.isBeingDispatched())
         return Exception { InvalidStateError };
 
     if (!scriptExecutionContext())
         return false;
+
+    event.setUntrusted();
 
     dispatchEvent(event);
     return event.legacyReturnValue();
@@ -282,9 +281,8 @@ void EventTarget::innerInvokeEventListeners(Event& event, EventListenerVector li
 
     auto& context = *scriptExecutionContext();
     bool contextIsDocument = is<Document>(context);
-    InspectorInstrumentationCookie willDispatchEventCookie;
     if (contextIsDocument)
-        willDispatchEventCookie = InspectorInstrumentation::willDispatchEvent(downcast<Document>(context), event, true);
+        InspectorInstrumentation::willDispatchEvent(downcast<Document>(context), event);
 
     for (auto& registeredListener : listeners) {
         if (UNLIKELY(registeredListener->wasRemoved()))
@@ -323,7 +321,7 @@ void EventTarget::innerInvokeEventListeners(Event& event, EventListenerVector li
     }
 
     if (contextIsDocument)
-        InspectorInstrumentation::didDispatchEvent(willDispatchEventCookie, event.defaultPrevented());
+        InspectorInstrumentation::didDispatchEvent(downcast<Document>(context), event);
 }
 
 Vector<AtomString> EventTarget::eventTypes()

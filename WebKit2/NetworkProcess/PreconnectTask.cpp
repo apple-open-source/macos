@@ -39,13 +39,13 @@ namespace WebKit {
 
 using namespace WebCore;
 
-PreconnectTask::PreconnectTask(NetworkProcess& networkProcess, NetworkLoadParameters&& parameters, CompletionHandler<void(const ResourceError&)>&& completionHandler)
+PreconnectTask::PreconnectTask(NetworkProcess& networkProcess, PAL::SessionID sessionID, NetworkLoadParameters&& parameters, CompletionHandler<void(const ResourceError&)>&& completionHandler)
     : m_completionHandler(WTFMove(completionHandler))
     , m_timeoutTimer([this] { didFinish(ResourceError { String(), 0, m_networkLoad->parameters().request.url(), "Preconnection timed out"_s, ResourceError::Type::Timeout }); })
 {
     RELEASE_LOG(Network, "%p - PreconnectTask::PreconnectTask()", this);
 
-    auto* networkSession = networkProcess.networkSession(parameters.sessionID);
+    auto* networkSession = networkProcess.networkSession(sessionID);
     if (!networkSession) {
         ASSERT_NOT_REACHED();
         m_completionHandler(internalError(parameters.request.url()));
@@ -53,7 +53,7 @@ PreconnectTask::PreconnectTask(NetworkProcess& networkProcess, NetworkLoadParame
     }
 
     ASSERT(parameters.shouldPreconnectOnly == PreconnectOnly::Yes);
-    m_networkLoad = std::make_unique<NetworkLoad>(*this, nullptr, WTFMove(parameters), *networkSession);
+    m_networkLoad = makeUnique<NetworkLoad>(*this, nullptr, WTFMove(parameters), *networkSession);
 
     m_timeoutTimer.startOneShot(60000_s);
 }
@@ -64,7 +64,7 @@ PreconnectTask::~PreconnectTask()
 
 void PreconnectTask::willSendRedirectedRequest(ResourceRequest&&, ResourceRequest&& redirectRequest, ResourceResponse&& redirectResponse)
 {
-    ASSERT_NOT_REACHED();
+    // HSTS redirection may happen here.
 }
 
 void PreconnectTask::didReceiveResponse(ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)

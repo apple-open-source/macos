@@ -638,7 +638,7 @@ class FSTree {
     }
 
     func setFSAttr(node: Node_t, attributeType: String, attrRef : inout fsAttributesRef) -> Int32 {
-        return(brdg_fsops_setfsattr(&testerFsOps, &(node.node), attributeType, attrRef.attr, attrRef.attrBufSize))
+        return(brdg_fsops_setfsattr(&testerFsOps, &(node.node), attributeType, attrRef.attr, attrRef.attrBufSize, attrRef.out_attr, attrRef.out_attrBufSize))
     }
     
     func reclaimNode(_ node : Node_t) -> Int32 {

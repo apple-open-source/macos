@@ -43,6 +43,7 @@
 #include "WebProcess.h"
 #include "WebProcessPoolMessages.h"
 #include "WebResourceLoader.h"
+#include "WebSWContextManagerConnection.h"
 #include "WebServiceWorkerProvider.h"
 #include "WebURLSchemeHandlerProxy.h"
 #include "WebURLSchemeTaskProxy.h"
@@ -75,8 +76,21 @@
 #include <WebCore/QuickLook.h>
 #endif
 
-#define RELEASE_LOG_IF_ALLOWED(permissionChecker, fmt, ...) RELEASE_LOG_IF(permissionChecker.isAlwaysOnLoggingAllowed(), Network, "%p - WebLoaderStrategy::" fmt, this, ##__VA_ARGS__)
-#define RELEASE_LOG_ERROR_IF_ALLOWED(permissionChecker, fmt, ...) RELEASE_LOG_ERROR_IF(permissionChecker.isAlwaysOnLoggingAllowed(), Network, "%p - WebLoaderStrategy::" fmt, this, ##__VA_ARGS__)
+
+#define RELEASE_LOG_IS_ALLOWED (WebProcess::singleton().sessionID().isAlwaysOnLoggingAllowed())
+
+#define RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(RELEASE_LOG_IS_ALLOWED, Network, "%p - WebLoaderStrategy::" fmt, this, ##__VA_ARGS__)
+#define RELEASE_LOG_ERROR_IF_ALLOWED(fmt, ...) RELEASE_LOG_ERROR_IF(RELEASE_LOG_IS_ALLOWED, Network, "%p - WebLoaderStrategy::" fmt, this, ##__VA_ARGS__)
+
+#define WEBLOADERSTRATEGY_RELEASE_LOG_STANDARD_TEMPLATE "%p - [resourceLoader=%p, frameLoader=%p, frame=%p, webPageID=%" PRIu64 ", frameID=%" PRIu64 ", resourceID=%" PRIu64 "] WebLoaderStrategy::"
+#define WEBLOADERSTRATEGY_RELEASE_LOG_STANDARD_PARAMETERS this, &resourceLoader, resourceLoader.frameLoader(), resourceLoader.frame(), trackingParameters.pageID.toUInt64(), trackingParameters.frameID.toUInt64(), trackingParameters.resourceID
+#define WEBLOADERSTRATEGY_WITH_FRAMELOADER_RELEASE_LOG_STANDARD_PARAMETERS this, nullptr, &frameLoader, &frameLoader.frame(), trackingParameters.pageID.toUInt64(), trackingParameters.frameID.toUInt64(), trackingParameters.resourceID
+
+#define WEBLOADERSTRATEGY_RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(RELEASE_LOG_IS_ALLOWED, Network, WEBLOADERSTRATEGY_RELEASE_LOG_STANDARD_TEMPLATE fmt, WEBLOADERSTRATEGY_RELEASE_LOG_STANDARD_PARAMETERS, ##__VA_ARGS__)
+#define WEBLOADERSTRATEGY_RELEASE_LOG_ERROR_IF_ALLOWED(fmt, ...) RELEASE_LOG_ERROR_IF(RELEASE_LOG_IS_ALLOWED, Network, WEBLOADERSTRATEGY_RELEASE_LOG_STANDARD_TEMPLATE fmt, WEBLOADERSTRATEGY_RELEASE_LOG_STANDARD_PARAMETERS, ##__VA_ARGS__)
+
+#define WEBLOADERSTRATEGY_WITH_FRAMELOADER_RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(RELEASE_LOG_IS_ALLOWED, Network, WEBLOADERSTRATEGY_RELEASE_LOG_STANDARD_TEMPLATE fmt, WEBLOADERSTRATEGY_WITH_FRAMELOADER_RELEASE_LOG_STANDARD_PARAMETERS, ##__VA_ARGS__)
+#define WEBLOADERSTRATEGY_WITH_FRAMELOADER_RELEASE_LOG_ERROR_IF_ALLOWED(fmt, ...) RELEASE_LOG_ERROR_IF(RELEASE_LOG_IS_ALLOWED, Network, WEBLOADERSTRATEGY_RELEASE_LOG_STANDARD_TEMPLATE fmt, WEBLOADERSTRATEGY_WITH_FRAMELOADER_RELEASE_LOG_STANDARD_PARAMETERS, ##__VA_ARGS__)
 
 namespace WebKit {
 using namespace WebCore;
@@ -96,7 +110,7 @@ void WebLoaderStrategy::loadResource(Frame& frame, CachedResource& resource, Res
         if (loader)
             scheduleLoad(*loader, resource.get(), referrerPolicy == ReferrerPolicy::NoReferrerWhenDowngrade);
         else
-            RELEASE_LOG_IF_ALLOWED(frame.get(), "loadResource: Unable to create SubresourceLoader (frame = %p", &frame);
+            RELEASE_LOG_IF_ALLOWED("loadResource: Unable to create SubresourceLoader (frame=%p", &frame);
         completionHandler(WTFMove(loader));
     });
 }
@@ -158,17 +172,22 @@ void WebLoaderStrategy::scheduleLoad(ResourceLoader& resourceLoader, CachedResou
     auto& frameLoaderClient = resourceLoader.frameLoader()->client();
 
     WebResourceLoader::TrackingParameters trackingParameters;
+    if (auto* webFrameLoaderClient = toWebFrameLoaderClient(frameLoaderClient))
+        trackingParameters.webPageProxyID = webFrameLoaderClient->webPageProxyID().valueOr(WebPageProxyIdentifier { });
+#if ENABLE(SERVICE_WORKER)
+    else if (is<ServiceWorkerFrameLoaderClient>(frameLoaderClient))
+        trackingParameters.webPageProxyID = downcast<ServiceWorkerFrameLoaderClient>(frameLoaderClient).webPageProxyID();
+#endif
     trackingParameters.pageID = frameLoaderClient.pageID().valueOr(PageIdentifier { });
-    trackingParameters.frameID = frameLoaderClient.frameID().valueOr(0);
+    trackingParameters.frameID = frameLoaderClient.frameID().valueOr(FrameIdentifier { });
     trackingParameters.resourceID = identifier;
-    auto sessionID = frameLoaderClient.sessionID();
 
 #if ENABLE(WEB_ARCHIVE) || ENABLE(MHTML)
     // If the DocumentLoader schedules this as an archive resource load,
     // then we should remember the ResourceLoader in our records but not schedule it in the NetworkProcess.
     if (resourceLoader.documentLoader()->scheduleArchiveLoad(resourceLoader, resourceLoader.request())) {
         LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, url '%s' will be handled as an archive resource.", resourceLoader.url().string().utf8().data());
-        RELEASE_LOG_IF_ALLOWED(resourceLoader, "scheduleLoad: URL will be handled as an archive resource (frame = %p, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader.frame(), trackingParameters.pageID.toUInt64(), trackingParameters.frameID, identifier);
+        WEBLOADERSTRATEGY_RELEASE_LOG_IF_ALLOWED("scheduleLoad: URL will be handled as an archive resource");
         m_webResourceLoaders.set(identifier, WebResourceLoader::create(resourceLoader, trackingParameters));
         return;
     }
@@ -176,14 +195,14 @@ void WebLoaderStrategy::scheduleLoad(ResourceLoader& resourceLoader, CachedResou
 
     if (resourceLoader.documentLoader()->applicationCacheHost().maybeLoadResource(resourceLoader, resourceLoader.request(), resourceLoader.request().url())) {
         LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, url '%s' will be loaded from application cache.", resourceLoader.url().string().utf8().data());
-        RELEASE_LOG_IF_ALLOWED(resourceLoader, "scheduleLoad: URL will be loaded from application cache (frame = %p, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader.frame(), trackingParameters.pageID.toUInt64(), trackingParameters.frameID, identifier);
+        WEBLOADERSTRATEGY_RELEASE_LOG_IF_ALLOWED("scheduleLoad: URL will be loaded from application cache");
         m_webResourceLoaders.set(identifier, WebResourceLoader::create(resourceLoader, trackingParameters));
         return;
     }
 
     if (resourceLoader.request().url().protocolIsData()) {
         LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, url '%s' will be loaded as data.", resourceLoader.url().string().utf8().data());
-        RELEASE_LOG_IF_ALLOWED(resourceLoader, "scheduleLoad: URL will be loaded as data (frame = %p, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader.frame(), trackingParameters.pageID.toUInt64(), trackingParameters.frameID, identifier);
+        WEBLOADERSTRATEGY_RELEASE_LOG_IF_ALLOWED("scheduleLoad: URL will be loaded as data");
         startLocalLoad(resourceLoader);
         return;
     }
@@ -191,7 +210,7 @@ void WebLoaderStrategy::scheduleLoad(ResourceLoader& resourceLoader, CachedResou
 #if USE(QUICK_LOOK)
     if (isQuickLookPreviewURL(resourceLoader.request().url())) {
         LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, url '%s' will be handled as a QuickLook resource.", resourceLoader.url().string().utf8().data());
-        RELEASE_LOG_IF_ALLOWED(resourceLoader, "scheduleLoad: URL will be handled as a QuickLook resource (frame = %p, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader.frame(), trackingParameters.pageID.toUInt64(), trackingParameters.frameID, identifier);
+        WEBLOADERSTRATEGY_RELEASE_LOG_IF_ALLOWED("scheduleLoad: URL will be handled as a QuickLook resource");
         startLocalLoad(resourceLoader);
         return;
     }
@@ -202,43 +221,22 @@ void WebLoaderStrategy::scheduleLoad(ResourceLoader& resourceLoader, CachedResou
     // https://blogs.gnome.org/alexl/2012/01/26/resources-in-glib/
     if (resourceLoader.request().url().protocolIs("resource")) {
         LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, url '%s' will be handled as a GResource.", resourceLoader.url().string().utf8().data());
-        RELEASE_LOG_IF_ALLOWED(resourceLoader, "scheduleLoad: URL will be handled as a GResource (frame = %p, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader.frame(), trackingParameters.pageID.toUInt64(), trackingParameters.frameID, identifier);
+        WEBLOADERSTRATEGY_RELEASE_LOG_IF_ALLOWED("scheduleLoad: URL will be handled as a GResource");
         startLocalLoad(resourceLoader);
         return;
     }
 #endif
 
-#if ENABLE(SERVICE_WORKER)
-    WebServiceWorkerProvider::singleton().handleFetch(resourceLoader, sessionID, shouldClearReferrerOnHTTPSToHTTPRedirect, [this, trackingParameters, identifier, sessionID, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime = maximumBufferingTime(resource), resourceLoader = makeRef(resourceLoader)] (ServiceWorkerClientFetch::Result result) mutable {
-        if (result != ServiceWorkerClientFetch::Result::Unhandled) {
-            LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, url '%s' will be scheduled through ServiceWorker handle fetch algorithm", resourceLoader->url().string().latin1().data());
-            RELEASE_LOG_IF_ALLOWED(resourceLoader.get(), "scheduleLoad: URL will be scheduled through ServiceWorker handle fetch algorithm (frame = %p, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader->frame(), trackingParameters.pageID.toUInt64(), trackingParameters.frameID, identifier);
-            return;
-        }
-        if (resourceLoader->options().serviceWorkersMode == ServiceWorkersMode::Only) {
-            RELEASE_LOG_ERROR_IF_ALLOWED(resourceLoader.get(), "scheduleLoad: unable to schedule URL through ServiceWorker handle fetch algorithm (frame = %p, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader->frame(), trackingParameters.pageID.toUInt64(), trackingParameters.frameID, identifier);
-            callOnMainThread([resourceLoader = WTFMove(resourceLoader)] {
-                auto error = internalError(resourceLoader->request().url());
-                error.setType(ResourceError::Type::Cancellation);
-                resourceLoader->didFail(error);
-            });
-            return;
-        }
+    if (!tryLoadingUsingURLSchemeHandler(resourceLoader, trackingParameters)) {
+        WEBLOADERSTRATEGY_RELEASE_LOG_IF_ALLOWED("scheduleLoad: URL will be scheduled with the NetworkProcess");
+        scheduleLoadFromNetworkProcess(resourceLoader, resourceLoader.request(), trackingParameters, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime(resource));
+        return;
+    }
 
-        if (!WebProcess::singleton().webLoaderStrategy().tryLoadingUsingURLSchemeHandler(resourceLoader))
-            WebProcess::singleton().webLoaderStrategy().scheduleLoadFromNetworkProcess(resourceLoader.get(), resourceLoader->request(), trackingParameters, sessionID, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime);
-        else
-            RELEASE_LOG_IF_ALLOWED(resourceLoader.get(), "scheduleLoad: URL not handled by any handlers (frame = %p, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader->frame(), trackingParameters.pageID.toUInt64(), trackingParameters.frameID, identifier);
-    });
-#else
-    if (!tryLoadingUsingURLSchemeHandler(resourceLoader))
-        scheduleLoadFromNetworkProcess(resourceLoader, resourceLoader.request(), trackingParameters, sessionID, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime(resource));
-    else
-        RELEASE_LOG_IF_ALLOWED(resourceLoader, "scheduleLoad: URL not handled by any handlers (frame = %p, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader.frame(), trackingParameters.pageID.toUInt64(), trackingParameters.frameID, identifier);
-#endif
+    WEBLOADERSTRATEGY_RELEASE_LOG_IF_ALLOWED("scheduleLoad: URL not handled by any handlers");
 }
 
-bool WebLoaderStrategy::tryLoadingUsingURLSchemeHandler(ResourceLoader& resourceLoader)
+bool WebLoaderStrategy::tryLoadingUsingURLSchemeHandler(ResourceLoader& resourceLoader, const WebResourceLoader::TrackingParameters& trackingParameters)
 {
     auto* webFrameLoaderClient = toWebFrameLoaderClient(resourceLoader.frameLoader()->client());
     auto* webFrame = webFrameLoaderClient ? webFrameLoaderClient->webFrame() : nullptr;
@@ -246,7 +244,7 @@ bool WebLoaderStrategy::tryLoadingUsingURLSchemeHandler(ResourceLoader& resource
     if (webPage) {
         if (auto* handler = webPage->urlSchemeHandlerForScheme(resourceLoader.request().url().protocol().toStringWithoutCopying())) {
             LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, URL '%s' will be handled by a UIProcess URL scheme handler.", resourceLoader.url().string().utf8().data());
-            RELEASE_LOG_IF_ALLOWED(resourceLoader, "scheduleLoad: URL will be handled by a UIProcess URL scheme handler (frame = %p, resourceID = %lu)", resourceLoader.frame(), resourceLoader.identifier());
+            WEBLOADERSTRATEGY_RELEASE_LOG_IF_ALLOWED("tryLoadingUsingURLSchemeHandler: URL will be handled by a UIProcess URL scheme handler");
 
             handler->startNewTask(resourceLoader);
             return true;
@@ -255,7 +253,7 @@ bool WebLoaderStrategy::tryLoadingUsingURLSchemeHandler(ResourceLoader& resource
     return false;
 }
 
-void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceLoader, const ResourceRequest& request, const WebResourceLoader::TrackingParameters& trackingParameters, PAL::SessionID sessionID, bool shouldClearReferrerOnHTTPSToHTTPRedirect, Seconds maximumBufferingTime)
+void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceLoader, const ResourceRequest& request, const WebResourceLoader::TrackingParameters& trackingParameters, bool shouldClearReferrerOnHTTPSToHTTPRedirect, Seconds maximumBufferingTime)
 {
     ResourceLoadIdentifier identifier = resourceLoader.identifier();
     ASSERT(identifier);
@@ -268,10 +266,13 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
 
     NetworkResourceLoadParameters loadParameters;
     loadParameters.identifier = identifier;
+    loadParameters.webPageProxyID = trackingParameters.webPageProxyID;
     loadParameters.webPageID = trackingParameters.pageID;
     loadParameters.webFrameID = trackingParameters.frameID;
     loadParameters.parentPID = presentingApplicationPID();
-    loadParameters.sessionID = sessionID;
+#if HAVE(AUDIT_TOKEN)
+    loadParameters.networkProcessAuditToken = WebProcess::singleton().ensureNetworkProcessConnection().networkProcessAuditToken();
+#endif
     loadParameters.request = request;
     loadParameters.contentSniffingPolicy = contentSniffingPolicy;
     loadParameters.contentEncodingSniffingPolicy = contentEncodingSniffingPolicy;
@@ -284,6 +285,12 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
     loadParameters.options = resourceLoader.options();
     loadParameters.preflightPolicy = resourceLoader.options().preflightPolicy;
     loadParameters.isHTTPSUpgradeEnabled = resourceLoader.frame() ? resourceLoader.frame()->settings().HTTPSUpgradeEnabled() : false;
+
+#if ENABLE(SERVICE_WORKER)
+    loadParameters.serviceWorkersMode = resourceLoader.options().serviceWorkersMode;
+    loadParameters.serviceWorkerRegistrationIdentifier = resourceLoader.options().serviceWorkerRegistrationIdentifier;
+    loadParameters.httpHeadersToKeep = resourceLoader.options().httpHeadersToKeep;
+#endif
 
     auto* document = resourceLoader.frame() ? resourceLoader.frame()->document() : nullptr;
     if (resourceLoader.options().cspResponseHeaders)
@@ -322,11 +329,13 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
         if (!origin.isNull())
             loadParameters.sourceOrigin = SecurityOrigin::createFromString(origin);
     }
+    if (document)
+        loadParameters.topOrigin = &document->topOrigin();
 
     if (loadParameters.options.mode != FetchOptions::Mode::Navigate) {
         ASSERT(loadParameters.sourceOrigin);
         if (!loadParameters.sourceOrigin) {
-            RELEASE_LOG_ERROR_IF_ALLOWED(resourceLoader, "scheduleLoad: no sourceOrigin (frame = %p, priority = %d, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader.frame(), static_cast<int>(resourceLoader.request().priority()), loadParameters.webPageID.toUInt64(), loadParameters.webFrameID, loadParameters.identifier);
+            WEBLOADERSTRATEGY_RELEASE_LOG_ERROR_IF_ALLOWED("scheduleLoad: no sourceOrigin (priority=%d)", static_cast<int>(resourceLoader.request().priority()));
             scheduleInternallyFailedLoad(resourceLoader);
             return;
         }
@@ -349,9 +358,9 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
 
     ASSERT((loadParameters.webPageID && loadParameters.webFrameID) || loadParameters.clientCredentialPolicy == ClientCredentialPolicy::CannotAskClientForCredentials);
 
-    RELEASE_LOG_IF_ALLOWED(resourceLoader, "scheduleLoad: Resource is being scheduled with the NetworkProcess (frame = %p, priority = %d, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader.frame(), static_cast<int>(resourceLoader.request().priority()), loadParameters.webPageID.toUInt64(), loadParameters.webFrameID, loadParameters.identifier);
+    WEBLOADERSTRATEGY_RELEASE_LOG_IF_ALLOWED("scheduleLoad: Resource is being scheduled with the NetworkProcess (priority=%d)", static_cast<int>(resourceLoader.request().priority()));
     if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::ScheduleResourceLoad(loadParameters), 0)) {
-        RELEASE_LOG_ERROR_IF_ALLOWED(resourceLoader, "scheduleLoad: Unable to schedule resource with the NetworkProcess (frame = %p, priority = %d, pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %" PRIu64 ")", resourceLoader.frame(), static_cast<int>(resourceLoader.request().priority()), loadParameters.webPageID.toUInt64(), loadParameters.webFrameID, loadParameters.identifier);
+        WEBLOADERSTRATEGY_RELEASE_LOG_ERROR_IF_ALLOWED("scheduleLoad: Unable to schedule resource with the NetworkProcess (priority=%d)", static_cast<int>(resourceLoader.request().priority()));
         // We probably failed to schedule this load with the NetworkProcess because it had crashed.
         // This load will never succeed so we will schedule it to fail asynchronously.
         scheduleInternallyFailedLoad(resourceLoader);
@@ -419,11 +428,6 @@ void WebLoaderStrategy::remove(ResourceLoader* resourceLoader)
         return;
     }
 
-#if ENABLE(SERVICE_WORKER)
-    if (WebServiceWorkerProvider::singleton().cancelFetch(makeObjectIdentifier<FetchIdentifierType>(identifier)))
-        return;
-#endif
-
     RefPtr<WebResourceLoader> loader = m_webResourceLoaders.take(identifier);
     // Loader may not be registered if we created it, but haven't scheduled yet (a bundle client can decide to cancel such request via willSendRequest).
     if (!loader)
@@ -467,7 +471,7 @@ void WebLoaderStrategy::resumePendingRequests()
 
 void WebLoaderStrategy::networkProcessCrashed()
 {
-    RELEASE_LOG_ERROR(Network, "WebLoaderStrategy::networkProcessCrashed: failing all pending resource loaders");
+    RELEASE_LOG_ERROR_IF_ALLOWED("networkProcessCrashed: failing all pending resource loaders");
 
     for (auto& loader : m_webResourceLoaders.values()) {
         scheduleInternallyFailedLoad(*loader->resourceLoader());
@@ -520,19 +524,24 @@ void WebLoaderStrategy::loadResourceSynchronously(FrameLoader& frameLoader, unsi
     WebFrame* webFrame = webFrameLoaderClient ? webFrameLoaderClient->webFrame() : nullptr;
     WebPage* webPage = webFrame ? webFrame->page() : nullptr;
 
-    auto pageID = webPage ? webPage->pageID() : PageIdentifier { };
-    auto frameID = webFrame ? webFrame->frameID() : 0;
-    auto sessionID = webPage ? webPage->sessionID() : PAL::SessionID::defaultSessionID();
+    auto webPageProxyID = webPage ? webPage->webPageProxyIdentifier() : WebPageProxyIdentifier { };
+    auto pageID = webPage ? webPage->identifier() : PageIdentifier { };
+    auto frameID = webFrame ? webFrame->frameID() : FrameIdentifier { };
+
+    WebResourceLoader::TrackingParameters trackingParameters;
+    trackingParameters.pageID = pageID;
+    trackingParameters.frameID = frameID;
+    trackingParameters.resourceID = resourceLoadIdentifier;
 
     auto* document = frameLoader.frame().document();
     if (!document) {
-        RELEASE_LOG_ERROR_IF_ALLOWED(sessionID, "loadResourceSynchronously: no document (pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %lu)", pageID.toUInt64(), frameID, resourceLoadIdentifier);
+        WEBLOADERSTRATEGY_WITH_FRAMELOADER_RELEASE_LOG_ERROR_IF_ALLOWED("loadResourceSynchronously: no document");
         error = internalError(request.url());
         return;
     }
 
     if (auto syncLoadResult = tryLoadingSynchronouslyUsingURLSchemeHandler(frameLoader, resourceLoadIdentifier, request)) {
-        RELEASE_LOG_ERROR_IF_ALLOWED(sessionID, "loadResourceSynchronously: failed calling tryLoadingSynchronouslyUsingURLSchemeHandler (pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %lu, error = %d)", pageID.toUInt64(), frameID, resourceLoadIdentifier, syncLoadResult->error.errorCode());
+        WEBLOADERSTRATEGY_WITH_FRAMELOADER_RELEASE_LOG_ERROR_IF_ALLOWED("loadResourceSynchronously: failed calling tryLoadingSynchronouslyUsingURLSchemeHandler (error=%d)", syncLoadResult->error.errorCode());
         error = WTFMove(syncLoadResult->error);
         response = WTFMove(syncLoadResult->response);
         data = WTFMove(syncLoadResult->data);
@@ -541,10 +550,13 @@ void WebLoaderStrategy::loadResourceSynchronously(FrameLoader& frameLoader, unsi
 
     NetworkResourceLoadParameters loadParameters;
     loadParameters.identifier = resourceLoadIdentifier;
+    loadParameters.webPageProxyID = webPageProxyID;
     loadParameters.webPageID = pageID;
     loadParameters.webFrameID = frameID;
     loadParameters.parentPID = presentingApplicationPID();
-    loadParameters.sessionID = sessionID;
+#if HAVE(AUDIT_TOKEN)
+    loadParameters.networkProcessAuditToken = WebProcess::singleton().ensureNetworkProcessConnection().networkProcessAuditToken();
+#endif
     loadParameters.request = request;
     loadParameters.contentSniffingPolicy = ContentSniffingPolicy::SniffContent;
     loadParameters.contentEncodingSniffingPolicy = ContentEncodingSniffingPolicy::Sniff;
@@ -555,6 +567,7 @@ void WebLoaderStrategy::loadResourceSynchronously(FrameLoader& frameLoader, unsi
 
     loadParameters.options = options;
     loadParameters.sourceOrigin = &document->securityOrigin();
+    loadParameters.topOrigin = &document->topOrigin();
     if (!document->shouldBypassMainWorldContentSecurityPolicy()) {
         if (auto* contentSecurityPolicy = document->contentSecurityPolicy())
             loadParameters.cspResponseHeaders = contentSecurityPolicy->responseHeaders();
@@ -571,7 +584,7 @@ void WebLoaderStrategy::loadResourceSynchronously(FrameLoader& frameLoader, unsi
         WebProcess::singleton().parentProcessConnection()->send(Messages::WebProcessPool::SetWebProcessHasUploads { Process::identifier() }, 0);
 
     if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad(loadParameters), Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::Reply(error, response, data), 0)) {
-        RELEASE_LOG_ERROR_IF_ALLOWED(sessionID, "loadResourceSynchronously: failed sending synchronous network process message (pageID = %" PRIu64 ", frameID = %" PRIu64 ", resourceID = %lu)", pageID.toUInt64(), frameID, resourceLoadIdentifier);
+        WEBLOADERSTRATEGY_WITH_FRAMELOADER_RELEASE_LOG_ERROR_IF_ALLOWED("loadResourceSynchronously: failed sending synchronous network process message");
         if (auto* page = webPage ? webPage->corePage() : nullptr)
             page->diagnosticLoggingClient().logDiagnosticMessage(WebCore::DiagnosticLoggingKeys::internalErrorKey(), WebCore::DiagnosticLoggingKeys::synchronousMessageFailedKey(), WebCore::ShouldSample::No);
         response = ResourceResponse();
@@ -582,9 +595,9 @@ void WebLoaderStrategy::loadResourceSynchronously(FrameLoader& frameLoader, unsi
         WebProcess::singleton().parentProcessConnection()->send(Messages::WebProcessPool::ClearWebProcessHasUploads { Process::identifier() }, 0);
 }
 
-void WebLoaderStrategy::pageLoadCompleted(PageIdentifier webPageID)
+void WebLoaderStrategy::pageLoadCompleted(Page& page)
 {
-    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::PageLoadCompleted(webPageID), 0);
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::PageLoadCompleted(WebPage::fromCorePage(page).identifier()), 0);
 }
 
 static uint64_t generateLoadIdentifier()
@@ -611,8 +624,11 @@ void WebLoaderStrategy::startPingLoad(Frame& frame, ResourceRequest& request, co
     loadParameters.identifier = generateLoadIdentifier();
     loadParameters.request = request;
     loadParameters.sourceOrigin = &document->securityOrigin();
+    loadParameters.topOrigin = &document->topOrigin();
     loadParameters.parentPID = presentingApplicationPID();
-    loadParameters.sessionID = frame.page() ? frame.page()->sessionID() : PAL::SessionID::defaultSessionID();
+#if HAVE(AUDIT_TOKEN)
+    loadParameters.networkProcessAuditToken = WebProcess::singleton().ensureNetworkProcessConnection().networkProcessAuditToken();
+#endif
     loadParameters.storedCredentialsPolicy = options.credentials == FetchOptions::Credentials::Omit ? StoredCredentialsPolicy::DoNotUse : StoredCredentialsPolicy::Use;
     loadParameters.options = options;
     loadParameters.originalRequestHeaders = originalRequestHeaders;
@@ -647,10 +663,7 @@ void WebLoaderStrategy::didFinishPingLoad(uint64_t pingLoadIdentifier, ResourceE
 
 void WebLoaderStrategy::preconnectTo(FrameLoader& frameLoader, const URL& url, StoredCredentialsPolicy storedCredentialsPolicy, PreconnectCompletionHandler&& completionHandler)
 {
-    uint64_t preconnectionIdentifier = generateLoadIdentifier();
-    auto addResult = m_preconnectCompletionHandlers.add(preconnectionIdentifier, WTFMove(completionHandler));
-    ASSERT_UNUSED(addResult, addResult.isNewEntry);
-
+    ASSERT(completionHandler);
     auto* webFrameLoaderClient = toWebFrameLoaderClient(frameLoader.client());
     if (!webFrameLoaderClient) {
         completionHandler(internalError(url));
@@ -667,12 +680,27 @@ void WebLoaderStrategy::preconnectTo(FrameLoader& frameLoader, const URL& url, S
         return;
     }
 
+    preconnectTo(ResourceRequest { url }, *webPage, *webFrame, storedCredentialsPolicy, WTFMove(completionHandler));
+}
+
+void WebLoaderStrategy::preconnectTo(WebCore::ResourceRequest&& request, WebPage& webPage, WebFrame& webFrame, WebCore::StoredCredentialsPolicy storedCredentialsPolicy, PreconnectCompletionHandler&& completionHandler)
+{
+    Optional<uint64_t> preconnectionIdentifier;
+    if (completionHandler) {
+        preconnectionIdentifier = generateLoadIdentifier();
+        auto addResult = m_preconnectCompletionHandlers.add(*preconnectionIdentifier, WTFMove(completionHandler));
+        ASSERT_UNUSED(addResult, addResult.isNewEntry);
+    }
+
     NetworkResourceLoadParameters parameters;
-    parameters.request = ResourceRequest { url };
-    parameters.webPageID = webPage->pageID();
-    parameters.webFrameID = webFrame->frameID();
+    parameters.request = WTFMove(request);
+    parameters.webPageProxyID = webPage.webPageProxyIdentifier();
+    parameters.webPageID = webPage.identifier();
+    parameters.webFrameID = webFrame.frameID();
     parameters.parentPID = presentingApplicationPID();
-    parameters.sessionID = webPage->sessionID();
+#if HAVE(AUDIT_TOKEN)
+    parameters.networkProcessAuditToken = WebProcess::singleton().ensureNetworkProcessConnection().networkProcessAuditToken();
+#endif
     parameters.storedCredentialsPolicy = storedCredentialsPolicy;
     parameters.shouldPreconnectOnly = PreconnectOnly::Yes;
     parameters.shouldRestrictHTTPResponseAccess = shouldPerformSecurityChecks();
@@ -749,6 +777,7 @@ bool WebLoaderStrategy::havePerformedSecurityChecks(const ResourceResponse& resp
     case ResourceResponse::Source::MemoryCache:
     case ResourceResponse::Source::MemoryCacheAfterValidation:
     case ResourceResponse::Source::ServiceWorker:
+    case ResourceResponse::Source::InspectorOverride:
         return false;
     case ResourceResponse::Source::DiskCache:
     case ResourceResponse::Source::DiskCacheAfterValidation:

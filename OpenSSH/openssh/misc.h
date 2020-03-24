@@ -1,4 +1,4 @@
-/* $OpenBSD: misc.h,v 1.75 2018/10/03 06:38:35 djm Exp $ */
+/* $OpenBSD: misc.h,v 1.81 2019/09/03 08:32:11 djm Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -17,6 +17,7 @@
 
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 
 /* Data structure for representing a forwarding request. */
 struct Forward {
@@ -43,6 +44,7 @@ struct ForwardOptions {
 /* misc.c */
 
 char	*chop(char *);
+void	skip_space(char **);
 char	*strdelim(char **);
 char	*strdelimw(char **);
 int	 set_nonblock(int);
@@ -51,9 +53,12 @@ void	 set_nodelay(int);
 int	 set_reuseaddr(int);
 char	*get_rdomain(int);
 int	 set_rdomain(int, const char *);
+int	 waitrfd(int, int *);
+int	 timeout_connect(int, const struct sockaddr *, socklen_t, int *);
 int	 a2port(const char *);
 int	 a2tun(const char *, int *);
 char	*put_host_port(const char *, u_short);
+char	*hpdelim2(char **, char *);
 char	*hpdelim(char **);
 char	*cleanhostname(char *);
 char	*colon(char *);
@@ -78,6 +83,7 @@ int	 valid_env_name(const char *);
 const char *atoi_err(const char *, int *);
 int	 parse_absolute_time(const char *, uint64_t *);
 void	 format_absolute_time(uint64_t, char *, size_t);
+int	 path_absolute(const char *);
 
 void	 sock_set_v6only(int);
 
@@ -134,7 +140,9 @@ void		put_u32_le(void *, u_int32_t)
 
 struct bwlimit {
 	size_t buflen;
-	u_int64_t rate, thresh, lamt;
+	u_int64_t rate;		/* desired rate in kbit/s */
+	u_int64_t thresh;	/* threshold after which we'll check timers */
+	u_int64_t lamt;		/* amount written in last timer interval */
 	struct timeval bwstart, bwend;
 };
 
@@ -157,6 +165,11 @@ int	 safe_path(const char *, struct stat *, const char *, uid_t,
 	     char *, size_t);
 int	 safe_path_fd(int, const char *, struct passwd *,
 	     char *err, size_t errlen);
+
+/* authorized_key-style options parsing helpers */
+int	opt_flag(const char *opt, int allow_negate, const char **optsp);
+char	*opt_dequote(const char **sp, const char **errstrp);
+int	opt_match(const char **opts, const char *term);
 
 /* readpass.c */
 

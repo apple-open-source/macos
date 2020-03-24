@@ -109,7 +109,7 @@ Storage::Record Entry::encodeAsStorageRecord() const
 
 std::unique_ptr<Entry> Entry::decodeStorageRecord(const Storage::Record& storageEntry)
 {
-    auto entry = std::make_unique<Entry>(storageEntry);
+    auto entry = makeUnique<Entry>(storageEntry);
 
     WTF::Persistence::Decoder decoder(storageEntry.header.data(), storageEntry.header.size());
     if (!decoder.decode(entry->m_response))
@@ -219,13 +219,13 @@ void Entry::asJSON(StringBuilder& json, const Storage::RecordInfo& info) const
     json.appendNumber(info.bodySize);
     json.appendLiteral(",\n");
     json.appendLiteral("\"worth\": ");
-    json.appendFixedPrecisionNumber(info.worth);
+    json.append(FormattedNumber::fixedPrecision(info.worth));
     json.appendLiteral(",\n");
     json.appendLiteral("\"partition\": ");
     json.appendQuotedJSONString(m_key.partition());
     json.appendLiteral(",\n");
     json.appendLiteral("\"timestamp\": ");
-    json.appendFixedPrecisionNumber(m_timeStamp.secondsSinceEpoch().milliseconds());
+    json.append(FormattedNumber::fixedPrecision(m_timeStamp.secondsSinceEpoch().milliseconds()));
     json.appendLiteral(",\n");
     json.appendLiteral("\"URL\": ");
     json.appendQuotedJSONString(m_response.url().string());

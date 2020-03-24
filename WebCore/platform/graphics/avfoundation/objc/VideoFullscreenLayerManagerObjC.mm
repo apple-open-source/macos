@@ -27,6 +27,7 @@
 #import "VideoFullscreenLayerManagerObjC.h"
 
 #import "Color.h"
+#import "Logging.h"
 #import "TextTrackRepresentation.h"
 #import "WebCoreCALayerExtras.h"
 #import <mach/mach_init.h>
@@ -35,37 +36,21 @@
 #import <wtf/BlockPtr.h>
 #import <wtf/MachSendRight.h>
 
-@interface WebVideoContainerLayer : CALayer
-@end
-
-@implementation WebVideoContainerLayer
-
-- (void)setBounds:(CGRect)bounds
-{
-    [super setBounds:bounds];
-    for (CALayer* layer in self.sublayers)
-        layer.frame = bounds;
-}
-
-- (void)setPosition:(CGPoint)position
-{
-    if (!CATransform3DIsIdentity(self.transform)) {
-        // Pre-apply the transform added in the WebProcess to fix <rdar://problem/18316542> to the position.
-        position = CGPointApplyAffineTransform(position, CATransform3DGetAffineTransform(self.transform));
-    }
-    [super setPosition:position];
-}
-@end
+#include <pal/cocoa/AVFoundationSoftLink.h>
 
 namespace WebCore {
 
-VideoFullscreenLayerManagerObjC::VideoFullscreenLayerManagerObjC()
+VideoFullscreenLayerManagerObjC::VideoFullscreenLayerManagerObjC(const Logger& logger, const void* logIdentifier)
     : VideoFullscreenLayerManager()
+    , m_logger(logger)
+    , m_logIdentifier(logIdentifier)
 {
 }
 
 void VideoFullscreenLayerManagerObjC::setVideoLayer(PlatformLayer *videoLayer, IntSize contentSize)
 {
+    ALWAYS_LOG(LOGIDENTIFIER, contentSize.width(), ", ", contentSize.height());
+
     m_videoLayer = videoLayer;
     m_videoInlineFrame = CGRectMake(0, 0, contentSize.width(), contentSize.height());
 
@@ -76,6 +61,8 @@ void VideoFullscreenLayerManagerObjC::setVideoLayer(PlatformLayer *videoLayer, I
 #endif
     [m_videoInlineLayer setFrame:m_videoInlineFrame];
     [m_videoInlineLayer setContentsGravity:kCAGravityResizeAspect];
+    if ([videoLayer isKindOfClass:PAL::getAVPlayerLayerClass()])
+        [m_videoInlineLayer setPlayerLayer:(AVPlayerLayer *)videoLayer];
 
     if (m_videoFullscreenLayer) {
         [m_videoLayer setFrame:CGRectMake(0, 0, m_videoFullscreenFrame.width(), m_videoFullscreenFrame.height())];
@@ -98,6 +85,8 @@ void VideoFullscreenLayerManagerObjC::setVideoFullscreenLayer(PlatformLayer *vid
         completionHandler();
         return;
     }
+
+    ALWAYS_LOG(LOGIDENTIFIER);
 
     m_videoFullscreenLayer = videoFullscreenLayer;
 
@@ -139,6 +128,8 @@ void VideoFullscreenLayerManagerObjC::setVideoFullscreenLayer(PlatformLayer *vid
 
 void VideoFullscreenLayerManagerObjC::setVideoFullscreenFrame(FloatRect videoFullscreenFrame)
 {
+    ALWAYS_LOG(LOGIDENTIFIER, videoFullscreenFrame.x(), ", ", videoFullscreenFrame.y(), ", ", videoFullscreenFrame.width(), ", ", videoFullscreenFrame.height());
+
     m_videoFullscreenFrame = videoFullscreenFrame;
     if (!m_videoFullscreenLayer)
         return;
@@ -149,6 +140,8 @@ void VideoFullscreenLayerManagerObjC::setVideoFullscreenFrame(FloatRect videoFul
 
 void VideoFullscreenLayerManagerObjC::didDestroyVideoLayer()
 {
+    ALWAYS_LOG(LOGIDENTIFIER);
+
     [m_videoLayer removeFromSuperlayer];
 
     m_videoInlineLayer = nil;
@@ -165,6 +158,9 @@ void VideoFullscreenLayerManagerObjC::syncTextTrackBounds()
     if (!m_videoFullscreenLayer || !m_textTrackRepresentationLayer)
         return;
 
+    if (m_textTrackRepresentationLayer.get().bounds == m_videoFullscreenFrame)
+        return;
+
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
 
@@ -175,6 +171,8 @@ void VideoFullscreenLayerManagerObjC::syncTextTrackBounds()
 
 void VideoFullscreenLayerManagerObjC::setTextTrackRepresentation(TextTrackRepresentation* representation)
 {
+    ALWAYS_LOG(LOGIDENTIFIER);
+
     PlatformLayer* representationLayer = representation ? representation->platformLayer() : nil;
     if (representationLayer == m_textTrackRepresentationLayer) {
         syncTextTrackBounds();
@@ -196,6 +194,11 @@ void VideoFullscreenLayerManagerObjC::setTextTrackRepresentation(TextTrackRepres
 
     [CATransaction commit];
 
+}
+
+WTFLogChannel& VideoFullscreenLayerManagerObjC::logChannel() const
+{
+    return LogMedia;
 }
 
 }

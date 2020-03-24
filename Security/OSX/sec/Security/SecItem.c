@@ -674,16 +674,17 @@ static void infer_cert_label(SecCFDictionaryCOW *attributes)
 static CFDataRef CreateTokenPersistentRefData(CFTypeRef class, CFDictionaryRef attributes)
 {
     CFDataRef tokenPersistentRef = NULL;
-    CFStringRef tokenId = CFDictionaryGetValue(attributes, kSecAttrTokenID);
+    CFStringRef tokenId;
     CFDictionaryRef itemValue = NULL;
+    require_quiet(tokenId = CFCast(CFString, CFDictionaryGetValue(attributes, kSecAttrTokenID)), out);
     if (CFEqual(class, kSecClassIdentity)) {
         itemValue = SecTokenItemValueCopy(CFDictionaryGetValue(attributes, kSecAttrIdentityCertificateData), NULL);
     } else {
         itemValue = SecTokenItemValueCopy(CFDictionaryGetValue(attributes, kSecValueData), NULL);
     }
-    require(itemValue, out);
+    require_quiet(itemValue, out);
     CFDataRef oid = CFDictionaryGetValue(itemValue, kSecTokenValueObjectIDKey);
-    require(oid, out);
+    require_quiet(oid, out);
     CFArrayRef array = CFArrayCreateForCFTypes(kCFAllocatorDefault, class, tokenId, oid, NULL);
     tokenPersistentRef = CFPropertyListCreateDERData(kCFAllocatorDefault, array, NULL);
     CFRelease(array);
@@ -825,12 +826,18 @@ static CFDataRef SecTokenItemValueCreate(CFDataRef oid, CFDataRef access_control
 
 CFDictionaryRef SecTokenItemValueCopy(CFDataRef db_value, CFErrorRef *error) {
     CFPropertyListRef plist = NULL;
+    require_quiet(CFCastWithError(CFData, db_value, error), out);
     const uint8_t *der = CFDataGetBytePtr(db_value);
     const uint8_t *der_end = der + CFDataGetLength(db_value);
     require_quiet(der = der_decode_plist(0, kCFPropertyListImmutable, &plist, error, der, der_end), out);
     require_action_quiet(der == der_end, out, SecError(errSecDecode, error, CFSTR("trailing garbage at end of token data field")));
-    require_action_quiet(CFDictionaryGetValue(plist, kSecTokenValueObjectIDKey) != NULL, out,
+    CFTypeRef value = CFDictionaryGetValue(plist, kSecTokenValueObjectIDKey);
+    require_action_quiet(CFCast(CFData, value) != NULL, out,
                          SecError(errSecInternal, error, CFSTR("token based item data does not have OID")));
+    value = CFDictionaryGetValue(plist, kSecTokenValueAccessControlKey);
+    require_quiet(value == NULL || CFCastWithError(CFData, value, error), out);
+    value = CFDictionaryGetValue(plist, kSecTokenValueDataKey);
+    require_quiet(value == NULL || CFCastWithError(CFData, value, error), out);
 
 out:
     return plist;
@@ -894,6 +901,7 @@ static bool SecTokenItemCreateFromAttributes(CFDictionaryRef attributes, CFDicti
     CFMutableDictionaryRef attrs = CFDictionaryCreateMutableCopy(NULL, 0, attributes);
     CFTypeRef token_id = CFDictionaryGetValue(attributes, kSecAttrTokenID);
     if (token_id != NULL && object_id != NULL) {
+        require_quiet(CFCastWithError(CFString, token_id, error), out);
         if (CFRetainSafe(token) == NULL) {
             require_quiet(token = SecTokenCreate(token_id, &auth_params, error), out);
         }
@@ -946,9 +954,11 @@ static bool SecItemResultCopyPrepared(CFTypeRef raw_result, TKTokenRef token,
     if (token == NULL) {
         if (CFGetTypeID(raw_result) == CFDictionaryGetTypeID()) {
             token_id = CFDictionaryGetValue(raw_result, kSecAttrTokenID);
+            require_quiet(token_id == NULL || CFCastWithError(CFString, token_id, error) != NULL, out);
             token_item = (token_id != NULL);
 
             cert_token_id = CFDictionaryGetValue(raw_result, kSecAttrIdentityCertificateTokenID);
+            require_quiet(cert_token_id == NULL || CFCastWithError(CFString, cert_token_id, error) != NULL, out);
             cert_token_item = (cert_token_id != NULL);
         }
     } else {
@@ -1137,23 +1147,6 @@ out:
     return ok;
 }
 
-CFDataRef SecItemAttributesCopyPreparedAuthContext(CFTypeRef la_context, CFErrorRef *error) {
-    void *la_lib = NULL;
-    CFDataRef acm_context = NULL;
-    require_action_quiet(la_lib = dlopen("/System/Library/Frameworks/LocalAuthentication.framework/LocalAuthentication", RTLD_LAZY), out,
-                         SecError(errSecInternal, error, CFSTR("failed to open LocalAuthentication.framework")));
-    LAFunctionCopyExternalizedContext fnCopyExternalizedContext = NULL;
-    require_action_quiet(fnCopyExternalizedContext = dlsym(la_lib, "LACopyExternalizedContext"), out,
-                         SecError(errSecInternal, error, CFSTR("failed to obtain LACopyExternalizedContext")));
-    require_action_quiet(acm_context = fnCopyExternalizedContext(la_context), out,
-                         SecError(errSecInternal, error, CFSTR("failed to get ACM handle from LAContext")));
-out:
-    if (la_lib != NULL) {
-        dlclose(la_lib);
-    }
-    return acm_context;
-}
-
 static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, CFErrorRef *error) {
     bool ok = false;
     CFDataRef ac_data = NULL, acm_context = NULL;
@@ -1199,7 +1192,7 @@ static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, C
     if (la_context) {
         require_action_quiet(!CFDictionaryContainsKey(attrs->dictionary, kSecUseCredentialReference), out,
                              SecError(errSecParam, error, CFSTR("kSecUseAuthenticationContext cannot be used together with kSecUseCredentialReference")));
-        require_quiet(acm_context = SecItemAttributesCopyPreparedAuthContext(la_context, error), out);
+        require_quiet(acm_context = LACopyACMContext(la_context, error), out);
         CFDictionaryRemoveValue(SecCFDictionaryCOWGetMutable(attrs), kSecUseAuthenticationContext);
         CFDictionarySetValue(SecCFDictionaryCOWGetMutable(attrs), kSecUseCredentialReference, acm_context);
     }
@@ -1227,7 +1220,9 @@ static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, C
     value = CFDictionaryGetValue(attrs->dictionary, kSecAttrIssuer);
     if (value) {
         /* convert DN to canonical issuer, if value is DN (top level sequence) */
-        const DERItem name = { (unsigned char *)CFDataGetBytePtr(value), CFDataGetLength(value) };
+        CFDataRef issuer;
+        require_quiet(issuer = CFCastWithError(CFData, value, error), out);
+        const DERItem name = { (unsigned char *)CFDataGetBytePtr(issuer), CFDataGetLength(issuer) };
         DERDecodedInfo content;
         if (DERDecodeItem(&name, &content) == DR_Success && content.tag == ASN1_CONSTR_SEQUENCE) {
             CFDataRef canonical_issuer = createNormalizedX501Name(kCFAllocatorDefault, &content.content);
@@ -1475,6 +1470,7 @@ bool SecItemAuthDoQuery(SecCFDictionaryCOW *query, SecCFDictionaryCOW *attribute
 
         // Prepare connection to target token if it is present.
         CFStringRef token_id = CFDictionaryGetValue(query->dictionary, kSecAttrTokenID);
+        require_quiet(token_id == NULL || CFCastWithError(CFString, token_id, error) != NULL, out);
         if (secItemOperation != SecItemCopyMatching && token_id != NULL) {
             require_quiet(CFAssignRetained(token, SecTokenCreate(token_id, &auth_params, error)), out);
         }

@@ -540,7 +540,7 @@ ExceptionOr<void> ApplePaySession::abort()
     return { };
 }
 
-ExceptionOr<void> ApplePaySession::completeMerchantValidation(JSC::ExecState& state, JSC::JSValue merchantSessionValue)
+ExceptionOr<void> ApplePaySession::completeMerchantValidation(JSC::JSGlobalObject& state, JSC::JSValue merchantSessionValue)
 {
     if (!canCompleteMerchantValidation())
         return Exception { InvalidAccessError };
@@ -823,7 +823,7 @@ const char* ApplePaySession::activeDOMObjectName() const
     return "ApplePaySession";
 }
 
-bool ApplePaySession::canSuspendForDocumentSuspension() const
+bool ApplePaySession::canSuspendWithoutCanceling() const
 {
     switch (m_state) {
     case State::Idle:
@@ -849,6 +849,21 @@ void ApplePaySession::stop()
 
     m_state = State::Aborted;
     paymentCoordinator().abortPaymentSession();
+
+    didReachFinalState();
+}
+
+void ApplePaySession::suspend(ReasonForSuspension reason)
+{
+    if (reason != ReasonForSuspension::BackForwardCache)
+        return;
+
+    if (canSuspendWithoutCanceling())
+        return;
+
+    m_state = State::Canceled;
+    paymentCoordinator().abortPaymentSession();
+    queueTaskToDispatchEvent(*this, TaskSource::UserInteraction, ApplePayCancelEvent::create(eventNames().cancelEvent, { }));
 
     didReachFinalState();
 }

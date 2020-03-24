@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -299,6 +299,56 @@ bridge_addresses(int s, const char *prefix)
 	free(inbuf);
 }
 
+#define MAX_IPv6_STR_LEN	INET6_ADDRSTRLEN
+static void
+bridge_mac_nat(int s, const char *prefix)
+{
+	char *buf;
+	unsigned int count;
+	struct ether_addr ea;
+	unsigned int i;
+	struct ifbrmnelist mnl;
+	char *scan;
+
+	bzero(&mnl, sizeof(mnl));
+	if (do_cmd(s, BRDGGMACNATLIST, &mnl, sizeof(mnl), 0) < 0) {
+		/* err(1, "unable to get mac nat list"); */
+		return;
+	}
+	if (mnl.ifbml_len == 0) {
+		return;
+	}
+	printf("\tMAC NAT list:\n");
+	if (mnl.ifbml_elsize == 0) {
+		err(1, "kernel reported zero length element size");
+	}
+	if (mnl.ifbml_elsize < sizeof(struct ifbrmne)) {
+		err(1, "struct element size too small, kernel mismatch");
+	}
+	buf = malloc(mnl.ifbml_len);
+	if (buf == NULL) {
+		err(1, "unable to allocate mac nat list buffer");
+	}
+	mnl.ifbml_buf = buf;
+	if (do_cmd(s, BRDGGMACNATLIST, &mnl, sizeof(mnl), 0) < 0) {
+		err(1, "unable to get mac nat list");
+	}
+	count = mnl.ifbml_len / mnl.ifbml_elsize;
+	for (i = 0, scan = buf; i < count; i++, scan += mnl.ifbml_elsize) {
+		struct ifbrmne *ifbmne = (struct ifbrmne *)scan;
+		char ntopbuf[INET6_ADDRSTRLEN];
+
+		memcpy(ea.octet, ifbmne->ifbmne_mac,
+		    sizeof(ea.octet));
+		inet_ntop(ifbmne->ifbmne_af, &ifbmne->ifbmne_ip,
+			  ntopbuf, sizeof(ntopbuf));
+		printf("%s%s %s %s %lu\n",
+		       prefix, ifbmne->ifbmne_ifname, ntopbuf, ether_ntoa(&ea),
+		       (unsigned long)ifbmne->ifbmne_expire);
+	}
+	free(buf);
+}
+
 static void
 bridge_status(int s)
 {
@@ -349,6 +399,7 @@ bridge_status(int s)
 	if (!all || verbose > 1) {
 		printf("\tAddress cache:\n");
 		bridge_addresses(s, "\t\t");
+		bridge_mac_nat(s, "\t\t");
 	}
 	return;
 
@@ -814,6 +865,20 @@ unsetbridge_hostfilter(const char *ifn, int d, int s, const struct afswtch *afp)
 		err(1, "BRDGSHOSTFILTER");
 }
 
+static void
+setbridge_macnat(const char *val, int d, int s, const struct afswtch *afp)
+{
+
+	do_bridgeflag(s, val, IFBIF_MAC_NAT,  1);
+}
+
+static void
+unsetbridge_macnat(const char *val, int d, int s, const struct afswtch *afp)
+{
+
+	do_bridgeflag(s, val, IFBIF_MAC_NAT,  0);
+}
+
 static struct cmd bridge_cmds[] = {
 	DEF_CMD_ARG("addm",		setbridge_add),
 	DEF_CMD_ARG("deletem",		setbridge_delete),
@@ -865,6 +930,8 @@ static struct cmd bridge_cmds[] = {
 #endif
         DEF_CMD_ARG2("hostfilter",	setbridge_hostfilter),
         DEF_CMD_ARG("-hostfilter",	unsetbridge_hostfilter),
+	DEF_CMD_ARG("macnat",		setbridge_macnat),
+	DEF_CMD_ARG("-macnat",		unsetbridge_macnat),
 };
 static struct afswtch af_bridge = {
 	.af_name	= "af_bridge",

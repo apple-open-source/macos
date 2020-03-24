@@ -34,10 +34,10 @@
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
 #include "WebProcessProxyMessages.h"
+#include <WebCore/BackForwardCache.h>
 #include <WebCore/Frame.h>
 #include <WebCore/HistoryController.h>
 #include <WebCore/HistoryItem.h>
-#include <WebCore/PageCache.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ProcessID.h>
@@ -78,7 +78,7 @@ void WebBackForwardListProxy::removeItem(const BackForwardItemIdentifier& itemID
     if (!item)
         return;
         
-    PageCache::singleton().remove(*item);
+    BackForwardCache::singleton().remove(*item);
     WebCore::Page::clearPreviousItemFromAllPages(item.get());
 }
 
@@ -116,7 +116,7 @@ RefPtr<HistoryItem> WebBackForwardListProxy::itemAtIndex(int itemIndex)
         return nullptr;
 
     Optional<BackForwardItemIdentifier> itemID;
-    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::BackForwardItemAtIndex(itemIndex), Messages::WebPageProxy::BackForwardItemAtIndex::Reply(itemID), m_page->pageID()))
+    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::BackForwardItemAtIndex(itemIndex), Messages::WebPageProxy::BackForwardItemAtIndex::Reply(itemID), m_page->identifier()))
         return nullptr;
 
     if (!itemID)
@@ -131,7 +131,7 @@ unsigned WebBackForwardListProxy::backListCount() const
         return 0;
 
     unsigned backListCount = 0;
-    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::BackForwardBackListCount(), Messages::WebPageProxy::BackForwardBackListCount::Reply(backListCount), m_page->pageID()))
+    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::BackForwardBackListCount(), Messages::WebPageProxy::BackForwardBackListCount::Reply(backListCount), m_page->identifier()))
         return 0;
 
     return backListCount;
@@ -143,7 +143,7 @@ unsigned WebBackForwardListProxy::forwardListCount() const
         return 0;
 
     unsigned forwardListCount = 0;
-    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::BackForwardForwardListCount(), Messages::WebPageProxy::BackForwardForwardListCount::Reply(forwardListCount), m_page->pageID()))
+    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::BackForwardForwardListCount(), Messages::WebPageProxy::BackForwardForwardListCount::Reply(forwardListCount), m_page->identifier()))
         return 0;
 
     return forwardListCount;

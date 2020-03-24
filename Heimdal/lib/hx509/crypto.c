@@ -78,9 +78,7 @@ struct hx509_private_key {
     union {
 	RSA *rsa;
 	void *keydata;
-#ifdef HAVE_OPENSSL
 	EC_KEY *ecdsa;
-#endif
     } private_key;
     hx509_private_key_ops *ops;
 };
@@ -332,6 +330,7 @@ parse_ECParameters(hx509_context context,
     return 0;
 }
 
+#endif /* HAVE_OPENSSL */
 
 /*
  *
@@ -345,6 +344,8 @@ ecdsa_verify_signature(hx509_context context,
 		       const heim_octet_string *data,
 		       const heim_octet_string *sig)
 {
+
+#ifdef HAVE_OPENSSL
     const AlgorithmIdentifier *digest_alg;
     const SubjectPublicKeyInfo *spi;
     heim_octet_string digest;
@@ -372,7 +373,6 @@ ecdsa_verify_signature(hx509_context context,
     if (der_heim_oid_cmp(&spi->algorithm.algorithm, ASN1_OID_ID_ECPUBLICKEY) != 0)
 	return HX509_CRYPTO_SIG_INVALID_FORMAT;
 
-#ifdef HAVE_OPENSSL
     /*
      * Find the group id
      */
@@ -399,9 +399,6 @@ ecdsa_verify_signature(hx509_context context,
 	EC_KEY_free(key);
 	return HX509_CRYPTO_SIG_INVALID_FORMAT;
     }
-#else
-    key = SubjectPublicKeyInfo2EC_KEY(spi);
-#endif
 
     ret = ECDSA_verify(-1, digest.data, digest.length,
 		       sig->data, sig->length, key);
@@ -411,9 +408,11 @@ ecdsa_verify_signature(hx509_context context,
 	ret = HX509_CRYPTO_SIG_INVALID_FORMAT;
 	return ret;
     }
+#endif
 
     return 0;
 }
+
 
 static int
 ecdsa_create_signature(hx509_context context,
@@ -456,6 +455,11 @@ ecdsa_create_signature(hx509_context context,
 	goto error;
     }
 
+    // ECDSA_size() is part of OpenSSL, which we don't have.
+    // Also, it would not work in the case of the private key being
+    // a reference (SEP) because we can't physically access the key.
+    // Also, ECDSA signatures are somewhat variable in length.
+    // So we fake it.
     sig->length = ECDSA_size(signer->private_key.ecdsa);
     sig->data = malloc(sig->length);
     if (sig->data == NULL) {
@@ -465,10 +469,10 @@ ecdsa_create_signature(hx509_context context,
 	goto error;
     }
 
-    siglen = sig->length;
-
+    // Call sign
     ret = ECDSA_sign(-1, indata.data, indata.length,
-		     sig->data, &siglen, signer->private_key.ecdsa);
+	     sig->data, &siglen, signer->private_key.ecdsa);
+
     der_free_octet_string(&indata);
     if (ret != 1) {
 	ret = HX509_CMS_FAILED_CREATE_SIGATURE;
@@ -476,11 +480,13 @@ ecdsa_create_signature(hx509_context context,
 			       "ECDSA sign failed: %d", ret);
 	goto error;
     }
+    // This would be bad because we would be writing beyond the end of the buffer
+    // malloc'd above.
     if (siglen > sig->length)
 	_hx509_abort("ECDSA signature prelen longer the output len");
 
+    // It's OK if the signature is shorter than our buffer.
     sig->length = siglen;
-
     return 0;
  error:
     if (signatureAlgorithm)
@@ -490,47 +496,48 @@ ecdsa_create_signature(hx509_context context,
 
 static int
 ecdsa_available(const hx509_private_key signer,
-		const AlgorithmIdentifier *sig_alg)
+                const AlgorithmIdentifier *sig_alg)
 {
     const struct signature_alg *sig;
+#ifdef HAVE_OPENSSL
     const EC_GROUP *group;
     BN_CTX *bnctx = NULL;
     BIGNUM *order = NULL;
+#endif
     int ret = 0;
 
     if (signer->keytype != KEYTYPE_ECDSA)
-	_hx509_abort("internal error passing private key to wrong ops");
+        _hx509_abort("internal error passing private key to wrong ops");
 
     sig = find_sig_alg(&sig_alg->algorithm);
 
     if (sig == NULL || sig->digest_size == 0)
-	return 0;
-
+        return 0;
+#ifdef HAVE_OPENSSL
     group = EC_KEY_get0_group(signer->private_key.ecdsa);
     if (group == NULL)
-	return 0;
+        return 0;
 
     bnctx = BN_CTX_new();
     order = BN_new();
     if (order == NULL)
-	goto err;
+        goto err;
 
     if (EC_GROUP_get_order(group, order, bnctx) != 1)
-	goto err;
+        goto err;
 
     if (BN_num_bytes(order) > sig->digest_size)
-	ret = 1;
+        ret = 1;
  err:
     if (bnctx)
-	BN_CTX_free(bnctx);
+       BN_CTX_free(bnctx);
     if (order)
-	BN_clear_free(order);
-
+       BN_clear_free(order);
+#else
+    ret = 1;
+#endif
     return ret;
 }
-
-
-#endif /* HAVE_OPENSSL */
 
 /*
  *
@@ -989,10 +996,10 @@ ecdsa_private_key_import(hx509_context context,
     EC_KEY **pkey = NULL;
 
     if (keyai->parameters) {
-	EC_GROUP *group;
+	EC_GROUP *group = NULL;
 	int groupnid;
-	EC_KEY *key;
-	int ret;
+	EC_KEY *key = NULL;
+	int ret = 0;
 
 	ret = parse_ECParameters(context, keyai->parameters, &groupnid);
 	if (ret)
@@ -1052,7 +1059,6 @@ ecdsa_get_internal(hx509_context context,
     return NULL;
 }
 
-
 static hx509_private_key_ops ecdsa_private_key_ops = {
     KEYTYPE_ECDSA,
     "EC PRIVATE KEY",
@@ -1066,6 +1072,19 @@ static hx509_private_key_ops ecdsa_private_key_ops = {
 };
 
 #endif /* HAVE_OPENSSL */
+
+static hx509_private_key_ops ecdsa_private_key_ops = {
+    KEYTYPE_ECDSA,
+    "EC PRIVATE KEY",
+    ASN1_OID_ID_ECPUBLICKEY,
+    ecdsa_available,
+    0,
+    0,
+    0,
+    0,
+    0
+};
+
 
 /*
  *
@@ -1183,6 +1202,8 @@ dsa_parse_private_key(hx509_context context,
 
 #endif /* HEIM_HX509_DSA */
 
+// This function name is misleading, it creates a hash of the data
+// *ready* for signing.
 static int
 digest_create_signature(hx509_context context,
 			const struct signature_alg *sig_alg,
@@ -1202,6 +1223,7 @@ digest_create_signature(hx509_context context,
     
     if (signatureAlgorithm) {
 	int ret;
+
 	ret = set_digest_alg(signatureAlgorithm, sig_alg->sig_oid,
 			     "\x05\x00", 2);
 	if (ret) {
@@ -1264,8 +1286,6 @@ digest_verify_signature(hx509_context context,
     return 0;
 }
 
-#ifdef HAVE_OPENSSL
-
 static const struct signature_alg ecdsa_with_sha256_alg = {
     "ecdsa-with-sha256",
     ASN1_OID_ID_ECDSA_WITH_SHA256,
@@ -1289,12 +1309,11 @@ static const struct signature_alg ecdsa_with_sha1_alg = {
     PROVIDE_CONF|REQUIRE_SIGNER|RA_RSA_USES_DIGEST_INFO|SIG_PUBLIC_SIG|SELF_SIGNED_OK,
     0,
     0,
-    ecdsa_verify_signature,
+    0,
     ecdsa_create_signature,
     CC_SHA1_DIGEST_LENGTH
 };
 
-#endif
 
 static const struct signature_alg heim_rsa_pkcs1_x509 = {
     "rsa-pkcs1-x509",
@@ -1502,10 +1521,8 @@ static const struct signature_alg md5_alg = {
  */
 
 static const struct signature_alg *sig_algs[] = {
-#ifdef HAVE_OPENSSL
     &ecdsa_with_sha256_alg,
     &ecdsa_with_sha1_alg,
-#endif
     &rsa_with_sha512_alg,
     &rsa_with_sha384_alg,
     &rsa_with_sha256_alg,
@@ -1529,9 +1546,12 @@ static const struct signature_alg *
 find_sig_alg(const heim_oid *oid)
 {
     unsigned int i;
-    for (i = 0; sig_algs[i]; i++)
-	if (der_heim_oid_cmp(sig_algs[i]->sig_oid, oid) == 0)
+
+    for (i = 0; sig_algs[i]; i++) {
+	if (der_heim_oid_cmp(sig_algs[i]->sig_oid, oid) == 0) {
 	    return sig_algs[i];
+        }
+    }
     return NULL;
 }
 
@@ -1541,23 +1561,29 @@ alg_for_privatekey(const hx509_private_key pk, int type)
     const heim_oid *keytype;
     unsigned int i;
 
-    if (pk->ops == NULL)
+    if (pk->ops == NULL) {
 	return NULL;
+    }
 
     keytype = pk->ops->key_oid;
 
     for (i = 0; sig_algs[i]; i++) {
 	if (sig_algs[i]->key_oid == NULL)
 	    continue;
-	if (der_heim_oid_cmp(sig_algs[i]->key_oid, keytype) != 0)
+
+	if (der_heim_oid_cmp(sig_algs[i]->key_oid, keytype) != 0) {
 	    continue;
+        }
 	if (pk->ops->available &&
-	    pk->ops->available(pk, sig_algs[i]->sig_alg) == 0)
+	    pk->ops->available(pk, sig_algs[i]->sig_alg) == 0) {
 	    continue;
-	if (type == HX509_SELECT_PUBLIC_SIG)
+        }
+	if (type == HX509_SELECT_PUBLIC_SIG) {
 	    return sig_algs[i]->sig_alg;
-	if (type == HX509_SELECT_DIGEST)
+        }
+	if (type == HX509_SELECT_DIGEST) {
 	    return sig_algs[i]->digest_alg;
+        }
 
 	return NULL;
     }
@@ -1570,9 +1596,7 @@ alg_for_privatekey(const hx509_private_key pk, int type)
 
 static struct hx509_private_key_ops *private_algs[] = {
     &rsa_private_key_ops,
-#ifdef HAVE_OPENSSL
     &ecdsa_private_key_ops,
-#endif
     NULL
 };
 
@@ -1580,11 +1604,13 @@ hx509_private_key_ops *
 hx509_find_private_alg(const heim_oid *oid)
 {
     int i;
+
     for (i = 0; private_algs[i]; i++) {
 	if (private_algs[i]->key_oid == NULL)
 	    continue;
-	if (der_heim_oid_cmp(private_algs[i]->key_oid, oid) == 0)
+	if (der_heim_oid_cmp(private_algs[i]->key_oid, oid) == 0) {
 	    return private_algs[i];
+        }
     }
     return NULL;
 }
@@ -1690,7 +1716,6 @@ _hx509_create_signature(hx509_context context,
 	    "algorithm no supported");
 	return HX509_SIG_ALG_NO_SUPPORTED;
     }
-
     if (signer && (md->flags & PROVIDE_CONF) == 0) {
 	hx509_set_error_string(context, 0, HX509_SIG_ALG_NO_SUPPORTED,
 	    "algorithm provides no conf");
@@ -1934,7 +1959,6 @@ _hx509_generate_private_key(hx509_context context,
     int ret;
 
     *private_key = NULL;
-
     ops = hx509_find_private_alg(ctx->key_oid);
     if (ops == NULL) {
 	hx509_clear_error_string(context);
@@ -2066,12 +2090,10 @@ private_key_free(void *ptr)
 	if (key->private_key.rsa)
 	    RSA_free(key->private_key.rsa);
 	break;
-#ifdef HAVE_OPENSSL
     case KEYTYPE_ECDSA:
 	if (key->private_key.ecdsa)
-	    EC_KEY_free(key->private_key.ecdsa);
+	    ECDSA_free(key->private_key.ecdsa);
 	break;
-#endif
     default:
 	_hx509_abort("unsupported keytype %d", key->keytype);
     }
@@ -2085,7 +2107,6 @@ hx509_private_key_init(hx509_private_key *key,
     *key = heim_uniq_alloc(sizeof(**key), "hx509-private-key", private_key_free);
     if (*key == NULL)
 	return ENOMEM;
-
     (*key)->ops = ops;
     (*key)->private_key.keydata = keydata;
 
@@ -2131,6 +2152,17 @@ hx509_private_key_assign_rsa(hx509_private_key key, void *ptr)
     key->private_key.rsa = ptr;
     key->signature_alg = ASN1_OID_ID_PKCS1_SHA1WITHRSAENCRYPTION;
     key->md = &pkcs1_rsa_sha1_alg;
+}
+
+void
+hx509_private_key_assign_ecdsa(hx509_private_key key, void *ptr)
+{
+    if (key->private_key.ecdsa)
+	ECDSA_free(key->private_key.ecdsa);
+    key->keytype = KEYTYPE_ECDSA;
+    key->private_key.ecdsa = ptr;
+    key->signature_alg = ASN1_OID_ID_ECDSA_WITH_SHA256;
+    key->md = &ecdsa_with_sha256_alg;
 }
 
 int
@@ -3198,6 +3230,7 @@ hx509_crypto_select(const hx509_context context,
     ret = copy_AlgorithmIdentifier(def, selected);
     if (ret)
 	hx509_clear_error_string(context);
+
     return ret;
 }
 
@@ -3232,13 +3265,16 @@ hx509_crypto_available(hx509_context context,
 
     len = 0;
     for (i = 0; sig_algs[i]; i++) {
-	if ((sig_algs[i]->flags & bits) == 0)
+	if ((sig_algs[i]->flags & bits) == 0) {
 	    continue;
-	if (sig_algs[i]->sig_alg == NULL)
+        }
+	if (sig_algs[i]->sig_alg == NULL) {
 	    continue;
+        }
 	if (keytype && sig_algs[i]->key_oid &&
-	    der_heim_oid_cmp(sig_algs[i]->key_oid, keytype))
+	    der_heim_oid_cmp(sig_algs[i]->key_oid, keytype)) {
 	    continue;
+        }
 
 	/* found one, add that to the list */
 	ptr = realloc(*val, sizeof(**val) * (len + 1));

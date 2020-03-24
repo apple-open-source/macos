@@ -410,6 +410,88 @@ static void rewrapTest(void) {
     ok([decrypted isEqualToData:message], "Decrypted data differs: %@ vs %@", decrypted, message);
 }
 
+static void keychainTest(void) {
+    id accessControl = CFBridgingRelease(SecAccessControlCreateWithFlags(NULL, kSecAttrAccessibleWhenUnlocked, kSecAccessControlPrivateKeyUsage, NULL));
+    NSDictionary *keyAttributes = @{ (id)kSecAttrTokenID : (id)kSecAttrTokenIDAppleKeyStore,
+                                     (id)kSecAttrKeyType : (id)kSecAttrKeyTypeECSECPrimeRandom,
+                                     (id)kSecPrivateKeyAttrs : @{
+                                             (id)kSecAttrAccessControl : accessControl,
+                                             (id)kSecAttrIsPermanent : @YES,
+                                             (id)kSecAttrLabel : @"si_44_seckey_aks_1",
+                                     },
+    };
+    NSError *error;
+    id key = (__bridge_transfer id)SecKeyCreateRandomKey((CFDictionaryRef)keyAttributes, (void *)&error);
+    ok(key, "failed to create random key %@", error);
+    id pubKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)key));
+    ok(pubKey, "failed to get public key from SEP key");
+    key = nil;
+
+    NSDictionary *query = @{
+        (id)kSecReturnRef: @YES,
+        (id)kSecClass: (id)kSecClassKey,
+        (id)kSecAttrLabel: @"si_44_seckey_aks_1",
+    };
+    OSStatus status = SecItemCopyMatching((CFDictionaryRef)query, (void *)&key);
+    is(status, errSecSuccess, "getting SEP key from keychain failed");
+
+    NSError *err;
+    NSData *data = [@"message" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *sig = CFBridgingRelease(SecKeyCreateSignature((SecKeyRef)key, kSecKeyAlgorithmECDSASignatureMessageX962SHA256, (CFDataRef)data, (void *)&err));
+    ok(sig, "failed to create signature: %@", err);
+    ok(SecKeyVerifySignature((SecKeyRef)pubKey, kSecKeyAlgorithmECDSASignatureMessageX962SHA256, (CFDataRef)data, (CFDataRef)sig, (void *)&err), "failed to verify signature: %@", err);
+
+    status = SecItemDelete((CFDictionaryRef)query);
+    is(status, errSecSuccess, "deleting SEP key from keychain failed");
+
+    status = SecItemCopyMatching((CFDictionaryRef)query, (void *)&key);
+    is(status, errSecItemNotFound, "SEP key was not deleted from keychain");
+}
+
+static void secAccessControlDescriptionTest(void) {
+    NSError *error;
+    NSObject *ac = CFBridgingRelease(SecAccessControlCreate(kCFAllocatorDefault, (void *)&error));
+    ok(ac, "failed to create ac: %@", error);
+    ok(SecAccessControlSetProtection((__bridge SecAccessControlRef)ac, kSecAttrAccessibleWhenUnlocked, (void *)&error), "failed to set protection: %@", error);
+
+    NSString *desc = ac.description;
+    ok([desc isEqualToString:@"<SecAccessControlRef: ak>"], "unexpected desc: %@", desc);
+
+    SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{});
+    desc = ac.description;
+    ok([desc isEqualToString:@"<SecAccessControlRef: ak>"], "unexpected desc: %@", desc);
+
+    SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": (__bridge id)kCFBooleanTrue});
+    desc = ac.description;
+    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(true)>"], "unexpected desc: %@", desc);
+
+    SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": (__bridge id)kCFBooleanTrue, @"oe": (__bridge id)kCFBooleanFalse});
+    desc = ac.description;
+    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(true);oe(false)>"], "unexpected desc: %@", desc);
+
+    SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": @"huh"});
+    desc = ac.description;
+    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(huh)>"], "unexpected desc: %@", desc);
+
+    SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": @2});
+    desc = ac.description;
+    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(2)>"], "unexpected desc: %@", desc);
+
+    NSData *shortData = [NSData dataWithBytes:"\x01\x02\x03" length:3];
+    SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": shortData});
+    desc = ac.description;
+    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(010203)>"], "unexpected desc: %@", desc);
+
+    NSData *longData = [NSMutableData dataWithLength:128];
+    SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": longData});
+    desc = ac.description;
+    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000...(128b))>"], "unexpected desc: %@", desc);
+
+    SecAccessControlSetConstraints((__bridge SecAccessControlRef)ac, (__bridge CFDictionaryRef)@{@"od": @{@"kofn": @2}});
+    desc = ac.description;
+    ok([desc isEqualToString:@"<SecAccessControlRef: ak;od(kofn(2))>"], "unexpected desc: %@", desc);
+}
+
 int si_44_seckey_aks(int argc, char *const *argv) {
     @autoreleasepool {
         BOOL testPKA = YES;
@@ -428,12 +510,14 @@ int si_44_seckey_aks(int argc, char *const *argv) {
 
         testPKA = NO;
 #endif
-        plan_tests(testPKA ? 102 : 87);
+        plan_tests(testPKA ? 119 : 104);
 
+        secAccessControlDescriptionTest();
         secKeySepTest(testPKA);
         attestationTest(kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly, NO);
         attestationTest(kSecAttrAccessibleUntilReboot, YES);
         keyFromBlobTest();
+        keychainTest();
 
         // Put SEP keys into test-keybag mode. Available only when running in direct-mode, not with extension.
         SecKeySetParameter(NULL, kSecAttrTokenIDAppleKeyStore, kCFBooleanTrue, NULL);

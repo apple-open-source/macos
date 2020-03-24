@@ -32,6 +32,7 @@
 #include "Logging.h"
 #include "WebAutomationSession.h"
 #include "WebAutomationSessionMacros.h"
+#include <wtf/Variant.h>
 
 namespace WebKit {
 
@@ -216,7 +217,7 @@ void SimulatedInputDispatcher::resolveLocation(const WebCore::IntPoint& currentL
         break;
     }
     case MouseMoveOrigin::Element: {
-        m_client.viewportInViewCenterPointOfElement(m_page, m_frameID.value(), nodeHandle.value(), [destination = location.value(), completionHandler = WTFMove(completionHandler)](Optional<WebCore::IntPoint> inViewCenterPoint, Optional<AutomationCommandError> error) mutable {
+        m_client.viewportInViewCenterPointOfElement(m_page, m_frameID, nodeHandle.value(), [destination = location.value(), completionHandler = WTFMove(completionHandler)](Optional<WebCore::IntPoint> inViewCenterPoint, Optional<AutomationCommandError> error) mutable {
             if (error) {
                 completionHandler(WTF::nullopt, error);
                 return;
@@ -296,7 +297,7 @@ void SimulatedInputDispatcher::transitionInputSourceToState(SimulatedInputSource
             } else if (a.location != b.location) {
                 LOG(Automation, "SimulatedInputDispatcher[%p]: simulating MouseMove from (%d, %d) to (%d, %d) for transition to %d.%d", this, a.location.value().x(), a.location.value().y(), b.location.value().x(), b.location.value().y(), m_keyframeIndex, m_inputSourceStateIndex);
                 // FIXME: This does not interpolate mousemoves per the "perform a pointer move" algorithm (§17.4 Dispatching Actions).
-                m_client.simulateMouseInteraction(m_page, MouseInteraction::Move, b.pressedMouseButton.valueOr(MouseButton::NoButton), b.location.value(), WTFMove(eventDispatchFinished));
+                m_client.simulateMouseInteraction(m_page, MouseInteraction::Move, b.pressedMouseButton.valueOr(MouseButton::None), b.location.value(), WTFMove(eventDispatchFinished));
             } else
                 eventDispatchFinished(WTF::nullopt);
         });
@@ -382,7 +383,7 @@ void SimulatedInputDispatcher::transitionInputSourceToState(SimulatedInputSource
     }
 }
 
-void SimulatedInputDispatcher::run(uint64_t frameID, Vector<SimulatedInputKeyFrame>&& keyFrames, HashSet<Ref<SimulatedInputSource>>& inputSources, AutomationCompletionHandler&& completionHandler)
+void SimulatedInputDispatcher::run(Optional<WebCore::FrameIdentifier> frameID, Vector<SimulatedInputKeyFrame>&& keyFrames, HashSet<Ref<SimulatedInputSource>>& inputSources, AutomationCompletionHandler&& completionHandler)
 {
     ASSERT(!isActive());
     if (isActive()) {
@@ -401,7 +402,7 @@ void SimulatedInputDispatcher::run(uint64_t frameID, Vector<SimulatedInputKeyFra
     m_keyframes.append(SimulatedInputKeyFrame::keyFrameFromStateOfInputSources(m_inputSources));
     m_keyframes.appendVector(WTFMove(keyFrames));
 
-    LOG(Automation, "SimulatedInputDispatcher[%p]: starting input simulation using %d keyframes", this, m_keyframeIndex);
+    LOG(Automation, "SimulatedInputDispatcher[%p]: starting input simulation using %zu keyframes", this, m_keyframes.size());
 
     transitionToNextKeyFrame();
 }

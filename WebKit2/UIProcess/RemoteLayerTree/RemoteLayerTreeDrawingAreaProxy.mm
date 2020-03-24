@@ -49,6 +49,7 @@
 }
 
 - (id)initWithDrawingAreaProxy:(WebKit::RemoteLayerTreeDrawingAreaProxy*)drawingAreaProxy;
+- (void)setPreferredFramesPerSecond:(NSInteger)preferredFramesPerSecond;
 - (void)displayLinkFired:(CADisplayLink *)sender;
 - (void)invalidate;
 - (void)schedule;
@@ -74,6 +75,11 @@
 {
     ASSERT(!_displayLink);
     [super dealloc];
+}
+
+- (void)setPreferredFramesPerSecond:(NSInteger)preferredFramesPerSecond
+{
+    _displayLink.preferredFramesPerSecond = preferredFramesPerSecond;
 }
 
 - (void)displayLinkFired:(CADisplayLink *)sender
@@ -107,7 +113,7 @@ using namespace WebCore;
 
 RemoteLayerTreeDrawingAreaProxy::RemoteLayerTreeDrawingAreaProxy(WebPageProxy& webPageProxy, WebProcessProxy& process)
     : DrawingAreaProxy(DrawingAreaTypeRemoteLayerTree, webPageProxy, process)
-    , m_remoteLayerTreeHost(std::make_unique<RemoteLayerTreeHost>(*this))
+    , m_remoteLayerTreeHost(makeUnique<RemoteLayerTreeHost>(*this))
 {
 #if HAVE(IOSURFACE)
     // We don't want to pool surfaces in the UI process.
@@ -183,7 +189,16 @@ void RemoteLayerTreeDrawingAreaProxy::sendUpdateGeometry()
     m_isWaitingForDidUpdateGeometry = true;
 }
 
-void RemoteLayerTreeDrawingAreaProxy::willCommitLayerTree(uint64_t transactionID)
+void RemoteLayerTreeDrawingAreaProxy::setPreferredFramesPerSecond(FramesPerSecond preferredFramesPerSecond)
+{
+#if PLATFORM(IOS_FAMILY)
+    [displayLinkHandler() setPreferredFramesPerSecond:preferredFramesPerSecond];
+#else
+    UNUSED_PARAM(preferredFramesPerSecond);
+#endif
+}
+
+void RemoteLayerTreeDrawingAreaProxy::willCommitLayerTree(TransactionID transactionID)
 {
     m_pendingLayerTreeTransactionID = transactionID;
 }
@@ -192,10 +207,10 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(const RemoteLayerTreeTrans
 {
     TraceScope tracingScope(CommitLayerTreeStart, CommitLayerTreeEnd);
 
-    LOG(RemoteLayerTree, "%s", layerTreeTransaction.description().data());
-    LOG(RemoteLayerTree, "%s", scrollingTreeTransaction.description().data());
+    LOG_WITH_STREAM(RemoteLayerTree, stream << "RemoteLayerTreeDrawingAreaProxy::commitLayerTree transaction:" << layerTreeTransaction.description());
+    LOG_WITH_STREAM(RemoteLayerTree, stream << "RemoteLayerTreeDrawingAreaProxy::commitLayerTree scrolling tree:" << scrollingTreeTransaction.description());
 
-    ASSERT(layerTreeTransaction.transactionID() == m_lastVisibleTransactionID + 1);
+    ASSERT(layerTreeTransaction.transactionID() == m_lastVisibleTransactionID.next());
     m_transactionIDForPendingCACommit = layerTreeTransaction.transactionID();
     m_activityStateChangeID = layerTreeTransaction.activityStateChangeID();
 
@@ -379,7 +394,7 @@ void RemoteLayerTreeDrawingAreaProxy::updateDebugIndicator(IntSize contentsSize,
 
 void RemoteLayerTreeDrawingAreaProxy::initializeDebugIndicator()
 {
-    m_debugIndicatorLayerTreeHost = std::make_unique<RemoteLayerTreeHost>(*this);
+    m_debugIndicatorLayerTreeHost = makeUnique<RemoteLayerTreeHost>(*this);
     m_debugIndicatorLayerTreeHost->setIsDebugLayerTreeHost(true);
 
     m_tileMapHostLayer = adoptNS([[CALayer alloc] init]);
@@ -471,7 +486,7 @@ void RemoteLayerTreeDrawingAreaProxy::dispatchAfterEnsuringDrawing(WTF::Function
         return;
     }
 
-    send(Messages::DrawingArea::AddTransactionCallbackID(m_callbacks.put(WTFMove(callbackFunction), process().throttler().backgroundActivityToken())));
+    send(Messages::DrawingArea::AddTransactionCallbackID(m_callbacks.put(WTFMove(callbackFunction), process().throttler().backgroundActivity("RemoteLayerTreeDrawingAreaProxy::dispatchAfterEnsuringDrawing"_s))));
 }
 
 void RemoteLayerTreeDrawingAreaProxy::hideContentUntilPendingUpdate()

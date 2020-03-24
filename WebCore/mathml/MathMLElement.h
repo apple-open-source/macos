@@ -108,7 +108,6 @@ private:
     bool isMouseFocusable() const final;
     bool isURLAttribute(const Attribute&) const final;
     bool supportsFocus() const final;
-    int tabIndex() const final;
 };
 
 inline bool Node::hasTagName(const MathMLQualifiedName& name) const

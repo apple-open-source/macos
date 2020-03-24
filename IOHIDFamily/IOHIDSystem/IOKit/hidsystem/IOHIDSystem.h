@@ -45,7 +45,6 @@
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/pwr_mgt/IOPM.h>
-#include <IOKit/IOReporter.h>
 #include "IOHIDWorkLoop.h"
 #if TARGET_OS_IPHONE
 class IOGraphicsDevice;
@@ -71,6 +70,7 @@ class IOGraphicsDevice;
 #define kIOHIDSystemActivityTickle              iokit_family_msg(sub_iokit_hidsystem, 5)
 #define kIOHIDSystemUserHidActivity             iokit_family_msg(sub_iokit_hidsystem, 6)
 
+class IOHistogramReporter;
 class IOHIDKeyboardDevice;
 class IOHIDPointingDevice;
 class IOHIDEvent;

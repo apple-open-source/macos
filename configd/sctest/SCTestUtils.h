@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,7 +28,8 @@
 #import <SystemConfiguration/SCPrivate.h>
 #import <objc/objc-runtime.h>
 
-#define SCTestLog(fmt, ...)	SCPrint(TRUE, stdout, CFSTR(fmt "\n"), ##__VA_ARGS__)
+#define SCTestLog(fmt, ...)	SCLog(TRUE, LOG_NOTICE, CFSTR(fmt), ##__VA_ARGS__)
+
 #define ERR_EXIT 		exit(1)
 
 typedef struct {

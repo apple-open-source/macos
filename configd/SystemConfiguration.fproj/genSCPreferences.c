@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -62,7 +62,7 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 2000-2019 Apple Inc. All rights reserved.\n"
+" * Copyright (c) 2000-2020 Apple Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " *\n"
@@ -129,6 +129,7 @@ typedef enum {
 	SC_10_13_IPHONE_11_0_PRIVATE,
 	SC_10_14_IPHONE_12_0_PRIVATE,
 	SC_10_15_IPHONE_13_0_PRIVATE,
+	SC_10_15_4_IPHONE_13_4_PRIVATE,
 	SC_IPHONE_2_0_PRIVATE,
 	SC_IPHONE_7_0_PRIVATE,
 	SC_IPHONE_8_0_PRIVATE,
@@ -563,6 +564,7 @@ static schemaDefinition names[] = {
 
   { GROUP_PRIVATE, PREF, "Preference Keys", NULL, NULL },
 
+    { SC_10_15_4_IPHONE_13_4_PRIVATE, PREF, VERSION, "__VERSION__", CFSTRING },
     { SC_10_5_PRIVATE, PREF, VIRTUALNETWORKINTERFACES, NULL, CFDICTIONARY },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
@@ -1519,6 +1521,9 @@ print_headerdoc(schemaDefinition *def)
 	    case SC_10_15_IPHONE_13_0_PRIVATE:
 		printf("  API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0));\n");
 		break;
+	    case SC_10_15_4_IPHONE_13_4_PRIVATE:
+		printf("  API_AVAILABLE(macos(10.15.4)) SPI_AVAILABLE(ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));\n");
+		break;
 	    case SC_IPHONE_2_0_PRIVATE:
 		printf("  SPI_AVAILABLE(macos(10.6), ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));\n");
 		break;
@@ -1707,6 +1712,7 @@ dump_names(int type)
 			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
 			    case SC_10_15_IPHONE_13_0_PRIVATE:
+			    case SC_10_15_4_IPHONE_13_4_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
@@ -1746,6 +1752,7 @@ dump_names(int type)
 			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
 			    case SC_10_15_IPHONE_13_0_PRIVATE:
+			    case SC_10_15_4_IPHONE_13_4_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
@@ -1776,6 +1783,7 @@ dump_names(int type)
 			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
 			    case SC_10_15_IPHONE_13_0_PRIVATE:
+			    case SC_10_15_4_IPHONE_13_4_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:
@@ -1804,6 +1812,7 @@ dump_names(int type)
 			    case SC_10_13_IPHONE_11_0_PRIVATE:
 			    case SC_10_14_IPHONE_12_0_PRIVATE:
 			    case SC_10_15_IPHONE_13_0_PRIVATE:
+			    case SC_10_15_4_IPHONE_13_4_PRIVATE:
 			    case SC_IPHONE_2_0_PRIVATE:
 			    case SC_IPHONE_7_0_PRIVATE:
 			    case SC_IPHONE_8_0_PRIVATE:

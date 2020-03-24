@@ -53,16 +53,41 @@
 
 - (BOOL)accountIsHSA2ByAltDSID:(NSString*)altDSID
 {
-    bool hsa2 = false;
+    BOOL hsa2 = NO;
 
     AKAccountManager *manager = [AKAccountManager sharedInstance];
     ACAccount *authKitAccount = [manager authKitAccountWithAltDSID:altDSID];
     AKAppleIDSecurityLevel securityLevel = [manager securityLevelForAccount:authKitAccount];
     if(securityLevel == AKAppleIDSecurityLevelHSA2) {
-        hsa2 = true;
+        hsa2 = YES;
     }
     secnotice("security-authkit", "Security level for altDSID %@ is %lu", altDSID, (unsigned long)securityLevel);
     return hsa2;
+}
+
+- (BOOL)accountIsDemoAccount:(NSError**)error
+{
+    NSError* localError = nil;
+    NSString* altDSID = [self primaryiCloudAccountAltDSID:&localError];
+
+    if(altDSID == nil) {
+        secerror("octagon-authkit:could not retrieve altDSID");
+    }
+    if (localError) {
+        secerror("octagon-authkit: hit an error retrieving altDSID: %@", localError);
+        if(error){
+            *error = localError;
+        }
+        return NO;
+    }
+    
+    AKAccountManager *manager = [AKAccountManager sharedInstance];
+    ACAccount *authKitAccount = [manager authKitAccountWithAltDSID:altDSID];
+    BOOL isDemo = [manager demoAccountForAccount:authKitAccount];
+
+    secnotice("security-authkit", "Account with altDSID %@ is a demo account: %@", altDSID, isDemo ? @"true" : @"false");
+
+    return isDemo;
 }
 
 - (NSString* _Nullable)machineID:(NSError**)error

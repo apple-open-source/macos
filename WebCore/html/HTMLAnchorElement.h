@@ -88,8 +88,9 @@ private:
     bool isURLAttribute(const Attribute&) const final;
     bool canStartSelection() const final;
     String target() const override;
-    int tabIndex() const final;
+    int defaultTabIndex() const final;
     bool draggable() const final;
+    bool isInteractiveContent() const final;
 
     String effectiveTarget() const;
 

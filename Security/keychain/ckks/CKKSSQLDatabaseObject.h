@@ -135,13 +135,41 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 // Helper class to use with where clauses
-// If you pass in one of these instead of a concrete value, its substring will be used directly, instead of binding the value as a named parameter
-@interface CKKSSQLWhereObject : NSObject
-@property NSString* sqlOp;
-@property NSString* contents;
-- (instancetype)initWithOperation:(NSString*)op string:(NSString*)str;
-+ (instancetype)op:(NSString*)op string:(NSString*)str;
-+ (instancetype)op:(NSString*)op stringValue:(NSString*)str;  // Will add single quotes around your value.
+// If you pass in one of these in a where dictionary instead of a concrete value, columnName will be
+// used directly, instead of binding as a named parameter. Therefore, it's essential to use
+// compile-time constants for both fields.
+
+typedef NS_ENUM(uint64_t, CKKSSQLWhereComparator) {
+    CKKSSQLWhereComparatorEquals = 1,
+    CKKSSQLWhereComparatorNotEquals = 2,
+    CKKSSQLWhereComparatorGreaterThan = 3,
+    CKKSSQLWhereComparatorLessThan = 4,
+};
+
+NSString* CKKSSQLWhereComparatorAsString(CKKSSQLWhereComparator comparator);
+
+// This typedef is to ensure that CKKSSQLWhereColumn can only ever produce static strings
+typedef NS_ENUM(uint64_t, CKKSSQLWhereColumnName) {
+    CKKSSQLWhereColumnNameUUID = 1,
+    CKKSSQLWhereColumnNameParentKeyUUID = 2,
+};
+NSString* CKKSSQLWhereColumnNameAsString(CKKSSQLWhereColumnName columnName);
+
+@interface CKKSSQLWhereColumn : NSObject
+@property CKKSSQLWhereComparator sqlOp;
+@property CKKSSQLWhereColumnName columnName;
+- (instancetype)initWithOperation:(CKKSSQLWhereComparator)op columnName:(CKKSSQLWhereColumnName)column;
++ (instancetype)op:(CKKSSQLWhereComparator)op column:(CKKSSQLWhereColumnName)columnName;
 @end
+
+// Unlike CKKSSQLWhereColumn, this will insert the value as a parameter in a prepared statement
+// but gives you the flexbility to inject a sqlOp. sqlOp must be a compile-time constant.
+@interface CKKSSQLWhereValue : NSObject
+@property CKKSSQLWhereComparator sqlOp;
+@property NSString* value;
+- (instancetype)initWithOperation:(CKKSSQLWhereComparator)op value:(NSString*)value;
++ (instancetype)op:(CKKSSQLWhereComparator)op value:(NSString*)value;
+@end
+
 
 NS_ASSUME_NONNULL_END

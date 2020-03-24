@@ -118,9 +118,7 @@ class EmptyChromeClient : public ChromeClient {
     void contentsSizeChanged(Frame&, const IntSize&) const final { }
     void intrinsicContentsSizeChanged(const IntSize&) const final { }
 
-    void mouseDidMoveOverElement(const HitTestResult&, unsigned) final { }
-
-    void setToolTip(const String&, TextDirection) final { }
+    void mouseDidMoveOverElement(const HitTestResult&, unsigned, const String&, TextDirection) final { }
 
     void print(Frame&) final { }
 
@@ -144,10 +142,8 @@ class EmptyChromeClient : public ChromeClient {
     void elementDidFocus(Element&) final { }
     void elementDidBlur(Element&) final { }
 
-#if !PLATFORM(IOS_FAMILY)
     void setCursor(const Cursor&) final { }
     void setCursorHiddenUntilMouseMoves(bool) final { }
-#endif
 
     void scrollRectIntoView(const IntRect&) const final { }
 
@@ -169,7 +165,7 @@ class EmptyChromeClient : public ChromeClient {
 #if PLATFORM(IOS_FAMILY)
     void didReceiveMobileDocType(bool) final { }
     void setNeedsScrollNotifications(Frame&, bool) final { }
-    void observedContentChange(Frame&) final { }
+    void didFinishContentChangeObserving(Frame&, WKContentChange) final { }
     void notifyRevealedSelectionByScrollingFrame(Frame&) final { }
     void didLayout(LayoutType) final { }
     void didStartOverflowScroll() final { }
@@ -204,6 +200,6 @@ class EmptyChromeClient : public ChromeClient {
 };
 
 DiagnosticLoggingClient& emptyDiagnosticLoggingClient();
-WEBCORE_EXPORT PageConfiguration pageConfigurationWithEmptyClients();
+WEBCORE_EXPORT PageConfiguration pageConfigurationWithEmptyClients(PAL::SessionID);
 
 }

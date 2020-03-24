@@ -37,6 +37,7 @@
 #include "CookieJar.h"
 #include "HTTPHeaderMap.h"
 #include "HTTPHeaderNames.h"
+#include "HTTPHeaderValues.h"
 #include "HTTPParsers.h"
 #include "InspectorInstrumentation.h"
 #include "Logging.h"
@@ -166,12 +167,7 @@ bool WebSocketHandshake::secure() const
 
 String WebSocketHandshake::clientLocation() const
 {
-    StringBuilder builder;
-    builder.append(m_secure ? "wss" : "ws");
-    builder.appendLiteral("://");
-    builder.append(hostName(m_url, m_secure));
-    builder.append(resourceName(m_url));
-    return builder.toString();
+    return makeString(m_secure ? "wss" : "ws", "://", hostName(m_url, m_secure), resourceName(m_url));
 }
 
 CString WebSocketHandshake::clientHandshakeMessage() const
@@ -243,8 +239,8 @@ ResourceRequest WebSocketHandshake::clientHandshakeRequest(Function<String(const
             request.setHTTPHeaderField(HTTPHeaderName::Cookie, cookie);
     }
 
-    request.setHTTPHeaderField(HTTPHeaderName::Pragma, "no-cache");
-    request.setHTTPHeaderField(HTTPHeaderName::CacheControl, "no-cache");
+    request.setHTTPHeaderField(HTTPHeaderName::Pragma, HTTPHeaderValues::noCache());
+    request.setHTTPHeaderField(HTTPHeaderName::CacheControl, HTTPHeaderValues::noCache());
 
     request.setHTTPHeaderField(HTTPHeaderName::SecWebSocketKey, m_secWebSocketKey);
     request.setHTTPHeaderField(HTTPHeaderName::SecWebSocketVersion, "13");

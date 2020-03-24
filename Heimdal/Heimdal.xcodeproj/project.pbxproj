@@ -424,6 +424,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		56BDCDA9231EEEB000B48D6D /* ecdsa.c in Sources */ = {isa = PBXBuildFile; fileRef = 56BDCDA8231EEEB000B48D6D /* ecdsa.c */; };
 		723B74DD120BADC000CFAE9F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB82E91F0F8A680100EE4F4A /* SystemConfiguration.framework */; };
 		72755DB2110D7B6D00071A31 /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = EBC718BF0F2581B0000EDF54 /* libresolv.dylib */; };
 		727ABBC91FD7A24000EFD46A /* heimcred-const.h in Headers */ = {isa = PBXBuildFile; fileRef = EBE5864C16CC4F18000D7E07 /* heimcred-const.h */; };
@@ -7839,6 +7840,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		56BDCDA8231EEEB000B48D6D /* ecdsa.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ecdsa.c; path = lib/hcrypto/ecdsa.c; sourceTree = "<group>"; };
 		7205BADE1209E50700078DF5 /* Heimdal-ify.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; name = "Heimdal-ify.pl"; path = "packages/mac/Heimdal-ify.pl"; sourceTree = "<group>"; };
 		7205BADF1209E50700078DF5 /* make-export.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "make-export.sh"; path = "packages/mac/make-export.sh"; sourceTree = "<group>"; };
 		727E2636120B6D75002CBF58 /* Reachability.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Reachability.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -10853,6 +10855,7 @@
 		08FB7794FE84155DC02AAC07 /* Heimdal */ = {
 			isa = PBXGroup;
 			children = (
+				56BDCDA8231EEEB000B48D6D /* ecdsa.c */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				EB5F3C880F25674E0056E301 /* Derived */,
 				EB9204CE1762C580005BE5B6 /* Projects */,
@@ -19025,6 +19028,7 @@
 				EB00F1FD103D6FD200399574 /* engine.c in Sources */,
 				EBDE71391781F0C600166F7C /* rsa-sf.c in Sources */,
 				EB00F2F3103E1CC300399574 /* pkcs5.c in Sources */,
+				56BDCDA9231EEEB000B48D6D /* ecdsa.c in Sources */,
 				EB00F32C103E1E2B00399574 /* pkcs12.c in Sources */,
 				EB00F3DE103EEC7700399574 /* evp-cc.c in Sources */,
 				EB270FB611BAE17B0087021A /* dh-cdsa.c in Sources */,

@@ -28,20 +28,22 @@
 
 #if ENABLE(REMOTE_INSPECTOR)
 
+#include "APIDebuggableInfo.h"
 #include "RemoteWebInspectorProxy.h"
 #include <wtf/MainThread.h>
+#include <wtf/text/Base64.h>
 
 namespace WebKit {
 
 class RemoteInspectorProxy final : public RemoteWebInspectorProxyClient {
     WTF_MAKE_FAST_ALLOCATED();
 public:
-    RemoteInspectorProxy(RemoteInspectorClient& inspectorClient, ConnectionID connectionID, TargetID targetID, const String& type)
+    RemoteInspectorProxy(RemoteInspectorClient& inspectorClient, ConnectionID connectionID, TargetID targetID, Inspector::DebuggableType debuggableType)
         : m_proxy(RemoteWebInspectorProxy::create())
         , m_inspectorClient(inspectorClient)
         , m_connectionID(connectionID)
         , m_targetID(targetID)
-        , m_debuggableType(type)
+        , m_debuggableType(debuggableType)
     {
         m_proxy->setClient(this);
     }
@@ -54,7 +56,10 @@ public:
 
     void load()
     {
-        m_proxy->load(m_debuggableType, String());
+        // FIXME <https://webkit.org/b/205537>: this should infer more useful data about the debug target.
+        Ref<API::DebuggableInfo> debuggableInfo = API::DebuggableInfo::create(DebuggableInfoData::empty());
+        debuggableInfo->setDebuggableType(m_debuggableType);
+        m_proxy->load(WTFMove(debuggableInfo), m_inspectorClient.backendCommandsURL());
     }
 
     void show()
@@ -82,18 +87,20 @@ private:
     RemoteInspectorClient& m_inspectorClient;
     ConnectionID m_connectionID;
     TargetID m_targetID;
-    String m_debuggableType;
+    Inspector::DebuggableType m_debuggableType;
 };
 
-RemoteInspectorClient::RemoteInspectorClient(const char* address, unsigned port, RemoteInspectorObserver& observer)
+RemoteInspectorClient::RemoteInspectorClient(URL url, RemoteInspectorObserver& observer)
     : m_observer(observer)
 {
-    m_socket = Inspector::RemoteInspectorSocketEndpoint::create(this, "RemoteInspectorClient");
+    if (!url.host() || !url.port()) {
+        LOG_ERROR("Invalid inspector url: %s", url.string().utf8().data());
+        return;
+    }
 
-    m_connectionID = m_socket->connectInet(address, port);
+    m_connectionID = connectInet(url.host().utf8().data(), url.port().value());
     if (!m_connectionID) {
-        LOG_ERROR("Inspector client could not connect to %s:%d", address, port);
-        m_socket = nullptr;
+        LOG_ERROR("Inspector client could not connect to %s", url.string().utf8().data());
         return;
     }
 
@@ -109,12 +116,13 @@ void RemoteInspectorClient::sendWebInspectorEvent(const String& event)
     ASSERT(isMainThread());
     ASSERT(m_connectionID.hasValue());
     auto message = event.utf8();
-    m_socket->send(m_connectionID.value(), reinterpret_cast<const uint8_t*>(message.data()), message.length());
+    send(m_connectionID.value(), reinterpret_cast<const uint8_t*>(message.data()), message.length());
 }
 
 HashMap<String, Inspector::RemoteInspectorConnectionClient::CallHandler>& RemoteInspectorClient::dispatchMap()
 {
     static NeverDestroyed<HashMap<String, CallHandler>> dispatchMap = HashMap<String, CallHandler>({
+        { "BackendCommands"_s, static_cast<CallHandler>(&RemoteInspectorClient::setBackendCommands) },
         { "SetTargetList"_s, static_cast<CallHandler>(&RemoteInspectorClient::setTargetList) },
         { "SendMessageToFrontend"_s, static_cast<CallHandler>(&RemoteInspectorClient::sendMessageToFrontend) },
     });
@@ -134,16 +142,20 @@ void RemoteInspectorClient::connectionClosed()
     m_targets.clear();
     m_inspectorProxyMap.clear();
     m_observer.connectionClosed(*this);
+    m_observer.targetListChanged(*this);
 }
 
 void RemoteInspectorClient::didClose(ConnectionID)
 {
+    callOnMainThread([this] {
+        connectionClosed();
+    });
 }
 
-void RemoteInspectorClient::inspect(ConnectionID connectionID, TargetID targetID, const String& type)
+void RemoteInspectorClient::inspect(ConnectionID connectionID, TargetID targetID, Inspector::DebuggableType debuggableType)
 {
-    auto addResult = m_inspectorProxyMap.ensure(std::make_pair(connectionID, targetID), [this, connectionID, targetID, &type] {
-        return std::make_unique<RemoteInspectorProxy>(*this, connectionID, targetID, type);
+    auto addResult = m_inspectorProxyMap.ensure(std::make_pair(connectionID, targetID), [this, connectionID, targetID, debuggableType] {
+        return makeUnique<RemoteInspectorProxy>(*this, connectionID, targetID, debuggableType);
     });
 
     if (!addResult.isNewEntry) {
@@ -181,6 +193,31 @@ void RemoteInspectorClient::closeFromFrontend(ConnectionID connectionID, TargetI
     m_inspectorProxyMap.remove(std::make_pair(connectionID, targetID));
 }
 
+void RemoteInspectorClient::setBackendCommands(const Event& event)
+{
+    if (!event.message || event.message->isEmpty())
+        return;
+
+    m_backendCommandsURL = makeString("data:text/javascript;base64,", base64Encode(event.message->utf8()));
+}
+
+static String debuggableTypeToString(Inspector::DebuggableType debuggableType)
+{
+    switch (debuggableType) {
+    case Inspector::DebuggableType::JavaScript:
+        return "javascript"_s;
+    case Inspector::DebuggableType::Page:
+        return "page"_s;
+    case Inspector::DebuggableType::ServiceWorker:
+        return "service-worker"_s;
+    case Inspector::DebuggableType::WebPage:
+        return "web-page"_s;
+    }
+
+    ASSERT_NOT_REACHED();
+    return String();
+}
+
 void RemoteInspectorClient::setTargetList(const Event& event)
 {
     if (!event.connectionID || !event.message)
@@ -204,7 +241,7 @@ void RemoteInspectorClient::setTargetList(const Event& event)
         if (!itemObject->getInteger("targetID"_s, target.id)
             || !itemObject->getString("name"_s, target.name)
             || !itemObject->getString("url"_s, target.url)
-            || !itemObject->getString("type"_s, target.type))
+            || !itemObject->getString("type"_s, debuggableTypeToString(target.type)))
             continue;
 
         targetList.append(WTFMove(target));

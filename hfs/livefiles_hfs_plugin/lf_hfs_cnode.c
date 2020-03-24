@@ -465,36 +465,6 @@ hfs_getnewvnode(struct hfsmount *hfsmp, struct vnode *dvp, struct componentname 
             }
         }
     }
-#if LF_HFS_FULL_VNODE_SUPPORT
-    if (tvp != NULL)
-    {
-        /*
-         * grab an iocount on the vnode we weren't
-         * interested in (i.e. we want the resource fork
-         * but the cnode already has the data fork)
-         * to prevent it from being
-         * recycled by us when we call vnode_create
-         * which will result in a deadlock when we
-         * try to take the cnode lock in hfs_vnop_fsync or
-         * hfs_vnop_reclaim... vnode_get can be called here
-         * because we already hold the cnode lock which will
-         * prevent the vnode from changing identity until
-         * we drop it.. vnode_get will not block waiting for
-         * a change of state... however, it will return an
-         * error if the current iocount == 0 and we've already
-         * started to terminate the vnode... we don't need/want to
-         * grab an iocount in the case since we can't cause
-         * the fileystem to be re-entered on this thread for this vp
-         *
-         * the matching vnode_put will happen in hfs_unlock
-         * after we've dropped the cnode lock
-         */
-        if ( vnode_get(tvp) != 0)
-        {
-            cp->c_flag &= ~(C_NEED_RVNODE_PUT | C_NEED_DVNODE_PUT);
-        }
-    }
-#endif
 
     vfsp.vnfs_mp = mp;
     vfsp.vnfs_vtype = vtype;
@@ -671,7 +641,7 @@ hfs_getnewvnode(struct hfsmount *hfsmp, struct vnode *dvp, struct componentname 
      */
     if (vp && VNODE_IS_RSRC(vp))
     {
-        vnode_rele(vp);
+        vp->is_rsrc = true;
     }
     hfs_chashwakeup(hfsmp, cp, H_ALLOC | H_ATTACH);
 
@@ -937,32 +907,6 @@ hfs_unlock(struct cnode *cp)
         cp->c_lockowner = NULL;
         lf_lck_rw_unlock_shared(&cp->c_rwlock);
     }
-
-#if LF_HFS_FULL_VNODE_SUPPORT
-    /* Perform any vnode post processing after cnode lock is dropped. */
-    if (vp)
-    {
-        if (c_flag & C_NEED_DATA_SETSIZE)
-        {
-            ubc_setsize(vp, VTOF(vp)->ff_size);
-        }
-        if (c_flag & C_NEED_DVNODE_PUT)
-        {
-            vnode_put(vp);
-        }
-    }
-    if (rvp)
-    {
-        if (c_flag & C_NEED_RSRC_SETSIZE)
-        {
-            ubc_setsize(rvp, VTOF(rvp)->ff_size);
-        }
-        if (c_flag & C_NEED_RVNODE_PUT)
-        {
-            vnode_put(rvp);
-        }
-    }
-#endif
 }
 
 /*
@@ -1900,6 +1844,86 @@ out:
     return error;
 }
 
+int
+hfs_fork_release(struct cnode* cp, struct vnode *vp, bool bIsRsc, int* piErr)
+{
+    struct hfsmount *hfsmp = VTOHFS(vp);
+    struct filefork *fp = NULL;
+    struct filefork *altfp = NULL;
+    int reclaim_cnode = 0;
+    
+    /*
+     * Sync to disk any remaining data in the cnode/vnode.  This includes
+     * a call to hfs_update if the cnode has outbound data.
+     *
+     * If C_NOEXISTS is set on the cnode, then there's nothing teardown needs to do
+     * because the catalog entry for this cnode is already gone.
+     */
+    INVALIDATE_NODE(vp);
+    
+    if (!ISSET(cp->c_flag, C_NOEXISTS)) {
+        *piErr = hfs_cnode_teardown(vp, 1);
+        if (*piErr)
+        {
+            return 0;
+        }
+    }
+    
+    if (vp->sFSParams.vnfs_cnp)
+    {
+        if (vp->sFSParams.vnfs_cnp->cn_nameptr)
+            hfs_free(vp->sFSParams.vnfs_cnp->cn_nameptr);
+        hfs_free(vp->sFSParams.vnfs_cnp);
+    }
+    
+    
+    if (!bIsRsc) {
+        fp = cp->c_datafork;
+        altfp = cp->c_rsrcfork;
+        
+        cp->c_datafork = NULL;
+        cp->c_vp = NULL;
+    } else {
+        fp = cp->c_rsrcfork;
+        altfp = cp->c_datafork;
+        
+        cp->c_rsrcfork = NULL;
+        cp->c_rsrc_vp = NULL;
+    }
+    
+    /*
+     * On the last fork, remove the cnode from its hash chain.
+     */
+    if (altfp == NULL) {
+        /* If we can't remove it then the cnode must persist! */
+        if (hfs_chashremove(hfsmp, cp) == 0)
+            reclaim_cnode = 1;
+        /*
+         * Remove any directory hints
+         */
+        if (vnode_isdir(vp)) {
+            hfs_reldirhints(cp, 0);
+        }
+        
+        if(cp->c_flag & C_HARDLINK) {
+            hfs_relorigins(cp);
+        }
+    }
+    
+    /* Release the file fork and related data */
+    if (fp)
+    {
+        /* Dump cached symlink data */
+        if (vnode_islnk(vp) && (fp->ff_symlinkptr != NULL)) {
+            hfs_free(fp->ff_symlinkptr);
+        }
+        rl_remove_all(&fp->ff_invalidranges);
+        hfs_free(fp);
+    }
+    
+    return reclaim_cnode;
+}
+
 
 /*
  * Reclaim a cnode so that it can be used for other purposes.
@@ -1908,9 +1932,8 @@ int
 hfs_vnop_reclaim(struct vnode *vp)
 {
     struct cnode* cp = VTOC(vp);
-    struct filefork *fp = NULL;
-    struct filefork *altfp = NULL;
     struct hfsmount *hfsmp = VTOHFS(vp);
+    struct vnode *altvp = NULL;
     int reclaim_cnode = 0;
     int err = 0;
 
@@ -1943,78 +1966,33 @@ hfs_vnop_reclaim(struct vnode *vp)
     lf_hfs_generic_buf_cache_UnLockBufCache();
     
     /*
-     * Sync to disk any remaining data in the cnode/vnode.  This includes
-     * a call to hfs_update if the cnode has outbound data.
-     *
-     * If C_NOEXISTS is set on the cnode, then there's nothing teardown needs to do
-     * because the catalog entry for this cnode is already gone.
-     */
-    INVALIDATE_NODE(vp);
-
-    if (!ISSET(cp->c_flag, C_NOEXISTS)) {
-        err = hfs_cnode_teardown(vp, 1);
-        if (err)
-        {
-            return err;
-        }
-    }
-    
-    if (vp->sFSParams.vnfs_cnp)
-    {
-        if (vp->sFSParams.vnfs_cnp->cn_nameptr)
-            hfs_free(vp->sFSParams.vnfs_cnp->cn_nameptr);
-        hfs_free(vp->sFSParams.vnfs_cnp);
-    }
-    
-
-    /*
      * Find file fork for this vnode (if any)
      * Also check if another fork is active
      */
     if (cp->c_vp == vp) {
-        fp = cp->c_datafork;
-        altfp = cp->c_rsrcfork;
-
-        cp->c_datafork = NULL;
-        cp->c_vp = NULL;
+        
+        reclaim_cnode = hfs_fork_release(cp, vp, false, &err);
+        if (err) return err;
+    
+        if (!reclaim_cnode && cp->c_rsrc_vp != NULL)
+        {
+            altvp = cp->c_rsrc_vp;
+            reclaim_cnode = hfs_fork_release(cp, altvp, true, &err);
+            if (err) return err;
+        }
     } else if (cp->c_rsrc_vp == vp) {
-        fp = cp->c_rsrcfork;
-        altfp = cp->c_datafork;
-
-        cp->c_rsrcfork = NULL;
-        cp->c_rsrc_vp = NULL;
+        reclaim_cnode = hfs_fork_release(cp, vp, true, &err);
+        if (err) return err;
+        
+        if (!reclaim_cnode && cp->c_vp != NULL)
+        {
+            altvp = cp->c_vp;
+            reclaim_cnode = hfs_fork_release(cp, altvp, false, &err);
+            if (err) return err;
+        }
     } else {
         LFHFS_LOG(LEVEL_ERROR, "hfs_vnop_reclaim: vp points to wrong cnode (vp=%p cp->c_vp=%p cp->c_rsrc_vp=%p)\n", vp, cp->c_vp, cp->c_rsrc_vp);
         hfs_assert(0);
-    }
-
-    /*
-     * On the last fork, remove the cnode from its hash chain.
-     */
-    if (altfp == NULL) {
-        /* If we can't remove it then the cnode must persist! */
-        if (hfs_chashremove(hfsmp, cp) == 0)
-            reclaim_cnode = 1;
-        /*
-         * Remove any directory hints
-         */
-        if (vnode_isdir(vp)) {
-            hfs_reldirhints(cp, 0);
-        }
-
-        if(cp->c_flag & C_HARDLINK) {
-            hfs_relorigins(cp);
-        }
-    }
-    /* Release the file fork and related data */
-    if (fp)
-    {
-        /* Dump cached symlink data */
-        if (vnode_islnk(vp) && (fp->ff_symlinkptr != NULL)) {
-            hfs_free(fp->ff_symlinkptr);
-        }
-        rl_remove_all(&fp->ff_invalidranges);
-        hfs_free(fp);
     }
 
     /*
@@ -2035,6 +2013,9 @@ hfs_vnop_reclaim(struct vnode *vp)
     }
     
     hfs_free(vp);
+    if (altvp)
+        hfs_free(altvp);
+    
     vp = NULL;
     return (0);
 }

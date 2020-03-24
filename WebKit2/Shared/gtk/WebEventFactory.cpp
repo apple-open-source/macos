@@ -135,7 +135,7 @@ static inline short pressedMouseButtons(GdkModifierType state)
     return buttons;
 }
 
-WebMouseEvent WebEventFactory::createWebMouseEvent(const GdkEvent* event, int currentClickCount)
+WebMouseEvent WebEventFactory::createWebMouseEvent(const GdkEvent* event, int currentClickCount, Optional<IntPoint> delta)
 {
     double x, y, xRoot, yRoot;
     gdk_event_get_coords(event, &x, &y);
@@ -148,6 +148,7 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(const GdkEvent* event, int cu
     gdk_event_get_button(event, &eventButton);
 
     WebEvent::Type type = static_cast<WebEvent::Type>(0);
+    IntPoint movementDelta;
 
     GdkEventType eventType = gdk_event_get_event_type(event);
     switch (eventType) {
@@ -155,6 +156,8 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(const GdkEvent* event, int cu
     case GDK_ENTER_NOTIFY:
     case GDK_LEAVE_NOTIFY:
         type = WebEvent::MouseMove;
+        if (delta)
+            movementDelta = delta.value();
         break;
     case GDK_BUTTON_PRESS:
     case GDK_2BUTTON_PRESS:
@@ -179,8 +182,8 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(const GdkEvent* event, int cu
         pressedMouseButtons(state),
         IntPoint(x, y),
         IntPoint(xRoot, yRoot),
-        0 /* deltaX */,
-        0 /* deltaY */,
+        movementDelta.x(),
+        movementDelta.y(),
         0 /* deltaZ */,
         currentClickCount,
         modifiersForEvent(event),
@@ -205,6 +208,7 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(const GdkEvent* event, WebWhe
 
     GdkScrollDirection direction;
     if (!gdk_event_get_scroll_direction(event, &direction)) {
+        direction = GDK_SCROLL_SMOOTH;
         double deltaX, deltaY;
         if (gdk_event_get_scroll_deltas(event, &deltaX, &deltaY))
             wheelTicks = FloatSize(-deltaX, -deltaY);
@@ -223,6 +227,8 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(const GdkEvent* event, WebWhe
             break;
         case GDK_SCROLL_RIGHT:
             wheelTicks = FloatSize(-1, 0);
+            break;
+        case GDK_SCROLL_SMOOTH:
             break;
         default:
             ASSERT_NOT_REACHED();
@@ -246,7 +252,7 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(const GdkEvent* event, WebWhe
         wallTimeForEvent(event));
 }
 
-WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(const GdkEvent* event, const WebCore::CompositionResults& compositionResults, Vector<String>&& commands)
+WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(const GdkEvent* event, const String& text, bool handledByInputMethod, Optional<Vector<CompositionUnderline>>&& preeditUnderlines, Optional<EditingRange>&& preeditSelectionRange, Vector<String>&& commands)
 {
     guint keyval;
     gdk_event_get_keyval(event, &keyval);
@@ -256,13 +262,15 @@ WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(const GdkEvent* event, 
 
     return WebKeyboardEvent(
         type == GDK_KEY_RELEASE ? WebEvent::KeyUp : WebEvent::KeyDown,
-        compositionResults.simpleString.length() ? compositionResults.simpleString : PlatformKeyboardEvent::singleCharacterString(keyval),
+        text.isNull() ? PlatformKeyboardEvent::singleCharacterString(keyval) : text,
         PlatformKeyboardEvent::keyValueForGdkKeyCode(keyval),
         PlatformKeyboardEvent::keyCodeForHardwareKeyCode(keycode),
         PlatformKeyboardEvent::keyIdentifierForGdkKeyCode(keyval),
         PlatformKeyboardEvent::windowsKeyCodeForGdkKeyCode(keyval),
         static_cast<int>(keyval),
-        compositionResults.compositionUpdated(),
+        handledByInputMethod,
+        WTFMove(preeditUnderlines),
+        WTFMove(preeditSelectionRange),
         WTFMove(commands),
         isGdkKeyCodeFromKeyPad(keyval),
         modifiersForEvent(event),

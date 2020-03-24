@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -48,9 +48,10 @@
 /* framework variables */
 int	_sc_debug	= FALSE;	/* non-zero if debugging enabled */
 int	_sc_verbose	= FALSE;	/* non-zero if verbose logging enabled */
-int	_sc_log		= TRUE;		/* 0 if SC messages should be written to stdout/stderr,
-					 1 if SC messages should be logged w/os_log(3),
-					 2 if SC messages should be written to stdout/stderr AND logged */
+int	_sc_log		= 1;		/* 0 if SC messages should be written to stdout/stderr,
+					   1 if SC messages should be logged w/os_log(3),
+					   2 if SC messages should be logged AND written to stdout/stderr
+					   3 if SC messages should be logged AND written to stdout/stderr (w/o timestamp) */
 
 
 #pragma mark -
@@ -504,6 +505,7 @@ __SC_Log(int level, CFStringRef format_CF, os_log_t log, os_log_type_t type, con
 	 * 0 if SC messages should be written to stdout/stderr
 	 * 1 if SC messages should be logged w/os_log(3)
 	 * 2 if SC messages should be written to stdout/stderr AND logged
+	 * 3 if SC messages should be logged AND written to stdout/stderr (w/o timestamp)
 	 */
 
 	if (_sc_log > 0) {
@@ -532,7 +534,7 @@ __SC_Log(int level, CFStringRef format_CF, os_log_t log, os_log_type_t type, con
 		__SCPrint(stdout,
 			  format_CF,
 			  args_print,
-			  (_sc_log > 0),	// trace
+			  (_sc_log == 2),	// trace
 			  TRUE);		// add newline
 		va_end(args_print);
 	}
@@ -559,6 +561,7 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 	 * 0 if SC messages should be written to stdout/stderr
 	 * 1 if SC messages should be logged w/os_log(3)
 	 * 2 if SC messages should be written to stdout/stderr AND logged
+	 * 3 if SC messages should be logged AND written to stdout/stderr (w/o timestamp)
 	 */
 
 	if (_sc_log > 0) {
@@ -591,7 +594,7 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 		__SCPrint((LOG_PRI(level) > LOG_NOTICE) ? stderr : stdout,
 			  formatString,
 			  formatArguments_print,
-			  (_sc_log > 0),	// trace
+			  (_sc_log == 2),	// trace
 			  TRUE);		// add newline
 		va_end(formatArguments_print);
 	}

@@ -203,12 +203,6 @@ enum SecXPCOperation {
     sec_set_xpc_log_settings_id,
     sec_set_circle_log_settings_id,
     soscc_EnsurePeerRegistration_id,
-    kSecXPCOpRequestEnsureFreshParameters,
-    kSecXPCOpGetAllTheRings,
-    kSecXPCOpApplyToARing,
-    kSecXPCOpWithdrawlFromARing,
-    kSecXPCOpEnableRing,
-    kSecXPCOpRingStatus,
     kSecXPCOpRequestDeviceID,
     kSecXPCOpSetDeviceID,
     kSecXPCOpHandleIDSMessage,
@@ -253,7 +247,6 @@ enum SecXPCOperation {
     kSecXPCOpCopyGenerationPeerInfo,
     kSecXPCOpGetLastDepartureReason,
     kSecXPCOpSetLastDepartureReason,
-    kSecXPCOpCopyIncompatibilityInfo,
     kSecXPCOpCopyRetirementPeerInfo,
     kSecXPCOpCopyViewUnawarePeerInfo,
     kSecXPCOpCopyEngineState,
@@ -263,38 +256,26 @@ enum SecXPCOperation {
     kSecXPCOpSetBagForAllSlices,
     kSecXPCOpWaitForInitialSync,
     kSecXPCOpWaitForInitialSyncWithAnalytics,
-    kSecXPCOpCopyYetToSyncViews,
-    kSecXPCOpSetEscrowRecord,
-    kSecXPCOpGetEscrowRecord,
     kSecXPCOpCheckPeerAvailability,
-    kSecXPCOpCopyAccountData,
-    kSecXPCOpDeleteAccountData,
-    kSecXPCOpCopyEngineData,
-    kSecXPCOpDeleteEngineData,
     kSecXPCOpCopyApplication,
     kSecXPCOpCopyCircleJoiningBlob,
     kSecXPCOpJoinWithCircleJoiningBlob,
     kSecXPCOpKVSKeyCleanup,
-    kSecXPCOpPopulateKVS,
     kSecXPCOpAccountHasPublicKey,
-    kSecXPCOpAccountIsNew,
     kSecXPCOpClearKVSPeerMessage,
     kSecXPCOpRegisterRecoveryPublicKey,
     kSecXPCOpGetRecoveryPublicKey,
-    kSecXPCOpCopyBackupInformation,
     kSecXPCOpCopyInitialSyncBlob,
     /* after this is free for all */
     kSecXPCOpWhoAmI,
     kSecXPCOpTransmogrifyToSyncBubble,
     kSecXPCOpTransmogrifyToSystemKeychain,
-    kSecXPCOpWrapToBackupSliceKeyBagForView,
     sec_item_update_token_items_id,
     kSecXPCOpDeleteUserView,
     sec_trust_store_copy_all_id,
     sec_trust_store_copy_usage_constraints_id,
     sec_ocsp_cache_flush_id,
     sec_delete_items_with_access_groups_id,
-    kSecXPCOpIsThisDeviceLastBackup,
     sec_keychain_backup_keybag_uuid_id,
     kSecXPCOpPeersHaveViewsEnabled,
     kSecXPCOpProcessSyncWithPeers,
@@ -378,12 +359,6 @@ struct securityd {
     bool (*soscc_RequestToJoinCircleWithAnalytics)(CFDataRef parentEvent, CFErrorRef* error);
     bool (*soscc_RequestToJoinCircleAfterRestore)(CFErrorRef* error);
     bool (*soscc_RequestToJoinCircleAfterRestoreWithAnalytics)(CFDataRef parentEvent, CFErrorRef* error);
-    bool (*soscc_RequestEnsureFreshParameters)(CFErrorRef* error);
-    CFStringRef (*soscc_GetAllTheRings)(CFErrorRef *error);
-    bool (*soscc_ApplyToARing)(CFStringRef ringName, CFErrorRef* error);
-    bool (*soscc_WithdrawlFromARing)(CFStringRef ringName, CFErrorRef* error);
-    bool (*soscc_EnableRing)(CFStringRef ringName, CFErrorRef* error);
-    SOSRingStatus (*soscc_RingStatus)(CFStringRef ringName, CFErrorRef* error);
     bool (*soscc_SetToNew)(CFErrorRef *error);
     bool (*soscc_ResetToOffering)(CFErrorRef* error);
     bool (*soscc_ResetToEmpty)(CFErrorRef* error);
@@ -414,7 +389,6 @@ struct securityd {
     // Not sure why these are below the last entry in the enum order above, but they are:
     CFArrayRef (*soscc_CopyPeerInfo)(CFErrorRef* error);
     CFArrayRef (*soscc_CopyConcurringPeerInfo)(CFErrorRef* error);
-    CFStringRef (*soscc_CopyIncompatibilityInfo)(CFErrorRef* error);
     enum DepartureReason (*soscc_GetLastDepartureReason)(CFErrorRef* error);
     bool (*soscc_SetLastDepartureReason)(enum DepartureReason, CFErrorRef* error);
     CFSetRef (*soscc_ProcessSyncWithPeers)(CFSetRef peerIDs, CFSetRef backupPeerIDs, CFErrorRef* error);
@@ -427,25 +401,13 @@ struct securityd {
     SOSPeerInfoRef (*soscc_CopyMyPeerInfo)(CFErrorRef*);
     bool (*soscc_WaitForInitialSync)(CFErrorRef*);
     bool (*soscc_WaitForInitialSyncWithAnalytics)(CFDataRef parentEvent, CFErrorRef *error);
-    CFArrayRef (*soscc_CopyYetToSyncViewsList)(CFErrorRef*);
-    bool (*soscc_SetEscrowRecords)(CFStringRef escrow_label, uint64_t tries, CFErrorRef *error);
-    CFDictionaryRef (*soscc_CopyEscrowRecords)(CFErrorRef *error);
-    CFDictionaryRef (*soscc_CopyBackupInformation)(CFErrorRef *error);
     bool (*soscc_PeerAvailability)(CFErrorRef *error);
-    bool (*sosbskb_WrapToBackupSliceKeyBagForView)(CFStringRef viewName, CFDataRef input, CFDataRef* output, CFDataRef* bskbEncoded, CFErrorRef* error);
-    CFDataRef (*soscc_CopyAccountState)(CFErrorRef *error);
-    bool (*soscc_DeleteAccountState)(CFErrorRef *error);
-    CFDataRef (*soscc_CopyEngineData)(CFErrorRef *error);
-    bool (*soscc_DeleteEngineState)(CFErrorRef *error);
     SOSPeerInfoRef (*soscc_CopyApplicant)(CFErrorRef *error);
     CFDataRef (*soscc_CopyCircleJoiningBlob)(SOSPeerInfoRef applicant, CFErrorRef *error);
     CFDataRef (*soscc_CopyInitialSyncData)(SOSInitialSyncFlags flags, CFErrorRef *error);
     bool (*soscc_JoinWithCircleJoiningBlob)(CFDataRef joiningBlob, PiggyBackProtocolVersion version, CFErrorRef *error);
     bool (*soscc_SOSCCCleanupKVSKeys)(CFErrorRef *error);
-    bool (*soscc_SOSCCTestPopulateKVSWithBadKeys)(CFErrorRef *error);
     bool (*soscc_AccountHasPublicKey)(CFErrorRef *error);
-    bool (*soscc_AccountIsNew)(CFErrorRef *error);
-    bool (*soscc_IsThisDeviceLastBackup)(CFErrorRef *error);
     bool (*soscc_requestSyncWithPeerOverKVS)(CFStringRef peerID, CFDataRef message, CFErrorRef *error);
     CFBooleanRef (*soscc_SOSCCPeersHaveViewsEnabled)(CFArrayRef views, CFErrorRef *error);
     bool (*socc_clearPeerMessageKeyInKVS)(CFStringRef peerID, CFErrorRef *error);

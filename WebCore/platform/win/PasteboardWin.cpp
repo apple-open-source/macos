@@ -48,6 +48,7 @@
 #include "TextEncoding.h"
 #include "WebCoreInstanceHandle.h"
 #include "markup.h"
+#include <wtf/Optional.h>
 #include <wtf/URL.h>
 #include <wtf/WindowsExtras.h>
 #include <wtf/text/CString.h>
@@ -93,7 +94,7 @@ static LRESULT CALLBACK PasteboardOwnerWndProc(HWND hWnd, UINT message, WPARAM w
 
 std::unique_ptr<Pasteboard> Pasteboard::createForCopyAndPaste()
 {
-    auto pasteboard = std::make_unique<Pasteboard>();
+    auto pasteboard = makeUnique<Pasteboard>();
     COMPtr<IDataObject> clipboardData;
     if (!SUCCEEDED(OleGetClipboard(&clipboardData)))
         clipboardData = 0;
@@ -106,16 +107,16 @@ std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop()
 {
     COMPtr<WCDataObject> dataObject;
     WCDataObject::createInstance(&dataObject);
-    return std::make_unique<Pasteboard>(dataObject.get());
+    return makeUnique<Pasteboard>(dataObject.get());
 }
 
 // static
 std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop(const DragData& dragData)
 {
     if (dragData.platformData())
-        return std::make_unique<Pasteboard>(dragData.platformData());
+        return makeUnique<Pasteboard>(dragData.platformData());
     // FIXME: Should add a const overload of dragDataMap so we don't need a const_cast here.
-    return std::make_unique<Pasteboard>(const_cast<DragData&>(dragData).dragDataMap());
+    return makeUnique<Pasteboard>(const_cast<DragData&>(dragData).dragDataMap());
 }
 #endif
 
@@ -355,8 +356,9 @@ void Pasteboard::read(PasteboardFileReader& reader)
     for (auto& filename : list->value)
         reader.readFilename(filename);
 #else
+    UNUSED_PARAM(reader);
     notImplemented();
-    return { };
+    return;
 #endif
 }
 
@@ -787,7 +789,7 @@ bool Pasteboard::canSmartReplace()
     return ::IsClipboardFormatAvailable(WebSmartPasteFormat);
 }
 
-void Pasteboard::read(PasteboardPlainText& text)
+void Pasteboard::read(PasteboardPlainText& text, PlainTextURLReadingPolicy, Optional<size_t>)
 {
     if (::IsClipboardFormatAvailable(CF_UNICODETEXT) && ::OpenClipboard(m_owner)) {
         if (HANDLE cbData = ::GetClipboardData(CF_UNICODETEXT)) {
@@ -1072,7 +1074,7 @@ void Pasteboard::write(const PasteboardWebContent&)
 {
 }
 
-void Pasteboard::read(PasteboardWebContentReader&, WebContentReadingPolicy)
+void Pasteboard::read(PasteboardWebContentReader&, WebContentReadingPolicy, Optional<size_t>)
 {
 }
 
@@ -1080,7 +1082,7 @@ void Pasteboard::write(const PasteboardImage&)
 {
 }
 
-void Pasteboard::writeCustomData(const PasteboardCustomData&)
+void Pasteboard::writeCustomData(const Vector<PasteboardCustomData>&)
 {
 }
 

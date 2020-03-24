@@ -28,6 +28,7 @@
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 
+#include  "GPUProcessConnection.h"
 #include "SharedRingBufferStorage.h"
 #include "UserMediaCaptureManagerMessages.h"
 #include "UserMediaCaptureManagerProxyMessages.h"
@@ -62,15 +63,46 @@ public:
         , m_manager(manager)
         , m_deviceType(deviceType)
     {
-        ASSERT(deviceType != CaptureDevice::DeviceType::Unknown);
-        if (type == Type::Audio)
-            m_ringBuffer = std::make_unique<CARingBuffer>(makeUniqueRef<SharedRingBufferStorage>(nullptr));
+        switch (m_deviceType) {
+        case CaptureDevice::DeviceType::Microphone:
+            m_ringBuffer = makeUnique<CARingBuffer>(makeUniqueRef<SharedRingBufferStorage>(nullptr));
+#if PLATFORM(IOS_FAMILY)
+            RealtimeMediaSourceCenter::singleton().audioCaptureFactory().setActiveSource(*this);
+#endif
+            break;
+        case CaptureDevice::DeviceType::Camera:
+#if PLATFORM(IOS_FAMILY)
+            RealtimeMediaSourceCenter::singleton().videoCaptureFactory().setActiveSource(*this);
+#endif
+            break;
+        case CaptureDevice::DeviceType::Screen:
+        case CaptureDevice::DeviceType::Window:
+            break;
+        case CaptureDevice::DeviceType::Unknown:
+            ASSERT_NOT_REACHED();
+        }
     }
 
     ~Source()
     {
-        if (type() == Type::Audio)
+        switch (m_deviceType) {
+        case CaptureDevice::DeviceType::Microphone:
             storage().invalidate();
+#if PLATFORM(IOS_FAMILY)
+            RealtimeMediaSourceCenter::singleton().audioCaptureFactory().unsetActiveSource(*this);
+#endif
+            break;
+        case CaptureDevice::DeviceType::Camera:
+#if PLATFORM(IOS_FAMILY)
+            RealtimeMediaSourceCenter::singleton().videoCaptureFactory().unsetActiveSource(*this);
+#endif
+            break;
+        case CaptureDevice::DeviceType::Screen:
+        case CaptureDevice::DeviceType::Window:
+            break;
+        case CaptureDevice::DeviceType::Unknown:
+            ASSERT_NOT_REACHED();
+        }
     }
 
     SharedRingBufferStorage& storage()
@@ -79,12 +111,22 @@ public:
         return static_cast<SharedRingBufferStorage&>(m_ringBuffer->storage());
     }
 
-    const RealtimeMediaSourceCapabilities& capabilities() final
+    Ref<RealtimeMediaSource> clone() final
     {
-        if (!m_capabilities)
-            m_capabilities = m_manager.capabilities(m_id);
-        return m_capabilities.value();
+        return m_manager.cloneSource(*this);
     }
+
+    uint64_t sourceID() const
+    {
+        return m_id;
+    }
+
+    const RealtimeMediaSourceSettings& settings() const
+    {
+        return m_settings;
+    }
+
+    const RealtimeMediaSourceCapabilities& capabilities() final;
 
     const RealtimeMediaSourceSettings& settings() final { return m_settings; }
     void setSettings(RealtimeMediaSourceSettings&& settings)
@@ -134,16 +176,7 @@ public:
     {
         ASSERT(type() == Type::Video);
 
-        auto remoteSampleSize = remoteSample.size();
-        setIntrinsicSize(remoteSampleSize);
-
-        auto videoSampleSize = IntSize(m_settings.width(), m_settings.height());
-        if (videoSampleSize.isZero())
-            videoSampleSize = remoteSampleSize;
-        else if (!videoSampleSize.height())
-            videoSampleSize.setHeight(videoSampleSize.width() * (remoteSampleSize.height() / static_cast<double>(remoteSampleSize.width())));
-        else if (!videoSampleSize.width())
-            videoSampleSize.setWidth(videoSampleSize.height() * (remoteSampleSize.width() / static_cast<double>(remoteSampleSize.height())));
+        setIntrinsicSize(remoteSample.size());
 
         if (!m_imageTransferSession || m_imageTransferSession->pixelFormat() != remoteSample.videoFormat())
             m_imageTransferSession = ImageTransferSessionVT::create(remoteSample.videoFormat());
@@ -153,7 +186,7 @@ public:
             return;
         }
 
-        auto sampleRef = m_imageTransferSession->createMediaSample(remoteSample.surface(), remoteSample.time(), videoSampleSize);
+        auto sampleRef = m_imageTransferSession->createMediaSample(remoteSample.surface(), remoteSample.time(), remoteSample.size());
         if (!sampleRef) {
             ASSERT_NOT_REACHED();
             return;
@@ -177,22 +210,28 @@ public:
         callback(ApplyConstraintsError { WTFMove(failedConstraint), WTFMove(errorMessage) });
     }
 
-private:
-    void startProducingData() final { m_manager.startProducingData(m_id); }
-    void stopProducingData() final { m_manager.stopProducingData(m_id); }
-    bool isCaptureSource() const final { return true; }
     CaptureDevice::DeviceType deviceType() const final { return m_deviceType; }
+
+    void setShouldCaptureInGPUProcess(bool value) { m_shouldCaptureInGPUProcess = value; }
+    bool shouldCaptureInGPUProcess() const { return m_shouldCaptureInGPUProcess; }
+
+    IPC::Connection* connection();
+
+    void hasEnded() final;
+
+private:
+    void startProducingData() final;
+    void stopProducingData() final;
+    bool isCaptureSource() const final { return true; }
 
     // RealtimeMediaSource
     void beginConfiguration() final { }
     void commitConfiguration() final { }
-    void hasEnded() final { m_manager.sourceEnded(m_id); }
 
-    void applyConstraints(const WebCore::MediaConstraints& constraints, ApplyConstraintsHandler&& completionHandler) final
-    {
-        m_manager.applyConstraints(m_id, constraints);
-        m_pendingApplyConstraintsCallbacks.append(WTFMove(completionHandler));
-    }
+    void applyConstraints(const WebCore::MediaConstraints&, ApplyConstraintsHandler&&) final;
+
+    void requestToEnd(RealtimeMediaSource::Observer&) { stopBeingObserved(); }
+    void stopBeingObserved();
 
     uint64_t m_id;
     UserMediaCaptureManager& m_manager;
@@ -206,19 +245,23 @@ private:
     CaptureDevice::DeviceType m_deviceType { CaptureDevice::DeviceType::Unknown };
 
     Deque<ApplyConstraintsHandler> m_pendingApplyConstraintsCallbacks;
+    bool m_shouldCaptureInGPUProcess { false };
 };
 
 UserMediaCaptureManager::UserMediaCaptureManager(WebProcess& process)
     : m_process(process)
+    , m_audioFactory(*this)
+    , m_videoFactory(*this)
+    , m_displayFactory(*this)
 {
     m_process.addMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName(), *this);
 }
 
 UserMediaCaptureManager::~UserMediaCaptureManager()
 {
-    RealtimeMediaSourceCenter::singleton().unsetAudioCaptureFactory(*this);
-    RealtimeMediaSourceCenter::singleton().unsetDisplayCaptureFactory(*this);
-    RealtimeMediaSourceCenter::singleton().unsetVideoCaptureFactory(*this);
+    RealtimeMediaSourceCenter::singleton().unsetAudioCaptureFactory(m_audioFactory);
+    RealtimeMediaSourceCenter::singleton().unsetDisplayCaptureFactory(m_displayFactory);
+    RealtimeMediaSourceCenter::singleton().unsetVideoCaptureFactory(m_videoFactory);
     m_process.removeMessageReceiver(Messages::UserMediaCaptureManager::messageReceiverName());
 }
 
@@ -229,19 +272,20 @@ const char* UserMediaCaptureManager::supplementName()
 
 void UserMediaCaptureManager::initialize(const WebProcessCreationParameters& parameters)
 {
-    MockRealtimeMediaSourceCenter::singleton().setMockAudioCaptureEnabled(!parameters.shouldCaptureAudioInUIProcess);
+    MockRealtimeMediaSourceCenter::singleton().setMockAudioCaptureEnabled(!parameters.shouldCaptureAudioInUIProcess && !parameters.shouldCaptureAudioInGPUProcess);
     MockRealtimeMediaSourceCenter::singleton().setMockVideoCaptureEnabled(!parameters.shouldCaptureVideoInUIProcess);
     MockRealtimeMediaSourceCenter::singleton().setMockDisplayCaptureEnabled(!parameters.shouldCaptureDisplayInUIProcess);
 
-    if (parameters.shouldCaptureAudioInUIProcess)
-        RealtimeMediaSourceCenter::singleton().setAudioCaptureFactory(*this);
+    m_audioFactory.setShouldCaptureInGPUProcess(parameters.shouldCaptureAudioInGPUProcess);
+    if (parameters.shouldCaptureAudioInUIProcess || parameters.shouldCaptureAudioInGPUProcess)
+        RealtimeMediaSourceCenter::singleton().setAudioCaptureFactory(m_audioFactory);
     if (parameters.shouldCaptureVideoInUIProcess)
-        RealtimeMediaSourceCenter::singleton().setVideoCaptureFactory(*this);
+        RealtimeMediaSourceCenter::singleton().setVideoCaptureFactory(m_videoFactory);
     if (parameters.shouldCaptureDisplayInUIProcess)
-        RealtimeMediaSourceCenter::singleton().setDisplayCaptureFactory(*this);
+        RealtimeMediaSourceCenter::singleton().setDisplayCaptureFactory(m_displayFactory);
 }
 
-WebCore::CaptureSourceOrError UserMediaCaptureManager::createCaptureSource(const CaptureDevice& device, String&& hashSalt, const WebCore::MediaConstraints* constraints)
+WebCore::CaptureSourceOrError UserMediaCaptureManager::createCaptureSource(const CaptureDevice& device, String&& hashSalt, const WebCore::MediaConstraints* constraints, bool shouldCaptureInGPUProcess)
 {
     if (!constraints)
         return { };
@@ -250,11 +294,22 @@ WebCore::CaptureSourceOrError UserMediaCaptureManager::createCaptureSource(const
     RealtimeMediaSourceSettings settings;
     String errorMessage;
     bool succeeded;
-    if (!m_process.sendSync(Messages::UserMediaCaptureManagerProxy::CreateMediaSourceForCaptureDeviceWithConstraints(id, device, hashSalt, *constraints), Messages::UserMediaCaptureManagerProxy::CreateMediaSourceForCaptureDeviceWithConstraints::Reply(succeeded, errorMessage, settings), 0))
+#if ENABLE(GPU_PROCESS)
+    auto* connection = shouldCaptureInGPUProcess ? &m_process.ensureGPUProcessConnection().connection() : m_process.parentProcessConnection();
+#else
+    ASSERT(!shouldCaptureInGPUProcess);
+    auto* connection = m_process.parentProcessConnection();
+#endif
+    if (!connection->sendSync(Messages::UserMediaCaptureManagerProxy::CreateMediaSourceForCaptureDeviceWithConstraints(id, device, hashSalt, *constraints), Messages::UserMediaCaptureManagerProxy::CreateMediaSourceForCaptureDeviceWithConstraints::Reply(succeeded, errorMessage, settings), 0))
+        return WTFMove(errorMessage);
+
+    if (!succeeded)
         return WTFMove(errorMessage);
 
     auto type = device.type() == CaptureDevice::DeviceType::Microphone ? WebCore::RealtimeMediaSource::Type::Audio : WebCore::RealtimeMediaSource::Type::Video;
-    auto source = adoptRef(*new Source(String::number(id), type, device.type(), String { settings.label() }, WTFMove(hashSalt), id, *this));
+    auto source = adoptRef(*new Source(String::number(id), type, device.type(), String { settings.label().string() }, WTFMove(hashSalt), id, *this));
+    if (shouldCaptureInGPUProcess)
+        source->setShouldCaptureInGPUProcess(shouldCaptureInGPUProcess);
     source->setSettings(WTFMove(settings));
     m_sources.add(id, source.copyRef());
     return WebCore::CaptureSourceOrError(WTFMove(source));
@@ -264,7 +319,7 @@ void UserMediaCaptureManager::sourceStopped(uint64_t id)
 {
     if (auto source = m_sources.get(id)) {
         source->stop();
-        sourceEnded(id);
+        source->hasEnded();
     }
 }
 
@@ -272,7 +327,7 @@ void UserMediaCaptureManager::captureFailed(uint64_t id)
 {
     if (auto source = m_sources.get(id)) {
         source->captureFailed();
-        sourceEnded(id);
+        source->hasEnded();
     }
 }
 
@@ -321,37 +376,51 @@ NO_RETURN_DUE_TO_ASSERT void UserMediaCaptureManager::remoteVideoSampleAvailable
 }
 #endif
 
-void UserMediaCaptureManager::startProducingData(uint64_t id)
+IPC::Connection* UserMediaCaptureManager::Source::connection()
 {
-    m_process.send(Messages::UserMediaCaptureManagerProxy::StartProducingData(id), 0);
+#if ENABLE(GPU_PROCESS)
+    if (m_shouldCaptureInGPUProcess)
+        return &m_manager.m_process.ensureGPUProcessConnection().connection();
+#endif
+    return m_manager.m_process.parentProcessConnection();
 }
 
-void UserMediaCaptureManager::stopProducingData(uint64_t id)
+void UserMediaCaptureManager::Source::startProducingData()
 {
-    m_process.send(Messages::UserMediaCaptureManagerProxy::StopProducingData(id), 0);
+    connection()->send(Messages::UserMediaCaptureManagerProxy::StartProducingData(m_id), 0);
 }
 
-WebCore::RealtimeMediaSourceCapabilities UserMediaCaptureManager::capabilities(uint64_t id)
+void UserMediaCaptureManager::Source::stopProducingData()
 {
-    WebCore::RealtimeMediaSourceCapabilities capabilities;
-    m_process.sendSync(Messages::UserMediaCaptureManagerProxy::Capabilities(id), Messages::UserMediaCaptureManagerProxy::Capabilities::Reply(capabilities), 0);
-    return capabilities;
+    connection()->send(Messages::UserMediaCaptureManagerProxy::StopProducingData(m_id), 0);
 }
 
-void UserMediaCaptureManager::setMuted(uint64_t id, bool muted)
+const WebCore::RealtimeMediaSourceCapabilities& UserMediaCaptureManager::Source::capabilities()
 {
-    m_process.send(Messages::UserMediaCaptureManagerProxy::SetMuted(id, muted), 0);
+    if (!m_capabilities) {
+        RealtimeMediaSourceCapabilities capabilities;
+        connection()->sendSync(Messages::UserMediaCaptureManagerProxy::Capabilities { m_id }, Messages::UserMediaCaptureManagerProxy::Capabilities::Reply(capabilities), 0);
+        m_capabilities = WTFMove(capabilities);
+    }
+
+    return m_capabilities.value();
 }
 
-void UserMediaCaptureManager::applyConstraints(uint64_t id, const WebCore::MediaConstraints& constraints)
+void UserMediaCaptureManager::Source::applyConstraints(const WebCore::MediaConstraints& constraints, ApplyConstraintsHandler&& completionHandler)
 {
-    m_process.send(Messages::UserMediaCaptureManagerProxy::ApplyConstraints(id, constraints), 0);
+    m_pendingApplyConstraintsCallbacks.append(WTFMove(completionHandler));
+    connection()->send(Messages::UserMediaCaptureManagerProxy::ApplyConstraints(m_id, constraints), 0);
 }
 
 void UserMediaCaptureManager::sourceEnded(uint64_t id)
 {
-    m_process.send(Messages::UserMediaCaptureManagerProxy::End(id), 0);
     m_sources.remove(id);
+}
+
+void UserMediaCaptureManager::Source::hasEnded()
+{
+    connection()->send(Messages::UserMediaCaptureManagerProxy::End { m_id }, 0);
+    m_manager.sourceEnded(m_id);
 }
 
 void UserMediaCaptureManager::applyConstraintsSucceeded(uint64_t id, const WebCore::RealtimeMediaSourceSettings& settings)
@@ -366,17 +435,63 @@ void UserMediaCaptureManager::applyConstraintsFailed(uint64_t id, String&& faile
         source->applyConstraintsFailed(WTFMove(failedConstraint), WTFMove(message));
 }
 
-#if PLATFORM(IOS_FAMILY)
-void UserMediaCaptureManager::setAudioCapturePageState(bool interrupted, bool pageMuted)
+Ref<RealtimeMediaSource> UserMediaCaptureManager::cloneSource(Source& source)
 {
-    if (auto* activeSource = static_cast<AudioCaptureFactory*>(this)->activeSource())
+    switch (source.type()) {
+    case RealtimeMediaSource::Type::Video:
+        return cloneVideoSource(source);
+    case RealtimeMediaSource::Type::Audio:
+        break;
+    case RealtimeMediaSource::Type::None:
+        ASSERT_NOT_REACHED();
+    }
+    return makeRef(source);
+}
+
+Ref<RealtimeMediaSource> UserMediaCaptureManager::cloneVideoSource(Source& source)
+{
+    uint64_t id = nextSessionID();
+    if (!m_process.send(Messages::UserMediaCaptureManagerProxy::Clone { source.sourceID(), id }, 0))
+        return makeRef(source);
+
+    auto settings = source.settings();
+    auto cloneSource = adoptRef(*new Source(String::number(id), source.type(), source.deviceType(), String { settings.label().string() }, source.deviceIDHashSalt(), id, *this));
+    cloneSource->setSettings(WTFMove(settings));
+    m_sources.add(id, cloneSource.copyRef());
+    return cloneSource;
+}
+
+void UserMediaCaptureManager::Source::stopBeingObserved()
+{
+    connection()->send(Messages::UserMediaCaptureManagerProxy::RequestToEnd { m_id }, 0);
+}
+
+CaptureSourceOrError UserMediaCaptureManager::AudioFactory::createAudioCaptureSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints)
+{
+    if (m_shouldCaptureInGPUProcess) {
+#if ENABLE(GPU_PROCESS)
+        return m_manager.createCaptureSource(device, WTFMove(hashSalt), constraints, m_shouldCaptureInGPUProcess);
+#else
+        return CaptureSourceOrError { "Audio capture in GPUProcess is not implemented"_s };
+#endif
+    }
+    return m_manager.createCaptureSource(device, WTFMove(hashSalt), constraints);
+}
+
+#if PLATFORM(IOS_FAMILY)
+void UserMediaCaptureManager::AudioFactory::setAudioCapturePageState(bool interrupted, bool pageMuted)
+{
+    if (auto* activeSource = this->activeSource())
         activeSource->setInterrupted(interrupted, pageMuted);
 }
 
-void UserMediaCaptureManager::setVideoCapturePageState(bool interrupted, bool pageMuted)
+void UserMediaCaptureManager::VideoFactory::setVideoCapturePageState(bool interrupted, bool pageMuted)
 {
-    if (auto* activeSource = static_cast<VideoCaptureFactory*>(this)->activeSource())
-        activeSource->setInterrupted(interrupted, pageMuted);
+    // In case of cloning, we might have more than a single source.
+    for (auto& source : m_manager.m_sources.values()) {
+        if (source->deviceType() == CaptureDevice::DeviceType::Camera)
+            source->setInterrupted(interrupted, pageMuted);
+    }
 }
 #endif
 

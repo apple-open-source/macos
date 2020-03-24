@@ -55,6 +55,7 @@
 #include "ev_private.h"
 #include "IOHIDFamilyTrace.h"
 #include "IOHIDDebug.h"
+#include <stdatomic.h>
 
 #include "IOHIDEventServiceUserClient.h"
 #include "IOHIDEventServiceFastPathUserClient.h"
@@ -204,7 +205,7 @@ bool IOHIDEventService::init ( OSDictionary * properties )
     bzero(_reserved, sizeof(ExpansionData));
 
     _nubLock = IORecursiveLockAlloc();
-
+ 
     _clientDictLock = IOLockAlloc();
     _eventMemLock = IOLockAlloc();
 
@@ -227,6 +228,7 @@ bool IOHIDEventService::start ( IOService * provider )
     IOHIDDevice *device       = NULL;
 
     _provider = provider;
+    _provider->retain();
     
     device = OSDynamicCast(IOHIDDevice, provider->getProvider());
 
@@ -362,7 +364,6 @@ static void stopAndReleaseShim ( IOService * service, IOService * provider )
 void IOHIDEventService::stop( IOService * provider )
 {
     handleStop ( provider );
-    _provider = NULL;
 
     if (_multiAxis.timer) {
         _multiAxis.timer->cancelTimeout();
@@ -589,6 +590,9 @@ exit:
     return result;
 }
 
+
+static const OSSymbol * propagateProps[] = {kIOHIDPropagatePropertyKeys};
+
 //====================================================================================================
 // IOHIDEventService::setSystemProperties
 //====================================================================================================
@@ -626,11 +630,14 @@ IOReturn IOHIDEventService::setSystemProperties( OSDictionary * properties )
     if (number) {
         _debugMask = number->unsigned32BitValue();
     }
-    
-    if (properties->getObject(kIOHIDDeviceOpenedByEventSystemKey) == kOSBooleanTrue) {
-        dispatch_workloop_sync({
-            _provider->message(kIOHIDMessageOpenedByEventSystem, this, (void*)kOSBooleanTrue);
-        });
+
+    if (_provider && !isInactive()) {
+        for (const OSSymbol * prop : propagateProps) {
+            OSObject *val = properties->getObject(prop);
+            if (val) {
+                _provider->setProperty(prop, val);
+            }
+        }
     }
     
     return kIOReturnSuccess;
@@ -1065,6 +1072,8 @@ IOFixed IOHIDEventService::determineResolution ( IOHIDElement * element )
 void IOHIDEventService::free()
 {
     IORecursiveLock* tempLock = NULL;
+
+    OSSafeReleaseNULL(_provider);
 
     if ( _nubLock ) {
         IORecursiveLockLock(_nubLock);
@@ -1895,49 +1904,6 @@ void IOHIDEventService::dispatchAbsolutePointerEvent(
 //====================================================================================================
 // IOHIDEventService::dispatchScrollWheelEvent
 //====================================================================================================
-void IOHIDEventService::dispatchScrollWheelEventWithFixed(
-                                AbsoluteTime                timeStamp,
-                                IOFixed                     deltaAxis1,
-                                IOFixed                     deltaAxis2,
-                                IOFixed                     deltaAxis3,
-                                IOOptionBits                options)
-{
-    uint8_t momentumOrPhase = (options & kHIDDispatchOptionPhaseAny) >> 4 | ((options & kHIDDispatchOptionScrollMomentumAny) << (4 - 1));
-    IOHID_DEBUG(kIOHIDDebugCode_DispatchScroll, deltaAxis1, deltaAxis2, deltaAxis3, options);
-
-    if ( ! _readyForInputReports )
-        return;
-    
-    if ( !deltaAxis1 && !deltaAxis2 && !deltaAxis3 && !momentumOrPhase )
-        return;
-
-    IOHIDEvent *event = IOHIDEvent::scrollEventWithFixed(timeStamp, deltaAxis2, deltaAxis1, deltaAxis3); //yxz should be xyz
-    if ( event ) {
-        if (momentumOrPhase) {
-          event->setPhase (momentumOrPhase);
-        }
-        dispatchEvent(event);
-        event->release();
-    }
-
-#ifdef POINTING_SHIM_SUPPORT
-    if (_pointingShim != kLegacyShimDisabled) {
-        NUB_LOCK;
-
-        if ( !_pointingNub )
-            _pointingNub = newPointingShim();
-        if (_pointingNub)
-            _pointingNub->dispatchScrollWheelEvent(timeStamp, deltaAxis1 >> 16, deltaAxis2 >> 16, deltaAxis3 >> 16, options);
-
-        NUB_UNLOCK;
-    }
-#endif
-}
-
-
-//====================================================================================================
-// IOHIDEventService::dispatchScrollWheelEvent
-//====================================================================================================
 void IOHIDEventService::dispatchScrollWheelEvent(
                                 AbsoluteTime                timeStamp,
                                 SInt32                      deltaAxis1,
@@ -2584,13 +2550,16 @@ void IOHIDEventService::dispatchBiometricEvent(
     }
 }
 
+
+static const OSSymbol * openedKey = OSSymbol::withCStringNoCopy(kIOHIDDeviceOpenedByEventSystemKey);
+
 void IOHIDEventService::close(IOService *forClient, IOOptionBits options)
 {
     
     if (options & kIOHIDOpenedByEventSystem) {
-         dispatch_workloop_sync({
-             _provider->message(kIOHIDMessageOpenedByEventSystem, this, (void*)kOSBooleanFalse);
-         });
+        if (_provider && !isInactive()) {
+            _provider->setProperty(kIOHIDDeviceOpenedByEventSystemKey, kOSBooleanFalse);
+        }
     }
     super::close(forClient, options);
 }
@@ -2946,7 +2915,50 @@ IOHIDEvent *IOHIDEventService::copyMatchingEvent(OSDictionary *matching __unused
     return NULL;
 }
 
-OSMetaClassDefineReservedUnused(IOHIDEventService, 22);
+OSMetaClassDefineReservedUsed(IOHIDEventService, 22);
+//====================================================================================================
+// IOHIDEventService::dispatchScrollWheelEvent
+//====================================================================================================
+void IOHIDEventService::dispatchScrollWheelEventWithFixed(
+                                AbsoluteTime                timeStamp,
+                                IOFixed                     deltaAxis1,
+                                IOFixed                     deltaAxis2,
+                                IOFixed                     deltaAxis3,
+                                IOOptionBits                options)
+{
+    uint8_t momentumOrPhase = (options & kHIDDispatchOptionPhaseAny) >> 4 | ((options & kHIDDispatchOptionScrollMomentumAny) << (4 - 1));
+    IOHID_DEBUG(kIOHIDDebugCode_DispatchScroll, deltaAxis1, deltaAxis2, deltaAxis3, options);
+
+    if ( ! _readyForInputReports )
+        return;
+    
+    if ( !deltaAxis1 && !deltaAxis2 && !deltaAxis3 && !momentumOrPhase )
+        return;
+
+    IOHIDEvent *event = IOHIDEvent::scrollEventWithFixed(timeStamp, deltaAxis2, deltaAxis1, deltaAxis3); //yxz should be xyz
+    if ( event ) {
+        if (momentumOrPhase) {
+          event->setPhase (momentumOrPhase);
+        }
+        dispatchEvent(event);
+        event->release();
+    }
+
+#ifdef POINTING_SHIM_SUPPORT
+    if (_pointingShim != kLegacyShimDisabled) {
+        NUB_LOCK;
+
+        if ( !_pointingNub )
+            _pointingNub = newPointingShim();
+        if (_pointingNub)
+            _pointingNub->dispatchScrollWheelEvent(timeStamp, deltaAxis1 >> 16, deltaAxis2 >> 16, deltaAxis3 >> 16, options);
+
+        NUB_UNLOCK;
+    }
+#endif
+}
+
+
 OSMetaClassDefineReservedUnused(IOHIDEventService, 23);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 24);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 25);
@@ -2961,14 +2973,15 @@ OSMetaClassDefineReservedUnused(IOHIDEventService, 31);
 #pragma clang diagnostic ignored "-Wunused-parameter"
 
 #include <IOKit/IOUserServer.h>
-//#include "HIDDriverKit/Implementation/IOKitUser/IOHIDEventService.h"
 
 kern_return_t
-IMPL(IOHIDEventService, KernelStart)
+IMPL(IOHIDEventService, _Start)
 {
-    IOHIDEventService::start (provider);
+    setProperty(kIOHIDDKStartKey, kOSBooleanTrue);
     
-    return kIOReturnSuccess;
+    bool ret = start (provider);
+        
+    return ret ? kIOReturnSuccess : kIOReturnError;
 }
 
 kern_return_t
@@ -3051,6 +3064,14 @@ IMPL(IOHIDEventService, EventAvailable)
     IOReturn ret = kIOReturnError;
     
     IOLockLock(_eventMemLock);
+    
+    if (_eventMemory && length > _eventMemory->getLength()) {
+        ret = kIOReturnBadArgument;
+        IOLockUnlock(_eventMemLock);
+        return ret;
+    }
+    
+    
     if (_eventMemory) {
         event = IOHIDEvent::withBytes(_eventMemory->getBytesNoCopy(), length);
     }
@@ -3063,6 +3084,5 @@ IMPL(IOHIDEventService, EventAvailable)
     } else {
         HIDServiceLogError("Failed to create event");
     }
-    
     return ret;
 }

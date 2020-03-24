@@ -358,6 +358,16 @@ typedef uint32_t IOHIDStandardType;
  */
 #define kIOHIDSensorPropertyMaxFIFOEventsKey    "MaxFIFOEvents"
 
+/*!
+   @defined    kIOHIDDigitizerSurfaceSwitchKey
+   @abstract   Property to turn on / of surface digitizer contact reporting
+   @discussion To allow for better power management, a host may wish to indicate what it would like a touchpad digitizer to not report surface digitizer contacts by clearing this
+                flag. By default, upon cold‐boot/power cycle, touchpads that support reporting surface
+                contacts shall do so by default.
+*/
+
+#define kIOHIDDigitizerSurfaceSwitchKey "DigitizerSurfaceSwitch"
+
 __END_DECLS
 
 #endif /* !_IOKIT_HID_IOHIDKEYS_H_ */

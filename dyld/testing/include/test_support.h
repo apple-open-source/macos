@@ -1,74 +1,79 @@
-#include <stdio.h>
-#include <stdarg.h>
+#ifndef __DYLD_TEST_SUPPORT_H__
+#define __DYLD_TEST_SUPPORT_H__ 1
+
+#if __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <unistd.h>
-#include <mach-o/dyld.h>
-#include <sys/param.h>
+#include <mach/mach.h>
+#include <mach/machine.h>
+#include <dispatch/dispatch.h>
 
-#if __LP64__
-extern struct mach_header_64 __dso_handle;
-#else
-extern struct mach_header __dso_handle;
-#endif
+#if __cplusplus
+};
 
-static bool sIsATTY = false;
-static const char * sTestName = NULL;
-static uint64_t sTestCount = 0;
+// Only allow this interface for Objective-C++ due to typename and ARC issues in the default constructor
 
-__attribute__((constructor))
-static
-void BEGIN(int argc, const char* argv[], const char* envp[])  {
-    // Set up values we need to print in PASS() and FAIL()
-    sIsATTY = isatty(fileno(stdout));
-    sTestName = argv[0];
-    // Early returnif this not the main executbale, we only need to print the [BEGIN] line once
-    if (__dso_handle.filetype != MH_EXECUTE) {
-        return;
-    }
-    printf("[BEGIN]");
-    for (uint32_t i = 0; envp[i] != NULL; ++i) {
-        if (strncmp("DYLD_", envp[i], 5) == 0) {
-            printf(" %s", envp[i]);
-        }
-    }
-    char buffer[MAXPATHLEN];
-    uint32_t bufsize = MAXPATHLEN;
-    if (_NSGetExecutablePath(buffer, &bufsize) == 0) {
-        printf(" %s", buffer);
-    } else {
-        printf(" %s", argv[0]);
-    }
-    for (uint32_t i = 1; i < argc; ++i) {
-        printf (" %s", argv[i]);
-    }
-    printf("\n");
-}
+typedef void (^_dyld_test_reader_t)(int fd);
+typedef void (^_dyld_test_exit_handler_t)(pid_t pid);
+typedef void (^_dyld_test_crash_handler_t)(task_t task);
 
-__attribute__((format(printf, 1, 2)))
-static
-void PASS(const char *format, ...)  {
-    if (sIsATTY) {
-        printf("[\033[0;32mPASS\033[0m] %s (%llu): ", sTestName, sTestCount++);
-    } else {
-        printf("[PASS] %s (%llu): ", sTestName, sTestCount++);
-    }
-    va_list args;
-    va_start (args, format);
-    vprintf (format, args);
-    va_end (args);
-    printf("\n");
-}
+struct _process {
+    _process();
+    ~_process();
+    void set_executable_path(const char* EP);
+    void set_args(const char** A);
+    void set_env(const char** E);
+    void set_stdout_handler(_dyld_test_reader_t SOH);
+    void set_stderr_handler(_dyld_test_reader_t SEH);
+    void set_exit_handler(_dyld_test_exit_handler_t EH);
+    void set_crash_handler(_dyld_test_crash_handler_t CH);
+    void set_launch_suspended(bool S);
+    void set_launch_async(bool S);
+    void set_launch_arch(cpu_type_t A);
+    pid_t launch();
+    void *operator new(size_t size);
+    void operator delete(void *ptr);
+private:
+    const char* executablePath;
+    const char** args;
+    const char** env;
+    _dyld_test_reader_t stdoutHandler;
+    _dyld_test_reader_t stderrHandler;
+    _dyld_test_crash_handler_t crashHandler;
+    _dyld_test_exit_handler_t exitHandler;
+    pid_t pid;
+    cpu_type_t arch;
+    bool suspended;
+    bool async;
+};
+#endif /* __cplusplus */
 
-__attribute__((format(printf, 1, 2)))
-static
-void FAIL(const char *format, ...) {
-    if (sIsATTY) {
-        printf("[\033[0;31mFAIL\033[0m] %s (%llu): ", sTestName, sTestCount++);
-    } else {
-        printf("[FAIL] %s (%llu): ", sTestName, sTestCount++);
-    }
-    va_list args;
-    va_start (args, format);
-    vprintf (format, args);
-    va_end (args);
-    printf("\n");
-}
+#define PASS(...)           _PASS(__FILE__,__LINE__,__VA_ARGS__)
+#define FAIL(...)           _FAIL(__FILE__,__LINE__,__VA_ARGS__)
+#define LOG(...)            _LOG(__FILE__,__LINE__,__VA_ARGS__)
+#define TIMEOUT(seconds)    _TIMEOUT(__FILE__,__LINE__,seconds)
+
+// MARK: Private implementation details
+
+#if __cplusplus
+extern "C" {
+#endif  /* __cplusplus */
+__attribute__((format(printf, 3, 4)))
+__attribute__ ((noreturn))
+extern void _PASS(const char* file, unsigned line, const char* format, ...);
+
+__attribute__((format(printf, 3, 4)))
+__attribute__ ((noreturn))
+extern void _FAIL(const char* file, unsigned line, const char* format, ...);
+
+__attribute__((format(printf, 3, 4)))
+extern void _LOG(const char* file, unsigned line, const char* format, ...);
+
+extern void _TIMEOUT(const char* file, unsigned line, uint64_t seconds);
+#if __cplusplus
+};
+#endif  /* __cplusplus */
+
+#endif /* __DYLD_TEST_SUPPORT_H__ */

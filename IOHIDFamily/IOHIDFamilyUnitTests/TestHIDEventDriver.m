@@ -377,6 +377,7 @@
     
     IOHIDEventRef event;
     CFIndex eventMask;
+    
 
     event = (__bridge IOHIDEventRef) events[0];
     eventMask = IOHIDEventGetIntegerValue (event, kIOHIDEventFieldDigitizerEventMask);

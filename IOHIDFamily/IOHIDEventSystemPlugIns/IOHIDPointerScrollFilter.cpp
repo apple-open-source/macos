@@ -10,6 +10,7 @@
 
 
 #include <new>
+#include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFLogUtilities.h>
 #include <IOKit/hid/IOHIDServiceFilterPlugIn.h>
@@ -335,7 +336,8 @@ CFStringRef IOHIDPointerScrollFilter::_cachedPropertyList[] = {
     CFSTR(kIOHIDScrollAccelerationTypeKey),
     CFSTR(kIOHIDPointerAccelerationTypeKey),
     CFSTR(kIOHIDUserPointerAccelCurvesKey),
-    CFSTR(kIOHIDUserScrollAccelCurvesKey)
+    CFSTR(kIOHIDUserScrollAccelCurvesKey),
+    CFSTR(kIOHIDPointerAccelerationMultiplierKey)
 };
 
 //------------------------------------------------------------------------------
@@ -379,7 +381,8 @@ SInt32 IOHIDPointerScrollFilter::match(IOHIDServiceRef service, IOOptionBits opt
 {
     _matchScore = (IOHIDServiceConformsTo(service, kHIDPage_GenericDesktop, kHIDUsage_GD_Mouse) ||
                    IOHIDServiceConformsTo(service, kHIDPage_GenericDesktop, kHIDUsage_GD_Pointer) ||
-                   IOHIDServiceConformsTo(service, kHIDPage_AppleVendor,    kHIDUsage_GD_Pointer)) ? 100 : 0;
+                   IOHIDServiceConformsTo(service, kHIDPage_AppleVendor,    kHIDUsage_GD_Pointer) ||
+                   IOHIDServiceConformsTo(service, kHIDPage_Digitizer,    kHIDUsage_Dig_TouchPad)) ? 100 : 0;
     
     HIDLogDebug("(%p) for ServiceID %@ with score %d", this, IOHIDServiceGetRegistryID(service), (int)_matchScore);
     
@@ -470,6 +473,11 @@ void IOHIDPointerScrollFilter::accelerateEvent(IOHIDEventRef event) {
           CFArrayRemoveAllValues(children);
         }
         for (int  index = 0; index < (int)(sizeof(axis) / sizeof(axis[0])); index++) {
+#if TARGET_OS_IPHONE
+          // 10x gain factor on scrolling, inherited from older implementations.
+          // TODO: This gain is handled in SkyLight:__IOHIDPointerEventTranslatorProcessScrollCount on macOS. Unify logic here.
+          value[index] *= 10;
+#endif
           IOHIDEventSetFloatValue (accelEvent, axis[index], value[index]);
         }
         IOHIDEventSetEventFlags (accelEvent, IOHIDEventGetEventFlags(accelEvent) | kIOHIDAccelerated);
@@ -478,13 +486,13 @@ void IOHIDPointerScrollFilter::accelerateEvent(IOHIDEventRef event) {
       }
     }
   }
-  //accelerateChildrens(event);
+  accelerateChildrens(event);
 }
 
 //------------------------------------------------------------------------------
 // IOHIDPointerScrollFilter::setupPointerAcceleration
 //------------------------------------------------------------------------------
-void IOHIDPointerScrollFilter::setupPointerAcceleration()
+void IOHIDPointerScrollFilter::setupPointerAcceleration(double pointerAccelerationMultiplier)
 {
   
   if (_leagacyShim) {
@@ -539,7 +547,7 @@ void IOHIDPointerScrollFilter::setupPointerAcceleration()
     HIDLogInfo("[%@] Could not find kIOHIDMouseAccelerationType or acceleration disabled", SERVICE_ID);
     return;
   }
- 
+
   HIDLogDebug("[%@] Pointer acceleration value %f", SERVICE_ID, _pointerAcceleration);
 
   IOHIDAccelerationAlgorithm * algorithm = NULL;
@@ -580,7 +588,7 @@ void IOHIDPointerScrollFilter::setupPointerAcceleration()
     }
   }
   if (algorithm) {
-    _pointerAccelerator = new IOHIDPointerAccelerator (algorithm, FIXED_TO_DOUBLE((SInt32)resolution), (SInt32)defaultRate);
+    _pointerAccelerator = new IOHIDPointerAccelerator (algorithm, FIXED_TO_DOUBLE((SInt32)resolution), (SInt32)defaultRate, pointerAccelerationMultiplier);
   } else {
     HIDLogInfo("[%@] Could not create accelerator", SERVICE_ID);
   }
@@ -589,7 +597,7 @@ void IOHIDPointerScrollFilter::setupPointerAcceleration()
 //------------------------------------------------------------------------------
 // IOHIDPointerScrollFilter::setupScrollAcceleration
 //------------------------------------------------------------------------------
-void IOHIDPointerScrollFilter::setupScrollAcceleration() {
+void IOHIDPointerScrollFilter::setupScrollAcceleration(double scrollAccelerationMultiplier) {
 
   static CFStringRef ResolutionKeys[] = {
     CFSTR(kIOHIDScrollResolutionXKey),
@@ -663,7 +671,7 @@ void IOHIDPointerScrollFilter::setupScrollAcceleration() {
       HIDLogInfo("[%@] Could not get kIOHIDScrollResolutionKey", SERVICE_ID);
       continue;
     }
-    
+
     CFArrayRefWrap userCurves ((CFArrayRef)IOHIDServiceCopyProperty (_service, CFSTR(kIOHIDUserScrollAccelCurvesKey)), true);
     if (userCurves &&  userCurves.Count() > 0) {
         algorithm = IOHIDParametricAcceleration::CreateWithParameters(
@@ -704,7 +712,7 @@ void IOHIDPointerScrollFilter::setupScrollAcceleration() {
       }
     }
     if (algorithm) {
-      _scrollAccelerators[index] = new IOHIDScrollAccelerator(algorithm, FIXED_TO_DOUBLE((SInt32)resolution), FIXED_TO_DOUBLE((SInt32)rate));
+      _scrollAccelerators[index] = new IOHIDScrollAccelerator(algorithm, FIXED_TO_DOUBLE((SInt32)resolution), FIXED_TO_DOUBLE((SInt32)rate), scrollAccelerationMultiplier);
     }
   }
 }
@@ -718,9 +726,23 @@ void IOHIDPointerScrollFilter::setupAcceleration()
     HIDLogDebug("(%p) setupAcceleration service not available", this);
     return;
   }
-  
-  setupPointerAcceleration();
-  setupScrollAcceleration ();
+
+  CFNumberRefWrap pointerAccelerationMultiplier = CFNumberRefWrap((CFNumberRef)copyCachedProperty(CFSTR(kIOHIDPointerAccelerationMultiplierKey)), true);
+  if (pointerAccelerationMultiplier.Reference() == NULL || (SInt32)pointerAccelerationMultiplier == 0) {
+     pointerAccelerationMultiplier = CFNumberRefWrap((SInt32) DOUBLE_TO_FIXED((double)(1.0)));
+     if (pointerAccelerationMultiplier.Reference() == NULL) {
+       HIDLogInfo("[%@] Could not get/create pointer acceleration multiplier", SERVICE_ID);
+       return;
+     }
+  }
+  setupPointerAcceleration(FIXED_TO_DOUBLE((SInt32)pointerAccelerationMultiplier));
+
+  // @reado scroll acceleration logic without timestamp
+  // for now no need for fixed multiplier since timestamp
+  // is average over multiple packets , so it's not same problem
+  // as pointer accleration where rate multiplier considers
+  // delta between two packets
+  setupScrollAcceleration (1.0);
 }
 
 //------------------------------------------------------------------------------

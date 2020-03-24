@@ -222,28 +222,16 @@ ExceptionOr<void> FetchRequest::initializeWith(FetchRequest& input, Init&& init)
     } else
         m_signal->follow(input.m_signal.get());
 
-    if (init.headers) {
-        auto fillResult = m_headers->fill(*init.headers);
+    if (init.hasMembers()) {
+        auto fillResult = init.headers ? m_headers->fill(*init.headers) : m_headers->fill(input.headers());
         if (fillResult.hasException())
-            return fillResult.releaseException();
-    } else {
-        auto fillResult = m_headers->fill(input.headers());
-        if (fillResult.hasException())
-            return fillResult.releaseException();
-    }
+            return fillResult;
+    } else
+        m_headers->setInternalHeaders(HTTPHeaderMap { input.headers().internalHeaders() });
 
-    if (init.body) {
-        auto setBodyResult = setBody(WTFMove(*init.body));
-        if (setBodyResult.hasException())
-            return setBodyResult.releaseException();
-    } else {
-        if (input.isDisturbedOrLocked())
-            return Exception { TypeError, "Request input is disturbed or locked."_s };
-
-        auto setBodyResult = setBody(input);
-        if (setBodyResult.hasException())
-            return setBodyResult.releaseException();
-    }
+    auto setBodyResult = init.body ? setBody(WTFMove(*init.body)) : setBody(input);
+    if (setBodyResult.hasException())
+        return setBodyResult;
 
     updateContentType();
     return { };
@@ -255,7 +243,9 @@ ExceptionOr<void> FetchRequest::setBody(FetchBody::Init&& body)
         return Exception { TypeError, makeString("Request has method '", m_request.httpMethod(), "' and cannot have a body") };
 
     ASSERT(scriptExecutionContext());
-    extractBody(*scriptExecutionContext(), WTFMove(body));
+    auto result = extractBody(WTFMove(body));
+    if (result.hasException())
+        return result;
 
     if (m_options.keepAlive && hasReadableStreamBody())
         return Exception { TypeError, "Request cannot have a ReadableStream body and keepalive set to true"_s };
@@ -264,6 +254,9 @@ ExceptionOr<void> FetchRequest::setBody(FetchBody::Init&& body)
 
 ExceptionOr<void> FetchRequest::setBody(FetchRequest& request)
 {
+    if (request.isDisturbedOrLocked())
+        return Exception { TypeError, "Request input is disturbed or locked."_s };
+
     if (!request.isBodyNull()) {
         if (!methodCanHaveBody(m_request))
             return Exception { TypeError, makeString("Request has method '", m_request.httpMethod(), "' and cannot have a body") };
@@ -318,7 +311,7 @@ ResourceRequest FetchRequest::resourceRequest() const
     request.setHTTPHeaderFields(m_headers->internalHeaders());
 
     if (!isBodyNull())
-        request.setHTTPBody(body().bodyAsFormData(*scriptExecutionContext()));
+        request.setHTTPBody(body().bodyAsFormData());
 
     return request;
 }
@@ -337,12 +330,6 @@ ExceptionOr<Ref<FetchRequest>> FetchRequest::clone(ScriptExecutionContext& conte
 const char* FetchRequest::activeDOMObjectName() const
 {
     return "Request";
-}
-
-bool FetchRequest::canSuspendForDocumentSuspension() const
-{
-    // FIXME: We can probably do the same strategy as XHR.
-    return !isActive();
 }
 
 } // namespace WebCore

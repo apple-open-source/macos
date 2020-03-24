@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,58 +34,39 @@ using namespace WebKit;
 
 WKContextConfigurationRef WKContextConfigurationCreate()
 {
-    auto configuration = API::ProcessPoolConfiguration::create();
-    
-    // FIXME: A context created like this shouldn't have a data store,
-    // instead there should be a WKPageConfigurationRef object that specifies the data store.
-    configuration->setShouldHaveLegacyDataStore(true);
-    
-    return toAPI(&configuration.leakRef());
+    return toAPI(&API::ProcessPoolConfiguration::create().leakRef());
 }
 
 WKContextConfigurationRef WKContextConfigurationCreateWithLegacyOptions()
 {
-    return toAPI(&API::ProcessPoolConfiguration::createWithLegacyOptions().leakRef());
+    return WKContextConfigurationCreate();
 }
 
-WKStringRef WKContextConfigurationCopyDiskCacheDirectory(WKContextConfigurationRef configuration)
+WKStringRef WKContextConfigurationCopyDiskCacheDirectory(WKContextConfigurationRef)
 {
-    return toCopiedAPI(toImpl(configuration)->diskCacheDirectory());
+    return nullptr;
 }
 
-void WKContextConfigurationSetDiskCacheDirectory(WKContextConfigurationRef configuration, WKStringRef diskCacheDirectory)
+void WKContextConfigurationSetDiskCacheDirectory(WKContextConfigurationRef, WKStringRef)
 {
-    toImpl(configuration)->setDiskCacheDirectory(toImpl(diskCacheDirectory)->string());
 }
 
-WKStringRef WKContextConfigurationCopyApplicationCacheDirectory(WKContextConfigurationRef configuration)
+WKStringRef WKContextConfigurationCopyApplicationCacheDirectory(WKContextConfigurationRef)
 {
-    return toCopiedAPI(toImpl(configuration)->applicationCacheDirectory());
+    return nullptr;
 }
 
-void WKContextConfigurationSetApplicationCacheDirectory(WKContextConfigurationRef configuration, WKStringRef applicationCacheDirectory)
+void WKContextConfigurationSetApplicationCacheDirectory(WKContextConfigurationRef, WKStringRef)
 {
-    toImpl(configuration)->setApplicationCacheDirectory(toImpl(applicationCacheDirectory)->string());
 }
 
-WKStringRef WKContextConfigurationCopyIndexedDBDatabaseDirectory(WKContextConfigurationRef configuration)
+WKStringRef WKContextConfigurationCopyIndexedDBDatabaseDirectory(WKContextConfigurationRef)
 {
-    return toCopiedAPI(toImpl(configuration)->indexedDBDatabaseDirectory());
+    return nullptr;
 }
 
-void WKContextConfigurationSetIndexedDBDatabaseDirectory(WKContextConfigurationRef configuration, WKStringRef indexedDBDatabaseDirectory)
+void WKContextConfigurationSetIndexedDBDatabaseDirectory(WKContextConfigurationRef, WKStringRef)
 {
-    toImpl(configuration)->setIndexedDBDatabaseDirectory(toImpl(indexedDBDatabaseDirectory)->string());
-}
-
-WKArrayRef WKContextConfigurationCopyCustomClassesForParameterCoder(WKContextConfigurationRef configuration)
-{
-    return toAPI(&API::Array::createStringArray(toImpl(configuration)->customClassesForParameterCoder()).leakRef());
-}
-
-void WKContextConfigurationSetCustomClassesForParameterCoder(WKContextConfigurationRef configuration, WKArrayRef classesForCoder)
-{
-    toImpl(configuration)->setCustomClassesForParameterCoder(toImpl(classesForCoder)->toStringVector());
 }
 
 WKStringRef WKContextConfigurationCopyInjectedBundlePath(WKContextConfigurationRef configuration)
@@ -98,44 +79,50 @@ void WKContextConfigurationSetInjectedBundlePath(WKContextConfigurationRef confi
     toImpl(configuration)->setInjectedBundlePath(toImpl(injectedBundlePath)->string());
 }
 
-WKStringRef WKContextConfigurationCopyLocalStorageDirectory(WKContextConfigurationRef configuration)
+WKArrayRef WKContextConfigurationCopyCustomClassesForParameterCoder(WKContextConfigurationRef configuration)
 {
-    return toCopiedAPI(toImpl(configuration)->localStorageDirectory());
+    return toAPI(&API::Array::createStringArray(toImpl(configuration)->customClassesForParameterCoder()).leakRef());
 }
 
-void WKContextConfigurationSetLocalStorageDirectory(WKContextConfigurationRef configuration, WKStringRef localStorageDirectory)
+void WKContextConfigurationSetCustomClassesForParameterCoder(WKContextConfigurationRef configuration, WKArrayRef classesForCoder)
 {
-    toImpl(configuration)->setLocalStorageDirectory(toImpl(localStorageDirectory)->string());
+    toImpl(configuration)->setCustomClassesForParameterCoder(toImpl(classesForCoder)->toStringVector());
 }
 
-WKStringRef WKContextConfigurationCopyWebSQLDatabaseDirectory(WKContextConfigurationRef configuration)
+WKStringRef WKContextConfigurationCopyLocalStorageDirectory(WKContextConfigurationRef)
 {
-    return toCopiedAPI(toImpl(configuration)->webSQLDatabaseDirectory());
+    return nullptr;
 }
 
-void WKContextConfigurationSetWebSQLDatabaseDirectory(WKContextConfigurationRef configuration, WKStringRef webSQLDatabaseDirectory)
+void WKContextConfigurationSetLocalStorageDirectory(WKContextConfigurationRef, WKStringRef)
 {
-    toImpl(configuration)->setWebSQLDatabaseDirectory(toImpl(webSQLDatabaseDirectory)->string());
 }
 
-WKStringRef WKContextConfigurationCopyMediaKeysStorageDirectory(WKContextConfigurationRef configuration)
+WKStringRef WKContextConfigurationCopyWebSQLDatabaseDirectory(WKContextConfigurationRef)
 {
-    return toCopiedAPI(toImpl(configuration)->mediaKeysStorageDirectory());
+    return nullptr;
 }
 
-void WKContextConfigurationSetMediaKeysStorageDirectory(WKContextConfigurationRef configuration, WKStringRef mediaKeysStorageDirectory)
+void WKContextConfigurationSetWebSQLDatabaseDirectory(WKContextConfigurationRef, WKStringRef)
 {
-    toImpl(configuration)->setMediaKeysStorageDirectory(toImpl(mediaKeysStorageDirectory)->string());
 }
 
-WKStringRef WKContextConfigurationCopyResourceLoadStatisticsDirectory(WKContextConfigurationRef configuration)
+WKStringRef WKContextConfigurationCopyMediaKeysStorageDirectory(WKContextConfigurationRef)
 {
-    return toCopiedAPI(toImpl(configuration)->resourceLoadStatisticsDirectory());
+    return nullptr;
 }
 
-void WKContextConfigurationSetResourceLoadStatisticsDirectory(WKContextConfigurationRef configuration, WKStringRef resourceLoadStatisticsDirectory)
+void WKContextConfigurationSetMediaKeysStorageDirectory(WKContextConfigurationRef, WKStringRef)
 {
-    toImpl(configuration)->setResourceLoadStatisticsDirectory(toImpl(resourceLoadStatisticsDirectory)->string());
+}
+
+WKStringRef WKContextConfigurationCopyResourceLoadStatisticsDirectory(WKContextConfigurationRef)
+{
+    return nullptr;
+}
+
+void WKContextConfigurationSetResourceLoadStatisticsDirectory(WKContextConfigurationRef, WKStringRef)
+{
 }
 
 bool WKContextConfigurationFullySynchronousModeIsAllowedForTesting(WKContextConfigurationRef configuration)
@@ -237,3 +224,7 @@ void WKContextConfigurationSetDiskCacheSizeOverride(WKContextConfigurationRef co
 {
 }
 
+void WKContextConfigurationSetShouldConfigureJSCForTesting(WKContextConfigurationRef configuration, bool value)
+{
+    toImpl(configuration)->setShouldConfigureJSCForTesting(value);
+}

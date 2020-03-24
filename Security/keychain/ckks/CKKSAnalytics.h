@@ -40,6 +40,7 @@ extern NSString* const CKKSAnalyticsLastInCircle;
 
 extern NSString* const OctagonAnalyticsStateMachineState;
 extern NSString* const OctagonAnalyticIcloudAccountState;
+extern NSString* const OctagonAnalyticCDPBitStatus;
 extern NSString* const OctagonAnalyticsTrustState;
 extern NSString* const OctagonAnalyticsAttemptedJoin;
 extern NSString* const OctagonAnalyticsLastHealthCheck;
@@ -65,6 +66,12 @@ extern NSString* const OctagonAnalyticsKeychainSyncProvisioned;
 extern NSString* const OctagonAnalyticsKeychainSyncEnabled;
 extern NSString* const OctagonAnalyticsCloudKitProvisioned;
 extern NSString* const OctagonAnalyticsCloudKitEnabled;
+
+extern NSString* const OctagonAnalyticsBottledUniqueTLKsRecovered;
+extern NSString* const OctagonAnalyticsBottledTotalTLKShares;
+extern NSString* const OctagonAnalyticsBottledTotalTLKSharesRecovered;
+extern NSString* const OctagonAnalyticsBottledUniqueTLKsWithSharesCount;
+extern NSString* const OctagonAnalyticsBottledTLKUniqueViewCount;
 
 @class CKKSKeychainView;
 
@@ -129,6 +136,7 @@ extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithBottle;
 extern CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithBottle;
 
 /* inner: join with recovery key */
+extern CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithRecoveryKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithRecoveryKey;
 extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyValidationFailed;
 extern CKKSAnalyticsFailableEvent* const OctagonEventJoinRecoveryKeyFailed;

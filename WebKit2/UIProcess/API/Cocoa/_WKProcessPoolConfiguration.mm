@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #import "config.h"
 #import "_WKProcessPoolConfigurationInternal.h"
 
+#import "LegacyGlobalSettings.h"
 #import <objc/runtime.h>
 #import <wtf/RetainPtr.h>
 
@@ -108,12 +109,11 @@
 
 - (BOOL)diskCacheSpeculativeValidationEnabled
 {
-    return _processPoolConfiguration->diskCacheSpeculativeValidationEnabled();
+    return NO;
 }
 
 - (void)setDiskCacheSpeculativeValidationEnabled:(BOOL)enabled
 {
-    _processPoolConfiguration->setDiskCacheSpeculativeValidationEnabled(enabled);
 }
 
 - (BOOL)ignoreSynchronousMessagingTimeoutsForTesting
@@ -313,15 +313,12 @@
 
 - (BOOL)pageCacheEnabled
 {
-    return _processPoolConfiguration->cacheModel() != WebKit::CacheModel::DocumentViewer;
+    return _processPoolConfiguration->usesBackForwardCache();
 }
 
 - (void)setPageCacheEnabled:(BOOL)enabled
 {
-    if (!enabled)
-        _processPoolConfiguration->setCacheModel(WebKit::CacheModel::DocumentViewer);
-    else if (![self pageCacheEnabled])
-        _processPoolConfiguration->setCacheModel(WebKit::CacheModel::PrimaryWebBrowser);
+    return _processPoolConfiguration->setUsesBackForwardCache(enabled);
 }
 
 - (BOOL)usesSingleWebProcess
@@ -339,6 +336,11 @@
     return _processPoolConfiguration->suppressesConnectionTerminationOnSystemChange();
 }
 
+- (void)setSuppressesConnectionTerminationOnSystemChange:(BOOL)suppressesConnectionTerminationOnSystemChange
+{
+    _processPoolConfiguration->setSuppressesConnectionTerminationOnSystemChange(suppressesConnectionTerminationOnSystemChange);
+}
+
 - (BOOL)isJITEnabled
 {
     return _processPoolConfiguration->isJITEnabled();
@@ -349,46 +351,21 @@
     _processPoolConfiguration->setJITEnabled(enabled);
 }
 
-- (NSUInteger)downloadMonitorSpeedMultiplierForTesting
-{
-    return _processPoolConfiguration->downloadMonitorSpeedMultiplier();
-}
-
 - (void)setHSTSStorageDirectory:(NSURL *)directory
 {
     if (directory && ![directory isFileURL])
         [NSException raise:NSInvalidArgumentException format:@"%@ is not a file URL", directory];
 
     // FIXME: Move this to _WKWebsiteDataStoreConfiguration once rdar://problem/50109631 is fixed.
-    _processPoolConfiguration->setHSTSStorageDirectory(directory.path);
+    WebKit::LegacyGlobalSettings::singleton().setHSTSStorageDirectory(directory.path);
 }
 
 - (NSURL *)hstsStorageDirectory
 {
-    return [NSURL fileURLWithPath:_processPoolConfiguration->hstsStorageDirectory() isDirectory:YES];
-}
-
-- (void)setDownloadMonitorSpeedMultiplierForTesting:(NSUInteger)multiplier
-{
-    _processPoolConfiguration->setDownloadMonitorSpeedMultiplier(multiplier);
-}
-
-- (void)setSuppressesConnectionTerminationOnSystemChange:(BOOL)suppressesConnectionTerminationOnSystemChange
-{
-    _processPoolConfiguration->setSuppressesConnectionTerminationOnSystemChange(suppressesConnectionTerminationOnSystemChange);
+    return [NSURL fileURLWithPath:WebKit::LegacyGlobalSettings::singleton().hstsStorageDirectory() isDirectory:YES];
 }
 
 #if PLATFORM(IOS_FAMILY)
-- (NSString *)CTDataConnectionServiceType
-{
-    return _processPoolConfiguration->ctDataConnectionServiceType();
-}
-
-- (void)setCTDataConnectionServiceType:(NSString *)ctDataConnectionServiceType
-{
-    _processPoolConfiguration->setCTDataConnectionServiceType(ctDataConnectionServiceType);
-}
-
 - (BOOL)alwaysRunsAtBackgroundPriority
 {
     return _processPoolConfiguration->alwaysRunsAtBackgroundPriority();
@@ -433,6 +410,16 @@
 - (void)setCustomWebContentServiceBundleIdentifier:(NSString *)customWebContentServiceBundleIdentifier
 {
     _processPoolConfiguration->setCustomWebContentServiceBundleIdentifier(customWebContentServiceBundleIdentifier);
+}
+
+- (BOOL)configureJSCForTesting
+{
+    return _processPoolConfiguration->shouldConfigureJSCForTesting();
+}
+
+- (void)setConfigureJSCForTesting:(BOOL)value
+{
+    _processPoolConfiguration->setShouldConfigureJSCForTesting(value);
 }
 
 #pragma mark WKObject protocol implementation

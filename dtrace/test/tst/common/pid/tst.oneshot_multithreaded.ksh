@@ -19,7 +19,7 @@ status=$?
 if [ $status -eq 42 ]; then
 	exit 0
 elif [ $status -eq 0 ]; then
-	exit -1
+	exit 1
 else
 	exit $status
 fi

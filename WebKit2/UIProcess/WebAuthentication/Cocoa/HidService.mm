@@ -85,7 +85,7 @@ UniqueRef<HidConnection> HidService::createHidConnection(IOHIDDeviceRef device) 
 
 void HidService::deviceAdded(IOHIDDeviceRef device)
 {
-    getInfo(std::make_unique<CtapHidDriver>(createHidConnection(device)));
+    getInfo(WTF::makeUnique<CtapHidDriver>(createHidConnection(device)));
 }
 
 } // namespace WebKit

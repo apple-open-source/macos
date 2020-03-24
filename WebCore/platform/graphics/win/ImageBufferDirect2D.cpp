@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,13 +30,17 @@
 
 #include "BitmapImage.h"
 #include "COMPtr.h"
+#include "Direct2DUtilities.h"
 #include "GraphicsContext.h"
 #include "ImageData.h"
+#include "ImageDecoderDirect2D.h"
 #include "IntRect.h"
 #include "MIMETypeRegistry.h"
 #include "NotImplemented.h"
-#include <d2d1.h>
+#include "PlatformContextDirect2D.h"
+#include <d2d1_1.h>
 #include <math.h>
+#include <wincodec.h>
 #include <wtf/Assertions.h>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/MainThread.h>
@@ -62,7 +66,7 @@ std::unique_ptr<ImageBuffer> ImageBuffer::createCompatibleBuffer(const FloatSize
     RenderingMode renderingMode = context.renderingMode();
     IntSize scaledSize = ImageBuffer::compatibleBufferSize(size, context);
     bool success = false;
-    std::unique_ptr<ImageBuffer> buffer(new ImageBuffer(scaledSize, 1, ColorSpaceSRGB, renderingMode, nullptr, &context, success));
+    std::unique_ptr<ImageBuffer> buffer(new ImageBuffer(scaledSize, 1, ColorSpace::SRGB, renderingMode, nullptr, &context, success));
 
     if (!success)
         return nullptr;
@@ -97,20 +101,26 @@ ImageBuffer::ImageBuffer(const FloatSize& size, float resolutionScale, ColorSpac
     if (numBytes.hasOverflowed())
         return;
 
-    auto renderTarget = targetContext ? targetContext->platformContext() : nullptr;
+    auto* platformContext = targetContext ? targetContext->platformContext() : nullptr;
+    auto* renderTarget = platformContext ? platformContext->renderTarget() : nullptr;
+
     if (!renderTarget)
         renderTarget = GraphicsContext::defaultRenderTarget();
-    RELEASE_ASSERT(renderTarget);
 
-    COMPtr<ID2D1BitmapRenderTarget> bitmapContext;
-    D2D1_SIZE_F desiredSize = FloatSize(m_logicalSize);
-    D2D1_SIZE_U pixelSize = IntSize(m_logicalSize);
-    HRESULT hr = renderTarget->CreateCompatibleRenderTarget(&desiredSize, &pixelSize, nullptr, D2D1_COMPATIBLE_RENDER_TARGET_OPTIONS_GDI_COMPATIBLE, &bitmapContext);
-    if (!bitmapContext || !SUCCEEDED(hr))
+    auto bitmapContext = Direct2D::createBitmapRenderTargetOfSize(m_logicalSize, renderTarget, m_resolutionScale);
+    if (!bitmapContext)
         return;
 
-    m_data.context = std::make_unique<GraphicsContext>(bitmapContext.get());
-    m_data.m_compatibleTarget = renderTarget;
+    HRESULT hr = bitmapContext->GetBitmap(&m_data.bitmap);
+    if (!SUCCEEDED(hr))
+        return;
+
+    m_data.platformContext = makeUnique<PlatformContextDirect2D>(bitmapContext.get(), [this]() {
+        m_data.loadDataToBitmapIfNeeded();
+    }, [this]() {
+        m_data.markBufferOutOfSync();
+    });
+    m_data.context = makeUnique<GraphicsContext>(m_data.platformContext.get(), GraphicsContext::BitmapRenderingContextType::GPUMemory);
 
     success = true;
 }
@@ -137,26 +147,27 @@ void ImageBuffer::flushContext() const
     context().flush();
 }
 
-static COMPtr<ID2D1Bitmap> createCroppedImageIfNecessary(ID2D1Bitmap* image, const IntSize& bounds)
+static COMPtr<ID2D1Bitmap> createCroppedImageIfNecessary(ID2D1BitmapRenderTarget* bitmapTarget, ID2D1Bitmap* image, const IntSize& bounds)
 {
-    FloatSize imageSize = image ? image->GetSize() : FloatSize();
+    FloatSize imageSize = image ? nativeImageSize(image) : FloatSize();
 
     if (image && (static_cast<size_t>(imageSize.width()) != static_cast<size_t>(bounds.width()) || static_cast<size_t>(imageSize.height()) != static_cast<size_t>(bounds.height()))) {
-        D2D_POINT_2U origin = { };
-        D2D1_RECT_U croppedDimenstions = IntRect(IntPoint(), bounds);
-        COMPtr<ID2D1Bitmap> croppedImage;
-        HRESULT hr = croppedImage->CopyFromBitmap(&origin, image, &croppedDimenstions);
-        if (SUCCEEDED(hr))
-            return croppedImage;
+        COMPtr<ID2D1Bitmap> croppedBitmap = Direct2D::createBitmap(bitmapTarget, bounds);
+        if (croppedBitmap) {
+            auto sourceRect = D2D1::RectU(0, 0, bounds.width(), bounds.height());
+            HRESULT hr = croppedBitmap->CopyFromBitmap(nullptr, image, &sourceRect);
+            if (SUCCEEDED(hr))
+                return croppedBitmap;
+        }
     }
 
     return image;
 }
 
-static RefPtr<Image> createBitmapImageAfterScalingIfNeeded(COMPtr<ID2D1Bitmap>&& image, IntSize internalSize, IntSize logicalSize, IntSize backingStoreSize, float resolutionScale, PreserveResolution preserveResolution)
+static RefPtr<Image> createBitmapImageAfterScalingIfNeeded(ID2D1BitmapRenderTarget* bitmapTarget, COMPtr<ID2D1Bitmap>&& image, IntSize internalSize, IntSize logicalSize, IntSize backingStoreSize, float resolutionScale, PreserveResolution preserveResolution)
 {
     if (resolutionScale == 1 || preserveResolution == PreserveResolution::Yes)
-        image = createCroppedImageIfNecessary(image.get(), internalSize);
+        image = createCroppedImageIfNecessary(bitmapTarget, image.get(), internalSize);
     else {
         // FIXME: Need to implement scaled version
         notImplemented();
@@ -176,7 +187,8 @@ RefPtr<Image> ImageBuffer::copyImage(BackingStoreCopy copyBehavior, PreserveReso
     else
         image = copyNativeImage(DontCopyBackingStore);
 
-    return createBitmapImageAfterScalingIfNeeded(WTFMove(image), internalSize(), logicalSize(), m_data.backingStoreSize, m_resolutionScale, preserveResolution);
+    auto bitmapTarget = reinterpret_cast<ID2D1BitmapRenderTarget*>(context().platformContext());
+    return createBitmapImageAfterScalingIfNeeded(bitmapTarget, WTFMove(image), internalSize(), logicalSize(), m_data.backingStoreSize, m_resolutionScale, preserveResolution);
 }
 
 RefPtr<Image> ImageBuffer::sinkIntoImage(std::unique_ptr<ImageBuffer> imageBuffer, PreserveResolution preserveResolution)
@@ -186,7 +198,12 @@ RefPtr<Image> ImageBuffer::sinkIntoImage(std::unique_ptr<ImageBuffer> imageBuffe
     IntSize backingStoreSize = imageBuffer->m_data.backingStoreSize;
     float resolutionScale = imageBuffer->m_resolutionScale;
 
-    return createBitmapImageAfterScalingIfNeeded(sinkIntoNativeImage(WTFMove(imageBuffer)), internalSize, logicalSize, backingStoreSize, resolutionScale, preserveResolution);
+    COMPtr<ID2D1BitmapRenderTarget> bitmapTarget;
+    HRESULT hr = imageBuffer->context().platformContext()->renderTarget()->QueryInterface(&bitmapTarget);
+    if (!SUCCEEDED(hr))
+        return nullptr;
+
+    return createBitmapImageAfterScalingIfNeeded(bitmapTarget.get(), sinkIntoNativeImage(WTFMove(imageBuffer)), internalSize, logicalSize, backingStoreSize, resolutionScale, preserveResolution);
 }
 
 BackingStoreCopy ImageBuffer::fastCopyImageMode()
@@ -202,15 +219,22 @@ COMPtr<ID2D1Bitmap> ImageBuffer::sinkIntoNativeImage(std::unique_ptr<ImageBuffer
 
 COMPtr<ID2D1Bitmap> ImageBuffer::copyNativeImage(BackingStoreCopy copyBehavior) const
 {
-    auto bitmapTarget = reinterpret_cast<ID2D1BitmapRenderTarget*>(context().platformContext());
+    COMPtr<ID2D1BitmapRenderTarget> bitmapTarget;
+    HRESULT hr = context().platformContext()->renderTarget()->QueryInterface(&bitmapTarget);
+    if (!SUCCEEDED(hr))
+        return nullptr;
 
     COMPtr<ID2D1Bitmap> image;
-    HRESULT hr = bitmapTarget->GetBitmap(&image);
+    hr = bitmapTarget->GetBitmap(&image);
     ASSERT(SUCCEEDED(hr));
 
     // FIXME: m_data.data is nullptr even when asking to copy backing store leading to test failures.
-    if (copyBehavior == CopyBackingStore && !m_data.data)
+    if (copyBehavior == CopyBackingStore && m_data.data.isEmpty())
         copyBehavior = DontCopyBackingStore;
+
+    Checked<size_t, RecordOverflow> numBytes = Checked<unsigned, RecordOverflow>(m_data.backingStoreSize.height()) * m_data.bytesPerRow;
+    if (numBytes.hasOverflowed())
+        return nullptr;
 
     if (!context().isAcceleratedContext()) {
         switch (copyBehavior) {
@@ -218,7 +242,7 @@ COMPtr<ID2D1Bitmap> ImageBuffer::copyNativeImage(BackingStoreCopy copyBehavior) 
             break;
         case CopyBackingStore:
             D2D1_RECT_U backingStoreDimenstions = IntRect(IntPoint(), m_data.backingStoreSize);
-            image->CopyFromMemory(&backingStoreDimenstions, m_data.data, 32);
+            image->CopyFromMemory(&backingStoreDimenstions, m_data.data.data(), 32);
             break;
         default:
             ASSERT_NOT_REACHED();
@@ -233,42 +257,26 @@ COMPtr<ID2D1Bitmap> ImageBuffer::copyNativeImage(BackingStoreCopy copyBehavior) 
     return image;
 }
 
-void ImageBuffer::drawConsuming(std::unique_ptr<ImageBuffer> imageBuffer, GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator op, BlendMode blendMode)
+void ImageBuffer::drawConsuming(std::unique_ptr<ImageBuffer> imageBuffer, GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
-    imageBuffer->draw(destContext, destRect, srcRect, op, blendMode);
+    imageBuffer->draw(destContext, destRect, srcRect, options);
 }
 
-void ImageBuffer::draw(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator op, BlendMode blendMode)
+void ImageBuffer::draw(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
-    auto bitmapTarget = reinterpret_cast<ID2D1BitmapRenderTarget*>(context().platformContext());
-    auto outputTarget = destContext.platformContext();
-
-    COMPtr<ID2D1Bitmap> image;
-    HRESULT hr = bitmapTarget->GetBitmap(&image);
-    if (!SUCCEEDED(hr))
-        return;
-
-    // If the render targets for the source and destination contexts do not match, move the image over.
-    if (destContext.platformContext() != m_data.m_compatibleTarget) {
-        COMPtr<ID2D1Bitmap> sourceImage = image;
-        image = nullptr;
-
-        auto bitmapProperties = D2D1::BitmapProperties();
-        GraphicsContext::systemFactory()->GetDesktopDpi(&bitmapProperties.dpiX, &bitmapProperties.dpiY);
-        hr = outputTarget->CreateSharedBitmap(__uuidof(ID2D1Bitmap), sourceImage.get(), &bitmapProperties, &image);
-        if (!SUCCEEDED(hr))
-            return;
-    }
-
     FloatRect adjustedSrcRect = srcRect;
     adjustedSrcRect.scale(m_resolutionScale, m_resolutionScale);
 
-    destContext.drawNativeImage(image, image->GetSize(), destRect, adjustedSrcRect, op, blendMode);
+    auto compatibleBitmap = m_data.compatibleBitmap(destContext.platformContext()->renderTarget());
 
-    destContext.flush();
+    FloatSize currentImageSize = nativeImageSize(compatibleBitmap);
+    if (currentImageSize.isZero())
+        return;
+
+    destContext.drawNativeImage(compatibleBitmap, currentImageSize, destRect, adjustedSrcRect, options);
 }
 
-void ImageBuffer::drawPattern(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, CompositeOperator op, BlendMode blendMode)
+void ImageBuffer::drawPattern(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
     FloatRect adjustedSrcRect = srcRect;
     adjustedSrcRect.scale(m_resolutionScale, m_resolutionScale);
@@ -276,14 +284,14 @@ void ImageBuffer::drawPattern(GraphicsContext& destContext, const FloatRect& des
     if (!context().isAcceleratedContext()) {
         if (&destContext == &context() || destContext.isAcceleratedContext()) {
             if (RefPtr<Image> copy = copyImage(CopyBackingStore)) // Drawing into our own buffer, need to deep copy.
-                copy->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, op, blendMode);
+                copy->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, options);
         } else {
             if (RefPtr<Image> imageForRendering = copyImage(DontCopyBackingStore))
-                imageForRendering->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, op, blendMode);
+                imageForRendering->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, options);
         }
     } else {
         if (RefPtr<Image> copy = copyImage(CopyBackingStore))
-            copy->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, op, blendMode);
+            copy->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, options);
     }
 }
 

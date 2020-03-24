@@ -77,7 +77,7 @@ ms{
         CF{"Republik Afrika Tengah"}
         CG{"Congo - Brazzaville"}
         CH{"Switzerland"}
-        CI{"Cote d’Ivoire"}
+        CI{"Côte d’Ivoire"}
         CK{"Kepulauan Cook"}
         CL{"Chile"}
         CM{"Cameroon"}

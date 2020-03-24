@@ -68,16 +68,16 @@ WI.Recording = class Recording extends WI.Object
 
         let type = null;
         switch (payload.type) {
-        case RecordingAgent.Type.Canvas2D:
+        case InspectorBackend.Enum.Recording.Type.Canvas2D:
             type = WI.Recording.Type.Canvas2D;
             break;
-        case RecordingAgent.Type.CanvasBitmapRenderer:
+        case InspectorBackend.Enum.Recording.Type.CanvasBitmapRenderer:
             type = WI.Recording.Type.CanvasBitmapRenderer;
             break;
-        case RecordingAgent.Type.CanvasWebGL:
+        case InspectorBackend.Enum.Recording.Type.CanvasWebGL:
             type = WI.Recording.Type.CanvasWebGL;
             break;
-        case RecordingAgent.Type.CanvasWebGL2:
+        case InspectorBackend.Enum.Recording.Type.CanvasWebGL2:
             type = WI.Recording.Type.CanvasWebGL2;
             break;
         default:
@@ -146,6 +146,23 @@ WI.Recording = class Recording extends WI.Object
             frames = payload.frames.map(WI.RecordingFrame.fromPayload)
 
         return new WI.Recording(payload.version, type, payload.initialState, frames, payload.data);
+    }
+
+    static displayNameForRecordingType(recordingType)
+    {
+        switch (recordingType) {
+        case Recording.Type.Canvas2D:
+            return WI.UIString("2D");
+        case Recording.Type.CanvasBitmapRenderer:
+            return WI.UIString("Bitmap Renderer", "Recording Type Canvas Bitmap Renderer", "A type of canvas recording in the Graphics Tab");
+        case Recording.Type.CanvasWebGL:
+            return WI.unlocalizedString("WebGL");
+        case Recording.Type.CanvasWebGL2:
+            return WI.unlocalizedString("WebGL2");
+        }
+
+        console.assert(false, "Unknown recording type", recordingType);
+        return null;
     }
 
     static displayNameForSwizzleType(swizzleType)

@@ -125,7 +125,7 @@ tgetpass(const char *prompt, int timeout, int flags,
     static char buf[SUDO_CONV_REPL_MAX + 1];
     int i, input, output, save_errno, ttyfd;
     bool need_restart, neednl = false;
-	bool feedback = ISSET(flags, TGP_MASK);
+    bool feedback = ISSET(flags, TGP_MASK);
     enum tgetpass_errval errval;
     debug_decl(tgetpass, SUDO_DEBUG_CONV)
 
@@ -195,10 +195,9 @@ restart:
 	    }
 	}
     }
-	/* Only use feedback mode when we can disable echo. */
-	if (!neednl) {
-		feedback = false;
-	}
+    /* Only use feedback mode when we can disable echo. */
+    if (!neednl)
+	feedback = false;
 
     /*
      * Catch signals that would otherwise cause the user to end
@@ -308,7 +307,7 @@ sudo_askpass(const char *askpass, const char *prompt)
     sa.sa_handler = SIG_DFL;
     (void) sigaction(SIGCHLD, &sa, &savechld);
 
-    if (pipe(pfd) == -1)
+    if (pipe2(pfd, O_CLOEXEC) == -1)
 	sudo_fatal(U_("unable to create pipe"));
 
     child = sudo_debug_fork();
@@ -316,13 +315,26 @@ sudo_askpass(const char *askpass, const char *prompt)
 	sudo_fatal(U_("unable to fork"));
 
     if (child == 0) {
-	/* child, point stdout to output side of the pipe and exec askpass */
-	if (dup2(pfd[1], STDOUT_FILENO) == -1) {
-	    sudo_warn("dup2");
-	    _exit(255);
+	/* child, set stdout to write side of the pipe or clear FD_CLOEXEC */
+	if (pfd[1] == STDOUT_FILENO) {
+	    if (fcntl(pfd[1], F_SETFD, 0) == -1) {
+		sudo_warn("fcntl");
+		_exit(255);
+	    }
+	} else {
+	    if (dup2(pfd[1], STDOUT_FILENO) == -1) {
+		sudo_warn("dup2");
+		_exit(255);
+	    }
 	}
 	if (setuid(ROOT_UID) == -1)
 	    sudo_warn("setuid(%d)", ROOT_UID);
+	/* Close fds before uid change to prevent prlimit sabotage on Linux. */
+	closefrom(STDERR_FILENO + 1);
+	/* Run the askpass program with the user's original resource limits. */
+	restore_limits();
+	/* But avoid a setuid() failure on Linux due to RLIMIT_NPROC. */
+	unlimit_nproc();
 	if (setgid(user_details.gid)) {
 	    sudo_warn(U_("unable to set gid to %u"), (unsigned int)user_details.gid);
 	    _exit(255);
@@ -331,7 +343,7 @@ sudo_askpass(const char *askpass, const char *prompt)
 	    sudo_warn(U_("unable to set uid to %u"), (unsigned int)user_details.uid);
 	    _exit(255);
 	}
-	closefrom(STDERR_FILENO + 1);
+	restore_nproc();
 	execl(askpass, askpass, prompt, (char *)NULL);
 	sudo_warn(U_("unable to run %s"), askpass);
 	_exit(255);
@@ -401,7 +413,7 @@ getln(int fd, char *buf, size_t bufsiz, bool feedback,
 		continue;
 	    } else if (c == sudo_term_erase) {
 		if (cp > buf) {
-			ignore_result(write(fd, "\b \b", 3));
+		    ignore_result(write(fd, "\b \b", 3));
 		    cp--;
 		    left++;
 		}

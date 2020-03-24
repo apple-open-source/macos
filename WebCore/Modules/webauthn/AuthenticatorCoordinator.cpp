@@ -32,15 +32,17 @@
 #include "AuthenticatorAssertionResponse.h"
 #include "AuthenticatorAttestationResponse.h"
 #include "AuthenticatorCoordinatorClient.h"
+#include "AuthenticatorResponseData.h"
 #include "Document.h"
 #include "JSBasicCredential.h"
+#include "JSDOMPromiseDeferred.h"
 #include "PublicKeyCredential.h"
 #include "PublicKeyCredentialCreationOptions.h"
-#include "PublicKeyCredentialData.h"
 #include "PublicKeyCredentialRequestOptions.h"
 #include "RegistrableDomain.h"
-#include "SchemeRegistry.h"
+#include "LegacySchemeRegistry.h"
 #include "SecurityOrigin.h"
+#include "WebAuthenticationConstants.h"
 #include <pal/crypto/CryptoDigest.h>
 #include <wtf/JSONValues.h>
 #include <wtf/NeverDestroyed.h>
@@ -49,11 +51,6 @@
 namespace WebCore {
 
 namespace AuthenticatorCoordinatorInternal {
-
-enum class ClientDataType {
-    Create,
-    Get
-};
 
 // FIXME(181948): Add token binding ID.
 static Ref<ArrayBuffer> produceClientDataJson(ClientDataType type, const BufferSource& challenge, const SecurityOrigin& origin)
@@ -100,7 +97,7 @@ static bool needsAppIdQuirks(const String& host, const String& appId)
 static String processAppIdExtension(const SecurityOrigin& facetId, const String& appId)
 {
     // Step 1. Skipped since facetId should always be secure origins.
-    ASSERT(SchemeRegistry::shouldTreatURLSchemeAsSecure(facetId.protocol()));
+    ASSERT(LegacySchemeRegistry::shouldTreatURLSchemeAsSecure(facetId.protocol()));
 
     // Step 2. Follow Chrome and Firefox to use the origin directly without adding a trailing slash.
     if (appId.isEmpty())
@@ -188,15 +185,15 @@ void AuthenticatorCoordinator::create(const Document& document, const PublicKeyC
         return;
     }
 
-    auto callback = [clientDataJson = WTFMove(clientDataJson), promise = WTFMove(promise), abortSignal = WTFMove(abortSignal)] (PublicKeyCredentialData&& data, ExceptionData&& exception) mutable {
+    auto callback = [clientDataJson = WTFMove(clientDataJson), promise = WTFMove(promise), abortSignal = WTFMove(abortSignal)] (AuthenticatorResponseData&& data, ExceptionData&& exception) mutable {
         if (abortSignal && abortSignal->aborted()) {
             promise.reject(Exception { AbortError, "Aborted by AbortSignal."_s });
             return;
         }
 
-        data.clientDataJSON = WTFMove(clientDataJson);
-        if (auto publicKeyCredential = PublicKeyCredential::tryCreate(WTFMove(data))) {
-            promise.resolve(publicKeyCredential.get());
+        if (auto response = AuthenticatorResponse::tryCreate(WTFMove(data))) {
+            response->setClientDataJSON(WTFMove(clientDataJson));
+            promise.resolve(PublicKeyCredential::create(response.releaseNonNull()).ptr());
             return;
         }
         ASSERT(!exception.message.isNull());
@@ -259,15 +256,15 @@ void AuthenticatorCoordinator::discoverFromExternalSource(const Document& docume
         return;
     }
 
-    auto callback = [clientDataJson = WTFMove(clientDataJson), promise = WTFMove(promise), abortSignal = WTFMove(abortSignal)] (PublicKeyCredentialData&& data, ExceptionData&& exception) mutable {
+    auto callback = [clientDataJson = WTFMove(clientDataJson), promise = WTFMove(promise), abortSignal = WTFMove(abortSignal)] (AuthenticatorResponseData&& data, ExceptionData&& exception) mutable {
         if (abortSignal && abortSignal->aborted()) {
             promise.reject(Exception { AbortError, "Aborted by AbortSignal."_s });
             return;
         }
 
-        data.clientDataJSON = WTFMove(clientDataJson);
-        if (auto publicKeyCredential = PublicKeyCredential::tryCreate(WTFMove(data))) {
-            promise.resolve(publicKeyCredential.get());
+        if (auto response = AuthenticatorResponse::tryCreate(WTFMove(data))) {
+            response->setClientDataJSON(WTFMove(clientDataJson));
+            promise.resolve(PublicKeyCredential::create(response.releaseNonNull()).ptr());
             return;
         }
         ASSERT(!exception.message.isNull());

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2014-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,10 +41,6 @@
 
 #define BACK_TO_MY_MAC			CFSTR("BackToMyMac")
 #define BACK_TO_MY_MAC_DSIDS		CFSTR("BackToMyMacDSIDs")
-#define	PREFS_DEFAULT_DIR_PLIST		"/Library/Preferences/SystemConfiguration"
-#define PREFS_DEFAULT_DIR_RELATIVE	CFSTR("Library/Preferences/SystemConfiguration/")
-#define	PREFS_DEFAULT_CONFIG_PLIST	"preferences.plist"
-#define	NETWORK_INTERFACES_PREFS_PLIST	"NetworkInterfaces.plist"
 #define NUM_MIGRATION_PATHS		2
 #define PLUGIN_ID			CFSTR("System Migration")
 #define PREFERENCES_PLIST_INDEX		0
@@ -82,8 +78,8 @@ _SCNetworkConfigurationCopyMigrationPathsWithBaseURL(CFURLRef baseURL, CFURLRef 
 		CFRetain(baseURL);
 	} else {
 		baseURL = CFURLCreateFromFileSystemRepresentation(NULL,
-								  (UInt8*)PREFS_DEFAULT_DIR_PLIST,
-								  sizeof(PREFS_DEFAULT_DIR_PLIST) - 1,
+								  (UInt8*)PREFS_DEFAULT_DIR_PATH,
+								  sizeof(PREFS_DEFAULT_DIR_PATH) - 1,
 								  TRUE);
 	}
 
@@ -94,8 +90,8 @@ _SCNetworkConfigurationCopyMigrationPathsWithBaseURL(CFURLRef baseURL, CFURLRef 
 								       baseURL);
 
 	*interfaces = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL,
-									    (UInt8*)NETWORK_INTERFACES_PREFS_PLIST,
-									    sizeof(NETWORK_INTERFACES_PREFS_PLIST) - 1,
+									    (UInt8*)INTERFACES_DEFAULT_CONFIG_PLIST,
+									    sizeof(INTERFACES_DEFAULT_CONFIG_PLIST) - 1,
 									    FALSE,
 									    baseURL);
 	CFRelease(baseURL);
@@ -350,31 +346,24 @@ __SCNetworkCreateDefaultPref(CFStringRef prefsID)
 }
 
 __private_extern__
-SCPreferencesRef
-__SCNetworkCreateDefaultNIPrefs(CFStringRef prefsID)
+void
+__SCNetworkPopulateDefaultNIPrefs(SCPreferencesRef ni_prefs)
 {
 	CFMutableArrayRef interfaces = NULL;
 	CFStringRef model;
 	CFArrayRef networkInterfaces;
-	SCPreferencesRef ni_prefs;
 	CFComparisonResult res;
+
+	interfaces = (CFMutableArrayRef)SCPreferencesGetValue(ni_prefs, INTERFACES);
+	if (isA_CFArray(interfaces)) {
+		// if already populated
+		return;
+	}
 
 	networkInterfaces = __SCNetworkInterfaceCopyAll_IONetworkInterface(TRUE);
 	if (networkInterfaces == NULL) {
 		SC_log(LOG_NOTICE, "networkInterfaces is NULL");
-		return NULL;
-	}
-
-	if (prefsID == NULL) {
-		prefsID = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/%@"), PREFS_DEFAULT_DIR, NETWORK_INTERFACES_PREFS);
-	} else {
-		CFRetain(prefsID);
-	}
-	ni_prefs = SCPreferencesCreate(NULL, PLUGIN_ID, prefsID);
-	CFRelease(prefsID);
-	if (ni_prefs == NULL) {
-		SC_log(LOG_NOTICE, "ni_prefs is NULL");
-		goto done;
+		return;
 	}
 
 	interfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
@@ -384,15 +373,15 @@ __SCNetworkCreateDefaultNIPrefs(CFStringRef prefsID)
 		CFNumberRef if_type;
 		CFNumberRef if_unit;
 		SCNetworkInterfaceRef interface = CFArrayGetValueAtIndex(networkInterfaces, idx);
-		CFDictionaryRef interfaceEntity = __SCNetworkInterfaceCopyStorageEntity(interface);
+		CFDictionaryRef interfaceEntity;
 
+		interfaceEntity = __SCNetworkInterfaceCopyStorageEntity(interface);
 		if (interfaceEntity == NULL) {
 			continue;
 		}
 
 		if_type = _SCNetworkInterfaceGetIOInterfaceType(interface);
 		if_unit = _SCNetworkInterfaceGetIOInterfaceUnit(interface);
-
 		if ((if_type == NULL) || (if_unit == NULL)) {
 			CFRelease(interfaceEntity);
 			continue;
@@ -417,22 +406,19 @@ __SCNetworkCreateDefaultNIPrefs(CFStringRef prefsID)
 		CFRelease(interfaceEntity);
 
 	}
+
 	SCPreferencesSetValue(ni_prefs, INTERFACES, interfaces);
+	CFRelease(interfaces);
 
 	model = SCPreferencesGetValue(ni_prefs, MODEL);
 	if (model == NULL) {
 		model = _SC_hw_model(FALSE);
 		SCPreferencesSetValue(ni_prefs, MODEL, model);
 	}
-done:
-	if (interfaces != NULL) {
-		CFRelease(interfaces);
-	}
-	if (networkInterfaces != NULL) {
-		CFRelease(networkInterfaces);
-	}
 
-	return ni_prefs;
+	CFRelease(networkInterfaces);
+
+	return;
 }
 
 
@@ -485,17 +471,29 @@ _SCNetworkConfigurationPerformMigration(CFURLRef sourceDir, CFURLRef currentDir,
 	if (sourceDir == NULL) {
 		sourceDirConfig = CFRetain(currentSystemPath);
 	} else {
-		sourceDirConfig = CFURLCreateWithFileSystemPathRelativeToBase(NULL, PREFS_DEFAULT_DIR_RELATIVE, kCFURLPOSIXPathStyle, TRUE, sourceDir);
+		sourceDirConfig = CFURLCreateWithFileSystemPathRelativeToBase(NULL,
+									      PREFS_DEFAULT_DIR_RELATIVE,
+									      kCFURLPOSIXPathStyle,
+									      TRUE,
+									      sourceDir);
 	}
 
 	if (currentDir != NULL) {
-		currentDirConfig = CFURLCreateWithFileSystemPathRelativeToBase(NULL, PREFS_DEFAULT_DIR_RELATIVE, kCFURLPOSIXPathStyle, TRUE, currentDir);
+		currentDirConfig = CFURLCreateWithFileSystemPathRelativeToBase(NULL,
+									       PREFS_DEFAULT_DIR_RELATIVE,
+									       kCFURLPOSIXPathStyle,
+									       TRUE,
+									       currentDir);
 	}
 	// If the targetDir is not provided then migration will take place in currentDir
 	if (targetDir == NULL) {
 		targetDirConfig = CFRetain(currentSystemPath);
 	} else {
-		targetDirConfig = CFURLCreateWithFileSystemPathRelativeToBase(NULL, PREFS_DEFAULT_DIR_RELATIVE, kCFURLPOSIXPathStyle, TRUE, targetDir);
+		targetDirConfig = CFURLCreateWithFileSystemPathRelativeToBase(NULL,
+									      PREFS_DEFAULT_DIR_RELATIVE,
+									      kCFURLPOSIXPathStyle,
+									      TRUE,
+									      targetDir);
 	}
 	// Source directory cannot be the same as Target Directory
 	if (CFEqual(sourceDirConfig, targetDirConfig)) {
@@ -1291,52 +1289,6 @@ remove_service(const void *value, void *context)
 	}
 }
 
-static void
-_SCNetworkConfigurationSaveOldConfiguration(SCPreferencesRef prefs)
-{
-	CFAbsoluteTime absoluteTime;
-	CFCalendarRef currentCalendar;
-	int day;
-	int hour;
-	CFStringRef keyList[] = {
-			kSCPrefCurrentSet,
-			MODEL,
-			kSCPrefNetworkServices,
-			kSCPrefSets,
-			kSCPrefSystem,
-			kSCPrefVirtualNetworkInterfaces
-	};
-	CFIndex keyListCount;
-	int minute;
-	int month;
-	int second;
-	int year;
-
-	currentCalendar = CFCalendarCopyCurrent();
-	absoluteTime = CFAbsoluteTimeGetCurrent();
-
-	if (!CFCalendarDecomposeAbsoluteTime(currentCalendar, absoluteTime, "yMdHms",
-					     &year, &month, &day, &hour, &minute, &second)) {
-		SC_log(LOG_INFO, "CFCalendarDecomposeAbsoluteTime() failed");
-	}
-	keyListCount = (CFIndex)sizeof(keyList)/sizeof(CFStringRef);
-
-	for (CFIndex idx = 0; idx < keyListCount; idx++) {
-		CFStringRef newKey;
-		CFTypeRef value = SCPreferencesGetValue(prefs, keyList[idx]);
-
-		if (value != NULL) {
-			newKey = CFStringCreateWithFormat(NULL, NULL,
-							  CFSTR("%d-%d-%d %d:%d:%d : %@"),
-							  year, month, day, hour,
-							  minute, second, keyList[idx]);
-			SCPreferencesSetValue(prefs, newKey, value);
-			CFRelease(newKey);
-		}
-	}
-	CFRelease(currentCalendar);
-}
-
 static Boolean
 _SCNetworkConfigurationRepairUsingPreferences(SCPreferencesRef prefs,
 					      SCNetworkConfigurationValidityContext *context)
@@ -1355,7 +1307,7 @@ _SCNetworkConfigurationRepairUsingPreferences(SCPreferencesRef prefs,
 		return FALSE;
 	}
 	// Backup current preferences before making changes
-	_SCNetworkConfigurationSaveOldConfiguration(prefs);
+	__SCNetworkConfigurationBackup(prefs);
 
 	serviceList = SCNetworkServiceCopyAll(prefs);
 	CFArrayApplyFunction(serviceList, CFRangeMake(0, CFArrayGetCount(serviceList)), create_bsd_name_service_protocol_mapping, context);
@@ -1491,7 +1443,7 @@ _SCNetworkConfigurationCheckValidityWithPreferences(SCPreferencesRef prefs,
 	CFStringRef  model = NULL;
 	CFStringRef ni_model = NULL;
 	Boolean repairConfiguration = FALSE;
-	Boolean revertLimitNetworkConfiguration = FALSE;
+	Boolean revertBypassSystemInterfaces = FALSE;
 	CFArrayRef setServiceOrder = NULL;
 	CFArrayRef setServices = NULL;
 
@@ -1501,9 +1453,9 @@ _SCNetworkConfigurationCheckValidityWithPreferences(SCPreferencesRef prefs,
 			repairConfiguration = CFBooleanGetValue(repair);
 		}
 	}
-	if (!__SCPreferencesGetLimitSCNetworkConfiguration(prefs)) {
-		__SCPreferencesSetLimitSCNetworkConfiguration(prefs, TRUE);
-		revertLimitNetworkConfiguration = TRUE;
+	if (!_SCNetworkConfigurationBypassSystemInterfaces(prefs)) {
+		_SCNetworkConfigurationSetBypassSystemInterfaces(prefs, TRUE);
+		revertBypassSystemInterfaces = TRUE;
 	}
 	/*
 
@@ -1719,8 +1671,8 @@ done:
 	if (bsdNameServiceProtocolPreserveMapping != NULL) {
 		CFRelease(bsdNameServiceProtocolPreserveMapping);
 	}
-	if (revertLimitNetworkConfiguration) {
-		__SCPreferencesSetLimitSCNetworkConfiguration(prefs, FALSE);
+	if (revertBypassSystemInterfaces) {
+		_SCNetworkConfigurationSetBypassSystemInterfaces(prefs, FALSE);
 	}
 	return isValid;
 }
@@ -1744,11 +1696,22 @@ _SCNetworkConfigurationCheckValidity(CFURLRef configDir, CFDictionaryRef options
 		       (configDir == NULL) ? CFSTR("NULL") : CFURLGetString(configDir));
 		goto done;
 	}
-	baseURL = CFURLCreateWithFileSystemPathRelativeToBase(NULL, PREFS_DEFAULT_DIR_RELATIVE,
-							      kCFURLPOSIXPathStyle, TRUE, configDir);
+	baseURL = CFURLCreateWithFileSystemPathRelativeToBase(NULL,
+							      PREFS_DEFAULT_DIR_RELATIVE,
+							      kCFURLPOSIXPathStyle,
+							      TRUE,
+							      configDir);
 
-	configPreferenceFile = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL, (const UInt8*)PREFS_DEFAULT_CONFIG_PLIST, sizeof(PREFS_DEFAULT_CONFIG_PLIST), FALSE, baseURL);
-	configNetworkInterfaceFile = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL, (const UInt8*)NETWORK_INTERFACES_PREFS_PLIST, sizeof(NETWORK_INTERFACES_PREFS_PLIST), FALSE, baseURL);
+	configPreferenceFile = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL,
+										     (const UInt8*)PREFS_DEFAULT_CONFIG_PLIST,
+										     sizeof(PREFS_DEFAULT_CONFIG_PLIST),
+										     FALSE,
+										     baseURL);
+	configNetworkInterfaceFile = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL,
+											   (const UInt8*)INTERFACES_DEFAULT_CONFIG_PLIST,
+											   sizeof(INTERFACES_DEFAULT_CONFIG_PLIST),
+											   FALSE,
+											   baseURL);
 
 	if (!CFURLGetFileSystemRepresentation(configPreferenceFile, TRUE, (UInt8*)prefsStr, sizeof(prefsStr))) {
 		SC_log(LOG_NOTICE, "Cannot get file system representation for url: %@", configPreferenceFile);
@@ -3195,7 +3158,7 @@ preserve_service_order(const void *key, const void *value, void *context)
 	migrated_context.success = success;
 
 	// Creating a list of service IDs which were migrated in the target set
-	// while maintaining the service order or the source set
+	// while maintaining the service order of the source set
 	CFArrayApplyFunction(sourceServiceOrder, CFRangeMake(0, CFArrayGetCount(sourceServiceOrder)), create_migrated_order, &migrated_context);
 	if (*success == FALSE) {
 		goto done;
@@ -3347,10 +3310,9 @@ _SCNetworkConfigurationMigrateConfiguration(CFURLRef sourceDir, CFURLRef targetD
 		}
 	} else {
 		targetPrefs = __SCNetworkCreateDefaultPref(targetPreferencesFileString);
-		targetNetworkInterfacePrefs = __SCNetworkCreateDefaultNIPrefs(targetNetworkInterfaceFileString);
+		targetNetworkInterfacePrefs =  __SCPreferencesCreateNIPrefsFromPrefs(targetPrefs);
 
-		if (targetPrefs == NULL ||
-		    targetNetworkInterfacePrefs == NULL) {
+		if ((targetPrefs == NULL) || (targetNetworkInterfacePrefs == NULL)) {
 			SC_log(LOG_DEBUG, "Could not create default configuration");
 			goto done;
 		}
@@ -3370,8 +3332,8 @@ _SCNetworkConfigurationMigrateConfiguration(CFURLRef sourceDir, CFURLRef targetD
 	       targetNetworkInterfaceFileString);
 
 	// Setting Bypass Interface to avoid looking at system interfaces
-	__SCPreferencesSetLimitSCNetworkConfiguration(sourcePrefs, TRUE);
-	__SCPreferencesSetLimitSCNetworkConfiguration(targetPrefs, TRUE);
+	_SCNetworkConfigurationSetBypassSystemInterfaces(sourcePrefs, TRUE);
+	_SCNetworkConfigurationSetBypassSystemInterfaces(targetPrefs, TRUE);
 
 	sourceModel = SCPreferencesGetValue(sourcePrefs, MODEL);
 	targetModel = SCPreferencesGetValue(targetPrefs, MODEL);
@@ -3773,15 +3735,27 @@ _SCNetworkMigrationAreConfigurationsIdentical (CFURLRef configurationURL,
 	    expectedConfigurationURL == NULL) {
 		return FALSE;
 	}
-	baseConfigURL = CFURLCreateWithFileSystemPathRelativeToBase(NULL, PREFS_DEFAULT_DIR_RELATIVE, kCFURLPOSIXPathStyle, TRUE, configurationURL);
-	configPreferencesURL = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL, (const UInt8*) PREFS_DEFAULT_CONFIG_PLIST, sizeof(PREFS_DEFAULT_CONFIG_PLIST), FALSE, baseConfigURL);
+	baseConfigURL = CFURLCreateWithFileSystemPathRelativeToBase(NULL,
+								    PREFS_DEFAULT_DIR_RELATIVE,
+								    kCFURLPOSIXPathStyle,
+								    TRUE,
+								    configurationURL);
+	configPreferencesURL = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL,
+										     (const UInt8*)PREFS_DEFAULT_CONFIG_PLIST,
+										     sizeof(PREFS_DEFAULT_CONFIG_PLIST),
+										     FALSE,
+										     baseConfigURL);
 
 	if (!CFURLResourceIsReachable(configPreferencesURL, NULL)) {
 		SC_log(LOG_INFO, "No preferences.plist file");
 		goto done;
 	}
 
-	configNetworkInterfacesURL = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL, (const UInt8*)NETWORK_INTERFACES_PREFS_PLIST, sizeof(NETWORK_INTERFACES_PREFS_PLIST), FALSE, baseConfigURL);
+	configNetworkInterfacesURL = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL,
+											   (const UInt8*)INTERFACES_DEFAULT_CONFIG_PLIST,
+											   sizeof(INTERFACES_DEFAULT_CONFIG_PLIST),
+											   FALSE,
+											   baseConfigURL);
 
 	if (!CFURLResourceIsReachable(configNetworkInterfacesURL, NULL)) {
 		SC_log(LOG_INFO, "No NetworkInterfaces.plist file");
@@ -3797,15 +3771,27 @@ _SCNetworkMigrationAreConfigurationsIdentical (CFURLRef configurationURL,
 		goto done;
 	}
 
-	baseExpectedConfigURL = CFURLCreateWithFileSystemPathRelativeToBase(NULL, PREFS_DEFAULT_DIR_RELATIVE, kCFURLPOSIXPathStyle, TRUE, expectedConfigurationURL);
-	expectedPreferencesURL = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL, (const UInt8*)PREFS_DEFAULT_CONFIG_PLIST, sizeof(PREFS_DEFAULT_CONFIG_PLIST), FALSE, baseExpectedConfigURL);
+	baseExpectedConfigURL = CFURLCreateWithFileSystemPathRelativeToBase(NULL,
+									    PREFS_DEFAULT_DIR_RELATIVE,
+									    kCFURLPOSIXPathStyle,
+									    TRUE,
+									    expectedConfigurationURL);
+	expectedPreferencesURL = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL,
+										       (const UInt8*)PREFS_DEFAULT_CONFIG_PLIST,
+										       sizeof(PREFS_DEFAULT_CONFIG_PLIST),
+										       FALSE,
+										       baseExpectedConfigURL);
 
 	if (!CFURLResourceIsReachable(expectedPreferencesURL, NULL)) {
 		SC_log(LOG_INFO, "No expected preferences.plist file");
 		goto done;
 	}
 
-	expectedNetworkInterfaceURL = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL, (const UInt8*)NETWORK_INTERFACES_PREFS_PLIST, sizeof(NETWORK_INTERFACES_PREFS_PLIST), FALSE, baseExpectedConfigURL);
+	expectedNetworkInterfaceURL = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL,
+											    (const UInt8*)INTERFACES_DEFAULT_CONFIG_PLIST,
+											    sizeof(INTERFACES_DEFAULT_CONFIG_PLIST),
+											    FALSE,
+											    baseExpectedConfigURL);
 
 	if (!CFURLResourceIsReachable(expectedNetworkInterfaceURL, NULL)) {
 		SC_log(LOG_INFO, "No expected NetworkInterfaces.plist file");
@@ -3902,8 +3888,11 @@ _SCNetworkConfigurationCopyMigrationRemovePaths	(CFArrayRef	targetPaths,
 			SC_log(LOG_NOTICE, "Cannot get file system representation for url: %@", affectedURL);
 			continue;
 		}
-		targetFile = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL, (const UInt8*)filePath,
-		strnlen(filePath, sizeof(filePath)), FALSE, targetDir);
+		targetFile = CFURLCreateFromFileSystemRepresentationRelativeToBase(NULL,
+										   (const UInt8*)filePath,
+										   strnlen(filePath, sizeof(filePath)),
+										   FALSE,
+										   targetDir);
 
 		if (!CFURLResourceIsReachable(targetFile, NULL)) {
 			CFArrayAppendValue(toBeRemoved, affectedURL);

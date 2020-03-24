@@ -87,6 +87,12 @@
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
+    NSError* localError = nil;
+    BOOL isAccountDemo = [self.deps.authKitAdapter accountIsDemoAccount:&localError];
+    if(localError) {
+        secerror("octagon-authkit: failed to fetch demo account flag: %@", localError);
+    }
+
     [self.deps.authKitAdapter fetchCurrentDeviceList:^(NSSet<NSString *> * _Nullable machineIDs, NSError * _Nullable error) {
         STRONGIFY(self);
         if(!machineIDs || error) {
@@ -103,17 +109,20 @@
             if (self.logForUpgrade) {
                 [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventUpgradeFetchDeviceIDs];
             }
-            [self afterAuthKitFetch:machineIDs];
+            [self afterAuthKitFetch:machineIDs accountIsDemo:isAccountDemo];
         }
     }];
 }
 
-- (void)afterAuthKitFetch:(NSSet<NSString *>*)allowedMachineIDs
+- (void)afterAuthKitFetch:(NSSet<NSString *>*)allowedMachineIDs accountIsDemo:(BOOL)accountIsDemo
 {
     WEAKIFY(self);
+    BOOL honorIDMSListChanges = accountIsDemo ? NO : YES;
+
     [self.deps.cuttlefishXPCWrapper setAllowedMachineIDsWithContainer:self.deps.containerName
                                                               context:self.deps.contextID
                                                     allowedMachineIDs:allowedMachineIDs
+                                                        honorIDMSListChanges:honorIDMSListChanges
                                                                 reply:^(BOOL listDifferences, NSError * _Nullable error) {
             STRONGIFY(self);
 

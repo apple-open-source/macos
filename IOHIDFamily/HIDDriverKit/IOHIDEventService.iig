@@ -219,23 +219,9 @@ public:
                                             uint64_t timeStamp,
                                             IOHIDDigitizerTouchData *touchData,
                                             uint32_t touchDataCount) LOCALONLY;
+
 protected:
-    
-    /*!
-     * @function KernelStart
-     *
-     * @abstract
-     * Finalizes initialization of kernel object once user space object
-     * initialization is complete.
-     *
-     * @param provider
-     * The provider of the IOHIDEventService.
-     *
-     * @return
-     * Returns kIOReturnSuccess on success.
-     */
-    virtual kern_return_t KernelStart(IOService * provider);
-    
+
     /*!
      * @function SetLED
      *
@@ -296,6 +282,21 @@ class EXTENDS (IOHIDEventService) IOHIDEventServicePrivate
     virtual kern_return_t SetEventMemory(IOBufferMemoryDescriptor *memory);
     
     virtual kern_return_t EventAvailable(uint32_t length);
+    
+    /*!
+     * @function _Start
+     *
+     * @abstract
+     * Finalizes initialization of kernel object once user space object
+     * initialization is complete.
+     *
+     * @param provider
+     * The provider of the IOHIDEventService.
+     *
+     * @return
+     * Returns kIOReturnSuccess on success.
+     */
+    virtual kern_return_t _Start(IOService * provider);
 };
 
 #endif /* ! _HIDDRIVERKIT_IOHIDEVENTSERVICE_H */

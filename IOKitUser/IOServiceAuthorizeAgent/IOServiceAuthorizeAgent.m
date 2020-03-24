@@ -41,9 +41,11 @@ static void __MessageCallback( xpc_connection_t connection, xpc_object_t message
         io_service_t service;
         IOReturn status;
         xpc_object_t reply;
+        audit_token_t auditToken;
 
         options = xpc_dictionary_get_uint64( message, "options" );
         serviceID = xpc_dictionary_get_uint64( message, "service" );
+        xpc_dictionary_get_audit_token( message, &auditToken );
 
         service = IOServiceGetMatchingService( kIOMasterPortDefault, IORegistryEntryIDMatching( serviceID ) );
 
@@ -51,7 +53,7 @@ static void __MessageCallback( xpc_connection_t connection, xpc_object_t message
         {
             if ( _DeviceIsValid( service ) )
             {
-                status = _Authorize( service, options, processID, authorizationID );
+                status = _Authorize( service, options, processID, authorizationID, &auditToken );
             }
             else
             {

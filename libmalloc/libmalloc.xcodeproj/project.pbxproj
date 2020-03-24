@@ -358,6 +358,7 @@
 		B6D2ED512007D76F007AF994 /* libmalloc_replay */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libmalloc_replay; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6D2ED552007D91A007AF994 /* malloc_replay.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = malloc_replay.cpp; sourceTree = "<group>"; };
 		B6D2ED562007D91A007AF994 /* malloc_replay.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = malloc_replay.h; sourceTree = "<group>"; };
+		B6D59B0E225EA90E009E5896 /* reallocarray.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = reallocarray.c; sourceTree = "<group>"; };
 		B6D5C7ED202E26CA0035E376 /* resolver.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = resolver.c; sourceTree = "<group>"; };
 		C0352EC61C3F3C3600DB5126 /* malloc_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = malloc_private.h; sourceTree = "<group>"; };
 		C0CE450E1C52B9E300C24048 /* libmalloc_static.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmalloc_static.xcconfig; sourceTree = "<group>"; };
@@ -634,6 +635,7 @@
 				B6C1C9C720D9B70F002CCC0B /* nano_trace_replay.c */,
 				B6536A62204754B6005FBE22 /* perf_contended_malloc_free.c */,
 				B670DABD2072D0BB00139A1D /* perf_realloc.c */,
+				B6D59B0E225EA90E009E5896 /* reallocarray.c */,
 				B68C985C2180BEB5003DAF36 /* region_cookie_test.c */,
 				925383D11BD03B4A00F745DB /* stress_test.c */,
 			);

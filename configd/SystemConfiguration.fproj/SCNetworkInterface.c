@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -270,18 +270,6 @@ static const struct {
 	// =====================================  =================== ========== =============== ======================================= =========================================
 	{ &kSCNetworkInterfaceTypeIPv4		, NULL                , FALSE,	doOverIP,	NULL,					doNone					}
 };
-
-
-#define kSCNetworkInterfaceActive			"Active"
-#define kSCNetworkInterfaceInfo				"SCNetworkInterfaceInfo"
-#define kSCNetworkInterfaceType				"SCNetworkInterfaceType"
-#define kSCNetworkInterfaceBSDName			kIOBSDNameKey
-#define kSCNetworkInterfaceIOBuiltin			kIOBuiltin
-#define kSCNetworkInterfaceIOInterfaceNamePrefix	kIOInterfaceNamePrefix
-#define kSCNetworkInterfaceIOInterfaceType		kIOInterfaceType
-#define kSCNetworkInterfaceIOInterfaceUnit		kIOInterfaceUnit
-#define kSCNetworkInterfaceIOMACAddress			kIOMACAddress
-#define kSCNetworkInterfaceIOPathMatch			kIOPathMatchKey
 
 
 #define	NETWORKINTERFACE_LOCALIZATIONS	CFSTR("NetworkInterface")
@@ -1604,7 +1592,7 @@ isBluetoothBuiltin(Boolean *haveController)
 
 			if (isA_CFNumber(idVendor) &&
 			    CFNumberGetValue(idVendor, kCFNumberIntType, &idVendorVal) &&
-			    (idVendorVal == kIOUSBVendorIDAppleComputer)) {
+			    (idVendorVal == kIOUSBAppleVendorID)) {
 				builtin = TRUE;
 			}
 
@@ -2016,7 +2004,8 @@ processNetworkInterface(SCNetworkInterfacePrivateRef	interfacePrivate,
 #if	!TARGET_OS_SIMULATOR
 							if (CFEqual(provider, CFSTR(kIOUSBDeviceClassName)) ||
 							    CFEqual(provider, CFSTR(kIOUSBInterfaceClassName)) ||
-							    CFEqual(provider, CFSTR(kIOUSBHostInterfaceClassName))) {
+							    CFEqual(provider, CFSTR(kIOUSBHostInterfaceClassName)) ||
+							    (_SC_isAppleInternal() && IOObjectConformsTo(node, "IOUserEthernetController"))) {
 								// get USB info (if available)
 								processUSBInterface(interfacePrivate,
 										    interface,
@@ -3038,7 +3027,7 @@ extendedConfigurationTypes(SCNetworkInterfaceRef interface)
 									   SCNetworkSetGetSetID(set),		// set
 									   interfacePrivate->entity_device,	// service
 									   NULL);				// entity
-		configs = __getPrefsConfiguration(interfacePrivate->prefs, path);
+		configs = __SCNetworkConfigurationGetValue(interfacePrivate->prefs, path);
 		CFRelease(path);
 		if (isA_CFDictionary(configs)) {
 			CFDictionaryApplyFunction(configs,
@@ -3465,7 +3454,7 @@ _SCNetworkInterfaceCopyPrefixFromBSDName(CFStringRef bsdName)
 	UniChar lastChar;
 	CFIndex length = 0;
 
-	if (isA_CFString(bsdName) == NULL) {
+	if (!isA_CFString(bsdName)) {
 		SC_log(LOG_DEBUG, "no BSD name");
 		goto done;
 	}
@@ -3500,7 +3489,7 @@ __SCNetworkInterfaceUpdateBSDName(SCNetworkInterfaceRef interface, CFStringRef c
 	Boolean success = FALSE;
 	SCNetworkInterfacePrivateRef interfacePrivate = (SCNetworkInterfacePrivateRef)interface;
 
-	if (isA_SCNetworkInterface(interface) == NULL) {
+	if (!isA_SCNetworkInterface(interface)) {
 		SC_log(LOG_INFO, "No interface");
 		goto done;
 	}
@@ -3530,7 +3519,7 @@ __SCNetworkInterfaceUpdateIOPath(SCNetworkInterfaceRef interface)
 
 	// Using the BSD Name update the path
 	oldPath = interfacePrivate->path;
-	if (isA_CFString(oldPath) == NULL) {
+	if (!isA_CFString(oldPath)) {
 		goto done;
 	}
 	newPath = CFStringCreateWithFormat(NULL, NULL, CFSTR("Migrated_From: %@"), oldPath);
@@ -3554,7 +3543,7 @@ __SCNetworkInterfaceSetIOInterfacePrefix (SCNetworkInterfaceRef interface,
 {
 	SCNetworkInterfacePrivateRef interfacePrivate;
 
-	if (isA_CFString(prefix) == NULL) {
+	if (!isA_CFString(prefix)) {
 		return;
 	}
 
@@ -3580,7 +3569,7 @@ __SCNetworkInterfaceSetIOInterfaceUnit(SCNetworkInterfaceRef interface,
 	CFStringRef newBSDName = NULL;
 	CFStringRef oldBSDName = NULL;
 
-	if (isA_CFNumber(unit) == NULL) {
+	if (!isA_CFNumber(unit)) {
 		return;
 	}
 	interfacePrivate = (SCNetworkInterfacePrivateRef) interface;
@@ -3588,7 +3577,7 @@ __SCNetworkInterfaceSetIOInterfaceUnit(SCNetworkInterfaceRef interface,
 	oldBSDName = SCNetworkInterfaceGetBSDName(interface);
 
 	if (interfacePrivate->prefix == NULL) {
-		if (isA_CFString(interfacePrivate->entity_device) != NULL) {
+		if (isA_CFString(interfacePrivate->entity_device)) {
 			CFStringRef interfaceNamePrefix = _SCNetworkInterfaceCopyPrefixFromBSDName(interfacePrivate->entity_device);
 			if (interfaceNamePrefix == NULL) {
 				SC_log(LOG_INFO, "interfaceNamePrefix is NULL");
@@ -3633,22 +3622,17 @@ __private_extern__
 CFDictionaryRef
 __SCNetworkInterfaceCopyStorageEntity(SCNetworkInterfaceRef interface)
 {
-	CFMutableDictionaryRef interface_entity = NULL;
-	SCNetworkInterfacePrivateRef interfacePrivate = (SCNetworkInterfacePrivateRef)interface;
-	CFBooleanRef active = NULL;
-	CFStringRef bsdName = NULL;
-	CFBooleanRef builtin = NULL;
-	CFStringRef interfaceNamePrefix = NULL;
-	CFNumberRef interfaceType = NULL;
-	CFNumberRef interfaceUnit = NULL;
-	CFDataRef macAddress = NULL;
-	CFStringRef pathMatch = NULL;
-	CFDictionaryRef info = NULL;
-	CFStringRef type = NULL;
-
-	if (interfacePrivate->active) {
-		active = kCFBooleanTrue;
-	}
+	CFMutableDictionaryRef		interface_entity	= NULL;
+	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+	CFStringRef			bsdName;
+	CFBooleanRef			builtin;
+	CFStringRef			interfaceNamePrefix;
+	CFNumberRef			interfaceType;
+	CFNumberRef			interfaceUnit;
+	CFDataRef			macAddress;
+	CFStringRef			pathMatch;
+	CFDictionaryRef			info			= NULL;
+	CFStringRef			type;
 
 	bsdName = SCNetworkInterfaceGetBSDName(interface);
 	if (!isA_CFString(bsdName)) {
@@ -3656,6 +3640,7 @@ __SCNetworkInterfaceCopyStorageEntity(SCNetworkInterfaceRef interface)
 	}
 
 	builtin = interfacePrivate->builtin ? kCFBooleanTrue : kCFBooleanFalse;
+
 	interfaceNamePrefix = _SCNetworkInterfaceGetIOInterfaceNamePrefix(interface);
 	if (!isA_CFString(interfaceNamePrefix)) {
 		goto done;
@@ -3694,12 +3679,13 @@ __SCNetworkInterfaceCopyStorageEntity(SCNetworkInterfaceRef interface)
 	interface_entity = CFDictionaryCreateMutable(NULL, 0,
 						     &kCFTypeDictionaryKeyCallBacks,
 						     &kCFTypeDictionaryValueCallBacks);
-
-	if (isA_CFBoolean(active) != NULL) {
-		CFDictionaryAddValue(interface_entity, CFSTR(kSCNetworkInterfaceActive), active);
+	if (interfacePrivate->active) {
+		CFDictionaryAddValue(interface_entity, CFSTR(kSCNetworkInterfaceActive), kCFBooleanTrue);
 	}
-
 	CFDictionaryAddValue(interface_entity, CFSTR(kSCNetworkInterfaceBSDName), bsdName);
+	if (interfacePrivate->hidden) {
+		CFDictionaryAddValue(interface_entity, kSCNetworkInterfaceHiddenConfigurationKey, kCFBooleanTrue);
+	}
 	CFDictionaryAddValue(interface_entity, CFSTR(kSCNetworkInterfaceIOBuiltin), builtin);
 	CFDictionaryAddValue(interface_entity, CFSTR(kSCNetworkInterfaceIOInterfaceNamePrefix), interfaceNamePrefix);
 	CFDictionaryAddValue(interface_entity, CFSTR(kSCNetworkInterfaceIOInterfaceType), interfaceType);
@@ -3708,7 +3694,12 @@ __SCNetworkInterfaceCopyStorageEntity(SCNetworkInterfaceRef interface)
 	CFDictionaryAddValue(interface_entity, CFSTR(kSCNetworkInterfaceIOPathMatch), pathMatch);
 	CFDictionaryAddValue(interface_entity, CFSTR(kSCNetworkInterfaceInfo), info);
 	CFDictionaryAddValue(interface_entity, CFSTR(kSCNetworkInterfaceType), type);
-done:
+	if (isA_CFArray(interfacePrivate->matchingMACs)) {
+		CFDictionaryAddValue(interface_entity, CFSTR(kSCNetworkInterfaceMatchingMACs), interfacePrivate->matchingMACs);
+	}
+
+    done:
+
 	if (info != NULL) {
 		CFRelease(info);
 	}
@@ -3791,50 +3782,57 @@ __SCNetworkInterfaceMatchesName(CFStringRef name, CFStringRef key)
 
 
 static SCNetworkInterfaceRef
-__SCNetworkInterfaceCreateWithStorageEntity(CFAllocatorRef	allocator,
-					    CFDictionaryRef	interface_entity)
+__SCNetworkInterfaceCreateWithStorageEntity(CFDictionaryRef interface_entity)
 {
-#pragma unused(allocator)
-	SCNetworkInterfacePrivateRef interfacePrivate = NULL;
-	CFBooleanRef    active = NULL;
-	CFStringRef     bsdName = NULL;
-	CFBooleanRef    ioBuiltin = NULL;
-	CFStringRef     ioInterfaceNamePrefix = NULL;
-	CFNumberRef     ioInterfaceType = NULL;
-	int		ioInterfaceTypeNum;
-	CFNumberRef     ioInterfaceUnit = NULL;
-	CFDataRef       ioMACAddress = NULL;
-	CFStringRef     ioPathMatch = NULL;
-	CFDictionaryRef SCNetworkInterfaceInfo = NULL;
-	CFStringRef	userDefinedName = NULL;
-	CFStringRef	usbProductName = NULL;
-	CFNumberRef	idProduct = NULL;
-	CFNumberRef	idVendor = NULL;
-	CFStringRef     type = NULL;
+	CFIndex				interfaceIndex;
+	SCNetworkInterfacePrivateRef	interfacePrivate	= NULL;
+	CFBooleanRef			active;
+	CFStringRef			bsdName;
+	CFBooleanRef			hidden;
+	CFDictionaryRef			interfaceInfo;
+	CFBooleanRef			ioBuiltin;
+	CFStringRef			ioInterfaceNamePrefix	= NULL;
+	CFNumberRef			ioInterfaceType;
+	int				ioInterfaceTypeNum;
+	CFNumberRef			ioInterfaceUnit;
+	CFDataRef			ioMACAddress;
+	CFStringRef			ioPathMatch;
+	CFArrayRef			matchingMacs;
+	CFStringRef			userDefinedName;
+#if	!TARGET_OS_SIMULATOR
+	CFStringRef			usbProductName;
+	CFNumberRef			idProduct;
+	CFNumberRef			idVendor;
+#endif	// !TARGET_OS_SIMULATOR
+	CFStringRef			type;
 
 	/* initialize runtime */
 	pthread_once(&initialized, __SCNetworkInterfaceInitialize);
 
-	if (isA_CFDictionary(interface_entity) == NULL) {
+	if (!isA_CFDictionary(interface_entity)) {
 		SC_log(LOG_INFO, "No interface entity");
 		goto done;
 	}
 	active = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceActive));
-	if (isA_CFBoolean(active) == NULL) {
+	if (!isA_CFBoolean(active)) {
 		active = kCFBooleanFalse;
 	}
 	bsdName = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceBSDName));
-	if (isA_CFString(bsdName) == NULL) {
+	if (!isA_CFString(bsdName)) {
 		SC_log(LOG_INFO, "No BSD name");
 		goto done;
 	}
+	hidden = CFDictionaryGetValue(interface_entity, kSCNetworkInterfaceHiddenConfigurationKey);
+	if (!isA_CFBoolean(hidden)) {
+		hidden = kCFBooleanFalse;
+	}
 	ioBuiltin = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceIOBuiltin));
-	if (isA_CFBoolean(ioBuiltin) == NULL) {
+	if (!isA_CFBoolean(ioBuiltin)) {
 		SC_log(LOG_INFO, "No IOBuiltin property");
 		goto done;
 	}
 	ioInterfaceNamePrefix = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceIOInterfaceNamePrefix));
-	if (isA_CFString(ioInterfaceNamePrefix) == NULL) {
+	if (!isA_CFString(ioInterfaceNamePrefix)) {
 		ioInterfaceNamePrefix = _SCNetworkInterfaceCopyPrefixFromBSDName(bsdName);
 		if (ioInterfaceNamePrefix == NULL) {
 			SC_log(LOG_INFO, "No BSD interface name prefix");
@@ -3844,7 +3842,7 @@ __SCNetworkInterfaceCreateWithStorageEntity(CFAllocatorRef	allocator,
 		CFRetain(ioInterfaceNamePrefix);
 	}
 	ioInterfaceType = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceIOInterfaceType));
-	if (isA_CFNumber(ioInterfaceType) == NULL) {
+	if (!isA_CFNumber(ioInterfaceType)) {
 		SC_log(LOG_INFO, "No IOInterfaceType");
 		goto done;
 	}
@@ -3852,37 +3850,37 @@ __SCNetworkInterfaceCreateWithStorageEntity(CFAllocatorRef	allocator,
 		SC_log(LOG_NOTICE, "Count not extract value from ioInterfaceType");
 	}
 	ioInterfaceUnit = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceIOInterfaceUnit));
-	if (isA_CFNumber(ioInterfaceUnit) == NULL) {
+	if (!isA_CFNumber(ioInterfaceUnit)) {
 		SC_log(LOG_INFO, "No IOInterfaceUnit");
-
 		goto done;
 	}
 	ioMACAddress = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceIOMACAddress));
-	if (isA_CFData(ioMACAddress) == NULL) {
+	if (!isA_CFData(ioMACAddress)) {
 		SC_log(LOG_INFO, "No IOMACAddress");
 		goto done;
 	}
 	ioPathMatch = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceIOPathMatch));
-	if (isA_CFString(ioPathMatch) == NULL) {
+	if (!isA_CFString(ioPathMatch)) {
 		SC_log(LOG_INFO, "No IOPathMatch");
 		goto done;
 	} else {
 		// Check if Path contains the BSD Name in the end
 	}
-	SCNetworkInterfaceInfo = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceInfo));
-	if (isA_CFDictionary(SCNetworkInterfaceInfo) == NULL) {
+	interfaceInfo = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceInfo));
+	if (!isA_CFDictionary(interfaceInfo)) {
 		SC_log(LOG_INFO, "No SCNetworkInterfaceInfo");
 		goto done;
 	}
-	userDefinedName = CFDictionaryGetValue(SCNetworkInterfaceInfo, kSCPropUserDefinedName);
+	userDefinedName = CFDictionaryGetValue(interfaceInfo, kSCPropUserDefinedName);
 #if	!TARGET_OS_SIMULATOR
-	usbProductName = CFDictionaryGetValue(SCNetworkInterfaceInfo, CFSTR(kUSBProductString));
-	idProduct = CFDictionaryGetValue(SCNetworkInterfaceInfo, CFSTR(kUSBProductID));
-	idVendor = CFDictionaryGetValue(SCNetworkInterfaceInfo, CFSTR(kUSBVendorID));
+	usbProductName = CFDictionaryGetValue(interfaceInfo, CFSTR(kUSBProductString));
+	idProduct = CFDictionaryGetValue(interfaceInfo, CFSTR(kUSBProductID));
+	idVendor = CFDictionaryGetValue(interfaceInfo, CFSTR(kUSBVendorID));
 #endif	// !TARGET_OS_SIMULATOR
+	matchingMacs = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceMatchingMACs));
 
 	type = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceType));
-	if (isA_CFString(type) == NULL) {
+	if (!isA_CFString(type)) {
 		SC_log(LOG_INFO, "No SCNetworkInterfaceType");
 		goto done;
 	}
@@ -3891,6 +3889,7 @@ __SCNetworkInterfaceCreateWithStorageEntity(CFAllocatorRef	allocator,
 	interfacePrivate->active = CFBooleanGetValue(active);
 	interfacePrivate->entity_device = CFRetain(bsdName);
 	interfacePrivate->builtin = CFBooleanGetValue(ioBuiltin);
+	interfacePrivate->hidden = CFBooleanGetValue(hidden);
 	interfacePrivate->prefix = CFRetain(ioInterfaceNamePrefix);
 	interfacePrivate->type = CFRetain(ioInterfaceType);
 	interfacePrivate->unit = CFRetain(ioInterfaceUnit);
@@ -3898,13 +3897,14 @@ __SCNetworkInterfaceCreateWithStorageEntity(CFAllocatorRef	allocator,
 	interfacePrivate->path = CFRetain(ioPathMatch);
 	interfacePrivate->name = ((userDefinedName != NULL) ? CFRetain(userDefinedName) : NULL);
 	interfacePrivate->localized_name = ((userDefinedName != NULL) ? CFRetain(userDefinedName) : NULL);
+#if	!TARGET_OS_SIMULATOR
 	interfacePrivate->usb.name = ((usbProductName != NULL) ? CFRetain(usbProductName) : NULL);
 	interfacePrivate->usb.pid = ((idProduct != NULL) ? CFRetain(idProduct) : NULL);
 	interfacePrivate->usb.vid = ((idVendor != NULL) ? CFRetain(idVendor) : NULL);
+#endif	// !TARGET_OS_SIMULATOR
+	interfacePrivate->matchingMACs = ((matchingMacs != NULL) ? CFRetain(matchingMacs) : NULL);
 
 	// Handling interface types to be seen in NetworkInterfaces.plist
-	CFIndex interfaceIndex;
-
 	interfaceIndex = findConfiguration(type);
 	if (interfaceIndex != kCFNotFound) {
 		interfacePrivate->interface_type = *configurations[interfaceIndex].interface_type;
@@ -3918,7 +3918,9 @@ __SCNetworkInterfaceCreateWithStorageEntity(CFAllocatorRef	allocator,
 	} else if (ioInterfaceTypeNum == kInterfaceTypeFirewireValue) {
 		interfacePrivate->entity_type = kSCValNetInterfaceTypeFireWire;
 	}
-done:
+
+    done:
+
 	if (ioInterfaceNamePrefix != NULL) {
 		CFRelease(ioInterfaceNamePrefix);
 	}
@@ -4013,8 +4015,7 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef	allocator,
 
 	if (service != NULL) {
 		servicePref = ((SCNetworkServicePrivateRef)service)->prefs;
-		useSystemInterfaces = ((__SCPreferencesUsingDefaultPrefs(servicePref)) &&
-				       (!__SCPreferencesGetLimitSCNetworkConfiguration(servicePref)));
+		useSystemInterfaces = !_SCNetworkConfigurationBypassSystemInterfaces(servicePref);
 	}
 
 	ifType = CFDictionaryGetValue(interface_entity, kSCPropNetInterfaceType);
@@ -5145,7 +5146,7 @@ __SCNetworkInterfaceGetDefaultConfiguration(SCNetworkSetRef set, SCNetworkInterf
 										   interfacePrivate->entity_device,	// interface
 										   defaultType);			// entity
 			if (path != NULL) {
-				config = __getPrefsConfiguration(interfacePrivate->prefs, path);
+				config = __SCNetworkConfigurationGetValue(interfacePrivate->prefs, path);
 				CFRelease(path);
 
 				if (config == NULL) {
@@ -5185,7 +5186,7 @@ __SCNetworkInterfaceGetConfiguration(SCNetworkInterfaceRef	interface,
 		CFStringRef			path;
 
 		path = CFArrayGetValueAtIndex(paths, 0);
-		config = __getPrefsConfiguration(interfacePrivate->prefs, path);
+		config = __SCNetworkConfigurationGetValue(interfacePrivate->prefs, path);
 
 		CFRelease(paths);
 	} else {
@@ -5232,7 +5233,7 @@ SCNetworkInterfaceGetConfiguration(SCNetworkInterfaceRef interface)
 			path = SCPreferencesPathKeyCreateNetworkServiceEntity(NULL,				// allocator
 									      interfacePrivate->serviceID,	// service
 									      kSCEntNetAirPort);		// entity
-			config = __getPrefsConfiguration(interfacePrivate->prefs, path);
+			config = __SCNetworkConfigurationGetValue(interfacePrivate->prefs, path);
 			CFRelease(path);
 		}
 	}
@@ -5699,7 +5700,7 @@ __SCNetworkInterfaceSetDefaultConfiguration(SCNetworkSetRef		set,
 									   interfacePrivate->entity_device,	// interface
 									   defaultType);			// entity
 		if (path != NULL) {
-			ok = __setPrefsConfiguration(interfacePrivate->prefs, path, config, FALSE);
+			ok = __SCNetworkConfigurationSetValue(interfacePrivate->prefs, path, config, FALSE);
 			CFRelease(path);
 			if (ok) {
 				// if configuration has been saved
@@ -5771,7 +5772,7 @@ __SCNetworkInterfaceSetConfiguration(SCNetworkInterfaceRef	interface,
 			CFStringRef     path;
 
 			path = CFArrayGetValueAtIndex(paths, i);
-			ok = __setPrefsConfiguration(interfacePrivate->prefs, path, config, FALSE);
+			ok = __SCNetworkConfigurationSetValue(interfacePrivate->prefs, path, config, FALSE);
 			if (!ok) {
 				break;
 			}
@@ -7571,20 +7572,8 @@ _SCNetworkInterfaceIsApplePreconfigured(SCNetworkInterfaceRef interface)
 		return FALSE;
 	}
 
-	if ((interfacePrivate->overrides == NULL) ||
-	    (!CFDictionaryContainsKey(interfacePrivate->overrides, kSCNetworkProtocolTypeIPv4) &&
-	     !CFDictionaryContainsKey(interfacePrivate->overrides, kSCNetworkProtocolTypeIPv6))) {
-		// if no [IPv4/IPv6] configuration overrides
-		return FALSE;
-	}
-
 	if (_SCNetworkInterfaceIsBuiltin(interface)) {
-		// if built-in (and overrides are present)
-		return TRUE;
-	}
-
-	if (_SCNetworkInterfaceIsCarPlay(interface)) {
-		// if CarPlay (and overrides are present)
+		// if built-in
 		return TRUE;
 	}
 
@@ -7592,8 +7581,18 @@ _SCNetworkInterfaceIsApplePreconfigured(SCNetworkInterfaceRef interface)
 		int		vid;
 
 		if (CFNumberGetValue(interfacePrivate->usb.vid, kCFNumberIntType, &vid) &&
-		    (vid == kIOUSBVendorIDAppleComputer)) {
-			// if Apple interface (and overrides are present)
+		    (vid == kIOUSBAppleVendorID)) {
+			// if Apple interface
+			return TRUE;
+		}
+	}
+
+	if (_SCNetworkInterfaceIsCarPlay(interface)) {
+		// if CarPlay
+		if ((interfacePrivate->overrides != NULL) &&
+		    (CFDictionaryContainsKey(interfacePrivate->overrides, kSCNetworkProtocolTypeIPv4) ||
+		     CFDictionaryContainsKey(interfacePrivate->overrides, kSCNetworkProtocolTypeIPv6))) {
+			// and overrides are present
 			return TRUE;
 		}
 	}
@@ -7994,7 +7993,9 @@ __SCNetworkInterfaceIsMember(SCPreferencesRef prefs, SCNetworkInterfaceRef inter
 
 __private_extern__
 void
-__SCNetworkInterfaceSetDeepConfiguration(SCNetworkSetRef set, SCNetworkInterfaceRef interface, CFArrayRef configs)
+__SCNetworkInterfaceSetDeepConfiguration(SCNetworkSetRef	set,
+					 SCNetworkInterfaceRef	interface,
+					 CFArrayRef		configs)
 {
 	CFIndex	i;
 
@@ -8171,7 +8172,7 @@ SCNetworkInterfaceGetDisableUntilNeeded(SCNetworkInterfaceRef interface)
 		CFDictionaryRef	config;
 		CFStringRef	path = CFArrayGetValueAtIndex(path_list, 0);
 
-		config = __getPrefsConfiguration(interfacePrivate->prefs, path);
+		config = __SCNetworkConfigurationGetValue(interfacePrivate->prefs, path);
 		CFRelease(path_list);
 		if (config != NULL) {
 			int	disable = 0;
@@ -8232,7 +8233,7 @@ __SCNetworkInterfaceSetDisableUntilNeededValue(SCNetworkInterfaceRef interface, 
 		CFMutableDictionaryRef	new_config;
 		CFStringRef		path = CFArrayGetValueAtIndex(path_list, i);
 
-		config = __getPrefsConfiguration(interfacePrivate->prefs, path);
+		config = __SCNetworkConfigurationGetValue(interfacePrivate->prefs, path);
 		if (config != NULL) {
 			new_config
 				= CFDictionaryCreateMutableCopy(NULL, 0, config);
@@ -8247,10 +8248,10 @@ __SCNetworkInterfaceSetDisableUntilNeededValue(SCNetworkInterfaceRef interface, 
 		} else {
 			CFDictionaryRemoveValue(new_config, kSCPropDisableUntilNeeded);
 		}
-		ok = __setPrefsConfiguration(interfacePrivate->prefs,
-					     path,
-					     (CFDictionaryGetCount(new_config) > 0) ? new_config : NULL,
-					     FALSE);
+		ok = __SCNetworkConfigurationSetValue(interfacePrivate->prefs,
+						      path,
+						      (CFDictionaryGetCount(new_config) > 0) ? new_config : NULL,
+						      FALSE);
 		CFRelease(new_config);
 		if (!ok) {
 			break;
@@ -8325,120 +8326,105 @@ __private_extern__
 CFArrayRef  // SCNetworkInterfaceRef
 __SCNetworkInterfaceCopyStoredWithPreferences(SCPreferencesRef ni_prefs)
 {
-	CFStringRef		defaultNetworkInterfacePath	= NULL;
 	CFArrayRef		if_list;
-	CFMutableArrayRef	interfaceList			= NULL;
-	SCNetworkInterfaceRef	interfaceNamer			= NULL;
+	CFMutableArrayRef	interfaceList	= NULL;
 
 	/* initialize runtime */
 	pthread_once(&initialized, __SCNetworkInterfaceInitialize);
 
-	if (ni_prefs == NULL) {
-		defaultNetworkInterfacePath = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/%@"), PREFS_DEFAULT_DIR, NETWORK_INTERFACES_PREFS);
-		assert(defaultNetworkInterfacePath != NULL);
-		ni_prefs = SCPreferencesCreate(NULL, CFSTR("SCNetworkInterface"), defaultNetworkInterfacePath);
+	if (ni_prefs != NULL) {
+		CFRetain(ni_prefs);
+	} else {
+		ni_prefs = SCPreferencesCreate(NULL, CFSTR("SCNetworkInterface"), INTERFACES_DEFAULT_CONFIG);
+		assert(ni_prefs);
 	}
 
 	if_list = SCPreferencesGetValue(ni_prefs, INTERFACES);
 	if (isA_CFArray(if_list)) {
-		CFIndex	i;
 		CFIndex	n	= CFArrayGetCount(if_list);
 
 		interfaceList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		for (i = 0; i < n; i++) {
+		for (CFIndex i = 0; i < n; i++) {
 			CFDictionaryRef	dict;
 
 			dict = CFArrayGetValueAtIndex(if_list, i);
 			if (isA_CFDictionary(dict) != NULL) {
-				interfaceNamer = __SCNetworkInterfaceCreateWithStorageEntity(NULL, dict);
+				SCNetworkInterfaceRef	interface;
 
-				if (interfaceNamer != NULL) {
-					CFArrayAppendValue(interfaceList, interfaceNamer);
-					CFRelease(interfaceNamer);
+				interface = __SCNetworkInterfaceCreateWithStorageEntity(dict);
+				if (interface != NULL) {
+					CFArrayAppendValue(interfaceList, interface);
+					CFRelease(interface);
 				}
 			}
 		}
 	}
 
-	if (defaultNetworkInterfacePath != NULL) {
-		CFRelease(defaultNetworkInterfacePath);
-		// prefs were created in the function, and hence need to be released
-		CFRelease(ni_prefs);
-	}
+	CFRelease(ni_prefs);
 	return interfaceList;
 }
 
 
 __private_extern__
 Boolean
-__SCNetworkInterfaceSaveStoredWithPreferences(SCPreferencesRef prefs, CFArrayRef interfacesToSave)
+__SCNetworkInterfaceSaveStoredWithPreferences(SCPreferencesRef ni_prefs, CFArrayRef interfacesToSave)
 {
-	CFStringRef defaultNetworkInterfacePath = NULL;
-	Boolean success = FALSE;
+	Boolean ok;
 
-	if (prefs == NULL) {    // TODO: Get the default preferences on the system
-		defaultNetworkInterfacePath = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@%@"), PREFS_DEFAULT_DIR, NETWORK_INTERFACES_PREFS);
-		assert(defaultNetworkInterfacePath != NULL);
-		prefs = SCPreferencesCreate(NULL, CFSTR("SCNetworkInterface"), defaultNetworkInterfacePath);
+	if (!isA_CFArray(interfacesToSave)) {
+		return FALSE;
 	}
 
-	if (isA_CFArray(interfacesToSave) == NULL) {
-		SC_log(LOG_INFO, "No interfaces to save");
-		goto done;
-	}
-	SCPreferencesSetValue(prefs, INTERFACES, interfacesToSave);
-	success = TRUE;
-done:
-	if (defaultNetworkInterfacePath != NULL) {
-		CFRelease(defaultNetworkInterfacePath);
-		// prefs were created in the function, and hence need to be released
-		CFRelease(prefs);
+	if (ni_prefs != NULL) {
+		CFRetain(ni_prefs);
+	} else {
+		ni_prefs = SCPreferencesCreate(NULL, CFSTR("SCNetworkInterface"), INTERFACES_DEFAULT_CONFIG);
+		assert(ni_prefs);
 	}
 
-	return success;
+	ok = SCPreferencesSetValue(ni_prefs, INTERFACES, interfacesToSave);
+	CFRelease(ni_prefs);
+	return ok;
 }
 
 __private_extern__
 SCNetworkInterfaceRef
 __SCNetworkInterfaceCreateWithNIPreferencesUsingBSDName(CFAllocatorRef allocator, SCPreferencesRef ni_prefs, CFStringRef bsdName)
 {
-	CFArrayRef if_list;
-	SCNetworkInterfaceRef interface = NULL;
-	CFStringRef defaultNetworkInterfacePath;
+#pragma unused(allocator)
+	CFArrayRef		if_list;
+	SCNetworkInterfaceRef	interface	= NULL;
 
 	/* initialize runtime */
 	pthread_once(&initialized, __SCNetworkInterfaceInitialize);
 
-	if (ni_prefs == NULL) {
-		defaultNetworkInterfacePath = CFStringCreateWithFormat(allocator, NULL, CFSTR("%@/%@"), PREFS_DEFAULT_DIR, NETWORK_INTERFACES_PREFS);
-		ni_prefs = SCPreferencesCreate(allocator, CFSTR("SCNetworkInterface"), defaultNetworkInterfacePath);
-		CFRelease(defaultNetworkInterfacePath);
-	}
-	else {
+	if (ni_prefs != NULL) {
 		CFRetain(ni_prefs);
+	} else {
+		ni_prefs = SCPreferencesCreate(NULL, CFSTR("SCNetworkInterface"), INTERFACES_DEFAULT_CONFIG);
+		assert(ni_prefs);
 	}
 
 	if_list = SCPreferencesGetValue(ni_prefs, INTERFACES);
+	if (isA_CFArray(if_list)) {
+		CFIndex	n =	CFArrayGetCount(if_list);
 
-	if (isA_CFArray(if_list) != NULL) {
-		CFIndex idx;
-		CFIndex count = CFArrayGetCount(if_list);
+		for (CFIndex i = 0; i < n; i++) {
+			CFDictionaryRef	dict;
+			CFStringRef	tmp_bsdName;
 
-		for (idx = 0; idx < count; idx++) {
-			CFDictionaryRef dict;
-			CFStringRef tmp_bsdName;
-
-			dict = CFArrayGetValueAtIndex(if_list, idx);
-			if (isA_CFDictionary(dict) == NULL) {
+			dict = CFArrayGetValueAtIndex(if_list, i);
+			if (!isA_CFDictionary(dict)) {
 				continue;
 			}
 
 			tmp_bsdName = CFDictionaryGetValue(dict, CFSTR(kSCNetworkInterfaceBSDName));
-			if (tmp_bsdName == NULL) {
+			if (!isA_CFString(tmp_bsdName)) {
 				continue;
 			}
+
 			if (CFEqual(bsdName, tmp_bsdName)) {
-				interface = __SCNetworkInterfaceCreateWithStorageEntity(allocator, dict);
+				interface = __SCNetworkInterfaceCreateWithStorageEntity(dict);
 				break;
 			}
 		}
@@ -8468,7 +8454,7 @@ __SCNetworkInterfaceCreateMappingUsingBSDName(CFArrayRef interfaces)
 		interface = (SCNetworkInterfaceRef) CFArrayGetValueAtIndex(interfaces, idx);
 
 		bsdName = SCNetworkInterfaceGetBSDName(interface);
-		if (isA_CFString(bsdName) == NULL) {
+		if (!isA_CFString(bsdName)) {
 			SC_log(LOG_INFO, "No BSD name");
 			continue;
 		}

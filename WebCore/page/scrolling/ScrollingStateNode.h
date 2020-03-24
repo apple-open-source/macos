@@ -30,7 +30,7 @@
 #include "GraphicsLayer.h"
 #include "ScrollingCoordinator.h"
 #include <stdint.h>
-#include <wtf/RefCounted.h>
+#include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
 
@@ -94,13 +94,13 @@ public:
             releasePlatformLayer(m_typelessPlatformLayer);
     }
 
-    operator GraphicsLayer*() const
+    explicit operator GraphicsLayer*() const
     {
         ASSERT(m_representation == GraphicsLayerRepresentation);
         return m_graphicsLayer.get();
     }
 
-    operator PlatformLayer*() const
+    explicit operator PlatformLayer*() const
     {
         ASSERT(m_representation == PlatformLayerRepresentation);
         return makePlatformLayerTyped(m_typelessPlatformLayer);
@@ -111,7 +111,7 @@ public:
         return m_layerID;
     }
 
-    operator GraphicsLayer::PlatformLayerID() const
+    explicit operator GraphicsLayer::PlatformLayerID() const
     {
         ASSERT(m_representation != PlatformLayerRepresentation);
         return m_layerID;
@@ -128,6 +128,22 @@ public:
             retainPlatformLayer(m_typelessPlatformLayer);
 
         return *this;
+    }
+
+    explicit operator bool() const
+    {
+        switch (m_representation) {
+        case EmptyRepresentation:
+            return false;
+        case GraphicsLayerRepresentation:
+            return !!m_graphicsLayer;
+        case PlatformLayerRepresentation:
+            return !!m_typelessPlatformLayer;
+        case PlatformLayerIDRepresentation:
+            return !!m_layerID;
+        }
+        ASSERT_NOT_REACHED();
+        return false;
     }
 
     bool operator==(const LayerRepresentation& other) const
@@ -162,6 +178,7 @@ public:
         case PlatformLayerIDRepresentation:
             return LayerRepresentation(m_layerID);
         }
+        ASSERT_NOT_REACHED();
         return LayerRepresentation();
     }
 
@@ -180,10 +197,9 @@ private:
     Type m_representation { EmptyRepresentation };
 };
 
-class ScrollingStateNode : public RefCounted<ScrollingStateNode> {
+class ScrollingStateNode : public ThreadSafeRefCounted<ScrollingStateNode> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ScrollingStateNode(ScrollingNodeType, ScrollingStateTree&, ScrollingNodeID);
     virtual ~ScrollingStateNode();
     
     ScrollingNodeType nodeType() const { return m_nodeType; }
@@ -248,6 +264,7 @@ public:
 
 protected:
     ScrollingStateNode(const ScrollingStateNode&, ScrollingStateTree&);
+    ScrollingStateNode(ScrollingNodeType, ScrollingStateTree&, ScrollingNodeID);
 
     virtual void dumpProperties(WTF::TextStream&, ScrollingStateTreeAsTextBehavior) const;
 

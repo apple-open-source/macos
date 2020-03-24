@@ -330,7 +330,7 @@ CVim::SendKeys(BSTR keys)
     }
 
     /* Translate key codes like <Esc> */
-    str = replace_termcodes((char_u *)buffer, &ptr, FALSE, TRUE, FALSE);
+    str = replace_termcodes((char_u *)buffer, &ptr, REPTERM_DO_LT, NULL);
 
     /* If ptr was set, then a new buffer was allocated,
      * so we can free the old one.
@@ -376,7 +376,7 @@ CVim::Eval(BSTR expr, BSTR *result)
     if (len == 0)
 	return E_INVALIDARG;
 
-    buffer = (char *)alloc((unsigned)len);
+    buffer = (char *)alloc(len);
 
     if (buffer == NULL)
 	return E_OUTOFMEMORY;

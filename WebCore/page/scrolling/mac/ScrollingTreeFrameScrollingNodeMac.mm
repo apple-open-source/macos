@@ -85,22 +85,22 @@ void ScrollingTreeFrameScrollingNodeMac::commitStateBeforeChildren(const Scrolli
     const auto& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(stateNode);
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::RootContentsLayer))
-        m_rootContentsLayer = scrollingStateNode.rootContentsLayer();
+        m_rootContentsLayer = static_cast<CALayer*>(scrollingStateNode.rootContentsLayer());
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::CounterScrollingLayer))
-        m_counterScrollingLayer = scrollingStateNode.counterScrollingLayer();
+        m_counterScrollingLayer = static_cast<CALayer*>(scrollingStateNode.counterScrollingLayer());
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::InsetClipLayer))
-        m_insetClipLayer = scrollingStateNode.insetClipLayer();
+        m_insetClipLayer = static_cast<CALayer*>(scrollingStateNode.insetClipLayer());
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::ContentShadowLayer))
-        m_contentShadowLayer = scrollingStateNode.contentShadowLayer();
+        m_contentShadowLayer = static_cast<CALayer*>(scrollingStateNode.contentShadowLayer());
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::HeaderLayer))
-        m_headerLayer = scrollingStateNode.headerLayer();
+        m_headerLayer = static_cast<CALayer*>(scrollingStateNode.headerLayer());
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::FooterLayer))
-        m_footerLayer = scrollingStateNode.footerLayer();
+        m_footerLayer = static_cast<CALayer*>(scrollingStateNode.footerLayer());
 
     bool logScrollingMode = !m_hadFirstUpdate;
     if (scrollingStateNode.hasChangedProperty(ScrollingStateFrameScrollingNode::ReasonsForSynchronousScrolling))
@@ -137,15 +137,15 @@ void ScrollingTreeFrameScrollingNodeMac::commitStateAfterChildren(const Scrollin
 
     // Update the scroll position after child nodes have been updated, because they need to have updated their constraints before any scrolling happens.
     if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::RequestedScrollPosition)) {
-        auto scrollType = scrollingStateNode.requestedScrollPositionRepresentsProgrammaticScroll() ? ScrollType::Programmatic : ScrollType::User;
-        scrollTo(scrollingStateNode.requestedScrollPosition(), scrollType);
+        const auto& requestedScrollData = scrollingStateNode.requestedScrollData();
+        scrollTo(requestedScrollData.scrollPosition, requestedScrollData.scrollType, requestedScrollData.clamping);
     }
 
     if (isRootNode()
         && (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::ScrolledContentsLayer)
         || scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::TotalContentsSize)
         || scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::ScrollableAreaSize)))
-        updateMainFramePinState();
+        updateMainFramePinAndRubberbandState();
 }
 
 ScrollingEventResult ScrollingTreeFrameScrollingNodeMac::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
@@ -169,7 +169,7 @@ ScrollingEventResult ScrollingTreeFrameScrollingNodeMac::handleWheelEvent(const 
     return ScrollingEventResult::DidHandleEvent;
 }
 
-FloatPoint ScrollingTreeFrameScrollingNodeMac::adjustedScrollPosition(const FloatPoint& position, ScrollPositionClamp clamp) const
+FloatPoint ScrollingTreeFrameScrollingNodeMac::adjustedScrollPosition(const FloatPoint& position, ScrollClamping clamp) const
 {
     FloatPoint scrollPosition(roundf(position.x()), roundf(position.y()));
     return ScrollingTreeFrameScrollingNode::adjustedScrollPosition(scrollPosition, clamp);
@@ -180,7 +180,7 @@ void ScrollingTreeFrameScrollingNodeMac::currentScrollPositionChanged()
     LOG_WITH_STREAM(Scrolling, stream << "ScrollingTreeFrameScrollingNodeMac::currentScrollPositionChanged to " << currentScrollPosition() << " min: " << minimumScrollPosition() << " max: " << maximumScrollPosition() << " sync: " << shouldUpdateScrollLayerPositionSynchronously());
 
     if (isRootNode())
-        updateMainFramePinState();
+        updateMainFramePinAndRubberbandState();
 
     if (shouldUpdateScrollLayerPositionSynchronously())
         scrollingTree().scrollingTreeNodeDidScroll(*this, ScrollingLayerPositionAction::Set);
@@ -199,7 +199,7 @@ void ScrollingTreeFrameScrollingNodeMac::currentScrollPositionChanged()
 void ScrollingTreeFrameScrollingNodeMac::repositionScrollingLayers()
 {
     // We use scroll position here because the root content layer is offset to account for scrollOrigin (see FrameView::positionForRootContentLayer).
-    scrolledContentsLayer().position = -currentScrollPosition();
+    static_cast<CALayer*>(scrolledContentsLayer()).position = -currentScrollPosition();
 }
 
 void ScrollingTreeFrameScrollingNodeMac::repositionRelatedLayers()
@@ -256,7 +256,7 @@ FloatPoint ScrollingTreeFrameScrollingNodeMac::maximumScrollPosition() const
     return position;
 }
 
-void ScrollingTreeFrameScrollingNodeMac::updateMainFramePinState()
+void ScrollingTreeFrameScrollingNodeMac::updateMainFramePinAndRubberbandState()
 {
     ASSERT(isRootNode());
 
@@ -267,6 +267,13 @@ void ScrollingTreeFrameScrollingNodeMac::updateMainFramePinState()
     bool pinnedToTheBottom = scrollPosition.y() >= maximumScrollPosition().y();
 
     scrollingTree().setMainFramePinState(pinnedToTheLeft, pinnedToTheRight, pinnedToTheTop, pinnedToTheBottom);
+
+    bool rubberbanding = scrollPosition.x() < minimumScrollPosition().x()
+        || scrollPosition.x() > maximumScrollPosition().x()
+        || scrollPosition.y() < minimumScrollPosition().y()
+        || scrollPosition.y() > maximumScrollPosition().y();
+    
+    scrollingTree().setMainFrameIsRubberBanding(rubberbanding);
 }
 
 unsigned ScrollingTreeFrameScrollingNodeMac::exposedUnfilledArea() const

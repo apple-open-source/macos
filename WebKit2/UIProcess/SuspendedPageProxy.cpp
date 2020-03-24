@@ -28,6 +28,7 @@
 
 #include "DrawingAreaProxy.h"
 #include "Logging.h"
+#include "WebBackForwardCache.h"
 #include "WebPageMessages.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
@@ -42,6 +43,22 @@ namespace WebKit {
 using namespace WebCore;
 
 static const Seconds suspensionTimeout { 10_s };
+
+static HashSet<SuspendedPageProxy*>& allSuspendedPages()
+{
+    static NeverDestroyed<HashSet<SuspendedPageProxy*>> map;
+    return map;
+}
+
+RefPtr<WebProcessProxy> SuspendedPageProxy::findReusableSuspendedPageProcess(WebProcessPool& processPool, const RegistrableDomain& registrableDomain, WebsiteDataStore& dataStore)
+{
+    for (auto* suspendedPage : allSuspendedPages()) {
+        auto& process = suspendedPage->process();
+        if (&process.processPool() == &processPool && process.registrableDomain() == registrableDomain && &process.websiteDataStore() == &dataStore)
+            return &process;
+    }
+    return nullptr;
+}
 
 #if !LOG_DISABLED
 static const HashSet<IPC::StringReference>& messageNamesToIgnoreWhileSuspended()
@@ -64,7 +81,6 @@ static const HashSet<IPC::StringReference>& messageNamesToIgnoreWhileSuspended()
         messageNames.get().add("DidNavigateWithNavigationData");
         messageNames.get().add("DidReachLayoutMilestone");
         messageNames.get().add("DidRestoreScrollPosition");
-        messageNames.get().add("DidSaveToPageCache");
         messageNames.get().add("DidStartProgress");
         messageNames.get().add("DidStartProvisionalLoadForFrame");
         messageNames.get().add("EditorStateChanged");
@@ -78,26 +94,31 @@ static const HashSet<IPC::StringReference>& messageNamesToIgnoreWhileSuspended()
 }
 #endif
 
-SuspendedPageProxy::SuspendedPageProxy(WebPageProxy& page, Ref<WebProcessProxy>&& process, uint64_t mainFrameID, ShouldDelayClosingUntilEnteringAcceleratedCompositingMode shouldDelayClosingUntilEnteringAcceleratedCompositingMode)
+SuspendedPageProxy::SuspendedPageProxy(WebPageProxy& page, Ref<WebProcessProxy>&& process, FrameIdentifier mainFrameID, ShouldDelayClosingUntilEnteringAcceleratedCompositingMode shouldDelayClosingUntilEnteringAcceleratedCompositingMode)
     : m_page(page)
+    , m_webPageID(page.webPageID())
     , m_process(WTFMove(process))
     , m_mainFrameID(mainFrameID)
     , m_shouldDelayClosingUntilEnteringAcceleratedCompositingMode(shouldDelayClosingUntilEnteringAcceleratedCompositingMode)
     , m_suspensionTimeoutTimer(RunLoop::main(), this, &SuspendedPageProxy::suspensionTimedOut)
 #if PLATFORM(IOS_FAMILY)
-    , m_suspensionToken(m_process->throttler().backgroundActivityToken())
+    , m_suspensionActivity(m_process->throttler().backgroundActivity("Page suspension for back/forward cache"_s).moveToUniquePtr())
+#endif
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+    , m_contextIDForVisibilityPropagation(page.contextIDForVisibilityPropagation())
 #endif
 {
+    allSuspendedPages().add(this);
     m_process->incrementSuspendedPageCount();
-    m_process->addMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_page.pageID(), *this);
+    m_process->addMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_webPageID, *this);
 
     m_suspensionTimeoutTimer.startOneShot(suspensionTimeout);
-    m_process->send(Messages::WebPage::SetIsSuspended(true), m_page.pageID());
+    send(Messages::WebPage::SetIsSuspended(true));
 }
 
 SuspendedPageProxy::~SuspendedPageProxy()
 {
-    m_process->decrementSuspendedPageCount();
+    allSuspendedPages().remove(this);
 
     if (m_readyToUnsuspendHandler) {
         RunLoop::main().dispatch([readyToUnsuspendHandler = WTFMove(m_readyToUnsuspendHandler)]() mutable {
@@ -105,21 +126,21 @@ SuspendedPageProxy::~SuspendedPageProxy()
         });
     }
 
-    if (m_suspensionState == SuspensionState::Resumed)
-        return;
+    if (m_suspensionState != SuspensionState::Resumed) {
+        // If the suspended page was not consumed before getting destroyed, then close the corresponding page
+        // on the WebProcess side.
+        close();
 
-    // If the suspended page was not consumed before getting destroyed, then close the corresponding page
-    // on the WebProcess side.
-    close();
+        if (m_suspensionState == SuspensionState::Suspending)
+            m_process->removeMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_webPageID);
+    }
 
-    if (m_suspensionState == SuspensionState::Suspending)
-        m_process->removeMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_page.pageID());
+    m_process->decrementSuspendedPageCount();
+}
 
-    // We call maybeShutDown() asynchronously since the SuspendedPage is currently being removed from the WebProcessPool
-    // and we want to avoid re-entering WebProcessPool methods.
-    RunLoop::main().dispatch([process = m_process.copyRef()] {
-        process->maybeShutDown();
-    });
+WebBackForwardCache& SuspendedPageProxy::backForwardCache() const
+{
+    return process().processPool().backForwardCache();
 }
 
 void SuspendedPageProxy::waitUntilReadyToUnsuspend(CompletionHandler<void(SuspendedPageProxy*)>&& completionHandler)
@@ -147,7 +168,7 @@ void SuspendedPageProxy::unsuspend()
     ASSERT(m_suspensionState == SuspensionState::Suspended);
 
     m_suspensionState = SuspensionState::Resumed;
-    m_process->send(Messages::WebPage::SetIsSuspended(false), m_page.pageID());
+    send(Messages::WebPage::SetIsSuspended(false));
 }
 
 void SuspendedPageProxy::close()
@@ -159,7 +180,7 @@ void SuspendedPageProxy::close()
 
     RELEASE_LOG(ProcessSwapping, "%p - SuspendedPageProxy::close()", this);
     m_isClosed = true;
-    m_process->send(Messages::WebPage::Close(), m_page.pageID());
+    send(Messages::WebPage::Close());
 }
 
 void SuspendedPageProxy::pageEnteredAcceleratedCompositingMode()
@@ -200,10 +221,10 @@ void SuspendedPageProxy::didProcessRequestToSuspend(SuspensionState newSuspensio
     m_suspensionTimeoutTimer.stop();
 
 #if PLATFORM(IOS_FAMILY)
-    m_suspensionToken = nullptr;
+    m_suspensionActivity = nullptr;
 #endif
 
-    m_process->removeMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_page.pageID());
+    m_process->removeMessageReceiver(Messages::WebPageProxy::messageReceiverName(), m_webPageID);
 
     if (m_suspensionState == SuspensionState::FailedToSuspend)
         closeWithoutFlashing();
@@ -215,7 +236,7 @@ void SuspendedPageProxy::didProcessRequestToSuspend(SuspensionState newSuspensio
 void SuspendedPageProxy::suspensionTimedOut()
 {
     RELEASE_LOG_ERROR(ProcessSwapping, "%p - SuspendedPageProxy::suspensionTimedOut() destroying the suspended page because it failed to suspend in time", this);
-    m_process->processPool().removeSuspendedPage(*this); // Will destroy |this|.
+    backForwardCache().removeEntry(*this); // Will destroy |this|.
 }
 
 void SuspendedPageProxy::didReceiveMessage(IPC::Connection&, IPC::Decoder& decoder)
@@ -242,11 +263,28 @@ void SuspendedPageProxy::didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, 
 {
 }
 
+IPC::Connection* SuspendedPageProxy::messageSenderConnection() const
+{
+    return m_process->connection();
+}
+
+uint64_t SuspendedPageProxy::messageSenderDestinationID() const
+{
+    return m_webPageID.toUInt64();
+}
+
+bool SuspendedPageProxy::sendMessage(std::unique_ptr<IPC::Encoder> encoder, OptionSet<IPC::SendOption> sendOptions, Optional<std::pair<CompletionHandler<void(IPC::Decoder*)>, uint64_t>>&& asyncReplyInfo)
+{
+    // Send messages via the WebProcessProxy instead of the IPC::Connection since AuxiliaryProcessProxy implements queueing of messages
+    // while the process is still launching.
+    return m_process->sendMessage(WTFMove(encoder), sendOptions, WTFMove(asyncReplyInfo));
+}
+
 #if !LOG_DISABLED
 
 const char* SuspendedPageProxy::loggingString() const
 {
-    return debugString("(0x", hex(reinterpret_cast<uintptr_t>(this)), " page ID ", m_page.pageID().toUInt64(), ", m_suspensionState ", static_cast<unsigned>(m_suspensionState), ')');
+    return debugString("(0x", hex(reinterpret_cast<uintptr_t>(this)), " WebPage ID ", m_webPageID.toUInt64(), ", m_suspensionState ", static_cast<unsigned>(m_suspensionState), ')');
 }
 
 #endif

@@ -184,7 +184,7 @@ FloatRect WebChromeClient::windowRect()
 
     FloatRect newWindowFrame;
 
-    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::GetWindowFrame(), Messages::WebPageProxy::GetWindowFrame::Reply(newWindowFrame), m_page.pageID()))
+    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::GetWindowFrame(), Messages::WebPageProxy::GetWindowFrame::Reply(newWindowFrame), m_page.identifier()))
         return FloatRect();
 
     return newWindowFrame;
@@ -269,7 +269,7 @@ void WebChromeClient::focusedFrameChanged(Frame* frame)
 {
     WebFrame* webFrame = frame ? WebFrame::fromCoreFrame(*frame) : nullptr;
 
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebPageProxy::FocusedFrameChanged(webFrame ? webFrame->frameID() : 0), m_page.pageID());
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebPageProxy::FocusedFrameChanged(webFrame ? makeOptional(webFrame->frameID()) : WTF::nullopt), m_page.identifier());
 }
 
 Page* WebChromeClient::createWindow(Frame& frame, const FrameLoadRequest& request, const WindowFeatures& windowFeatures, const NavigationAction& navigationAction)
@@ -296,14 +296,14 @@ Page* WebChromeClient::createWindow(Frame& frame, const FrameLoadRequest& reques
 
     Optional<PageIdentifier> newPageID;
     Optional<WebPageCreationParameters> parameters;
-    if (!webProcess.parentProcessConnection()->sendSync(Messages::WebPageProxy::CreateNewPage(webFrame->info(), webFrame->page()->pageID(), request.resourceRequest(), windowFeatures, navigationActionData), Messages::WebPageProxy::CreateNewPage::Reply(newPageID, parameters), m_page.pageID()))
+    if (!webProcess.parentProcessConnection()->sendSync(Messages::WebPageProxy::CreateNewPage(webFrame->info(), webFrame->page()->webPageProxyIdentifier(), request.resourceRequest(), windowFeatures, navigationActionData), Messages::WebPageProxy::CreateNewPage::Reply(newPageID, parameters), m_page.identifier()))
         return nullptr;
 
     if (!newPageID)
         return nullptr;
     ASSERT(parameters);
-    if (parameters->sessionID == m_page.sessionID())
-        parameters->oldPageID = m_page.pageID();
+
+    parameters->oldPageID = m_page.identifier();
 
     webProcess.createWebPage(*newPageID, WTFMove(*parameters));
     return webProcess.webPage(*newPageID)->corePage();
@@ -313,7 +313,7 @@ bool WebChromeClient::testProcessIncomingSyncMessagesWhenWaitingForSyncReply()
 {
     IPC::UnboundedSynchronousIPCScope unboundedSynchronousIPCScope;
     bool handled = false;
-    if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::TestProcessIncomingSyncMessagesWhenWaitingForSyncReply(m_page.pageID()), Messages::NetworkConnectionToWebProcess::TestProcessIncomingSyncMessagesWhenWaitingForSyncReply::Reply(handled), 0))
+    if (!WebProcess::singleton().ensureNetworkProcessConnection().connection().sendSync(Messages::NetworkConnectionToWebProcess::TestProcessIncomingSyncMessagesWhenWaitingForSyncReply(m_page.webPageProxyIdentifier()), Messages::NetworkConnectionToWebProcess::TestProcessIncomingSyncMessagesWhenWaitingForSyncReply::Reply(handled), 0))
         return false;
     return handled;
 }
@@ -350,7 +350,7 @@ bool WebChromeClient::toolbarsVisible()
         return toolbarsVisibility == API::InjectedBundle::PageUIClient::UIElementVisibility::Visible;
     
     bool toolbarsAreVisible = true;
-    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::GetToolbarsAreVisible(), Messages::WebPageProxy::GetToolbarsAreVisible::Reply(toolbarsAreVisible), m_page.pageID()))
+    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::GetToolbarsAreVisible(), Messages::WebPageProxy::GetToolbarsAreVisible::Reply(toolbarsAreVisible), m_page.identifier()))
         return true;
 
     return toolbarsAreVisible;
@@ -368,7 +368,7 @@ bool WebChromeClient::statusbarVisible()
         return statusbarVisibility == API::InjectedBundle::PageUIClient::UIElementVisibility::Visible;
 
     bool statusBarIsVisible = true;
-    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::GetStatusBarIsVisible(), Messages::WebPageProxy::GetStatusBarIsVisible::Reply(statusBarIsVisible), m_page.pageID()))
+    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::GetStatusBarIsVisible(), Messages::WebPageProxy::GetStatusBarIsVisible::Reply(statusBarIsVisible), m_page.identifier()))
         return true;
 
     return statusBarIsVisible;
@@ -397,7 +397,7 @@ bool WebChromeClient::menubarVisible()
         return menubarVisibility == API::InjectedBundle::PageUIClient::UIElementVisibility::Visible;
     
     bool menuBarIsVisible = true;
-    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::GetMenuBarIsVisible(), Messages::WebPageProxy::GetMenuBarIsVisible::Reply(menuBarIsVisible), m_page.pageID()))
+    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::GetMenuBarIsVisible(), Messages::WebPageProxy::GetMenuBarIsVisible::Reply(menuBarIsVisible), m_page.identifier()))
         return true;
 
     return menuBarIsVisible;
@@ -629,7 +629,7 @@ void WebChromeClient::contentsSizeChanged(Frame& frame, const IntSize& size) con
         WebFrame* largestFrame = findLargestFrameInFrameSet(m_page);
         if (largestFrame != m_cachedFrameSetLargestFrame.get()) {
             m_cachedFrameSetLargestFrame = largestFrame;
-            m_page.send(Messages::WebPageProxy::FrameSetLargestFrameChanged(largestFrame ? largestFrame->frameID() : 0));
+            m_page.send(Messages::WebPageProxy::FrameSetLargestFrameChanged(largestFrame ? makeOptional(largestFrame->frameID()) : WTF::nullopt));
         }
     }
 
@@ -700,7 +700,7 @@ void WebChromeClient::unavailablePluginButtonClicked(Element& element, RenderEmb
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
 }
 
-void WebChromeClient::mouseDidMoveOverElement(const HitTestResult& hitTestResult, unsigned modifierFlags)
+void WebChromeClient::mouseDidMoveOverElement(const HitTestResult& hitTestResult, unsigned modifierFlags, const String& toolTip, TextDirection)
 {
     RefPtr<API::Object> userData;
 
@@ -708,19 +708,8 @@ void WebChromeClient::mouseDidMoveOverElement(const HitTestResult& hitTestResult
     m_page.injectedBundleUIClient().mouseDidMoveOverElement(&m_page, hitTestResult, OptionSet<WebEvent::Modifier>::fromRaw(modifierFlags), userData);
 
     // Notify the UIProcess.
-    WebHitTestResultData webHitTestResultData(hitTestResult);
+    WebHitTestResultData webHitTestResultData(hitTestResult, toolTip);
     m_page.send(Messages::WebPageProxy::MouseDidMoveOverElement(webHitTestResultData, modifierFlags, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
-}
-
-void WebChromeClient::setToolTip(const String& toolTip, TextDirection)
-{
-    // Only send a tool tip to the WebProcess if it has changed since the last time this function was called.
-
-    if (toolTip == m_cachedToolTip)
-        return;
-    m_cachedToolTip = toolTip;
-
-    m_page.send(Messages::WebPageProxy::SetToolTip(m_cachedToolTip));
 }
 
 void WebChromeClient::print(Frame& frame)
@@ -793,22 +782,11 @@ void WebChromeClient::reachedApplicationCacheOriginQuota(SecurityOrigin& origin,
     cacheStorage.storeUpdatedQuotaForOrigin(&origin, newQuota);
 }
 
-bool WebChromeClient::shouldReplaceWithGeneratedFileForUpload(const String& path, String& generatedFilename)
-{
-    generatedFilename = m_page.injectedBundleUIClient().shouldGenerateFileForUpload(&m_page, path);
-    return !generatedFilename.isNull();
-}
-
-String WebChromeClient::generateReplacementFile(const String& path)
-{
-    return m_page.injectedBundleUIClient().generateFileForUpload(&m_page, path);
-}
-
 #if ENABLE(INPUT_TYPE_COLOR)
 
 std::unique_ptr<ColorChooser> WebChromeClient::createColorChooser(ColorChooserClient& client, const Color& initialColor)
 {
-    return std::make_unique<WebColorChooser>(&m_page, &client, initialColor);
+    return makeUnique<WebColorChooser>(&m_page, &client, initialColor);
 }
 
 #endif
@@ -817,7 +795,7 @@ std::unique_ptr<ColorChooser> WebChromeClient::createColorChooser(ColorChooserCl
 
 std::unique_ptr<DataListSuggestionPicker> WebChromeClient::createDataListSuggestionPicker(DataListSuggestionsClient& client)
 {
-    return std::make_unique<WebDataListSuggestionPicker>(&m_page, &client);
+    return makeUnique<WebDataListSuggestionPicker>(&m_page, &client);
 }
 
 #endif
@@ -844,8 +822,6 @@ void WebChromeClient::loadIconForFiles(const Vector<String>& filenames, FileIcon
     loader.iconLoaded(createIconForFiles(filenames));
 }
 
-#if !PLATFORM(IOS_FAMILY)
-
 void WebChromeClient::setCursor(const Cursor& cursor)
 {
     m_page.send(Messages::WebPageProxy::SetCursor(cursor));
@@ -855,6 +831,8 @@ void WebChromeClient::setCursorHiddenUntilMouseMoves(bool hiddenUntilMouseMoves)
 {
     m_page.send(Messages::WebPageProxy::SetCursorHiddenUntilMouseMoves(hiddenUntilMouseMoves));
 }
+
+#if !PLATFORM(IOS_FAMILY)
 
 RefPtr<Icon> WebChromeClient::createIconForFiles(const Vector<String>& filenames)
 {
@@ -906,7 +884,9 @@ GraphicsLayerFactory* WebChromeClient::graphicsLayerFactory() const
 
 RefPtr<DisplayRefreshMonitor> WebChromeClient::createDisplayRefreshMonitor(PlatformDisplayID displayID) const
 {
-    return m_page.drawingArea()->createDisplayRefreshMonitor(displayID);
+    if (auto* drawingArea = m_page.drawingArea())
+        return drawingArea->createDisplayRefreshMonitor(displayID);
+    return nullptr;
 }
 
 #endif
@@ -1200,7 +1180,7 @@ void WebChromeClient::focusedContentMediaElementDidChange(uint64_t elementID)
 bool WebChromeClient::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>& wrappedKey) const
 {
     bool succeeded;
-    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::WrapCryptoKey(key), Messages::WebPageProxy::WrapCryptoKey::Reply(succeeded, wrappedKey), m_page.pageID()))
+    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::WrapCryptoKey(key), Messages::WebPageProxy::WrapCryptoKey::Reply(succeeded, wrappedKey), m_page.identifier()))
         return false;
     return succeeded;
 }
@@ -1208,7 +1188,7 @@ bool WebChromeClient::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>&
 bool WebChromeClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<uint8_t>& key) const
 {
     bool succeeded;
-    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::UnwrapCryptoKey(wrappedKey), Messages::WebPageProxy::UnwrapCryptoKey::Reply(succeeded, key), m_page.pageID()))
+    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::UnwrapCryptoKey(wrappedKey), Messages::WebPageProxy::UnwrapCryptoKey::Reply(succeeded, key), m_page.identifier()))
         return false;
     return succeeded;
 }
@@ -1218,7 +1198,7 @@ bool WebChromeClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<
 String WebChromeClient::signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String& challengeString, const URL& url) const
 {
     String result;
-    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::SignedPublicKeyAndChallengeString(keySizeIndex, challengeString, url), Messages::WebPageProxy::SignedPublicKeyAndChallengeString::Reply(result), m_page.pageID()))
+    if (!WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::SignedPublicKeyAndChallengeString(keySizeIndex, challengeString, url), Messages::WebPageProxy::SignedPublicKeyAndChallengeString::Reply(result), m_page.identifier()))
         return emptyString();
     return result;
 }
@@ -1309,6 +1289,10 @@ void WebChromeClient::setMockMediaPlaybackTargetPickerState(const String& name, 
     m_page.send(Messages::WebPageProxy::SetMockMediaPlaybackTargetPickerState(name, state));
 }
 
+void WebChromeClient::mockMediaPlaybackTargetPickerDismissPopup()
+{
+    m_page.send(Messages::WebPageProxy::MockMediaPlaybackTargetPickerDismissPopup());
+}
 #endif
 
 void WebChromeClient::imageOrMediaDocumentSizeChanged(const IntSize& newSize)
@@ -1331,14 +1315,18 @@ void WebChromeClient::didInvalidateDocumentMarkerRects()
 }
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
-void WebChromeClient::hasStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, uint64_t frameID, PageIdentifier, CompletionHandler<void(bool)>&& completionHandler)
+void WebChromeClient::hasStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, Frame& frame, CompletionHandler<void(bool)>&& completionHandler)
 {
-    m_page.hasStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, WTFMove(completionHandler));
+    auto* webFrame = WebFrame::fromCoreFrame(frame);
+    ASSERT(webFrame);
+    m_page.hasStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), *webFrame, WTFMove(completionHandler));
 }
 
-void WebChromeClient::requestStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, uint64_t frameID, PageIdentifier, CompletionHandler<void(StorageAccessWasGranted, StorageAccessPromptWasShown)>&& completionHandler)
+void WebChromeClient::requestStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, Frame& frame, CompletionHandler<void(StorageAccessWasGranted, StorageAccessPromptWasShown)>&& completionHandler)
 {
-    m_page.requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, WTFMove(completionHandler));
+    auto* webFrame = WebFrame::fromCoreFrame(frame);
+    ASSERT(webFrame);
+    m_page.requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), *webFrame, WTFMove(completionHandler));
 }
 #endif
 

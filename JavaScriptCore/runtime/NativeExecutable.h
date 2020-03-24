@@ -34,7 +34,7 @@ class NativeExecutable final : public ExecutableBase {
     friend class LLIntOffsetsExtractor;
 public:
     typedef ExecutableBase Base;
-    static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
 
     static NativeExecutable* create(VM&, Ref<JITCode>&& callThunk, TaggedNativeFunction, Ref<JITCode>&& constructThunk, TaggedNativeFunction constructor, const String& name);
 
@@ -48,8 +48,8 @@ public:
 
     CodeBlockHash hashFor(CodeSpecializationKind) const;
 
-    TaggedNativeFunction function() { return m_function; }
-    TaggedNativeFunction constructor() { return m_constructor; }
+    TaggedNativeFunction function() const { return m_function; }
+    TaggedNativeFunction constructor() const { return m_constructor; }
         
     TaggedNativeFunction nativeFunctionFor(CodeSpecializationKind kind)
     {

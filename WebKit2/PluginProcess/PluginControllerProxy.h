@@ -30,9 +30,8 @@
 #include "Connection.h"
 #include "Plugin.h"
 #include "PluginController.h"
-#include "PluginControllerProxyMessages.h"
 #include "ShareableBitmap.h"
-#include "WebProcessConnectionMessages.h"
+#include "WebProcessConnectionMessagesReplies.h"
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/UserActivity.h>
 #include <wtf/Noncopyable.h>
@@ -49,7 +48,8 @@ class ShareableBitmap;
 class WebProcessConnection;
 struct PluginCreationParameters;
 
-class PluginControllerProxy : PluginController {
+class PluginControllerProxy : public PluginController {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(PluginControllerProxy);
 
 public:
@@ -74,8 +74,8 @@ public:
 
     bool isInitializing() const { return m_isInitializing; }
     
-    void setInitializationReply(Messages::WebProcessConnection::CreatePlugin::DelayedReply&&);
-    Messages::WebProcessConnection::CreatePlugin::DelayedReply takeInitializationReply();
+    void setInitializationReply(Messages::WebProcessConnection::CreatePluginDelayedReply&&);
+    Messages::WebProcessConnection::CreatePluginDelayedReply takeInitializationReply();
 
 private:
     void startPaintTimer();
@@ -183,7 +183,7 @@ private:
     bool m_isVisible;
     bool m_isWindowVisible;
 
-    Messages::WebProcessConnection::CreatePlugin::DelayedReply m_initializationReply;
+    Messages::WebProcessConnection::CreatePluginDelayedReply m_initializationReply;
 
     RefPtr<Plugin> m_plugin;
 

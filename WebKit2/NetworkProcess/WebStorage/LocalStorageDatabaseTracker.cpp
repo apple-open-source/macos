@@ -30,6 +30,7 @@
 #include <WebCore/SQLiteFileSystem.h>
 #include <WebCore/SQLiteStatement.h>
 #include <WebCore/TextEncoding.h>
+#include <wtf/CrossThreadCopier.h>
 #include <wtf/FileSystem.h>
 #include <wtf/MainThread.h>
 #include <wtf/RunLoop.h>
@@ -39,24 +40,17 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<LocalStorageDatabaseTracker> LocalStorageDatabaseTracker::create(Ref<WorkQueue>&& queue, String&& localStorageDirectory)
+Ref<LocalStorageDatabaseTracker> LocalStorageDatabaseTracker::create(String&& localStorageDirectory)
 {
-    return adoptRef(*new LocalStorageDatabaseTracker(WTFMove(queue), WTFMove(localStorageDirectory)));
+    return adoptRef(*new LocalStorageDatabaseTracker(WTFMove(localStorageDirectory)));
 }
 
-LocalStorageDatabaseTracker::LocalStorageDatabaseTracker(Ref<WorkQueue>&& queue, String&& localStorageDirectory)
-    : m_queue(WTFMove(queue))
-    , m_localStorageDirectory(WTFMove(localStorageDirectory))
+LocalStorageDatabaseTracker::LocalStorageDatabaseTracker(String&& localStorageDirectory)
+    : m_localStorageDirectory(WTFMove(localStorageDirectory))
 {
-    ASSERT(RunLoop::isMain());
+    ASSERT(!RunLoop::isMain());
 
-    // Make sure the encoding is initialized before we start dispatching things to the queue.
-    UTF8Encoding();
-
-    m_queue->dispatch([protectedThis = makeRef(*this)]() mutable {
-        // Delete legacy storageTracker database file.
-        SQLiteFileSystem::deleteDatabaseFile(protectedThis->databasePath("StorageTracker.db"));
-    });
+    SQLiteFileSystem::deleteDatabaseFile(databasePath("StorageTracker.db"));
 }
 
 String LocalStorageDatabaseTracker::localStorageDirectory() const
@@ -66,7 +60,7 @@ String LocalStorageDatabaseTracker::localStorageDirectory() const
 
 LocalStorageDatabaseTracker::~LocalStorageDatabaseTracker()
 {
-    ASSERT(RunLoop::isMain());
+    ASSERT(!RunLoop::isMain());
 }
 
 String LocalStorageDatabaseTracker::databasePath(const SecurityOriginData& securityOrigin) const
@@ -138,7 +132,7 @@ Vector<SecurityOriginData> LocalStorageDatabaseTracker::origins() const
     return databaseOrigins;
 }
 
-Vector<LocalStorageDatabaseTracker::OriginDetails> LocalStorageDatabaseTracker::originDetails()
+Vector<LocalStorageDatabaseTracker::OriginDetails> LocalStorageDatabaseTracker::originDetailsCrossThreadCopy()
 {
     Vector<OriginDetails> result;
     auto databaseOrigins = origins();
@@ -148,10 +142,10 @@ Vector<LocalStorageDatabaseTracker::OriginDetails> LocalStorageDatabaseTracker::
         String path = databasePath(origin);
 
         OriginDetails details;
-        details.originIdentifier = origin.databaseIdentifier();
+        details.originIdentifier = crossThreadCopy(origin.databaseIdentifier());
         details.creationTime = SQLiteFileSystem::databaseCreationTime(path);
         details.modificationTime = SQLiteFileSystem::databaseModificationTime(path);
-        result.uncheckedAppend(details);
+        result.uncheckedAppend(WTFMove(details));
     }
 
     return result;
@@ -167,9 +161,7 @@ String LocalStorageDatabaseTracker::databasePath(const String& filename) const
     }
 
 #if PLATFORM(IOS_FAMILY)
-    RunLoop::main().dispatch([this, protectedThis = makeRef(*this)]() mutable {
-        platformMaybeExcludeFromBackup();
-    });
+    platformMaybeExcludeFromBackup();
 #endif
 
     return SQLiteFileSystem::appendDatabaseFileNameToPath(localStorageDirectory, filename);

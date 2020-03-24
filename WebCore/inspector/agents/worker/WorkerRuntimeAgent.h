@@ -44,7 +44,7 @@ class WorkerRuntimeAgent final : public Inspector::InspectorRuntimeAgent {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     WorkerRuntimeAgent(WorkerAgentContext&);
-    ~WorkerRuntimeAgent() = default;
+    ~WorkerRuntimeAgent() override;
 
 private:
     Inspector::InjectedScript injectedScriptForEval(ErrorString&, const int* executionContextId) override;

@@ -34,16 +34,16 @@
 
 ALLOW_UNUSED_PARAMETERS_BEGIN
 
-#include <webrtc/api/asyncresolverfactory.h>
+#include <webrtc/api/async_resolver_factory.h>
 #include <webrtc/api/audio_codecs/builtin_audio_decoder_factory.h>
 #include <webrtc/api/audio_codecs/builtin_audio_encoder_factory.h>
 #include <webrtc/api/create_peerconnection_factory.h>
-#include <webrtc/api/peerconnectionfactoryproxy.h>
+#include <webrtc/api/peer_connection_factory_proxy.h>
 #include <webrtc/modules/audio_processing/include/audio_processing.h>
-#include <webrtc/p2p/base/basicpacketsocketfactory.h>
-#include <webrtc/p2p/client/basicportallocator.h>
-#include <webrtc/pc/peerconnectionfactory.h>
-#include <webrtc/rtc_base/physicalsocketserver.h>
+#include <webrtc/p2p/base/basic_packet_socket_factory.h>
+#include <webrtc/p2p/client/basic_port_allocator.h>
+#include <webrtc/pc/peer_connection_factory.h>
+#include <webrtc/rtc_base/physical_socket_server.h>
 
 ALLOW_UNUSED_PARAMETERS_END
 
@@ -79,9 +79,10 @@ static inline rtc::SocketAddress prepareSocketAddress(const rtc::SocketAddress& 
 }
 
 class BasicPacketSocketFactory : public rtc::BasicPacketSocketFactory {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit BasicPacketSocketFactory(rtc::Thread& networkThread)
-        : m_socketFactory(makeUniqueRef<rtc::BasicPacketSocketFactory>(&networkThread))
+        : m_socketFactory(makeUniqueRefWithoutFastMallocCheck<rtc::BasicPacketSocketFactory>(&networkThread))
     {
     }
 
@@ -97,7 +98,7 @@ public:
         return m_socketFactory->CreateServerTcpSocket(prepareSocketAddress(address, m_disableNonLocalhostConnections), minPort, maxPort, options);
     }
 
-    rtc::AsyncPacketSocket* CreateClientTcpSocket(const rtc::SocketAddress& localAddress, const rtc::SocketAddress& remoteAddress, const rtc::ProxyInfo& info, const std::string& name, int options)
+    rtc::AsyncPacketSocket* CreateClientTcpSocket(const rtc::SocketAddress& localAddress, const rtc::SocketAddress& remoteAddress, const rtc::ProxyInfo& info, const std::string& name, const rtc::PacketSocketTcpOptions& options)
     {
         return m_socketFactory->CreateClientTcpSocket(prepareSocketAddress(localAddress, m_disableNonLocalhostConnections), remoteAddress, info, name, options);
     }
@@ -179,7 +180,7 @@ static void initializePeerConnectionFactoryAndThreads(PeerConnectionFactoryAndTh
     result = factoryAndThreads.signalingThread->Start();
     ASSERT(result);
 
-    factoryAndThreads.audioDeviceModule = std::make_unique<LibWebRTCAudioModule>();
+    factoryAndThreads.audioDeviceModule = makeUnique<LibWebRTCAudioModule>();
 }
 
 static inline PeerConnectionFactoryAndThreads& staticFactoryAndThreads()
@@ -214,6 +215,11 @@ void PeerConnectionFactoryAndThreads::OnMessage(rtc::Message* message)
     auto* data = static_cast<ThreadMessageData*>(message->pdata);
     data->callback();
     delete data;
+}
+
+bool LibWebRTCProvider::hasWebRTCThreads()
+{
+    return !!staticFactoryAndThreads().networkThread;
 }
 
 void LibWebRTCProvider::callOnWebRTCNetworkThread(Function<void()>&& callback)
@@ -281,20 +287,54 @@ void LibWebRTCProvider::enableEnumeratingAllNetworkInterfaces()
     m_enableEnumeratingAllNetworkInterfaces = true;
 }
 
-rtc::scoped_refptr<webrtc::PeerConnectionInterface> LibWebRTCProvider::createPeerConnection(webrtc::PeerConnectionObserver& observer, webrtc::PeerConnectionInterface::RTCConfiguration&& configuration)
+rtc::scoped_refptr<webrtc::PeerConnectionInterface> LibWebRTCProvider::createPeerConnection(webrtc::PeerConnectionObserver& observer, rtc::PacketSocketFactory*, webrtc::PeerConnectionInterface::RTCConfiguration&& configuration)
 {
     // Default WK1 implementation.
     ASSERT(m_useNetworkThreadWithSocketServer);
     auto& factoryAndThreads = getStaticFactoryAndThreads(m_useNetworkThreadWithSocketServer);
 
     if (!factoryAndThreads.networkManager)
-        factoryAndThreads.networkManager = std::make_unique<rtc::BasicNetworkManager>();
+        factoryAndThreads.networkManager = makeUniqueWithoutFastMallocCheck<rtc::BasicNetworkManager>();
 
     if (!factoryAndThreads.packetSocketFactory)
-        factoryAndThreads.packetSocketFactory = std::make_unique<BasicPacketSocketFactory>(*factoryAndThreads.networkThread);
+        factoryAndThreads.packetSocketFactory = makeUnique<BasicPacketSocketFactory>(*factoryAndThreads.networkThread);
     factoryAndThreads.packetSocketFactory->setDisableNonLocalhostConnections(m_disableNonLocalhostConnections);
 
     return createPeerConnection(observer, *factoryAndThreads.networkManager, *factoryAndThreads.packetSocketFactory, WTFMove(configuration), nullptr);
+}
+
+void LibWebRTCProvider::setEnableWebRTCEncryption(bool enableWebRTCEncryption)
+{
+    auto* factory = this->factory();
+    if (!factory)
+        return;
+
+    webrtc::PeerConnectionFactoryInterface::Options options;
+    options.disable_encryption = !enableWebRTCEncryption;
+    options.ssl_max_version = m_useDTLS10 ? rtc::SSL_PROTOCOL_DTLS_10 : rtc::SSL_PROTOCOL_DTLS_12;
+    m_factory->SetOptions(options);
+}
+
+void LibWebRTCProvider::setUseDTLS10(bool useDTLS10)
+{
+    m_useDTLS10 = useDTLS10;
+
+    auto* factory = this->factory();
+    if (!factory)
+        return;
+
+    webrtc::PeerConnectionFactoryInterface::Options options;
+    options.ssl_max_version = useDTLS10 ? rtc::SSL_PROTOCOL_DTLS_10 : rtc::SSL_PROTOCOL_DTLS_12;
+    m_factory->SetOptions(options);
+}
+
+void LibWebRTCProvider::setUseGPUProcess(bool value)
+{
+    if (m_useGPUProcess == value)
+        return;
+
+    m_useGPUProcess = value;
+    m_factory = nullptr;
 }
 
 rtc::scoped_refptr<webrtc::PeerConnectionInterface> LibWebRTCProvider::createPeerConnection(webrtc::PeerConnectionObserver& observer, rtc::NetworkManager& networkManager, rtc::PacketSocketFactory& packetSocketFactory, webrtc::PeerConnectionInterface::RTCConfiguration&& configuration, std::unique_ptr<webrtc::AsyncResolverFactory>&& asyncResolveFactory)
@@ -303,7 +343,7 @@ rtc::scoped_refptr<webrtc::PeerConnectionInterface> LibWebRTCProvider::createPee
 
     std::unique_ptr<cricket::BasicPortAllocator> portAllocator;
     factoryAndThreads.signalingThread->Invoke<void>(RTC_FROM_HERE, [&]() {
-        auto basicPortAllocator = std::make_unique<cricket::BasicPortAllocator>(&networkManager, &packetSocketFactory);
+        auto basicPortAllocator = makeUniqueWithoutFastMallocCheck<cricket::BasicPortAllocator>(&networkManager, &packetSocketFactory);
         if (!m_enableEnumeratingAllNetworkInterfaces)
             basicPortAllocator->set_flags(basicPortAllocator->flags() | cricket::PORTALLOCATOR_DISABLE_ADAPTER_ENUMERATION);
         portAllocator = WTFMove(basicPortAllocator);
@@ -324,7 +364,7 @@ rtc::RTCCertificateGenerator& LibWebRTCProvider::certificateGenerator()
 {
     auto& factoryAndThreads = getStaticFactoryAndThreads(m_useNetworkThreadWithSocketServer);
     if (!factoryAndThreads.certificateGenerator)
-        factoryAndThreads.certificateGenerator = std::make_unique<rtc::RTCCertificateGenerator>(factoryAndThreads.signalingThread.get(), factoryAndThreads.networkThread.get());
+        factoryAndThreads.certificateGenerator = makeUniqueWithoutFastMallocCheck<rtc::RTCCertificateGenerator>(factoryAndThreads.signalingThread.get(), factoryAndThreads.networkThread.get());
 
     return *factoryAndThreads.certificateGenerator;
 }
@@ -356,7 +396,7 @@ static inline RTCRtpCapabilities toRTCRtpCapabilities(const webrtc::RtpCapabilit
 
     capabilities.codecs.reserveInitialCapacity(rtpCapabilities.codecs.size());
     for (auto& codec : rtpCapabilities.codecs)
-        capabilities.codecs.uncheckedAppend(RTCRtpCapabilities::CodecCapability { fromStdString(codec.mime_type()), static_cast<uint32_t>(codec.clock_rate ? *codec.clock_rate : 0), toChannels(codec.num_channels), { } });
+        capabilities.codecs.uncheckedAppend(RTCRtpCodecCapability { fromStdString(codec.mime_type()), static_cast<uint32_t>(codec.clock_rate ? *codec.clock_rate : 0), toChannels(codec.num_channels), { } });
 
     capabilities.headerExtensions.reserveInitialCapacity(rtpCapabilities.header_extensions.size());
     for (auto& header : rtpCapabilities.header_extensions)

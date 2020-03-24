@@ -189,8 +189,8 @@ const RealtimeMediaSourceSettings& MockRealtimeVideoSource::settings()
 void MockRealtimeVideoSource::setFrameRateWithPreset(double, RefPtr<VideoPreset> preset)
 {
     m_preset = WTFMove(preset);
-    if (preset)
-        setIntrinsicSize(preset->size);
+    if (m_preset)
+        setIntrinsicSize(m_preset->size);
 }
 
 IntSize MockRealtimeVideoSource::captureSize() const
@@ -462,7 +462,7 @@ ImageBuffer* MockRealtimeVideoSource::imageBuffer() const
     if (!m_imageBuffer)
         return nullptr;
 
-    m_imageBuffer->context().setImageInterpolationQuality(InterpolationDefault);
+    m_imageBuffer->context().setImageInterpolationQuality(InterpolationQuality::Default);
     m_imageBuffer->context().setStrokeThickness(1);
 
     return m_imageBuffer.get();

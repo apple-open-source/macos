@@ -131,15 +131,32 @@
 
 - (void)initialSyncCredentials:(uint32_t)flags complete:(void (^)(NSArray *, NSError *))complete
 {
-    complete(@[], NULL);
+    // Make up a fake TLK
+    NSMutableArray<NSDictionary *> *items = [NSMutableArray array];
+    if (flags & SOSControlInitialSyncFlagTLK) {
+        NSString *tlkUUID = [[NSUUID UUID] UUIDString];
+        NSDictionary *fakeTLK = @{
+            @"class": @"inet",
+            @"agrp": @"com.apple.security.ckks",
+            @"vwht": @"PCS-master",
+            @"pdmn": @"ck",
+            @"desc": @"tlk",
+            @"srvr": @"fakeZone",
+            @"acct": tlkUUID,
+            @"path": tlkUUID,
+            @"v_Data": [NSData data],
+        };
+        [items addObject:fakeTLK];
+    }
+    complete(items, nil);
 }
 
 - (void)importInitialSyncCredentials:(NSArray *)items complete:(void (^)(bool success, NSError *))complete
 {
-    complete(true, NULL);
+    complete(true, nil);
 }
 
-- (void)rpcTriggerSync:(NSArray<NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
+- (void)triggerSync:(NSArray<NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
 {
     complete(true, NULL);
 }
@@ -328,11 +345,7 @@
     complete(nil, nil);
 }
 
-- (void)rpcTriggerBackup:(NSArray<NSString *> *)backupPeers complete:(void (^)(NSError *))complete {
-    complete(nil);
-}
-
-- (void)rpcTriggerRingUpdate:(void (^)(NSError *))complete {
+- (void)triggerBackup:(NSArray<NSString *> *)backupPeers complete:(void (^)(NSError *))complete {
     complete(nil);
 }
 

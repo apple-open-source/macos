@@ -25,6 +25,9 @@
 
 #pragma once
 
+#include "UserMessage.h"
+#include <wtf/CompletionHandler.h>
+
 typedef struct OpaqueJSContext* JSGlobalContextRef;
 
 namespace WebKit {
@@ -38,12 +41,15 @@ class View;
 namespace API {
 
 class ViewClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     virtual ~ViewClient() = default;
 
     virtual void frameDisplayed(WKWPE::View&) { }
     virtual void handleDownloadRequest(WKWPE::View&, WebKit::DownloadProxy&) { }
     virtual void willStartLoad(WKWPE::View&) { }
+    virtual void didChangePageID(WKWPE::View&) { }
+    virtual void didReceiveUserMessage(WKWPE::View&, WebKit::UserMessage&&, CompletionHandler<void(WebKit::UserMessage&&)>&& completionHandler) { completionHandler(WebKit::UserMessage()); }
 };
 
 } // namespace API

@@ -83,7 +83,7 @@ void HTMLAreaElement::invalidateCachedRegion()
 bool HTMLAreaElement::mapMouseEvent(LayoutPoint location, const LayoutSize& size, HitTestResult& result)
 {
     if (m_lastSize != size) {
-        m_region = std::make_unique<Path>(getRegion(size));
+        m_region = makeUnique<Path>(getRegion(size));
         m_lastSize = size;
     }
 
@@ -213,7 +213,7 @@ bool HTMLAreaElement::isFocusable() const
     if (!image || !image->renderer() || image->renderer()->style().visibility() != Visibility::Visible)
         return false;
 
-    return supportsFocus() && Element::tabIndex() >= 0;
+    return supportsFocus() && tabIndexSetExplicitly().valueOr(0) >= 0;
 }
     
 void HTMLAreaElement::setFocus(bool shouldBeFocused)

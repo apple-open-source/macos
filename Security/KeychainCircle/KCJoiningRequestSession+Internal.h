@@ -32,13 +32,14 @@
 
 @interface KCJoiningRequestSecretSession (Internal)
 - (void)setControlObject:(OTControl*)control;
-- (void)setConfiguration:(OTJoiningConfiguration *)config;
 @end
 
 @interface KCJoiningRequestCircleSession (Internal)
 
+- (KCAESGCMDuplexSession*)accessSession;
+
 - (void)setControlObject:(OTControl*)control;
-- (void)setJoiningConfigurationObject:(OTJoiningConfiguration *)config;
+- (void)setContextIDOnJoiningConfiguration:(NSString*)contextID;
 @end
 #endif /* Header_h */
 #endif

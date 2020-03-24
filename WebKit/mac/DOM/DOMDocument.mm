@@ -596,13 +596,19 @@ static RefPtr<WebCore::XPathNSResolver> wrap(id <DOMXPathNSResolver> resolver)
 - (id <DOMXPathNSResolver>)createNSResolver:(DOMNode *)nodeResolver
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(IMPL->createNSResolver(core(nodeResolver))));
+    if (!nodeResolver)
+        return nullptr;
+
+    return kit(WTF::getPtr(IMPL->createNSResolver(*core(nodeResolver))));
 }
 
 - (DOMXPathResult *)evaluate:(NSString *)expression contextNode:(DOMNode *)contextNode resolver:(id <DOMXPathNSResolver>)resolver type:(unsigned short)type inResult:(DOMXPathResult *)inResult
 {
+    if (!contextNode)
+        return nullptr;
+
     WebCore::JSMainThreadNullState state;
-    return kit(raiseOnDOMError(IMPL->evaluate(expression, core(contextNode), wrap(resolver), type, core(inResult))).ptr());
+    return kit(raiseOnDOMError(IMPL->evaluate(expression, *core(contextNode), wrap(resolver), type, core(inResult))).ptr());
 }
 
 - (BOOL)execCommand:(NSString *)command userInterface:(BOOL)userInterface value:(NSString *)value
@@ -817,3 +823,5 @@ DOMDocument *kit(WebCore::Document* value)
     WebCoreThreadViolationCheckRoundOne();
     return static_cast<DOMDocument*>(kit(static_cast<WebCore::Node*>(value)));
 }
+
+#undef IMPL

@@ -29,17 +29,26 @@
 
 WI.Color = class Color
 {
-    constructor(format, components)
+    constructor(format, components, gamut)
     {
         this.format = format;
 
-        if (components.length === 3)
-            components.push(1);
+        console.assert(gamut === undefined || Object.values(WI.Color.Gamut).includes(gamut));
+        this._gamut = gamut || WI.Color.Gamut.SRGB;
+
+        console.assert(components.length === 3 || components.length === 4, components);
+        this.alpha = components.length === 4 ? components[3] : 1;
+
+        this._rgb = null;
+        this._normalizedRGB = null;
+        this._hsl = null;
 
         if (format === WI.Color.Format.HSL || format === WI.Color.Format.HSLA)
-            this._hsla = components;
+            this._hsl = components.slice(0, 3);
+        else if (format === WI.Color.Format.ColorFunction)
+            this._normalizedRGB = components.slice(0, 3);
         else
-            this._rgba = components;
+            this._rgb = components.slice(0, 3);
 
         this.valid = !components.some(isNaN);
     }
@@ -48,7 +57,7 @@ WI.Color = class Color
 
     static fromString(colorString)
     {
-        const matchRegExp = /^(?:#(?<hex>[0-9a-f]{3,8})|rgba?\((?<rgb>[^)]+)\)|(?<keyword>\w+)|hsla?\((?<hsl>[^)]+)\))$/i;
+        const matchRegExp = /^(?:#(?<hex>[0-9a-f]{3,8})|rgba?\((?<rgb>[^)]+)\)|(?<keyword>\w+)|color\((?<color>[^)]+)\)|hsla?\((?<hsl>[^)]+)\))$/i;
         let match = colorString.match(matchRegExp);
         if (!match)
             return null;
@@ -170,6 +179,33 @@ WI.Color = class Color
             ]);
         }
 
+        if (match.groups.color) {
+            let colorString = match.groups.color.trim();
+            let components = splitFunctionString(colorString);
+            if (components.length !== 4 && components.length !== 5)
+                return null;
+
+            let gamut = components[0].toLowerCase();
+            if (!Object.values(WI.Color.Gamut).includes(gamut))
+                return null;
+
+            let alpha = 1;
+            if (components.length === 5)
+                alpha = parseFunctionAlpha(components[4]);
+
+            function parseFunctionComponent(component) {
+                let value = parseFloat(component);
+                return Number.constrain(value, 0, 1);
+            }
+
+            return new WI.Color(WI.Color.Format.ColorFunction, [
+                parseFunctionComponent(components[1]),
+                parseFunctionComponent(components[2]),
+                parseFunctionComponent(components[3]),
+                alpha,
+            ], gamut);
+        }
+
         return null;
     }
 
@@ -253,6 +289,157 @@ WI.Color = class Color
         ];
     }
 
+    // https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_HSL
+    static hsv2hsl(h, s, v)
+    {
+        h = Number.constrain(h, 0, 360);
+        s = Number.constrain(s, 0, 100) / 100;
+        v = Number.constrain(v, 0, 100) / 100;
+
+        let l = v - v * s / 2;
+        let saturation;
+        if (l === 0 || l === 1)
+            saturation = 0;
+        else
+            saturation = (v - l) / Math.min(l, 1 - l);
+
+        return [h, saturation * 100, l * 100];
+    }
+
+    // https://en.wikipedia.org/wiki/HSL_and_HSV#From_RGB
+    static rgb2hsv(r, g, b)
+    {
+        r = Number.constrain(r, 0, 1);
+        g = Number.constrain(g, 0, 1);
+        b = Number.constrain(b, 0, 1);
+
+        let max = Math.max(r, g, b);
+        let min = Math.min(r, g, b);
+        let h = 0;
+        let delta = max - min;
+        let s = max === 0 ? 0 : delta / max;
+        let v = max;
+
+        if (max === min)
+            h = 0; // Grayscale.
+        else {
+            switch (max) {
+            case r:
+                h = ((g - b) / delta) + ((g < b) ? 6 : 0);
+                break;
+            case g:
+                h = ((b - r) / delta) + 2;
+                break;
+            case b:
+                h = ((r - g) / delta) + 4;
+                break;
+            }
+            h /= 6;
+        }
+
+        return [h * 360, s * 100, v * 100];
+    }
+
+    // https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB_alternative
+    static hsv2rgb(h, s, v)
+    {
+        h = Number.constrain(h, 0, 360);
+        s = Number.constrain(s, 0, 100) / 100;
+        v = Number.constrain(v, 0, 100) / 100;
+
+        function fraction(n) {
+            let k = (n + (h / 60)) % 6;
+            return v - (v * s * Math.max(Math.min(k, 4 - k, 1), 0));
+        }
+        return [fraction(5), fraction(3), fraction(1)];
+    }
+
+    // https://www.w3.org/TR/css-color-4/#color-conversion-code
+    static displayP3toSRGB(r, g, b)
+    {
+        r = Number.constrain(r, 0, 1);
+        g = Number.constrain(g, 0, 1);
+        b = Number.constrain(b, 0, 1);
+
+        let linearP3 = WI.Color._toLinearLight([r, g, b]);
+
+        // Convert an array of linear-light display-p3 values to CIE XYZ
+        // using D65 (no chromatic adaptation).
+        // http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+        const rgbToXYZMatrix = [
+            [0.4865709486482162, 0.26566769316909306, 0.1982172852343625],
+            [0.2289745640697488, 0.6917385218365064,  0.079286914093745],
+            [0.0000000000000000, 0.04511338185890264, 1.043944368900976],
+        ];
+        let xyz = Math.multiplyMatrixByVector(rgbToXYZMatrix, linearP3);
+
+        // Convert XYZ to linear-light sRGB.
+        const xyzToLinearSRGBMatrix = [
+            [ 3.2404542, -1.5371385, -0.4985314],
+            [-0.9692660,  1.8760108,  0.0415560],
+            [ 0.0556434, -0.2040259,  1.0572252],
+        ];
+        let linearSRGB = Math.multiplyMatrixByVector(xyzToLinearSRGBMatrix, xyz);
+
+        let srgb = WI.Color._gammaCorrect(linearSRGB);
+        return srgb.map((x) => x.maxDecimals(4));
+    }
+
+    // https://www.w3.org/TR/css-color-4/#color-conversion-code
+    static srgbToDisplayP3(r, g, b)
+    {
+        r = Number.constrain(r, 0, 1);
+        g = Number.constrain(g, 0, 1);
+        b = Number.constrain(b, 0, 1);
+
+        let linearSRGB = WI.Color._toLinearLight([r, g, b]);
+
+        // Convert an array of linear-light sRGB values to CIE XYZ
+        // using sRGB's own white, D65 (no chromatic adaptation)
+        // http://www.brucelindbloom.com/index.html?Eqn_RGB_XYZ_Matrix.html
+        const linearSRGBtoXYZMatrix = [
+            [0.4124564,  0.3575761,  0.1804375],
+            [0.2126729,  0.7151522,  0.0721750],
+            [0.0193339,  0.1191920,  0.9503041],
+        ];
+        let xyz = Math.multiplyMatrixByVector(linearSRGBtoXYZMatrix, linearSRGB);
+
+        const xyzToLinearP3Matrix = [
+            [ 2.493496911941425,   -0.9313836179191239, -0.40271078445071684],
+            [-0.8294889695615747,   1.7626640603183463,  0.023624685841943577],
+            [ 0.03584583024378447, -0.07617238926804182, 0.9568845240076872],
+        ];
+        let linearP3 = Math.multiplyMatrixByVector(xyzToLinearP3Matrix, xyz);
+
+        let p3 = WI.Color._gammaCorrect(linearP3);
+        return p3.map((x) => x.maxDecimals(4));
+    }
+
+    // Convert gamma-corrected sRGB or Display-P3 to linear light form.
+    // https://www.w3.org/TR/css-color-4/#color-conversion-code
+    static _toLinearLight(rgb)
+    {
+        return rgb.map(function(value) {
+            if (value < 0.04045)
+                return value / 12.92;
+
+            return Math.pow((value + 0.055) / 1.055, 2.4);
+        });
+    }
+
+    // Convert linear-light sRGB or Display-P3 to gamma corrected form.
+    // Inverse of `toLinearLight`.
+    // https://www.w3.org/TR/css-color-4/#color-conversion-code
+    static _gammaCorrect(rgb)
+    {
+        return rgb.map(function(value) {
+            if (value > 0.0031308)
+                return 1.055 * Math.pow(value, 1 / 2.4) - 0.055;
+
+            return 12.92 * value;
+        });
+    }
+
     static cmyk2rgb(c, m, y, k)
     {
         c = Number.constrain(c, 0, 1);
@@ -294,7 +481,12 @@ WI.Color = class Color
 
         case WI.Color.Format.RGB:
         case WI.Color.Format.RGBA:
-            return this.simple ? WI.Color.Format.HSL : WI.Color.Format.HSLA;
+            return WI.Color.Format.ColorFunction;
+
+        case WI.Color.Format.ColorFunction:
+            if (this.simple)
+                return WI.Color.Format.HSL;
+            return WI.Color.Format.HSLA;
 
         case WI.Color.Format.HSL:
         case WI.Color.Format.HSLA:
@@ -321,11 +513,6 @@ WI.Color = class Color
         }
     }
 
-    get alpha()
-    {
-        return this._rgba ? this._rgba[3] : this._hsla[3];
-    }
-
     get simple()
     {
         return this.alpha === 1;
@@ -333,30 +520,67 @@ WI.Color = class Color
 
     get rgb()
     {
-        let rgb = this.rgba.slice();
-        rgb.pop();
-        return rgb;
+        if (!this._rgb) {
+            if (this._hsl)
+                this._rgb = WI.Color.hsl2rgb(...this._hsl);
+            else if (this._normalizedRGB)
+                this._rgb = this._normalizedRGB.map((component) => WI.Color._eightBitChannel(component * 255));
+        }
+        return this._rgb;
     }
 
     get hsl()
     {
-        let hsl = this.hsla.slice();
-        hsl.pop();
-        return hsl;
+        if (!this._hsl)
+            this._hsl = WI.Color.rgb2hsl(...this.rgb);
+        return this._hsl;
+    }
+
+    get normalizedRGB()
+    {
+        if (!this._normalizedRGB)
+            this._normalizedRGB = this.rgb.map((component) => component / 255);
+        return this._normalizedRGB;
     }
 
     get rgba()
     {
-        if (!this._rgba)
-            this._rgba = this._hslaToRGBA(this._hsla);
-        return this._rgba;
+        return [...this.rgb, this.alpha];
     }
 
     get hsla()
     {
-        if (!this._hsla)
-            this._hsla = this._rgbaToHSLA(this.rgba);
-        return this._hsla;
+        return [...this.hsl, this.alpha];
+    }
+
+    get normalizedRGBA()
+    {
+        return [...this.normalizedRGB, this.alpha];
+    }
+
+    get gamut()
+    {
+        return this._gamut;
+    }
+
+    set gamut(gamut)
+    {
+        console.assert(gamut !== this._gamut);
+
+        if (this._gamut === WI.Color.Gamut.DisplayP3 && gamut === WI.Color.Gamut.SRGB) {
+            this._normalizedRGB = WI.Color.displayP3toSRGB(...this.normalizedRGB).map((x) => Number.constrain(x, 0, 1));
+            this._hsl = null;
+            this._rgb = null;
+        } else if (this._gamut === WI.Color.Gamut.SRGB && gamut === WI.Color.Gamut.DisplayP3) {
+            this._normalizedRGB = WI.Color.srgbToDisplayP3(...this.normalizedRGB);
+            this._hsl = null;
+            this._rgb = null;
+
+            // Display-P3 is only available with the color function syntax.
+            this.format = WI.Color.Format.ColorFunction;
+        }
+
+        this._gamut = gamut;
     }
 
     copy()
@@ -369,11 +593,15 @@ WI.Color = class Color
         case WI.Color.Format.ShortHEXAlpha:
         case WI.Color.Format.Keyword:
         case WI.Color.Format.RGBA:
-            return new WI.Color(this.format, this.rgba);
+            return new WI.Color(this.format, this.rgba, this._gamut);
         case WI.Color.Format.HSL:
         case WI.Color.Format.HSLA:
-            return new WI.Color(this.format, this.hsla);
+            return new WI.Color(this.format, this.hsla, this._gamut);
+        case WI.Color.Format.ColorFunction:
+            return new WI.Color(this.format, this.normalizedRGBA, this._gamut);
         }
+
+        console.error("Invalid color format: " + this.format);
     }
 
     toString(format)
@@ -388,6 +616,8 @@ WI.Color = class Color
             return this._toRGBString();
         case WI.Color.Format.RGBA:
             return this._toRGBAString();
+        case WI.Color.Format.ColorFunction:
+            return this._toFunctionString();
         case WI.Color.Format.HSL:
             return this._toHSLString();
         case WI.Color.Format.HSLA:
@@ -413,31 +643,50 @@ WI.Color = class Color
         if (this.keyword)
             return true;
 
-        if (!this.simple)
-            return Array.shallowEqual(this._rgba, [0, 0, 0, 0]) || Array.shallowEqual(this._hsla, [0, 0, 0, 0]);
+        if (this._gamut !== WI.Color.Gamut.SRGB)
+            return false;
 
-        let rgb = (this._rgba && this._rgba.slice(0, 3)) || WI.Color.hsl2rgb(...this._hsla);
-        return Object.keys(WI.Color.Keywords).some(key => Array.shallowEqual(WI.Color.Keywords[key], rgb));
+        if (!this.simple)
+            return Array.shallowEqual(this.rgba, [0, 0, 0, 0]);
+
+        return Object.keys(WI.Color.Keywords).some(key => Array.shallowEqual(WI.Color.Keywords[key], this.rgb));
+    }
+
+    isOutsideSRGB()
+    {
+        if (this._gamut !== WI.Color.Gamut.DisplayP3)
+            return false;
+
+        let rgb = WI.Color.displayP3toSRGB(...this.normalizedRGB);
+
+        // displayP3toSRGB(1, 1, 1) produces [0.9999, 1, 1.0001], which aren't pure white color values.
+        // However, `color(sRGB 0.9999 1 1.0001)` looks exactly the same as color `color(sRGB 1 1 1)`
+        // because sRGB is only 8bit per channel. The values get rounded. For example,
+        // `rgb(255, 254.51, 255)` looks exactly the same as `rgb(255, 255, 255)`.
+        //
+        // Consider a color to be within sRGB even if it's actually outside of sRGB by less than half a bit.
+        const epsilon = (1 / 255) / 2;
+        return rgb.some((x) => x <= -epsilon || x >= 1 + epsilon);
     }
 
     canBeSerializedAsShortHEX()
     {
-        let rgba = this.rgba || this._hslaToRGBA(this._hsla);
+        let rgb = this.rgb;
 
-        let r = this._componentToHexValue(rgba[0]);
+        let r = this._componentToHexValue(rgb[0]);
         if (r[0] !== r[1])
             return false;
 
-        let g = this._componentToHexValue(rgba[1]);
+        let g = this._componentToHexValue(rgb[1]);
         if (g[0] !== g[1])
             return false;
 
-        let b = this._componentToHexValue(rgba[2]);
+        let b = this._componentToHexValue(rgb[2]);
         if (b[0] !== b[1])
             return false;
 
         if (!this.simple) {
-            let a = this._componentToHexValue(Math.round(rgba[3] * 255));
+            let a = this._componentToHexValue(Math.round(this.alpha * 255));
             if (a[0] !== a[1])
                 return false;
         }
@@ -459,7 +708,7 @@ WI.Color = class Color
 
         let rgba = this.rgba;
         if (!this.simple) {
-            if (rgba[0] === 0 && rgba[1] === 0 && rgba[2] === 0 && rgba[3] === 0)
+            if (Array.shallowEqual(rgba, [0, 0, 0, 0]))
                 return "transparent";
             return this._toRGBAString();
         }
@@ -482,15 +731,10 @@ WI.Color = class Color
         if (!this.simple)
             return this._toRGBAString();
 
-        let rgba = this.rgba;
-        let r = this._componentToHexValue(rgba[0]);
-        let g = this._componentToHexValue(rgba[1]);
-        let b = this._componentToHexValue(rgba[2]);
-
+        let [r, g, b] = this.rgb.map(this._componentToHexValue);
         if (r[0] === r[1] && g[0] === g[1] && b[0] === b[1])
             return "#" + r[0] + g[0] + b[0];
-        else
-            return "#" + r + g + b;
+        return "#" + r + g + b;
     }
 
     _toHEXString()
@@ -498,36 +742,23 @@ WI.Color = class Color
         if (!this.simple)
             return this._toRGBAString();
 
-        let rgba = this.rgba;
-        let r = this._componentToHexValue(rgba[0]);
-        let g = this._componentToHexValue(rgba[1]);
-        let b = this._componentToHexValue(rgba[2]);
-
+        let [r, g, b] = this.rgb.map(this._componentToHexValue);
         return "#" + r + g + b;
     }
 
     _toShortHEXAlphaString()
     {
-        let rgba = this.rgba;
-        let r = this._componentToHexValue(rgba[0]);
-        let g = this._componentToHexValue(rgba[1]);
-        let b = this._componentToHexValue(rgba[2]);
-        let a = this._componentToHexValue(Math.round(rgba[3] * 255));
-
+        let [r, g, b] = this.rgb.map(this._componentToHexValue);
+        let a = this._componentToHexValue(Math.round(this.alpha * 255));
         if (r[0] === r[1] && g[0] === g[1] && b[0] === b[1] && a[0] === a[1])
             return "#" + r[0] + g[0] + b[0] + a[0];
-        else
-            return "#" + r + g + b + a;
+        return "#" + r + g + b + a;
     }
 
     _toHEXAlphaString()
     {
-        let rgba = this.rgba;
-        let r = this._componentToHexValue(rgba[0]);
-        let g = this._componentToHexValue(rgba[1]);
-        let b = this._componentToHexValue(rgba[2]);
-        let a = this._componentToHexValue(Math.round(rgba[3] * 255));
-
+        let [r, g, b] = this.rgb.map(this._componentToHexValue);
+        let a = this._componentToHexValue(Math.round(this.alpha * 255));
         return "#" + r + g + b + a;
     }
 
@@ -536,18 +767,22 @@ WI.Color = class Color
         if (!this.simple)
             return this._toRGBAString();
 
-        let r = WI.Color._eightBitChannel(Math.round(this.rgba[0]));
-        let g = WI.Color._eightBitChannel(Math.round(this.rgba[1]));
-        let b = WI.Color._eightBitChannel(Math.round(this.rgba[2]));
+        let [r, g, b] = this.rgb.map(WI.Color._eightBitChannel);
         return `rgb(${r}, ${g}, ${b})`;
     }
 
     _toRGBAString()
     {
-        let r = WI.Color._eightBitChannel(Math.round(this.rgba[0]));
-        let g = WI.Color._eightBitChannel(Math.round(this.rgba[1]));
-        let b = WI.Color._eightBitChannel(Math.round(this.rgba[2]));
+        let [r, g, b] = this.rgb.map(WI.Color._eightBitChannel);
         return `rgba(${r}, ${g}, ${b}, ${this.alpha})`;
+    }
+
+    _toFunctionString()
+    {
+        let [r, g, b] = this.normalizedRGB.map((x) => x.maxDecimals(4));
+        if (this.alpha === 1)
+            return `color(${this._gamut} ${r} ${g} ${b})`;
+        return `color(${this._gamut} ${r} ${g} ${b} / ${this.alpha})`;
     }
 
     _toHSLString()
@@ -555,17 +790,13 @@ WI.Color = class Color
         if (!this.simple)
             return this._toHSLAString();
 
-        let h = this.hsla[0].maxDecimals(2);
-        let s = this.hsla[1].maxDecimals(2);
-        let l = this.hsla[2].maxDecimals(2);
+        let [h, s, l] = this.hsl.map((x) => x.maxDecimals(2));
         return `hsl(${h}, ${s}%, ${l}%)`;
     }
 
     _toHSLAString()
     {
-        let h = this.hsla[0].maxDecimals(2);
-        let s = this.hsla[1].maxDecimals(2);
-        let l = this.hsla[2].maxDecimals(2);
+        let [h, s, l] = this.hsl.map((x) => x.maxDecimals(2));
         return `hsla(${h}, ${s}%, ${l}%, ${this.alpha})`;
     }
 
@@ -575,20 +806,6 @@ WI.Color = class Color
         if (hex.length === 1)
             hex = "0" + hex;
         return hex;
-    }
-
-    _rgbaToHSLA(rgba)
-    {
-        let hsla = WI.Color.rgb2hsl(...rgba);
-        hsla.push(rgba[3]);
-        return hsla;
-    }
-
-    _hslaToRGBA(hsla)
-    {
-        let rgba = WI.Color.hsl2rgb(...hsla);
-        rgba.push(hsla[3]);
-        return rgba;
     }
 };
 
@@ -602,7 +819,13 @@ WI.Color.Format = {
     RGB: "color-format-rgb",
     RGBA: "color-format-rgba",
     HSL: "color-format-hsl",
-    HSLA: "color-format-hsla"
+    HSLA: "color-format-hsla",
+    ColorFunction: "color-format-color-function",
+};
+
+WI.Color.Gamut = {
+    SRGB: "srgb",
+    DisplayP3: "display-p3",
 };
 
 WI.Color.FunctionNames = new Set([
@@ -610,11 +833,13 @@ WI.Color.FunctionNames = new Set([
     "rgba",
     "hsl",
     "hsla",
+    "color",
 ]);
 
 WI.Color.Keywords = {
     "aliceblue": [240, 248, 255, 1],
     "antiquewhite": [250, 235, 215, 1],
+    "aqua": [0, 255, 255, 1],
     "aquamarine": [127, 255, 212, 1],
     "azure": [240, 255, 255, 1],
     "beige": [245, 245, 220, 1],
@@ -660,6 +885,7 @@ WI.Color.Keywords = {
     "firebrick": [178, 34, 34, 1],
     "floralwhite": [255, 250, 240, 1],
     "forestgreen": [34, 139, 34, 1],
+    "fuchsia": [255, 0, 255, 1],
     "gainsboro": [220, 220, 220, 1],
     "ghostwhite": [248, 248, 255, 1],
     "gold": [255, 215, 0, 1],

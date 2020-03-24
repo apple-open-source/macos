@@ -34,71 +34,11 @@ const CFStringRef kSOSRingOtherSyncable         = CFSTR("Ring-OtherSyncable");
 
 const CFStringRef kSOSRingKey                   = CFSTR("trusted_rings");
 
-static CFSetRef allCurrentRings(void) {
-    static dispatch_once_t dot;
-    static CFMutableSetRef allRings = NULL;
-    dispatch_once(&dot, ^{
-        allRings = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
-        CFSetAddValue(allRings, kSOSRingCircleV2);
-        CFSetAddValue(allRings, kSOSRingKeychainV0);
-        CFSetAddValue(allRings, kSOSRingPCSHyperion);
-        CFSetAddValue(allRings, kSOSRingPCSBladerunner);
-        CFSetAddValue(allRings, kSOSRingPCSLiverpool);
-        CFSetAddValue(allRings, kSOSRingPCSEscrow);
-        CFSetAddValue(allRings, kSOSRingPCSPianoMover);
-        CFSetAddValue(allRings, kSOSRingPCSNotes);
-        CFSetAddValue(allRings, kSOSRingPCSFeldspar);
-        CFSetAddValue(allRings, kSOSRingAppleTV);
-        CFSetAddValue(allRings, kSOSRingHomeKit);
-        CFSetAddValue(allRings, kSOSRingWifi);
-        CFSetAddValue(allRings, kSOSRingPasswords);
-        CFSetAddValue(allRings, kSOSRingCreditCards);
-        CFSetAddValue(allRings, kSOSRingiCloudIdentity);
-        CFSetAddValue(allRings, kSOSRingOtherSyncable);
-    });
-    return allRings;
-}
-
 typedef struct ringDef_t {
     CFStringRef name;
     SOSRingType ringType;
     bool dropWhenLeaving;
 } ringDef, *ringDefPtr;
-
-static ringDefPtr getRingDef(CFStringRef ringName) {
-    static ringDef retval;
-
-    // Defaults
-    retval.name = ringName;
-    retval.dropWhenLeaving = true;
-    retval.ringType = kSOSRingEntropyKeyed;
-
-
-    if(CFSetContainsValue(allCurrentRings(), ringName)) {
-        retval.ringType = kSOSRingBase;
-        retval.dropWhenLeaving = false;
-    } else {
-        retval.ringType = kSOSRingBackup;
-        retval.dropWhenLeaving = false;
-    }
-    return &retval;
-}
-
-__unused static inline void SOSAccountRingForEachRingMatching(SOSAccount* a, void (^action)(SOSRingRef ring), bool (^condition)(SOSRingRef ring)) {
-    CFSetRef allRings = allCurrentRings();
-    CFSetForEach(allRings, ^(const void *value) {
-        CFStringRef ringName = (CFStringRef) value;
-        SOSRingRef ring = [a.trust copyRing:ringName err:NULL];
-        if (condition(ring)) {
-            action(ring);
-        }
-        CFReleaseNull(ring);
-    });
-}
-
-
-
-
 
 static void SOSAccountSetRings(SOSAccount* a, CFMutableDictionaryRef newrings){
     SOSAccountTrustClassic *trust = a.trust;
@@ -173,14 +113,6 @@ SOSRingRef SOSAccountCopyRingNamed(SOSAccount* a, CFStringRef ringName, CFErrorR
     CFReleaseNull(found); // I'm very skeptical of this function...
     found = NULL;
     return found;
-}
-
-/* Unused? */
-SOSRingRef SOSAccountRingCreateForName(SOSAccount* a, CFStringRef ringName, CFErrorRef *error) {
-    ringDefPtr rdef = getRingDef(ringName);
-    if(!rdef) return NULL;
-    SOSRingRef retval = SOSRingCreate(rdef->name, (__bridge CFStringRef) a.peerID, rdef->ringType, error);
-    return retval;
 }
 
 bool SOSAccountUpdateRingFromRemote(SOSAccount* account, SOSRingRef newRing, CFErrorRef *error) {

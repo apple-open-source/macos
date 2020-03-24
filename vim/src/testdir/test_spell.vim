@@ -1,8 +1,10 @@
 " Test spell checking
+" Note: this file uses latin1 encoding, but is used with utf-8 encoding.
 
-if !has('spell')
-  finish
-endif
+source check.vim
+CheckFeature spell
+
+source screendump.vim
 
 func TearDown()
   set nospell
@@ -73,7 +75,7 @@ func Test_spellbadword()
   set spell
 
   call assert_equal(['bycycle', 'bad'],  spellbadword('My bycycle.'))
-  call assert_equal(['another', 'caps'], spellbadword('A sentence. another sentence'))
+  call assert_equal(['another', 'caps'], 'A sentence. another sentence'->spellbadword())
 
   set spelllang=en
   call assert_equal(['', ''],            spellbadword('centre'))
@@ -128,20 +130,21 @@ endfunc
 
 func Test_spellinfo()
   new
+  let runtime = substitute($VIMRUNTIME, '\\', '/', 'g')
 
   set enc=latin1 spell spelllang=en
-  call assert_match("^\nfile: .*/runtime/spell/en.latin1.spl\n$", execute('spellinfo'))
+  call assert_match("^\nfile: " .. runtime .. "/spell/en.latin1.spl\n$", execute('spellinfo'))
 
   set enc=cp1250 spell spelllang=en
-  call assert_match("^\nfile: .*/runtime/spell/en.ascii.spl\n$", execute('spellinfo'))
+  call assert_match("^\nfile: " .. runtime .. "/spell/en.ascii.spl\n$", execute('spellinfo'))
 
   set enc=utf-8 spell spelllang=en
-  call assert_match("^\nfile: .*/runtime/spell/en.utf-8.spl\n$", execute('spellinfo'))
+  call assert_match("^\nfile: " .. runtime .. "/spell/en.utf-8.spl\n$", execute('spellinfo'))
 
   set enc=latin1 spell spelllang=en_us,en_nz
   call assert_match("^\n" .
-                 \  "file: .*/runtime/spell/en.latin1.spl\n" .
-                 \  "file: .*/runtime/spell/en.latin1.spl\n$", execute('spellinfo'))
+                 \  "file: " .. runtime .. "/spell/en.latin1.spl\n" .
+                 \  "file: " .. runtime.. "/spell/en.latin1.spl\n$", execute('spellinfo'))
 
   set spell spelllang=
   call assert_fails('spellinfo', 'E756:')
@@ -179,7 +182,7 @@ func Test_zz_basic()
         \ )
 
   call assert_equal("gebletegek", soundfold('goobledygoook'))
-  call assert_equal("kepereneven", soundfold('kóopërÿnôven'))
+  call assert_equal("kepereneven", 'kóopërÿnôven'->soundfold())
   call assert_equal("everles gesvets etele", soundfold('oeverloos gezwets edale'))
 endfunc
 
@@ -287,9 +290,9 @@ func Test_zz_affix()
         \ ])
 
   call LoadAffAndDic(g:test_data_aff7, g:test_data_dic7)
-  call RunGoodBad("meea1 meea\xE9 bar prebar barmeat prebarmeat  leadprebar lead tail leadtail  leadmiddletail",
+  call RunGoodBad("meea1 meezero meea\xE9 bar prebar barmeat prebarmeat  leadprebar lead tail leadtail  leadmiddletail",
         \ "bad: mee meea2 prabar probarmaat middle leadmiddle middletail taillead leadprobar",
-        \ ["bar", "barmeat", "lead", "meea1", "meea\xE9", "prebar", "prebarmeat", "tail"],
+        \ ["bar", "barmeat", "lead", "meea1", "meea\xE9", "meezero", "prebar", "prebarmeat", "tail"],
         \ [
         \   ["bad", ["bar", "lead", "tail"]],
         \   ["mee", ["meea1", "meea\xE9", "bar"]],
@@ -399,6 +402,18 @@ func Test_zeq_crash()
   bwipe!
 endfunc
 
+" Check handling a word longer than MAXWLEN.
+func Test_spell_long_word()
+  set enc=utf-8
+  new
+  call setline(1, "d\xCC\xB4\xCC\xBD\xCD\x88\xCD\x94a\xCC\xB5\xCD\x84\xCD\x84\xCC\xA8\xCD\x9Cr\xCC\xB5\xCC\x8E\xCD\x85\xCD\x85k\xCC\xB6\xCC\x89\xCC\x9D \xCC\xB6\xCC\x83\xCC\x8F\xCC\xA4\xCD\x8Ef\xCC\xB7\xCC\x81\xCC\x80\xCC\xA9\xCC\xB0\xCC\xAC\xCC\xA2\xCD\x95\xCD\x87\xCD\x8D\xCC\x9E\xCD\x99\xCC\xAD\xCC\xAB\xCC\x97\xCC\xBBo\xCC\xB6\xCC\x84\xCC\x95\xCC\x8C\xCC\x8B\xCD\x9B\xCD\x9C\xCC\xAFr\xCC\xB7\xCC\x94\xCD\x83\xCD\x97\xCC\x8C\xCC\x82\xCD\x82\xCD\x80\xCD\x91\xCC\x80\xCC\xBE\xCC\x82\xCC\x8F\xCC\xA3\xCD\x85\xCC\xAE\xCD\x8D\xCD\x99\xCC\xBC\xCC\xAB\xCC\xA7\xCD\x88c\xCC\xB7\xCD\x83\xCC\x84\xCD\x92\xCC\x86\xCC\x83\xCC\x88\xCC\x92\xCC\x94\xCC\xBE\xCC\x9D\xCC\xAF\xCC\x98\xCC\x9D\xCC\xBB\xCD\x8E\xCC\xBB\xCC\xB3\xCC\xA3\xCD\x8E\xCD\x99\xCC\xA5\xCC\xAD\xCC\x99\xCC\xB9\xCC\xAE\xCC\xA5\xCC\x9E\xCD\x88\xCC\xAE\xCC\x9E\xCC\xA9\xCC\x97\xCC\xBC\xCC\x99\xCC\xA5\xCD\x87\xCC\x97\xCD\x8E\xCD\x94\xCC\x99\xCC\x9D\xCC\x96\xCD\x94\xCC\xAB\xCC\xA7\xCC\xA5\xCC\x98\xCC\xBB\xCC\xAF\xCC\xABe\xCC\xB7\xCC\x8E\xCC\x82\xCD\x86\xCD\x9B\xCC\x94\xCD\x83\xCC\x85\xCD\x8A\xCD\x8C\xCC\x8B\xCD\x92\xCD\x91\xCC\x8F\xCC\x81\xCD\x95\xCC\xA2\xCC\xB9\xCC\xB2\xCD\x9C\xCC\xB1\xCC\xA6\xCC\xB3\xCC\xAF\xCC\xAE\xCC\x9C\xCD\x99s\xCC\xB8\xCC\x8C\xCC\x8E\xCC\x87\xCD\x81\xCD\x82\xCC\x86\xCD\x8C\xCD\x8C\xCC\x8B\xCC\x84\xCC\x8C\xCD\x84\xCD\x9B\xCD\x86\xCC\x93\xCD\x90\xCC\x85\xCC\x94\xCD\x98\xCD\x84\xCD\x92\xCD\x8B\xCC\x90\xCC\x83\xCC\x8F\xCD\x84\xCD\x81\xCD\x9B\xCC\x90\xCD\x81\xCC\x8F\xCC\xBD\xCC\x88\xCC\xBF\xCC\x88\xCC\x84\xCC\x8E\xCD\x99\xCD\x94\xCC\x99\xCD\x99\xCC\xB0\xCC\xA8\xCC\xA3\xCC\xA8\xCC\x96\xCC\x99\xCC\xAE\xCC\xBC\xCC\x99\xCD\x9A\xCC\xB2\xCC\xB1\xCC\x9F\xCC\xBB\xCC\xA6\xCD\x85\xCC\xAA\xCD\x89\xCC\x9D\xCC\x99\xCD\x96\xCC\xB1\xCC\xB1\xCC\x99\xCC\xA6\xCC\xA5\xCD\x95\xCC\xB2\xCC\xA0\xCD\x99 within")
+  set spell spelllang=en
+  redraw
+  redraw!
+  bwipe!
+  set nospell
+endfunc
+
 func LoadAffAndDic(aff_contents, dic_contents)
   set enc=latin1
   set spellfile=
@@ -428,7 +443,7 @@ func TestGoodBadBase()
       break
     endif
     let prevbad = bad
-    let lst = spellsuggest(bad, 3)
+    let lst = bad->spellsuggest(3)
     normal mm
 
     call add(result, [bad, lst])
@@ -445,6 +460,29 @@ func RunGoodBad(good, bad, expected_words, expected_bad_words)
   let bad_words = TestGoodBadBase()
   call assert_equal(a:expected_bad_words, bad_words)
   bwipe!
+endfunc
+
+func Test_spell_screendump()
+  CheckScreendump
+
+  let lines =<< trim END
+       call setline(1, [
+             \ "This is some text without any spell errors.  Everything",
+             \ "should just be black, nothing wrong here.",
+             \ "",
+             \ "This line has a sepll error. and missing caps.",
+             \ "And and this is the the duplication.",
+             \ "with missing caps here.",
+             \ ])
+       set spell spelllang=en_nz
+  END
+  call writefile(lines, 'XtestSpell')
+  let buf = RunVimInTerminal('-S XtestSpell', {'rows': 8})
+  call VerifyScreenDump(buf, 'Test_spell_1', {})
+
+  " clean up
+  call StopVimInTerminal(buf)
+  call delete('XtestSpell')
 endfunc
 
 let g:test_data_aff1 = [
@@ -708,6 +746,9 @@ let g:test_data_aff7 = [
       \"SFX 61003 Y 1",
       \"SFX 61003 0 meat .",
       \"",
+      \"SFX 0 Y 1",
+      \"SFX 0 0 zero .",
+      \"",
       \"SFX 391 Y 1",
       \"SFX 391 0 a1 .",
       \"",
@@ -719,7 +760,7 @@ let g:test_data_aff7 = [
       \ ]
 let g:test_data_dic7 = [
       \"1234",
-      \"mee/391,111,9999",
+      \"mee/0,391,111,9999",
       \"bar/17,61003,123",
       \"lead/2",
       \"tail/123",

@@ -36,24 +36,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithProtocolType:(NSString*)protocolType
                       uniqueDeviceID:(NSString*)uniqueDeviceID
                       uniqueClientID:(NSString*)uniqueClientID
-                       containerName:(NSString* _Nullable)containerName
-                           contextID:(NSString*)contextID
-                               epoch:(uint64_t)epoch
-                         isInitiator:(BOOL)isInitiator
-{
-    return [self initWithProtocolType:protocolType
-                       uniqueDeviceID:uniqueDeviceID
-                       uniqueClientID:uniqueClientID
-                          pairingUUID:[NSUUID UUID].UUIDString
-                        containerName:containerName
-                            contextID:contextID
-                                epoch:(uint64_t)epoch
-                          isInitiator:isInitiator];
-}
-
-- (instancetype)initWithProtocolType:(NSString*)protocolType
-                      uniqueDeviceID:(NSString*)uniqueDeviceID
-                      uniqueClientID:(NSString*)uniqueClientID
                          pairingUUID:(NSString* _Nullable)pairingUUID
                        containerName:(NSString* _Nullable)containerName
                            contextID:(NSString*)contextID

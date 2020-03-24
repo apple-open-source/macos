@@ -10,6 +10,8 @@
  *  If there is no account, we will be in NO_ACCOUNT and have no altDSID
  *  If there is an SA account, we will bt in NO_ACCOUNT and have an altDSID
  *  If there is an HSA2 account, we will be in ACCOUNT_AVAILABLE and have an altDSID
+ * Once you're in an HSA2 account, CDP might be enabled or disabled. If it's not enabled,
+ * then Octagon shouldn't be active.
  */
 typedef NS_ENUM(int32_t, OTAccountMetadataClassC_AccountState) {
     OTAccountMetadataClassC_AccountState_UNKNOWN = 0,
@@ -92,6 +94,32 @@ NS_INLINE OTAccountMetadataClassC_AttemptedAJoinState StringAsOTAccountMetadataC
     return OTAccountMetadataClassC_AttemptedAJoinState_UNKNOWN;
 }
 #endif /* __OBJC__ */
+typedef NS_ENUM(int32_t, OTAccountMetadataClassC_CDPState) {
+    OTAccountMetadataClassC_CDPState_UNKNOWN = 0,
+    OTAccountMetadataClassC_CDPState_DISABLED = 1,
+    OTAccountMetadataClassC_CDPState_ENABLED = 2,
+};
+#ifdef __OBJC__
+NS_INLINE NSString *OTAccountMetadataClassC_CDPStateAsString(OTAccountMetadataClassC_CDPState value)
+{
+    switch (value)
+    {
+        case OTAccountMetadataClassC_CDPState_UNKNOWN: return @"UNKNOWN";
+        case OTAccountMetadataClassC_CDPState_DISABLED: return @"DISABLED";
+        case OTAccountMetadataClassC_CDPState_ENABLED: return @"ENABLED";
+        default: return [NSString stringWithFormat:@"(unknown: %i)", value];
+    }
+}
+#endif /* __OBJC__ */
+#ifdef __OBJC__
+NS_INLINE OTAccountMetadataClassC_CDPState StringAsOTAccountMetadataClassC_CDPState(NSString *value)
+{
+    if ([value isEqualToString:@"UNKNOWN"]) return OTAccountMetadataClassC_CDPState_UNKNOWN;
+    if ([value isEqualToString:@"DISABLED"]) return OTAccountMetadataClassC_CDPState_DISABLED;
+    if ([value isEqualToString:@"ENABLED"]) return OTAccountMetadataClassC_CDPState_ENABLED;
+    return OTAccountMetadataClassC_CDPState_UNKNOWN;
+}
+#endif /* __OBJC__ */
 
 #ifdef __cplusplus
 #define OTACCOUNTMETADATACLASSC_FUNCTION extern "C" __attribute__((visibility("hidden")))
@@ -106,13 +134,17 @@ __attribute__((visibility("hidden")))
     uint64_t _lastHealthCheckup;
     NSString *_altDSID;
     OTAccountMetadataClassC_AttemptedAJoinState _attemptedJoin;
+    OTAccountMetadataClassC_CDPState _cdpState;
     OTAccountMetadataClassC_AccountState _icloudAccountState;
     NSString *_peerID;
+    NSData *_syncingPolicy;
+    NSMutableArray<NSString *> *_syncingViews;
     OTAccountMetadataClassC_TrustState _trustState;
     struct {
         int epoch:1;
         int lastHealthCheckup:1;
         int attemptedJoin:1;
+        int cdpState:1;
         int icloudAccountState:1;
         int trustState:1;
     } _has;
@@ -146,6 +178,22 @@ __attribute__((visibility("hidden")))
 @property (nonatomic) OTAccountMetadataClassC_AttemptedAJoinState attemptedJoin;
 - (NSString *)attemptedJoinAsString:(OTAccountMetadataClassC_AttemptedAJoinState)value;
 - (OTAccountMetadataClassC_AttemptedAJoinState)StringAsAttemptedJoin:(NSString *)str;
+
+@property (nonatomic) BOOL hasCdpState;
+@property (nonatomic) OTAccountMetadataClassC_CDPState cdpState;
+- (NSString *)cdpStateAsString:(OTAccountMetadataClassC_CDPState)value;
+- (OTAccountMetadataClassC_CDPState)StringAsCdpState:(NSString *)str;
+
+@property (nonatomic, readonly) BOOL hasSyncingPolicy;
+/** These store the current policy and view list, so that we don't need to re-ask TPH every time */
+@property (nonatomic, retain) NSData *syncingPolicy;
+
+@property (nonatomic, retain) NSMutableArray<NSString *> *syncingViews;
+- (void)clearSyncingViews;
+- (void)addSyncingView:(NSString *)i;
+- (NSUInteger)syncingViewsCount;
+- (NSString *)syncingViewAtIndex:(NSUInteger)idx;
++ (Class)syncingViewType;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTAccountMetadataClassC *)other;

@@ -14,4 +14,4 @@ SECTORDER_FLAGS_Production[sdk=iphoneos*] = -Wl,-order_file,$(SDKROOT)/AppleInte
 IS_ZIPPERED = YES;
 SUPPORTS_TEXT_BASED_API = YES;
 TAPI_VERIFY_MODE = Pedantic;
-OTHER_TAPI_FLAGS = -extra-public-header $(LIBXML2_HEADER_PATH) -extra-private-header $(SRCROOT)/"Pregenerated Files"/globalsCompat.h;
+OTHER_TAPI_FLAGS = -extra-public-header $(LIBXML2_HEADER_PATH)/libxml -extra-private-header $(SRCROOT)/"Pregenerated Files"/globalsCompat.h;

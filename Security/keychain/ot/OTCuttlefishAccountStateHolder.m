@@ -164,7 +164,7 @@
     } error:error];
 }
 
-- (BOOL)persistAccountChanges:(OTAccountMetadataClassC* (^)(OTAccountMetadataClassC*))makeChanges
+- (BOOL)persistAccountChanges:(OTAccountMetadataClassC* _Nullable (^)(OTAccountMetadataClassC*))makeChanges
                         error:(NSError**)error
 {
     __block NSError* localError = nil;
@@ -178,7 +178,7 @@
         }
 
         newState = makeChanges([oldState copy]);
-        if(![newState saveToKeychainForContainer:self.containerName contextID:self.contextID error:&localError]) {
+        if(newState && ![newState saveToKeychainForContainer:self.containerName contextID:self.contextID error:&localError]) {
             newState = nil;
         }
     });
@@ -213,7 +213,7 @@
     } error:error];
 }
 
-- (BOOL)_onqueuePersistAccountChanges:(OTAccountMetadataClassC* (^)(OTAccountMetadataClassC* metadata))makeChanges
+- (BOOL)_onqueuePersistAccountChanges:(OTAccountMetadataClassC* _Nullable (^)(OTAccountMetadataClassC* metadata))makeChanges
                                 error:(NSError**)error
 {
     __block NSError* localError = nil;

@@ -515,7 +515,8 @@ void IONetworkStack::asyncWork( void )
     while (1)
     {
         d_netif = a_netif = 0;
-
+        varBits = 0;
+        
         LOCK();
         if (_ifListDetach)
         {

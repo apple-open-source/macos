@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010, 2012-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010, 2012-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,22 +36,16 @@
 
 
 #include <TargetConditionals.h>
-#include <fcntl.h>
-#include <net/if.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <unistd.h>
-
 
 #define	SC_LOG_HANDLE		__log_PreferencesMonitor
 #define SC_LOG_HANDLE_TYPE	static
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include "SCNetworkConfigurationInternal.h"
 #include "plugin_shared.h"
-
-
-#include <CommonCrypto/CommonDigest.h>
 
 
 /* globals */
@@ -61,7 +55,7 @@ static SCDynamicStoreRef	store			= NULL;
 /* InterfaceNamer[.plugin] monitoring globals */
 static CFMutableArrayRef	excluded_interfaces	= NULL;		// of SCNetworkInterfaceRef
 static CFMutableArrayRef	excluded_names		= NULL;		// of CFStringRef (BSD name)
-Boolean				haveConfiguration	= FALSE;
+static Boolean			haveConfiguration	= FALSE;
 static CFStringRef		namerKey		= NULL;
 static CFMutableArrayRef	preconfigured_interfaces= NULL;		// of SCNetworkInterfaceRef
 static CFMutableArrayRef	preconfigured_names	= NULL;		// of CFStringRef (BSD name)
@@ -76,7 +70,6 @@ static CFMutableArrayRef	unchangedPrefsKeys;	/* new prefs keys which match curre
 static CFMutableArrayRef	removedPrefsKeys;	/* old prefs keys to be removed */
 
 static Boolean			rofs			= FALSE;
-static Boolean			restorePrefs		= FALSE;
 
 #define MY_PLUGIN_NAME		"PreferencesMonitor"
 #define	MY_PLUGIN_ID		CFSTR("com.apple.SystemConfiguration." MY_PLUGIN_NAME)
@@ -101,109 +94,29 @@ __log_PreferencesMonitor(void)
 }
 
 
-static Boolean
-restorePreferences()
+static void
+savePastConfiguration(CFStringRef old_model)
 {
-	Boolean			ok = FALSE;
-	CFStringRef		currentModel = NULL;
-	CFMutableStringRef	modelPrefixStr = NULL;
-	CFArrayRef		keyList = NULL;
-	CFIndex			keyListCount;
-	CFIndex			idx;
-	Boolean			modified = FALSE;
-	int			sc_status = kSCStatusFailed;
+	CFDictionaryRef	system;
 
-	while (TRUE) {
-		ok = SCPreferencesLock(prefs, TRUE);
-		if (ok) {
-			break;
-		}
-
-		sc_status = SCError();
-		if (sc_status == kSCStatusStale) {
-			SCPreferencesSynchronize(prefs);
-		} else {
-			SC_log(LOG_NOTICE, "Could not acquire network configuration lock: %s",
-			       SCErrorString(sc_status));
-			return FALSE;
-		}
+	// save "/System" (e.g. host names)
+	system = SCPreferencesGetValue(prefs, kSCPrefSystem);
+	if (system != NULL) {
+		CFRetain(system);
 	}
 
-	keyList = SCPreferencesCopyKeyList(prefs);
-	if (keyList == NULL) {
-		goto error;
+	// save the [previous devices] configuration
+	__SCNetworkConfigurationSaveModel(prefs, old_model);
+
+	if (system != NULL) {
+		// and retain "/System" (e.g. host names)
+		SCPreferencesSetValue(prefs, kSCPrefSystem, system);
+		CFRelease(system);
 	}
 
-	currentModel = _SC_hw_model(FALSE);
-	if (currentModel == NULL) {
-		goto error;
-	}
-
-	/* Create "model:" string for prefix-check */
-	modelPrefixStr = CFStringCreateMutableCopy(NULL, 0, currentModel);
-	CFStringAppend(modelPrefixStr, CFSTR(":"));
-
-	keyListCount = CFArrayGetCount(keyList);
-	for (idx = 0; idx < keyListCount; idx++) {
-		CFStringRef existingKey = CFArrayGetValueAtIndex(keyList, idx);
-		CFStringRef key;
-		CFArrayRef splitKey = NULL;
-		CFPropertyListRef value;
-
-		if (isA_CFString(existingKey) == NULL) {
-			continue;
-		}
-
-		if (!CFStringHasPrefix(existingKey, modelPrefixStr)) {
-			    continue;
-		}
-
-		splitKey = CFStringCreateArrayBySeparatingStrings(NULL, existingKey, CFSTR(":"));
-		key = CFArrayGetValueAtIndex(splitKey, 1);
-		value = SCPreferencesGetValue(prefs, existingKey);
-		SCPreferencesSetValue(prefs, key, value);
-		SCPreferencesRemoveValue(prefs, existingKey);
-		modified = TRUE;
-		CFRelease(splitKey);
-	}
-
-	if (modified) {
-		SCPreferencesRef	ni_prefs = NULL;
-		ni_prefs = SCPreferencesCreate(NULL, MY_PLUGIN_ID, CFSTR("NetworkInterfaces.plist"));
-		if (ni_prefs == NULL) {
-			goto error;
-		}
-
-		ok = _SCNetworkConfigurationCheckValidityWithPreferences(prefs, ni_prefs, NULL);
-		CFRelease(ni_prefs);
-
-		//Commit the changes only if prefs files valid
-		if (ok) {
-			if (!SCPreferencesCommitChanges(prefs)) {
-				if (SCError() != EROFS) {
-					SC_log(LOG_NOTICE, "SCPreferencesCommitChanges() failed: %s",
-					       SCErrorString(SCError()));
-				}
-				goto error;
-
-			}
-
-			(void) SCPreferencesApplyChanges(prefs);
-		}
-	}
-
-error:
-	(void) SCPreferencesUnlock(prefs);
-
-	if (keyList != NULL) {
-		CFRelease(keyList);
-	}
-	if (modelPrefixStr != NULL) {
-		CFRelease(modelPrefixStr);
-	}
-
-	return modified;
+	return;
 }
+
 
 static Boolean
 establishNewPreferences()
@@ -211,6 +124,7 @@ establishNewPreferences()
 	SCNetworkSetRef	current		= NULL;
 	CFStringRef	new_model;
 	Boolean		ok		= FALSE;
+	CFStringRef	old_model;
 	int		sc_status	= kSCStatusFailed;
 	SCNetworkSetRef	set		= NULL;
 	Boolean		updated		= FALSE;
@@ -231,58 +145,18 @@ establishNewPreferences()
 		}
 	}
 
-	/* Ensure that the preferences has the new model */
+	// check if we need to regenerate the configuration for a new model
+	old_model = SCPreferencesGetValue(prefs, MODEL);
 	new_model = _SC_hw_model(FALSE);
+	if ((old_model != NULL) && !_SC_CFEqual(old_model, new_model)) {
+		SC_log(LOG_NOTICE, "Hardware model changed\n"
+				   "  created on \"%@\"\n"
+				   "  now on     \"%@\"",
+		       old_model,
+		       new_model);
 
-	/* Need to regenerate the new configuration for new model */
-	if (new_model != NULL) {
-		CFStringRef	old_model;
-
-		old_model = SCPreferencesGetValue(prefs, MODEL);
-		if ((old_model != NULL) && !_SC_CFEqual(old_model, new_model)) {
-			CFIndex		count;
-			CFIndex		index;
-			CFArrayRef	keys;
-
-			keys = SCPreferencesCopyKeyList(prefs);
-			count = (keys != NULL) ? CFArrayGetCount(keys) : 0;
-			// if new hardware
-			for (index = 0; index < count; index++) {
-				CFStringRef		existing_key;
-
-				existing_key = CFArrayGetValueAtIndex(keys, index);
-				if (isA_CFString(existing_key) != NULL) {
-					CFStringRef		new_key;
-					CFPropertyListRef	value;
-
-					/* If it already contains a Model
-					   or if it already contains a MODEL:KEY key skip it*/
-					if (CFEqual(existing_key, MODEL)
-					    || CFStringFind(existing_key, CFSTR(":"), 0).location
-					    != kCFNotFound) {
-						continue;
-					}
-
-					value = SCPreferencesGetValue(prefs, existing_key);
-
-					/* Create a new key as OLD_MODEL:OLD_KEY */
-					new_key = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@:%@"),
-									   old_model, existing_key);
-					SCPreferencesSetValue(prefs, new_key, value);
-					if (!CFEqual(existing_key, kSCPrefSystem)) {
-						/* preserve existing host names */
-						SCPreferencesRemoveValue(prefs, existing_key);
-					}
-					CFRelease(new_key);
-				}
-			}
-
-			if (keys != NULL) {
-				CFRelease(keys);
-			}
-		}
-		/* Set the new model */
-		SCPreferencesSetValue(prefs, MODEL, new_model);
+		// save (and clean) the configuration that was created for "other" hardware
+		savePastConfiguration(old_model);
 	}
 
 	current = SCNetworkSetCopyCurrent(prefs);
@@ -386,27 +260,6 @@ watchSCDynamicStore()
 	}
 
 	return;
-}
-
-
-static Boolean
-previousConfigurationAvailable()
-{
-	CFStringRef		backupKey = NULL;
-	CFStringRef		currentModel = NULL;
-	CFPropertyListRef	properties = NULL;
-
-	currentModel = _SC_hw_model(FALSE);
-	if (currentModel == NULL) {
-		goto done;
-	}
-
-	/* Currently relying only if a backup of "Sets" is present */
-	backupKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@:Sets"), currentModel);
-	properties = SCPreferencesGetValue(prefs, backupKey);
-	CFRelease(backupKey);
-done:
-	return (properties != NULL);
 }
 
 
@@ -571,11 +424,6 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 		(void) establishNewPreferences();
 
-		if (restorePrefs) {
-			(void) restorePreferences();
-			restorePrefs = FALSE;
-		}
-
 		if (timeout && (logged++ == 0)) {
 			SC_log(LOG_ERR, "Network configuration creation timed out waiting for IORegistry");
 		}
@@ -712,42 +560,6 @@ flatten(SCPreferencesRef	prefs,
 	CFRelease(myKey);
 
 	return;
-}
-
-
-static CF_RETURNS_RETAINED CFStringRef
-copyInterfaceUUID(CFStringRef bsdName)
-{
-	union {
-		unsigned char	sha256_bytes[CC_SHA256_DIGEST_LENGTH];
-		CFUUIDBytes	uuid_bytes;
-	} bytes;
-	CC_SHA256_CTX	ctx;
-	char		if_name[IF_NAMESIZE];
-	CFUUIDRef	uuid;
-	CFStringRef	uuid_str;
-
-	// start with interface name
-	memset(&if_name, 0, sizeof(if_name));
-	(void) _SC_cfstring_to_cstring(bsdName,
-				       if_name,
-				       sizeof(if_name),
-				       kCFStringEncodingASCII);
-
-	// create SHA256 hash
-	memset(&bytes, 0, sizeof(bytes));
-	CC_SHA256_Init(&ctx);
-	CC_SHA256_Update(&ctx,
-		       if_name,
-		       sizeof(if_name));
-	CC_SHA256_Final(bytes.sha256_bytes, &ctx);
-
-	// create UUID string
-	uuid = CFUUIDCreateFromUUIDBytes(NULL, bytes.uuid_bytes);
-	uuid_str = CFUUIDCreateString(NULL, uuid);
-	CFRelease(uuid);
-
-	return uuid_str;
 }
 
 
@@ -908,42 +720,12 @@ updatePreConfiguredConfiguration(SCPreferencesRef prefs)
 		CFStringRef		bsdName;
 		SCNetworkInterfaceRef	interface	= CFArrayGetValueAtIndex(preconfigured_interfaces, i);
 		SCNetworkServiceRef	service;
-		CFStringRef		serviceID;
 
 		bsdName = SCNetworkInterfaceGetBSDName(interface);
 
 		// create network service
-		service = SCNetworkServiceCreate(prefs, interface);
+		service = _SCNetworkServiceCreatePreconfigured(prefs, interface);
 		if (service == NULL) {
-			SC_log(LOG_ERR, "could not create network service for \"%@\": %s",
-			       bsdName,
-			       SCErrorString(SCError()));
-			continue;
-		}
-
-		// update network service to use a consistent serviceID
-		serviceID = copyInterfaceUUID(bsdName);
-		if (serviceID != NULL) {
-			ok = _SCNetworkServiceSetServiceID(service, serviceID);
-			CFRelease(serviceID);
-			if (!ok) {
-				SC_log(LOG_ERR, "_SCNetworkServiceSetServiceID() failed: %s",
-				       SCErrorString(SCError()));
-				// ... and keep whatever random UUID was created for the service
-			}
-		} else {
-			SC_log(LOG_ERR, "could not create serviceID for \"%@\"", bsdName);
-			// ... and we'll use whatever random UUID was created for the service
-		}
-
-		// establish [template] configuration
-		ok = SCNetworkServiceEstablishDefaultConfiguration(service);
-		if (!ok) {
-			SC_log(LOG_ERR, "could not establish network service for \"%@\": %s",
-			       bsdName,
-			       SCErrorString(SCError()));
-			SCNetworkServiceRemove(service);
-			CFRelease(service);
 			continue;
 		}
 
@@ -1215,6 +997,13 @@ prime_PreferencesMonitor()
 }
 
 
+#ifndef	MAIN
+#define	PREFERENCES_MONITOR_PLIST	NULL
+#else	// !MAIN
+#define	PREFERENCES_MONITOR_PLIST	CFSTR("/tmp/preferences.plist")
+#endif	// !MAIN
+
+
 __private_extern__
 void
 load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
@@ -1235,27 +1024,34 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	}
 
 	/* open a SCPreferences session */
-#ifndef	MAIN
-	prefs = SCPreferencesCreate(NULL, CFSTR("PreferencesMonitor.bundle"), NULL);
-#else	// !MAIN
-	prefs = SCPreferencesCreate(NULL, CFSTR("PreferencesMonitor.bundle"), CFSTR("/tmp/preferences.plist"));
-#endif	// !MAIN
+	prefs = SCPreferencesCreateWithOptions(NULL,
+					       MY_PLUGIN_ID,
+					       PREFERENCES_MONITOR_PLIST,
+					       NULL,	// authorization
+					       NULL);
 	if (prefs != NULL) {
 		Boolean		need_update = FALSE;
-		CFStringRef	new_model;
+		CFStringRef 	new_model;
+		CFStringRef	old_model;
 
+		// check if we need to update the configuration
+		__SCNetworkConfigurationUpgrade(&prefs, NULL, TRUE);
+
+		// check if we need to regenerate the configuration for a new model
+		old_model = SCPreferencesGetValue(prefs, MODEL);
 		new_model = _SC_hw_model(FALSE);
+		if ((old_model != NULL) && !_SC_CFEqual(old_model, new_model)) {
+			SC_log(LOG_NOTICE, "Hardware model changed\n"
+					   "  created on \"%@\"\n"
+					   "  now on     \"%@\"",
+			       old_model,
+			       new_model);
 
-		/* Need to regenerate the new configuration for new model */
-		if (new_model != NULL) {
-			CFStringRef	old_model;
+			// save (and clean) the configuration that was created for "other" hardware
+			savePastConfiguration(old_model);
 
-			old_model = SCPreferencesGetValue(prefs, MODEL);
-			if (old_model != NULL && !_SC_CFEqual(old_model, new_model)) {
-				// if new hardware
-				need_update = TRUE;
-				restorePrefs = previousConfigurationAvailable();
-			}
+			// ... and we'll update the configuration later (when the IORegistry quiesces)
+			need_update = TRUE;
 		}
 
 		if (!need_update) {

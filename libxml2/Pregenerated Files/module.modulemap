@@ -1,21 +1,21 @@
 module libxml2 [system] [extern_c] {
-    // Add "-Xcc -I$(SDKROOT)/usr/include/libxml2" to OTHER_SWIFT_FLAGS in Xcode project.
+    link "xml2"
 
     module HTMLparser {
-        header "libxml/HTMLparser.h"
-        header "libxml/SAX.h"
-        header "libxml/SAX2.h"
-        header "libxml/globals.h"
-        header "libxml/parser.h"
-        header "libxml/threads.h"
-        header "libxml/tree.h"
-        header "libxml/xlink.h"
-        header "libxml/xmlmemory.h"
+        header "HTMLparser.h"
+        header "SAX.h"
+        header "SAX2.h"
+        header "globals.h"
+        header "parser.h"
+        header "threads.h"
+        header "tree.h"
+        header "xlink.h"
+        header "xmlmemory.h"
         export *
     }
 
     module HTMLtree {
-        header "libxml/HTMLtree.h"
+        header "HTMLtree.h"
         export *
     }
 
@@ -30,37 +30,37 @@ module libxml2 [system] [extern_c] {
     }
 
     module c14n {
-        header "libxml/c14n.h"
+        header "c14n.h"
         export *
     }
 
     module catalog {
-        header "libxml/catalog.h"
+        header "catalog.h"
         export *
     }
 
     module chvalid {
-        header "libxml/chvalid.h"
+        header "chvalid.h"
         export *
     }
 
     module debugXML {
-        header "libxml/debugXML.h"
+        header "debugXML.h"
         export *
     }
 
     module dict {
-        header "libxml/dict.h"
+        header "dict.h"
         export *
     }
 
     module encoding {
-        header "libxml/encoding.h"
+        header "encoding.h"
         export *
     }
 
     module entities {
-        header "libxml/entities.h"
+        header "entities.h"
         export *
     }
 
@@ -70,22 +70,22 @@ module libxml2 [system] [extern_c] {
     }
 
     module hash {
-        header "libxml/hash.h"
+        header "hash.h"
         export *
     }
 
     module list {
-        header "libxml/list.h"
+        header "list.h"
         export *
     }
 
     module nanoftp {
-        header "libxml/nanoftp.h"
+        header "nanoftp.h"
         export *
     }
 
     module nanohttp {
-        header "libxml/nanohttp.h"
+        header "nanohttp.h"
         export *
     }
 
@@ -95,27 +95,27 @@ module libxml2 [system] [extern_c] {
     }
 
     module parserInternals {
-        header "libxml/parserInternals.h"
+        header "parserInternals.h"
         export *
     }
 
     module pattern {
-        header "libxml/pattern.h"
+        header "pattern.h"
         export *
     }
 
     module relaxng {
-        header "libxml/relaxng.h"
+        header "relaxng.h"
         export *
     }
 
     module schemasInternals {
-        header "libxml/schemasInternals.h"
+        header "schemasInternals.h"
         export *
     }
 
     module schematron {
-        header "libxml/schematron.h"
+        header "schematron.h"
         export *
     }
 
@@ -130,17 +130,17 @@ module libxml2 [system] [extern_c] {
     }
 
     module uri {
-        header "libxml/uri.h"
+        header "uri.h"
         export *
     }
 
     module valid {
-        header "libxml/valid.h"
+        header "valid.h"
         export *
     }
 
     module xinclude {
-        header "libxml/xinclude.h"
+        header "xinclude.h"
         export *
     }
 
@@ -150,22 +150,22 @@ module libxml2 [system] [extern_c] {
     }
 
     module xmlIO {
-        header "libxml/xmlIO.h"
+        header "xmlIO.h"
         export *
     }
 
     module xmlautomata {
-        header "libxml/xmlautomata.h"
+        header "xmlautomata.h"
         export *
     }
 
     module xmlerror {
-        header "libxml/xmlerror.h"
+        header "xmlerror.h"
         export *
     }
 
     module xmlexports {
-        header "libxml/xmlexports.h"
+        header "xmlexports.h"
         export *
     }
 
@@ -175,69 +175,69 @@ module libxml2 [system] [extern_c] {
     }
 
     module xmlmodule {
-        header "libxml/xmlmodule.h"
+        header "xmlmodule.h"
         export *
     }
 
     module xmlreader {
-        header "libxml/xmlreader.h"
+        header "xmlreader.h"
         export *
     }
 
     module xmlregexp {
-        header "libxml/xmlregexp.h"
+        header "xmlregexp.h"
         export *
     }
 
     module xmlsave {
-        header "libxml/xmlsave.h"
+        header "xmlsave.h"
         export *
     }
 
     module xmlschemas {
-        header "libxml/xmlschemas.h"
+        header "xmlschemas.h"
         export *
     }
 
     module xmlschemastypes {
-        header "libxml/xmlschemastypes.h"
+        header "xmlschemastypes.h"
         export *
     }
 
     module xmlstring {
-        header "libxml/xmlstring.h"
+        header "xmlstring.h"
         export *
     }
 
     module xmlunicode {
-        header "libxml/xmlunicode.h"
+        header "xmlunicode.h"
         export *
     }
 
     module xmlversion {
-        header "libxml/xmlversion.h"
+        header "xmlversion.h"
         export *
     }
 
     module xmlwriter {
-        header "libxml/xmlwriter.h"
+        header "xmlwriter.h"
         export *
     }
 
     module xpath {
-        header "libxml/xpath.h"
+        header "xpath.h"
         export *
     }
 
     module xpathInternals {
-        header "libxml/xpathInternals.h"
+        header "xpathInternals.h"
         export *
     }
 
     module xpointer {
-        header "libxml/xpointer.h"
+        header "xpointer.h"
         export *
     }
 
-    exclude header "libxml/DOCBparser.h" // Deprecated.
+    exclude header "DOCBparser.h" // Deprecated.
 }

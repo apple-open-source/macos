@@ -1,3 +1,122 @@
+2019-12-20  Brian Burg  <bburg@apple.com>
+
+        Web Inspector: convert some InspectorFrontendHost methods to getters
+        https://bugs.webkit.org/show_bug.cgi?id=205475
+
+        Reviewed by Devin Rousso.
+
+        * WebCoreSupport/WebInspectorClientIOS.mm:
+        (WebInspectorFrontendClient::localizedStringsURL const):
+        (WebInspectorFrontendClient::localizedStringsURL): Deleted.
+
+2019-12-17  Tim Horton  <timothy_horton@apple.com>
+
+        macCatalyst: Cursor should update on mouse movement and style change
+        https://bugs.webkit.org/show_bug.cgi?id=205317
+        <rdar://problem/46793696>
+
+        Reviewed by Anders Carlsson.
+
+        * WebCoreSupport/WebChromeClientIOS.h:
+        Provide a stub implementation of cursor-related ChromeClient methods.
+
+2019-12-14  David Kilzer  <ddkilzer@apple.com>
+
+        Add release assert for selectedIndex in WebKit::WebPopupMenu::show()
+        <https://webkit.org/b/205223>
+        <rdar://problem/57929078>
+
+        Reviewed by Wenson Hsieh.
+
+        * WebCoreSupport/PopupMenuIOS.h:
+        (PopupMenuIOS::show):
+        - Rename `index` parameter to `selectedIndex`.
+        * WebCoreSupport/PopupMenuIOS.mm:
+        (PopupMenuIOS::show):
+        - Rename `index` parameter to `selectedIndex`.
+        (PopupMenuIOS::disconnectClient):
+        - Drive-by fix to change 0 to nullptr.
+
+2019-10-16  Chris Dumez  <cdumez@apple.com>
+
+        Rename PageCache to BackForwardCache
+        https://bugs.webkit.org/show_bug.cgi?id=203048
+
+        Reviewed by Alex Christensen.
+
+        Rename PageCache to BackForwardCache for clarity and consistency with the UIProcess's WebBackForwardCache.
+
+        * WebView/WebUIKitDelegate.h:
+
+2019-10-09  Andy Estes  <aestes@apple.com>
+
+        [iOS] Remove redundant uses of USE(UIKIT_EDITING)
+        https://bugs.webkit.org/show_bug.cgi?id=202717
+
+        Reviewed by Anders Carlsson.
+
+        * WebCoreSupport/WebVisiblePosition.mm:
+        (-[DOMNode startPosition]):
+        (-[DOMNode endPosition]):
+
+2019-08-23  Chris Dumez  <cdumez@apple.com>
+
+        [geolocation] Rename interfaces and remove [NoInterfaceObject]
+        https://bugs.webkit.org/show_bug.cgi?id=200885
+
+        Reviewed by Alex Christensen.
+
+        * Misc/WebGeolocationCoreLocationProvider.h:
+        * Misc/WebGeolocationCoreLocationProvider.mm:
+        (-[WebGeolocationCoreLocationProvider sendLocation:]):
+        * Misc/WebGeolocationProviderIOS.mm:
+        (-[_WebCoreLocationUpdateThreadingProxy positionChanged:]):
+
+2019-08-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Add makeUnique<T>, which ensures T is fast-allocated, makeUnique / makeUniqueWithoutFastMallocCheck part
+        https://bugs.webkit.org/show_bug.cgi?id=200620
+
+        Reviewed by Geoffrey Garen.
+
+        * WebCoreSupport/WebFixedPositionContent.mm:
+        (-[WebFixedPositionContent setViewportConstrainedLayers:stickyContainerMap:]):
+
+2019-08-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Add makeUnique<T>, which ensures T is fast-allocated, WTF_MAKE_FAST_ALLOCATED annotation part
+        https://bugs.webkit.org/show_bug.cgi?id=200620
+
+        Reviewed by Geoffrey Garen.
+
+        * WebCoreSupport/WebChromeClientIOS.h:
+        * WebCoreSupport/WebFixedPositionContent.mm:
+
+2019-07-29  Zalan Bujtas  <zalan@apple.com>
+
+        [ContentChangeObserver] didFinishContentChangeObserving should include the type of content change.
+        https://bugs.webkit.org/show_bug.cgi?id=200247
+        <rdar://problem/53681149>
+
+        Reviewed by Simon Fraser.
+
+        * WebCoreSupport/WebChromeClientIOS.h:
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::didFinishContentChangeObserving):
+
+2019-07-29  Zalan Bujtas  <zalan@apple.com>
+
+        [ContentChangeObserver] ChromeClient::observedContentChange() name is misleading
+        https://bugs.webkit.org/show_bug.cgi?id=200238
+        <rdar://problem/53677038>
+
+        Reviewed by Simon Fraser.
+
+        * WebCoreSupport/WebChromeClientIOS.h:
+        * WebCoreSupport/WebChromeClientIOS.mm:
+        (WebChromeClientIOS::didFinishContentChangeObserving):
+        (WebChromeClientIOS::observedContentChange): Deleted.
+
 2019-07-02  Devin Rousso  <drousso@apple.com>
 
         Web Inspector: Debug: "Reset Web Inspector" should also clear the saved window size and attachment side

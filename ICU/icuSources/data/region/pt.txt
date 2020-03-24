@@ -77,7 +77,7 @@ pt{
         CF{"República Centro-Africana"}
         CG{"República do Congo"}
         CH{"Suíça"}
-        CI{"Costa do Marfim"}
+        CI{"Côte d’Ivoire"}
         CK{"Ilhas Cook"}
         CL{"Chile"}
         CM{"Camarões"}
@@ -306,7 +306,7 @@ pt{
     Countries%variant{
         CD{"República Democrática do Congo"}
         CG{"Congo"}
-        CI{"Côte d’Ivoire"}
+        CI{"Costa do Marfim"}
         CZ{"República Tcheca"}
         FK{"Ilhas Falkland (Ilhas Malvinas)"}
         TL{"República Democrática de Timor-Leste"}

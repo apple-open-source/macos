@@ -95,11 +95,8 @@ SecCmsAlgArrayGetIndexByAlgID(SECAlgorithmID **algorithmArray, SECAlgorithmID *a
 extern int
 SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID **algorithmArray, SECOidTag algtag);
 
-#if USE_CDSA_CRYPTO
-extern CSSM_CC_HANDLE
-#else
+
 extern void *
-#endif
 SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid);
 
 /*

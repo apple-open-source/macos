@@ -1483,7 +1483,6 @@ IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type,
     return getScaledFixedValue(type);
 }
 
-
 IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type)
 {
     int64_t logicalValue = (int32_t )getValue();

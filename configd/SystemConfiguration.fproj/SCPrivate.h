@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -106,7 +106,8 @@ extern int	_sc_debug;	/* non-zero if debugging enabled */
 extern int	_sc_verbose;	/* non-zero if verbose logging enabled */
 extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 				   1 if SC messages should be logged w/os_log(3),
-				   2 if SC messages should be written to stdout/stderr AND logged */
+				   2 if SC messages should be logged AND written to stdout/stderr
+				   3 if SC messages should be logged AND written to stdout/stderr (w/o timestamp) */
 
 
 /* notify(3) keys */
@@ -766,6 +767,9 @@ _SC_dos_encoding_and_codepage			(CFStringEncoding	macEncoding,
 #pragma mark -
 #pragma mark Bundle
 
+
+CFStringRef
+_SC_getApplicationBundleID					(void);
 
 /*
  * bundle access

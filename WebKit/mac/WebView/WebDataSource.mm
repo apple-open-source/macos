@@ -53,7 +53,6 @@
 #import <WebCore/FrameLoader.h>
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/MIMETypeRegistry.h>
-#import <WebCore/PreviewLoaderClient.h>
 #import <WebCore/ResourceRequest.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/WebCoreObjCExtras.h>
@@ -72,10 +71,9 @@
 #endif
 
 #if USE(QUICK_LOOK)
+#import <WebCore/LegacyPreviewLoaderClient.h>
 #import <WebCore/QuickLook.h>
 #endif
-
-using namespace WebCore;
 
 class WebDataSourcePrivate
 {
@@ -109,7 +107,7 @@ public:
 #endif
 #if USE(QUICK_LOOK)
     RetainPtr<NSDictionary> _quickLookContent;
-    RefPtr<WebCore::PreviewLoaderClient> _quickLookPreviewLoaderClient;
+    RefPtr<WebCore::LegacyPreviewLoaderClient> _quickLookPreviewLoaderClient;
 #endif
 };
 
@@ -129,7 +127,7 @@ static inline WebDataSourcePrivate* toPrivate(void* privateAttribute)
     toPrivate(_private)->representationFinishedLoading = NO;
 }
 
-static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCClass, NSArray *supportTypes)
+void addTypesFromClass(NSMutableDictionary *allTypes, Class objCClass, NSArray *supportTypes)
 {
     NSEnumerator *enumerator = [supportTypes objectEnumerator];
     ASSERT(enumerator != nil);
@@ -155,7 +153,6 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     if (self == [WebDataSource class]) {
 #if !PLATFORM(IOS_FAMILY)
         JSC::initializeThreading();
-        WTF::initializeMainThreadToProcessMainThread();
         RunLoop::initializeMainRunLoop();
 #endif
     }
@@ -320,7 +317,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
             DOMDocumentFragment *fragment = [[self webFrame] _documentFragmentWithMarkupString:markupString baseURLString:[[mainResource URL] _web_originalDataAsString]];
             [markupString release];
             return fragment;
-        } else if (MIMETypeRegistry::isSupportedImageMIMEType(MIMEType)) {
+        } else if (WebCore::MIMETypeRegistry::isSupportedImageMIMEType(MIMEType)) {
             return [self _documentFragmentWithImageResource:mainResource];
             
         }
@@ -397,7 +394,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 #endif
 }
 
-- (DocumentLoader*)_documentLoader
+- (WebCore::DocumentLoader*)_documentLoader
 {
     return toPrivate(_private)->loader.ptr();
 }
@@ -419,7 +416,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 }
 
 #if USE(QUICK_LOOK)
-- (WebCore::PreviewLoaderClient*)_quickLookPreviewLoaderClient
+- (WebCore::LegacyPreviewLoaderClient*)_quickLookPreviewLoaderClient
 {
     return toPrivate(_private)->_quickLookPreviewLoaderClient.get();
 }
@@ -429,7 +426,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     toPrivate(_private)->_quickLookContent = adoptNS([quickLookContent copy]);
 }
 
-- (void)_setQuickLookPreviewLoaderClient:(WebCore::PreviewLoaderClient*)quickLookPreviewLoaderClient
+- (void)_setQuickLookPreviewLoaderClient:(WebCore::LegacyPreviewLoaderClient*)quickLookPreviewLoaderClient
 {
     toPrivate(_private)->_quickLookPreviewLoaderClient = quickLookPreviewLoaderClient;
 }
@@ -441,7 +438,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (instancetype)initWithRequest:(NSURLRequest *)request
 {
-    return [self _initWithDocumentLoader:WebDocumentLoaderMac::create(request, SubstituteData())];
+    return [self _initWithDocumentLoader:WebDocumentLoaderMac::create(request, WebCore::SubstituteData())];
 }
 
 - (void)dealloc
@@ -455,7 +452,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 #if USE(QUICK_LOOK)
     // Added in -[WebCoreResourceHandleAsDelegate connection:didReceiveResponse:].
     if (NSURL *url = [[self response] URL])
-        removeQLPreviewConverterForURL(url);
+        WebCore::removeQLPreviewConverterForURL(url);
 #endif
 
     delete toPrivate(_private);
@@ -465,7 +462,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (NSData *)data
 {
-    RefPtr<SharedBuffer> mainResourceData = toPrivate(_private)->loader->mainResourceData();
+    RefPtr<WebCore::SharedBuffer> mainResourceData = toPrivate(_private)->loader->mainResourceData();
     if (!mainResourceData)
         return nil;
     return mainResourceData->createNSData().autorelease();
@@ -478,7 +475,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (WebFrame *)webFrame
 {
-    if (Frame* frame = toPrivate(_private)->loader->frame())
+    if (auto* frame = toPrivate(_private)->loader->frame())
         return kit(frame);
 
     return nil;
@@ -486,17 +483,17 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (NSURLRequest *)initialRequest
 {
-    return toPrivate(_private)->loader->originalRequest().nsURLRequest(HTTPBodyUpdatePolicy::UpdateHTTPBody);
+    return toPrivate(_private)->loader->originalRequest().nsURLRequest(WebCore::HTTPBodyUpdatePolicy::UpdateHTTPBody);
 }
 
 - (NSMutableURLRequest *)request
 {
-    FrameLoader* frameLoader = toPrivate(_private)->loader->frameLoader();
+    auto* frameLoader = toPrivate(_private)->loader->frameLoader();
     if (!frameLoader || !frameLoader->frameHasLoaded())
         return nil;
 
     // FIXME: this cast is dubious
-    return (NSMutableURLRequest *)toPrivate(_private)->loader->request().nsURLRequest(HTTPBodyUpdatePolicy::UpdateHTTPBody);
+    return (NSMutableURLRequest *)toPrivate(_private)->loader->request().nsURLRequest(WebCore::HTTPBodyUpdatePolicy::UpdateHTTPBody);
 }
 
 - (NSURLResponse *)response
@@ -537,7 +534,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     if (!toPrivate(_private)->loader->isCommitted())
         return nil;
         
-    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(*core([self webFrame]))] autorelease];
+    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:WebCore::LegacyWebArchive::create(*core([self webFrame]))] autorelease];
 }
 
 - (WebResource *)mainResource

@@ -50,6 +50,7 @@ class InspectorFrontendClientLocal : public InspectorFrontendClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     class WEBCORE_EXPORT Settings {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         Settings() = default;
         virtual ~Settings() = default;
@@ -59,7 +60,7 @@ public:
     };
 
     WEBCORE_EXPORT InspectorFrontendClientLocal(InspectorController* inspectedPageController, Page* frontendPage, std::unique_ptr<Settings>);
-    WEBCORE_EXPORT virtual ~InspectorFrontendClientLocal();
+    WEBCORE_EXPORT ~InspectorFrontendClientLocal() override;
 
     WEBCORE_EXPORT void resetState() override;
 
@@ -88,6 +89,7 @@ public:
     WEBCORE_EXPORT bool isUnderTest() final;
     bool isRemote() const final { return false; }
     WEBCORE_EXPORT unsigned inspectionLevel() const final;
+    String backendCommandsURL() const final { return String(); };
 
     WEBCORE_EXPORT bool canAttachWindow();
     WEBCORE_EXPORT void setDockingUnavailable(bool);
@@ -116,6 +118,11 @@ public:
 
     WEBCORE_EXPORT Page* inspectedPage() const;
     Page* frontendPage() const { return m_frontendPage; }
+
+    WEBCORE_EXPORT void dispatch(const String& signature);
+    WEBCORE_EXPORT void dispatchMessage(const String& messageObject);
+    WEBCORE_EXPORT void dispatchMessageAsync(const String& messageObject);
+
 protected:
     virtual void setAttachedWindowHeight(unsigned) = 0;
     virtual void setAttachedWindowWidth(unsigned) = 0;

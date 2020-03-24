@@ -103,12 +103,12 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
         this.contentView.element.appendChild(eventListenersSection.element);
 
         if (WI.sharedApp.hasExtraDomains) {
-            if (InspectorBackend.domains.DOM.getDataBindingsForNode) {
+            let target = WI.assumingMainTarget();
+            if (target.hasCommand("DOM.getDataBindingsForNode")) {
                 this._dataBindingsSection = new WI.DetailsSection("dom-node-data-bindings", WI.UIString("Data Bindings"), []);
                 this.contentView.element.appendChild(this._dataBindingsSection.element);
             }
-
-            if (InspectorBackend.domains.DOM.getAssociatedDataForNode) {
+            if (target.hasCommand("DOM.getAssociatedDataForNode")) {
                 this._associatedDataGrid = new WI.DetailsSectionRow(WI.UIString("No Associated Data"));
 
                 let associatedDataGroup = new WI.DetailsSectionGroup([this._associatedDataGrid]);
@@ -157,7 +157,7 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
     {
         super.layout();
 
-        if (!this.domNode)
+        if (!this.domNode || this.domNode.destroyed)
             return;
 
         this._refreshIdentity();
@@ -195,7 +195,7 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
 
     _accessibilitySupported()
     {
-        return window.DOMAgent && DOMAgent.getAccessibilityPropertiesForNode;
+        return InspectorBackend.hasCommand("DOM.getAccessibilityPropertiesForNode");
     }
 
     _refreshIdentity()
@@ -245,11 +245,12 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
             this._nodeRemoteObject = null;
         }
 
-        let domNode = this.domNode;
+        let target = WI.assumingMainTarget();
 
         const objectGroup = "dom-node-details-sidebar-properties-object-group";
-        RuntimeAgent.releaseObjectGroup(objectGroup);
+        target.RuntimeAgent.releaseObjectGroup(objectGroup);
 
+        let domNode = this.domNode;
         WI.RemoteObject.resolveNode(domNode, objectGroup).then((object) => {
             // Bail if the DOM node changed while we were waiting for the async response.
             if (this.domNode !== domNode)
@@ -288,7 +289,7 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
             if (this.domNode !== domNode)
                 return;
 
-            object.deprecatedGetOwnProperties(fillSection.bind(this));
+            object.getPropertyDescriptors(fillSection.bind(this), {ownProperties: true});
         }
 
         function fillSection(prototypes)
@@ -346,7 +347,28 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
         function createEventListenerSection(title, eventListeners, options = {}) {
             let groups = eventListeners.map((eventListener) => new WI.EventListenerSectionGroup(eventListener, options));
 
-            const optionsElement = null;
+            let optionsElement = null;
+            if ((WI.DOMManager.supportsDisablingEventListeners() || WI.DOMManager.supportsEventListenerBreakpoints()) && groups.some((group) => group.supportsStateModification)) {
+                optionsElement = WI.ImageUtilities.useSVGSymbol("Images/Gear.svg", "event-listener-options", WI.UIString("Options"));
+                WI.addMouseDownContextMenuHandlers(optionsElement, (contextMenu) => {
+                    if (WI.DOMManager.supportsDisablingEventListeners()) {
+                        let shouldDisable = groups.some((eventListener) => !eventListener.isEventListenerDisabled);
+                        contextMenu.appendItem(shouldDisable ? WI.UIString("Disable Event Listeners") : WI.UIString("Enable Event Listeners"), () => {
+                            for (let group of groups)
+                                group.isEventListenerDisabled = shouldDisable;
+                        });
+                    }
+
+                    if (WI.DOMManager.supportsEventListenerBreakpoints()) {
+                        let shouldBreakpoint = groups.some((eventListener) => !eventListener.hasEventListenerBreakpoint);
+                        contextMenu.appendItem(shouldBreakpoint ? WI.UIString("Add Breakpoints") : WI.UIString("Delete Breakpoints"), () => {
+                            for (let group of groups)
+                                group.hasEventListenerBreakpoint = shouldBreakpoint;
+                        });
+                    }
+                });
+            }
+
             const defaultCollapsedSettingValue = true;
             let section = new WI.DetailsSection(`${title}-event-listener-section`, title, groups, optionsElement, defaultCollapsedSettingValue);
             section.element.classList.add("event-listener-section");
@@ -456,7 +478,8 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
         if (!domNode)
             return;
 
-        DOMAgent.getDataBindingsForNode(this.domNode.id).then(({dataBindings}) => {
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.getDataBindingsForNode(this.domNode.id).then(({dataBindings}) => {
             if (this.domNode !== domNode)
                 return;
 
@@ -484,14 +507,16 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
         if (!this._associatedDataGrid)
             return;
 
+        let target = WI.assumingMainTarget();
+
         const objectGroup = "dom-node-details-sidebar-associated-data-object-group";
-        RuntimeAgent.releaseObjectGroup(objectGroup);
+        target.RuntimeAgent.releaseObjectGroup(objectGroup);
 
         let domNode = this.domNode;
         if (!domNode)
             return;
 
-        DOMAgent.getAssociatedDataForNode(domNode.id).then(({associatedData}) => {
+        target.DOMAgent.getAssociatedDataForNode(domNode.id).then(({associatedData}) => {
             if (this.domNode !== domNode)
                 return;
 
@@ -621,11 +646,11 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
 
                 var checked = "";
                 if (accessibilityProperties.checked !== undefined) {
-                    if (accessibilityProperties.checked === DOMAgent.AccessibilityPropertiesChecked.True)
+                    if (accessibilityProperties.checked === InspectorBackend.Enum.DOM.AccessibilityPropertiesChecked.True)
                         checked = WI.UIString("Yes");
-                    else if (accessibilityProperties.checked === DOMAgent.AccessibilityPropertiesChecked.Mixed)
+                    else if (accessibilityProperties.checked === InspectorBackend.Enum.DOM.AccessibilityPropertiesChecked.Mixed)
                         checked = WI.UIString("Mixed");
-                    else // DOMAgent.AccessibilityPropertiesChecked.False
+                    else // InspectorBackend.Enum.DOM.AccessibilityPropertiesChecked.False
                         checked = WI.UIString("No");
                 }
 
@@ -635,22 +660,22 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
 
                 var current = "";
                 switch (accessibilityProperties.current) {
-                case DOMAgent.AccessibilityPropertiesCurrent.True:
+                case InspectorBackend.Enum.DOM.AccessibilityPropertiesCurrent.True:
                     current = WI.UIString("True");
                     break;
-                case DOMAgent.AccessibilityPropertiesCurrent.Page:
+                case InspectorBackend.Enum.DOM.AccessibilityPropertiesCurrent.Page:
                     current = WI.UIString("Page");
                     break;
-                case DOMAgent.AccessibilityPropertiesCurrent.Location:
+                case InspectorBackend.Enum.DOM.AccessibilityPropertiesCurrent.Location:
                     current = WI.UIString("Location");
                     break;
-                case DOMAgent.AccessibilityPropertiesCurrent.Step:
+                case InspectorBackend.Enum.DOM.AccessibilityPropertiesCurrent.Step:
                     current = WI.UIString("Step");
                     break;
-                case DOMAgent.AccessibilityPropertiesCurrent.Date:
+                case InspectorBackend.Enum.DOM.AccessibilityPropertiesCurrent.Date:
                     current = WI.UIString("Date");
                     break;
-                case DOMAgent.AccessibilityPropertiesCurrent.Time:
+                case InspectorBackend.Enum.DOM.AccessibilityPropertiesCurrent.Time:
                     current = WI.UIString("Time");
                     break;
                 default:
@@ -672,11 +697,11 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
                 }
 
                 var invalid = "";
-                if (accessibilityProperties.invalid === DOMAgent.AccessibilityPropertiesInvalid.True)
+                if (accessibilityProperties.invalid === InspectorBackend.Enum.DOM.AccessibilityPropertiesInvalid.True)
                     invalid = WI.UIString("Yes");
-                else if (accessibilityProperties.invalid === DOMAgent.AccessibilityPropertiesInvalid.Grammar)
+                else if (accessibilityProperties.invalid === InspectorBackend.Enum.DOM.AccessibilityPropertiesInvalid.Grammar)
                     invalid = WI.UIString("Grammar");
-                else if (accessibilityProperties.invalid === DOMAgent.AccessibilityPropertiesInvalid.Spelling)
+                else if (accessibilityProperties.invalid === InspectorBackend.Enum.DOM.AccessibilityPropertiesInvalid.Spelling)
                     invalid = WI.UIString("Spelling");
 
                 var label = accessibilityProperties.label;
@@ -685,10 +710,10 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
                 var liveRegionStatusNode = null;
                 var liveRegionStatusToken = accessibilityProperties.liveRegionStatus;
                 switch (liveRegionStatusToken) {
-                case DOMAgent.AccessibilityPropertiesLiveRegionStatus.Assertive:
+                case InspectorBackend.Enum.DOM.AccessibilityPropertiesLiveRegionStatus.Assertive:
                     liveRegionStatus = WI.UIString("Assertive");
                     break;
-                case DOMAgent.AccessibilityPropertiesLiveRegionStatus.Polite:
+                case InspectorBackend.Enum.DOM.AccessibilityPropertiesLiveRegionStatus.Polite:
                     liveRegionStatus = WI.UIString("Polite");
                     break;
                 default:
@@ -701,19 +726,19 @@ WI.DOMNodeDetailsSidebarPanel = class DOMNodeDetailsSidebarPanel extends WI.DOMD
                         // @aria-relevant="all" is exposed as ["additions","removals","text"], in order.
                         // This order is controlled in WebCore and expected in WebInspectorUI.
                         if (liveRegionRelevant.length === 3
-                            && liveRegionRelevant[0] === DOMAgent.LiveRegionRelevant.Additions
-                            && liveRegionRelevant[1] === DOMAgent.LiveRegionRelevant.Removals
-                            && liveRegionRelevant[2] === DOMAgent.LiveRegionRelevant.Text)
+                            && liveRegionRelevant[0] === InspectorBackend.Enum.DOM.LiveRegionRelevant.Additions
+                            && liveRegionRelevant[1] === InspectorBackend.Enum.DOM.LiveRegionRelevant.Removals
+                            && liveRegionRelevant[2] === InspectorBackend.Enum.DOM.LiveRegionRelevant.Text)
                             liveRegionRelevant = [WI.UIString("All Changes")];
                         else {
                             // Reassign localized strings in place: ["additions","text"] becomes ["Additions","Text"].
                             liveRegionRelevant = liveRegionRelevant.map(function(value) {
                                 switch (value) {
-                                case DOMAgent.LiveRegionRelevant.Additions:
+                                case InspectorBackend.Enum.DOM.LiveRegionRelevant.Additions:
                                     return WI.UIString("Additions");
-                                case DOMAgent.LiveRegionRelevant.Removals:
+                                case InspectorBackend.Enum.DOM.LiveRegionRelevant.Removals:
                                     return WI.UIString("Removals");
-                                case DOMAgent.LiveRegionRelevant.Text:
+                                case InspectorBackend.Enum.DOM.LiveRegionRelevant.Text:
                                     return WI.UIString("Text");
                                 default: // If WebCore sends a new unhandled value, display as a String.
                                     return "\"" + value + "\"";

@@ -57,6 +57,7 @@ class InternalDebugFeature;
 class ExperimentalFeature;
 class FrameHandle;
 class FrameInfo;
+class HTTPCookieStore;
 class HitTestResult;
 class MessageListener;
 class Navigation;
@@ -68,7 +69,6 @@ class PageConfiguration;
 class ProcessPoolConfiguration;
 class SessionState;
 class UserScript;
-class WebsiteDataStore;
 class WebsitePolicies;
 class WindowFeatures;
 }
@@ -112,6 +112,8 @@ class WebResourceLoadStatisticsManager;
 class WebTextChecker;
 class WebUserContentControllerProxy;
 class WebViewportAttributes;
+class WebsiteDataStore;
+class WebsiteDataStoreConfiguration;
 
 WK_ADD_API_MAPPING(WKAuthenticationChallengeRef, AuthenticationChallengeProxy)
 WK_ADD_API_MAPPING(WKAuthenticationDecisionListenerRef, AuthenticationDecisionListener)
@@ -133,6 +135,7 @@ WK_ADD_API_MAPPING(WKFrameRef, WebFrameProxy)
 WK_ADD_API_MAPPING(WKGeolocationManagerRef, WebGeolocationManagerProxy)
 WK_ADD_API_MAPPING(WKGeolocationPermissionRequestRef, GeolocationPermissionRequest)
 WK_ADD_API_MAPPING(WKGeolocationPositionRef, WebGeolocationPosition)
+WK_ADD_API_MAPPING(WKHTTPCookieStoreRef, API::HTTPCookieStore)
 WK_ADD_API_MAPPING(WKHitTestResultRef, API::HitTestResult)
 WK_ADD_API_MAPPING(WKIconDatabaseRef, WebIconDatabase)
 WK_ADD_API_MAPPING(WKInspectorRef, WebInspectorProxy)
@@ -166,7 +169,8 @@ WK_ADD_API_MAPPING(WKUserMediaPermissionCheckRef, UserMediaPermissionCheckProxy)
 WK_ADD_API_MAPPING(WKUserMediaPermissionRequestRef, UserMediaPermissionRequestProxy)
 WK_ADD_API_MAPPING(WKUserScriptRef, API::UserScript)
 WK_ADD_API_MAPPING(WKViewportAttributesRef, WebViewportAttributes)
-WK_ADD_API_MAPPING(WKWebsiteDataStoreRef, API::WebsiteDataStore)
+WK_ADD_API_MAPPING(WKWebsiteDataStoreRef, WebKit::WebsiteDataStore)
+WK_ADD_API_MAPPING(WKWebsiteDataStoreConfigurationRef, WebKit::WebsiteDataStoreConfiguration)
 WK_ADD_API_MAPPING(WKWebsitePoliciesRef, API::WebsitePolicies)
 WK_ADD_API_MAPPING(WKWindowFeaturesRef, API::WindowFeatures)
 

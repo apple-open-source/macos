@@ -347,6 +347,7 @@ __OctagonSignpostLogSystem
 
 _OTCliqueStatusToString
 _OTCliqueStatusFromString
+_OTCDPStatusToString
 
 _OTCliqueCDPContextTypeNone
 _OTCliqueCDPContextTypeSignIn
@@ -2100,6 +2101,7 @@ _SFAnalyticsColumnHardFailureCount
 _SFAnalyticsColumnSoftFailureCount
 _SFAnalyticsColumnSampleValue
 _SFAnalyticsColumnSampleName
+_SFAnalyticsPostTime
 _SFAnalyticsEventTime
 _SFAnalyticsEventType
 _SFAnalyticsEventTypeErrorEvent

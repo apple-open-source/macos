@@ -32,6 +32,7 @@
 namespace WebKit {
 using namespace WebCore;
 
+#if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
 static uint32_t modifiersToEventState(OptionSet<WebEvent::Modifier> modifiers)
 {
     uint32_t state = 0;
@@ -44,15 +45,15 @@ static uint32_t modifiersToEventState(OptionSet<WebEvent::Modifier> modifiers)
     return state;
 }
 
-static unsigned mouseButtonToWPEButton(WebMouseEvent::Button button)
+static unsigned mouseButtonToWPEButton(MouseButton button)
 {
     switch (button) {
-    case WebMouseEvent::NoButton:
-    case WebMouseEvent::LeftButton:
+    case MouseButton::None:
+    case MouseButton::Left:
         return 1;
-    case WebMouseEvent::MiddleButton:
+    case MouseButton::Middle:
         return 3;
-    case WebMouseEvent::RightButton:
+    case MouseButton::Right:
         return 2;
     }
     return 1;
@@ -91,7 +92,7 @@ static void doMotionEvent(struct wpe_view_backend* viewBackend, const WebCore::I
     wpe_view_backend_dispatch_pointer_event(viewBackend, &event);
 }
 
-void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, MouseInteraction interaction, WebMouseEvent::Button button, const WebCore::IntPoint& locationInView, OptionSet<WebEvent::Modifier> keyModifiers)
+void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, MouseInteraction interaction, MouseButton button, const WebCore::IntPoint& locationInView, OptionSet<WebEvent::Modifier> keyModifiers)
 {
     unsigned wpeButton = mouseButtonToWPEButton(button);
     auto modifier = stateModifierForWPEButton(wpeButton);
@@ -121,7 +122,9 @@ void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, 
         break;
     }
 }
+#endif // ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
 
+#if ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
 static void doKeyStrokeEvent(struct wpe_view_backend* viewBackend, bool pressed, uint32_t keyCode, uint32_t modifiers, bool doReleaseAfterPress = false)
 {
     struct wpe_input_xkb_keymap_entry* entries;
@@ -309,6 +312,7 @@ void WebAutomationSession::platformSimulateKeySequence(WebPageProxy& page, const
         p = g_utf8_next_char(p);
     } while (*p);
 }
+#endif // ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
 
 } // namespace WebKit
 

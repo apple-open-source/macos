@@ -55,6 +55,7 @@ namespace WebKit {
 using namespace WebCore;
 
 class TextFinderFindClient : public API::FindMatchesClient, public API::FindClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit TextFinderFindClient(WKTextFinderClient *textFinderClient)
         : m_textFinderClient(textFinderClient)
@@ -168,8 +169,8 @@ private:
     _view = view;
     _usePlatformFindUI = usePlatformFindUI;
     
-    _page->setFindMatchesClient(std::make_unique<WebKit::TextFinderFindClient>(self));
-    _page->setFindClient(std::make_unique<WebKit::TextFinderFindClient>(self));
+    _page->setFindMatchesClient(makeUnique<WebKit::TextFinderFindClient>(self));
+    _page->setFindClient(makeUnique<WebKit::TextFinderFindClient>(self));
 
     return self;
 }

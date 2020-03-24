@@ -29,22 +29,33 @@
 #if USE(LIBWEBRTC)
 
 #include "Connection.h"
+#include "Logging.h"
 #include "NetworkRTCProvider.h"
 #include "WebRTCMonitorMessages.h"
 #include <wtf/Function.h>
 
 namespace WebKit {
 
+#undef RELEASE_LOG_IF_ALLOWED
+
+#define RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(m_rtcProvider.canLog(), Network, "%p - NetworkRTCMonitor::" fmt, this, ##__VA_ARGS__)
+
 NetworkRTCMonitor::~NetworkRTCMonitor()
 {
     ASSERT(!m_manager);
 }
 
-void NetworkRTCMonitor::startUpdating()
+void NetworkRTCMonitor::startUpdatingIfNeeded()
 {
+    RELEASE_LOG_IF_ALLOWED("startUpdatingIfNeeded %d", m_isStarted);
+    if (m_isStarted)
+        return;
+
     m_isStarted = true;
     m_rtcProvider.callOnRTCNetworkThread([this]() {
-        m_manager = std::make_unique<rtc::BasicNetworkManager>();
+        RELEASE_LOG_IF_ALLOWED("startUpdating from network thread");
+
+        m_manager = makeUniqueWithoutFastMallocCheck<rtc::BasicNetworkManager>();
         m_manager->SignalNetworksChanged.connect(this, &NetworkRTCMonitor::onNetworksChanged);
         m_manager->StartUpdating();
     });
@@ -52,8 +63,11 @@ void NetworkRTCMonitor::startUpdating()
 
 void NetworkRTCMonitor::stopUpdating()
 {
+    RELEASE_LOG_IF_ALLOWED("stopUpdating");
     m_isStarted = false;
     m_rtcProvider.callOnRTCNetworkThread([this]() {
+        RELEASE_LOG_IF_ALLOWED("stopUpdating from network thread %p", m_manager.get());
+
         if (!m_manager)
             return;
         m_manager->StopUpdating();
@@ -63,6 +77,8 @@ void NetworkRTCMonitor::stopUpdating()
 
 void NetworkRTCMonitor::onNetworksChanged()
 {
+    RELEASE_LOG_IF_ALLOWED("onNetworksChanged");
+
     rtc::BasicNetworkManager::NetworkList networks;
     m_manager->GetNetworks(&networks);
 
@@ -79,8 +95,7 @@ void NetworkRTCMonitor::onNetworksChanged()
     }
 
     m_rtcProvider.sendFromMainThread([this, networkList = WTFMove(networkList), ipv4 = WTFMove(ipv4), ipv6 = WTFMove(ipv6)](IPC::Connection& connection) {
-        if (!m_isStarted)
-            return;
+        RELEASE_LOG_IF_ALLOWED("onNetworksChanged sent");
         connection.send(Messages::WebRTCMonitor::NetworksChanged(networkList, ipv4, ipv6), 0);
     });
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010-2013, 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2013, 2015-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -332,9 +332,14 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 
     committed :
 
-	SC_log(LOG_INFO, "SCPreferences() commit: %s, size=%lld",
-	       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path,
-	       __SCPreferencesPrefsSize(prefs));
+	if (prefsPrivate->changed) {
+		SC_log(LOG_INFO, "SCPreferences() commit: %s, size=%lld",
+		       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path,
+		       __SCPreferencesPrefsSize(prefs));
+	} else {
+		SC_log(LOG_INFO, "SCPreferences() commit: %s, w/no changes",
+		       prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path);
+	}
 
 	/* post notification */
 	ok = SCDynamicStoreNotifyValue(NULL, prefsPrivate->sessionKeyCommit);

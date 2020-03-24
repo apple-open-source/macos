@@ -22,8 +22,8 @@
 
 #if ENABLE(SERVICE_WORKER)
 
-messages -> WebSWContextManagerConnection {
-    InstallServiceWorker(struct WebCore::ServiceWorkerContextData contextData, PAL::SessionID sessionID, String userAgent)
+messages -> WebSWContextManagerConnection NotRefCounted {
+    InstallServiceWorker(struct WebCore::ServiceWorkerContextData contextData, String userAgent)
     StartFetch(WebCore::SWServerConnectionIdentifier serverConnectionIdentifier, WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier, WebCore::FetchIdentifier fetchIdentifier, WebCore::ResourceRequest request, struct WebCore::FetchOptions options, IPC::FormDataReference requestBody, String referrer)
     CancelFetch(WebCore::SWServerConnectionIdentifier serverConnectionIdentifier, WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier, WebCore::FetchIdentifier fetchIdentifier)
     ContinueDidReceiveFetchResponse(WebCore::SWServerConnectionIdentifier serverConnectionIdentifier, WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier, WebCore::FetchIdentifier fetchIdentifier)
@@ -35,10 +35,9 @@ messages -> WebSWContextManagerConnection {
     FindClientByIdentifierCompleted(uint64_t clientIdRequestIdentifier, Optional<WebCore::ServiceWorkerClientData> data, bool hasSecurityError)
     MatchAllCompleted(uint64_t matchAllRequestIdentifier, Vector<WebCore::ServiceWorkerClientData> clientsData)
     ClaimCompleted(uint64_t claimRequestIdentifier)
-    DidFinishSkipWaiting(uint64_t callbackID)
     SetUserAgent(String userAgent)
     UpdatePreferencesStore(struct WebKit::WebPreferencesStore store)
-    TerminateProcess()
+    Close()
     SetThrottleState(bool isThrottleable)
 }
 

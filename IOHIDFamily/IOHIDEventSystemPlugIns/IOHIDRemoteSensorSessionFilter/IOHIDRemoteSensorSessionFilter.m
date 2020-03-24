@@ -65,6 +65,7 @@
     if ([key isEqualToString:@(kIOHIDSessionFilterDebugKey)]) {
         NSMutableDictionary * debug = [NSMutableDictionary new];
         debug[@"Class"] = @"IOHIDRemoteSensorSessionFilter";
+        debug[@"State"] = self.server.description;
         
         result = debug;
     }

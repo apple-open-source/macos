@@ -47,7 +47,7 @@
 #endif
 
 #if USE(DIRECT2D)
-#include <dwrite.h>
+#include <dwrite_3.h>
 #endif
 
 using std::min;
@@ -183,8 +183,36 @@ static const Vector<DWORD, 4>& getCJKCodePageMasks()
     return codePageMasks;
 }
 
-static bool currentFontContainsCharacter(HDC hdc, UChar character)
+static bool currentFontContainsCharacterNonBMP(HDC hdc, const UChar* str)
 {
+    ASSERT(U_IS_LEAD(str[0]) && U_IS_TRAIL(str[1]));
+
+    SCRIPT_CACHE sc = { };
+    SCRIPT_FONTPROPERTIES fp = { };
+    fp.cBytes = sizeof fp;
+    ScriptGetFontProperties(hdc, &sc, &fp);
+    ScriptFreeCache(&sc);
+
+    wchar_t glyphs[2] = { };
+    GCP_RESULTS gcpResults = { };
+    gcpResults.lStructSize = sizeof gcpResults;
+    gcpResults.nGlyphs = 2;
+    gcpResults.lpGlyphs = glyphs;
+    GetCharacterPlacement(hdc, wcharFrom(str), 2, 0, &gcpResults, GCP_GLYPHSHAPE);
+
+    if (gcpResults.nGlyphs != 1)
+        return false;
+    auto glyph = glyphs[0];
+    return !(glyph == fp.wgBlank || glyph == fp.wgInvalid || glyph == fp.wgDefault);
+}
+
+static bool currentFontContainsCharacter(HDC hdc, const UChar* str, size_t length)
+{
+    ASSERT(length <= 2);
+    if (length == 2)
+        return currentFontContainsCharacterNonBMP(hdc, str);
+    UChar character = str[0];
+
     static Vector<char, 512> glyphsetBuffer;
     glyphsetBuffer.resize(GetFontUnicodeRanges(hdc, 0));
     GLYPHSET* glyphset = reinterpret_cast<GLYPHSET*>(glyphsetBuffer.data());
@@ -213,14 +241,15 @@ static HFONT createMLangFont(IMLangFontLinkType* langFontLink, HDC hdc, DWORD co
 
 RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& description, const Font* originalFontData, IsForPlatformFont, PreferColoredFont, const UChar* characters, unsigned length)
 {
-    UChar character = characters[0];
     RefPtr<Font> fontData;
     HWndDC hdc(0);
     HFONT primaryFont = originalFontData->platformData().hfont();
     HGDIOBJ oldFont = SelectObject(hdc, primaryFont);
     HFONT hfont = 0;
+    IMLangFontLinkType* langFontLink = getFontLinkInterface();
 
-    if (IMLangFontLinkType* langFontLink = getFontLinkInterface()) {
+    if (length == 1 && langFontLink) {
+        UChar character = characters[0];
         // Try MLang font linking first.
         DWORD codePages = 0;
         if (SUCCEEDED(langFontLink->GetCharCodePages(character, &codePages))) {
@@ -236,7 +265,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& descr
                         // We asked about a code page that is not one of the code pages
                         // returned by MLang, so the font might not contain the character.
                         SelectObject(hdc, hfont);
-                        if (!currentFontContainsCharacter(hdc, character)) {
+                        if (!currentFontContainsCharacter(hdc, characters, length)) {
                             DeleteObject(hfont);
                             hfont = 0;
                         }
@@ -287,7 +316,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& descr
         GetTextFace(hdc, LF_FACESIZE, name);
         familyName = String(name);
 
-        if (containsCharacter || currentFontContainsCharacter(hdc, character))
+        if (containsCharacter || currentFontContainsCharacter(hdc, characters, length))
             break;
 
         if (!linkedFonts)
@@ -507,7 +536,7 @@ static GDIObject<HFONT> createGDIFont(const AtomString& family, LONG desiredWeig
     matchData.m_chosen.lfUnderline = false;
     matchData.m_chosen.lfStrikeOut = false;
     matchData.m_chosen.lfCharSet = DEFAULT_CHARSET;
-#if USE(CG) || USE(CAIRO)
+#if USE(CG) || USE(CAIRO) || USE(DIRECT2D)
     matchData.m_chosen.lfOutPrecision = OUT_TT_ONLY_PRECIS;
 #else
     matchData.m_chosen.lfOutPrecision = OUT_TT_PRECIS;
@@ -617,7 +646,7 @@ Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamil
     return result;
 }
 
-std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontFeatureSettings*, const FontVariantSettings*, FontSelectionSpecifiedCapabilities)
+std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontFeatureSettings*, FontSelectionSpecifiedCapabilities)
 {
     bool isLucidaGrande = equalLettersIgnoringASCIICase(family, "lucida grande");
 
@@ -643,7 +672,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     bool synthesizeBold = isGDIFontWeightBold(weight) && !isGDIFontWeightBold(logFont.lfWeight);
     bool synthesizeItalic = isItalic(fontDescription.italic()) && !logFont.lfItalic;
 
-    auto result = std::make_unique<FontPlatformData>(WTFMove(hfont), fontDescription.computedPixelSize(), synthesizeBold, synthesizeItalic, useGDI);
+    auto result = makeUnique<FontPlatformData>(WTFMove(hfont), fontDescription.computedPixelSize(), synthesizeBold, synthesizeItalic, useGDI);
 
 #if USE(CG)
     bool fontCreationFailed = !result->cgFont();

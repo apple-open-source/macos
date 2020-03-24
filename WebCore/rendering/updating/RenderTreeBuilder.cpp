@@ -63,6 +63,13 @@
 #include "RenderTreeBuilderRuby.h"
 #include "RenderTreeBuilderSVG.h"
 #include "RenderTreeBuilderTable.h"
+#include "RenderView.h"
+
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+#include "FrameView.h"
+#include "FrameViewLayoutContext.h"
+#include "RuntimeEnabledFeatures.h"
+#endif
 
 namespace WebCore {
 
@@ -122,22 +129,22 @@ static void getInlineRun(RenderObject* start, RenderObject* boundary, RenderObje
 
 RenderTreeBuilder::RenderTreeBuilder(RenderView& view)
     : m_view(view)
-    , m_firstLetterBuilder(std::make_unique<FirstLetter>(*this))
-    , m_listBuilder(std::make_unique<List>(*this))
-    , m_multiColumnBuilder(std::make_unique<MultiColumn>(*this))
-    , m_tableBuilder(std::make_unique<Table>(*this))
-    , m_rubyBuilder(std::make_unique<Ruby>(*this))
-    , m_formControlsBuilder(std::make_unique<FormControls>(*this))
-    , m_blockBuilder(std::make_unique<Block>(*this))
-    , m_blockFlowBuilder(std::make_unique<BlockFlow>(*this))
-    , m_inlineBuilder(std::make_unique<Inline>(*this))
-    , m_svgBuilder(std::make_unique<SVG>(*this))
+    , m_firstLetterBuilder(makeUnique<FirstLetter>(*this))
+    , m_listBuilder(makeUnique<List>(*this))
+    , m_multiColumnBuilder(makeUnique<MultiColumn>(*this))
+    , m_tableBuilder(makeUnique<Table>(*this))
+    , m_rubyBuilder(makeUnique<Ruby>(*this))
+    , m_formControlsBuilder(makeUnique<FormControls>(*this))
+    , m_blockBuilder(makeUnique<Block>(*this))
+    , m_blockFlowBuilder(makeUnique<BlockFlow>(*this))
+    , m_inlineBuilder(makeUnique<Inline>(*this))
+    , m_svgBuilder(makeUnique<SVG>(*this))
 #if ENABLE(MATHML)
-    , m_mathMLBuilder(std::make_unique<MathML>(*this))
+    , m_mathMLBuilder(makeUnique<MathML>(*this))
 #endif
-    , m_continuationBuilder(std::make_unique<Continuation>(*this))
+    , m_continuationBuilder(makeUnique<Continuation>(*this))
 #if ENABLE(FULLSCREEN_API)
-    , m_fullScreenBuilder(std::make_unique<FullScreen>(*this))
+    , m_fullScreenBuilder(makeUnique<FullScreen>(*this))
 #endif
 {
     RELEASE_ASSERT(!s_current || &m_view != &s_current->m_view);
@@ -185,6 +192,11 @@ void RenderTreeBuilder::attach(RenderElement& parent, RenderPtr<RenderObject> ch
 {
     auto insertRecursiveIfNeeded = [&](RenderElement& parentCandidate) {
         if (&parent == &parentCandidate) {
+            // Parents inside multicols can't call internal attach directly.
+            if (is<RenderBlockFlow>(parent) && downcast<RenderBlockFlow>(parent).multiColumnFlow()) {
+                blockFlowBuilder().attach(downcast<RenderBlockFlow>(parent), WTFMove(child), beforeChild);
+                return;
+            }
             attachToRenderElement(parent, WTFMove(child), beforeChild);
             return;
         }
@@ -431,6 +443,13 @@ void RenderTreeBuilder::attachToRenderElementInternal(RenderElement& parent, Ren
         downcast<RenderBlockFlow>(parent).invalidateLineLayoutPath();
     if (parent.hasOutlineAutoAncestor() || parent.outlineStyleForRepaint().outlineStyleIsAuto() == OutlineIsAuto::On)
         newChild->setHasOutlineAutoAncestor();
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+    if (RuntimeEnabledFeatures::sharedFeatures().layoutFormattingContextEnabled()) {
+        if (parent.document().view())
+            parent.document().view()->layoutContext().invalidateLayoutTreeContent();
+
+    }
+#endif
 }
 
 void RenderTreeBuilder::move(RenderBoxModelObject& from, RenderBoxModelObject& to, RenderObject& child, RenderObject* beforeChild, NormalizeAfterInsertion normalizeAfterInsertion)
@@ -848,7 +867,13 @@ RenderPtr<RenderObject> RenderTreeBuilder::detachFromRenderElement(RenderElement
         if (AXObjectCache* cache = parent.document().existingAXObjectCache())
             cache->childrenChanged(&parent);
     }
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+    if (RuntimeEnabledFeatures::sharedFeatures().layoutFormattingContextEnabled()) {
+        if (parent.document().view())
+            parent.document().view()->layoutContext().invalidateLayoutTreeContent();
 
+    }
+#endif
     return childToTake;
 }
 

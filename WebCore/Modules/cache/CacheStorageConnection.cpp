@@ -33,12 +33,24 @@
 namespace WebCore {
 using namespace WebCore::DOMCacheEngine;
 
-static inline uint64_t computeRealBodySize(const DOMCacheEngine::ResponseBody& body)
+static inline uint64_t formDataSize(const FormData& formData)
+{
+    if (isMainThread())
+        return formData.lengthInBytes();
+
+    uint64_t resultSize;
+    callOnMainThreadAndWait([formData = formData.isolatedCopy(), &resultSize] {
+        resultSize = formData->lengthInBytes();
+    });
+    return resultSize;
+}
+
+uint64_t CacheStorageConnection::computeRealBodySize(const DOMCacheEngine::ResponseBody& body)
 {
     uint64_t result = 0;
-    WTF::switchOn(body, [&] (const Ref<WebCore::FormData>& formData) {
-        result = formData->lengthInBytes();
-    }, [&] (const Ref<WebCore::SharedBuffer>& buffer) {
+    WTF::switchOn(body, [&] (const Ref<FormData>& formData) {
+        result = formDataSize(formData);
+    }, [&] (const Ref<SharedBuffer>& buffer) {
         result = buffer->size();
     }, [] (const std::nullptr_t&) {
     });

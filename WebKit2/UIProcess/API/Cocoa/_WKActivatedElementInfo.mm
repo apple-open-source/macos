@@ -55,12 +55,12 @@
 }
 
 #if PLATFORM(IOS_FAMILY)
-+ (instancetype)activatedElementInfoWithInteractionInformationAtPosition:(const WebKit::InteractionInformationAtPosition&)information
++ (instancetype)activatedElementInfoWithInteractionInformationAtPosition:(const WebKit::InteractionInformationAtPosition&)information userInfo:(NSDictionary *)userInfo
 {
-    return [[[self alloc] _initWithInteractionInformationAtPosition:information] autorelease];
+    return [[[self alloc] _initWithInteractionInformationAtPosition:information userInfo:userInfo] autorelease];
 }
 
-- (instancetype)_initWithInteractionInformationAtPosition:(const WebKit::InteractionInformationAtPosition&)information
+- (instancetype)_initWithInteractionInformationAtPosition:(const WebKit::InteractionInformationAtPosition&)information userInfo:(NSDictionary *)userInfo
 {
     if (!(self = [super init]))
         return nil;
@@ -73,16 +73,18 @@
     
     if (information.isAttachment)
         _type = _WKActivatedElementTypeAttachment;
-    else if (information.isImage)
-        _type = _WKActivatedElementTypeImage;
     else if (information.isLink)
         _type = _WKActivatedElementTypeLink;
+    else if (information.isImage)
+        _type = _WKActivatedElementTypeImage;
     else
         _type = _WKActivatedElementTypeUnspecified;
     
     _image = information.image;
     _ID = information.idAttribute;
     _animatedImage = information.isAnimatedImage;
+
+    _userInfo = userInfo;
     
     return self;
 }

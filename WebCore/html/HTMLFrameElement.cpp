@@ -51,7 +51,7 @@ Ref<HTMLFrameElement> HTMLFrameElement::create(const QualifiedName& tagName, Doc
 bool HTMLFrameElement::rendererIsNeeded(const RenderStyle&)
 {
     // For compatibility, frames render even when display: none is set.
-    return isURLAllowed();
+    return canLoad();
 }
 
 RenderPtr<RenderElement> HTMLFrameElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
@@ -72,6 +72,11 @@ void HTMLFrameElement::didAttachRenderers()
         return;
     if (!m_frameBorderSet)
         m_frameBorder = containingFrameSet->hasFrameBorder();
+}
+
+int HTMLFrameElement::defaultTabIndex() const
+{
+    return 0;
 }
 
 void HTMLFrameElement::parseAttribute(const QualifiedName& name, const AtomString& value)

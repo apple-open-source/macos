@@ -26,6 +26,7 @@
 #include <libproc.h>
 #include <assert.h>
 #include <mach/mach.h>
+//#include <mach/mach_port.h.h>
 #include <mach/mach_voucher.h>
 #include "common.h"
 #include "json.h"
@@ -60,7 +61,7 @@ const char * kobject_name(natural_t kotype)
         case IKOT_LOCK_SET:         return "LOCK-SET";
         case IKOT_CLOCK:            return "CLOCK";
         case IKOT_CLOCK_CTRL:       return "CLOCK-CONTROL";
-        case IKOT_IOKIT_SPARE:      return "IOKIT-SPARE";
+        case IKOT_IOKIT_IDENT:      return "IOKIT-IDENT";
         case IKOT_NAMED_ENTRY:      return "NAMED-MEMORY";
         case IKOT_IOKIT_CONNECT:    return "IOKIT-CONNECT";
         case IKOT_IOKIT_OBJECT:     return "IOKIT-OBJECT";
@@ -72,6 +73,10 @@ const char * kobject_name(natural_t kotype)
         case IKOT_TASK_RESUME:      return "TASK_RESUME";
         case IKOT_VOUCHER:          return "VOUCHER";
         case IKOT_VOUCHER_ATTR_CONTROL: return "VOUCHER_ATTR_CONTROL";
+        case IKOT_WORK_INTERVAL:    return "WORK_INTERVAL";
+        case IKOT_UX_HANDLER:       return "UX_HANDLER";
+        case IKOT_UEXT_OBJECT:      return "UEXT_OBJECT";
+        case IKOT_ARCADE_REG:       return "ARCADE_REG";
         case IKOT_UNKNOWN:
         default:                    return "UNKNOWN";
 	}
@@ -307,6 +312,8 @@ static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *ta
     int sendrights = 0;
     unsigned int kotype = 0;
     vm_offset_t kobject = (vm_offset_t)0;
+    kobject_description_t desc;
+    mach_vm_address_t kaddr;
 
     /* skip empty slots in the table */
     if ((entry->iin_type & MACH_PORT_TYPE_ALL_RIGHTS) == 0) {
@@ -598,13 +605,29 @@ static void show_task_table_entry(ipc_info_name_t *entry, my_per_task_info_t *ta
            (send) ? sendrights : 0);
 
     /* converting to kobjects is not always supported */
-    ret = mach_port_kernel_object(taskinfo->task,
+
+    desc[0] = '\0';
+    ret = mach_port_kobject_description(taskinfo->task,
+                                  entry->iin_name,
+                                  &kotype, &kaddr,
+                                  desc);
+    if (KERN_SUCCESS == ret) {
+	    kobject = (unsigned) kaddr;
+    } else {
+	    ret = mach_port_kernel_object(taskinfo->task,
                                   entry->iin_name,
                                   &kotype, (unsigned *)&kobject);
+    }
+
     if (ret == KERN_SUCCESS && kotype != 0) {
         JSON_OBJECT_SET(json, identifier, "0x%08x", (natural_t)kobject);
         JSON_OBJECT_SET(json, type, "%s", kobject_name(kotype));
-        printf("                                             0x%08x  %s", (natural_t)kobject, kobject_name(kotype));
+	if (desc[0]) {
+		JSON_OBJECT_SET(json, description, "%s", desc);
+		printf("                                             0x%08x  %s %s", (natural_t)kobject, kobject_name(kotype), desc);
+	} else {
+		printf("                                             0x%08x  %s", (natural_t)kobject, kobject_name(kotype));
+	}
         if ((kotype == IKOT_TASK_RESUME) || (kotype == IKOT_TASK) || (kotype == IKOT_TASK_NAME)) {
             if (taskinfo->task_kobject == kobject) {
                 /* neat little optimization since in most cases tasks have themselves in their ipc space */

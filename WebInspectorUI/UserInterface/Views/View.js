@@ -295,7 +295,7 @@ WI.View = class View extends WI.Object
         // Ensure that the initial layout override doesn't affects to subviews.
         this._layoutReason = savedLayoutReason;
 
-        if (WI.settings.enableLayoutFlashing.value)
+        if (WI.settings.debugEnableLayoutFlashing.value)
             this._drawLayoutFlashingOutline(isInitialLayout);
 
         for (let view of this._subviews) {
@@ -391,7 +391,7 @@ WI.View = class View extends WI.Object
             if (view.layoutPending)
                 view._layoutSubtree();
             else if (view._dirtyDescendantsCount) {
-                views = views.concat(view.subviews);
+                views.pushAll(view.subviews);
                 view._dirtyDescendantsCount = 0;
             }
         }

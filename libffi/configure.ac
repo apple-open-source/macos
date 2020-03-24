@@ -270,7 +270,7 @@ if test "x$GCC" = "xyes"; then
   	echo 'int __attribute__ ((visibility ("hidden"))) foo (void) { return 1  ; }' > conftest.c
   	libffi_cv_hidden_visibility_attribute=no
   	if AC_TRY_COMMAND(${CC-cc} -Werror -S conftest.c -o conftest.s 1>&AS_MESSAGE_LOG_FD); then
-  	    if grep '\.hidden.*foo' conftest.s >/dev/null; then
+  	    if egrep '(\.hidden|\.private_extern).*foo' conftest.s >/dev/null; then
   		libffi_cv_hidden_visibility_attribute=yes
   	    fi
   	fi
@@ -292,7 +292,11 @@ AM_CONDITIONAL(BUILD_DOCS, [test x$enable_docs = xyes])
 AH_BOTTOM([
 #ifdef HAVE_HIDDEN_VISIBILITY_ATTRIBUTE
 #ifdef LIBFFI_ASM
+#ifdef __APPLE__
+#define FFI_HIDDEN(name) .private_extern name
+#else
 #define FFI_HIDDEN(name) .hidden name
+#endif
 #else
 #define FFI_HIDDEN __attribute__ ((visibility ("hidden")))
 #endif

@@ -87,6 +87,11 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLDocument);
 
 using namespace HTMLNames;
 
+Ref<HTMLDocument> HTMLDocument::createSynthesizedDocument(Frame& frame, const URL& url)
+{
+    return adoptRef(*new HTMLDocument(&frame, url, HTMLDocumentClass, Synthesized));
+}
+
 HTMLDocument::HTMLDocument(Frame* frame, const URL& url, DocumentClassFlags documentClasses, unsigned constructionFlags)
     : Document(frame, url, documentClasses | HTMLDocumentClass, constructionFlags)
 {

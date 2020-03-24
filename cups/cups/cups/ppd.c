@@ -705,6 +705,8 @@ _ppdOpen(
 	   strncmp(ll, keyword, ll_len)))
       {
 	DEBUG_printf(("2_ppdOpen: Ignoring localization: \"%s\"\n", keyword));
+	free(string);
+	string = NULL;
 	continue;
       }
       else if (localization == _PPD_LOCALIZATION_ICC_PROFILES)
@@ -724,6 +726,8 @@ _ppdOpen(
 	if (i >= (int)(sizeof(color_keywords) / sizeof(color_keywords[0])))
 	{
 	  DEBUG_printf(("2_ppdOpen: Ignoring localization: \"%s\"\n", keyword));
+	  free(string);
+	  string = NULL;
 	  continue;
 	}
       }
@@ -986,6 +990,13 @@ _ppdOpen(
         pg->ppd_status = PPD_ALLOC_ERROR;
 
 	goto error;
+      }
+
+      if (cparam->type != PPD_CUSTOM_UNKNOWN)
+      {
+        pg->ppd_status = PPD_BAD_CUSTOM_PARAM;
+
+        goto error;
       }
 
      /*
@@ -1708,8 +1719,7 @@ _ppdOpen(
                      constraint->choice1, constraint->option2,
 		     constraint->choice2))
       {
-        case 0 : /* Error */
-	case 1 : /* Error */
+        default : /* Error */
 	    pg->ppd_status = PPD_BAD_UI_CONSTRAINTS;
 	    goto error;
 
@@ -1861,6 +1871,13 @@ _ppdOpen(
     }
     else if (!strcmp(keyword, "PaperDimension"))
     {
+      if (!_cups_strcasecmp(name, "custom") || !_cups_strncasecmp(name, "custom.", 7))
+      {
+        char cname[PPD_MAX_NAME];	/* Rewrite with a leading underscore */
+        snprintf(cname, sizeof(cname), "_%s", name);
+        strlcpy(name, cname, sizeof(name));
+      }
+
       if ((size = ppdPageSize(ppd, name)) == NULL)
 	size = ppd_add_size(ppd, name);
 
@@ -1883,6 +1900,13 @@ _ppdOpen(
     }
     else if (!strcmp(keyword, "ImageableArea"))
     {
+      if (!_cups_strcasecmp(name, "custom") || !_cups_strncasecmp(name, "custom.", 7))
+      {
+        char cname[PPD_MAX_NAME];	/* Rewrite with a leading underscore */
+        snprintf(cname, sizeof(cname), "_%s", name);
+        strlcpy(name, cname, sizeof(name));
+      }
+
       if ((size = ppdPageSize(ppd, name)) == NULL)
 	size = ppd_add_size(ppd, name);
 
@@ -1911,6 +1935,13 @@ _ppdOpen(
 	     !strcmp(keyword, option->keyword))
     {
       DEBUG_printf(("2_ppdOpen: group=%p, subgroup=%p", group, subgroup));
+
+      if (!_cups_strcasecmp(name, "custom") || !_cups_strncasecmp(name, "custom.", 7))
+      {
+        char cname[PPD_MAX_NAME];	/* Rewrite with a leading underscore */
+        snprintf(cname, sizeof(cname), "_%s", name);
+        strlcpy(name, cname, sizeof(name));
+      }
 
       if (!strcmp(keyword, "PageSize"))
       {
@@ -2636,6 +2667,7 @@ ppd_get_cparam(ppd_coption_t *opt,	/* I - PPD file */
   if ((cparam = calloc(1, sizeof(ppd_cparam_t))) == NULL)
     return (NULL);
 
+  cparam->type = PPD_CUSTOM_UNKNOWN;
   strlcpy(cparam->name, param, sizeof(cparam->name));
   strlcpy(cparam->text, text[0] ? text : param, sizeof(cparam->text));
 

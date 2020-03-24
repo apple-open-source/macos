@@ -232,13 +232,12 @@
 - (void)rpcJoinWithConfiguration:(OTJoiningConfiguration*)config
                        vouchData:(NSData*)vouchData
                         vouchSig:(NSData*)vouchSig
-                 preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
                            reply:(void (^)(NSError * _Nullable error))reply
 {
 #if OCTAGON
     [[self getConnection: ^(NSError* error) {
         reply(error);
-    }] rpcJoinWithConfiguration:config vouchData:vouchData vouchSig:vouchSig preapprovedKeys:preapprovedKeys reply:^(NSError* e) {
+    }] rpcJoinWithConfiguration:config vouchData:vouchData vouchSig:vouchSig reply:^(NSError* e) {
         reply(e);
     }];
 #else
@@ -480,6 +479,33 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [[self getConnection: ^(NSError* connectionError) {
         reply(connectionError);
     }] tapToRadar:action description:description radar:radar reply:reply];
+}
+
+- (void)refetchCKKSPolicy:(NSString* _Nullable)container
+                contextID:(NSString*)contextID
+                    reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* error) {
+        reply(error);
+    }] refetchCKKSPolicy:container contextID:contextID reply:reply];
+}
+
+- (void)setCDPEnabled:(NSString* _Nullable)containerName
+            contextID:(NSString*)contextID
+                reply:(void (^)(NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* connectionError) {
+        reply(connectionError);
+    }] setCDPEnabled:containerName contextID:contextID reply:reply];
+}
+
+- (void)getCDPStatus:(NSString* _Nullable)containerName
+           contextID:(NSString*)contextID
+               reply:(void (^)(OTCDPStatus status, NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* connectionError) {
+        reply(OTCDPStatusUnknown, connectionError);
+    }] getCDPStatus:containerName contextID:contextID reply:reply];
 }
 
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {

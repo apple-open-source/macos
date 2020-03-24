@@ -31,6 +31,7 @@
 #include "HTTPHeaderMap.h"
 #include "NetworkLoadMetrics.h"
 #include "ParsedContentRange.h"
+#include <wtf/Box.h>
 #include <wtf/Markable.h>
 #include <wtf/URL.h>
 #include <wtf/WallTime.h>
@@ -41,12 +42,18 @@ class ResourceResponse;
 
 bool isScriptAllowedByNosniff(const ResourceResponse&);
 
-// Do not use this class directly, use the class ResponseResponse instead
+enum class UsedLegacyTLS : bool { No, Yes };
+static constexpr unsigned bitWidthOfUsedLegacyTLS = 1;
+static_assert(static_cast<unsigned>(UsedLegacyTLS::Yes) <= ((1U << bitWidthOfUsedLegacyTLS) - 1));
+
+// Do not use this class directly, use the class ResourceResponse instead
 class ResourceResponseBase {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     enum class Type : uint8_t { Basic, Cors, Default, Error, Opaque, Opaqueredirect };
+    static constexpr unsigned bitWidthOfType = 3;
     enum class Tainting : uint8_t { Basic, Cors, Opaque, Opaqueredirect };
+    static constexpr unsigned bitWidthOfTainting = 2;
 
     static bool isRedirectionStatusCode(int code) { return code == 301 || code == 302 || code == 303 || code == 307 || code == 308; }
 
@@ -64,10 +71,11 @@ public:
         String httpStatusText;
         String httpVersion;
         HTTPHeaderMap httpHeaderFields;
-        NetworkLoadMetrics networkLoadMetrics;
+        Optional<NetworkLoadMetrics> networkLoadMetrics;
         Type type;
         Tainting tainting;
         bool isRedirected;
+        bool isRangeRequested;
     };
 
     CrossThreadData crossThreadData() const;
@@ -126,8 +134,9 @@ public:
     WEBCORE_EXPORT String suggestedFilename() const;
     WEBCORE_EXPORT static String sanitizeSuggestedFilename(const String&);
 
-    WEBCORE_EXPORT void includeCertificateInfo() const;
+    WEBCORE_EXPORT void includeCertificateInfo(UsedLegacyTLS = UsedLegacyTLS::No) const;
     const Optional<CertificateInfo>& certificateInfo() const { return m_certificateInfo; };
+    bool usedLegacyTLS() const { return m_usedLegacyTLS == UsedLegacyTLS::Yes; }
     
     // These functions return parsed values of the corresponding response headers.
     WEBCORE_EXPORT bool cacheControlContainsNoCache() const;
@@ -136,13 +145,17 @@ public:
     WEBCORE_EXPORT bool cacheControlContainsImmutable() const;
     WEBCORE_EXPORT bool hasCacheValidatorFields() const;
     WEBCORE_EXPORT Optional<Seconds> cacheControlMaxAge() const;
+    WEBCORE_EXPORT Optional<Seconds> cacheControlStaleWhileRevalidate() const;
     WEBCORE_EXPORT Optional<WallTime> date() const;
     WEBCORE_EXPORT Optional<Seconds> age() const;
     WEBCORE_EXPORT Optional<WallTime> expires() const;
     WEBCORE_EXPORT Optional<WallTime> lastModified() const;
     const ParsedContentRange& contentRange() const;
 
-    enum class Source : uint8_t { Unknown, Network, DiskCache, DiskCacheAfterValidation, MemoryCache, MemoryCacheAfterValidation, ServiceWorker, ApplicationCache };
+    enum class Source : uint8_t { Unknown, Network, DiskCache, DiskCacheAfterValidation, MemoryCache, MemoryCacheAfterValidation, ServiceWorker, ApplicationCache, InspectorOverride };
+    static constexpr unsigned bitWidthOfSource = 4;
+    static_assert(static_cast<unsigned>(Source::InspectorOverride) <= ((1U << bitWidthOfSource) - 1));
+
     WEBCORE_EXPORT Source source() const;
     void setSource(Source source)
     {
@@ -153,7 +166,16 @@ public:
     // FIXME: This should be eliminated from ResourceResponse.
     // Network loading metrics should be delivered via didFinishLoad
     // and should not be part of the ResourceResponse.
-    NetworkLoadMetrics& deprecatedNetworkLoadMetrics() const { return m_networkLoadMetrics; }
+    const NetworkLoadMetrics* deprecatedNetworkLoadMetricsOrNull() const
+    {
+        if (m_networkLoadMetrics)
+            return m_networkLoadMetrics.get();
+        return nullptr;
+    }
+    void setDeprecatedNetworkLoadMetrics(Box<NetworkLoadMetrics>&& metrics)
+    {
+        m_networkLoadMetrics = WTFMove(metrics);
+    }
 
     // The ResourceResponse subclass may "shadow" this method to provide platform-specific memory usage information
     unsigned memoryUsage() const
@@ -179,6 +201,9 @@ public:
 
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static bool decode(Decoder&, ResourceResponseBase&);
+
+    bool isRangeRequested() const { return m_isRangeRequested; }
+    void setAsRangeRequested() { m_isRangeRequested = true; }
 
 protected:
     enum InitLevel {
@@ -212,7 +237,7 @@ protected:
     AtomString m_httpStatusText;
     AtomString m_httpVersion;
     HTTPHeaderMap m_httpHeaderFields;
-    mutable NetworkLoadMetrics m_networkLoadMetrics;
+    Box<NetworkLoadMetrics> m_networkLoadMetrics;
 
     mutable Optional<CertificateInfo> m_certificateInfo;
 
@@ -231,16 +256,17 @@ private:
     mutable bool m_haveParsedLastModifiedHeader : 1;
     mutable bool m_haveParsedContentRangeHeader : 1;
     bool m_isRedirected : 1;
+    bool m_isRangeRequested : 1;
 protected:
     bool m_isNull : 1;
-
+    unsigned m_initLevel : 3; // Controlled by ResourceResponse.
+    mutable UsedLegacyTLS m_usedLegacyTLS : bitWidthOfUsedLegacyTLS;
 private:
-    Source m_source { Source::Unknown };
-    Type m_type { Type::Default };
-    Tainting m_tainting { Tainting::Basic };
-
+    Tainting m_tainting : bitWidthOfTainting;
+    Source m_source : bitWidthOfSource;
+    Type m_type : bitWidthOfType;
 protected:
-    int m_httpStatusCode { 0 };
+    short m_httpStatusCode { 0 };
 };
 
 inline bool operator==(const ResourceResponse& a, const ResourceResponse& b) { return ResourceResponseBase::compare(a, b); }
@@ -264,7 +290,7 @@ void ResourceResponseBase::encode(Encoder& encoder) const
 
     // We don't want to put the networkLoadMetrics info
     // into the disk cache, because we will never use the old info.
-    if (Encoder::isIPCEncoder)
+    if constexpr (Encoder::isIPCEncoder)
         encoder << m_networkLoadMetrics;
 
     encoder << m_httpStatusCode;
@@ -273,6 +299,9 @@ void ResourceResponseBase::encode(Encoder& encoder) const
     encoder.encodeEnum(m_type);
     encoder.encodeEnum(m_tainting);
     encoder << m_isRedirected;
+    UsedLegacyTLS usedLegacyTLS = m_usedLegacyTLS;
+    encoder << usedLegacyTLS;
+    encoder << m_isRangeRequested;
 }
 
 template<class Decoder>
@@ -284,6 +313,8 @@ bool ResourceResponseBase::decode(Decoder& decoder, ResourceResponseBase& respon
         return false;
     if (responseIsNull)
         return true;
+
+    response.m_isNull = false;
 
     if (!decoder.decode(response.m_url))
         return false;
@@ -302,23 +333,38 @@ bool ResourceResponseBase::decode(Decoder& decoder, ResourceResponseBase& respon
     if (!decoder.decode(response.m_httpHeaderFields))
         return false;
     // The networkLoadMetrics info is only send over IPC and not stored in disk cache.
-    if (Decoder::isIPCDecoder && !decoder.decode(response.m_networkLoadMetrics))
-        return false;
+    if constexpr (Decoder::isIPCDecoder) {
+        if (!decoder.decode(response.m_networkLoadMetrics))
+            return false;
+    }
     if (!decoder.decode(response.m_httpStatusCode))
         return false;
     if (!decoder.decode(response.m_certificateInfo))
         return false;
-    if (!decoder.decodeEnum(response.m_source))
+    Source source = Source::Unknown;
+    if (!decoder.decodeEnum(source))
         return false;
-    if (!decoder.decodeEnum(response.m_type))
+    response.m_source = source;
+    Type type = Type::Default;
+    if (!decoder.decodeEnum(type))
         return false;
-    if (!decoder.decodeEnum(response.m_tainting))
+    response.m_type = type;
+    Tainting tainting = Tainting::Basic;
+    if (!decoder.decodeEnum(tainting))
         return false;
+    response.m_tainting = tainting;
     bool isRedirected = false;
     if (!decoder.decode(isRedirected))
         return false;
     response.m_isRedirected = isRedirected;
-    response.m_isNull = false;
+    UsedLegacyTLS usedLegacyTLS = UsedLegacyTLS::No;
+    if (!decoder.decode(usedLegacyTLS))
+        return false;
+    response.m_usedLegacyTLS = usedLegacyTLS;
+    bool isRangeRequested = false;
+    if (!decoder.decode(isRangeRequested))
+        return false;
+    response.m_isRangeRequested = isRangeRequested;
 
     return true;
 }

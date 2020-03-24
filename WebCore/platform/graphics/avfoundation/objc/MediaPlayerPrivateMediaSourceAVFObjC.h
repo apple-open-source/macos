@@ -30,6 +30,7 @@
 
 #include "MediaPlayerPrivate.h"
 #include "SourceBufferPrivateClient.h"
+#include <wtf/Deque.h>
 #include <wtf/Function.h>
 #include <wtf/HashMap.h>
 #include <wtf/LoggerHelper.h>
@@ -62,9 +63,7 @@ class WebCoreDecompressionSession;
 class MediaPlayerPrivateMediaSourceAVFObjC
     : public CanMakeWeakPtr<MediaPlayerPrivateMediaSourceAVFObjC>
     , public MediaPlayerPrivateInterface
-#if !RELEASE_LOG_DISABLED
     , private LoggerHelper
-#endif
 {
 public:
     explicit MediaPlayerPrivateMediaSourceAVFObjC(MediaPlayer*);
@@ -149,7 +148,6 @@ public:
     const Vector<ContentType>& mediaContentTypesRequiringHardwareSupport() const;
     bool shouldCheckHardwareSupport() const;
 
-#if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
     const char* logClassName() const override { return "MediaPlayerPrivateMediaSourceAVFObjC"; }
     const void* logIdentifier() const final { return reinterpret_cast<const void*>(m_logIdentifier); }
@@ -157,7 +155,6 @@ public:
 
     const void* mediaPlayerLogIdentifier() { return logIdentifier(); }
     const Logger& mediaPlayerLogger() { return logger(); }
-#endif
 
     enum SeekState {
         Seeking,
@@ -189,7 +186,6 @@ private:
     bool paused() const override;
 
     void setVolume(float volume) override;
-    bool supportsMuting() const override { return true; }
     void setMuted(bool) override;
 
     bool supportsScanning() const override;
@@ -217,8 +213,6 @@ private:
     std::unique_ptr<PlatformTimeRanges> buffered() const override;
 
     bool didLoadingProgress() const override;
-
-    void setSize(const IntSize&) override;
 
     NativeImagePtr nativeImageForCurrentTime() override;
     bool updateLastPixelBuffer();
@@ -269,6 +263,7 @@ private:
     friend class MediaSourcePrivateAVFObjC;
 
     struct PendingSeek {
+        WTF_MAKE_STRUCT_FAST_ALLOCATED;
         PendingSeek(const MediaTime& targetTime, const MediaTime& negativeThreshold, const MediaTime& positiveThreshold)
             : targetTime(targetTime)
             , negativeThreshold(negativeThreshold)
@@ -328,14 +323,11 @@ private:
     RefPtr<MediaPlaybackTarget> m_playbackTarget;
     bool m_shouldPlayToTarget { false };
 #endif
+    Ref<const Logger> m_logger;
+    const void* m_logIdentifier;
     std::unique_ptr<VideoFullscreenLayerManagerObjC> m_videoFullscreenLayerManager;
 
     Ref<EffectiveRateChangedListener> m_effectiveRateChangedListener;
-
-#if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
-    const void* m_logIdentifier;
-#endif
 };
 
 String convertEnumerationToString(MediaPlayerPrivateMediaSourceAVFObjC::SeekState);

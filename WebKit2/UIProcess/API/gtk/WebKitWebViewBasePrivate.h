@@ -35,11 +35,12 @@
 #include "ViewSnapshotStore.h"
 #include "WebContextMenuProxyGtk.h"
 #include "WebInspectorProxy.h"
+#include "WebKitInputMethodContext.h"
 #include "WebKitWebViewBase.h"
 #include "WebPageProxy.h"
+#include <wtf/Optional.h>
 
 WebKitWebViewBase* webkitWebViewBaseCreate(const API::PageConfiguration&);
-GtkIMContext* webkitWebViewBaseGetIMContext(WebKitWebViewBase*);
 WebKit::WebPageProxy* webkitWebViewBaseGetPage(WebKitWebViewBase*);
 void webkitWebViewBaseCreateWebPage(WebKitWebViewBase*, Ref<API::PageConfiguration>&&);
 void webkitWebViewBaseSetTooltipText(WebKitWebViewBase*, const char*);
@@ -102,3 +103,10 @@ void webkitWebViewBaseShowEmojiChooser(WebKitWebViewBase*, const WebCore::IntRec
 #if USE(WPE_RENDERER)
 int webkitWebViewBaseRenderHostFileDescriptor(WebKitWebViewBase*);
 #endif
+
+void webkitWebViewBaseRequestPointerLock(WebKitWebViewBase*);
+void webkitWebViewBaseDidLosePointerLock(WebKitWebViewBase*);
+
+void webkitWebViewBaseSetInputMethodContext(WebKitWebViewBase*, WebKitInputMethodContext*);
+WebKitInputMethodContext* webkitWebViewBaseGetInputMethodContext(WebKitWebViewBase*);
+void webkitWebViewBaseSynthesizeCompositionKeyPress(WebKitWebViewBase*, const String& text, Optional<Vector<WebCore::CompositionUnderline>>&&, Optional<WebKit::EditingRange>&&);

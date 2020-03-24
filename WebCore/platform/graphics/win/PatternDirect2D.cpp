@@ -30,6 +30,7 @@
 
 #include "AffineTransform.h"
 #include "GraphicsContext.h"
+#include "PlatformContextDirect2D.h"
 #include <d2d1.h>
 #include <wtf/MainThread.h>
 
@@ -48,12 +49,15 @@ ID2D1BitmapBrush* Pattern::createPlatformPattern(const GraphicsContext& context,
     brushProperties.opacity = alpha;
 
     auto& patternImage = tileImage();
+    auto nativeImage = patternImage.nativeImage(&context);
+    if (!nativeImage)
+        return nullptr;
 
     auto platformContext = context.platformContext();
     RELEASE_ASSERT(platformContext);
 
     ID2D1BitmapBrush* patternBrush = nullptr;
-    HRESULT hr = platformContext->CreateBitmapBrush(patternImage.nativeImage(&context).get(), &bitmapBrushProperties, &brushProperties, &patternBrush);
+    HRESULT hr = platformContext->renderTarget()->CreateBitmapBrush(nativeImage.get(), &bitmapBrushProperties, &brushProperties, &patternBrush);
     ASSERT(SUCCEEDED(hr));
     return patternBrush;
 }

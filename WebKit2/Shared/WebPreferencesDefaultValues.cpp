@@ -46,25 +46,10 @@ bool defaultPassiveTouchListenersAsDefaultOnDocument()
 #endif
 }
 
-bool defaultCustomPasteboardDataEnabled()
-{
-#if PLATFORM(MACCATALYST)
-    return true;
-#elif PLATFORM(IOS_FAMILY)
-    return WebCore::IOSApplication::isMobileSafari() || dyld_get_program_sdk_version() >= DYLD_IOS_VERSION_11_3;
-#elif PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101300
-    return WebCore::MacApplication::isSafari() || dyld_get_program_sdk_version() > DYLD_MACOSX_VERSION_10_13;
-#elif PLATFORM(MAC)
-    return WebCore::MacApplication::isSafari();
-#else
-    return false;
-#endif
-}
-
 bool defaultCSSOMViewScrollingAPIEnabled()
 {
 #if PLATFORM(IOS_FAMILY)
-    if (WebCore::IOSApplication::isIMDb() && applicationSDKVersion() < DYLD_IOS_VERSION_13_0)
+    if (WebCore::IOSApplication::isIMDb() && WebCore::applicationSDKVersion() < DYLD_IOS_VERSION_13_0)
         return false;
 #endif
     return true;
@@ -78,5 +63,21 @@ bool defaultTextAutosizingUsesIdempotentMode()
 }
 
 #endif // ENABLE(TEXT_AUTOSIZING) && !PLATFORM(IOS_FAMILY)
+
+bool defaultDisallowSyncXHRDuringPageDismissalEnabled()
+{
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+    if (CFPreferencesGetAppBooleanValue(CFSTR("allowDeprecatedSynchronousXMLHttpRequestDuringUnload"), CFSTR("com.apple.WebKit"), nullptr)) {
+        WTFLogAlways("Allowing synchronous XHR during page unload due to managed preference");
+        return false;
+    }
+#elif PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
+    if (allowsDeprecatedSynchronousXMLHttpRequestDuringUnload()) {
+        WTFLogAlways("Allowing synchronous XHR during page unload due to managed preference");
+        return false;
+    }
+#endif
+    return true;
+}
 
 } // namespace WebKit

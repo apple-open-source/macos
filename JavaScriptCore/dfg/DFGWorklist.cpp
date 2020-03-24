@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -96,7 +96,7 @@ protected:
     WorkResult work() override
     {
         WorkScope workScope(*this);
-        
+
         LockHolder locker(m_data.m_rightToRun);
         {
             LockHolder locker(*m_worklist.m_lock);
@@ -110,7 +110,7 @@ protected:
         
         // There's no way for the GC to be safepointing since we own rightToRun.
         if (m_plan->vm()->heap.worldIsStopped()) {
-            dataLog("Heap is stoped but here we are! (1)\n");
+            dataLog("Heap is stopped but here we are! (1)\n");
             RELEASE_ASSERT_NOT_REACHED();
         }
         m_plan->compileInThread(&m_data);
@@ -133,9 +133,8 @@ protected:
                 dataLog(": Compiled ", m_plan->key(), " asynchronously\n");
             }
             
-            m_worklist.m_readyPlans.append(m_plan);
-
             RELEASE_ASSERT(!m_plan->vm()->heap.worldIsStopped());
+            m_worklist.m_readyPlans.append(WTFMove(m_plan));
             m_worklist.m_planCompiled.notifyAll();
         }
         
@@ -150,7 +149,7 @@ protected:
         if (m_relativePriority)
             Thread::current().changePriority(m_relativePriority);
         
-        m_compilationScope = std::make_unique<CompilationScope>();
+        m_compilationScope = makeUnique<CompilationScope>();
     }
     
     void threadIsStopping(const AbstractLocker&) override
@@ -214,7 +213,7 @@ void Worklist::finishCreation(unsigned numberOfThreads, int relativePriority)
 
 void Worklist::createNewThread(const AbstractLocker& locker, int relativePriority)
 {
-    std::unique_ptr<ThreadData> data = std::make_unique<ThreadData>(this);
+    std::unique_ptr<ThreadData> data = makeUnique<ThreadData>(this);
     data->m_thread = adoptRef(new ThreadBody(locker, *this, *data, m_lock, m_planEnqueued.copyRef(), relativePriority));
     m_threads.append(WTFMove(data));
 }
@@ -380,7 +379,7 @@ void Worklist::resumeAllThreads()
 
 void Worklist::visitWeakReferences(SlotVisitor& visitor)
 {
-    VM* vm = visitor.heap()->vm();
+    VM* vm = &visitor.heap()->vm();
     {
         LockHolder locker(*m_lock);
         for (PlanMap::iterator iter = m_plans.begin(); iter != m_plans.end(); ++iter) {

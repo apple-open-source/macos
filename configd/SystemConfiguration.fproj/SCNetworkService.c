@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,7 +34,10 @@
 #include "SCNetworkConfigurationInternal.h"
 #include "SCPreferencesInternal.h"
 
+#include <net/if.h>
 #include <pthread.h>
+
+#include <CommonCrypto/CommonDigest.h>
 
 #define EXTERNAL_ID_DOMAIN_PREFIX	"_"
 
@@ -424,7 +427,7 @@ SCNetworkServiceAddProtocolType(SCNetworkServiceRef service, CFStringRef protoco
 
 	newEntity = _protocolTemplate(service, protocolType);
 	assert(newEntity != NULL);
-	
+
 	ok = SCNetworkProtocolSetConfiguration(protocol, newEntity);
 	if (!ok) {
 		// could not set default configuration
@@ -459,6 +462,7 @@ SCNetworkServiceCopyAll(SCPreferencesRef prefs)
 	CFIndex			n;
 	CFStringRef		path;
 	CFDictionaryRef		services;
+
 
 	path = SCPreferencesPathKeyCreateNetworkServices(NULL);
 	services = SCPreferencesPathGetValue(prefs, path);
@@ -977,6 +981,91 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 }
 
 
+static CF_RETURNS_RETAINED CFStringRef
+copyInterfaceUUID(CFStringRef bsdName)
+{
+	union {
+		unsigned char	sha256_bytes[CC_SHA256_DIGEST_LENGTH];
+		CFUUIDBytes	uuid_bytes;
+	} bytes;
+	CC_SHA256_CTX	ctx;
+	char		if_name[IF_NAMESIZE];
+	CFUUIDRef	uuid;
+	CFStringRef	uuid_str;
+
+	// start with interface name
+	memset(&if_name, 0, sizeof(if_name));
+	(void) _SC_cfstring_to_cstring(bsdName,
+				       if_name,
+				       sizeof(if_name),
+				       kCFStringEncodingASCII);
+
+	// create SHA256 hash
+	memset(&bytes, 0, sizeof(bytes));
+	CC_SHA256_Init(&ctx);
+	CC_SHA256_Update(&ctx,
+			 if_name,
+			 sizeof(if_name));
+	CC_SHA256_Final(bytes.sha256_bytes, &ctx);
+
+	// create UUID string
+	uuid = CFUUIDCreateFromUUIDBytes(NULL, bytes.uuid_bytes);
+	uuid_str = CFUUIDCreateString(NULL, uuid);
+	CFRelease(uuid);
+
+	return uuid_str;
+}
+
+
+SCNetworkServiceRef
+_SCNetworkServiceCreatePreconfigured(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
+{
+	CFStringRef		bsdName;
+	Boolean			ok;
+	SCNetworkServiceRef	service;
+	CFStringRef		serviceID;
+
+	bsdName = SCNetworkInterfaceGetBSDName(interface);
+
+	// create network service
+	service = SCNetworkServiceCreate(prefs, interface);
+	if (service == NULL) {
+		SC_log(LOG_ERR, "could not create network service for \"%@\": %s",
+		       bsdName,
+		       SCErrorString(SCError()));
+		return NULL;
+	}
+
+	// update network service to use a consistent serviceID
+	serviceID = copyInterfaceUUID(bsdName);
+	if (serviceID != NULL) {
+		ok = _SCNetworkServiceSetServiceID(service, serviceID);
+		CFRelease(serviceID);
+		if (!ok) {
+			SC_log(LOG_ERR, "_SCNetworkServiceSetServiceID() failed: %s",
+			       SCErrorString(SCError()));
+			// ... and keep whatever random UUID was created for the service
+		}
+	} else {
+		SC_log(LOG_ERR, "could not create serviceID for \"%@\"", bsdName);
+		// ... and we'll use whatever random UUID was created for the service
+	}
+
+	// establish [template] configuration
+	ok = SCNetworkServiceEstablishDefaultConfiguration(service);
+	if (!ok) {
+		SC_log(LOG_ERR, "could not establish network service for \"%@\": %s",
+		       bsdName,
+		       SCErrorString(SCError()));
+		SCNetworkServiceRemove(service);
+		CFRelease(service);
+		service = NULL;
+	}
+
+	return service;
+}
+
+
 Boolean
 SCNetworkServiceEstablishDefaultConfiguration(SCNetworkServiceRef service)
 {
@@ -1115,8 +1204,7 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 	entity = SCPreferencesPathGetValue(servicePrivate->prefs, path);
 	CFRelease(path);
 
-	useSystemInterfaces = ((__SCPreferencesUsingDefaultPrefs(servicePrivate->prefs)) &&
-			       !__SCPreferencesGetLimitSCNetworkConfiguration(servicePrivate->prefs));
+	useSystemInterfaces = !_SCNetworkConfigurationBypassSystemInterfaces(servicePrivate->prefs);
 
 	if (isA_CFDictionary(entity)) {
 		name = CFDictionaryGetValue(entity, kSCPropUserDefinedName);

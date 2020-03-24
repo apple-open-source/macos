@@ -12,7 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface SecXPCHelper : NSObject
 + (NSSet<Class> *)safeErrorClasses;
-+ (NSError *)cleanseErrorForXPC:(NSError * _Nullable)error;
++ (NSError * _Nullable)cleanseErrorForXPC:(NSError * _Nullable)error;
 
 /*
  * Some NSError objects contain non-NSSecureCoding-compliant userInfo.

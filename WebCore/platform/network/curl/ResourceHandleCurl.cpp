@@ -162,7 +162,7 @@ Ref<CurlRequest> ResourceHandle::createCurlRequest(ResourceRequest&& request, Re
 CurlResourceHandleDelegate* ResourceHandle::delegate()
 {
     if (!d->m_delegate)
-        d->m_delegate = std::make_unique<CurlResourceHandleDelegate>(*this);
+        d->m_delegate = makeUnique<CurlResourceHandleDelegate>(*this);
 
     return d->m_delegate.get();
 }
@@ -184,14 +184,6 @@ void ResourceHandle::setClientCertificateInfo(const String& host, const String& 
         CurlContext::singleton().sslHandle().setClientCertificateInfo(host, certificate, key);
     else
         LOG(Network, "Invalid client certificate file: %s!\n", certificate.latin1().data());
-}
-
-#endif
-
-#if OS(WINDOWS) && USE(CF)
-
-void ResourceHandle::setClientCertificate(const String&, CFDataRef)
-{
 }
 
 #endif

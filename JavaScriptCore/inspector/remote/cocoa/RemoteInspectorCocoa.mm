@@ -239,7 +239,7 @@ void RemoteInspector::stopInternal(StopSource source)
 
     m_pushScheduled = false;
 
-    for (auto targetConnection : m_targetConnectionMap.values())
+    for (const auto& targetConnection : m_targetConnectionMap.values())
         targetConnection->close();
     m_targetConnectionMap.clear();
 
@@ -347,7 +347,7 @@ void RemoteInspector::xpcConnectionFailed(RemoteInspectorXPCConnection* relayCon
 
     m_pushScheduled = false;
 
-    for (auto targetConnection : m_targetConnectionMap.values())
+    for (const auto& targetConnection : m_targetConnectionMap.values())
         targetConnection->close();
     m_targetConnectionMap.clear();
 
@@ -382,15 +382,20 @@ RetainPtr<NSDictionary> RemoteInspector::listingForInspectionTarget(const Remote
         [listing setObject:target.name() forKey:WIRTitleKey];
         [listing setObject:WIRTypeJavaScript forKey:WIRTypeKey];
         break;
+    case RemoteInspectionTarget::Type::Page:
+        [listing setObject:target.url() forKey:WIRURLKey];
+        [listing setObject:target.name() forKey:WIRTitleKey];
+        [listing setObject:WIRTypePage forKey:WIRTypeKey];
+        break;
     case RemoteInspectionTarget::Type::ServiceWorker:
         [listing setObject:target.url() forKey:WIRURLKey];
         [listing setObject:target.name() forKey:WIRTitleKey];
         [listing setObject:WIRTypeServiceWorker forKey:WIRTypeKey];
         break;
-    case RemoteInspectionTarget::Type::Web:
+    case RemoteInspectionTarget::Type::WebPage:
         [listing setObject:target.url() forKey:WIRURLKey];
         [listing setObject:target.name() forKey:WIRTitleKey];
-        [listing setObject:WIRTypeWeb forKey:WIRTypeKey];
+        [listing setObject:WIRTypeWebPage forKey:WIRTypeKey];
         break;
     default:
         ASSERT_NOT_REACHED();
@@ -437,7 +442,7 @@ void RemoteInspector::pushListingsNow()
     m_pushScheduled = false;
 
     RetainPtr<NSMutableDictionary> listings = adoptNS([[NSMutableDictionary alloc] init]);
-    for (RetainPtr<NSDictionary> listing : m_targetListingMap.values()) {
+    for (const auto& listing : m_targetListingMap.values()) {
         NSString *targetIdentifierString = [[listing.get() objectForKey:WIRTargetIdentifierKey] stringValue];
         [listings setObject:listing.get() forKey:targetIdentifierString];
     }

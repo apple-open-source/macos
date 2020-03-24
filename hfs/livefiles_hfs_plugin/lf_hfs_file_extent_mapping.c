@@ -446,7 +446,7 @@ static OSErr TruncateExtents(
     Boolean                releasedLastExtent;
     u_int32_t            hint;
     HFSPlusExtentKey    key;
-    HFSPlusExtentRecord    extents = {0};
+    HFSPlusExtentRecord    extents = {{0}};
     int  lockflags;
 
     /*
@@ -1397,6 +1397,7 @@ static OSErr SearchExtentRecord(
                                 u_int32_t                *endingFABNPlusOne,
                                 Boolean                    *noMoreExtents)
 {
+#pragma unused (vcb)
     OSErr    err = noErr;
     u_int32_t    extentIndex;
     /* Set it to the HFS std value */

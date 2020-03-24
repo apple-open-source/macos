@@ -21,6 +21,7 @@
 #include "config.h"
 #include "JSTestNamedGetterCallWith.h"
 
+#include "ActiveDOMObject.h"
 #include "JSDOMAbstractOperations.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -29,7 +30,7 @@
 #include "JSDOMWrapperCache.h"
 #include "ScriptExecutionContext.h"
 #include <JavaScriptCore/FunctionPrototype.h>
-#include <JavaScriptCore/HeapSnapshotBuilder.h>
+#include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
@@ -41,8 +42,8 @@ using namespace JSC;
 
 // Attributes
 
-JSC::EncodedJSValue jsTestNamedGetterCallWithConstructor(JSC::ExecState*, JSC::EncodedJSValue, JSC::PropertyName);
-bool setJSTestNamedGetterCallWithConstructor(JSC::ExecState*, JSC::EncodedJSValue, JSC::EncodedJSValue);
+JSC::EncodedJSValue jsTestNamedGetterCallWithConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
+bool setJSTestNamedGetterCallWithConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 
 class JSTestNamedGetterCallWithPrototype : public JSC::JSNonFinalObject {
 public:
@@ -68,6 +69,7 @@ private:
 
     void finishCreation(JSC::VM&);
 };
+STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestNamedGetterCallWithPrototype, JSTestNamedGetterCallWithPrototype::Base);
 
 using JSTestNamedGetterCallWithConstructor = JSDOMConstructorNotConstructable<JSTestNamedGetterCallWith>;
 
@@ -80,7 +82,7 @@ template<> JSValue JSTestNamedGetterCallWithConstructor::prototypeForStructure(J
 template<> void JSTestNamedGetterCallWithConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestNamedGetterCallWith::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String("TestNamedGetterCallWith"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("TestNamedGetterCallWith"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -113,6 +115,8 @@ void JSTestNamedGetterCallWith::finishCreation(VM& vm)
     Base::finishCreation(vm);
     ASSERT(inherits(vm, info()));
 
+    static_assert(!std::is_base_of<ActiveDOMObject, TestNamedGetterCallWith>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
+
 }
 
 JSObject* JSTestNamedGetterCallWith::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -136,7 +140,7 @@ void JSTestNamedGetterCallWith::destroy(JSC::JSCell* cell)
     thisObject->JSTestNamedGetterCallWith::~JSTestNamedGetterCallWith();
 }
 
-bool JSTestNamedGetterCallWith::getOwnPropertySlot(JSObject* object, ExecState* state, PropertyName propertyName, PropertySlot& slot)
+bool JSTestNamedGetterCallWith::getOwnPropertySlot(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyName propertyName, PropertySlot& slot)
 {
     auto* thisObject = jsCast<JSTestNamedGetterCallWith*>(object);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
@@ -147,19 +151,20 @@ bool JSTestNamedGetterCallWith::getOwnPropertySlot(JSObject* object, ExecState* 
             return typename GetterIDLType::ImplementationType { GetterIDLType::extractValueFromNullable(result) };
         return WTF::nullopt;
     };
-    if (auto namedProperty = accessVisibleNamedProperty<OverrideBuiltins::No>(*state, *thisObject, propertyName, getterFunctor)) {
-        auto value = toJS<IDLDOMString>(*state, WTFMove(namedProperty.value()));
+    if (auto namedProperty = accessVisibleNamedProperty<OverrideBuiltins::No>(*lexicalGlobalObject, *thisObject, propertyName, getterFunctor)) {
+        auto value = toJS<IDLDOMString>(*lexicalGlobalObject, WTFMove(namedProperty.value()));
         slot.setValue(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly), value);
         return true;
     }
-    return JSObject::getOwnPropertySlot(object, state, propertyName, slot);
+    return JSObject::getOwnPropertySlot(object, lexicalGlobalObject, propertyName, slot);
 }
 
-bool JSTestNamedGetterCallWith::getOwnPropertySlotByIndex(JSObject* object, ExecState* state, unsigned index, PropertySlot& slot)
+bool JSTestNamedGetterCallWith::getOwnPropertySlotByIndex(JSObject* object, JSGlobalObject* lexicalGlobalObject, unsigned index, PropertySlot& slot)
 {
+    VM& vm = JSC::getVM(lexicalGlobalObject);
     auto* thisObject = jsCast<JSTestNamedGetterCallWith*>(object);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
-    auto propertyName = Identifier::from(state, index);
+    auto propertyName = Identifier::from(vm, index);
     using GetterIDLType = IDLDOMString;
     auto getterFunctor = [] (auto& thisObject, auto propertyName) -> Optional<typename GetterIDLType::ImplementationType> {
         auto result = thisObject.wrapped().namedItem(worldForDOMObject(thisObject), propertyNameToAtomString(propertyName));
@@ -167,53 +172,54 @@ bool JSTestNamedGetterCallWith::getOwnPropertySlotByIndex(JSObject* object, Exec
             return typename GetterIDLType::ImplementationType { GetterIDLType::extractValueFromNullable(result) };
         return WTF::nullopt;
     };
-    if (auto namedProperty = accessVisibleNamedProperty<OverrideBuiltins::No>(*state, *thisObject, propertyName, getterFunctor)) {
-        auto value = toJS<IDLDOMString>(*state, WTFMove(namedProperty.value()));
+    if (auto namedProperty = accessVisibleNamedProperty<OverrideBuiltins::No>(*lexicalGlobalObject, *thisObject, propertyName, getterFunctor)) {
+        auto value = toJS<IDLDOMString>(*lexicalGlobalObject, WTFMove(namedProperty.value()));
         slot.setValue(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly), value);
         return true;
     }
-    return JSObject::getOwnPropertySlotByIndex(object, state, index, slot);
+    return JSObject::getOwnPropertySlotByIndex(object, lexicalGlobalObject, index, slot);
 }
 
-void JSTestNamedGetterCallWith::getOwnPropertyNames(JSObject* object, ExecState* state, PropertyNameArray& propertyNames, EnumerationMode mode)
+void JSTestNamedGetterCallWith::getOwnPropertyNames(JSObject* object, JSGlobalObject* lexicalGlobalObject, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
+    VM& vm = JSC::getVM(lexicalGlobalObject);
     auto* thisObject = jsCast<JSTestNamedGetterCallWith*>(object);
     ASSERT_GC_OBJECT_INHERITS(object, info());
     for (auto& propertyName : thisObject->wrapped().supportedPropertyNames())
-        propertyNames.add(Identifier::fromString(state, propertyName));
-    JSObject::getOwnPropertyNames(object, state, propertyNames, mode);
+        propertyNames.add(Identifier::fromString(vm, propertyName));
+    JSObject::getOwnPropertyNames(object, lexicalGlobalObject, propertyNames, mode);
 }
 
-EncodedJSValue jsTestNamedGetterCallWithConstructor(ExecState* state, EncodedJSValue thisValue, PropertyName)
+EncodedJSValue jsTestNamedGetterCallWithConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
 {
-    VM& vm = state->vm();
+    VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestNamedGetterCallWithPrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
-        return throwVMTypeError(state, throwScope);
-    return JSValue::encode(JSTestNamedGetterCallWith::getConstructor(state->vm(), prototype->globalObject()));
+        return throwVMTypeError(lexicalGlobalObject, throwScope);
+    return JSValue::encode(JSTestNamedGetterCallWith::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-bool setJSTestNamedGetterCallWithConstructor(ExecState* state, EncodedJSValue thisValue, EncodedJSValue encodedValue)
+bool setJSTestNamedGetterCallWithConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, EncodedJSValue encodedValue)
 {
-    VM& vm = state->vm();
+    VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestNamedGetterCallWithPrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype)) {
-        throwVMTypeError(state, throwScope);
+        throwVMTypeError(lexicalGlobalObject, throwScope);
         return false;
     }
     // Shadowing a built-in constructor
     return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
 }
 
-void JSTestNamedGetterCallWith::heapSnapshot(JSCell* cell, HeapSnapshotBuilder& builder)
+void JSTestNamedGetterCallWith::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
 {
     auto* thisObject = jsCast<JSTestNamedGetterCallWith*>(cell);
-    builder.setWrappedObjectForCell(cell, &thisObject->wrapped());
+    analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        builder.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
-    Base::heapSnapshot(cell, builder);
+        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+    Base::analyzeHeap(cell, analyzer);
 }
 
 bool JSTestNamedGetterCallWithOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor, const char** reason)
@@ -240,7 +246,7 @@ extern "C" { extern void* _ZTVN7WebCore23TestNamedGetterCallWithE[]; }
 #endif
 #endif
 
-JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, Ref<TestNamedGetterCallWith>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestNamedGetterCallWith>&& impl)
 {
 
 #if ENABLE(BINDING_INTEGRITY)
@@ -264,9 +270,9 @@ JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, 
     return createWrapper<TestNamedGetterCallWith>(globalObject, WTFMove(impl));
 }
 
-JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestNamedGetterCallWith& impl)
+JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestNamedGetterCallWith& impl)
 {
-    return wrap(state, globalObject, impl);
+    return wrap(lexicalGlobalObject, globalObject, impl);
 }
 
 TestNamedGetterCallWith* JSTestNamedGetterCallWith::toWrapped(JSC::VM& vm, JSC::JSValue value)

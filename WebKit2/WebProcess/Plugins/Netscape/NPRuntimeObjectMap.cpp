@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,7 @@
 #include "WebProcess.h"
 #include <JavaScriptCore/Completion.h>
 #include <JavaScriptCore/Error.h>
+#include <JavaScriptCore/JSGlobalObjectInlines.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/SourceCode.h>
 #include <JavaScriptCore/Strong.h>
@@ -110,7 +111,7 @@ JSObject* NPRuntimeObjectMap::getOrCreateJSObject(JSGlobalObject* globalObject, 
     return jsNPObject;
 }
 
-JSValue NPRuntimeObjectMap::convertNPVariantToJSValue(JSC::ExecState* exec, JSC::JSGlobalObject* globalObject, const NPVariant& variant)
+JSValue NPRuntimeObjectMap::convertNPVariantToJSValue(JSC::JSGlobalObject* globalObject, const NPVariant& variant)
 {
     switch (variant.type) {
     case NPVariantType_Void:
@@ -129,7 +130,7 @@ JSValue NPRuntimeObjectMap::convertNPVariantToJSValue(JSC::ExecState* exec, JSC:
         return jsNumber(variant.value.doubleValue);
 
     case NPVariantType_String:
-        return jsString(exec, String::fromUTF8WithLatin1Fallback(variant.value.stringValue.UTF8Characters, 
+        return jsString(globalObject->vm(), String::fromUTF8WithLatin1Fallback(variant.value.stringValue.UTF8Characters,
                                                                  variant.value.stringValue.UTF8Length));
     case NPVariantType_Object:
         return getOrCreateJSObject(globalObject, variant.value.objectValue);
@@ -139,9 +140,10 @@ JSValue NPRuntimeObjectMap::convertNPVariantToJSValue(JSC::ExecState* exec, JSC:
     return jsUndefined();
 }
 
-void NPRuntimeObjectMap::convertJSValueToNPVariant(ExecState* exec, JSValue value, NPVariant& variant)
+void NPRuntimeObjectMap::convertJSValueToNPVariant(JSGlobalObject* lexicalGlobalObject, JSValue value, NPVariant& variant)
 {
-    JSLockHolder lock(exec);
+    VM& vm = lexicalGlobalObject->vm();
+    JSLockHolder lock(lexicalGlobalObject);
 
     VOID_TO_NPVARIANT(variant);
     
@@ -156,23 +158,23 @@ void NPRuntimeObjectMap::convertJSValueToNPVariant(ExecState* exec, JSValue valu
     }
 
     if (value.isBoolean()) {
-        BOOLEAN_TO_NPVARIANT(value.toBoolean(exec), variant);
+        BOOLEAN_TO_NPVARIANT(value.toBoolean(lexicalGlobalObject), variant);
         return;
     }
 
     if (value.isNumber()) {
-        DOUBLE_TO_NPVARIANT(value.toNumber(exec), variant);
+        DOUBLE_TO_NPVARIANT(value.toNumber(lexicalGlobalObject), variant);
         return;
     }
 
     if (value.isString()) {
-        NPString npString = createNPString(value.toString(exec)->value(exec).utf8());
+        NPString npString = createNPString(value.toString(lexicalGlobalObject)->value(lexicalGlobalObject).utf8());
         STRINGN_TO_NPVARIANT(npString.UTF8Characters, npString.UTF8Length, variant);
         return;
     }
 
     if (value.isObject()) {
-        NPObject* npObject = getOrCreateNPObject(exec->vm(), asObject(value));
+        NPObject* npObject = getOrCreateNPObject(vm, asObject(value));
         OBJECT_TO_NPVARIANT(npObject, variant);
         return;
     }
@@ -186,14 +188,12 @@ bool NPRuntimeObjectMap::evaluate(NPObject* npObject, const String& scriptString
     if (!globalObject)
         return false;
 
-    ExecState* exec = globalObject->globalExec();
-    
-    JSLockHolder lock(exec);
+    JSLockHolder lock(globalObject.get());
     JSValue thisValue = getOrCreateJSObject(globalObject.get(), npObject);
 
-    JSValue resultValue = JSC::evaluate(exec, makeSource(scriptString, { }), thisValue);
+    JSValue resultValue = JSC::evaluate(globalObject.get(), makeSource(scriptString, { }), thisValue);
 
-    convertJSValueToNPVariant(exec, resultValue, *result);
+    convertJSValueToNPVariant(globalObject.get(), resultValue, *result);
     return true;
 }
 
@@ -237,15 +237,6 @@ JSGlobalObject* NPRuntimeObjectMap::globalObject() const
     return frame->script().globalObject(pluginWorld());
 }
 
-ExecState* NPRuntimeObjectMap::globalExec() const
-{
-    JSGlobalObject* globalObject = this->globalObject();
-    if (!globalObject)
-        return 0;
-    
-    return globalObject->globalExec();
-}
-
 static String& globalExceptionString()
 {
     static NeverDestroyed<String> exceptionString;
@@ -257,9 +248,9 @@ void NPRuntimeObjectMap::setGlobalException(const String& exceptionString)
     globalExceptionString() = exceptionString;
 }
     
-void NPRuntimeObjectMap::moveGlobalExceptionToExecState(ExecState* exec)
+void NPRuntimeObjectMap::moveGlobalExceptionToExecState(JSGlobalObject* lexicalGlobalObject)
 {
-    VM& vm = exec->vm();
+    VM& vm = lexicalGlobalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     if (globalExceptionString().isNull())
@@ -267,7 +258,7 @@ void NPRuntimeObjectMap::moveGlobalExceptionToExecState(ExecState* exec)
 
     {
         JSLockHolder lock(vm);
-        throwException(exec, scope, createError(exec, globalExceptionString()));
+        throwException(lexicalGlobalObject, scope, createError(lexicalGlobalObject, globalExceptionString()));
     }
     
     globalExceptionString() = String();

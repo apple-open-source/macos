@@ -77,8 +77,14 @@
 #define ENABLE_CONTEXT_MENUS 0
 #endif
 
-#if !defined(ENABLE_CURSOR_SUPPORT)
-#define ENABLE_CURSOR_SUPPORT 0
+#if !defined(ENABLE_CONTEXT_MENU_EVENT)
+#if !PLATFORM(MACCATALYST)
+#define ENABLE_CONTEXT_MENU_EVENT 0
+#endif
+#endif
+
+#if !defined(ENABLE_CUSTOM_CURSOR_SUPPORT)
+#define ENABLE_CUSTOM_CURSOR_SUPPORT 0
 #endif
 
 #if !defined(ENABLE_DRAG_SUPPORT)
@@ -91,6 +97,10 @@
 
 #if !defined(ENABLE_INSPECTOR_ALTERNATE_DISPATCHERS)
 #define ENABLE_INSPECTOR_ALTERNATE_DISPATCHERS 1
+#endif
+
+#if !defined(ENABLE_INSPECTOR_TELEMETRY)
+#define ENABLE_INSPECTOR_TELEMETRY 0
 #endif
 
 #if !defined(ENABLE_LETTERPRESS)
@@ -174,27 +184,23 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #endif
 
 #if !defined(HAVE_PDFHOSTVIEWCONTROLLER_SNAPSHOTTING)
-#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && !PLATFORM(MACCATALYST) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000
+#if PLATFORM(IOS)
 #define HAVE_PDFHOSTVIEWCONTROLLER_SNAPSHOTTING 1
 #endif
 #endif
 
-#if PLATFORM(MACCATALYST) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000)
+#if PLATFORM(MACCATALYST) || PLATFORM(IOS)
 #if !defined(USE_UIKIT_KEYBOARD_ADDITIONS)
 #define USE_UIKIT_KEYBOARD_ADDITIONS 1
 #endif
 #endif
 
 #if !defined(HAVE_VISIBILITY_PROPAGATION_VIEW)
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000
 #define HAVE_VISIBILITY_PROPAGATION_VIEW 1
-#endif
 #endif
 
 #if !defined(HAVE_UISCENE)
-#if (__IPHONE_OS_VERSION_MIN_REQUIRED >= 130000) || (PLATFORM(APPLETV) && __TV_OS_VERSION_MIN_REQUIRED >= 130000) || (PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MIN_REQUIRED >= 60000)
 #define HAVE_UISCENE 1
-#endif
 #endif
 
 #if !defined(HAVE_AVSTREAMSESSION)
@@ -205,17 +211,19 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #define ENABLE_MEDIA_SOURCE 0
 #endif
 
-#if !defined(HAVE_PASSKIT_GRANULAR_ERRORS)
-#define HAVE_PASSKIT_GRANULAR_ERRORS 1
-#endif
-
 #if !defined(HAVE_PASSKIT_API_TYPE)
 #define HAVE_PASSKIT_API_TYPE 1
 #endif
 
 #if !defined(HAVE_PASSKIT_BOUND_INTERFACE_IDENTIFIER)
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000
+#if PLATFORM(IOS)
 #define HAVE_PASSKIT_BOUND_INTERFACE_IDENTIFIER 1
+#endif
+#endif
+
+#if !defined(ENABLE_PREVIEW_CONVERTER)
+#if PLATFORM(IOS)
+#define ENABLE_PREVIEW_CONVERTER 1
 #endif
 #endif
 
@@ -243,6 +251,10 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 
 #if !defined(ENABLE_INSPECTOR_ALTERNATE_DISPATCHERS)
 #define ENABLE_INSPECTOR_ALTERNATE_DISPATCHERS 1
+#endif
+
+#if !defined(ENABLE_INSPECTOR_TELEMETRY)
+#define ENABLE_INSPECTOR_TELEMETRY 1
 #endif
 
 #if !defined(ENABLE_SMOOTH_SCROLLING)
@@ -295,16 +307,8 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #define ENABLE_MEDIA_SOURCE 1
 #endif
 
-#if !defined(HAVE_PASSKIT_GRANULAR_ERRORS)
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
-#define HAVE_PASSKIT_GRANULAR_ERRORS 1
-#endif
-#endif
-
 #if !defined(HAVE_PASSKIT_API_TYPE)
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300 && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101304
 #define HAVE_PASSKIT_API_TYPE 1
-#endif
 #endif
 
 #if !defined(HAVE_PASSKIT_BOUND_INTERFACE_IDENTIFIER)
@@ -327,14 +331,6 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 
 #if !defined(ENABLE_FILE_REPLACEMENT)
 #define ENABLE_FILE_REPLACEMENT 1
-#endif
-
-#if !defined(ENABLE_KEYBOARD_KEY_ATTRIBUTE)
-#define ENABLE_KEYBOARD_KEY_ATTRIBUTE 1
-#endif
-
-#if !defined(ENABLE_KEYBOARD_CODE_ATTRIBUTE)
-#define ENABLE_KEYBOARD_CODE_ATTRIBUTE 1
 #endif
 
 #if !defined(ENABLE_PAYMENT_REQUEST)
@@ -392,17 +388,6 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 
 #endif /* PLATFORM(WIN_CAIRO) */
 
-/* --------- Gtk port (Unix, Windows, Mac) and WPE --------- */
-#if PLATFORM(GTK) || PLATFORM(WPE)
-#if !defined(ENABLE_KEYBOARD_KEY_ATTRIBUTE)
-#define ENABLE_KEYBOARD_KEY_ATTRIBUTE 1
-#endif
-
-#if !defined(ENABLE_KEYBOARD_CODE_ATTRIBUTE)
-#define ENABLE_KEYBOARD_CODE_ATTRIBUTE 1
-#endif
-#endif /* PLATFORM(GTK) || PLATFORM(WPE) */
-
 /* ENABLE macro defaults for WebCore */
 /* Do not use PLATFORM() tests in this section ! */
 
@@ -438,6 +423,10 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #define ENABLE_CONTEXT_MENUS 1
 #endif
 
+#if !defined(ENABLE_CONTEXT_MENU_EVENT)
+#define ENABLE_CONTEXT_MENU_EVENT 1
+#endif
+
 #if !defined(ENABLE_CSS3_TEXT)
 #define ENABLE_CSS3_TEXT 0
 #endif
@@ -454,10 +443,6 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #define ENABLE_CSS_COMPOSITING 0
 #endif
 
-#if !defined(ENABLE_CSS_IMAGE_ORIENTATION)
-#define ENABLE_CSS_IMAGE_ORIENTATION 0
-#endif
-
 #if !defined(ENABLE_CSS_IMAGE_RESOLUTION)
 #define ENABLE_CSS_IMAGE_RESOLUTION 0
 #endif
@@ -466,8 +451,8 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #define ENABLE_CSS_CONIC_GRADIENTS 0
 #endif
 
-#if !defined(ENABLE_CURSOR_SUPPORT)
-#define ENABLE_CURSOR_SUPPORT 1
+#if !defined(ENABLE_CUSTOM_CURSOR_SUPPORT)
+#define ENABLE_CUSTOM_CURSOR_SUPPORT 1
 #endif
 
 #if !defined(ENABLE_CUSTOM_SCHEME_HANDLER)
@@ -564,6 +549,10 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #define ENABLE_INSPECTOR_ALTERNATE_DISPATCHERS 0
 #endif
 
+#if !defined(ENABLE_INSPECTOR_TELEMETRY)
+#define ENABLE_INSPECTOR_TELEMETRY 0
+#endif
+
 #if !defined(ENABLE_INTL)
 #define ENABLE_INTL 0
 #endif
@@ -620,10 +609,6 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 #define ENABLE_MOUSE_FORCE_EVENTS 1
 #endif
 
-#if !defined(ENABLE_NAVIGATOR_CONTENT_UTILS)
-#define ENABLE_NAVIGATOR_CONTENT_UTILS 0
-#endif
-
 #if !defined(ENABLE_NETSCAPE_PLUGIN_API)
 #define ENABLE_NETSCAPE_PLUGIN_API 1
 #endif
@@ -634,6 +619,10 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 
 #if !defined(ENABLE_NOTIFICATIONS)
 #define ENABLE_NOTIFICATIONS 0
+#endif
+
+#if !defined(ENABLE_OFFSCREEN_CANVAS)
+#define ENABLE_OFFSCREEN_CANVAS 0
 #endif
 
 #if !defined(ENABLE_OPENTYPE_VERTICAL)
@@ -668,6 +657,13 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 
 #if !defined(ENABLE_RUBBER_BANDING)
 #define ENABLE_RUBBER_BANDING 0
+#endif
+
+#if !defined(ENABLE_SECURITY_ASSERTIONS)
+/* Enable security assertions on all ASAN builds and debug builds. */
+#if ASAN_ENABLED || !defined(NDEBUG)
+#define ENABLE_SECURITY_ASSERTIONS 1
+#endif
 #endif
 
 #if !defined(ENABLE_SMOOTH_SCROLLING)
@@ -736,14 +732,6 @@ the public iOS SDK. See <https://webkit.org/b/179167>. */
 
 #if !defined(ENABLE_XSLT)
 #define ENABLE_XSLT 1
-#endif
-
-#if !defined(ENABLE_KEYBOARD_KEY_ATTRIBUTE)
-#define ENABLE_KEYBOARD_KEY_ATTRIBUTE 0
-#endif
-
-#if !defined(ENABLE_KEYBOARD_CODE_ATTRIBUTE)
-#define ENABLE_KEYBOARD_CODE_ATTRIBUTE 0
 #endif
 
 #if !defined(ENABLE_DATA_INTERACTION)

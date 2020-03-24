@@ -92,6 +92,7 @@ typedef unsigned int grain_t; // N.B. wide enough to index all free slots
 
 #define CHECK_REGIONS (1 << 31)
 #define DISABLE_ASLR (1 << 30)
+#define DISABLE_LARGE_ASLR (1 << 29)
 
 #define MAX_RECORDER_BUFFER 256
 
@@ -101,11 +102,11 @@ typedef unsigned int grain_t; // N.B. wide enough to index all free slots
  * Memory in the Tiny range is allocated from regions (heaps) pointed to by the
  * szone's hashed_regions pointer.
  *
- * Each region is laid out as a heap, followed by a header block, all within
- * a 1MB (2^20) block.  This means there are 64504 16-byte blocks and the header
+ * Each region is laid out as a metadata block followed by a heap, all within
+ * a 1MB (2^20) block.  This means there are 64504 16-byte blocks and the metadata
  * is 16138 bytes, making the total 1048458 bytes, leaving 118 bytes unused.
  *
- * The header block is arranged as in struct tiny_region defined just below, and
+ * The metadata block is arranged as in struct tiny_region defined just below, and
  * consists of two bitfields (or bit arrays) interleaved 32 bits by 32 bits.
  *
  * Each bitfield comprises NUM_TINY_BLOCKS bits, and refers to the corresponding
@@ -117,7 +118,7 @@ typedef unsigned int grain_t; // N.B. wide enough to index all free slots
  * bit is not set, the in-use bit is invalid.
  *
  * The szone maintains an array of NUM_TINY_SLOTS freelists, each of which is used to hold
- * free objects of the corresponding quantum size. In thr tiny region, the free
+ * free objects of the corresponding quantum size. In the tiny region, the free
  * objects for each region are arranged so that they are grouped together in their
  * per-slot freelists and the groups are ordered roughly in the order of regions
  * as they appear in the magazine's region list. This approach helps to reduce
@@ -169,21 +170,26 @@ typedef unsigned int grain_t; // N.B. wide enough to index all free slots
  * plus rounding to the nearest page.
  */
 #define CEIL_NUM_TINY_BLOCKS_WORDS (((NUM_TINY_BLOCKS + 31) & ~31) >> 5)
-#define TINY_METADATA_SIZE (sizeof(region_trailer_t) + sizeof(tiny_header_inuse_pair_t) * CEIL_NUM_TINY_BLOCKS_WORDS + (sizeof(region_free_blocks_t) * NUM_TINY_SLOTS))
-#define TINY_REGION_SIZE ((NUM_TINY_BLOCKS * TINY_QUANTUM + TINY_METADATA_SIZE + PAGE_MAX_SIZE - 1) & ~(PAGE_MAX_SIZE - 1))
 
-#define TINY_METADATA_START (NUM_TINY_BLOCKS * TINY_QUANTUM)
+#define TINY_HEAP_SIZE (NUM_TINY_BLOCKS * TINY_QUANTUM)
+#define TINY_METADATA_SIZE (sizeof(region_trailer_t) + sizeof(tiny_header_inuse_pair_t) * CEIL_NUM_TINY_BLOCKS_WORDS + (sizeof(region_free_blocks_t) * NUM_TINY_SLOTS))
+#define TINY_REGION_SIZE ((TINY_HEAP_SIZE + TINY_METADATA_SIZE + PAGE_MAX_SIZE - 1) & ~(PAGE_MAX_SIZE - 1))
+
+/*
+ * Location of the metadata for a given tiny region.
+ */
+#define TINY_REGION_METADATA(region) ((uintptr_t)&((tiny_region_t)region)->trailer)
 
 /*
  * Beginning and end pointers for a region's heap.
  */
-#define TINY_REGION_ADDRESS(region) ((void *)(region))
-#define TINY_REGION_END(region) ((void *)(((uintptr_t)(region)) + (NUM_TINY_BLOCKS * TINY_QUANTUM)))
+#define TINY_REGION_HEAP_BASE(region) ((void *)(((tiny_region_t)region)->blocks))
+#define TINY_REGION_HEAP_END(region) ((void *)(((uintptr_t)TINY_REGION_HEAP_BASE(region)) + TINY_HEAP_SIZE))
 
 /*
- * Locate the heap base for a pointer known to be within a tiny region.
+ * Locate the region for a pointer known to be within a tiny region.
  */
-#define TINY_REGION_FOR_PTR(_p) ((void *)((uintptr_t)(_p) & ~((1 << TINY_BLOCKS_ALIGN) - 1)))
+#define TINY_REGION_FOR_PTR(ptr) ((tiny_region_t)((uintptr_t)(ptr) & ~((1 << TINY_BLOCKS_ALIGN) - 1)))
 
 /*
  * Convert between byte and msize units.
@@ -201,9 +207,11 @@ typedef unsigned int grain_t; // N.B. wide enough to index all free slots
 /*
  * Layout of a tiny region
  */
-typedef uint32_t tiny_block_t[4]; // assert(TINY_QUANTUM == sizeof(tiny_block_t))
+typedef uint32_t tiny_block_t[TINY_QUANTUM / sizeof(uint32_t)];
+MALLOC_STATIC_ASSERT(sizeof(tiny_block_t) == TINY_QUANTUM,
+		"Incorrect size tiny_block_t");
 
-#define TINY_REGION_PAD (TINY_REGION_SIZE - (NUM_TINY_BLOCKS * sizeof(tiny_block_t)) - TINY_METADATA_SIZE)
+#define TINY_REGION_PAD (TINY_REGION_SIZE - TINY_HEAP_SIZE - TINY_METADATA_SIZE - sizeof(region_cookie_t))
 
 typedef struct tiny_header_inuse_pair {
 	uint32_t header;
@@ -216,20 +224,20 @@ typedef struct {
 	uint16_t last_block;
 } region_free_blocks_t;
 
+typedef uint32_t region_cookie_t;
+
 typedef struct region_trailer {
-	uint32_t region_cookie;
-	volatile int32_t pinned_to_depot;
 	struct region_trailer *prev;
 	struct region_trailer *next;
-	boolean_t recirc_suitable;
 	unsigned bytes_used;
 	unsigned objects_in_use;  // Used only by tiny allocator.
 	mag_index_t mag_index;
+	volatile int32_t pinned_to_depot;
+	bool recirc_suitable;
 } region_trailer_t;
 
 typedef struct tiny_region {
-	tiny_block_t blocks[NUM_TINY_BLOCKS];
-
+	// This must be first (because TINY_REGION_METADATA assumes it).
 	region_trailer_t trailer;
 
 	// The interleaved bit arrays comprising the header and inuse bitfields.
@@ -242,6 +250,11 @@ typedef struct tiny_region {
 	region_free_blocks_t free_blocks_by_slot[NUM_TINY_SLOTS];
 
 	uint8_t pad[TINY_REGION_PAD];
+
+	// Intended to catch backward overspills from the heap into this structure.
+	region_cookie_t region_cookie;
+
+	tiny_block_t blocks[NUM_TINY_BLOCKS];
 } * tiny_region_t;
 
 // The layout described above should result in a tiny_region_t being 1MB.
@@ -252,6 +265,7 @@ MALLOC_STATIC_ASSERT(sizeof(struct tiny_region) == TINY_REGION_SIZE, "incorrect 
  * Per-region meta data for tiny allocator
  */
 #define REGION_TRAILER_FOR_TINY_REGION(r) (&(((tiny_region_t)(r))->trailer))
+#define REGION_COOKIE_FOR_TINY_REGION(r) (((tiny_region_t)(r))->region_cookie)
 #define MAGAZINE_INDEX_FOR_TINY_REGION(r) (REGION_TRAILER_FOR_TINY_REGION(r)->mag_index)
 #define BYTES_USED_FOR_TINY_REGION(r) (REGION_TRAILER_FOR_TINY_REGION(r)->bytes_used)
 #define OBJECTS_IN_USE_FOR_TINY_REGION(r) (REGION_TRAILER_FOR_TINY_REGION(r)->objects_in_use)
@@ -259,7 +273,12 @@ MALLOC_STATIC_ASSERT(sizeof(struct tiny_region) == TINY_REGION_SIZE, "incorrect 
 /*
  * Locate the block header for a pointer known to be within a tiny region.
  */
-#define TINY_BLOCK_HEADER_FOR_PTR(_p) ((void *)&(((tiny_region_t)TINY_REGION_FOR_PTR(_p))->pairs))
+#define TINY_BLOCK_HEADER_FOR_PTR(ptr) ((void *)&(((tiny_region_t)TINY_REGION_FOR_PTR(ptr))->pairs))
+
+/*
+ * Locate the block header for a tiny region.
+ */
+#define TINY_BLOCK_HEADER_FOR_REGION(region) ((void *)&(((tiny_region_t)region)->pairs))
 
 /*
  * Locate the inuse map for a given block header pointer.
@@ -267,14 +286,19 @@ MALLOC_STATIC_ASSERT(sizeof(struct tiny_region) == TINY_REGION_SIZE, "incorrect 
 #define TINY_INUSE_FOR_HEADER(_h) ((void *)&(((tiny_header_inuse_pair_t *)(_h))->inuse))
 
 /*
+ * Heap offset for a pointer known to be within a tiny region.
+ */
+#define TINY_HEAP_OFFSET_FOR_PTR(ptr) ((uintptr_t)(ptr) - (uintptr_t)TINY_REGION_HEAP_BASE(TINY_REGION_FOR_PTR(ptr)))
+
+/*
  * Compute the bitmap index for a pointer known to be within a tiny region.
  */
-#define TINY_INDEX_FOR_PTR(_p) (((uintptr_t)(_p) >> SHIFT_TINY_QUANTUM) & (NUM_TINY_CEIL_BLOCKS - 1))
+#define TINY_INDEX_FOR_PTR(ptr) ((TINY_HEAP_OFFSET_FOR_PTR(ptr) >> SHIFT_TINY_QUANTUM) & (NUM_TINY_CEIL_BLOCKS - 1))
 
 /*
  * Get the pointer for a given index in a region.
  */
-#define TINY_PTR_FOR_INDEX(index, region) (region_t)((void *)(((uintptr_t)(region)) + ((index) << SHIFT_TINY_QUANTUM)))
+#define TINY_PTR_FOR_INDEX(index, region) (void *)((uintptr_t)TINY_REGION_HEAP_BASE(region) + ((index) << SHIFT_TINY_QUANTUM))
 
 /*
  * Offset back to an szone_t given prior knowledge that this rack_t
@@ -293,7 +317,6 @@ MALLOC_STATIC_ASSERT(sizeof(struct tiny_region) == TINY_REGION_SIZE, "incorrect 
 #warning CONFIG_TINY_CACHE turned off
 #endif
 
-#define TINY_REGION_PAYLOAD_BYTES (NUM_TINY_BLOCKS * TINY_QUANTUM)
 
 /*********************	DEFINITIONS for small	************************/
 
@@ -301,9 +324,10 @@ MALLOC_STATIC_ASSERT(sizeof(struct tiny_region) == TINY_REGION_SIZE, "incorrect 
  * Memory in the small range is allocated from regions (heaps) pointed to by the szone's hashed_regions
  * pointer.
  *
- * Each region is laid out as a heap, followed by the metadata array, all within an 8MB (2^23) block.
+ * Each region is laid out as metadata followed by the heap, all within an 8MB (2^23) block.
+ * The metadata block is arranged as in struct small_region defined just below.
  * The array is arranged as an array of shorts, one for each SMALL_QUANTUM in the heap. There are
- * 16319 512-blocks and the array is 16319*2 bytes, which totals 8387966, leaving 642 bytes unused.
+ * 16319 512-byte blocks and the array is 16319*2 bytes, which totals 8387966, leaving 642 bytes unused.
  * Once the region trailer is accounted for, there is room for 61 out-of-band free list entries in
  * the remaining padding (or 6, if the region was split into 16320 blocks, not 16319).
  *
@@ -365,22 +389,26 @@ MALLOC_STATIC_ASSERT(sizeof(struct tiny_region) == TINY_REGION_SIZE, "incorrect 
 #error Too many entropy bits for small region requested
 #endif
 
+#define SMALL_HEAP_SIZE (NUM_SMALL_BLOCKS * SMALL_QUANTUM)
 #define SMALL_METADATA_SIZE (sizeof(region_trailer_t) + NUM_SMALL_BLOCKS * sizeof(msize_t))
-#define SMALL_REGION_SIZE ((NUM_SMALL_BLOCKS * SMALL_QUANTUM + SMALL_METADATA_SIZE + PAGE_MAX_SIZE - 1) & ~(PAGE_MAX_SIZE - 1))
+#define SMALL_REGION_SIZE ((SMALL_HEAP_SIZE + SMALL_METADATA_SIZE + PAGE_MAX_SIZE - 1) & ~(PAGE_MAX_SIZE - 1))
 
-#define SMALL_METADATA_START (NUM_SMALL_BLOCKS * SMALL_QUANTUM)
+/*
+ * Location of the metadata for a given small region.
+ */
+#define SMALL_REGION_METADATA(region) ((uintptr_t)&((small_region_t)region)->trailer)
 
 /*
  * Beginning and end pointers for a region's heap.
  */
-#define SMALL_REGION_ADDRESS(region) ((unsigned char *)region)
-#define SMALL_REGION_END(region) (SMALL_REGION_ADDRESS(region) + (NUM_SMALL_BLOCKS * SMALL_QUANTUM))
+#define SMALL_REGION_HEAP_BASE(region) ((void *)((small_region_t)region)->blocks)
+#define SMALL_REGION_HEAP_END(region) (SMALL_REGION_HEAP_BASE(region) + SMALL_HEAP_SIZE)
 
 /*
  * Locate the heap base for a pointer known to be within a small region.
  */
-#define SMALL_REGION_FOR_PTR(_p) ((void *)((uintptr_t)(_p) & ~((1 << SMALL_BLOCKS_ALIGN) - 1)))
-#define SMALL_OFFSET_FOR_PTR(_p) ((uintptr_t)(_p) & ((1 << SMALL_BLOCKS_ALIGN) - 1))
+#define SMALL_REGION_FOR_PTR(ptr) ((small_region_t)((uintptr_t)(ptr) & ~((1 << SMALL_BLOCKS_ALIGN) - 1)))
+#define SMALL_REGION_OFFSET_FOR_PTR(ptr) ((uintptr_t)(ptr) & ((1 << SMALL_BLOCKS_ALIGN) - 1))
 
 /*
  * Convert between byte and msize units.
@@ -416,17 +444,19 @@ MALLOC_STATIC_ASSERT(sizeof(struct tiny_region) == TINY_REGION_SIZE, "incorrect 
  * Layout of a small region
  */
 typedef uint32_t small_block_t[SMALL_QUANTUM / sizeof(uint32_t)];
-#define SMALL_HEAP_SIZE (NUM_SMALL_BLOCKS * sizeof(small_block_t))
-#define SMALL_OOB_COUNT ((SMALL_REGION_SIZE - SMALL_HEAP_SIZE - SMALL_METADATA_SIZE) / sizeof(oob_free_entry_s))
+MALLOC_STATIC_ASSERT(sizeof(small_block_t) == SMALL_QUANTUM, "Incorrect size for small_block_t");
+#define SMALL_OOB_COUNT ((SMALL_REGION_SIZE - SMALL_HEAP_SIZE - SMALL_METADATA_SIZE - sizeof(region_cookie_t)) / sizeof(oob_free_entry_s))
 #define SMALL_OOB_SIZE (SMALL_OOB_COUNT * sizeof(oob_free_entry_s))
-#define SMALL_REGION_PAD (SMALL_REGION_SIZE - SMALL_HEAP_SIZE - SMALL_METADATA_SIZE - SMALL_OOB_SIZE)
+#define SMALL_REGION_PAD (SMALL_REGION_SIZE - SMALL_HEAP_SIZE - SMALL_METADATA_SIZE - SMALL_OOB_SIZE - sizeof(region_cookie_t))
 
 typedef struct small_region {
-	small_block_t blocks[NUM_SMALL_BLOCKS];
+	// This must be first (because SMALL_REGION_METADATA assumes it).
 	region_trailer_t trailer;
 	msize_t small_meta_words[NUM_SMALL_BLOCKS];
 	oob_free_entry_s small_oob_free_entries[SMALL_OOB_COUNT];
 	uint8_t pad[SMALL_REGION_PAD];
+	region_cookie_t region_cookie;
+	small_block_t blocks[NUM_SMALL_BLOCKS];
 } * small_region_t;
 
 // The layout described above should result in a small_region_t being 8MB.
@@ -437,39 +467,49 @@ MALLOC_STATIC_ASSERT(sizeof(struct small_region) == SMALL_REGION_SIZE, "incorrec
  * Per-region meta data for small allocator
  */
 #define REGION_TRAILER_FOR_SMALL_REGION(r) (&(((small_region_t)(r))->trailer))
+#define REGION_COOKIE_FOR_SMALL_REGION(r) (((small_region_t)(r))->region_cookie)
 #define MAGAZINE_INDEX_FOR_SMALL_REGION(r) (REGION_TRAILER_FOR_SMALL_REGION(r)->mag_index)
 #define BYTES_USED_FOR_SMALL_REGION(r) (REGION_TRAILER_FOR_SMALL_REGION(r)->bytes_used)
 
 /*
+ * Locate the metadata base for a small region.
+ */
+#define SMALL_META_HEADER_FOR_REGION(region) (((small_region_t)region)->small_meta_words)
+
+/*
  * Locate the metadata base for a pointer known to be within a small region.
  */
-#define SMALL_META_HEADER_FOR_PTR(_p) (((small_region_t)SMALL_REGION_FOR_PTR(_p))->small_meta_words)
+#define SMALL_META_HEADER_FOR_PTR(ptr) (((small_region_t)SMALL_REGION_FOR_PTR(ptr))->small_meta_words)
+
+/*
+ * Heap offset for a pointer known to be within a small region.
+ */
+#define SMALL_HEAP_OFFSET_FOR_PTR(ptr) ((uintptr_t)(ptr) - (uintptr_t)SMALL_REGION_HEAP_BASE(SMALL_REGION_FOR_PTR(ptr)))
 
 /*
  * Compute the metadata index for a pointer known to be within a small region.
  */
-#define SMALL_META_INDEX_FOR_PTR(_p) (((uintptr_t)(_p) >> SHIFT_SMALL_QUANTUM) & (NUM_SMALL_CEIL_BLOCKS - 1))
+#define SMALL_META_INDEX_FOR_PTR(ptr) ((SMALL_HEAP_OFFSET_FOR_PTR(ptr) >> SHIFT_SMALL_QUANTUM) & (NUM_SMALL_CEIL_BLOCKS - 1))
 
 /*
  * Find the metadata word for a pointer known to be within a small region.
  */
-#define SMALL_METADATA_FOR_PTR(_p) (SMALL_META_HEADER_FOR_PTR(_p) + SMALL_META_INDEX_FOR_PTR(_p))
+#define SMALL_METADATA_FOR_PTR(ptr) (SMALL_META_HEADER_FOR_PTR(ptr) + SMALL_META_INDEX_FOR_PTR(ptr))
 
 /*
  * Determine whether a pointer known to be within a small region points to memory which is free.
  */
-#define SMALL_PTR_IS_FREE(_p) (*SMALL_METADATA_FOR_PTR(_p) & SMALL_IS_FREE)
+#define SMALL_PTR_IS_FREE(ptr) (*SMALL_METADATA_FOR_PTR(ptr) & SMALL_IS_FREE)
 
 /*
  * Extract the msize value for a pointer known to be within a small region.
  */
-#define SMALL_PTR_SIZE(_p) (*SMALL_METADATA_FOR_PTR(_p) & ~SMALL_IS_FREE)
+#define SMALL_PTR_SIZE(ptr) (*SMALL_METADATA_FOR_PTR(ptr) & ~SMALL_IS_FREE)
 
 #if !CONFIG_SMALL_CACHE
 #warning CONFIG_SMALL_CACHE turned off
 #endif
 
-#define SMALL_REGION_PAYLOAD_BYTES (NUM_SMALL_BLOCKS * SMALL_QUANTUM)
 
 /*********************	DEFINITIONS for medium	************************/
 
@@ -477,7 +517,7 @@ MALLOC_STATIC_ASSERT(sizeof(struct small_region) == SMALL_REGION_SIZE, "incorrec
  * Memory in the medium range is allocated from regions (heaps) pointed to by the szone's hashed_regions
  * pointer.
  *
- * Each region is laid out as a heap, followed by the metadata array, all within an 512MB block.
+ * Each region is laid out as a metadata array, followed by the heap, all within an 512MB block.
  * The array is arranged as an array of shorts, one for each MEDIUM_QUANTUM in the heap. There are
  * 16382 32k-blocks and the array is 16382*2 bytes, which totals 8387966, leaving 32,772b unused.
  *
@@ -547,28 +587,32 @@ MALLOC_STATIC_ASSERT(NUM_MEDIUM_BLOCKS <= (uint16_t)(~MEDIUM_IS_FREE),
 #error Too many entropy bits for medium region requested
 #endif
 
+#define MEDIUM_HEAP_SIZE (NUM_MEDIUM_BLOCKS * MEDIUM_QUANTUM)
 #define MEDIUM_METADATA_SIZE (sizeof(region_trailer_t) + \
 		(NUM_MEDIUM_BLOCKS * sizeof(msize_t)) + \
 		(NUM_MEDIUM_BLOCKS * sizeof(msize_t)))
 // Note: The other instances of x_REGION_SIZE use PAGE_MAX_SIZE as the rounding
 // and truncating constant but because medium's quanta size is larger than a
 // page, it's used instead.
-#define MEDIUM_REGION_SIZE ((NUM_MEDIUM_BLOCKS * MEDIUM_QUANTUM + \
+#define MEDIUM_REGION_SIZE ((MEDIUM_HEAP_SIZE + \
 		MEDIUM_METADATA_SIZE + MEDIUM_QUANTUM - 1) & ~(MEDIUM_QUANTUM - 1))
 
-#define MEDIUM_METADATA_START (NUM_MEDIUM_BLOCKS * MEDIUM_QUANTUM)
+/*
+ * Location of the metadata for a given medium region.
+ */
+#define MEDIUM_REGION_METADATA(region) ((uintptr_t)&((medium_region_t)region)->trailer)
 
 /*
  * Beginning and end pointers for a region's heap.
  */
-#define MEDIUM_REGION_ADDRESS(region) ((unsigned char *)region)
-#define MEDIUM_REGION_END(region) (MEDIUM_REGION_ADDRESS(region) + (NUM_MEDIUM_BLOCKS * MEDIUM_QUANTUM))
+#define MEDIUM_REGION_HEAP_BASE(region) ((void *)((medium_region_t)region)->blocks)
+#define MEDIUM_REGION_HEAP_END(region) (MEDIUM_REGION_HEAP_BASE(region) + MEDIUM_HEAP_SIZE)
 
 /*
  * Locate the heap base for a pointer known to be within a medium region.
  */
-#define MEDIUM_REGION_FOR_PTR(_p) ((void *)((uintptr_t)(_p) & ~((1ull << MEDIUM_BLOCKS_ALIGN) - 1)))
-#define MEDIUM_OFFSET_FOR_PTR(_p) ((uintptr_t)(_p) & ((1ull << MEDIUM_BLOCKS_ALIGN) - 1))
+#define MEDIUM_REGION_FOR_PTR(ptr) ((void *)((uintptr_t)(ptr) & ~((1ull << MEDIUM_BLOCKS_ALIGN) - 1)))
+#define MEDIUM_REGION_OFFSET_FOR_PTR(ptr) ((uintptr_t)(ptr) & ((1ull << MEDIUM_BLOCKS_ALIGN) - 1))
 
 /*
  * Convert between byte and msize units.
@@ -603,20 +647,23 @@ MALLOC_STATIC_ASSERT(NUM_MEDIUM_BLOCKS <= (uint16_t)(~MEDIUM_IS_FREE),
  * Layout of a medium region
  */
 typedef uint32_t medium_block_t[MEDIUM_QUANTUM / sizeof(uint32_t)];
-#define MEDIUM_HEAP_SIZE (NUM_MEDIUM_BLOCKS * sizeof(medium_block_t))
+MALLOC_STATIC_ASSERT(sizeof(medium_block_t) == MEDIUM_QUANTUM,
+		"Incorrect size medium_block_t");
 #define MEDIUM_OOB_COUNT ((MEDIUM_REGION_SIZE - MEDIUM_HEAP_SIZE - \
-		MEDIUM_METADATA_SIZE) / sizeof(oob_free_entry_s))
+		MEDIUM_METADATA_SIZE - sizeof(region_cookie_t)) / sizeof(oob_free_entry_s))
 #define MEDIUM_OOB_SIZE (MEDIUM_OOB_COUNT * sizeof(oob_free_entry_s))
 #define MEDIUM_REGION_PAD (MEDIUM_REGION_SIZE - MEDIUM_HEAP_SIZE - \
-		MEDIUM_METADATA_SIZE - MEDIUM_OOB_SIZE)
+		MEDIUM_METADATA_SIZE - MEDIUM_OOB_SIZE - sizeof(region_cookie_t))
 
 typedef struct medium_region {
-	medium_block_t blocks[NUM_MEDIUM_BLOCKS];
+	// This must be first (because MEDIUM_REGION_METADATA assumes it).
 	region_trailer_t trailer;
 	msize_t medium_meta_words[NUM_MEDIUM_BLOCKS];
 	msize_t medium_madvise_words[NUM_MEDIUM_BLOCKS];
 	oob_free_entry_s medium_oob_free_entries[MEDIUM_OOB_COUNT];
 	uint8_t pad[MEDIUM_REGION_PAD];
+	region_cookie_t region_cookie;
+	medium_block_t blocks[NUM_MEDIUM_BLOCKS];
 } * medium_region_t;
 
 // The layout described above should result in a medium_region_t being 512MB.
@@ -627,35 +674,42 @@ MALLOC_STATIC_ASSERT(sizeof(struct medium_region) == 128 * 1024 * 1024,
  * Per-region meta data for medium allocator
  */
 #define REGION_TRAILER_FOR_MEDIUM_REGION(r) (&(((medium_region_t)(r))->trailer))
+#define REGION_COOKIE_FOR_MEDIUM_REGION(r) (((medium_region_t)(r))->region_cookie)
 #define MAGAZINE_INDEX_FOR_MEDIUM_REGION(r) (REGION_TRAILER_FOR_MEDIUM_REGION(r)->mag_index)
 #define BYTES_USED_FOR_MEDIUM_REGION(r) (REGION_TRAILER_FOR_MEDIUM_REGION(r)->bytes_used)
 
 /*
  * Locate the metadata base for a pointer known to be within a medium region.
  */
-#define MEDIUM_META_HEADER_FOR_PTR(_p) (((medium_region_t)MEDIUM_REGION_FOR_PTR(_p))->medium_meta_words)
-#define MEDIUM_MADVISE_HEADER_FOR_PTR(_p) (((medium_region_t)MEDIUM_REGION_FOR_PTR(_p))->medium_madvise_words)
+#define MEDIUM_META_HEADER_FOR_PTR(ptr) (((medium_region_t)MEDIUM_REGION_FOR_PTR(ptr))->medium_meta_words)
+#define MEDIUM_MADVISE_HEADER_FOR_PTR(ptr) (((medium_region_t)MEDIUM_REGION_FOR_PTR(ptr))->medium_madvise_words)
+#define MEDIUM_META_HEADER_FOR_REGION(region) (((medium_region_t)region)->medium_meta_words)
+
+/*
+ * Heap offset for a pointer known to be within a medium region.
+ */
+#define MEDIUM_HEAP_OFFSET_FOR_PTR(ptr) ((uintptr_t)(ptr) - (uintptr_t)MEDIUM_REGION_HEAP_BASE(MEDIUM_REGION_FOR_PTR(ptr)))
 
 /*
  * Compute the metadata index for a pointer known to be within a medium region.
  */
-#define MEDIUM_META_INDEX_FOR_PTR(_p) (((uintptr_t)(_p) >> SHIFT_MEDIUM_QUANTUM) & (NUM_MEDIUM_CEIL_BLOCKS - 1))
-#define MEDIUM_PTR_FOR_META_INDEX(_region, _i) ((uintptr_t)(_region) + MEDIUM_BYTES_FOR_MSIZE(_i))
+#define MEDIUM_META_INDEX_FOR_PTR(ptr) ((MEDIUM_HEAP_OFFSET_FOR_PTR(ptr) >> SHIFT_MEDIUM_QUANTUM) & (NUM_MEDIUM_CEIL_BLOCKS - 1))
+#define MEDIUM_PTR_FOR_META_INDEX(region, i) (MEDIUM_REGION_HEAP_BASE(region) + MEDIUM_BYTES_FOR_MSIZE(i))
 
 /*
  * Find the metadata word for a pointer known to be within a medium region.
  */
-#define MEDIUM_METADATA_FOR_PTR(_p) (MEDIUM_META_HEADER_FOR_PTR(_p) + MEDIUM_META_INDEX_FOR_PTR(_p))
+#define MEDIUM_METADATA_FOR_PTR(ptr) (MEDIUM_META_HEADER_FOR_PTR(ptr) + MEDIUM_META_INDEX_FOR_PTR(ptr))
 
 /*
  * Determine whether a pointer known to be within a medium region points to memory which is free.
  */
-#define MEDIUM_PTR_IS_FREE(_p) (*MEDIUM_METADATA_FOR_PTR(_p) & MEDIUM_IS_FREE)
+#define MEDIUM_PTR_IS_FREE(ptr) (*MEDIUM_METADATA_FOR_PTR(ptr) & MEDIUM_IS_FREE)
 
 /*
  * Extract the msize value for a pointer known to be within a medium region.
  */
-#define MEDIUM_PTR_SIZE(_p) (*MEDIUM_METADATA_FOR_PTR(_p) & ~MEDIUM_IS_FREE)
+#define MEDIUM_PTR_SIZE(ptr) (*MEDIUM_METADATA_FOR_PTR(ptr) & ~MEDIUM_IS_FREE)
 
 #if !CONFIG_MEDIUM_CACHE
 #warning CONFIG_MEDIUM_CACHE turned off
@@ -683,6 +737,29 @@ typedef struct large_entry_s {
 #define LARGE_THRESHOLD(szone) (SMALL_LIMIT_THRESHOLD)
 #endif // CONFIG_MEDIUM_ALLOCATOR
 
+// Gets the correct guard page flags for tiny/small/medium allocators.
+// The rules are:
+// 1. If MallocGuardEdges == "all" (which is indicated by MALLOC_GUARD_ALL being
+// set), we need to allocate just a postlude guard page in tiny/small/medium.
+// 2. If MallocGuardEdges is defined and has any value other than "all"
+// (indicated by MALLOC_GUARD_ALL being unset), we don't add any guard pages for
+// these allocators.
+//
+// This macro returns a copy of "flags" in which either the prelude guard page
+// bit or both guard page bits are turned off, depending on the value of the
+// MALLOC_GUARD_ALL bit. We can't simply keep the correct set of flags in the
+// zone or rack debug_flags field because the large allocator has different
+// rules (it allocates both guard pages when MallocGuardEdges is defined, and no
+// guard pages if it is not.)
+#define MALLOC_FIX_GUARD_PAGE_FLAGS(flags) 					\
+		((flags) & MALLOC_GUARD_ALL) ?						\
+				((flags) & ~MALLOC_ADD_PRELUDE_GUARD_PAGE)	\
+				: (((flags) & ~MALLOC_ADD_GUARD_PAGE_FLAGS))
+
+// rdar://50715272 - allow us to have an escape hatch to disable ASLR sliding
+// on large allocatins for bincompat
+#define MALLOC_APPLY_LARGE_ASLR(flags) 						\
+		(((flags) & DISABLE_LARGE_ASLR) ? ((flags) | DISABLE_ASLR) : (flags))
 
 /*******************************************************************************
  * Per-processor magazine for tiny and small allocators

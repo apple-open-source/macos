@@ -83,6 +83,7 @@
     }
 
     // Synchronous, on some thread. Get back on the CKKS queue for SQL thread-safety.
+    __block bool enterWaitForTLKUpload = false;
     [ckks dispatchSyncWithAccountKeys: ^bool{
         if(self.cancelled) {
             ckksnotice("ckkstlk", ckks, "CKKSNewTLKOperation cancelled, quitting");
@@ -246,10 +247,19 @@
 
         self.keyset = keyset;
 
-        [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForTLKUpload withError:nil];
-
+        // Finish this transaction to cause a keychiain db commit
+        // This means that if we provide the new keys to another thread, they'll be able to immediately load them from the keychain
+        enterWaitForTLKUpload = true;
         return true;
     }];
+
+    if(enterWaitForTLKUpload) {
+        // And move the CKKS state machine:
+        [ckks dispatchSyncWithAccountKeys: ^bool{
+            [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForTLKUpload withError:nil];
+            return true;
+        }];
+    }
 }
 
 - (void)cancel {

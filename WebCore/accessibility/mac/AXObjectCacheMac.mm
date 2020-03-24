@@ -238,17 +238,7 @@ void AXObjectCache::detachWrapper(AccessibilityObject* obj, AccessibilityDetachm
     obj->setWrapper(nullptr);
 }
 
-#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-void AXObjectCache::associateIsolatedTreeNode(AccessibilityObject& object, AXIsolatedTreeNode& node, AXIsolatedTreeID treeID)
-{
-    auto wrapper = object.wrapper();
-    ASSERT(wrapper);
-    wrapper.isolatedTreeIdentifier = treeID;
-    node.setWrapper(wrapper);
-}
-#endif
-
-void AXObjectCache::attachWrapper(AccessibilityObject* obj)
+void AXObjectCache::attachWrapper(AXCoreObject* obj)
 {
     RetainPtr<WebAccessibilityObjectWrapper> wrapper = adoptNS([[WebAccessibilityObjectWrapper alloc] initWithAccessibilityObject:obj]);
     obj->setWrapper(wrapper.get());
@@ -276,7 +266,7 @@ static void AXPostNotificationWithUserInfo(AccessibilityObjectWrapper *object, N
     NSAccessibilityPostNotificationWithUserInfo(object, notification, userInfo);
 }
 
-void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotification notification)
+void AXObjectCache::postPlatformNotification(AXCoreObject* obj, AXNotification notification)
 {
     if (!obj)
         return;

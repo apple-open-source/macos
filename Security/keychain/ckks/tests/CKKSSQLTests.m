@@ -269,7 +269,14 @@
     XCTAssertEqual       (zse.ckzonesubscribed,   loaded.ckzonesubscribed,    "ckzonesubscribed persisted through db save and load");
     XCTAssertEqualObjects(zse.encodedChangeToken, loaded.encodedChangeToken, "encodedChangeToken persisted through db save and load");
 
-    XCTAssert([[NSCalendar currentCalendar] isDate:zse.lastFetchTime equalToDate: loaded.lastFetchTime toUnitGranularity:NSCalendarUnitSecond],
+    secnotice("ckkstests", "zse.lastFetchTime: %@", zse.lastFetchTime);
+    secnotice("ckkstests", "loaded.lastFetchTime: %@", loaded.lastFetchTime);
+
+    secnotice("ckkstests", "equal?: %d", [zse.lastFetchTime isEqualToDate:loaded.lastFetchTime]);
+    secnotice("ckkstests", "equal to seconds?: %d", [[NSCalendar currentCalendar] isDate:zse.lastFetchTime equalToDate: loaded.lastFetchTime toUnitGranularity:NSCalendarUnitSecond]);
+
+    // We only compare to the minute level, as that's enough to test the save+load.
+    XCTAssert([[NSCalendar currentCalendar] isDate:zse.lastFetchTime equalToDate: loaded.lastFetchTime toUnitGranularity:NSCalendarUnitMinute],
                                                                    "lastFetchTime persisted through db save and load");
 }
 
@@ -411,23 +418,43 @@
     XCTAssertTrue([wrappedKey saveToDatabase: &error], "key saved to database");
     XCTAssertNil(error, "no error saving key to database");
 
+    NSString* secondUUID = @"8b2aeb7f-0000-0000-0000-70d5c728ebf7";
+    CKKSKey* secondtlk = [[CKKSKey alloc] initSelfWrappedWithAESKey:[[CKKSAESSIVKey alloc] initWithBase64: @"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="]
+                                                               uuid:secondUUID
+                                                           keyclass:SecCKKSKeyClassTLK
+                                                              state:SecCKKSProcessedStateLocal
+                                                             zoneID:self.testZoneID
+                                                    encodedCKRecord:testCKRecord
+                                                         currentkey:true];
+    XCTAssertTrue([secondtlk saveToDatabase: &error], "Second TLK saved to database");
+    XCTAssertNil(error, "no error saving TLK to database");
+
     NSArray<CKKSKey*>* tlks = [CKKSKey allWhere: @{@"UUID": @"8b2aeb7f-4af3-43e9-b6e6-70d5c728ebf7"} error: &error];
     XCTAssertNotNil(tlks, "Returned some array from allWhere");
     XCTAssertNil(error, "no error back from allWhere");
     XCTAssertEqual([tlks count], 1ul, "Received one row (and expected one row)");
 
-    NSArray<CKKSKey*>* selfWrapped = [CKKSKey allWhere: @{@"parentKeyUUID": [CKKSSQLWhereObject op:@"=" string:@"uuid"]} error: &error];
+    NSArray<CKKSKey*>* selfWrapped = [CKKSKey allWhere: @{@"parentKeyUUID": [CKKSSQLWhereColumn op:CKKSSQLWhereComparatorEquals column:CKKSSQLWhereColumnNameUUID]} error: &error];
     XCTAssertNotNil(selfWrapped, "Returned some array from allWhere");
     XCTAssertNil(error, "no error back from allWhere");
-    XCTAssertEqual([selfWrapped count], 1ul, "Received one row (and expected one row)");
+    XCTAssertEqual([selfWrapped count], 2ul, "Should have recievied two rows");
 
-    // Try using CKKSSQLWhereObject alongside normal binds
-    NSArray<CKKSKey*>* selfWrapped2 = [CKKSKey allWhere: @{@"parentKeyUUID": [CKKSSQLWhereObject op:@"=" string:@"uuid"],
+    // Try using CKKSSQLWhereColumn alongside normal binds
+    NSArray<CKKSKey*>* selfWrapped2 = [CKKSKey allWhere: @{@"parentKeyUUID": [CKKSSQLWhereColumn op:CKKSSQLWhereComparatorEquals column:CKKSSQLWhereColumnNameUUID],
                                                            @"uuid": @"8b2aeb7f-4af3-43e9-b6e6-70d5c728ebf7"}
                                                   error: &error];
     XCTAssertNotNil(selfWrapped2, "Returned some array from allWhere");
     XCTAssertNil(error, "no error back from allWhere");
     XCTAssertEqual([selfWrapped2 count], 1ul, "Received one row (and expected one row)");
+    XCTAssertEqualObjects([selfWrapped2[0] uuid], @"8b2aeb7f-4af3-43e9-b6e6-70d5c728ebf7", "Should received first TLK UUID");
+
+    NSArray<CKKSKey*>* selfWrapped3 = [CKKSKey allWhere: @{@"parentKeyUUID": [CKKSSQLWhereColumn op:CKKSSQLWhereComparatorEquals column:CKKSSQLWhereColumnNameUUID],
+                                                           @"uuid": [CKKSSQLWhereValue op:CKKSSQLWhereComparatorNotEquals value:@"8b2aeb7f-4af3-43e9-b6e6-70d5c728ebf7"]}
+                                                  error: &error];
+    XCTAssertNotNil(selfWrapped3, "Returned some array from allWhere");
+    XCTAssertNil(error, "no error back from allWhere");
+    XCTAssertEqual([selfWrapped3 count], 1ul, "Should have received one rows");
+    XCTAssertEqualObjects([selfWrapped3[0] uuid], secondUUID, "Should received second TLK UUID");
 }
 
 - (void)testGroupBy {
@@ -507,7 +534,7 @@
     while(count == 0 || uuid != nil) {
         uuid = nil;
         [CKKSSQLDatabaseObject queryDatabaseTable: [CKKSOutgoingQueueEntry sqlTable]
-                                            where: lastUUID ? @{@"UUID": [CKKSSQLWhereObject op:@">" stringValue:lastUUID]} : nil
+                                            where: lastUUID ? @{@"UUID": [CKKSSQLWhereValue op:CKKSSQLWhereComparatorGreaterThan value:lastUUID]} : nil
                                           columns: @[@"action", @"UUID"]
                                           groupBy:nil
                                           orderBy:@[@"uuid"]

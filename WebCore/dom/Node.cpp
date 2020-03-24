@@ -77,6 +77,7 @@
 #include "WheelEvent.h"
 #include "XMLNSNames.h"
 #include "XMLNames.h"
+#include <JavaScriptCore/HeapInlines.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/SHA1.h>
@@ -108,8 +109,6 @@ static const char* stringForRareDataUseType(NodeRareData::UseType useType)
         return "MutationObserver";
     case NodeRareData::UseType::TabIndex:
         return "TabIndex";
-    case NodeRareData::UseType::StyleFlags:
-        return "StyleFlags";
     case NodeRareData::UseType::MinimumSize:
         return "MinimumSize";
     case NodeRareData::UseType::ScrollingPosition:
@@ -396,15 +395,18 @@ void Node::willBeDeletedFrom(Document& document)
 
 void Node::materializeRareData()
 {
-    NodeRareData* data;
     if (is<Element>(*this))
-        data = std::make_unique<ElementRareData>(downcast<RenderElement>(m_data.m_renderer)).release();
+        m_rareData = std::unique_ptr<NodeRareData, NodeRareDataDeleter>(new ElementRareData);
     else
-        data = std::make_unique<NodeRareData>(m_data.m_renderer).release();
-    ASSERT(data);
+        m_rareData = std::unique_ptr<NodeRareData, NodeRareDataDeleter>(new NodeRareData);
+}
 
-    m_data.m_rareData = data;
-    setFlag(HasRareDataFlag);
+inline void Node::NodeRareDataDeleter::operator()(NodeRareData* rareData) const
+{
+    if (rareData->isElementRareData())
+        delete static_cast<ElementRareData*>(rareData);
+    else
+        delete static_cast<NodeRareData*>(rareData);
 }
 
 void Node::clearRareData()
@@ -412,13 +414,7 @@ void Node::clearRareData()
     ASSERT(hasRareData());
     ASSERT(!transientMutationObserverRegistry() || transientMutationObserverRegistry()->isEmpty());
 
-    RenderObject* renderer = m_data.m_rareData->renderer();
-    if (isElementNode())
-        delete static_cast<ElementRareData*>(m_data.m_rareData);
-    else
-        delete static_cast<NodeRareData*>(m_data.m_rareData);
-    m_data.m_renderer = renderer;
-    clearFlag(HasRareDataFlag);
+    m_rareData = nullptr;
 }
 
 bool Node::isNode() const
@@ -1614,6 +1610,14 @@ static inline unsigned short compareDetachedElementsPosition(Node& firstNode, No
     return Node::DOCUMENT_POSITION_DISCONNECTED | Node::DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC | direction;
 }
 
+bool areNodesConnectedInSameTreeScope(const Node* a, const Node* b)
+{
+    if (!a || !b)
+        return false;
+    // Note that we avoid comparing Attr nodes here, since they return false from isConnected() all the time (which seems like a bug).
+    return a->isConnected() == b->isConnected() && &a->treeScope() == &b->treeScope();
+}
+
 unsigned short Node::compareDocumentPosition(Node& otherNode)
 {
     if (&otherNode == this)
@@ -1658,9 +1662,8 @@ unsigned short Node::compareDocumentPosition(Node& otherNode)
     }
 
     // If one node is in the document and the other is not, we must be disconnected.
-    // If the nodes have different owning documents, they must be disconnected.  Note that we avoid
-    // comparing Attr nodes here, since they return false from isConnected() all the time (which seems like a bug).
-    if (start1->isConnected() != start2->isConnected() || &start1->treeScope() != &start2->treeScope())
+    // If the nodes have different owning documents, they must be disconnected.
+    if (!areNodesConnectedInSameTreeScope(start1, start2))
         return compareDetachedElementsPosition(*this, otherNode);
 
     // We need to find a common ancestor container, and then compare the indices of the two immediate children.
@@ -1911,8 +1914,8 @@ void Node::showTreeForThisAcrossFrame() const
 
 void NodeListsNodeData::invalidateCaches()
 {
-    for (auto& atomicName : m_atomicNameCaches)
-        atomicName.value->invalidateCache();
+    for (auto& atomName : m_atomNameCaches)
+        atomName.value->invalidateCache();
 
     for (auto& collection : m_cachedCollections)
         collection.value->invalidateCache();
@@ -1923,8 +1926,8 @@ void NodeListsNodeData::invalidateCaches()
 
 void NodeListsNodeData::invalidateCachesForAttribute(const QualifiedName& attrName)
 {
-    for (auto& atomicName : m_atomicNameCaches)
-        atomicName.value->invalidateCacheForAttribute(attrName);
+    for (auto& atomName : m_atomNameCaches)
+        atomName.value->invalidateCacheForAttribute(attrName);
 
     for (auto& collection : m_cachedCollections)
         collection.value->invalidateCacheForAttribute(attrName);
@@ -2061,7 +2064,7 @@ void Node::moveNodeToNewDocument(Document& oldDocument, Document& newDocument)
 
         unsigned numTouchEventListeners = 0;
 #if ENABLE(TOUCH_EVENTS)
-        if (newDocument.quirks().shouldDispatchSimulatedMouseEvents() || RuntimeEnabledFeatures::sharedFeatures().mouseEventsSimulationEnabled()) {
+        if (newDocument.quirks().shouldDispatchSimulatedMouseEvents()) {
             for (auto& name : eventNames().extendedTouchRelatedEventNames())
                 numTouchEventListeners += eventListeners(name).size();
         } else {
@@ -2119,8 +2122,10 @@ static inline bool tryAddEventListener(Node* targetNode, const AtomString& event
         targetNode->document().didAddTouchEventHandler(*targetNode);
 
 #if PLATFORM(IOS_FAMILY)
-    if (targetNode == &targetNode->document() && eventType == eventNames().scrollEvent)
-        targetNode->document().domWindow()->incrementScrollEventListenersCount();
+    if (targetNode == &targetNode->document() && eventType == eventNames().scrollEvent) {
+        if (auto* window = targetNode->document().domWindow())
+            window->incrementScrollEventListenersCount();
+    }
 
 #if ENABLE(TOUCH_EVENTS)
     if (eventNames().isTouchRelatedEventType(targetNode->document(), eventType))
@@ -2154,8 +2159,10 @@ static inline bool tryRemoveEventListener(Node* targetNode, const AtomString& ev
         targetNode->document().didRemoveTouchEventHandler(*targetNode);
 
 #if PLATFORM(IOS_FAMILY)
-    if (targetNode == &targetNode->document() && eventType == eventNames().scrollEvent)
-        targetNode->document().domWindow()->decrementScrollEventListenersCount();
+    if (targetNode == &targetNode->document() && eventType == eventNames().scrollEvent) {
+        if (auto* window = targetNode->document().domWindow())
+            window->decrementScrollEventListenersCount();
+    }
 
 #if ENABLE(TOUCH_EVENTS)
     if (eventNames().isTouchRelatedEventType(targetNode->document(), eventType))
@@ -2215,7 +2222,7 @@ EventTargetData& Node::ensureEventTargetData()
 
     auto locker = holdLock(s_eventTargetDataMapLock);
     setHasEventTargetData(true);
-    return *eventTargetDataMap().add(this, std::make_unique<EventTargetData>()).iterator->value;
+    return *eventTargetDataMap().add(this, makeUnique<EventTargetData>()).iterator->value;
 }
 
 void Node::clearEventTargetData()
@@ -2287,7 +2294,7 @@ void Node::registerMutationObserver(MutationObserver& observer, MutationObserver
     }
 
     if (!registration) {
-        registry.append(std::make_unique<MutationObserverRegistration>(observer, *this, options, attributeFilter));
+        registry.append(makeUnique<MutationObserverRegistration>(observer, *this, options, attributeFilter));
         registration = registry.last().get();
     }
 

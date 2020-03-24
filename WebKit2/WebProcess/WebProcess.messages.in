@@ -20,8 +20,8 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-messages -> WebProcess LegacyReceiver {
-    InitializeWebProcess(struct WebKit::WebProcessCreationParameters processCreationParameters)
+messages -> WebProcess LegacyReceiver NotRefCounted {
+    InitializeWebProcess(struct WebKit::WebProcessCreationParameters processCreationParameters) -> () Async
     SetWebsiteDataStoreParameters(struct WebKit::WebProcessDataStoreParameters parameters)
 
     # Create a new page.
@@ -53,9 +53,8 @@ messages -> WebProcess LegacyReceiver {
     FullKeyboardAccessModeChanged(bool fullKeyboardAccessEnabled)
 
     # Plug-ins.
-    DidAddPlugInAutoStartOriginHash(uint32_t hash, WallTime expirationTime, PAL::SessionID sessionID)
-    ResetPlugInAutoStartOriginDefaultHashes(HashMap<uint32_t,WallTime> hashes)
-    ResetPlugInAutoStartOriginHashes(HashMap<PAL::SessionID, HashMap<uint32_t,WallTime>> hashes)
+    DidAddPlugInAutoStartOriginHash(uint32_t hash, WallTime expirationTime)
+    ResetPlugInAutoStartOriginHashes(HashMap<uint32_t,WallTime> hashes)
     SetPluginLoadClientPolicy(uint8_t policy, String host, String bundleIdentifier, String versionString)
     ResetPluginLoadClientPolicies(HashMap<String, HashMap<String, HashMap<String, uint8_t>>> pluginLoadClientPolicies)
     ClearPluginClientPolicies()
@@ -76,11 +75,9 @@ messages -> WebProcess LegacyReceiver {
     SetInjectedBundleParameters(IPC::DataReference parameters);
     HandleInjectedBundleMessage(String messageName, WebKit::UserData messageBody);
 
-    ReleasePageCache()
-
-    FetchWebsiteData(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes) -> (struct WebKit::WebsiteData websiteData) Async
-    DeleteWebsiteData(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, WallTime modifiedSince) -> () Async
-    DeleteWebsiteDataForOrigins(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> websiteDataTypes, Vector<WebCore::SecurityOriginData> origins) -> () Async
+    FetchWebsiteData(OptionSet<WebKit::WebsiteDataType> websiteDataTypes) -> (struct WebKit::WebsiteData websiteData) Async
+    DeleteWebsiteData(OptionSet<WebKit::WebsiteDataType> websiteDataTypes, WallTime modifiedSince) -> () Async
+    DeleteWebsiteDataForOrigins(OptionSet<WebKit::WebsiteDataType> websiteDataTypes, Vector<WebCore::SecurityOriginData> origins) -> () Async
 
     SetHiddenPageDOMTimerThrottlingIncreaseLimit(int milliseconds)
 #if PLATFORM(COCOA)
@@ -96,9 +93,7 @@ messages -> WebProcess LegacyReceiver {
     EnsureAutomationSessionProxy(String sessionIdentifier)
     DestroyAutomationSessionProxy()
 
-    ProcessWillSuspendImminently()
-    PrepareToSuspend()
-    CancelPrepareToSuspend()
+    PrepareToSuspend(bool isSuspensionImminent) -> () Async
     ProcessDidResume()
 
     MainThreadPing()
@@ -111,14 +106,9 @@ messages -> WebProcess LegacyReceiver {
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    EstablishWorkerContextConnectionToNetworkProcess(uint64_t pageGroupID, WebCore::PageIdentifier pageID, struct WebKit::WebPreferencesStore store, PAL::SessionID initialSessionID, struct WebKit::ServiceWorkerInitializationData initializationData)
+    EstablishWorkerContextConnectionToNetworkProcess(uint64_t pageGroupID, WebKit::WebPageProxyIdentifier webPageProxyID, WebCore::PageIdentifier pageID, struct WebKit::WebPreferencesStore store, WebCore::RegistrableDomain domain, struct WebKit::ServiceWorkerInitializationData initializationData) -> () Async
     RegisterServiceWorkerClients()
 #endif
-
-    DidTakeAllMessagesForPort(Vector<WebCore::MessageWithMessagePorts> messages, uint64_t messageCallbackIdentifier, uint64_t messageBatchIdentifier)
-    DidCheckRemotePortForActivity(uint64_t callbackIdentifier, bool hasActivity)
-    CheckProcessLocalPortForActivity(struct WebCore::MessagePortIdentifier port, uint64_t callbackIdentifier)
-    MessagesAvailableForPort(struct WebCore::MessagePortIdentifier port)
 
     SetHasSuspendedPageProxy(bool hasSuspendedPageProxy);
     SetIsInProcessCache(bool isInProcessCache)
@@ -135,7 +125,7 @@ messages -> WebProcess LegacyReceiver {
 #endif
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
     BacklightLevelDidChange(float backlightLevel)
 #endif
 
@@ -159,7 +149,18 @@ messages -> WebProcess LegacyReceiver {
 
     ClearCurrentModifierStateForTesting()
 
+    SetBackForwardCacheCapacity(unsigned capacity);
+    ClearCachedPage(struct WebCore::BackForwardItemIdentifier backForwardItemID) -> () Async
+
 #if PLATFORM(IOS_FAMILY)
     UnblockAccessibilityServer(WebKit::SandboxExtension::Handle handle)
+#endif
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    SendMessageToWebExtension(struct WebKit::UserMessage userMessage)
+#endif
+
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    SeedResourceLoadStatisticsForTesting(WebCore::RegistrableDomain firstPartyDomain, WebCore::RegistrableDomain thirdPartyDomain, bool shouldScheduleNotification) -> () Async
 #endif
 }

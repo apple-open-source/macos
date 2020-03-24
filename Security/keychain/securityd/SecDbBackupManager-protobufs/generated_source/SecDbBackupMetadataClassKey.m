@@ -25,7 +25,7 @@
 }
 - (BOOL)hasKeyClass
 {
-    return _has.keyClass;
+    return _has.keyClass != 0;
 }
 - (BOOL)hasBackupWrappedMetadataKey
 {

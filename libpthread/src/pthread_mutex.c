@@ -1444,7 +1444,7 @@ _pthread_mutex_firstfit_lock(pthread_mutex_t *omutex, bool trylock)
 	mutex_seq oldseq, newseq;
 	mutex_seq_load(seqaddr, &oldseq);
 
-	if (os_unlikely(oldseq.lgenval & PTH_RWL_EBIT)) {
+	if (os_unlikely(!trylock && (oldseq.lgenval & PTH_RWL_EBIT))) {
 		return _pthread_mutex_firstfit_lock_slow(mutex, trylock);
 	}
 
@@ -1454,9 +1454,16 @@ _pthread_mutex_firstfit_lock(pthread_mutex_t *omutex, bool trylock)
 		gotlock = is_rwl_ebit_clear(oldseq.lgenval);
 
 		if (trylock && !gotlock) {
+#if __LP64__
+			// The sequence load is atomic, so we can bail here without writing
+			// it and avoid some unnecessary coherence traffic - rdar://57259033
+			os_atomic_thread_fence(acquire);
+			return EBUSY;
+#else
 			// A trylock on a held lock will fail immediately. But since
 			// we did not load the sequence words atomically, perform a
 			// no-op CAS64 to ensure that nobody has unlocked concurrently.
+#endif
 		} else if (os_likely(gotlock)) {
 			// In first-fit, getting the lock simply adds the E-bit
 			newseq.lgenval |= PTH_RWL_EBIT;

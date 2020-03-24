@@ -47,7 +47,7 @@ AEP_Version    = 6.21.00
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = config_f.h.patch host.defs.patch tc.sig.h.patch
+AEP_Patches    = config_f.h.patch host.defs.patch host.defs.mach.patch tc.sig.h.patch
 
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)

@@ -85,7 +85,7 @@ OSStatus ReadDATA(const uint8_t**bytesPtr, size_t*sizePtr, size_t* dataSize, uin
 static CC_NONNULL((1,2,3))
 OSStatus CreatePublicKey(const uint8_t**bytesPtr, size_t*sizePtr, SecOTRPublicIdentityRef* publicId);
 
-static CC_NONNULL((1,2,3))
+static CC_NONNULL((2,3))
 CFMutableDataRef CFDataCreateMutableFromOTRDATA(CFAllocatorRef allocator, const uint8_t**bytesPtr, size_t*sizePtr);
 
 static CC_NONNULL((1))

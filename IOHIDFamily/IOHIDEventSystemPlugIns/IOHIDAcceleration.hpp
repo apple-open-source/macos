@@ -63,6 +63,7 @@ private:
   uint64_t                    _lastTimeStamp;
   double                      _resolution;
   double                      _rate;
+  double                      _fixedMultiplier;
   
   static mach_timebase_info_data_t    _timebase;
   
@@ -70,12 +71,13 @@ private:
 
 public:
   
-  IOHIDScrollAccelerator (IOHIDAccelerationAlgorithm *algorithm, double resolution, double rate):
+  IOHIDScrollAccelerator (IOHIDAccelerationAlgorithm *algorithm, double resolution, double rate, double fixedMultiplier):
     _algorithm(algorithm),
     _tail (0),
     _head (0),
     _resolution(resolution),
-    _rate(rate) {
+    _rate(rate),
+    _fixedMultiplier(fixedMultiplier) {
     if ( _timebase.denom == 0 ) {
       (void) mach_timebase_info(&_timebase);
     }
@@ -98,14 +100,16 @@ private:
   uint64_t                    _lastTimeStamp;
   double                      _resolution;
   double                      _rate;
+  double                      _fixedMultiplier;
   
   static mach_timebase_info_data_t    _timebase;
 public:
   
-  IOHIDPointerAccelerator (IOHIDAccelerationAlgorithm *algorithm, double resolution, double rate):
+  IOHIDPointerAccelerator (IOHIDAccelerationAlgorithm *algorithm, double resolution, double rate, double fixedMultiplier):
     _algorithm(algorithm),
     _resolution (resolution),
-    _rate (rate) {
+    _rate (rate),
+    _fixedMultiplier(fixedMultiplier) {
       
     if ( _timebase.denom == 0 ) {
        (void) mach_timebase_info(&_timebase);

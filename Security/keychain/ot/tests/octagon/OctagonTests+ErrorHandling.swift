@@ -2,6 +2,30 @@
 
 class OctagonErrorHandlingTests: OctagonTestsBase {
 
+    func testEstablishFailedError() throws {
+        self.startCKAccountStatusMock()
+
+        let establishExpectation = self.expectation(description: "establishExpectation")
+
+        self.fakeCuttlefishServer.establishListener = {  [unowned self] request in
+            self.fakeCuttlefishServer.establishListener = nil
+
+            self.fakeCuttlefishServer.establish(request) {
+                response, error in
+                XCTAssertNil(error, "should be no error from establish")
+                XCTAssertNotNil(response, "should get a response from establish")
+                // drop the response on the floor
+            }
+
+            establishExpectation.fulfill()
+
+            return FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .establishFailed)
+        }
+
+        _ = self.assertResetAndBecomeTrustedInDefaultContext()
+        self.wait(for: [establishExpectation], timeout: 10)
+    }
+
     func testRecoverFromImmediateTimeoutDuringEstablish() throws {
         self.startCKAccountStatusMock()
 
@@ -75,6 +99,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         self.aksLockState = true
@@ -90,6 +115,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
@@ -146,6 +172,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
@@ -178,6 +205,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
@@ -225,6 +253,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
@@ -258,9 +287,9 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
     func testPreapprovedPushWhileLocked() throws {
         // Peer 1 becomes SOS+Octagon
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -277,7 +306,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        // Peer 2 attempts to join via preapprovalh
+        // Peer 2 attempts to join via preapproval
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         let peer2contextID = "peer2"
         let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
@@ -324,31 +353,36 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.wait(for: [updateTrustExpectation], timeout: 100)
         self.fakeCuttlefishServer.updateListener = nil
 
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
         // Now, peer 2 should lock and receive an Octagon push
         self.aksLockState = true
         self.lockStateTracker.recheck()
 
-        // Now, peer2 should receive an Octagon push, try to realize it is preapproved, and get stuck
+        // Now, peer2 should receive an Octagon push, try to realize it is preapproved, and get stuck waiting for an unlock
+        let flagCondition = peer2.stateMachine.flags.condition(forFlag: OctagonFlagCuttlefishNotification)
+
         self.sendContainerChange(context: peer2)
         self.assertEnters(context: peer2, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
-        sleep(1)
 
-        XCTAssertTrue(peer2.stateMachine.possiblePendingFlags().contains(OctagonFlagCuttlefishNotification), "Should have recd_push pending flag")
+        // The pending flag should become a real flag after the lock state changes
+        // But it should not fire for a bit
+        XCTAssertNotEqual(0, flagCondition.wait(1 * NSEC_PER_SEC), "Cuttlefish Notification flag should not be removed while locked")
 
         self.aksLockState = false
         self.lockStateTracker.recheck()
 
-        XCTAssertEqual(self.cuttlefishContext.stateMachine.possiblePendingFlags(), [], "Should have 0 pending flags")
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(0, flagCondition.wait(10 * NSEC_PER_SEC), "Cuttlefish Notification flag should be removed")
+        XCTAssertEqual(peer2.stateMachine.possiblePendingFlags(), [], "Should have 0 pending flags")
 
         self.assertEnters(context: peer2, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
     }
 
     func testReceiveMachineListUpdateWhileReadyAndLocked() throws {
         // Peer 1 becomes SOS+Octagon
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -383,12 +417,12 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         bNewOTCliqueContext.otControl = self.otcliqueContext.otControl
         bNewOTCliqueContext.sbd = OTMockSecureBackup(bottleID: bottle.bottleID, entropy: entropy!)
 
-        let deviceBmockAuthKit = OTMockAuthKitAdapter(altDSID: self.otcliqueContext.altDSID,
+        let deviceBmockAuthKit = OTMockAuthKitAdapter(altDSID: self.otcliqueContext.altDSID!,
                                                       machineID: "b-machine-id",
                                                       otherDevices: [self.mockAuthKit.currentMachineID])
 
         let bRestoreContext = self.manager.context(forContainerName: OTCKContainerName,
-                                                   contextID: bNewOTCliqueContext.context!,
+                                                   contextID: bNewOTCliqueContext.context,
                                                    sosAdapter: OTSOSMissingAdapter(),
                                                    authKitAdapter: deviceBmockAuthKit,
                                                    lockStateTracker: self.lockStateTracker,
@@ -447,13 +481,14 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
     }
 
     func testCKKSResetRecoverFromCKKSConflict() throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putFakeDeviceStatusesInCloudKit()
         // But do NOT add them to the keychain
 
         // CKKS should get stuck in waitfortlk
         self.startCKAccountStatusMock()
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
@@ -473,23 +508,18 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         var tlkUUIDs: [CKRecordZone.ID: String] = [:]
 
         self.silentFetchesAllowed = false
-        self.expectCKFetchAndRun(beforeFinished: {
-            self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-            self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
+        self.expectCKFetchAndRun {
+            self.putFakeKeyHierarchiesInCloudKit()
+            self.putFakeDeviceStatusesInCloudKit()
             self.silentFetchesAllowed = true
 
-            // Use the commented version below when multi-zone support is readded to the tets
-            tlkUUIDs[self.manateeZoneID!] = (self.keys![self.manateeZoneID!] as? ZoneKeys)?.tlk?.uuid
-            /*
             for zoneID in self.ckksZones {
                 tlkUUIDs[zoneID as! CKRecordZone.ID] = (self.keys![zoneID] as? ZoneKeys)?.tlk?.uuid
             }
-             */
-        })
+        }
 
         let resetExepctation = self.expectation(description: "reset callback is called")
-        self.cuttlefishContext.viewManager!.rpcResetCloudKit(nil, reason: "unit-test") {
-            error in
+        self.cuttlefishContext.viewManager!.rpcResetCloudKit(nil, reason: "unit-test") { error in
             XCTAssertNil(error, "should be no error resetting cloudkit")
             resetExepctation.fulfill()
         }

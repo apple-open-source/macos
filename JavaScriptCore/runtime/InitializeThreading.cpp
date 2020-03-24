@@ -33,6 +33,7 @@
 #include "ExecutableAllocator.h"
 #include "Heap.h"
 #include "Identifier.h"
+#include "JSCConfig.h"
 #include "JSCPtrTag.h"
 #include "JSDateMath.h"
 #include "JSGlobalObject.h"
@@ -43,6 +44,7 @@
 #include "SigillCrashAnalyzer.h"
 #include "StructureIDTable.h"
 #include "SuperSampler.h"
+#include "WasmCalleeRegistry.h"
 #include "WasmCapabilities.h"
 #include "WasmThunks.h"
 #include "WriteBarrier.h"
@@ -61,6 +63,9 @@ void initializeThreading()
     static std::once_flag initializeThreadingOnceFlag;
 
     std::call_once(initializeThreadingOnceFlag, []{
+        RELEASE_ASSERT(!g_jscConfig.initializeThreadingHasBeenCalled);
+        g_jscConfig.initializeThreadingHasBeenCalled = true;
+
         WTF::initializeThreading();
         Options::initialize();
 
@@ -86,8 +91,10 @@ void initializeThreading()
         thread.setSavedLastStackTop(thread.stack().origin());
 
 #if ENABLE(WEBASSEMBLY)
-        if (Wasm::isSupported())
+        if (Wasm::isSupported()) {
             Wasm::Thunks::initialize();
+            Wasm::CalleeRegistry::initialize();
+        }
 #endif
 
         if (VM::isInMiniMode())

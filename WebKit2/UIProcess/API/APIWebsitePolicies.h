@@ -42,11 +42,10 @@
 
 namespace WebKit {
 struct WebsitePoliciesData;
+class WebsiteDataStore;
 }
 
 namespace API {
-
-class WebsiteDataStore;
 
 class WebsitePolicies final : public API::ObjectImpl<API::Object::Type::WebsitePolicies> {
 public:
@@ -79,16 +78,16 @@ public:
     WebKit::WebsitePopUpPolicy popUpPolicy() const { return m_popUpPolicy; }
     void setPopUpPolicy(WebKit::WebsitePopUpPolicy policy) { m_popUpPolicy = policy; }
 
-    WebsiteDataStore* websiteDataStore() const { return m_websiteDataStore.get(); }
-    void setWebsiteDataStore(RefPtr<WebsiteDataStore>&&);
+    WebKit::WebsiteDataStore* websiteDataStore() const { return m_websiteDataStore.get(); }
+    void setWebsiteDataStore(RefPtr<WebKit::WebsiteDataStore>&&);
 
     WebKit::WebsitePoliciesData data();
 
     void setCustomUserAgent(const WTF::String& customUserAgent) { m_customUserAgent = customUserAgent; }
     const WTF::String& customUserAgent() const { return m_customUserAgent; }
 
-    void setCustomJavaScriptUserAgentAsSiteSpecificQuirks(const WTF::String& customUserAgent) { m_customJavaScriptUserAgentAsSiteSpecificQuirks = customUserAgent; }
-    const WTF::String& customJavaScriptUserAgentAsSiteSpecificQuirks() const { return m_customJavaScriptUserAgentAsSiteSpecificQuirks; }
+    void setCustomUserAgentAsSiteSpecificQuirks(const WTF::String& customUserAgent) { m_customUserAgentAsSiteSpecificQuirks = customUserAgent; }
+    const WTF::String& customUserAgentAsSiteSpecificQuirks() const { return m_customUserAgentAsSiteSpecificQuirks; }
 
     void setCustomNavigatorPlatform(const WTF::String& customNavigatorPlatform) { m_customNavigatorPlatform = customNavigatorPlatform; }
     const WTF::String& customNavigatorPlatform() const { return m_customNavigatorPlatform; }
@@ -118,7 +117,7 @@ public:
     void setAllowContentChangeObserverQuirk(bool allow) { m_allowContentChangeObserverQuirk = allow; }
 
 private:
-    WebsitePolicies(bool contentBlockersEnabled, OptionSet<WebKit::WebsiteAutoplayQuirk>, WebKit::WebsiteAutoplayPolicy, Vector<WebCore::HTTPHeaderField>&&, Vector<WebCore::CustomHeaderFields>&&, WebKit::WebsitePopUpPolicy, RefPtr<WebsiteDataStore>&&);
+    WebsitePolicies(bool contentBlockersEnabled, OptionSet<WebKit::WebsiteAutoplayQuirk>, WebKit::WebsiteAutoplayPolicy, Vector<WebCore::HTTPHeaderField>&&, Vector<WebCore::CustomHeaderFields>&&, WebKit::WebsitePopUpPolicy, RefPtr<WebKit::WebsiteDataStore>&&);
 
     bool m_contentBlockersEnabled { true };
     OptionSet<WebKit::WebsiteAutoplayQuirk> m_allowedAutoplayQuirks;
@@ -129,9 +128,9 @@ private:
     Vector<WebCore::HTTPHeaderField> m_legacyCustomHeaderFields;
     Vector<WebCore::CustomHeaderFields> m_customHeaderFields;
     WebKit::WebsitePopUpPolicy m_popUpPolicy { WebKit::WebsitePopUpPolicy::Default };
-    RefPtr<WebsiteDataStore> m_websiteDataStore;
+    RefPtr<WebKit::WebsiteDataStore> m_websiteDataStore;
     WTF::String m_customUserAgent;
-    WTF::String m_customJavaScriptUserAgentAsSiteSpecificQuirks;
+    WTF::String m_customUserAgentAsSiteSpecificQuirks;
     WTF::String m_customNavigatorPlatform;
     WebKit::WebContentMode m_preferredContentMode { WebKit::WebContentMode::Recommended };
     WebKit::WebsiteMetaViewportPolicy m_metaViewportPolicy { WebKit::WebsiteMetaViewportPolicy::Default };

@@ -69,6 +69,7 @@
               (id)kSecAttrAccount : account,
               (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
               (id)kSecValueData : data,
+              (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
               (id)kSecAttrDeriveSyncIDFromItemAttributes : (id)kCFBooleanTrue,
               (id)kSecAttrPCSPlaintextServiceIdentifier : serviceIdentifier,
               (id)kSecAttrPCSPlaintextPublicKey : publicKey,
@@ -180,6 +181,7 @@
                                     (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
                                     (id)kSecAttrAccount : @"testaccount",
                                     (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
                                     (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
                                     } mutableCopy];
 
@@ -191,6 +193,8 @@
 
         [blockExpectation fulfill];
     }), @"_SecItemAddAndNotifyOnSync succeeded");
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 10);
 
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
@@ -223,6 +227,7 @@
         (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
         (id)kSecAttrAccount : @"testaccount",
         (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+        (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
         (id)kSecAttrPCSPlaintextPublicKey : [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
         (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
     } mutableCopy];
@@ -275,6 +280,7 @@
                                     (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
                                     (id)kSecAttrAccount : @"testaccount",
                                     (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
                                     (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
                                     (id)kSecAttrSyncViewHint : self.keychainView.zoneName, // @ fake view hint for fake view
                                     } mutableCopy];
@@ -306,6 +312,7 @@
                                     (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
                                     (id)kSecAttrAccount : @"testaccount",
                                     (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
                                     (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
                                     } mutableCopy];
 
@@ -333,6 +340,7 @@
                                     (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
                                     (id)kSecAttrAccount : @"testaccount",
                                     (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
                                     (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
                                     } mutableCopy];
 
@@ -396,6 +404,59 @@
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
+}
+
+- (void)testAddAndNotifyOnSyncBeforePolicyLoaded {
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self saveTLKMaterialToKeychain:self.keychainZoneID];
+    [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
+
+    [self startCKKSSubsystem];
+
+    // Allow CKKS to spin up fully
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered ready");
+
+    [self.keychainView waitForOperationsOfClass:[CKKSScanLocalItemsOperation class]];
+    [self.keychainView waitForOperationsOfClass:[CKKSOutgoingQueueOperation class]];
+
+    // Simulate a daemon restart
+    self.automaticallyBeginCKKSViewCloudKitOperation = false;
+    [self.injectedManager resetSyncingPolicy];
+    [self.injectedManager haltZone:self.keychainZoneID.zoneName];
+
+    // Issue the query (to simulate the query starting securityd)
+    NSMutableDictionary* query = [@{
+                                    (id)kSecClass : (id)kSecClassGenericPassword,
+                                    (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                                    (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+                                    (id)kSecAttrAccount : @"testaccount",
+                                    (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                                    (id)kSecAttrSyncViewHint : self.keychainView.zoneName,
+                                    (id)kSecValueData : (id) [@"asdf" dataUsingEncoding:NSUTF8StringEncoding],
+                                    } mutableCopy];
+
+    XCTestExpectation* blockExpectation = [self expectationWithDescription: @"callback occurs"];
+
+    XCTAssertEqual(errSecSuccess, _SecItemAddAndNotifyOnSync((__bridge CFDictionaryRef) query, NULL, ^(bool didSync, CFErrorRef error) {
+        XCTAssertTrue(didSync, "Item synced");
+        XCTAssertNil((__bridge NSError*)error, "Shouldn't have received an error syncing item");
+
+        [blockExpectation fulfill];
+    }), @"_SecItemAddAndNotifyOnSync succeeded");
+
+    // When the policy is loaded, the item should upload and the callback should fire
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.keychainZoneID];
+
+    [self.injectedManager setSyncingViews:self.managedViewList sortingPolicy:self.viewSortingPolicyForManagedViewList];
+    self.keychainView = [self.injectedManager findView:self.keychainZoneID.zoneName];
+
+    [self.injectedManager beginCloudKitOperationOfAllViews];
+    [self beginSOSTrustedViewOperation:self.keychainView];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Should have reached key state 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self waitForExpectations:@[blockExpectation] timeout:5];
 }
 
 - (void)testPCSUnencryptedFieldsAdd {

@@ -27,7 +27,7 @@ import SecurityFoundation
 let OT_RECOVERY_SIGNING_HKDF_SIZE = 56
 let OT_RECOVERY_ENCRYPTION_HKDF_SIZE = 56
 
-enum recoveryKeyType: Int {
+enum RecoveryKeyType: Int {
     case kOTRecoveryKeySigning = 1
     case kOTRecoveryKeyEncryption = 2
 }
@@ -43,10 +43,10 @@ class RecoveryKeySet: NSObject {
         self.secret = secret
         self.recoverySalt = recoverySalt
 
-        let encryptionKeyData = try RecoveryKeySet.generateRecoveryKey(keyType: recoveryKeyType.kOTRecoveryKeyEncryption, masterSecret: secret, recoverySalt: recoverySalt)
+        let encryptionKeyData = try RecoveryKeySet.generateRecoveryKey(keyType: RecoveryKeyType.kOTRecoveryKeyEncryption, masterSecret: secret, recoverySalt: recoverySalt)
         self.encryptionKey = _SFECKeyPair.init(secKey: try RecoveryKeySet.createSecKey(keyData: encryptionKeyData))
 
-        let signingKeyData = try RecoveryKeySet.generateRecoveryKey(keyType: recoveryKeyType.kOTRecoveryKeySigning, masterSecret: secret, recoverySalt: recoverySalt)
+        let signingKeyData = try RecoveryKeySet.generateRecoveryKey(keyType: RecoveryKeyType.kOTRecoveryKeySigning, masterSecret: secret, recoverySalt: recoverySalt)
         self.signingKey = _SFECKeyPair.init(secKey: try RecoveryKeySet.createSecKey(keyData: signingKeyData))
 
         let RecoverySigningPubKeyHash = try RecoveryKeySet.hashRecoveryedSigningPublicKey(keyData: self.signingKey.publicKey().spki())
@@ -58,27 +58,25 @@ class RecoveryKeySet: NSObject {
         return  SecRKCreateRecoveryKeyString(nil) as String
     }
 
-    class func generateRecoveryKey(keyType: recoveryKeyType, masterSecret: Data, recoverySalt: String) throws -> (Data) {
+    class func generateRecoveryKey(keyType: RecoveryKeyType, masterSecret: Data, recoverySalt: String) throws -> (Data) {
         var keyLength: Int
         var info: Data
         var derivedKey: Data
         var finalKey = Data()
 
         switch keyType {
-        case recoveryKeyType.kOTRecoveryKeyEncryption:
+        case RecoveryKeyType.kOTRecoveryKeyEncryption:
             keyLength = OT_RECOVERY_ENCRYPTION_HKDF_SIZE
 
             let infoString = Array("Recovery Encryption Private Key".utf8)
             info = Data(bytes: infoString, count: infoString.count)
 
-            break
-        case recoveryKeyType.kOTRecoveryKeySigning:
+        case RecoveryKeyType.kOTRecoveryKeySigning:
             keyLength = OT_RECOVERY_SIGNING_HKDF_SIZE
 
             let infoString = Array("Recovery Signing Private Key".utf8)
             info = Data(bytes: infoString, count: infoString.count)
 
-            break
         }
 
         guard let cp = ccec_cp_384() else {
@@ -108,7 +106,7 @@ class RecoveryKeySet: NSObject {
                             throw RecoveryKeySetError.corecryptoKeyGeneration(corecryptoError: status)
                         }
 
-                        if(keyType == recoveryKeyType.kOTRecoveryKeyEncryption || keyType == recoveryKeyType.kOTRecoveryKeySigning) {
+                        if keyType == RecoveryKeyType.kOTRecoveryKeyEncryption || keyType == RecoveryKeyType.kOTRecoveryKeySigning {
                             status = ccec_generate_key_deterministic(cp,
                                                                      derivedKeyBytes.count, derivedKeyBytes.bindMemory(to: UInt8.self).baseAddress!,
                                                                      ccDRBGGetRngState(),
@@ -143,7 +141,7 @@ class RecoveryKeySet: NSObject {
         return key
     }
 
-    class func setKeyMaterialInKeychain(query: Dictionary<CFString, Any>) throws -> (Bool) {
+    class func setKeyMaterialInKeychain(query: [CFString: Any]) throws -> (Bool) {
         var result = false
 
         var results: CFTypeRef?
@@ -152,7 +150,7 @@ class RecoveryKeySet: NSObject {
         if status == errSecSuccess {
             result = true
         } else if status == errSecDuplicateItem {
-            var updateQuery: Dictionary<CFString, Any> = query
+            var updateQuery: [CFString: Any] = query
             updateQuery[kSecClass] = nil
 
             status = SecItemUpdate(query as CFDictionary, updateQuery as CFDictionary)
@@ -213,8 +211,8 @@ class RecoveryKeySet: NSObject {
         return try RecoveryKeySet.setKeyMaterialInKeychain(query: query)
     }
 
-    class func retrieveRecoveryKeysFromKeychain(label: String) throws -> [Dictionary <CFString, Any>]? {
-        var keySet: [Dictionary<CFString, Any>]?
+    class func retrieveRecoveryKeysFromKeychain(label: String) throws -> [ [CFString: Any]]? {
+        var keySet: [[CFString: Any]]?
 
         let query: [CFString: Any] = [
             kSecClass: kSecClassKey,
@@ -234,10 +232,10 @@ class RecoveryKeySet: NSObject {
         }
 
         if result != nil {
-            if let dictionaryArray = result as? [Dictionary<CFString, Any>] {
+            if let dictionaryArray = result as? [[CFString: Any]] {
                 keySet = dictionaryArray
             } else {
-                if let dictionary = result as? Dictionary<CFString, Any> {
+                if let dictionary = result as? [CFString: Any] {
                     keySet = [dictionary]
                 } else {
                     keySet = nil

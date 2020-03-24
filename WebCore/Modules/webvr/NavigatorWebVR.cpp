@@ -27,6 +27,7 @@
 #include "NavigatorWebVR.h"
 
 #include "Document.h"
+#include "JSDOMPromiseDeferred.h"
 #include "JSVRDisplay.h"
 #include "Navigator.h"
 #include "RuntimeEnabledFeatures.h"
@@ -94,7 +95,7 @@ NavigatorWebVR* NavigatorWebVR::from(Navigator* navigator)
 {
     NavigatorWebVR* supplement = static_cast<NavigatorWebVR*>(Supplement<Navigator>::from(navigator, supplementName()));
     if (!supplement) {
-        auto newSupplement = std::make_unique<NavigatorWebVR>();
+        auto newSupplement = makeUnique<NavigatorWebVR>();
         supplement = newSupplement.get();
         provideTo(navigator, supplementName(), WTFMove(newSupplement));
     }

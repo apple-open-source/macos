@@ -60,7 +60,7 @@ static inline bool createMaskAndSwapContextForTextGradient(GraphicsContext*& con
     AffineTransform absoluteTransform = SVGRenderingContext::calculateTransformationToOutermostCoordinateSystem(*textRootBlock);
     FloatRect repaintRect = textRootBlock->repaintRectInLocalCoordinates();
 
-    auto maskImage = SVGRenderingContext::createImageBuffer(repaintRect, absoluteTransform, ColorSpaceSRGB, context->renderingMode());
+    auto maskImage = SVGRenderingContext::createImageBuffer(repaintRect, absoluteTransform, ColorSpace::SRGB, context->renderingMode());
     if (!maskImage)
         return false;
 
@@ -119,7 +119,7 @@ bool RenderSVGResourceGradient::applyResource(RenderElement& renderer, const Ren
 
     auto& gradientData = m_gradientMap.add(&renderer, nullptr).iterator->value;
     if (!gradientData)
-        gradientData = std::make_unique<GradientData>();
+        gradientData = makeUnique<GradientData>();
 
     bool isPaintingText = resourceMode.contains(RenderSVGResourceMode::ApplyToText);
 

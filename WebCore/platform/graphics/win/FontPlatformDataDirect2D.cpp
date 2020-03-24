@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc.  All rights reserved.
+ * Copyright (C) 2016-2019 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,10 +28,12 @@
 
 #if USE(DIRECT2D)
 
+#include "DirectWriteUtilities.h"
 #include "GraphicsContext.h"
+#include "HWndDC.h"
 #include "SharedGDIObject.h"
 #include <d2d1.h>
-#include <dwrite.h>
+#include <dwrite_3.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -39,29 +41,24 @@ namespace WebCore {
 void FontPlatformData::platformDataInit(HFONT font, float size, HDC hdc, WCHAR* faceName)
 {
     LOGFONT logfont;
-    GetObject(font, sizeof(logfont), &logfont);
-
-    HRESULT hr = Font::systemDWriteGdiInterop()->CreateFontFromLOGFONT(&logfont, &m_dwFont);
-    if (!SUCCEEDED(hr)) {
-        hr = FontPlatformData::createFallbackFont(logfont, &m_dwFont);
-        if (!SUCCEEDED(hr))
-            return;
-    }
+    HRESULT hr = ::GetObject(font, sizeof(LOGFONT), &logfont);
+    if (SUCCEEDED(hr))
+        m_dwFont = DirectWrite::createWithPlatformFont(logfont);
+    RELEASE_ASSERT(m_dwFont);
 
     hr = m_dwFont->CreateFontFace(&m_dwFontFace);
-    if (!SUCCEEDED(hr))
-        return;
+    RELEASE_ASSERT(SUCCEEDED(hr));
 
     if (!m_useGDI)
         m_isSystemFont = !wcscmp(faceName, L"Lucida Grande");
 }
 
-FontPlatformData::FontPlatformData(GDIObject<HFONT> hfont, IDWriteFont* font, float size, bool bold, bool oblique, bool useGDI)
+FontPlatformData::FontPlatformData(GDIObject<HFONT>&& hfont, COMPtr<IDWriteFont>&& font, float size, bool bold, bool oblique, bool useGDI)
     : m_syntheticBold(bold)
     , m_syntheticOblique(oblique)
     , m_size(size)
     , m_font(SharedGDIObject<HFONT>::create(WTFMove(hfont)))
-    , m_dwFont(font)
+    , m_dwFont(WTFMove(font))
     , m_useGDI(useGDI)
 {
     HRESULT hr = m_dwFont->CreateFontFace(&m_dwFontFace);
@@ -117,74 +114,6 @@ bool FontPlatformData::platformIsEqual(const FontPlatformData& other) const
     return m_font == other.m_font
         && m_useGDI == other.m_useGDI
         && fontsAreEqual(m_dwFont.get(), other.m_dwFont.get());
-}
-
-HRESULT FontPlatformData::createFallbackFont(const LOGFONT& logFont, IDWriteFont** dwFont)
-{
-    if (!dwFont)
-        return E_POINTER;
-
-    COMPtr<IDWriteFontCollection> fontCollection;
-    HRESULT hr = Font::systemDWriteFactory()->GetSystemFontCollection(&fontCollection);
-    if (FAILED(hr))
-        return hr;
-
-    wchar_t localeName[LOCALE_NAME_MAX_LENGTH];
-    int localeLength = GetUserDefaultLocaleName(localeName, LOCALE_NAME_MAX_LENGTH);
-
-    COMPtr<IDWriteFontFamily> fontFamily;
-
-    unsigned fontFamilyCount = fontCollection->GetFontFamilyCount();
-    for (unsigned fontIndex = 0; fontIndex < fontFamilyCount; ++fontIndex) {
-        hr = fontCollection->GetFontFamily(fontIndex, &fontFamily);
-        if (FAILED(hr))
-            return hr;
-
-        COMPtr<IDWriteLocalizedStrings> familyNames;
-        hr = fontFamily->GetFamilyNames(&familyNames);
-        if (FAILED(hr))
-            return hr;
-
-        BOOL exists = false;
-        unsigned localeIndex = 0;
-        if (localeLength)
-            hr = familyNames->FindLocaleName(localeName, &localeIndex, &exists);
-
-        if (SUCCEEDED(hr) && !exists)
-            hr = familyNames->FindLocaleName(L"en-us", &localeIndex, &exists);
-
-        if (FAILED(hr))
-            return hr;
-
-        unsigned familyNameLength = 0;
-        hr = familyNames->GetStringLength(localeIndex, &familyNameLength);
-        if (!SUCCEEDED(hr))
-            return hr;
-
-        Vector<wchar_t> familyName(familyNameLength + 1);
-        hr = familyNames->GetString(localeIndex, familyName.data(), familyName.size());
-        if (!SUCCEEDED(hr))
-            return hr;
-
-        if (!wcscmp(logFont.lfFaceName, familyName.data()))
-            break;
-
-        fontFamily = nullptr;
-    }
-
-    if (!fontFamily) {
-        hr = fontCollection->GetFontFamily(0, &fontFamily);
-        if (FAILED(hr))
-            return hr;
-    }
-
-    DWRITE_FONT_WEIGHT weight = static_cast<DWRITE_FONT_WEIGHT>(logFont.lfWeight);
-    DWRITE_FONT_STRETCH stretch = static_cast<DWRITE_FONT_STRETCH>(logFont.lfQuality);
-    DWRITE_FONT_STYLE style = logFont.lfItalic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL;
-
-    hr = fontFamily->GetFirstMatchingFont(weight, stretch, style, dwFont);
-
-    return hr;
 }
 
 }

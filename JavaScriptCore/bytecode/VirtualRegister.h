@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, 2015-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,6 +50,7 @@ public:
     friend VirtualRegister virtualRegisterForArgument(int, int);
 
     VirtualRegister(RegisterID*);
+    VirtualRegister(RefPtr<RegisterID>);
 
     VirtualRegister()
         : m_virtualRegister(s_invalidVirtualRegister)
@@ -105,8 +106,8 @@ public:
     void dump(PrintStream& out) const;
 
 private:
-    static const int s_invalidVirtualRegister = 0x3fffffff;
-    static const int s_firstConstantRegisterIndex = FirstConstantRegisterIndex;
+    static constexpr int s_invalidVirtualRegister = 0x3fffffff;
+    static constexpr int s_firstConstantRegisterIndex = FirstConstantRegisterIndex;
 
     static int localToOperand(int local) { return -1 - local; }
     static int operandToLocal(int operand) { return -1 - operand; }

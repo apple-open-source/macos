@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -90,7 +90,7 @@ namespace {
 // canonical if x->index() <= y->index().
 
 namespace B3ReduceStrengthInternal {
-static const bool verbose = false;
+static constexpr bool verbose = false;
 }
 
 // FIXME: This IntRange stuff should be refactored into a general constant propagator. It's weird
@@ -115,7 +115,7 @@ public:
 
     static IntRange top(Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return top<int32_t>();
         case Int64:
@@ -136,7 +136,7 @@ public:
 
     static IntRange rangeForMask(int64_t mask, Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return rangeForMask<int32_t>(static_cast<int32_t>(mask));
         case Int64:
@@ -158,7 +158,7 @@ public:
 
     static IntRange rangeForZShr(int32_t shiftAmount, Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return rangeForZShr<int32_t>(shiftAmount);
         case Int64:
@@ -188,7 +188,7 @@ public:
 
     bool couldOverflowAdd(const IntRange& other, Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return couldOverflowAdd<int32_t>(other);
         case Int64:
@@ -209,7 +209,7 @@ public:
 
     bool couldOverflowSub(const IntRange& other, Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return couldOverflowSub<int32_t>(other);
         case Int64:
@@ -230,7 +230,7 @@ public:
 
     bool couldOverflowMul(const IntRange& other, Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return couldOverflowMul<int32_t>(other);
         case Int64:
@@ -256,7 +256,7 @@ public:
 
     IntRange shl(int32_t shiftAmount, Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return shl<int32_t>(shiftAmount);
         case Int64:
@@ -278,7 +278,7 @@ public:
 
     IntRange sShr(int32_t shiftAmount, Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return sShr<int32_t>(shiftAmount);
         case Int64:
@@ -311,7 +311,7 @@ public:
 
     IntRange zShr(int32_t shiftAmount, Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return zShr<int32_t>(shiftAmount);
         case Int64:
@@ -332,7 +332,7 @@ public:
 
     IntRange add(const IntRange& other, Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return add<int32_t>(other);
         case Int64:
@@ -353,7 +353,7 @@ public:
 
     IntRange sub(const IntRange& other, Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return sub<int32_t>(other);
         case Int64:
@@ -380,7 +380,7 @@ public:
 
     IntRange mul(const IntRange& other, Type type)
     {
-        switch (type) {
+        switch (type.kind()) {
         case Int32:
             return mul<int32_t>(other);
         case Int64:
@@ -389,6 +389,15 @@ public:
             RELEASE_ASSERT_NOT_REACHED();
             return IntRange();
         }
+    }
+
+    IntRange zExt32()
+    {
+        ASSERT(m_min >= INT32_MIN);
+        ASSERT(m_max <= INT32_MAX);
+        int32_t min = m_min;
+        int32_t max = m_max;
+        return IntRange(static_cast<uint64_t>(static_cast<uint32_t>(min)), static_cast<uint64_t>(static_cast<uint32_t>(max)));
     }
 
 private:
@@ -1033,8 +1042,8 @@ private:
 
             // Turn this: BitAnd(value, all-ones)
             // Into this: value.
-            if ((m_value->type() == Int64 && m_value->child(1)->isInt(std::numeric_limits<uint64_t>::max()))
-                || (m_value->type() == Int32 && m_value->child(1)->isInt(std::numeric_limits<uint32_t>::max()))) {
+            if ((m_value->type() == Int64 && m_value->child(1)->isInt64(std::numeric_limits<uint64_t>::max()))
+                || (m_value->type() == Int32 && m_value->child(1)->isInt32(std::numeric_limits<uint32_t>::max()))) {
                 replaceWithIdentity(m_value->child(0));
                 break;
             }
@@ -1083,6 +1092,7 @@ private:
             //       and Op is BitOr or BitXor
             // into this: BitAnd(value, constant2)
             if (m_value->child(1)->hasInt()) {
+                bool replaced = false;
                 int64_t constant2 = m_value->child(1)->asInt();
                 switch (m_value->child(0)->opcode()) {
                 case BitOr:
@@ -1091,13 +1101,15 @@ private:
                         && !(m_value->child(0)->child(1)->asInt() & constant2)) {
                         m_value->child(0) = m_value->child(0)->child(0);
                         m_changed = true;
+                        replaced = true;
                         break;
                     }
                     break;
                 default:
                     break;
                 }
-                break;
+                if (replaced)
+                    break;
             }
 
             // Turn this: BitAnd(BitXor(x1, allOnes), BitXor(x2, allOnes)
@@ -1106,11 +1118,11 @@ private:
             if (m_value->child(0)->opcode() == BitXor
                 && m_value->child(1)->opcode() == BitXor
                 && ((m_value->type() == Int64
-                        && m_value->child(0)->child(1)->isInt(std::numeric_limits<uint64_t>::max())
-                        && m_value->child(1)->child(1)->isInt(std::numeric_limits<uint64_t>::max()))
+                        && m_value->child(0)->child(1)->isInt64(std::numeric_limits<uint64_t>::max())
+                        && m_value->child(1)->child(1)->isInt64(std::numeric_limits<uint64_t>::max()))
                     || (m_value->type() == Int32
-                        && m_value->child(0)->child(1)->isInt(std::numeric_limits<uint32_t>::max())
-                        && m_value->child(1)->child(1)->isInt(std::numeric_limits<uint32_t>::max())))) {
+                        && m_value->child(0)->child(1)->isInt32(std::numeric_limits<uint32_t>::max())
+                        && m_value->child(1)->child(1)->isInt32(std::numeric_limits<uint32_t>::max())))) {
                 Value* bitOr = m_insertionSet.insert<Value>(m_index, BitOr, m_value->origin(), m_value->child(0)->child(0), m_value->child(1)->child(0));
                 replaceWithNew<Value>(BitXor, m_value->origin(), bitOr, m_value->child(1)->child(1));
                 break;
@@ -1123,10 +1135,13 @@ private:
             if (m_value->child(0)->opcode() == BitXor
                 && m_value->child(1)->hasInt()
                 && ((m_value->type() == Int64
-                        && m_value->child(0)->child(1)->isInt(std::numeric_limits<uint64_t>::max()))
+                        && m_value->child(0)->child(1)->isInt64(std::numeric_limits<uint64_t>::max()))
                     || (m_value->type() == Int32
-                        && m_value->child(0)->child(1)->isInt(std::numeric_limits<uint32_t>::max())))) {
-                Value* bitOr = m_insertionSet.insert<Value>(m_index, BitOr, m_value->origin(), m_value->child(0)->child(0), m_value->child(1)->bitXorConstant(m_proc, m_value->child(0)->child(1)));
+                        && m_value->child(0)->child(1)->isInt32(std::numeric_limits<uint32_t>::max())))) {
+                Value* newConstant = m_value->child(1)->bitXorConstant(m_proc, m_value->child(0)->child(1));
+                ASSERT(newConstant);
+                m_insertionSet.insertValue(m_index, newConstant);
+                Value* bitOr = m_insertionSet.insert<Value>(m_index, BitOr, m_value->origin(), m_value->child(0)->child(0), newConstant);
                 replaceWithNew<Value>(BitXor, m_value->origin(), bitOr, m_value->child(0)->child(1));
                 break;
             }
@@ -1171,8 +1186,8 @@ private:
 
             // Turn this: BitOr(value, all-ones)
             // Into this: all-ones.
-            if ((m_value->type() == Int64 && m_value->child(1)->isInt(std::numeric_limits<uint64_t>::max()))
-                || (m_value->type() == Int32 && m_value->child(1)->isInt(std::numeric_limits<uint32_t>::max()))) {
+            if ((m_value->type() == Int64 && m_value->child(1)->isInt64(std::numeric_limits<uint64_t>::max()))
+                || (m_value->type() == Int32 && m_value->child(1)->isInt32(std::numeric_limits<uint32_t>::max()))) {
                 replaceWithIdentity(m_value->child(1));
                 break;
             }
@@ -1183,11 +1198,11 @@ private:
             if (m_value->child(0)->opcode() == BitXor
                 && m_value->child(1)->opcode() == BitXor
                 && ((m_value->type() == Int64
-                        && m_value->child(0)->child(1)->isInt(std::numeric_limits<uint64_t>::max())
-                        && m_value->child(1)->child(1)->isInt(std::numeric_limits<uint64_t>::max()))
+                        && m_value->child(0)->child(1)->isInt64(std::numeric_limits<uint64_t>::max())
+                        && m_value->child(1)->child(1)->isInt64(std::numeric_limits<uint64_t>::max()))
                     || (m_value->type() == Int32
-                        && m_value->child(0)->child(1)->isInt(std::numeric_limits<uint32_t>::max())
-                        && m_value->child(1)->child(1)->isInt(std::numeric_limits<uint32_t>::max())))) {
+                        && m_value->child(0)->child(1)->isInt32(std::numeric_limits<uint32_t>::max())
+                        && m_value->child(1)->child(1)->isInt32(std::numeric_limits<uint32_t>::max())))) {
                 Value* bitAnd = m_insertionSet.insert<Value>(m_index, BitAnd, m_value->origin(), m_value->child(0)->child(0), m_value->child(1)->child(0));
                 replaceWithNew<Value>(BitXor, m_value->origin(), bitAnd, m_value->child(1)->child(1));
                 break;
@@ -1200,10 +1215,13 @@ private:
             if (m_value->child(0)->opcode() == BitXor
                 && m_value->child(1)->hasInt()
                 && ((m_value->type() == Int64
-                        && m_value->child(0)->child(1)->isInt(std::numeric_limits<uint64_t>::max()))
+                        && m_value->child(0)->child(1)->isInt64(std::numeric_limits<uint64_t>::max()))
                     || (m_value->type() == Int32
-                        && m_value->child(0)->child(1)->isInt(std::numeric_limits<uint32_t>::max())))) {
-                Value* bitAnd = m_insertionSet.insert<Value>(m_index, BitAnd, m_value->origin(), m_value->child(0)->child(0), m_value->child(1)->bitXorConstant(m_proc, m_value->child(0)->child(1)));
+                        && m_value->child(0)->child(1)->isInt32(std::numeric_limits<uint32_t>::max())))) {
+                Value* newConstant = m_value->child(1)->bitXorConstant(m_proc, m_value->child(0)->child(1));
+                ASSERT(newConstant);
+                m_insertionSet.insertValue(m_index, newConstant);
+                Value* bitAnd = m_insertionSet.insert<Value>(m_index, BitAnd, m_value->origin(), m_value->child(0)->child(0), newConstant);
                 replaceWithNew<Value>(BitXor, m_value->origin(), bitAnd, m_value->child(0)->child(1));
                 break;
             }
@@ -2093,7 +2111,7 @@ private:
             // blocks. This is pretty much guaranteed since one of those blocks will replace all
             // uses of the Select with a constant, and that constant will be transitively used
             // from the check.
-            static const unsigned selectSpecializationBound = 3;
+            static constexpr unsigned selectSpecializationBound = 3;
             Value* select = findRecentNodeMatching(
                 m_value->child(0), selectSpecializationBound,
                 [&] (Value* value) -> bool {
@@ -2277,7 +2295,7 @@ private:
         RELEASE_ASSERT(startIndex != UINT_MAX);
 
         // By BasicBlock convention, caseIndex == 0 => then, caseIndex == 1 => else.
-        static const unsigned numCases = 2;
+        static constexpr unsigned numCases = 2;
         BasicBlock* cases[numCases];
         for (unsigned i = 0; i < numCases; ++i)
             cases[i] = m_blockInsertionSet.insertBefore(m_block);
@@ -2585,6 +2603,14 @@ private:
         case Mul:
             return rangeFor(value->child(0), timeToLive - 1).mul(
                 rangeFor(value->child(1), timeToLive - 1), value->type());
+
+        case SExt8:
+        case SExt16:
+        case SExt32:
+            return rangeFor(value->child(0), timeToLive - 1);
+
+        case ZExt32:
+            return rangeFor(value->child(0), timeToLive - 1).zExt32();
 
         default:
             break;

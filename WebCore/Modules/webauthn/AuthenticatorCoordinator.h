@@ -27,7 +27,7 @@
 
 #if ENABLE(WEB_AUTHN)
 
-#include "JSDOMPromiseDeferred.h"
+#include "IDLTypes.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 
@@ -41,9 +41,12 @@ class Document;
 struct PublicKeyCredentialCreationOptions;
 struct PublicKeyCredentialRequestOptions;
 
+template<typename IDLType> class DOMPromiseDeferred;
+
 using CredentialPromise = DOMPromiseDeferred<IDLNullable<IDLInterface<BasicCredential>>>;
 
-class AuthenticatorCoordinator {
+class AuthenticatorCoordinator final {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(AuthenticatorCoordinator);
 public:
     WEBCORE_EXPORT explicit AuthenticatorCoordinator(std::unique_ptr<AuthenticatorCoordinatorClient>&&);

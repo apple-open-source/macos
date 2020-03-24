@@ -18,7 +18,7 @@ PERLEXTRASLIB := $(subst Perl,Perl/Extras,$(shell perl -e 'require Config; print
 PERLARCHLIB := $(shell perl -e 'require Config; print $$Config::Config{installarchlib}')
 PERLEXTRASARCHLIB := $(subst Perl,Perl/Extras,$(PERLARCHLIB))
 CFLAGS += -std=c89
-SDKROOTADJUSTED = $(shell echo $(SDKROOT) | sed -e 's,/BuildRoot,,g')
+SDKROOTADJUSTED = $(shell echo $(SDKROOT) | sed -e 's,/AppleInternal,,g' | sed -e 's,/BuildRoot,,g')
 
 install::
 	@echo "--> Extracting..."

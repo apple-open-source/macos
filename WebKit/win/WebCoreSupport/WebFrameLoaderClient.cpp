@@ -93,6 +93,7 @@ static WebDataSource* getWebDataSource(DocumentLoader* loader)
 }
 
 class WebFrameLoaderClient::WebFramePolicyListenerPrivate {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WebFramePolicyListenerPrivate() 
         : m_policyFunction(nullptr)
@@ -107,7 +108,7 @@ public:
 };
 
 WebFrameLoaderClient::WebFrameLoaderClient(WebFrame* webFrame)
-    : m_policyListenerPrivate(std::make_unique<WebFramePolicyListenerPrivate>())
+    : m_policyListenerPrivate(makeUnique<WebFramePolicyListenerPrivate>())
     , m_webFrame(webFrame)
     , m_manualLoader(0)
     , m_hasSentResponseToPlugin(false) 
@@ -127,15 +128,9 @@ Optional<WebCore::PageIdentifier> WebFrameLoaderClient::pageID() const
     return WTF::nullopt;
 }
 
-Optional<uint64_t> WebFrameLoaderClient::frameID() const
+Optional<WebCore::FrameIdentifier> WebFrameLoaderClient::frameID() const
 {
     return WTF::nullopt;
-}
-
-PAL::SessionID WebFrameLoaderClient::sessionID() const
-{
-    RELEASE_ASSERT_NOT_REACHED();
-    return PAL::SessionID::defaultSessionID();
 }
 
 bool WebFrameLoaderClient::hasWebView() const
@@ -168,7 +163,7 @@ void WebFrameLoaderClient::detachedFromParent3()
     notImplemented();
 }
 
-void WebFrameLoaderClient::convertMainResourceLoadToDownload(DocumentLoader* documentLoader, PAL::SessionID, const ResourceRequest& request, const ResourceResponse& response)
+void WebFrameLoaderClient::convertMainResourceLoadToDownload(DocumentLoader* documentLoader, const ResourceRequest& request, const ResourceResponse& response)
 {
     COMPtr<IWebDownloadDelegate> downloadDelegate;
     COMPtr<IWebView> webView;
@@ -359,8 +354,14 @@ void WebFrameLoaderClient::dispatchWillPerformClientRedirect(const URL& url, dou
 {
     WebView* webView = m_webFrame->webView();
     COMPtr<IWebFrameLoadDelegate> frameLoadDelegate;
-    if (SUCCEEDED(webView->frameLoadDelegate(&frameLoadDelegate)))
-        frameLoadDelegate->willPerformClientRedirectToURL(webView, BString(url.string()), delay, MarshallingHelpers::CFAbsoluteTimeToDATE(fireDate.secondsSinceEpoch().seconds()), m_webFrame);
+    if (SUCCEEDED(webView->frameLoadDelegate(&frameLoadDelegate))) {
+#if USE(CF)
+        DATE date = MarshallingHelpers::CFAbsoluteTimeToDATE(fireDate.secondsSinceEpoch().seconds());
+#else
+        DATE date = MarshallingHelpers::absoluteTimeToDATE(fireDate.secondsSinceEpoch().seconds());
+#endif
+        frameLoadDelegate->willPerformClientRedirectToURL(webView, BString(url.string()), delay, date, m_webFrame);
+    }
 }
 
 void WebFrameLoaderClient::dispatchDidChangeLocationWithinPage()
@@ -437,7 +438,7 @@ void WebFrameLoaderClient::dispatchDidReceiveTitle(const StringWithDirection& ti
         frameLoadDelegate->didReceiveTitle(webView, BString(title.string), m_webFrame);
 }
 
-void WebFrameLoaderClient::dispatchDidCommitLoad(Optional<HasInsecureContent>)
+void WebFrameLoaderClient::dispatchDidCommitLoad(Optional<HasInsecureContent>, Optional<UsedLegacyTLS>)
 {
     WebView* webView = m_webFrame->webView();
     COMPtr<IWebFrameLoadDelegate> frameLoadDelegate;
@@ -640,27 +641,6 @@ void WebFrameLoaderClient::setMainDocumentError(DocumentLoader*, const ResourceE
     m_manualLoader->didFail(error);
     m_manualLoader = 0;
     m_hasSentResponseToPlugin = false;
-}
-
-void WebFrameLoaderClient::progressStarted(WebCore::Frame&)
-{
-    static BSTR progressStartedName = SysAllocString(WebViewProgressStartedNotification);
-    IWebNotificationCenter* notifyCenter = WebNotificationCenter::defaultCenterInternal();
-    notifyCenter->postNotificationName(progressStartedName, static_cast<IWebView*>(m_webFrame->webView()), 0);
-}
-
-void WebFrameLoaderClient::progressEstimateChanged(WebCore::Frame&)
-{
-    static BSTR progressEstimateChangedName = SysAllocString(WebViewProgressEstimateChangedNotification);
-    IWebNotificationCenter* notifyCenter = WebNotificationCenter::defaultCenterInternal();
-    notifyCenter->postNotificationName(progressEstimateChangedName, static_cast<IWebView*>(m_webFrame->webView()), 0);
-}
-
-void WebFrameLoaderClient::progressFinished(WebCore::Frame&)
-{
-    static BSTR progressFinishedName = SysAllocString(WebViewProgressFinishedNotification);
-    IWebNotificationCenter* notifyCenter = WebNotificationCenter::defaultCenterInternal();
-    notifyCenter->postNotificationName(progressFinishedName, static_cast<IWebView*>(m_webFrame->webView()), 0);
 }
 
 void WebFrameLoaderClient::startDownload(const ResourceRequest& request, const String& /* suggestedName */)
@@ -967,7 +947,7 @@ void WebFrameLoaderClient::savePlatformDataToCachedFrame(CachedFrame* cachedFram
 
     ASSERT(coreFrame->loader().documentLoader() == cachedFrame->documentLoader());
 
-    cachedFrame->setCachedFramePlatformData(std::make_unique<WebCachedFramePlatformData>(static_cast<IWebDataSource*>(getWebDataSource(coreFrame->loader().documentLoader()))));
+    cachedFrame->setCachedFramePlatformData(makeUnique<WebCachedFramePlatformData>(static_cast<IWebDataSource*>(getWebDataSource(coreFrame->loader().documentLoader()))));
 #else
     notImplemented();
 #endif
@@ -991,11 +971,7 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
     core(m_webFrame)->createView(enclosingIntRect(logicalFrame).size(), backgroundColor, /* fixedLayoutSize */ { }, /* fixedVisibleContentRect */ { });
 }
 
-void WebFrameLoaderClient::didSaveToPageCache()
-{
-}
-
-void WebFrameLoaderClient::didRestoreFromPageCache()
+void WebFrameLoaderClient::didRestoreFromBackForwardCache()
 {
 }
 
@@ -1064,6 +1040,7 @@ ObjectContentType WebFrameLoaderClient::objectContentType(const URL& url, const 
 
 void WebFrameLoaderClient::dispatchDidFailToStartPlugin(const PluginView& pluginView) const
 {
+#if USE(CF)
     WebView* webView = m_webFrame->webView();
 
     COMPtr<IWebResourceLoadDelegate> resourceLoadDelegate;
@@ -1118,6 +1095,9 @@ void WebFrameLoaderClient::dispatchDidFailToStartPlugin(const PluginView& plugin
     COMPtr<IWebError> error(AdoptCOM, WebError::createInstance(resourceError, userInfoBag.get()));
      
     resourceLoadDelegate->plugInFailedWithError(webView, error.get(), getWebDataSource(frame->loader().documentLoader()));
+#else
+    ASSERT(0);
+#endif
 }
 
 RefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize& pluginSize, HTMLPlugInElement& element, const URL& url, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually)
@@ -1242,8 +1222,8 @@ void WebFrameLoaderClient::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld& 
     if (&world != &mainThreadNormalWorld())
         return;
 
-    JSContextRef context = toRef(coreFrame->script().globalObject(world)->globalExec());
-    JSObjectRef windowObject = toRef(coreFrame->script().globalObject(world));
+    JSContextRef context = toRef(coreFrame->script().globalObject(world));
+    JSObjectRef windowObject = toRef(JSC::jsCast<JSC::JSObject*>(coreFrame->script().globalObject(world)));
     ASSERT(windowObject);
 
     if (FAILED(frameLoadDelegate->didClearWindowObject(webView, context, windowObject, m_webFrame)))

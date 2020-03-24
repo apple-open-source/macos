@@ -157,8 +157,6 @@ IOReturn IOHIDInterface::message(UInt32 type,
         } else {
             provider->close(this);
         }
-    } else if  (type == kIOHIDMessageOpenedByEventSystem && provider != _owner) {
-        result = _owner->message(type, this, argument);
     } else if  (type == kIOHIDMessageRelayServiceInterfaceActive && provider != _owner) {
         result = _owner->message(type, this, argument);
     } else {
@@ -396,6 +394,22 @@ void IOHIDInterface::close(
     });
     
     super::close(client, options);
+}
+
+static const OSSymbol * propagateProps[] = {kIOHIDPropagatePropertyKeys};
+
+bool IOHIDInterface::setProperty( const OSSymbol * key, OSObject * object)
+{
+    require(_owner, exit);
+
+    for (const OSSymbol * prop : propagateProps) {
+        if (key->isEqualTo(prop)) {
+            _owner->setProperty(key, object);
+        }
+    }
+
+exit:
+    return super::setProperty(key, object);
 }
 
 OSString * IOHIDInterface::getTransport ()

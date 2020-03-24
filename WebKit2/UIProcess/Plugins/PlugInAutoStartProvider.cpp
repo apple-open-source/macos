@@ -41,7 +41,7 @@ static const Seconds plugInAutoStartExpirationTimeThreshold { 30 * 24 * 60 * 60 
 PlugInAutoStartProvider::PlugInAutoStartProvider(WebProcessPool* processPool)
     : m_processPool(processPool)
 {
-    m_hashToOriginMap.add(PAL::SessionID::defaultSessionID(), HashMap<unsigned, String>());
+    m_hashToOriginMap.add(PAL::SessionID::defaultSessionID(), HashToOriginMap());
     m_autoStartTable.add(PAL::SessionID::defaultSessionID(), AutoStartTable());
 }
 
@@ -56,7 +56,7 @@ void PlugInAutoStartProvider::addAutoStartOriginHash(const String& pageOrigin, u
     if (sessionIterator == m_hashToOriginMap.end()) {
         if (m_hashToOriginMap.get(PAL::SessionID::defaultSessionID()).contains(plugInOriginHash))
             return;
-        sessionIterator = m_hashToOriginMap.set(sessionID, HashMap<unsigned, String>()).iterator;
+        sessionIterator = m_hashToOriginMap.set(sessionID, HashToOriginMap()).iterator;
     } else if (sessionIterator->value.contains(plugInOriginHash) || m_hashToOriginMap.get(PAL::SessionID::defaultSessionID()).contains(plugInOriginHash))
         return;
 
@@ -66,24 +66,24 @@ void PlugInAutoStartProvider::addAutoStartOriginHash(const String& pageOrigin, u
     it->value.set(plugInOriginHash, expirationTime);
     sessionIterator->value.set(plugInOriginHash, pageOrigin);
 
-    m_processPool->sendToAllProcesses(Messages::WebProcess::DidAddPlugInAutoStartOriginHash(plugInOriginHash, expirationTime, sessionID));
+    m_processPool->sendToAllProcessesForSession(Messages::WebProcess::DidAddPlugInAutoStartOriginHash(plugInOriginHash, expirationTime), sessionID);
 
     if (!sessionID.isEphemeral())
         m_processPool->client().plugInAutoStartOriginHashesChanged(m_processPool);
 }
 
-SessionPlugInAutoStartOriginMap PlugInAutoStartProvider::autoStartOriginHashesCopy() const
+PlugInAutoStartOriginMap PlugInAutoStartProvider::autoStartOriginHashesCopy(PAL::SessionID sessionID) const
 {
-    SessionPlugInAutoStartOriginMap sessionMap;
+    PlugInAutoStartOriginMap map;
 
-    for (const auto& sessionKeyOriginHash : m_autoStartTable) {
-        PlugInAutoStartOriginMap& map = sessionMap.add(sessionKeyOriginHash.key, PlugInAutoStartOriginMap()).iterator->value;
-        for (const auto& keyOriginHash : sessionKeyOriginHash.value) {
+    auto it = m_autoStartTable.find(sessionID);
+    if (it != m_autoStartTable.end()) {
+        for (const auto& keyOriginHash : it->value) {
             for (const auto& originHash : keyOriginHash.value)
                 map.set(originHash.key, originHash.value);
         }
     }
-    return sessionMap;
+    return map;
 }
 
 Ref<API::Dictionary> PlugInAutoStartProvider::autoStartOriginsTableCopy() const
@@ -126,7 +126,7 @@ void PlugInAutoStartProvider::setAutoStartOriginsTableWithItemsPassingTest(API::
     m_hashToOriginMap.clear();
     m_autoStartTable.clear();
     HashMap<unsigned, WallTime> hashMap;
-    HashMap<unsigned, String>& hashToOriginMap = m_hashToOriginMap.add(PAL::SessionID::defaultSessionID(), HashMap<unsigned, String>()).iterator->value;
+    auto& hashToOriginMap = m_hashToOriginMap.add(PAL::SessionID::defaultSessionID(), HashToOriginMap()).iterator->value;
     AutoStartTable& ast = m_autoStartTable.add(PAL::SessionID::defaultSessionID(), AutoStartTable()).iterator->value;
 
     for (auto& strDict : table.map()) {
@@ -153,7 +153,7 @@ void PlugInAutoStartProvider::setAutoStartOriginsTableWithItemsPassingTest(API::
             ast.set(strDict.key, hashes);
     }
 
-    m_processPool->sendToAllProcesses(Messages::WebProcess::ResetPlugInAutoStartOriginDefaultHashes(hashMap));
+    m_processPool->sendToAllProcessesForSession(Messages::WebProcess::ResetPlugInAutoStartOriginHashes(hashMap), PAL::SessionID::defaultSessionID());
 }
 
 void PlugInAutoStartProvider::setAutoStartOriginsArray(API::Array& originList)
@@ -165,8 +165,8 @@ void PlugInAutoStartProvider::setAutoStartOriginsArray(API::Array& originList)
 
 void PlugInAutoStartProvider::didReceiveUserInteraction(unsigned plugInOriginHash, PAL::SessionID sessionID)
 {
-    HashMap<PAL::SessionID, HashMap<unsigned, String>>::const_iterator sessionIterator = m_hashToOriginMap.find(sessionID);
-    HashMap<unsigned, String>::const_iterator it;
+    auto sessionIterator = m_hashToOriginMap.find(sessionID);
+    HashToOriginMap::const_iterator it;
     bool contains = false;
     if (sessionIterator != m_hashToOriginMap.end()) {
         it = sessionIterator->value.find(plugInOriginHash);
@@ -183,7 +183,7 @@ void PlugInAutoStartProvider::didReceiveUserInteraction(unsigned plugInOriginHas
 
     WallTime newExpirationTime = expirationTimeFromNow();
     m_autoStartTable.add(sessionID, AutoStartTable()).iterator->value.add(it->value, PlugInAutoStartOriginMap()).iterator->value.set(plugInOriginHash, newExpirationTime);
-    m_processPool->sendToAllProcesses(Messages::WebProcess::DidAddPlugInAutoStartOriginHash(plugInOriginHash, newExpirationTime, sessionID));
+    m_processPool->sendToAllProcessesForSession(Messages::WebProcess::DidAddPlugInAutoStartOriginHash(plugInOriginHash, newExpirationTime), sessionID);
     m_processPool->client().plugInAutoStartOriginHashesChanged(m_processPool);
 }
 

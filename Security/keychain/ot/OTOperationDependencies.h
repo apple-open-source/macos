@@ -27,7 +27,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property id<OTAuthKitAdapter> authKitAdapter;
 @property id<OTDeviceInformationAdapter> deviceInformationAdapter;
 @property (readonly) CuttlefishXPCWrapper* cuttlefishXPCWrapper;
-@property CKKSViewManager* viewManager;
+@property (readonly, weak) CKKSViewManager* viewManager;
 @property CKKSLockStateTracker* lockStateTracker;
 @property Class<SecEscrowRequestable> escrowRequestClass;
 

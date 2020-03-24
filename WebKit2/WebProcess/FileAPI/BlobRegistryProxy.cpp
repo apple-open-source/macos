@@ -54,11 +54,7 @@ void BlobRegistryProxy::registerBlobURL(const URL& url, Vector<BlobPart>&& blobP
 
 void BlobRegistryProxy::registerBlobURL(const URL& url, const URL& srcURL)
 {
-    bool shouldBypassConnectionCheck = false;
-#if ENABLE(SERVICE_WORKER)
-    shouldBypassConnectionCheck = SWContextManager::singleton().connection();
-#endif
-    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::RegisterBlobURLFromURL { url, srcURL, shouldBypassConnectionCheck }, 0);
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::RegisterBlobURLFromURL { url, srcURL }, 0);
 }
 
 void BlobRegistryProxy::registerBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, RefPtr<WebCore::BlobDataFileReference>&& file, const String& contentType)

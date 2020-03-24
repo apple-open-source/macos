@@ -298,8 +298,8 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
         }
     }
 
-    RunLoop::main().dispatch([targetURL = m_url.isolatedCopy(), mainFrameURL = context.url().isolatedCopy(), sessionID = context.sessionID()]() {
-        ResourceLoadObserver::shared().logWebSocketLoading(targetURL, mainFrameURL, sessionID);
+    RunLoop::main().dispatch([targetURL = m_url.isolatedCopy(), mainFrameURL = context.url().isolatedCopy()]() {
+        ResourceLoadObserver::shared().logWebSocketLoading(targetURL, mainFrameURL);
     });
 
     if (is<Document>(context)) {
@@ -495,11 +495,6 @@ void WebSocket::contextDestroyed()
     ActiveDOMObject::contextDestroyed();
 }
 
-bool WebSocket::canSuspendForDocumentSuspension() const
-{
-    return true;
-}
-
 void WebSocket::suspend(ReasonForSuspension reason)
 {
     if (m_resumeTimer.isActive())
@@ -508,7 +503,7 @@ void WebSocket::suspend(ReasonForSuspension reason)
     m_shouldDelayEventFiring = true;
 
     if (m_channel) {
-        if (reason == ReasonForSuspension::PageCache) {
+        if (reason == ReasonForSuspension::BackForwardCache) {
             // This will cause didClose() to be called.
             m_channel->fail("WebSocket is closed due to suspension.");
         } else

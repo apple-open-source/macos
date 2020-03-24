@@ -26,10 +26,12 @@
 #pragma once
 
 #include "Connection.h"
+#include "DebuggableInfoData.h"
 #include "WebInspectorFrontendAPIDispatcher.h"
+#include "WebPageProxyIdentifier.h"
+#include <WebCore/InspectorDebuggableType.h>
 #include <WebCore/InspectorFrontendClient.h>
 #include <WebCore/InspectorFrontendHost.h>
-#include <WebCore/PageIdentifier.h>
 
 namespace WebCore {
 class InspectorController;
@@ -53,12 +55,11 @@ public:
     void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference, IPC::StringReference) override { closeWindow(); }
 
     // Called by WebInspectorUI messages
-    void establishConnection(WebCore::PageIdentifier inspectedPageIdentifier, bool underTest, unsigned inspectionLevel);
+    void establishConnection(WebPageProxyIdentifier inspectedPageIdentifier, const DebuggableInfoData&, bool underTest, unsigned inspectionLevel);
     void updateConnection();
 
     void showConsole();
     void showResources();
-    void showTimelines();
 
     void showMainResourceForFrame(const String& frameIdentifier);
 
@@ -83,6 +84,10 @@ public:
 
     void sendMessageToFrontend(const String&);
 
+#if ENABLE(INSPECTOR_TELEMETRY)
+    void setDiagnosticLoggingAvailable(bool avaliable);
+#endif
+
     // WebCore::InspectorFrontendClient
     void windowObjectCleared() override;
     void frontendLoaded() override;
@@ -91,7 +96,14 @@ public:
     void moveWindowBy(float x, float y) override;
 
     bool isRemote() const final { return false; }
-    String localizedStringsURL() override;
+    String localizedStringsURL() const override;
+    String backendCommandsURL() const final { return String(); }
+    Inspector::DebuggableType debuggableType() const final { return Inspector::DebuggableType::WebPage; }
+    String targetPlatformName() const override;
+    String targetBuildVersion() const override;
+    String targetProductVersion() const override;
+    bool targetIsSimulator() const final { return false; }
+    unsigned inspectionLevel() const override { return m_inspectionLevel; }
 
     void bringToFront() override;
     void closeWindow() override;
@@ -115,13 +127,18 @@ public:
     void inspectedURLChanged(const String&) override;
     void showCertificate(const WebCore::CertificateInfo&) override;
 
+#if ENABLE(INSPECTOR_TELEMETRY)
+    bool supportsDiagnosticLogging() override;
+    bool diagnosticLoggingAvailable() override { return m_diagnosticLoggingAvailable; }
+    void logDiagnosticEvent(const WTF::String& eventName, const WebCore::DiagnosticLoggingClient::ValueDictionary&) override;
+#endif
+
     void sendMessageToBackend(const String&) override;
 
     void pagePaused() override;
     void pageUnpaused() override;
 
     bool isUnderTest() override { return m_underTest; }
-    unsigned inspectionLevel() const override { return m_inspectionLevel; }
 
 private:
     explicit WebInspectorUI(WebPage&);
@@ -135,10 +152,15 @@ private:
     // corePage(), since we may need it after the frontend's page has started destruction.
     WebCore::InspectorController* m_frontendController { nullptr };
 
-    WebCore::PageIdentifier m_inspectedPageIdentifier;
+    WebPageProxyIdentifier m_inspectedPageIdentifier;
     bool m_underTest { false };
+    DebuggableInfoData m_debuggableInfo;
     bool m_dockingUnavailable { false };
     bool m_isVisible { false };
+#if ENABLE(INSPECTOR_TELEMETRY)
+    bool m_diagnosticLoggingAvailable { false };
+#endif
+
     DockSide m_dockSide { DockSide::Undocked };
     unsigned m_inspectionLevel { 1 };
 };

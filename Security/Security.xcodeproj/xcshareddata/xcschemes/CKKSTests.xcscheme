@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1000"
+   LastUpgradeVersion = "1120"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "NO"
@@ -42,6 +42,9 @@
                   Identifier = "CloudKitKeychainSyncingMockXCTest">
                </Test>
                <Test
+                  Identifier = "CloudKitKeychainSyncingMultiZoneTestsBase">
+               </Test>
+               <Test
                   Identifier = "CloudKitKeychainSyncingTestsBase">
                </Test>
                <Test
@@ -50,8 +53,6 @@
             </SkippedTests>
          </TestableReference>
       </Testables>
-      <AdditionalOptions>
-      </AdditionalOptions>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -66,8 +67,6 @@
       migratedStopOnEveryIssue = "YES"
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES">
-      <AdditionalOptions>
-      </AdditionalOptions>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

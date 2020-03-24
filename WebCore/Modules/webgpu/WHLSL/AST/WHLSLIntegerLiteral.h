@@ -29,7 +29,7 @@
 
 #include "WHLSLExpression.h"
 #include "WHLSLIntegerLiteralType.h"
-#include "WHLSLLexer.h"
+#include <wtf/FastMalloc.h>
 
 namespace WebCore {
 
@@ -37,16 +37,17 @@ namespace WHLSL {
 
 namespace AST {
 
-class IntegerLiteral : public Expression {
+class IntegerLiteral final : public Expression {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     IntegerLiteral(CodeLocation location, int value)
-        : Expression(location)
+        : Expression(location, Kind::IntegerLiteral)
         , m_type(location, value)
         , m_value(value)
     {
     }
 
-    virtual ~IntegerLiteral() = default;
+    ~IntegerLiteral() = default;
 
     IntegerLiteral(const IntegerLiteral&) = delete;
     IntegerLiteral(IntegerLiteral&&) = default;
@@ -57,14 +58,12 @@ public:
     IntegerLiteralType& type() { return m_type; }
     int value() const { return m_value; }
 
-    bool isIntegerLiteral() const override { return true; }
-
     IntegerLiteral clone() const
     {
         IntegerLiteral result(codeLocation(), m_value);
         result.m_type = m_type.clone();
         if (auto* resolvedType = m_type.maybeResolvedType())
-            result.m_type.resolve(resolvedType->clone());
+            result.m_type.resolve(const_cast<AST::UnnamedType&>(*resolvedType));
         copyTypeTo(result);
         return result;
     }
@@ -81,6 +80,8 @@ private:
 }
 
 }
+
+DEFINE_DEFAULT_DELETE(IntegerLiteral)
 
 SPECIALIZE_TYPE_TRAITS_WHLSL_EXPRESSION(IntegerLiteral, isIntegerLiteral())
 

@@ -38,7 +38,8 @@
 {
     if(!self.sosEnabled || self.circleStatus == kSOSCCError) {
         if(error && self.circleStatus == kSOSCCError) {
-            *error = [NSError errorWithDomain:(__bridge NSString*)kSOSErrorDomain code:self.circleStatus userInfo:nil];
+            // I'm not at all sure that the second error here actually is any error in particular
+            *error = self.circleStatusError ?: [NSError errorWithDomain:(__bridge NSString*)kSOSErrorDomain code:self.circleStatus userInfo:nil];
         }
         return kSOSCCError;
     }

@@ -690,7 +690,7 @@ sec_protocol_metadata_get_tls_negotiated_group(sec_protocol_metadata_t metadata)
  *
  *      Note: this SPI is meant to be called by libnetcore. It should not be called in any other circumstances.
  *
- * @param options
+ * @param metadata
  *      A `sec_protocol_metadata_t` instance.
  *
  * @return The identifier for a secure connection experiment, or NULL if none was specified.

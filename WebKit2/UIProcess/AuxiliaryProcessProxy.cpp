@@ -27,9 +27,7 @@
 #include "AuxiliaryProcessProxy.h"
 
 #include "AuxiliaryProcessMessages.h"
-#include "LoadParameters.h"
 #include "Logging.h"
-#include "WebPageMessages.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
 #include <wtf/RunLoop.h>
@@ -77,6 +75,11 @@ void AuxiliaryProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& lau
     case ProcessLauncher::ProcessType::Network:
         varname = "NETWORK_PROCESS_CMD_PREFIX";
         break;
+#if ENABLE(GPU_PROCESS)
+    case ProcessLauncher::ProcessType::GPU:
+        varname = "GPU_PROCESS_CMD_PREFIX";
+        break;
+#endif
     }
     const char* processCmdPrefix = getenv(varname);
     if (processCmdPrefix && *processCmdPrefix)
@@ -91,7 +94,7 @@ void AuxiliaryProcessProxy::connect()
     ASSERT(!m_processLauncher);
     ProcessLauncher::LaunchOptions launchOptions;
     getLaunchOptions(launchOptions);
-    m_processLauncher = ProcessLauncher::create(this, launchOptions);
+    m_processLauncher = ProcessLauncher::create(this, WTFMove(launchOptions));
 }
 
 void AuxiliaryProcessProxy::terminate()
@@ -111,52 +114,60 @@ AuxiliaryProcessProxy::State AuxiliaryProcessProxy::state() const
     if (m_processLauncher && m_processLauncher->isLaunching())
         return AuxiliaryProcessProxy::State::Launching;
 
-    // There is sometimes a delay until we get the notification from mach about the connection getting closed.
-    // To help detect terminated process earlier, we also check that the PID is for a valid running process.
-    if (!m_connection || !isRunningProcessPID(processIdentifier()))
+    if (!m_connection)
         return AuxiliaryProcessProxy::State::Terminated;
 
     return AuxiliaryProcessProxy::State::Running;
 }
 
-bool AuxiliaryProcessProxy::isRunningProcessPID(ProcessID pid)
+bool AuxiliaryProcessProxy::wasTerminated() const
 {
-    if (!pid)
+    switch (state()) {
+    case AuxiliaryProcessProxy::State::Launching:
         return false;
-
-#if PLATFORM(COCOA)
-    // Use kill() with a signal of 0 to check if there is actually still a process with the given PID.
-    if (!kill(pid, 0))
+    case AuxiliaryProcessProxy::State::Terminated:
         return true;
-
-    if (errno == ESRCH) {
-        // No process can be found corresponding to that specified by pid.
-        return false;
+    case AuxiliaryProcessProxy::State::Running:
+        break;
     }
 
-    RELEASE_LOG_ERROR(Process, "kill() returned unexpected error %d", errno);
-    return true;
+    auto pid = processIdentifier();
+    if (!pid)
+        return true;
+
+#if PLATFORM(COCOA)
+    // Use kill() with a signal of 0 to make sure there is indeed still a process with the given PID.
+    // This is needed because it sometimes takes a little bit of time for us to get notified that a process
+    // was terminated.
+    return kill(pid, 0) && errno == ESRCH;
 #else
-    UNUSED_PARAM(pid);
-    return true;
+    return false;
 #endif
 }
 
-bool AuxiliaryProcessProxy::sendMessage(std::unique_ptr<IPC::Encoder> encoder, OptionSet<IPC::SendOption> sendOptions)
+bool AuxiliaryProcessProxy::sendMessage(std::unique_ptr<IPC::Encoder> encoder, OptionSet<IPC::SendOption> sendOptions, Optional<std::pair<CompletionHandler<void(IPC::Decoder*)>, uint64_t>>&& asyncReplyInfo)
 {
     switch (state()) {
     case State::Launching:
         // If we're waiting for the child process to launch, we need to stash away the messages so we can send them once we have a connection.
-        m_pendingMessages.append(std::make_pair(WTFMove(encoder), sendOptions));
+        m_pendingMessages.append({ WTFMove(encoder), sendOptions, WTFMove(asyncReplyInfo) });
         return true;
 
     case State::Running:
-        return connection()->sendMessage(WTFMove(encoder), sendOptions);
+        if (connection()->sendMessage(WTFMove(encoder), sendOptions)) {
+            if (asyncReplyInfo)
+                IPC::addAsyncReplyHandler(*connection(), asyncReplyInfo->second, WTFMove(asyncReplyInfo->first));
+            return true;
+        }
+        break;
 
     case State::Terminated:
-        return false;
+        break;
     }
 
+    if (asyncReplyInfo)
+        asyncReplyInfo->first(nullptr);
+    
     return false;
 }
 
@@ -202,31 +213,15 @@ void AuxiliaryProcessProxy::didFinishLaunching(ProcessLauncher*, IPC::Connection
     connectionWillOpen(*m_connection);
     m_connection->open();
 
-    for (size_t i = 0; i < m_pendingMessages.size(); ++i) {
-        std::unique_ptr<IPC::Encoder> message = WTFMove(m_pendingMessages[i].first);
-        OptionSet<IPC::SendOption> sendOptions = m_pendingMessages[i].second;
-#if HAVE(SANDBOX_ISSUE_MACH_EXTENSION_TO_PROCESS_BY_PID)
-        if (message->messageName() == "LoadRequestWaitingForPID") {
-            auto buffer = message->buffer();
-            auto bufferSize = message->bufferSize();
-            std::unique_ptr<IPC::Decoder> decoder = std::make_unique<IPC::Decoder>(buffer, bufferSize, nullptr, Vector<IPC::Attachment> { });
-            LoadParameters loadParameters;
-            URL resourceDirectoryURL;
-            WebCore::PageIdentifier pageID;
-            if (decoder->decode(loadParameters) && decoder->decode(resourceDirectoryURL) && decoder->decode(pageID)) {
-                if (auto* page = WebProcessProxy::webPage(pageID)) {
-                    page->maybeInitializeSandboxExtensionHandle(static_cast<WebProcessProxy&>(*this), loadParameters.request.url(), resourceDirectoryURL, loadParameters.sandboxExtensionHandle);
-                    send(Messages::WebPage::LoadRequest(loadParameters), decoder->destinationID());
-                }
-            } else
-                ASSERT_NOT_REACHED();
+    for (auto&& pendingMessage : std::exchange(m_pendingMessages, { })) {
+        if (!shouldSendPendingMessage(pendingMessage))
             continue;
-        }
-#endif
-        m_connection->sendMessage(WTFMove(message), sendOptions);
+        auto encoder = WTFMove(pendingMessage.encoder);
+        auto sendOptions = pendingMessage.sendOptions;
+        if (pendingMessage.asyncReplyInfo)
+            IPC::addAsyncReplyHandler(*connection(), pendingMessage.asyncReplyInfo->second, WTFMove(pendingMessage.asyncReplyInfo->first));
+        m_connection->sendMessage(WTFMove(encoder), sendOptions);
     }
-
-    m_pendingMessages.clear();
 }
 
 void AuxiliaryProcessProxy::shutDownProcess()

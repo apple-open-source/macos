@@ -27,10 +27,13 @@
 #include "WebGeolocationManagerProxy.h"
 
 #include "APIGeolocationProvider.h"
+#include "Logging.h"
 #include "WebGeolocationManagerMessages.h"
 #include "WebGeolocationManagerProxyMessages.h"
 #include "WebGeolocationPosition.h"
 #include "WebProcessPool.h"
+
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, (&connection))
 
 namespace WebKit {
 
@@ -46,7 +49,7 @@ Ref<WebGeolocationManagerProxy> WebGeolocationManagerProxy::create(WebProcessPoo
 
 WebGeolocationManagerProxy::WebGeolocationManagerProxy(WebProcessPool* processPool)
     : WebContextSupplement(processPool)
-    , m_provider(std::make_unique<API::GeolocationProvider>())
+    , m_provider(makeUnique<API::GeolocationProvider>())
 {
     WebContextSupplement::processPool()->addMessageReceiver(Messages::WebGeolocationManagerProxy::messageReceiverName(), *this);
 }
@@ -54,7 +57,7 @@ WebGeolocationManagerProxy::WebGeolocationManagerProxy(WebProcessPool* processPo
 void WebGeolocationManagerProxy::setProvider(std::unique_ptr<API::GeolocationProvider>&& provider)
 {
     if (!provider)
-        m_provider = std::make_unique<API::GeolocationProvider>();
+        m_provider = makeUnique<API::GeolocationProvider>();
     else
         m_provider = WTFMove(provider);
 }
@@ -111,8 +114,14 @@ void WebGeolocationManagerProxy::resetPermissions()
 }
 #endif
 
-void WebGeolocationManagerProxy::startUpdating(IPC::Connection& connection)
+void WebGeolocationManagerProxy::startUpdating(IPC::Connection& connection, WebPageProxyIdentifier pageProxyID, const String& authorizationToken)
 {
+    auto* page = WebProcessProxy::webPage(pageProxyID);
+    MESSAGE_CHECK(page);
+
+    auto isValidAuthorizationToken = page->geolocationPermissionRequestManager().isValidAuthorizationToken(authorizationToken);
+    MESSAGE_CHECK(isValidAuthorizationToken);
+
     bool wasUpdating = isUpdating();
     m_updateRequesters.add(&connection.client());
     if (!wasUpdating) {
@@ -159,3 +168,5 @@ void WebGeolocationManagerProxy::setEnableHighAccuracy(IPC::Connection& connecti
 }
 
 } // namespace WebKit
+
+#undef MESSAGE_CHECK

@@ -51,7 +51,7 @@
 #include <unistd.h>
 
 #include "secd_regressions.h"
-#include "SOSTestDataSource.h"
+#include "keychain/SecureObjectSync/Regressions/SOSTestDataSource.h"
 
 #include "SOSRegressionUtilities.h"
 #include <Security/SecRecoveryKey.h>
@@ -209,10 +209,10 @@ static void tests(bool recKeyFirst)
     ok([bob_account.trust checkForRings:&error], "Bob_account is good");
     CFReleaseNull(error);
     
-    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Is alice is in backup before sync?");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Is alice is in backup before sync?");
     
     if(!recKeyFirst) {
-        SOSBackupSliceKeyBagRef bskb = SOSAccountBackupSliceKeyBagForView(alice_account, kTestView1, &error);
+        SOSBackupSliceKeyBagRef bskb = SOSAccountBackupSliceKeyBagForView_wTxn(alice_account, kTestView1, &error);
         CFReleaseNull(error);
         ok(!SOSBSKBHasRecoveryKey(bskb), "BSKB should not have recovery key");
         CFReleaseNull(bskb);
@@ -221,7 +221,7 @@ static void tests(bool recKeyFirst)
     ok([alice_account.trust checkForRings:&error], "Alice_account is good");
     CFReleaseNull(error);
     
-    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Is bob in the backup after sync? - 1");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Is bob in the backup after sync? - 1");
     
     ok([bob_account.trust checkForRings:&error], "Alice_account is good");
     CFReleaseNull(error);
@@ -232,12 +232,9 @@ static void tests(bool recKeyFirst)
     ok([alice_account.trust checkForRings:&error], "Alice_account is good");
     CFReleaseNull(error);
     
-    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Is alice is in backup after sync?");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Is alice is in backup after sync?");
     
-    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "IS bob in the backup after sync");
-    
-    ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is not last backup peer");
-    CFReleaseNull(error);
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "IS bob in the backup after sync");
     
     //
     //Bob leaves the circle
@@ -248,16 +245,11 @@ static void tests(bool recKeyFirst)
     //Alice should kick Bob out of the backup!
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
     
-    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Bob left the circle, Alice is in the backup");
-    
-    ok(SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is last backup peer");
-    CFReleaseNull(error);
-    ok(!SOSAccountIsLastBackupPeer(bob_account, &error), "Bob is not last backup peer");
-    CFReleaseNull(error);
-    
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Bob left the circle, Alice is in the backup");
+
     //ok(testAccountPersistence(alice_account), "Test Account->DER->Account Equivalence");
     SOSAccountTrustClassic* bobTrust = bob_account.trust;
-    ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, bobTrust.peerInfo, kTestView1), "Bob is still in the backup!");
+    ok(!SOSAccountIsPeerInBackupAndCurrentInView_wTxn(alice_account, bobTrust.peerInfo, kTestView1), "Bob is still in the backup!");
     
     //Bob gets back into the circle
     ok(SOSTestJoinWithApproval(cfpassword, cfaccount, changes, alice_account, bob_account, KEEP_USERKEY, 2, false), "Bob Re-Joins");
@@ -266,17 +258,11 @@ static void tests(bool recKeyFirst)
     is([bob_account.trust updateView:bob_account name:kTestView1 code:kSOSCCViewEnable err:&error], kSOSCCViewMember, "Enable view (%@)", error);
     CFReleaseNull(error);
     
-    ok(!SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob isn't in the backup yet");
-    
-    ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is the not the last backup peer - Bob still registers as one");
-    CFReleaseNull(error);
-    
+    ok(!SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Bob isn't in the backup yet");
+
     ok(SOSAccountSetBackupPublicKey_wTxn(bob_account, bob_backup_key, &error), "Set backup public key, alice (%@)", error);
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 3, "updates");
-    
-    ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is not last backup peer");
-    CFReleaseNull(error);
     
     //
     //removing backup key for bob account
@@ -286,8 +272,8 @@ static void tests(bool recKeyFirst)
     int nchanges = (recKeyFirst) ? 2: 2;
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), nchanges, "updates");
 
-    ok(!SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key is in the backup - should not be so!");
-    ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, bobTrust.peerInfo, kTestView1), "Bob is up to date in the backup!");
+    ok(!SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Bob's backup key is in the backup - should not be so!");
+    ok(!SOSAccountIsPeerInBackupAndCurrentInView_wTxn(alice_account, bobTrust.peerInfo, kTestView1), "Bob is up to date in the backup!");
     
     //
     // Setting new backup public key for Bob
@@ -300,21 +286,21 @@ static void tests(bool recKeyFirst)
     ok(SOSAccountNewBKSBForView(bob_account, kTestView1, &error), "Setting new backup public key for bob account failed: (%@)", error);
     
     //bob is in his own backup
-    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key is not in the backup");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Bob's backup key is not in the backup");
     //alice does not have bob in her backup
-    ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, bobTrust.peerInfo, kTestView1), "Bob is up to date in the backup - should not be so!");
+    ok(!SOSAccountIsPeerInBackupAndCurrentInView_wTxn(alice_account, bobTrust.peerInfo, kTestView1), "Bob is up to date in the backup - should not be so!");
     
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 5, "updates");
     
-    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key should be in the backup");
-    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Alice is in the backup");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Bob's backup key should be in the backup");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Alice is in the backup");
     
     if(!recKeyFirst) registerRecoveryKeyNow(changes, alice_account, bob_account, pubKeyBytes, recKeyFirst);
     
-    ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView(alice_account, kTestView1), "Recovery Key is also in the backup");
-    ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView(bob_account, kTestView1), "Recovery Key is also in the backup");
+    ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Recovery Key is also in the backup");
+    ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Recovery Key is also in the backup");
     
-    SOSBackupSliceKeyBagRef bskb = SOSAccountBackupSliceKeyBagForView(alice_account, kTestView1, &error);
+    SOSBackupSliceKeyBagRef bskb = SOSAccountBackupSliceKeyBagForView_wTxn(alice_account, kTestView1, &error);
     CFReleaseNull(error);
     
     ok(SOSBSKBHasRecoveryKey(bskb), "BSKB should have recovery key");
@@ -332,10 +318,10 @@ static void tests(bool recKeyFirst)
 
     registerRecoveryKeyNow(changes, alice_account, bob_account, NULL, recKeyFirst);
     
-    ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView(alice_account, kTestView1), "Recovery Key is not in the backup");
-    ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView(bob_account, kTestView1), "Recovery Key is not in the backup");
+    ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Recovery Key is not in the backup");
+    ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Recovery Key is not in the backup");
 
-    bskb = SOSAccountBackupSliceKeyBagForView(alice_account, kTestView1, &error);
+    bskb = SOSAccountBackupSliceKeyBagForView_wTxn(alice_account, kTestView1, &error);
     CFReleaseNull(error);
     
     ok(!SOSBSKBHasRecoveryKey(bskb), "BSKB should not have recovery key");

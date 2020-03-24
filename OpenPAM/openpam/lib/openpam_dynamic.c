@@ -40,11 +40,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <dispatch/dispatch.h>
-#include <os/log.h>
 #include <security/pam_appl.h>
+#include <System/sys/codesign.h>
 
 #include "openpam_impl.h"
 
@@ -52,60 +51,94 @@
 #define RTLD_NOW RTLD_LAZY
 #endif
 
+
 /*
  * OpenPAM internal
  *
- * Locate a dynamically linked module
+ * Attempt to dynamically load a module.
+ * Disable LV on the process if necessary.
+ */
+
+static void *
+openpam_dlopen(const char *path, int mode)
+{
+	void *dlh = dlopen(path, mode);
+	if (dlh != NULL)
+		return dlh;
+
+	/* The module exists and is readable, but we failed to load it: disable LV and try again. */
+	int rv = csops(getpid(), CS_OPS_CLEAR_LV, NULL, 0);
+	if (rv == 0)
+		return dlopen(path, mode);
+
+	openpam_log(PAM_LOG_LIBDEBUG, "csops(CS_OPS_CLEAR_LV) failed: %d", rv);
+	return NULL;
+}
+
+
+/*
+ * OpenPAM internal
+ *
+ * Attempt to load a specific module.
+ * On success, populate the `pam_module_t` structure provided.
+ */
+
+static bool
+openpam_dynamic_load_single(const char *path, pam_module_t *module)
+{
+	if (access(path, R_OK) != 0)
+		return false;
+
+	void *dlh = openpam_dlopen(path, RTLD_NOW);
+	if (dlh != NULL) {
+		openpam_log(PAM_LOG_LIBDEBUG, "%s", path);
+		module->path = strdup(path);
+		if (module->path == NULL)
+			goto bail;
+		module->dlh = dlh;
+		for (int i = 0; i < PAM_NUM_PRIMITIVES; ++i) {
+			module->func[i] = (pam_func_t)dlsym(dlh, _pam_sm_func_name[i]);
+			if (module->func[i] == NULL)
+				openpam_log(PAM_LOG_LIBDEBUG, "%s: %s(): %s", path, _pam_sm_func_name[i], dlerror());
+		}
+		return true;
+	}
+
+bail:
+	if (dlh != NULL)
+		dlclose(dlh);
+
+	return false;
+}
+
+
+/*
+ * OpenPAM internal
+ *
+ * Locate a dynamically linked module.
+ * Prefer a module matching the current major version, otherwise fall back to the unversioned one.
  */
 
 static bool
 openpam_dynamic_load(const char *prefix, const char *path, pam_module_t *module)
 {
-	char *vpath;
-	void *dlh;
-	int i;
+	char *vpath = NULL;
+	bool loaded = false;
 
-	/* try versioned module first, then unversioned module */
+	/* Try versioned module first. */
 	if (asprintf(&vpath, "%s%s.%d", prefix, path, LIB_MAJ) < 0)
-		goto buf_err;
-	if ((dlh = dlopen(vpath, RTLD_NOW)) == NULL) {
-		/* <rdar://problem/41312354> PAM should trigger a simulated crash when it fails to load a module */
-		const char *dlerr = dlerror();
-		int rv = access(vpath, R_OK);
-		if (rv == 0)
-			os_log_fault(OS_LOG_DEFAULT, "[%{public}s] %{public}s exists + readable, but failed dlopen(): %{public}s",
-						 __func__, vpath, dlerr);
-		openpam_log(PAM_LOG_LIBDEBUG, "%s: %s", vpath, dlerr);
-		*strrchr(vpath, '.') = '\0';
-		if ((dlh = dlopen(vpath, RTLD_NOW)) == NULL) {
-			/* <rdar://problem/41312354> PAM should trigger a simulated crash when it fails to load a module */
-			dlerr = dlerror();
-			rv = access(vpath, R_OK);
-			if (rv == 0)
-				os_log_fault(OS_LOG_DEFAULT, "[%{public}s] %{public}s exists + readable, but failed dlopen(): %{public}s",
-							 __func__, vpath, dlerr);
-			openpam_log(PAM_LOG_LIBDEBUG, "%s: %s", vpath, dlerr);
-			FREE(vpath);
-			return false;
-		}
-	}
-	FREE(vpath);
-	if ((module->path = strdup(path)) == NULL)
-		goto buf_err;
-	module->dlh = dlh;
-	for (i = 0; i < PAM_NUM_PRIMITIVES; ++i) {
-		module->func[i] = (pam_func_t)dlsym(dlh, _pam_sm_func_name[i]);
-		if (module->func[i] == NULL)
-			openpam_log(PAM_LOG_LIBDEBUG, "%s: %s(): %s",
-			    path, _pam_sm_func_name[i], dlerror());
-	}
-	return true;
+		return false;
 
- buf_err:
-	openpam_log(PAM_LOG_ERROR, "%m");
-	if (dlh != NULL)
-		dlclose(dlh);
-	return false;
+	loaded = openpam_dynamic_load_single(vpath, module);
+	if (!loaded) {
+		/* Try again with unversioned module: remove LIB_MAJ. */
+		*strrchr(vpath, '.') = '\0';
+		loaded = openpam_dynamic_load_single(vpath, module);
+	}
+
+bail:
+	FREE(vpath);
+	return loaded;
 }
 
 

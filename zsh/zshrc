@@ -1,6 +1,6 @@
 # System-wide profile for interactive zsh(1) shells.
 
-# Setup user specific overrides for this in ~/.zhsrc. See zshbuiltins(1)
+# Setup user specific overrides for this in ~/.zshrc. See zshbuiltins(1)
 # and zshoptions(1) for more details.
 
 # Correctly display UTF-8 with combining characters.

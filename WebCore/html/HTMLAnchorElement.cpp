@@ -103,6 +103,11 @@ bool HTMLAnchorElement::isMouseFocusable() const
     return HTMLElement::isMouseFocusable();
 }
 
+bool HTMLAnchorElement::isInteractiveContent() const
+{
+    return isLink();
+}
+
 static bool hasNonEmptyBox(RenderBoxModelObject* renderer)
 {
     if (!renderer)
@@ -314,7 +319,7 @@ bool HTMLAnchorElement::hasRel(Relation relation) const
 DOMTokenList& HTMLAnchorElement::relList() const
 {
     if (!m_relList) {
-        m_relList = std::make_unique<DOMTokenList>(const_cast<HTMLAnchorElement&>(*this), HTMLNames::relAttr, [](Document&, StringView token) {
+        m_relList = makeUnique<DOMTokenList>(const_cast<HTMLAnchorElement&>(*this), HTMLNames::relAttr, [](Document&, StringView token) {
 #if USE(SYSTEM_PREVIEW)
             return equalIgnoringASCIICase(token, "noreferrer") || equalIgnoringASCIICase(token, "noopener") || equalIgnoringASCIICase(token, "ar");
 #else
@@ -330,10 +335,9 @@ const AtomString& HTMLAnchorElement::name() const
     return getNameAttribute();
 }
 
-int HTMLAnchorElement::tabIndex() const
+int HTMLAnchorElement::defaultTabIndex() const
 {
-    // Skip the supportsFocus check in HTMLElement.
-    return Element::tabIndex();
+    return 0;
 }
 
 String HTMLAnchorElement::target() const
@@ -403,7 +407,8 @@ Optional<AdClickAttribution> HTMLAnchorElement::parseAdClickAttribution() const
     using Source = AdClickAttribution::Source;
     using Destination = AdClickAttribution::Destination;
 
-    if (document().sessionID().isEphemeral()
+    auto* page = document().page();
+    if (!page || page->sessionID().isEphemeral()
         || !RuntimeEnabledFeatures::sharedFeatures().adClickAttributionEnabled()
         || !UserGestureIndicator::processingUserGesture())
         return WTF::nullopt;

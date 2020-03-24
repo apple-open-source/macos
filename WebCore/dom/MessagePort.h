@@ -32,10 +32,11 @@
 #include "MessagePortChannel.h"
 #include "MessagePortIdentifier.h"
 #include "MessageWithMessagePorts.h"
+#include "PostMessageOptions.h"
 #include <wtf/WeakPtr.h>
 
 namespace JSC {
-class ExecState;
+class CallFrame;
 class JSObject;
 class JSValue;
 }
@@ -44,14 +45,14 @@ namespace WebCore {
 
 class Frame;
 
-class MessagePort final : public ActiveDOMObject, public EventTargetWithInlineData, public CanMakeWeakPtr<MessagePort> {
+class MessagePort final : public ActiveDOMObject, public EventTargetWithInlineData, public CanMakeWeakPtr<MessagePort, WeakPtrFactoryInitialization::Eager> {
     WTF_MAKE_NONCOPYABLE(MessagePort);
     WTF_MAKE_ISO_ALLOCATED(MessagePort);
 public:
     static Ref<MessagePort> create(ScriptExecutionContext&, const MessagePortIdentifier& local, const MessagePortIdentifier& remote);
     virtual ~MessagePort();
 
-    ExceptionOr<void> postMessage(JSC::ExecState&, JSC::JSValue message, Vector<JSC::Strong<JSC::JSObject>>&&);
+    ExceptionOr<void> postMessage(JSC::JSGlobalObject&, JSC::JSValue message, PostMessageOptions&&);
 
     void start();
     void close();
@@ -83,7 +84,6 @@ public:
 
     // ActiveDOMObject
     const char* activeDOMObjectName() const final;
-    bool canSuspendForDocumentSuspension() const final;
     void contextDestroyed() final;
     void stop() final { close(); }
     bool hasPendingActivity() const final;
@@ -95,6 +95,8 @@ public:
     ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
+
+    void dispatchEvent(Event&) final;
 
 private:
     explicit MessagePort(ScriptExecutionContext&, const MessagePortIdentifier& local, const MessagePortIdentifier& remote);

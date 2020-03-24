@@ -66,7 +66,7 @@ void PolymorphicCallCase::dump(PrintStream& out) const
 }
 
 PolymorphicCallStubRoutine::PolymorphicCallStubRoutine(
-    const MacroAssemblerCodeRef<JITStubRoutinePtrTag>& codeRef, VM& vm, const JSCell* owner, ExecState* callerFrame,
+    const MacroAssemblerCodeRef<JITStubRoutinePtrTag>& codeRef, VM& vm, const JSCell* owner, CallFrame* callerFrame,
     CallLinkInfo& info, const Vector<PolymorphicCallCase>& cases,
     UniqueArray<uint32_t>&& fastCounts)
     : GCAwareJITStubRoutine(codeRef, vm)
@@ -129,11 +129,11 @@ void PolymorphicCallStubRoutine::clearCallNodesFor(CallLinkInfo* info)
 
 bool PolymorphicCallStubRoutine::visitWeak(VM& vm)
 {
-    for (auto& variant : m_variants) {
-        if (!vm.heap.isMarked(variant.get()))
-            return false;
-    }
-    return true;
+    bool isStillLive = true;
+    forEachDependentCell([&](JSCell* cell) {
+        isStillLive &= vm.heap.isMarked(cell);
+    });
+    return isStillLive;
 }
 
 void PolymorphicCallStubRoutine::markRequiredObjectsInternal(SlotVisitor& visitor)

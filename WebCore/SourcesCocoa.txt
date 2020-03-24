@@ -116,7 +116,7 @@ loader/archive/cf/LegacyWebArchiveMac.mm
 loader/cocoa/DiskCacheMonitorCocoa.mm
 loader/cocoa/SubresourceLoaderCocoa.mm
 
-loader/ios/PreviewLoader.mm
+loader/ios/LegacyPreviewLoader.mm
 
 loader/mac/DocumentLoaderMac.cpp
 loader/mac/LoaderNSURLExtras.mm
@@ -163,6 +163,7 @@ page/scrolling/mac/ScrollingTreeMac.cpp
 
 platform/audio/AudioSession.cpp
 
+platform/audio/cocoa/AudioDestinationCocoa.cpp
 platform/audio/cocoa/MediaSessionManagerCocoa.mm
 platform/audio/cocoa/WebAudioBufferList.cpp
 
@@ -198,6 +199,8 @@ platform/cocoa/MIMETypeRegistryCocoa.mm
 platform/cocoa/NetworkExtensionContentFilter.mm
 platform/cocoa/ParentalControlsContentFilter.mm
 platform/cocoa/PasteboardCocoa.mm
+platform/cocoa/PasteboardCustomDataCocoa.mm
+platform/cocoa/PlatformPasteboardCocoa.mm
 platform/cocoa/PlaybackSessionModelMediaElement.mm
 platform/cocoa/RuntimeApplicationChecksCocoa.mm
 platform/cocoa/ScrollController.mm
@@ -275,6 +278,7 @@ platform/graphics/ca/cocoa/PlatformCAFiltersCocoa.mm
 platform/graphics/ca/cocoa/PlatformCALayerCocoa.mm
 platform/graphics/ca/cocoa/WebSystemBackdropLayer.mm
 platform/graphics/ca/cocoa/WebTiledBackingLayer.mm
+platform/graphics/ca/cocoa/WebVideoContainerLayer.mm
 
 platform/graphics/cg/ColorCG.cpp
 platform/graphics/cg/FloatPointCG.cpp
@@ -326,6 +330,7 @@ platform/graphics/cv/PixelBufferConformerCV.cpp
 platform/graphics/cv/TextureCacheCV.mm
 platform/graphics/cv/VideoTextureCopierCV.cpp
 
+platform/graphics/gpu/cocoa/GPUBindGroupAllocatorMetal.mm
 platform/graphics/gpu/cocoa/GPUBindGroupMetal.mm
 platform/graphics/gpu/cocoa/GPUBindGroupLayoutMetal.mm
 platform/graphics/gpu/cocoa/GPUBufferMetal.mm
@@ -379,12 +384,10 @@ platform/graphics/opengl/TemporaryOpenGLSetting.cpp
 platform/graphics/opentype/OpenTypeCG.cpp
 
 platform/ios/ColorIOS.mm
-platform/ios/CursorIOS.cpp
 platform/ios/Device.cpp
 platform/ios/DeviceMotionClientIOS.mm
 platform/ios/DeviceOrientationClientIOS.mm
 platform/ios/DragImageIOS.mm
-platform/ios/EventLoopIOS.mm
 platform/ios/KeyEventIOS.mm
 platform/ios/LegacyTileCache.mm
 platform/ios/LegacyTileGrid.mm
@@ -399,6 +402,7 @@ platform/ios/PlatformPasteboardIOS.mm
 platform/ios/PlatformScreenIOS.mm
 platform/ios/PlatformSpeechSynthesizerIOS.mm @no-unify
 platform/ios/PlaybackSessionInterfaceAVKit.mm @no-unify
+platform/ios/PreviewConverterIOS.mm
 platform/ios/QuickLook.mm
 platform/ios/RemoteCommandListenerIOS.mm
 platform/ios/ScrollAnimatorIOS.mm
@@ -431,10 +435,9 @@ platform/ios/wak/WKGraphics.mm
 platform/ios/wak/WKView.mm
 
 platform/mac/BlacklistUpdater.mm
-platform/mac/CursorMac.mm
+platform/mac/CursorMac.mm @no-unify
 platform/mac/DragDataMac.mm
 platform/mac/DragImageMac.mm
-platform/mac/EventLoopMac.mm
 platform/mac/KeyEventMac.mm @no-unify
 platform/mac/PlaybackSessionInterfaceMac.mm @no-unify
 platform/mac/LocalCurrentGraphicsContext.mm
@@ -492,6 +495,7 @@ platform/mediastream/mac/MockRealtimeVideoSourceMac.mm
 
 platform/mock/MediaPlaybackTargetPickerMock.cpp
 platform/mock/MediaPlaybackTargetMock.cpp
+platform/mock/MockAudioDestinationCocoa.cpp
 
 platform/network/cf/CertificateInfoCFNet.cpp
 platform/network/cf/DNSResolveQueueCFNet.cpp
@@ -513,7 +517,6 @@ platform/network/cocoa/ResourceResponseCocoa.mm @no-unify // Unsafe to unify unt
 platform/network/cocoa/WebCoreNSURLSession.mm @no-unify
 
 platform/network/ios/NetworkStateNotifierIOS.mm
-platform/network/ios/PreviewConverter.mm
 platform/network/ios/WebCoreURLResponseIOS.mm
 
 platform/network/mac/AuthenticationMac.mm
@@ -543,6 +546,7 @@ rendering/RenderThemeIOS.mm
 rendering/RenderThemeMac.mm
 rendering/TextAutoSizing.cpp
 
+platform/mediastream/mac/BaseAudioSharedUnit.cpp
 platform/mediastream/mac/CoreAudioCaptureDevice.cpp
 platform/mediastream/mac/CoreAudioCaptureDeviceManager.cpp
 platform/mediastream/mac/CoreAudioCaptureSource.cpp
@@ -559,7 +563,7 @@ platform/mediastream/mac/WindowDisplayCaptureSourceMac.mm
 
 platform/audio/mac/AudioSampleDataSource.mm
 
-platform/mediastream/mac/MockRealtimeAudioSourceMac.mm
+platform/mediastream/mac/MockAudioSharedUnit.mm
 platform/mediastream/mac/WebAudioSourceProviderAVFObjC.mm
 
 platform/mediastream/libwebrtc/LibWebRTCProviderCocoa.cpp

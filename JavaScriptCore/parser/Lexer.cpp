@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2006-2017 Apple Inc. All Rights Reserved.
+ *  Copyright (C) 2006-2019 Apple Inc. All Rights Reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2010 Zoltan Herczeg (zherczeg@inf.u-szeged.hu)
  *  Copyright (C) 2012 Mathias Bynens (mathias@qiwi.be)
@@ -95,6 +95,7 @@ enum CharacterType {
 
     // Other types (only one so far)
     CharacterWhiteSpace,
+    CharacterHash,
     CharacterPrivateIdentifierStart
 };
 
@@ -135,7 +136,7 @@ static constexpr const unsigned short typesOfLatin1Characters[256] = {
 /*  32 - Space              */ CharacterWhiteSpace,
 /*  33 - !                  */ CharacterExclamationMark,
 /*  34 - "                  */ CharacterQuote,
-/*  35 - #                  */ CharacterInvalid,
+/*  35 - #                  */ CharacterHash,
 /*  36 - $                  */ CharacterIdentifierStart,
 /*  37 - %                  */ CharacterModulo,
 /*  38 - &                  */ CharacterAnd,
@@ -492,7 +493,7 @@ static constexpr const LChar singleCharacterEscapeValuesForASCII[128] = {
 };
 
 template <typename T>
-Lexer<T>::Lexer(VM* vm, JSParserBuiltinMode builtinMode, JSParserScriptMode scriptMode)
+Lexer<T>::Lexer(VM& vm, JSParserBuiltinMode builtinMode, JSParserScriptMode scriptMode)
     : m_isReparsingFunction(false)
     , m_vm(vm)
     , m_parsingBuiltinFunction(builtinMode == JSParserBuiltinMode::Builtin)
@@ -849,29 +850,8 @@ static inline LChar singleEscape(int c)
 template <typename T>
 inline void Lexer<T>::record8(int c)
 {
-    ASSERT(c >= 0);
-    ASSERT(c <= 0xFF);
+    ASSERT(isLatin1(c));
     m_buffer8.append(static_cast<LChar>(c));
-}
-
-template <typename T>
-inline void assertCharIsIn8BitRange(T c)
-{
-    UNUSED_PARAM(c);
-    ASSERT(c >= 0);
-    ASSERT(c <= 0xFF);
-}
-
-template <>
-inline void assertCharIsIn8BitRange(UChar c)
-{
-    UNUSED_PARAM(c);
-    ASSERT(c <= 0xFF);
-}
-
-template <>
-inline void assertCharIsIn8BitRange(LChar)
-{
 }
 
 template <typename T>
@@ -883,7 +863,7 @@ inline void Lexer<T>::append8(const T* p, size_t length)
 
     for (size_t i = 0; i < length; i++) {
         T c = p[i];
-        assertCharIsIn8BitRange(c);
+        ASSERT(isLatin1(c));
         rawBuffer[i] = c;
     }
 }
@@ -947,11 +927,11 @@ bool isSafeBuiltinIdentifier(VM& vm, const Identifier* ident)
 #endif
     
 template <>
-template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<LChar>::parseIdentifier(JSTokenData* tokenData, unsigned lexerFlags, bool strictMode)
+template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<LChar>::parseIdentifier(JSTokenData* tokenData, OptionSet<LexerFlags> lexerFlags, bool strictMode)
 {
     tokenData->escaped = false;
     const ptrdiff_t remaining = m_codeEnd - m_code;
-    if ((remaining >= maxTokenLength) && !(lexerFlags & LexerFlagsIgnoreReservedWords)) {
+    if ((remaining >= maxTokenLength) && !lexerFlags.contains(LexerFlags::IgnoreReservedWords)) {
         JSTokenType keyword = parseKeyword<shouldCreateIdentifier>(tokenData);
         if (keyword != IDENT) {
             ASSERT((!shouldCreateIdentifier) || tokenData->ident);
@@ -980,14 +960,14 @@ template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<LChar>::p
         int identifierLength = currentSourcePtr() - identifierStart;
         ident = makeIdentifier(identifierStart, identifierLength);
         if (m_parsingBuiltinFunction) {
-            if (!isSafeBuiltinIdentifier(*m_vm, ident) && !isPrivateName) {
+            if (!isSafeBuiltinIdentifier(m_vm, ident) && !isPrivateName) {
                 m_lexErrorMessage = makeString("The use of '", ident->string(), "' is disallowed in builtin functions.");
                 return ERRORTOK;
             }
             if (isPrivateName)
-                ident = &m_arena->makeIdentifier(m_vm, m_vm->propertyNames->lookUpPrivateName(*ident));
-            else if (*ident == m_vm->propertyNames->undefinedKeyword)
-                tokenData->ident = &m_vm->propertyNames->undefinedPrivateName;
+                ident = &m_arena->makeIdentifier(m_vm, m_vm.propertyNames->lookUpPrivateName(*ident));
+            else if (*ident == m_vm.propertyNames->undefinedKeyword)
+                tokenData->ident = &m_vm.propertyNames->undefinedPrivateName;
             if (!ident)
                 return INVALID_PRIVATE_NAME_ERRORTOK;
         }
@@ -995,7 +975,7 @@ template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<LChar>::p
     } else
         tokenData->ident = nullptr;
 
-    if (UNLIKELY((remaining < maxTokenLength) && !(lexerFlags & LexerFlagsIgnoreReservedWords)) && !isPrivateName) {
+    if (UNLIKELY((remaining < maxTokenLength) && !lexerFlags.contains(LexerFlags::IgnoreReservedWords)) && !isPrivateName) {
         ASSERT(shouldCreateIdentifier);
         if (remaining < maxTokenLength) {
             const HashTableValue* entry = JSC::mainTable.entry(*ident);
@@ -1012,11 +992,11 @@ template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<LChar>::p
 }
 
 template <>
-template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<UChar>::parseIdentifier(JSTokenData* tokenData, unsigned lexerFlags, bool strictMode)
+template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<UChar>::parseIdentifier(JSTokenData* tokenData, OptionSet<LexerFlags> lexerFlags, bool strictMode)
 {
     tokenData->escaped = false;
     const ptrdiff_t remaining = m_codeEnd - m_code;
-    if ((remaining >= maxTokenLength) && !(lexerFlags & LexerFlagsIgnoreReservedWords)) {
+    if ((remaining >= maxTokenLength) && !lexerFlags.contains(LexerFlags::IgnoreReservedWords)) {
         JSTokenType keyword = parseKeyword<shouldCreateIdentifier>(tokenData);
         if (keyword != IDENT) {
             ASSERT((!shouldCreateIdentifier) || tokenData->ident);
@@ -1058,14 +1038,14 @@ template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<UChar>::p
         else
             ident = makeIdentifier(identifierStart, identifierLength);
         if (m_parsingBuiltinFunction) {
-            if (!isSafeBuiltinIdentifier(*m_vm, ident) && !isPrivateName) {
+            if (!isSafeBuiltinIdentifier(m_vm, ident) && !isPrivateName) {
                 m_lexErrorMessage = makeString("The use of '", ident->string(), "' is disallowed in builtin functions.");
                 return ERRORTOK;
             }
             if (isPrivateName)
-                ident = &m_arena->makeIdentifier(m_vm, m_vm->propertyNames->lookUpPrivateName(*ident));
-            else if (*ident == m_vm->propertyNames->undefinedKeyword)
-                tokenData->ident = &m_vm->propertyNames->undefinedPrivateName;
+                ident = &m_arena->makeIdentifier(m_vm, m_vm.propertyNames->lookUpPrivateName(*ident));
+            else if (*ident == m_vm.propertyNames->undefinedKeyword)
+                tokenData->ident = &m_vm.propertyNames->undefinedPrivateName;
             if (!ident)
                 return INVALID_PRIVATE_NAME_ERRORTOK;
         }
@@ -1073,7 +1053,7 @@ template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<UChar>::p
     } else
         tokenData->ident = nullptr;
     
-    if (UNLIKELY((remaining < maxTokenLength) && !(lexerFlags & LexerFlagsIgnoreReservedWords)) && !isPrivateName) {
+    if (UNLIKELY((remaining < maxTokenLength) && !lexerFlags.contains(LexerFlags::IgnoreReservedWords)) && !isPrivateName) {
         ASSERT(shouldCreateIdentifier);
         if (remaining < maxTokenLength) {
             const HashTableValue* entry = JSC::mainTable.entry(*ident);
@@ -1089,7 +1069,7 @@ template <bool shouldCreateIdentifier> ALWAYS_INLINE JSTokenType Lexer<UChar>::p
     return IDENT;
 }
 
-template<typename CharacterType> template<bool shouldCreateIdentifier> JSTokenType Lexer<CharacterType>::parseIdentifierSlowCase(JSTokenData* tokenData, unsigned lexerFlags, bool strictMode)
+template<typename CharacterType> template<bool shouldCreateIdentifier> JSTokenType Lexer<CharacterType>::parseIdentifierSlowCase(JSTokenData* tokenData, OptionSet<LexerFlags> lexerFlags, bool strictMode)
 {
     tokenData->escaped = true;
     auto identifierStart = currentSourcePtr();
@@ -1139,7 +1119,7 @@ template<typename CharacterType> template<bool shouldCreateIdentifier> JSTokenTy
 
     m_buffer16.shrink(0);
 
-    if (LIKELY(!(lexerFlags & LexerFlagsIgnoreReservedWords))) {
+    if (LIKELY(!lexerFlags.contains(LexerFlags::IgnoreReservedWords))) {
         ASSERT(shouldCreateIdentifier);
         const HashTableValue* entry = JSC::mainTable.entry(*ident);
         if (!entry)
@@ -1159,7 +1139,7 @@ static ALWAYS_INLINE bool characterRequiresParseStringSlowCase(LChar character)
 
 static ALWAYS_INLINE bool characterRequiresParseStringSlowCase(UChar character)
 {
-    return character < 0xE || character > 0xFF;
+    return character < 0xE || !isLatin1(character);
 }
 
 template <typename T>
@@ -1625,6 +1605,8 @@ template <typename T>
 ALWAYS_INLINE auto Lexer<T>::parseOctal() -> Optional<NumberParseResult>
 {
     ASSERT(isASCIIOctalDigit(m_current));
+    ASSERT(!m_buffer8.size() || (m_buffer8.size() == 1 && m_buffer8[0] == '0'));
+    bool isLegacyLiteral = m_buffer8.size();
 
     // Optimization: most octal values fit into 4 bytes.
     uint32_t octalValue = 0;
@@ -1636,7 +1618,7 @@ ALWAYS_INLINE auto Lexer<T>::parseOctal() -> Optional<NumberParseResult>
 
     do {
         if (m_current == '_') {
-            if (UNLIKELY(!isASCIIOctalDigit(peek(1))))
+            if (UNLIKELY(!isASCIIOctalDigit(peek(1)) || isLegacyLiteral))
                 return WTF::nullopt;
 
             shift();
@@ -1656,7 +1638,7 @@ ALWAYS_INLINE auto Lexer<T>::parseOctal() -> Optional<NumberParseResult>
 
     while (isASCIIOctalDigitOrSeparator(m_current)) {
         if (m_current == '_') {
-            if (UNLIKELY(!isASCIIOctalDigit(peek(1))))
+            if (UNLIKELY(!isASCIIOctalDigit(peek(1)) || isLegacyLiteral))
                 return WTF::nullopt;
 
             shift();
@@ -1666,7 +1648,7 @@ ALWAYS_INLINE auto Lexer<T>::parseOctal() -> Optional<NumberParseResult>
         shift();
     }
 
-    if (UNLIKELY(Options::useBigInt() && m_current == 'n'))
+    if (UNLIKELY(Options::useBigInt() && m_current == 'n') && !isLegacyLiteral)
         return NumberParseResult { makeIdentifier(m_buffer8.data(), m_buffer8.size()) };
 
     if (isASCIIDigit(m_current))
@@ -1679,6 +1661,7 @@ template <typename T>
 ALWAYS_INLINE auto Lexer<T>::parseDecimal() -> Optional<NumberParseResult>
 {
     ASSERT(isASCIIDigit(m_current) || m_buffer8.size());
+    bool isLegacyLiteral = m_buffer8.size() && isASCIIDigitOrSeparator(m_current);
 
     // Optimization: most decimal values fit into 4 bytes.
     uint32_t decimalValue = 0;
@@ -1694,7 +1677,7 @@ ALWAYS_INLINE auto Lexer<T>::parseDecimal() -> Optional<NumberParseResult>
 
         do {
             if (m_current == '_') {
-                if (UNLIKELY(!isASCIIDigit(peek(1))))
+                if (UNLIKELY(!isASCIIDigit(peek(1)) || isLegacyLiteral))
                     return WTF::nullopt;
 
                 shift();
@@ -1715,7 +1698,7 @@ ALWAYS_INLINE auto Lexer<T>::parseDecimal() -> Optional<NumberParseResult>
 
     while (isASCIIDigitOrSeparator(m_current)) {
         if (m_current == '_') {
-            if (UNLIKELY(!isASCIIDigit(peek(1))))
+            if (UNLIKELY(!isASCIIDigit(peek(1)) || isLegacyLiteral))
                 return WTF::nullopt;
 
             shift();
@@ -1725,7 +1708,7 @@ ALWAYS_INLINE auto Lexer<T>::parseDecimal() -> Optional<NumberParseResult>
         shift();
     }
     
-    if (UNLIKELY(Options::useBigInt() && m_current == 'n'))
+    if (UNLIKELY(Options::useBigInt() && m_current == 'n' && !isLegacyLiteral))
         return NumberParseResult { makeIdentifier(m_buffer8.data(), m_buffer8.size()) };
 
     return WTF::nullopt;
@@ -1876,7 +1859,7 @@ void Lexer<T>::fillTokenInfo(JSToken* tokenRecord, JSTokenType token, int lineNu
 }
 
 template <typename T>
-JSTokenType Lexer<T>::lexWithoutClearingLineTerminator(JSToken* tokenRecord, unsigned lexerFlags, bool strictMode)
+JSTokenType Lexer<T>::lexWithoutClearingLineTerminator(JSToken* tokenRecord, OptionSet<LexerFlags> lexerFlags, bool strictMode)
 {
     JSTokenData* tokenData = &tokenRecord->m_data;
     JSTokenLocation* tokenLocation = &tokenRecord->m_location;
@@ -2153,8 +2136,18 @@ start:
         shift();
         break;
     case CharacterQuestion:
-        token = QUESTION;
         shift();
+        if (m_current == '?') {
+            shift();
+            token = COALESCE;
+            break;
+        }
+        if (m_current == '.' && !isASCIIDigit(peek(1))) {
+            shift();
+            token = QUESTIONDOT;
+            break;
+        }
+        token = QUESTION;
         break;
     case CharacterTilde:
         token = TILDE;
@@ -2384,7 +2377,7 @@ start:
         break;
     case CharacterQuote: {
         StringParseResult result = StringCannotBeParsed;
-        if (lexerFlags & LexerFlagsDontBuildStrings)
+        if (lexerFlags.contains(LexerFlags::DontBuildStrings))
             result = parseString<false>(tokenData, strictMode);
         else
             result = parseString<true>(tokenData, strictMode);
@@ -2402,7 +2395,7 @@ start:
         FALLTHROUGH;
     case CharacterBackSlash:
         parseIdent:
-        if (lexerFlags & LexexFlagsDontBuildKeywords)
+        if (lexerFlags.contains(LexerFlags::DontBuildKeywords))
             token = parseIdentifier<false>(tokenData, lexerFlags, strictMode);
         else
             token = parseIdentifier<true>(tokenData, lexerFlags, strictMode);
@@ -2414,16 +2407,21 @@ start:
         m_hasLineTerminatorBeforeToken = true;
         m_lineStart = m_code;
         goto start;
+    case CharacterHash:
+        // Hashbang is only permitted at the start of the source text.
+        if (peek(1) == '!' && !currentOffset()) {
+            shift();
+            shift();
+            goto inSingleLineComment;
+        }
+        goto invalidCharacter;
     case CharacterPrivateIdentifierStart:
         if (m_parsingBuiltinFunction)
             goto parseIdent;
-
-        FALLTHROUGH;
+        goto invalidCharacter;
     case CharacterOtherIdentifierPart:
     case CharacterInvalid:
-        m_lexErrorMessage = invalidCharacterMessage();
-        token = ERRORTOK;
-        goto returnError;
+        goto invalidCharacter;
     default:
         RELEASE_ASSERT_NOT_REACHED();
         m_lexErrorMessage = "Internal Error"_s;
@@ -2473,6 +2471,11 @@ inSingleLineComment:
 returnToken:
     fillTokenInfo(tokenRecord, token, m_lineNumber, currentOffset(), currentLineStartOffset(), currentPosition());
     return token;
+
+invalidCharacter:
+    m_lexErrorMessage = invalidCharacterMessage();
+    token = ERRORTOK;
+    // Falls through to return error.
 
 returnError:
     m_error = true;

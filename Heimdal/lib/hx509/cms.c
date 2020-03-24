@@ -1229,9 +1229,9 @@ sig_process(hx509_context context, void *ctx, hx509_cert cert)
     memset(&path, 0, sizeof(path));
 
     if (_hx509_cert_private_key(cert) == NULL) {
-	hx509_set_error_string(context, 0, HX509_PRIVATE_KEY_MISSING,
+        hx509_set_error_string(context, 0, HX509_PRIVATE_KEY_MISSING,
 			       "Private key missing for signing");
-	return HX509_PRIVATE_KEY_MISSING;
+        return HX509_PRIVATE_KEY_MISSING;
     }
 
     if (sigctx->digest_alg) {
@@ -1308,6 +1308,7 @@ sig_process(hx509_context context, void *ctx, hx509_cert cert)
 			   &sig,
 			   &size,
 			   ret);
+
 	der_free_octet_string(&sig);
 	if (ret) {
 	    hx509_clear_error_string(context);
@@ -1597,6 +1598,7 @@ hx509_cms_create_signed(hx509_context context,
 	hx509_clear_error_string(context);
 	goto out;
     }
+
     if (signed_data->length != size)
 	_hx509_abort("internal ASN.1 encoder error");
 

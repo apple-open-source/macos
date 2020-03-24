@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,7 +51,6 @@
 #include "DFGLiveCatchVariablePreservationPhase.h"
 #include "DFGLivenessAnalysisPhase.h"
 #include "DFGLoopPreHeaderCreationPhase.h"
-#include "DFGMaximalFlushInsertionPhase.h"
 #include "DFGMovHintRemovalPhase.h"
 #include "DFGOSRAvailabilityAnalysisPhase.h"
 #include "DFGOSREntrypointCreationPhase.h"
@@ -135,10 +134,10 @@ Profiler::CompilationKind profilerCompilationKindForMode(CompilationMode mode)
 } // anonymous namespace
 
 Plan::Plan(CodeBlock* passedCodeBlock, CodeBlock* profiledDFGCodeBlock,
-    CompilationMode mode, unsigned osrEntryBytecodeIndex,
+    CompilationMode mode, BytecodeIndex osrEntryBytecodeIndex,
     const Operands<Optional<JSValue>>& mustHandleValues)
     : m_mode(mode)
-    , m_vm(passedCodeBlock->vm())
+    , m_vm(&passedCodeBlock->vm())
     , m_codeBlock(passedCodeBlock)
     , m_profiledDFGCodeBlock(profiledDFGCodeBlock)
     , m_mustHandleValues(mustHandleValues)
@@ -150,6 +149,7 @@ Plan::Plan(CodeBlock* passedCodeBlock, CodeBlock* profiledDFGCodeBlock,
     , m_stage(Preparing)
 {
     RELEASE_ASSERT(m_codeBlock->alternative()->jitCode());
+    m_inlineCallFrames->disableThreadingChecks();
 }
 
 Plan::~Plan()
@@ -240,9 +240,9 @@ Plan::CompilationPath Plan::compileInThreadImpl()
 {
     cleanMustHandleValuesIfNecessary();
 
-    if (verboseCompilationEnabled(m_mode) && m_osrEntryBytecodeIndex != UINT_MAX) {
+    if (verboseCompilationEnabled(m_mode) && m_osrEntryBytecodeIndex) {
         dataLog("\n");
-        dataLog("Compiler must handle OSR entry from bc#", m_osrEntryBytecodeIndex, " with values: ", m_mustHandleValues, "\n");
+        dataLog("Compiler must handle OSR entry from ", m_osrEntryBytecodeIndex, " with values: ", m_mustHandleValues, "\n");
         dataLog("\n");
     }
 
@@ -263,6 +263,7 @@ Plan::CompilationPath Plan::compileInThreadImpl()
             if (safepointResult.didGetCancelled())               \
                 return CancelPath;                               \
         }                                                        \
+        dfg.nextPhase();                                         \
         changed |= phase(dfg);                                   \
     } while (false);                                             \
 
@@ -271,7 +272,10 @@ Plan::CompilationPath Plan::compileInThreadImpl()
     // in the CodeBlock. This is a good time to perform an early shrink, which is more
     // powerful than a late one. It's safe to do so because we haven't generated any code
     // that references any of the tables directly, yet.
-    m_codeBlock->shrinkToFit(CodeBlock::EarlyShrink);
+    {
+        ConcurrentJSLocker locker(m_codeBlock->m_lock);
+        m_codeBlock->shrinkToFit(locker, CodeBlock::ShrinkMode::EarlyShrink);
+    }
 
     if (validationEnabled())
         validate(dfg);
@@ -283,9 +287,6 @@ Plan::CompilationPath Plan::compileInThreadImpl()
 
     RUN_PHASE(performLiveCatchVariablePreservationPhase);
 
-    if (Options::useMaximalFlushInsertionPhase())
-        RUN_PHASE(performMaximalFlushInsertion);
-    
     RUN_PHASE(performCPSRethreading);
     RUN_PHASE(performUnification);
     RUN_PHASE(performPredictionInjection);
@@ -295,7 +296,7 @@ Plan::CompilationPath Plan::compileInThreadImpl()
     if (m_mode == FTLForOSREntryMode) {
         bool result = performOSREntrypointCreation(dfg);
         if (!result) {
-            m_finalizer = std::make_unique<FailedFinalizer>(*this);
+            m_finalizer = makeUnique<FailedFinalizer>(*this);
             return FailPath;
         }
         RUN_PHASE(performCPSRethreading);
@@ -396,7 +397,7 @@ Plan::CompilationPath Plan::compileInThreadImpl()
     case FTLForOSREntryMode: {
 #if ENABLE(FTL_JIT)
         if (FTL::canCompile(dfg) == FTL::CannotCompile) {
-            m_finalizer = std::make_unique<FailedFinalizer>(*this);
+            m_finalizer = makeUnique<FailedFinalizer>(*this);
             return FailPath;
         }
         
@@ -476,10 +477,11 @@ Plan::CompilationPath Plan::compileInThreadImpl()
         RUN_PHASE(performWatchpointCollection);
         
         if (FTL::canCompile(dfg) == FTL::CannotCompile) {
-            m_finalizer = std::make_unique<FailedFinalizer>(*this);
+            m_finalizer = makeUnique<FailedFinalizer>(*this);
             return FailPath;
         }
 
+        dfg.nextPhase();
         dumpAndVerifyGraph(dfg, "Graph just before FTL lowering:", shouldDumpDisassembly(m_mode));
 
         // Flash a safepoint in case the GC wants some action.
@@ -490,9 +492,10 @@ Plan::CompilationPath Plan::compileInThreadImpl()
         if (safepointResult.didGetCancelled())
             return CancelPath;
 
+        dfg.nextPhase();
         FTL::State state(dfg);
         FTL::lowerDFGToB3(state);
-        
+
         if (UNLIKELY(computeCompileTimes()))
             m_timeBeforeFTL = MonotonicTime::now();
         
@@ -603,6 +606,11 @@ CompilationResult Plan::finalizeWithoutNotifyingCallback()
         }
 
         reallyAdd(m_codeBlock->jitCode()->dfgCommon());
+        {
+            ConcurrentJSLocker locker(m_codeBlock->m_lock);
+            m_codeBlock->jitCode()->shrinkToFit(locker);
+            m_codeBlock->shrinkToFit(locker, CodeBlock::ShrinkMode::LateShrink);
+        }
 
         if (validationEnabled()) {
             TrackedReferences trackedReferences;
@@ -655,6 +663,7 @@ void Plan::checkLivenessAndVisitChildren(SlotVisitor& visitor)
             visitor.appendUnbarriered(value.value());
     }
 
+    m_recordedStatuses.visitAggregate(visitor);
     m_recordedStatuses.markIfCheap(visitor);
 
     visitor.appendUnbarriered(m_codeBlock);
@@ -693,7 +702,10 @@ bool Plan::isKnownToBeLiveDuringGC()
 
 void Plan::cancel()
 {
+    RELEASE_ASSERT(m_stage != Cancelled);
+    ASSERT(m_vm);
     m_vm = nullptr;
+
     m_codeBlock = nullptr;
     m_profiledDFGCodeBlock = nullptr;
     m_mustHandleValues.clear();
@@ -725,7 +737,7 @@ void Plan::cleanMustHandleValuesIfNecessary()
         return;
 
     CodeBlock* alternative = m_codeBlock->alternative();
-    FastBitVector liveness = alternative->livenessAnalysis().getLivenessInfoAtBytecodeOffset(alternative, m_osrEntryBytecodeIndex);
+    FastBitVector liveness = alternative->livenessAnalysis().getLivenessInfoAtBytecodeIndex(alternative, m_osrEntryBytecodeIndex);
 
     for (unsigned local = m_mustHandleValues.numberOfLocals(); local--;) {
         if (!liveness[local])

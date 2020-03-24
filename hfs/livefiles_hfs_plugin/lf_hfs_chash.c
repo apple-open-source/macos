@@ -181,7 +181,7 @@ loop_with_lock:
             }
         }
         vp = wantrsrc ? cp->c_rsrc_vp : cp->c_vp;
-
+        
         /*
          * Skip cnodes that are not in the name space anymore
          * we need to check with the cnode lock held because
@@ -193,9 +193,10 @@ loop_with_lock:
          * is no longer valid for lookups.
          */
         if (((cp->c_flag & (C_NOEXISTS | C_DELETED)) && !wantrsrc) ||
-            (cp->uOpenLookupRefCount == 0) ||
+            ((vp != NULL) &&
+            ((cp->uOpenLookupRefCount == 0) ||
             (vp->uValidNodeMagic1 == VALID_NODE_BADMAGIC) ||
-            (vp->uValidNodeMagic2 == VALID_NODE_BADMAGIC))
+            (vp->uValidNodeMagic2 == VALID_NODE_BADMAGIC))))
         {
             int renamed = 0;
             if (cp->c_flag & C_RENAMED)

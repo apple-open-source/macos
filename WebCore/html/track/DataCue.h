@@ -79,8 +79,8 @@ public:
 
     const SerializedPlatformRepresentation* platformValue() const { return m_platformValue.get(); }
 
-    JSC::JSValue value(JSC::ExecState&) const;
-    void setValue(JSC::ExecState&, JSC::JSValue);
+    JSC::JSValue value(JSC::JSGlobalObject&) const;
+    void setValue(JSC::JSGlobalObject&, JSC::JSValue);
 
     String type() const { return m_type; }
     void setType(const String& type) { m_type = type; }
@@ -102,7 +102,10 @@ private:
     RefPtr<ArrayBuffer> m_data;
     String m_type;
     RefPtr<SerializedPlatformRepresentation> m_platformValue;
-    JSC::JSValue m_value;
+    // FIXME: The following use of JSC::Strong is incorrect and can lead to storage leaks
+    // due to reference cycles; we should use JSValueInWrappedObject instead.
+    // https://bugs.webkit.org/show_bug.cgi?id=201173
+    JSC::Strong<JSC::Unknown> m_value;
 };
 
 DataCue* toDataCue(TextTrackCue*);

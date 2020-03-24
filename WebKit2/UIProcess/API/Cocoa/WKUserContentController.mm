@@ -118,6 +118,7 @@
 }
 
 class ScriptMessageHandlerDelegate final : public WebKit::WebScriptMessageHandler::Client {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     ScriptMessageHandlerDelegate(WKUserContentController *controller, id <WKScriptMessageHandler> handler, NSString *name)
         : m_controller(controller)
@@ -126,10 +127,10 @@ public:
     {
     }
     
-    void didPostMessage(WebKit::WebPageProxy& page, const WebKit::FrameInfoData& frameInfoData, WebCore::SerializedScriptValue& serializedScriptValue) override
+    void didPostMessage(WebKit::WebPageProxy& page, WebKit::FrameInfoData&& frameInfoData, WebCore::SerializedScriptValue& serializedScriptValue) override
     {
         @autoreleasepool {
-            RetainPtr<WKFrameInfo> frameInfo = wrapper(API::FrameInfo::create(frameInfoData, &page));
+            RetainPtr<WKFrameInfo> frameInfo = wrapper(API::FrameInfo::create(WTFMove(frameInfoData), &page));
             id body = API::SerializedScriptValue::deserialize(serializedScriptValue, 0);
             auto message = adoptNS([[WKScriptMessage alloc] _initWithBody:body webView:fromWebPageProxy(page) frameInfo:frameInfo.get() name:m_name.get()]);
         
@@ -145,7 +146,7 @@ private:
 
 - (void)addScriptMessageHandler:(id <WKScriptMessageHandler>)scriptMessageHandler name:(NSString *)name
 {
-    auto handler = WebKit::WebScriptMessageHandler::create(std::make_unique<ScriptMessageHandlerDelegate>(self, scriptMessageHandler, name), name, API::UserContentWorld::normalWorld());
+    auto handler = WebKit::WebScriptMessageHandler::create(makeUnique<ScriptMessageHandlerDelegate>(self, scriptMessageHandler, name), name, API::UserContentWorld::normalWorld());
     if (!_userContentControllerProxy->addUserScriptMessageHandler(handler.get()))
         [NSException raise:NSInvalidArgumentException format:@"Attempt to add script message handler with name '%@' when one already exists.", name];
 }
@@ -229,7 +230,7 @@ private:
 
 - (void)_addScriptMessageHandler:(id <WKScriptMessageHandler>)scriptMessageHandler name:(NSString *)name userContentWorld:(_WKUserContentWorld *)userContentWorld
 {
-    auto handler = WebKit::WebScriptMessageHandler::create(std::make_unique<ScriptMessageHandlerDelegate>(self, scriptMessageHandler, name), name, *userContentWorld->_userContentWorld);
+    auto handler = WebKit::WebScriptMessageHandler::create(makeUnique<ScriptMessageHandlerDelegate>(self, scriptMessageHandler, name), name, *userContentWorld->_userContentWorld);
     if (!_userContentControllerProxy->addUserScriptMessageHandler(handler.get()))
         [NSException raise:NSInvalidArgumentException format:@"Attempt to add script message handler with name '%@' when one already exists.", name];
 }

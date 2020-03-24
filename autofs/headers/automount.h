@@ -301,6 +301,7 @@ extern int get_retry(const char *);
 extern int str_opt(struct mnttab *, char *, char **);
 extern void dirinit(char *, char *, char *, int, char **, char ***);
 extern const char *rosv_data_volume_prefix(size_t *);
+extern bool_t has_rosv_data_volume_prefix(const char *, size_t *);
 extern bool_t is_toplevel_dir(const char *);
 extern bool_t is_reserved_mountpoint(const char *);
 extern bool_t is_slash_network(const char *);

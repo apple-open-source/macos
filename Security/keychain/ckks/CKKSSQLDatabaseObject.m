@@ -140,10 +140,17 @@
             [whereClause appendFormat: @" AND "];
         }
 
-        if([value class] == [CKKSSQLWhereObject class]) {
-            // Use this string verbatim
-            CKKSSQLWhereObject* whereob = (CKKSSQLWhereObject*) value;
-            [whereClause appendFormat: @"%@%@%@", key, whereob.sqlOp, whereob.contents];
+        if([value class] == [CKKSSQLWhereValue class]) {
+            CKKSSQLWhereValue* obj = (CKKSSQLWhereValue*)value;
+            [whereClause appendFormat: @"%@%@(?)", key, CKKSSQLWhereComparatorAsString(obj.sqlOp)];
+
+        } else if([value class] == [CKKSSQLWhereColumn class]) {
+            CKKSSQLWhereColumn* obj = (CKKSSQLWhereColumn*)value;
+            [whereClause appendFormat: @"%@%@%@",
+             key,
+             CKKSSQLWhereComparatorAsString(obj.sqlOp),
+             CKKSSQLWhereColumnNameAsString(obj.columnName)];
+
         } else {
             [whereClause appendFormat: @"%@=(?)", key];
         }
@@ -193,6 +200,22 @@
     return orderByClause;
 }
 
++ (void)bindWhereClause:(sqlite3_stmt*)stmt whereDict:(NSDictionary*)whereDict cferror:(CFErrorRef*)cferror
+{
+    __block int whereObjectsSkipped = 0;
+    [whereDict.allKeys enumerateObjectsUsingBlock:^(id  _Nonnull key, NSUInteger i, BOOL * _Nonnull stop) {
+        if([whereDict[key] class] == [CKKSSQLWhereValue class]) {
+            CKKSSQLWhereValue* obj = (CKKSSQLWhereValue*)whereDict[key];
+            SecDbBindObject(stmt, (int)(i+1-whereObjectsSkipped), (__bridge CFStringRef)obj.value, cferror);
+        } else if([whereDict[key] class] == [CKKSSQLWhereColumn class]) {
+            // skip
+            whereObjectsSkipped += 1;
+        } else {
+            SecDbBindObject(stmt, (int)(i+1-whereObjectsSkipped), (__bridge CFStringRef) whereDict[key], cferror);
+        }
+    }];
+}
+
 + (bool) deleteFromTable: (NSString*) table where: (NSDictionary*) whereDict connection:(SecDbConnectionRef) dbconn error: (NSError * __autoreleasing *) error {
     __block CFErrorRef cferror = NULL;
 
@@ -201,15 +224,7 @@
 
         NSString * sql = [[NSString alloc] initWithFormat: @"DELETE FROM %@%@;", table, whereClause];
         SecDbPrepare(dbconn, (__bridge CFStringRef) sql, &cferror, ^void (sqlite3_stmt *stmt) {
-            __block int whereObjectsSkipped = 0;
-
-            [whereDict.allKeys enumerateObjectsUsingBlock:^(id  _Nonnull key, NSUInteger i, BOOL * _Nonnull stop) {
-                if([whereDict[key] class] != [CKKSSQLWhereObject class]) {
-                    SecDbBindObject(stmt, (int)(i+1-whereObjectsSkipped), (__bridge CFStringRef) whereDict[key], &cferror);
-                } else {
-                    whereObjectsSkipped += 1;
-                }
-            }];
+            [self bindWhereClause:stmt whereDict:whereDict cferror:&cferror];
 
             SecDbStep(dbconn, stmt, &cferror, ^(bool *stop) {
             });
@@ -254,14 +269,7 @@
 
         NSString * sql = [[NSString alloc] initWithFormat: @"SELECT %@ FROM %@%@%@%@%@;", columns, table, whereClause, groupByClause, orderByClause, limitClause];
         SecDbPrepare(dbconn, (__bridge CFStringRef) sql, &cferror, ^void (sqlite3_stmt *stmt) {
-            __block int whereObjectsSkipped = 0;
-            [whereDict.allKeys enumerateObjectsUsingBlock:^(id  _Nonnull key, NSUInteger i, BOOL * _Nonnull stop) {
-                if([whereDict[key] class] != [CKKSSQLWhereObject class]) {
-                    SecDbBindObject(stmt, (int)(i+1-whereObjectsSkipped), (__bridge CFStringRef) whereDict[key], &cferror);
-                } else {
-                    whereObjectsSkipped += 1;
-                }
-            }];
+            [self bindWhereClause:stmt whereDict:whereDict cferror:&cferror];
 
             SecDbStep(dbconn, stmt, &cferror, ^(bool *stop) {
                 __block NSMutableDictionary<NSString*, CKKSSQLResult*>* row = [[NSMutableDictionary alloc] init];
@@ -315,11 +323,7 @@
         
         NSString* sql = [[NSString alloc] initWithFormat:@"SELECT %@ FROM %@%@", columns, quotedTable, whereClause];
         SecDbPrepare(dbconn, (__bridge CFStringRef)sql, &cferror, ^(sqlite3_stmt* stmt) {
-            [whereDict.allKeys enumerateObjectsUsingBlock:^(id  _Nonnull key, NSUInteger i, BOOL* _Nonnull stop) {
-                if ([whereDict[key] class] != [CKKSSQLWhereObject class]) {
-                    SecDbBindObject(stmt, (int)(i+1), (__bridge CFStringRef) whereDict[key], &cferror);
-                }
-            }];
+            [self bindWhereClause:stmt whereDict:whereDict cferror:&cferror];
             
             SecDbStep(dbconn, stmt, &cferror, ^(bool*stop) {
                 __block NSMutableDictionary<NSString*, CKKSSQLResult*>* row = [[NSMutableDictionary alloc] init];
@@ -517,24 +521,61 @@
 }
 @end
 
-#pragma mark - CKKSSQLWhereObject
+NSString* CKKSSQLWhereComparatorAsString(CKKSSQLWhereComparator comparator)
+{
+    switch(comparator) {
+        case CKKSSQLWhereComparatorEquals:
+            return @"=";
+        case CKKSSQLWhereComparatorNotEquals:
+            return @"<>";
+        case CKKSSQLWhereComparatorGreaterThan:
+            return @">";
+        case CKKSSQLWhereComparatorLessThan:
+            return @"<";
+    }
+}
 
-@implementation CKKSSQLWhereObject
-- (instancetype)initWithOperation:(NSString*)op string: (NSString*) str {
-    if(self = [super init]) {
+NSString* CKKSSQLWhereColumnNameAsString(CKKSSQLWhereColumnName columnName)
+{
+    switch(columnName) {
+        case CKKSSQLWhereColumnNameUUID:
+            return @"uuid";
+        case CKKSSQLWhereColumnNameParentKeyUUID:
+            return @"parentKeyUUID";
+    }
+}
+
+#pragma mark - CKKSSQLWhereColumn
+
+@implementation CKKSSQLWhereColumn
+- (instancetype)initWithOperation:(CKKSSQLWhereComparator)op columnName:(CKKSSQLWhereColumnName)column
+{
+    if((self = [super init])) {
         _sqlOp = op;
-        _contents = str;
+        _columnName = column;
     }
     return self;
 }
-
-+ (instancetype)op:(NSString*) op string: (NSString*) str {
-    return [[CKKSSQLWhereObject alloc] initWithOperation:op string: str];
++ (instancetype)op:(CKKSSQLWhereComparator)op column:(CKKSSQLWhereColumnName)columnName
+{
+    return [[CKKSSQLWhereColumn alloc] initWithOperation:op columnName:columnName];
 }
+@end
 
-+ (instancetype)op:(NSString*) op stringValue: (NSString*) str {
-    return [[CKKSSQLWhereObject alloc] initWithOperation:op string:[NSString stringWithFormat:@"'%@'", str]];
+#pragma mark - CKKSSQLWhereObject
+
+@implementation CKKSSQLWhereValue
+- (instancetype)initWithOperation:(CKKSSQLWhereComparator)op value:(NSString*)value
+{
+    if((self = [super init])) {
+        _sqlOp = op;
+        _value = value;
+    }
+    return self;
 }
++ (instancetype)op:(CKKSSQLWhereComparator)op value:(NSString*)value
+{
+    return [[CKKSSQLWhereValue alloc] initWithOperation:op value:value];
 
-
+}
 @end

@@ -5,7 +5,7 @@ struct CuttlefishErrorMatcher {
 }
 
 // Use a 'pattern match operator' to make pretty case statements matching Cuttlefish errors
-func ~=(pattern: CuttlefishErrorMatcher, value: Error?) -> Bool {
+func ~= (pattern: CuttlefishErrorMatcher, value: Error?) -> Bool {
     guard let error = value else {
         return false
     }

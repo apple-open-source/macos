@@ -1210,6 +1210,11 @@ static bool SecPathBuilderReportResult(SecPathBuilderRef builder) {
                                  kCFBooleanFalse); /* iOS key */
             CFDictionarySetValue(builder->info, kSecTrustRevocationChecked,
                                  kCFBooleanFalse); /* unified API key */
+        } else if (SecCertificatePathVCRevocationCheckedAllCerts(builder->bestPath)) {
+            CFDictionarySetValue(builder->info, kSecTrustInfoRevocationKey,
+                                 kCFBooleanTrue); /* iOS key */
+            CFDictionarySetValue(builder->info, kSecTrustRevocationChecked,
+                                 kCFBooleanTrue); /* unified API key */
         }
     }
 

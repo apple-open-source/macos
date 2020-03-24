@@ -482,7 +482,7 @@ void WebInspectorProxy::platformSave(const String& suggestedURL, const String& c
         } else
             [contentCopy writeToURL:actualURL atomically:YES encoding:NSUTF8StringEncoding error:NULL];
 
-        m_inspectorPage->process().send(Messages::WebInspectorUI::DidSave([actualURL absoluteString]), m_inspectorPage->pageID());
+        m_inspectorPage->process().send(Messages::WebInspectorUI::DidSave([actualURL absoluteString]), m_inspectorPage->webPageID());
     };
 
     if (!forceSaveDialog) {
@@ -527,7 +527,7 @@ void WebInspectorProxy::platformAppend(const String& suggestedURL, const String&
     [handle writeData:[content dataUsingEncoding:NSUTF8StringEncoding]];
     [handle closeFile];
 
-    m_inspectorPage->process().send(Messages::WebInspectorUI::DidAppend([actualURL absoluteString]), m_inspectorPage->pageID());
+    m_inspectorPage->process().send(Messages::WebInspectorUI::DidAppend([actualURL absoluteString]), m_inspectorPage->webPageID());
 }
 
 void WebInspectorProxy::windowFrameDidChange()
@@ -777,6 +777,28 @@ String WebInspectorProxy::inspectorBaseURL()
     ASSERT(path && path.length);
 
     return [NSURL fileURLWithPath:path isDirectory:YES].absoluteString;
+}
+
+static NSDictionary *systemVersionPlist()
+{
+    NSString *systemLibraryPath = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSSystemDomainMask, YES) objectAtIndex:0];
+    NSString *systemVersionPlistPath = [systemLibraryPath stringByAppendingPathComponent:@"CoreServices/SystemVersion.plist"];
+    NSDictionary *systemVersionInfo = [NSDictionary dictionaryWithContentsOfFile:systemVersionPlistPath];
+    return systemVersionInfo;
+}
+
+DebuggableInfoData WebInspectorProxy::infoForLocalDebuggable()
+{
+    NSDictionary *plist = systemVersionPlist();
+
+    DebuggableInfoData result;
+    result.debuggableType = Inspector::DebuggableType::WebPage;
+    result.targetPlatformName = "macOS"_s;
+    result.targetBuildVersion = plist[@"ProductBuildVersion"];
+    result.targetProductVersion = plist[@"ProductUserVisibleVersion"];
+    result.targetIsSimulator = false;
+
+    return result;
 }
 
 } // namespace WebKit

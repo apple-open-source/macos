@@ -50,6 +50,7 @@
 #include "MediaQueryEvaluator.h"
 #include "MediaQueryParser.h"
 #include "MouseEvent.h"
+#include "ParsedContentType.h"
 #include "RenderStyle.h"
 #include "RuntimeEnabledFeatures.h"
 #include "SecurityOrigin.h"
@@ -273,11 +274,17 @@ void HTMLLinkElement::process()
         attributeWithoutSynchronization(imagesizesAttr)
     };
 
-    if (!m_linkLoader.loadLink(params, document()))
-        return;
+    m_linkLoader.loadLink(params, document());
 
-    bool treatAsStyleSheet = m_relAttribute.isStyleSheet
-        || (document().settings().treatsAnyTextCSSLinkAsStylesheet() && m_type.containsIgnoringASCIICase("text/css"));
+    bool treatAsStyleSheet = false;
+    if (m_relAttribute.isStyleSheet) {
+        if (m_type.isNull())
+            treatAsStyleSheet = true;
+        else if (auto parsedContentType = ParsedContentType::create(m_type))
+            treatAsStyleSheet = equalLettersIgnoringASCIICase(parsedContentType->mimeType(), "text/css");
+    }
+    if (!treatAsStyleSheet)
+        treatAsStyleSheet = document().settings().treatsAnyTextCSSLinkAsStylesheet() && m_type.containsIgnoringASCIICase("text/css");
 
     if (m_disabledState != Disabled && treatAsStyleSheet && document().frame() && url.isValid()) {
         String charset = attributeWithoutSynchronization(charsetAttr);
@@ -327,7 +334,7 @@ void HTMLLinkElement::process()
             options.contentSecurityPolicyImposition = ContentSecurityPolicyImposition::SkipPolicyCheck;
         options.integrity = m_integrityMetadataForPendingSheetRequest;
 
-        auto request = createPotentialAccessControlRequest(WTFMove(url), document(), crossOrigin(), WTFMove(options));
+        auto request = createPotentialAccessControlRequest(WTFMove(url), WTFMove(options), document(), crossOrigin());
         request.setPriority(WTFMove(priority));
         request.setCharset(WTFMove(charset));
         request.setInitiator(*this);
@@ -433,7 +440,7 @@ void HTMLLinkElement::setCSSStyleSheet(const String& href, const URL& baseURL, c
     Ref<HTMLLinkElement> protectedThis(*this);
 
     if (!cachedStyleSheet->errorOccurred() && !matchIntegrityMetadata(*cachedStyleSheet, m_integrityMetadataForPendingSheetRequest)) {
-        document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Cannot load stylesheet ", cachedStyleSheet->url().stringCenterEllipsizedToLength(), ". Failed integrity metadata check."));
+        document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Cannot load stylesheet ", integrityMismatchDescription(*cachedStyleSheet, m_integrityMetadataForPendingSheetRequest)));
 
         m_loading = false;
         sheetLoaded();
@@ -482,19 +489,21 @@ bool HTMLLinkElement::styleSheetIsLoading() const
 DOMTokenList& HTMLLinkElement::sizes()
 {
     if (!m_sizes)
-        m_sizes = std::make_unique<DOMTokenList>(*this, sizesAttr);
+        m_sizes = makeUnique<DOMTokenList>(*this, sizesAttr);
     return *m_sizes;
 }
 
 void HTMLLinkElement::linkLoaded()
 {
     m_loadedResource = true;
-    linkLoadEventSender().dispatchEventSoon(*this);
+    if (!m_relAttribute.isLinkPrefetch || m_allowPrefetchLoadAndErrorForTesting)
+        linkLoadEventSender().dispatchEventSoon(*this);
 }
 
 void HTMLLinkElement::linkLoadingErrored()
 {
-    linkErrorEventSender().dispatchEventSoon(*this);
+    if (!m_relAttribute.isLinkPrefetch || m_allowPrefetchLoadAndErrorForTesting)
+        linkErrorEventSender().dispatchEventSoon(*this);
 }
 
 bool HTMLLinkElement::sheetLoaded()
@@ -523,7 +532,7 @@ void HTMLLinkElement::dispatchPendingEvent(LinkEventSender* eventSender)
 DOMTokenList& HTMLLinkElement::relList()
 {
     if (!m_relList) 
-        m_relList = std::make_unique<DOMTokenList>(*this, HTMLNames::relAttr, [](Document& document, StringView token) {
+        m_relList = makeUnique<DOMTokenList>(*this, HTMLNames::relAttr, [](Document& document, StringView token) {
             return LinkRelAttribute::isSupported(document, token);
         });
     return *m_relList;

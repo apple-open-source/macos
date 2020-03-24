@@ -29,6 +29,7 @@
 #include "SharedBuffer.h"
 
 #include <algorithm>
+#include <wtf/persistence/PersistentCoders.h>
 #include <wtf/unicode/UTF8Conversion.h>
 
 namespace WebCore {
@@ -71,7 +72,7 @@ SharedBuffer::SharedBuffer(GstMappedBuffer& mappedBuffer)
 RefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& filePath)
 {
     bool mappingSuccess;
-    FileSystem::MappedFileData mappedFileData(filePath, mappingSuccess);
+    FileSystem::MappedFileData mappedFileData(filePath, FileSystem::MappedFileMode::Shared, mappingSuccess);
 
     if (!mappingSuccess)
         return SharedBuffer::createFromReadingFile(filePath);
@@ -238,6 +239,11 @@ void SharedBuffer::hintMemoryNotNeededSoon() const
 {
 }
 #endif
+
+WTF::Persistence::Decoder SharedBuffer::decoder() const
+{
+    return { reinterpret_cast<const uint8_t*>(data()), size() };
+}
 
 bool SharedBuffer::operator==(const SharedBuffer& other) const
 {

@@ -1,0 +1,193 @@
+From e6499033032d5b647e43a3b49da0c1c64b151743 Mon Sep 17 00:00:00 2001
+From: Victor Stinner <vstinner@python.org>
+Date: Sun, 24 Nov 2019 16:49:23 +0100
+Subject: [PATCH] bpo-38804: Fix REDoS in http.cookiejar (GH-17157) (GH-17345)
+
+The regex http.cookiejar.LOOSE_HTTP_DATE_RE was vulnerable to regular
+expression denial of service (REDoS).
+
+LOOSE_HTTP_DATE_RE.match is called when using http.cookiejar.CookieJar
+to parse Set-Cookie headers returned by a server.
+Processing a response from a malicious HTTP server can lead to extreme
+CPU usage and execution will be blocked for a long time.
+
+The regex contained multiple overlapping \s* capture groups.
+Ignoring the ?-optional capture groups the regex could be simplified to
+
+    \d+-\w+-\d+(\s*\s*\s*)$
+
+Therefore, a long sequence of spaces can trigger bad performance.
+
+Matching a malicious string such as
+
+    LOOSE_HTTP_DATE_RE.match("1-c-1" + (" " * 2000) + "!")
+
+caused catastrophic backtracking.
+
+The fix removes ambiguity about which \s* should match a particular
+space.
+
+You can create a malicious server which responds with Set-Cookie headers
+to attack all python programs which access it e.g.
+
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    def make_set_cookie_value(n_spaces):
+        spaces = " " * n_spaces
+        expiry = f"1-c-1{spaces}!"
+        return f"b;Expires={expiry}"
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.log_request(204)
+            self.send_response_only(204)  # Don't bother sending Server and Date
+            n_spaces = (
+                int(self.path[1:])  # Can GET e.g. /100 to test shorter sequences
+                if len(self.path) > 1 else
+                65506  # Max header line length 65536
+            )
+            value = make_set_cookie_value(n_spaces)
+            for i in range(99):  # Not necessary, but we can have up to 100 header lines
+                self.send_header("Set-Cookie", value)
+            self.end_headers()
+
+    if __name__ == "__main__":
+        HTTPServer(("", 44020), Handler).serve_forever()
+
+This server returns 99 Set-Cookie headers. Each has 65506 spaces.
+Extracting the cookies will pretty much never complete.
+
+Vulnerable client using the example at the bottom of
+https://docs.python.org/3/library/http.cookiejar.html :
+
+    import http.cookiejar, urllib.request
+    cj = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
+    r = opener.open("http://localhost:44020/")
+
+The popular requests library was also vulnerable without any additional
+options (as it uses http.cookiejar by default):
+
+    import requests
+    requests.get("http://localhost:44020/")
+
+* Regression test for http.cookiejar REDoS
+
+If we regress, this test will take a very long time.
+
+* Improve performance of http.cookiejar.ISO_DATE_RE
+
+A string like
+
+"444444" + (" " * 2000) + "A"
+
+could cause poor performance due to the 2 overlapping \s* groups,
+although this is not as serious as the REDoS in LOOSE_HTTP_DATE_RE was.
+
+(cherry picked from commit 1b779bfb8593739b11cbb988ef82a883ec9d077e)
+---
+ Lib/cookielib.py                              | 20 ++++++++++++-------
+ Lib/test/test_cookielib.py                    | 15 +++++++++++++-
+ Misc/ACKS                                     |  1 +
+ .../2019-11-15-00-54-42.bpo-38804.vjbM8V.rst  |  1 +
+ 4 files changed, 29 insertions(+), 8 deletions(-)
+ create mode 100644 Misc/NEWS.d/next/Security/2019-11-15-00-54-42.bpo-38804.vjbM8V.rst
+
+diff --git a/Lib/cookielib.py b/Lib/cookielib.py
+index 1d56d3fe4c0a2..e76d09d8a500d 100644
+--- a/Lib/cookielib.py
++++ b/Lib/cookielib.py
+@@ -205,10 +205,14 @@ def _str2time(day, mon, yr, hr, min, sec, tz):
+        (?::(\d\d))?    # optional seconds
+     )?                 # optional clock
+        \s*
+-    ([-+]?\d{2,4}|(?![APap][Mm]\b)[A-Za-z]+)? # timezone
++    (?:
++       ([-+]?\d{2,4}|(?![APap][Mm]\b)[A-Za-z]+) # timezone
++       \s*
++    )?
++    (?:
++       \(\w+\)         # ASCII representation of timezone in parens.
+        \s*
+-    (?:\(\w+\))?       # ASCII representation of timezone in parens.
+-       \s*$""", re.X)
++    )?$""", re.X)
+ def http2time(text):
+     """Returns time in seconds since epoch of time represented by a string.
+ 
+@@ -266,7 +270,7 @@ def http2time(text):
+     return _str2time(day, mon, yr, hr, min, sec, tz)
+ 
+ ISO_DATE_RE = re.compile(
+-    """^
++    r"""^
+     (\d{4})              # year
+        [-\/]?
+     (\d\d?)              # numerical month
+@@ -278,9 +282,11 @@ def http2time(text):
+       (?::?(\d\d(?:\.\d*)?))?  # optional seconds (and fractional)
+    )?                    # optional clock
+       \s*
+-   ([-+]?\d\d?:?(:?\d\d)?
+-    |Z|z)?               # timezone  (Z is "zero meridian", i.e. GMT)
+-      \s*$""", re.X)
++   (?:
++      ([-+]?\d\d?:?(:?\d\d)?
++       |Z|z)             # timezone  (Z is "zero meridian", i.e. GMT)
++      \s*
++   )?$""", re.X)
+ def iso2time(text):
+     """
+     As for http2time, but parses the ISO 8601 formats:
+diff --git a/Lib/test/test_cookielib.py b/Lib/test/test_cookielib.py
+index a93bbfb640b6a..f3711b966e572 100644
+--- a/Lib/test/test_cookielib.py
++++ b/Lib/test/test_cookielib.py
+@@ -6,7 +6,7 @@
+ import re
+ import time
+ 
+-from cookielib import http2time, time2isoz, time2netscape
++from cookielib import http2time, time2isoz, iso2time, time2netscape
+ from unittest import TestCase
+ 
+ from test import test_support
+@@ -117,6 +117,19 @@ def test_http2time_garbage(self):
+                          "http2time(test) %s" % (test, http2time(test))
+                          )
+ 
++    def test_http2time_redos_regression_actually_completes(self):
++        # LOOSE_HTTP_DATE_RE was vulnerable to malicious input which caused catastrophic backtracking (REDoS).
++        # If we regress to cubic complexity, this test will take a very long time to succeed.
++        # If fixed, it should complete within a fraction of a second.
++        http2time("01 Jan 1970{}00:00:00 GMT!".format(" " * 10 ** 5))
++        http2time("01 Jan 1970 00:00:00{}GMT!".format(" " * 10 ** 5))
++
++    def test_iso2time_performance_regression(self):
++        # If ISO_DATE_RE regresses to quadratic complexity, this test will take a very long time to succeed.
++        # If fixed, it should complete within a fraction of a second.
++        iso2time('1994-02-03{}14:15:29 -0100!'.format(' '*10**6))
++        iso2time('1994-02-03 14:15:29{}-0100!'.format(' '*10**6))
++
+ 
+ class HeaderTests(TestCase):
+ 
+diff --git a/Misc/ACKS b/Misc/ACKS
+index eba64ae02586c..fd28ce7fe23ec 100644
+--- a/Misc/ACKS
++++ b/Misc/ACKS
+@@ -210,6 +210,7 @@ Ralph Butler
+ Zach Byrne
+ Nicolas Cadou
+ Jp Calderone
++Ben Caller
+ Arnaud Calmettes
+ Daniel Calvelo
+ Tony Campbell
+diff --git a/Misc/NEWS.d/next/Security/2019-11-15-00-54-42.bpo-38804.vjbM8V.rst b/Misc/NEWS.d/next/Security/2019-11-15-00-54-42.bpo-38804.vjbM8V.rst
+new file mode 100644
+index 0000000000000..1f45142d9f743
+--- /dev/null
++++ b/Misc/NEWS.d/next/Security/2019-11-15-00-54-42.bpo-38804.vjbM8V.rst
+@@ -0,0 +1 @@
++Fixes a ReDoS vulnerability in :mod:`http.cookiejar`. Patch by Ben Caller.

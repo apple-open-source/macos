@@ -118,7 +118,7 @@ public:
     WEBCORE_EXPORT bool isText() const;
 
     WEBCORE_EXPORT bool isEmailField() const;
-    bool isFileUpload() const;
+    WEBCORE_EXPORT bool isFileUpload() const;
     bool isImageButton() const;
     WEBCORE_EXPORT bool isNumberField() const;
     bool isSubmitButton() const;
@@ -235,10 +235,13 @@ public:
 
     unsigned effectiveMaxLength() const;
 
-    bool multiple() const;
+    WEBCORE_EXPORT bool multiple() const;
 
     bool isAutoFilled() const { return m_isAutoFilled; }
     WEBCORE_EXPORT void setAutoFilled(bool = true);
+
+    bool isAutoFilledAndViewable() const { return m_isAutoFilledAndViewable; }
+    WEBCORE_EXPORT void setAutoFilledAndViewable(bool = true);
 
     AutoFillButtonType lastAutoFillButtonType() const { return static_cast<AutoFillButtonType>(m_lastAutoFillButtonType); }
     AutoFillButtonType autoFillButtonType() const { return static_cast<AutoFillButtonType>(m_autoFillButtonType); }
@@ -276,8 +279,8 @@ public:
     void listAttributeTargetChanged();
 #endif
 
-    Vector<HTMLInputElement*> radioButtonGroup() const;
-    HTMLInputElement* checkedRadioButtonForGroup() const;
+    Vector<Ref<HTMLInputElement>> radioButtonGroup() const;
+    RefPtr<HTMLInputElement> checkedRadioButtonForGroup() const;
     bool isInRequiredRadioButtonGroup();
     // Returns null if this isn't associated with any radio button group.
     RadioButtonGroups* radioButtonGroups() const;
@@ -363,6 +366,7 @@ private:
     void removedFromAncestor(RemovalType, ContainerNode&) final;
     void didMoveToNewDocument(Document& oldDocument, Document& newDocument) final;
 
+    int defaultTabIndex() const final;
     bool hasCustomFocusLogic() const final;
     bool isKeyboardFocusable(KeyboardEvent*) const final;
     bool isMouseFocusable() const final;
@@ -370,6 +374,8 @@ private:
     bool supportLabels() const final;
     void updateFocusAppearance(SelectionRestorationMode, SelectionRevealMode) final;
     bool shouldUseInputMethod() final;
+
+    bool isInteractiveContent() const final;
 
     bool isInnerTextElementEditable() const final { return !hasAutoFillStrongPasswordButton() && HTMLTextFormControlElement::isInnerTextElementEditable(); }
 
@@ -465,6 +471,7 @@ private:
     bool m_isActivatedSubmit : 1;
     unsigned m_autocomplete : 2; // AutoCompleteSetting
     bool m_isAutoFilled : 1;
+    bool m_isAutoFilledAndViewable : 1;
     unsigned m_autoFillButtonType : 3; // AutoFillButtonType
     unsigned m_lastAutoFillButtonType : 3; // AutoFillButtonType
     bool m_isAutoFillAvailable : 1;

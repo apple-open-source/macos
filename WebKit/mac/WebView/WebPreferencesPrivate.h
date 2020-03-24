@@ -275,9 +275,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 - (BOOL)webGL2Enabled;
 - (void)setWebGL2Enabled:(BOOL)enabled;
 
-- (BOOL)forceSoftwareWebGLRendering;
-- (void)setForceSoftwareWebGLRendering:(BOOL)forced;
-
 - (BOOL)forceLowPowerGPUForWebGL;
 - (void)setForceWebGLUsesLowPower:(BOOL)forceLowPower;
 
@@ -492,6 +489,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 - (BOOL)hiddenPageCSSAnimationSuspensionEnabled;
 - (void)setHiddenPageCSSAnimationSuspensionEnabled:(BOOL)flag;
 
+- (BOOL)renderingUpdateThrottlingEnabled;
+- (void)setRenderingUpdateThrottlingEnabled:(BOOL)flag;
+
 - (BOOL)lowPowerVideoAudioBufferSizeEnabled;
 - (void)setLowPowerVideoAudioBufferSizeEnabled:(BOOL)enabled;
 
@@ -512,6 +512,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 
 - (void)setGamepadsEnabled:(BOOL)flag;
 - (BOOL)gamepadsEnabled;
+
+- (void)setHighlightAPIEnabled:(BOOL)flag;
+- (BOOL)highlightAPIEnabled;
 
 - (void)setMediaPreloadingEnabled:(BOOL)flag;
 - (BOOL)mediaPreloadingEnabled;
@@ -552,6 +555,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 - (void)setCustomPasteboardDataEnabled:(BOOL)flag;
 - (BOOL)customPasteboardDataEnabled;
 
+- (void)setDialogElementEnabled:(BOOL)enabled;
+- (BOOL)dialogElementEnabled;
+
 - (BOOL)cacheAPIEnabled;
 - (void)setCacheAPIEnabled:(BOOL)enabled;
 
@@ -572,6 +578,12 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 
 - (void)setWebAnimationsEnabled:(BOOL)flag;
 - (BOOL)webAnimationsEnabled;
+
+- (void)setWebAnimationsCompositeOperationsEnabled:(BOOL)flag;
+- (BOOL)webAnimationsCompositeOperationsEnabled;
+
+- (void)setWebAnimationsMutableTimelinesEnabled:(BOOL)flag;
+- (BOOL)webAnimationsMutableTimelinesEnabled;
 
 - (void)setPointerEventsEnabled:(BOOL)flag;
 - (BOOL)pointerEventsEnabled;
@@ -612,8 +624,20 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 - (void)setCoreMathMLEnabled:(BOOL)flag;
 - (BOOL)coreMathMLEnabled;
 
+- (void)setRequestIdleCallbackEnabled:(BOOL)flag;
+- (BOOL)requestIdleCallbackEnabled;
+
+- (void)setAsyncClipboardAPIEnabled:(BOOL)flag;
+- (BOOL)asyncClipboardAPIEnabled;
+
 - (void)setLinkPreloadResponsiveImagesEnabled:(BOOL)flag;
 - (BOOL)linkPreloadResponsiveImagesEnabled;
+
+- (void)setCSSShadowPartsEnabled:(BOOL)flag;
+- (BOOL)cssShadowPartsEnabled;
+
+- (BOOL)isInAppBrowserPrivacyEnabled;
+- (void)setInAppBrowserPrivacyEnabled:(BOOL)flag;
 
 @property (nonatomic) BOOL visualViewportAPIEnabled;
 @property (nonatomic) BOOL CSSOMViewScrollingAPIEnabled;
@@ -623,9 +647,10 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL mediaDataLoadsAutomatically;
 @property (nonatomic) BOOL attachmentElementEnabled;
 @property (nonatomic) BOOL allowsInlineMediaPlaybackAfterFullscreen;
+@property (nonatomic) BOOL remotePlaybackEnabled;
 @property (nonatomic) BOOL intersectionObserverEnabled;
 @property (nonatomic) BOOL menuItemElementEnabled;
-@property (nonatomic) BOOL displayContentsEnabled;
+@property (nonatomic) BOOL keygenElementEnabled;
 @property (nonatomic) BOOL userTimingEnabled;
 @property (nonatomic) BOOL resourceTimingEnabled;
 @property (nonatomic) BOOL linkPreloadEnabled;
@@ -633,6 +658,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL isSecureContextAttributeEnabled;
 @property (nonatomic) BOOL legacyEncryptedMediaAPIEnabled;
 @property (nonatomic) BOOL encryptedMediaAPIEnabled;
+@property (nonatomic) BOOL pictureInPictureAPIEnabled;
+@property (nonatomic) BOOL genericCueAPIEnabled;
+@property (nonatomic) BOOL useGPUProcessForMedia;
 @property (nonatomic) BOOL viewportFitEnabled;
 @property (nonatomic) BOOL constantPropertiesEnabled;
 @property (nonatomic) BOOL colorFilterEnabled;
@@ -648,6 +676,8 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL referrerPolicyAttributeEnabled;
 @property (nonatomic) BOOL resizeObserverEnabled;
 @property (nonatomic) BOOL coreMathMLEnabled;
+@property (nonatomic) BOOL requestIdleCallbackEnabled;
+@property (nonatomic) BOOL asyncClipboardAPIEnabled;
 @property (nonatomic) BOOL linkPreloadResponsiveImagesEnabled;
 
 #if TARGET_OS_IPHONE

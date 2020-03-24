@@ -34,9 +34,9 @@
 #include "ScriptCallStack.h"
 #include "ScriptCallStackFactory.h"
 
-using namespace JSC;
-
 namespace Inspector {
+
+using namespace JSC;
 
 #if !LOG_DISABLED
 static bool sLogToSystemConsole = true;
@@ -60,29 +60,43 @@ JSGlobalObjectConsoleClient::JSGlobalObjectConsoleClient(InspectorConsoleAgent* 
 {
 }
 
-void JSGlobalObjectConsoleClient::messageWithTypeAndLevel(MessageType type, MessageLevel level, JSC::ExecState* exec, Ref<ScriptArguments>&& arguments)
+void JSGlobalObjectConsoleClient::messageWithTypeAndLevel(MessageType type, MessageLevel level, JSC::JSGlobalObject* globalObject, Ref<ScriptArguments>&& arguments)
 {
     if (JSGlobalObjectConsoleClient::logToSystemConsole())
-        ConsoleClient::printConsoleMessageWithArguments(MessageSource::ConsoleAPI, type, level, exec, arguments.copyRef());
+        ConsoleClient::printConsoleMessageWithArguments(MessageSource::ConsoleAPI, type, level, globalObject, arguments.copyRef());
+
+    if (LIKELY(!m_consoleAgent->developerExtrasEnabled()))
+        return;
 
     String message;
     arguments->getFirstArgumentAsString(message);
-    m_consoleAgent->addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, type, level, message, WTFMove(arguments), exec));
+    m_consoleAgent->addMessageToConsole(makeUnique<ConsoleMessage>(MessageSource::ConsoleAPI, type, level, message, WTFMove(arguments), globalObject));
+
+    if (type == MessageType::Assert) {
+        if (m_debuggerAgent)
+            m_debuggerAgent->handleConsoleAssert(message);
+    }
 }
 
-void JSGlobalObjectConsoleClient::count(ExecState* exec, const String& label)
+void JSGlobalObjectConsoleClient::count(JSGlobalObject* globalObject, const String& label)
 {
-    m_consoleAgent->count(exec, label);
+    if (LIKELY(!m_consoleAgent->developerExtrasEnabled()))
+        return;
+
+    m_consoleAgent->count(globalObject, label);
 }
 
-void JSGlobalObjectConsoleClient::countReset(ExecState* exec, const String& label)
+void JSGlobalObjectConsoleClient::countReset(JSGlobalObject* globalObject, const String& label)
 {
-    m_consoleAgent->countReset(exec, label);
+    if (LIKELY(!m_consoleAgent->developerExtrasEnabled()))
+        return;
+
+    m_consoleAgent->countReset(globalObject, label);
 }
 
-void JSGlobalObjectConsoleClient::profile(JSC::ExecState*, const String& title)
+void JSGlobalObjectConsoleClient::profile(JSC::JSGlobalObject*, const String& title)
 {
-    if (!m_consoleAgent->enabled())
+    if (LIKELY(!m_consoleAgent->enabled()))
         return;
 
     // Allow duplicate unnamed profiles. Disallow duplicate named profiles.
@@ -91,7 +105,7 @@ void JSGlobalObjectConsoleClient::profile(JSC::ExecState*, const String& title)
             if (existingTitle == title) {
                 // FIXME: Send an enum to the frontend for localization?
                 String warning = title.isEmpty() ? "Unnamed Profile already exists"_s : makeString("Profile \"", title, "\" already exists");
-                m_consoleAgent->addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::Profile, MessageLevel::Warning, warning));
+                m_consoleAgent->addMessageToConsole(makeUnique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::Profile, MessageLevel::Warning, warning));
                 return;
             }
         }
@@ -101,9 +115,9 @@ void JSGlobalObjectConsoleClient::profile(JSC::ExecState*, const String& title)
     startConsoleProfile();
 }
 
-void JSGlobalObjectConsoleClient::profileEnd(JSC::ExecState*, const String& title)
+void JSGlobalObjectConsoleClient::profileEnd(JSC::JSGlobalObject*, const String& title)
 {
-    if (!m_consoleAgent->enabled())
+    if (LIKELY(!m_consoleAgent->enabled()))
         return;
 
     // Stop profiles in reverse order. If the title is empty, then stop the last profile.
@@ -119,73 +133,103 @@ void JSGlobalObjectConsoleClient::profileEnd(JSC::ExecState*, const String& titl
 
     // FIXME: Send an enum to the frontend for localization?
     String warning = title.isEmpty() ? "No profiles exist"_s : makeString("Profile \"", title, "\" does not exist");
-    m_consoleAgent->addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::ProfileEnd, MessageLevel::Warning, warning));
+    m_consoleAgent->addMessageToConsole(makeUnique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::ProfileEnd, MessageLevel::Warning, warning));
 }
 
 void JSGlobalObjectConsoleClient::startConsoleProfile()
 {
-    ErrorString unused;
+    ErrorString ignored;
 
     if (m_debuggerAgent) {
         m_profileRestoreBreakpointActiveValue = m_debuggerAgent->breakpointsActive();
-        m_debuggerAgent->setBreakpointsActive(unused, false);
+        m_debuggerAgent->setBreakpointsActive(ignored, false);
     }
 
     if (m_scriptProfilerAgent) {
         const bool includeSamples = true;
-        m_scriptProfilerAgent->startTracking(unused, &includeSamples);
+        m_scriptProfilerAgent->startTracking(ignored, &includeSamples);
     }
 }
 
 void JSGlobalObjectConsoleClient::stopConsoleProfile()
 {
-    ErrorString unused;
+    ErrorString ignored;
 
     if (m_scriptProfilerAgent)
-        m_scriptProfilerAgent->stopTracking(unused);
+        m_scriptProfilerAgent->stopTracking(ignored);
 
     if (m_debuggerAgent)
-        m_debuggerAgent->setBreakpointsActive(unused, m_profileRestoreBreakpointActiveValue);
+        m_debuggerAgent->setBreakpointsActive(ignored, m_profileRestoreBreakpointActiveValue);
 }
 
-void JSGlobalObjectConsoleClient::takeHeapSnapshot(JSC::ExecState*, const String& title)
+void JSGlobalObjectConsoleClient::takeHeapSnapshot(JSC::JSGlobalObject*, const String& title)
 {
+    if (LIKELY(!m_consoleAgent->developerExtrasEnabled()))
+        return;
+
     m_consoleAgent->takeHeapSnapshot(title);
 }
 
-void JSGlobalObjectConsoleClient::time(ExecState* exec, const String& label)
+void JSGlobalObjectConsoleClient::time(JSGlobalObject* globalObject, const String& label)
 {
-    m_consoleAgent->startTiming(exec, label);
+    if (LIKELY(!m_consoleAgent->developerExtrasEnabled()))
+        return;
+
+    m_consoleAgent->startTiming(globalObject, label);
 }
 
-void JSGlobalObjectConsoleClient::timeLog(ExecState* exec, const String& label, Ref<ScriptArguments>&& arguments)
+void JSGlobalObjectConsoleClient::timeLog(JSGlobalObject* globalObject, const String& label, Ref<ScriptArguments>&& arguments)
 {
-    m_consoleAgent->logTiming(exec, label, WTFMove(arguments));
+    if (LIKELY(!m_consoleAgent->developerExtrasEnabled()))
+        return;
+
+    m_consoleAgent->logTiming(globalObject, label, WTFMove(arguments));
 }
 
-void JSGlobalObjectConsoleClient::timeEnd(ExecState* exec, const String& label)
+void JSGlobalObjectConsoleClient::timeEnd(JSGlobalObject* globalObject, const String& label)
 {
-    m_consoleAgent->stopTiming(exec, label);
+    if (LIKELY(!m_consoleAgent->developerExtrasEnabled()))
+        return;
+
+    m_consoleAgent->stopTiming(globalObject, label);
 }
 
-void JSGlobalObjectConsoleClient::timeStamp(ExecState*, Ref<ScriptArguments>&&)
+void JSGlobalObjectConsoleClient::timeStamp(JSGlobalObject*, Ref<ScriptArguments>&&)
 {
-    // FIXME: JSContext inspection needs a timeline.
+    if (LIKELY(!m_consoleAgent->developerExtrasEnabled()))
+        return;
+
     warnUnimplemented("console.timeStamp"_s);
 }
 
-void JSGlobalObjectConsoleClient::record(ExecState*, Ref<ScriptArguments>&&) { }
-void JSGlobalObjectConsoleClient::recordEnd(ExecState*, Ref<ScriptArguments>&&) { }
-
-void JSGlobalObjectConsoleClient::screenshot(ExecState*, Ref<ScriptArguments>&&)
+void JSGlobalObjectConsoleClient::record(JSGlobalObject*, Ref<ScriptArguments>&&)
 {
+    if (LIKELY(!m_consoleAgent->developerExtrasEnabled()))
+        return;
+
+    warnUnimplemented("console.record"_s);
+}
+
+void JSGlobalObjectConsoleClient::recordEnd(JSGlobalObject*, Ref<ScriptArguments>&&)
+{
+    if (LIKELY(!m_consoleAgent->developerExtrasEnabled()))
+        return;
+
+    warnUnimplemented("console.recordEnd"_s);
+}
+
+void JSGlobalObjectConsoleClient::screenshot(JSGlobalObject*, Ref<ScriptArguments>&&)
+{
+    if (LIKELY(!m_consoleAgent->developerExtrasEnabled()))
+        return;
+
     warnUnimplemented("console.screenshot"_s);
 }
 
 void JSGlobalObjectConsoleClient::warnUnimplemented(const String& method)
 {
     String message = method + " is currently ignored in JavaScript context inspection.";
-    m_consoleAgent->addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::Log, MessageLevel::Warning, message));
+    m_consoleAgent->addMessageToConsole(makeUnique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::Log, MessageLevel::Warning, message));
 }
 
 } // namespace Inspector

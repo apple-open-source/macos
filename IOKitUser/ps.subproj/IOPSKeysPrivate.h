@@ -154,14 +154,14 @@
 #define kIOPSAccessoryCategoryGameController     "Game Controller"
 #define kIOPSAccessoryCategorySpeaker       "Speaker"
 #define kIOPSAccessoryCategoryHeadphone     "Headphone"
+#define kIOPSAccessoryCategoryHeadset       "Headset"
 #define kIOPSAccessoryCategoryWatch         "Watch"
 #define kIOPSAccessoryCategoryBatteryCase   "Battery Case"
 #define kIOPSAccessoryCategoryKeyboard      "Keyboard"
 #define kIOPSAccessoryCategoryTrackpad      "Trackpad"
+#define kIOPSAccessoryCategoryMouse         "Mouse"
 #define kIOPSAccessoryCategoryPencil        "Pencil"
 #define kIOPSAccessoryCategoryUnknown       "Unknown"
-
-
 
 /*
  * Power adapter related internal keys

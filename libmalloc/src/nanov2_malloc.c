@@ -239,13 +239,14 @@ nanov2_metablock_meta_index(nanozonev2_t *nanozone)
 
 // Given a block metadata pointer, returns whether the block is active (that is,
 // it is being used for allocations, it has allocations that have not been freed,
-// or is waiting to be madvised).
+// or is waiting to be madvised  and is not a guard block).
 static MALLOC_ALWAYS_INLINE MALLOC_INLINE boolean_t
 nanov2_is_block_active(nanov2_block_meta_t block_meta)
 {
 	return block_meta.next_slot != SLOT_NULL
 			&& block_meta.next_slot != SLOT_MADVISING
-			&& block_meta.next_slot != SLOT_MADVISED;
+			&& block_meta.next_slot != SLOT_MADVISED
+			&& block_meta.next_slot != SLOT_GUARD;
 }
 
 #if OS_VARIANT_RESOLVED
@@ -618,6 +619,57 @@ nanov2_get_allocation_block_index(void)
 	return (_os_cpu_number_override >> shift) % nano_common_max_magazines;
 }
 #endif // OS_VARIANT_RESOLVED
+
+#pragma mark -
+#pragma mark Guard Blocks
+
+// Converts a given block (specified by absolute block number) in an arena into
+// a guard block. The block will be marked as in-use so that it is not available
+// for allocations and its permissions are set to PROT_READ. Note that
+// PROT_READ is used instead of PROT_NONE because the latter breaks the
+// enumerator, which tries to map the whole region and fails if there are
+// PROT_NONE pages in the range. We can't fix that in the allocator because the
+// code that does the mapping is part of the sampling tools and is simply
+// invoked as a callback from the enumerator.
+static MALLOC_ALWAYS_INLINE MALLOC_INLINE void
+nanov2_create_guard_block(nanozonev2_t *nanozone, nanov2_arena_t *arena,
+		nanov2_block_index_t block_index) {
+	// Mark the block as in-use in the meta data
+	static nanov2_block_meta_t in_use_block = {
+		.in_use = 1,
+		.next_slot = SLOT_GUARD
+	};
+	nanov2_meta_index_t	block_meta_index =
+			nanov2_block_index_to_meta_index(block_index);
+	nanov2_arena_metablock_t *block_metap = nanov2_metablock_address_for_ptr(
+			nanozone, arena);
+	block_metap->arena_block_meta[block_meta_index] = in_use_block;
+	void *block_ptr = &arena->blocks[block_index];
+
+	// Apply PROT_NONE to the block itself.
+	kern_return_t err = mprotect(block_ptr, NANOV2_BLOCK_SIZE, PROT_READ);
+	if (err != KERN_SUCCESS) {
+		malloc_report(ASL_LEVEL_ERR, "Failed to create guard block at %p (%d)\n",
+				block_ptr, err);
+	}
+}
+
+// Creates the guard blocks for an arena, if required. The guard blocks are
+// the first and last physical blocks in the arena that are not the metadata
+// block.
+static MALLOC_ALWAYS_INLINE MALLOC_INLINE void
+nanov2_init_guard_blocks(nanozonev2_t *nanozone, nanov2_arena_t *arena)
+{
+	if (nanozone->debug_flags & MALLOC_ALL_GUARD_PAGE_FLAGS) {
+		// Use the first and last blocks in the arena as guard regions,
+		// avoiding the metadata block.
+		nanov2_meta_index_t meta_index = nanov2_metablock_meta_index(nanozone);
+		nanov2_create_guard_block(nanozone, arena, meta_index == 0 ? 1 : 0);
+		nanov2_create_guard_block(nanozone, arena,
+				meta_index == NANOV2_BLOCKS_PER_ARENA - 1 ?
+					NANOV2_BLOCKS_PER_ARENA - 2 : NANOV2_BLOCKS_PER_ARENA - 1);
+	}
+}
 
 #pragma mark -
 #pragma mark Allocator Initialization
@@ -1699,7 +1751,7 @@ nanov2_locked(nanozonev2_t *nanozone)
 }
 
 static void
-null_printer(const char __unused *fmt, ...)
+nanov2_null_printer(const char __unused *fmt, ...)
 {
 }
 
@@ -1708,7 +1760,7 @@ nanov2_statistics(task_t task, vm_address_t zone_address,
 		memory_reader_t reader, print_task_printer_t printer,
 		malloc_statistics_t *stats)
 {
-	printer = printer ? printer : null_printer;
+	printer = printer ? printer : nanov2_null_printer;
 	reader = !reader && task == mach_task_self() ? _malloc_default_reader : reader;
 
 	kern_return_t err;
@@ -1773,6 +1825,8 @@ nanov2_statistics(task_t task, vm_address_t zone_address,
 				case SLOT_MADVISING:
 					// FALLTHRU
 				case SLOT_MADVISED:
+					// FALLTHRU
+				case SLOT_GUARD:
 					// These blocks have no active content.
 					break;
 				case SLOT_FULL:
@@ -2477,6 +2531,11 @@ retry:
 			// Assign the new arena, in the same region.
 			nanozone->current_region_next_arena = arena + 1;
 		}
+
+		// Set up the guard blocks for the new arena, if requested
+		if (!failed) {
+			nanov2_init_guard_blocks(nanozone, arena);
+		}
 	}
 	_malloc_lock_unlock(&nanozone->regions_lock);
 
@@ -2710,12 +2769,6 @@ nanov2_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 	// Prevent overwriting the function pointers in basic_zone.
 	mprotect(nanozone, sizeof(nanozone->basic_zone), PROT_READ);
 
-	// Nano V2 zone does not support MALLOC_ADD_GUARD_PAGES
-	if (debug_flags & MALLOC_ADD_GUARD_PAGES) {
-		malloc_report(ASL_LEVEL_INFO, "nano does not support guard pages\n");
-		debug_flags &= ~MALLOC_ADD_GUARD_PAGES;
-	}
-
 	// Set up the remainder of the nanozonev2 structure
 	nanozone->debug_flags = debug_flags;
 	nanozone->helper_zone = helper_zone;
@@ -2766,6 +2819,9 @@ nanov2_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 	nanozone->current_region_next_arena = ((nanov2_arena_t *)region) + 1;
 	nanozone->current_region_limit = region + 1;
 	nanozone->statistics.allocated_regions = 1;
+
+	// Set up the guard blocks for the initial arena, if requested
+	nanov2_init_guard_blocks(nanozone, (nanov2_arena_t *)region);
 
 	return (malloc_zone_t *)nanozone;
 }

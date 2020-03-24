@@ -98,7 +98,7 @@
                                              code:CKKSNoPeersAvailable
                                       description:@"Not in SOS circle, but no error returned"];
         }
-        secerror("octagon-sos: Not in circle : %d %@", circleStatus, localerror);
+        secerror("octagon-sos: Not in circle : %@ %@", SOSAccountGetSOSCCStatusString(circleStatus), localerror);
         if(error) {
             *error = localerror;
         }
@@ -302,22 +302,6 @@
 
     return result;
 }
-
-+ (NSArray<NSData*>*)peerPublicSigningKeySPKIs:(NSSet<id<CKKSPeer>>* _Nullable)peerSet
-{
-    NSMutableArray<NSData*>* publicSigningSPKIs = [NSMutableArray array];
-
-    for(id<CKKSPeer> peer in peerSet) {
-        NSData* spki = [peer.publicSigningKey encodeSubjectPublicKeyInfo];
-        if(!spki) {
-            secerror("octagon-sos: Can't create SPKI for peer: %@", peer);
-        } else {
-            secerror("octagon-sos: Created SPKI for peer: %@", peer);
-            [publicSigningSPKIs addObject:spki];
-        }
-    }
-    return publicSigningSPKIs;
-}
 @end
 
 @implementation OTSOSMissingAdapter
@@ -406,7 +390,53 @@
                                                          trustedPeersError:unimplementedError];
 }
 
+@end
 
+@implementation OTSOSAdapterHelpers
 
++ (NSArray<NSData*>*)peerPublicSigningKeySPKIs:(NSSet<id<CKKSPeer>>* _Nullable)peerSet
+{
+    NSMutableArray<NSData*>* publicSigningSPKIs = [NSMutableArray array];
+
+    for(id<CKKSPeer> peer in peerSet) {
+        NSData* spki = [peer.publicSigningKey encodeSubjectPublicKeyInfo];
+        if(!spki) {
+            secerror("octagon-sos: Can't create SPKI for peer: %@", peer);
+        } else {
+            secerror("octagon-sos: Created SPKI for peer: %@", peer);
+            [publicSigningSPKIs addObject:spki];
+        }
+    }
+    return publicSigningSPKIs;
+}
+
++ (NSArray<NSData*>* _Nullable)peerPublicSigningKeySPKIsForCircle:(id<OTSOSAdapter>)sosAdapter error:(NSError**)error
+{
+    NSError* peerError = nil;
+    SOSCCStatus sosStatus = [sosAdapter circleStatus:&peerError];
+
+    if(sosStatus != kSOSCCInCircle || peerError) {
+        secerror("octagon-sos: Not in circle; not preapproving keys: %@ (%@)", SOSAccountGetSOSCCStatusString(sosStatus), peerError);
+        if(error) {
+            *error = peerError;
+        }
+        return nil;
+    } else {
+        // We're in-circle: preapprove these peers
+        NSError* peerError = nil;
+
+        NSSet<id<CKKSRemotePeerProtocol>>* peerSet = [sosAdapter fetchTrustedPeers:&peerError];
+
+        if(!peerSet || peerError) {
+            secerror("octagon-sos: Can't fetch trusted peer SPKIs: %@", peerError);
+            if(error) {
+                *error = peerError;
+            }
+            return nil;
+        }
+
+        return [self peerPublicSigningKeySPKIs:peerSet];
+    }
+}
 @end
 #endif // OCTAGON

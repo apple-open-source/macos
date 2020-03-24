@@ -30,7 +30,7 @@
 }
 - (BOOL)hasCertCached
 {
-    return _has.certCached;
+    return _has.certCached != 0;
 }
 - (BOOL)hasSerializedPrerecord
 {
@@ -49,7 +49,7 @@
 }
 - (BOOL)hasLastCloudServicesTriggerTime
 {
-    return _has.lastCloudServicesTriggerTime;
+    return _has.lastCloudServicesTriggerTime != 0;
 }
 @synthesize lastEscrowAttemptTime = _lastEscrowAttemptTime;
 - (void)setLastEscrowAttemptTime:(uint64_t)v
@@ -63,7 +63,7 @@
 }
 - (BOOL)hasLastEscrowAttemptTime
 {
-    return _has.lastEscrowAttemptTime;
+    return _has.lastEscrowAttemptTime != 0;
 }
 @synthesize uploadCompleted = _uploadCompleted;
 - (void)setUploadCompleted:(BOOL)v
@@ -77,7 +77,7 @@
 }
 - (BOOL)hasUploadCompleted
 {
-    return _has.uploadCompleted;
+    return _has.uploadCompleted != 0;
 }
 @synthesize uploadRetries = _uploadRetries;
 - (void)setUploadRetries:(uint64_t)v
@@ -91,7 +91,7 @@
 }
 - (BOOL)hasUploadRetries
 {
-    return _has.uploadRetries;
+    return _has.uploadRetries != 0;
 }
 - (BOOL)hasAltDSID
 {
@@ -110,7 +110,7 @@
 }
 - (BOOL)hasTriggerRequestTime
 {
-    return _has.triggerRequestTime;
+    return _has.triggerRequestTime != 0;
 }
 
 - (NSString *)description

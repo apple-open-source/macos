@@ -27,7 +27,6 @@
 
 #include "FloatRoundedRect.h"
 #include "GraphicsLayer.h"
-#include <QuartzCore/CABase.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/TypeCasts.h>
@@ -55,7 +54,7 @@ class WEBCORE_EXPORT PlatformCALayer : public RefCounted<PlatformCALayer> {
     friend class PlatformCALayerWin;
 #endif
 public:
-    static CFTimeInterval currentTimeToMediaTime(MonotonicTime t) { return CACurrentMediaTime() + (t - MonotonicTime::now()).seconds(); }
+    static CFTimeInterval currentTimeToMediaTime(MonotonicTime);
 
     // LayerTypeRootLayer is used on some platforms. It has no backing store, so setNeedsDisplay
     // should not call CACFLayerSetNeedsDisplay, but rather just notify the renderer that it
@@ -269,7 +268,7 @@ public:
     Ref<PlatformCALayer> createCompatibleLayerOrTakeFromPool(LayerType, PlatformCALayerClient*, IntSize);
 
 #if PLATFORM(COCOA)
-    virtual void enumerateRectsBeingDrawn(CGContextRef, void (^block)(CGRect)) = 0;
+    virtual void enumerateRectsBeingDrawn(GraphicsContext&, void (^block)(FloatRect)) = 0;
 #endif
 
     static const unsigned webLayerMaxRectsToPaint = 5;
@@ -282,9 +281,9 @@ public:
     typedef Vector<FloatRect, webLayerMaxRectsToPaint> RepaintRectList;
         
     // Functions allows us to share implementation across WebTiledLayer and WebLayer
-    static RepaintRectList collectRectsToPaint(CGContextRef, PlatformCALayer*);
-    static void drawLayerContents(CGContextRef, PlatformCALayer*, RepaintRectList& dirtyRects, GraphicsLayerPaintBehavior);
-    static void drawRepaintIndicator(CGContextRef, PlatformCALayer*, int repaintCount, CGColorRef customBackgroundColor);
+    static RepaintRectList collectRectsToPaint(GraphicsContext&, PlatformCALayer*);
+    static void drawLayerContents(GraphicsContext&, PlatformCALayer*, RepaintRectList&, GraphicsLayerPaintBehavior);
+    static void drawRepaintIndicator(GraphicsContext&, PlatformCALayer*, int repaintCount, Color customBackgroundColor = { });
     static CGRect frameForLayer(const PlatformLayer*);
 
     void moveToLayerPool();

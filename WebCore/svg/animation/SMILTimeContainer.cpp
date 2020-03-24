@@ -38,6 +38,8 @@ namespace WebCore {
 static const Seconds SMILAnimationFrameDelay { 1_s / 60. };
 static const Seconds SMILAnimationFrameThrottledDelay { 1_s / 30. };
 
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(SMILTimeContainer);
+
 SMILTimeContainer::SMILTimeContainer(SVGSVGElement& owner)
     : m_timer(*this, &SMILTimeContainer::timerFired)
     , m_ownerSVGElement(owner)
@@ -53,7 +55,7 @@ void SMILTimeContainer::schedule(SVGSMILElement* animation, SVGElement* target, 
     ElementAttributePair key(target, attributeName);
     std::unique_ptr<AnimationsVector>& scheduled = m_scheduledAnimations.add(key, nullptr).iterator->value;
     if (!scheduled)
-        scheduled = std::make_unique<AnimationsVector>();
+        scheduled = makeUnique<AnimationsVector>();
     ASSERT(!scheduled->contains(animation));
     scheduled->append(animation);
 
@@ -278,7 +280,7 @@ void SMILTimeContainer::updateAnimations(SMILTime elapsed, bool seekToTime)
             }
 
             // This will calculate the contribution from the animation and add it to the resultsElement.
-            if (!animation->progress(elapsed, firstAnimation.get(), seekToTime) && firstAnimation == animation)
+            if (!animation->progress(elapsed, *firstAnimation, seekToTime) && firstAnimation == animation)
                 firstAnimation = nullptr;
 
             SMILTime nextFireTime = animation->nextProgressTime();

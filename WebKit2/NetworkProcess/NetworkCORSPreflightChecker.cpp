@@ -64,7 +64,6 @@ void NetworkCORSPreflightChecker::startPreflight()
     RELEASE_LOG_IF_ALLOWED("startPreflight");
 
     NetworkLoadParameters loadParameters;
-    loadParameters.sessionID = m_parameters.sessionID;
     loadParameters.request = createAccessControlPreflightRequest(m_parameters.originalRequest, m_parameters.sourceOrigin, m_parameters.referrer);
     if (!m_parameters.userAgent.isNull())
         loadParameters.request.setHTTPHeaderField(HTTPHeaderName::UserAgent, m_parameters.userAgent);
@@ -72,7 +71,7 @@ void NetworkCORSPreflightChecker::startPreflight()
     if (m_shouldCaptureExtraNetworkLoadMetrics)
         m_loadInformation = NetworkTransactionInformation { NetworkTransactionInformation::Type::Preflight, loadParameters.request, { }, { } };
 
-    if (auto* networkSession = m_networkProcess->networkSession(loadParameters.sessionID)) {
+    if (auto* networkSession = m_networkProcess->networkSession(m_parameters.sessionID)) {
         m_task = NetworkDataTask::create(*networkSession, *this, WTFMove(loadParameters));
         m_task->resume();
     } else
@@ -89,7 +88,7 @@ void NetworkCORSPreflightChecker::willPerformHTTPRedirection(WebCore::ResourceRe
     m_completionCallback(ResourceError { errorDomainWebKitInternal, 0, m_parameters.originalRequest.url(), "Preflight response is not successful"_s, ResourceError::Type::AccessControl });
 }
 
-void NetworkCORSPreflightChecker::didReceiveChallenge(WebCore::AuthenticationChallenge&& challenge, ChallengeCompletionHandler&& completionHandler)
+void NetworkCORSPreflightChecker::didReceiveChallenge(WebCore::AuthenticationChallenge&& challenge, NegotiatedLegacyTLS negotiatedLegacyTLS, ChallengeCompletionHandler&& completionHandler)
 {
     RELEASE_LOG_IF_ALLOWED("didReceiveChallenge, authentication scheme: %u", challenge.protectionSpace().authenticationScheme());
 
@@ -102,10 +101,10 @@ void NetworkCORSPreflightChecker::didReceiveChallenge(WebCore::AuthenticationCha
         return;
     }
 
-    m_networkProcess->authenticationManager().didReceiveAuthenticationChallenge(m_parameters.pageID, m_parameters.frameID, challenge, WTFMove(completionHandler));
+    m_networkProcess->authenticationManager().didReceiveAuthenticationChallenge(m_parameters.sessionID, m_parameters.webPageProxyID, m_parameters.topOrigin ? &m_parameters.topOrigin->data() : nullptr, challenge, negotiatedLegacyTLS, WTFMove(completionHandler));
 }
 
-void NetworkCORSPreflightChecker::didReceiveResponse(WebCore::ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
+void NetworkCORSPreflightChecker::didReceiveResponse(WebCore::ResourceResponse&& response, NegotiatedLegacyTLS, ResponseCompletionHandler&& completionHandler)
 {
     RELEASE_LOG_IF_ALLOWED("didReceiveResponse");
 

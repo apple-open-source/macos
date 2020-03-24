@@ -37,6 +37,7 @@ namespace JSC { namespace DFG {
 
 template<typename AbstractStateType>
 class AbstractInterpreter {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     AbstractInterpreter(Graph&, AbstractStateType&);
     ~AbstractInterpreter();
@@ -214,9 +215,9 @@ public:
     
     void filterICStatus(Node*);
     
-private:
     void clobberWorld();
     void didFoldClobberWorld();
+private:
     
     bool handleConstantBinaryBitwiseOp(Node*);
 
@@ -227,7 +228,9 @@ private:
     void didFoldClobberStructures();
     
     void observeTransition(unsigned indexInBlock, RegisteredStructure from, RegisteredStructure to);
+public:
     void observeTransitions(unsigned indexInBlock, const TransitionVector&);
+private:
     
     enum BooleanResult {
         UnknownBooleanResult,
@@ -246,7 +249,7 @@ private:
     void setConstant(Node* node, FrozenValue value)
     {
         setBuiltInConstant(node, value);
-        m_state.setFoundConstants(true);
+        m_state.setShouldTryConstantFolding(true);
     }
     
     ALWAYS_INLINE void filterByType(Edge& edge, SpeculatedType type);

@@ -22,13 +22,12 @@
 #pragma once
 
 #include "SVGElement.h"
-#include "SVGExternalResourcesRequired.h"
 #include "SVGFitToViewBox.h"
 #include "SVGMarkerTypes.h"
 
 namespace WebCore {
 
-class SVGMarkerElement final : public SVGElement, public SVGExternalResourcesRequired, public SVGFitToViewBox {
+class SVGMarkerElement final : public SVGElement, public SVGFitToViewBox {
     WTF_MAKE_ISO_ALLOCATED(SVGMarkerElement);
 public:
     // Forward declare enumerations in the W3C naming scheme, for IDL generation.
@@ -41,16 +40,12 @@ public:
     enum {
         SVG_MARKER_ORIENT_UNKNOWN = SVGMarkerOrientUnknown,
         SVG_MARKER_ORIENT_AUTO = SVGMarkerOrientAuto,
-        SVG_MARKER_ORIENT_ANGLE = SVGMarkerOrientAngle,
-        SVG_MARKER_ORIENT_AUTOSTARTREVERSE = SVGMarkerOrientAutoStartReverse
+        SVG_MARKER_ORIENT_ANGLE = SVGMarkerOrientAngle
     };
 
     static Ref<SVGMarkerElement> create(const QualifiedName&, Document&);
 
     AffineTransform viewBoxToViewTransform(float viewWidth, float viewHeight) const;
-
-    void setOrientToAuto();
-    void setOrientToAngle(SVGAngle&);
 
     const SVGLengthValue& refX() const { return m_refX->currentValue(); }
     const SVGLengthValue& refY() const { return m_refY->currentValue(); }
@@ -68,10 +63,16 @@ public:
     SVGAnimatedAngle& orientAngleAnimated() { return m_orientAngle; }
     Ref<SVGAnimatedEnumeration> orientTypeAnimated() { return m_orientType.copyRef(); }
 
+    String orient() const;
+    void setOrient(const String&);
+
+    void setOrientToAuto();
+    void setOrientToAngle(const SVGAngle&);
+
 private:
     SVGMarkerElement(const QualifiedName&, Document&);
 
-    using PropertyRegistry = SVGPropertyOwnerRegistry<SVGMarkerElement, SVGElement, SVGExternalResourcesRequired, SVGFitToViewBox>;
+    using PropertyRegistry = SVGPropertyOwnerRegistry<SVGMarkerElement, SVGElement, SVGFitToViewBox>;
     const SVGPropertyRegistry& propertyRegistry() const final { return m_propertyRegistry; }
 
     void parseAttribute(const QualifiedName&, const AtomString&) override;
@@ -84,8 +85,6 @@ private:
     bool needsPendingResourceHandling() const override { return false; }
 
     bool selfHasRelativeLengths() const override;
-
-    void setOrient(SVGMarkerOrientType, const SVGAngleValue&);
 
     PropertyRegistry m_propertyRegistry { *this };
     Ref<SVGAnimatedLength> m_refX { SVGAnimatedLength::create(this, SVGLengthMode::Width) };

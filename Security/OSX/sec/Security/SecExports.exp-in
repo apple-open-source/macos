@@ -90,6 +90,7 @@ _kSecPolicyNameAppleParsecService
 _kSecPolicyNameApplePPQService
 _kSecPolicyNameApplePushService
 _kSecPolicyNameAppleSiriService
+_kSecPolicyNameAppleUpdatesService
 _kSecPolicyNameEAPClient
 _kSecPolicyNameEAPServer
 _kSecPolicyNameIPSecClient

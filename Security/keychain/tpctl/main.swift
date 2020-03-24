@@ -24,7 +24,6 @@ var preapprovedKeys: [Data]?
 var deviceName: String?
 var serialNumber: String?
 var osVersion: String?
-var policyVersion: NSNumber?
 var policySecrets: [String: Data]?
 
 enum Command {
@@ -209,11 +208,11 @@ while let arg = argIterator.next() {
         osVersion = newOsVersion
 
     case "--policy-version":
-        guard let newPolicyVersion = UInt64(argIterator.next() ?? "") else {
+        guard let _ = UInt64(argIterator.next() ?? "") else {
             print("Error: --policy-version takes an integer argument")
             exitUsage(1)
         }
-        policyVersion = NSNumber(value: newPolicyVersion)
+        // Option ignored for now
 
     case "--policy-secret":
         guard let name = argIterator.next(), let dataBase64 = argIterator.next() else {
@@ -451,7 +450,7 @@ while let arg = argIterator.next() {
         var machineIDs = Set<String>()
         var performIDMS = false
         while let arg = argIterator.next() {
-            if(arg == "--idms") {
+            if arg == "--idms" {
                 performIDMS = true
             } else {
                 machineIDs.insert(arg)
@@ -465,7 +464,7 @@ while let arg = argIterator.next() {
     }
 }
 
-if commands.count == 0 {
+if commands.isEmpty {
     exitUsage(0)
 }
 
@@ -543,7 +542,7 @@ for command in commands {
                       voucherSig: voucherSig,
                       ckksKeys: [],
                       tlkShares: [],
-                      preapprovedKeys: preapprovedKeys ?? []) { peerID, _, error in
+                      preapprovedKeys: preapprovedKeys ?? []) { peerID, _, _, _, error in
                         guard error == nil else {
                             print("Error joining:", error!)
                             return
@@ -634,11 +633,10 @@ for command in commands {
                          deviceName: deviceName ?? deviceInfo.deviceName(),
                          serialNumber: serialNumber ?? deviceInfo.serialNumber(),
                          osVersion: osVersion ?? deviceInfo.osVersion(),
-                         policyVersion: policyVersion,
+                         policyVersion: nil,
                          policySecrets: policySecrets,
                          signingPrivKeyPersistentRef: nil,
-                         encPrivKeyPersistentRef: nil) {
-                            peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, error in
+                         encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, views, _, error in
                             guard error == nil else {
                                 print("Error preparing:", error!)
                                 return
@@ -651,7 +649,8 @@ for command in commands {
                                 "stableInfo": stableInfo!.base64EncodedString(),
                                 "stableInfoSig": stableInfoSig!.base64EncodedString(),
                                 "machineID": machineID!,
-                                ]
+                                "views": Array(views ?? Set()),
+                                ] as [String: Any]
                             do {
                                 print(try TPCTLObjectiveC.jsonSerialize(cleanDictionaryForJSON(result)))
                             } catch {
@@ -666,7 +665,7 @@ for command in commands {
                         deviceName: deviceName,
                         serialNumber: serialNumber,
                         osVersion: osVersion,
-                        policyVersion: policyVersion,
+                        policyVersion: nil,
                         policySecrets: policySecrets) { _, error in
                             guard error == nil else {
                                 print("Error updating:", error!)
@@ -754,7 +753,7 @@ for command in commands {
                                  bottleID: bottleID,
                                  entropy: entropy,
                                  bottleSalt: salt,
-                                 tlkShares: []) { voucher, voucherSig, error in
+                                 tlkShares: []) { voucher, voucherSig, _, _, error in
                                     guard error == nil else {
                                         print("Error during vouchWithBottle", error!)
                                         return
@@ -771,8 +770,9 @@ for command in commands {
         os_log("allow-listing (%@, %@)", log: tplogDebug, type: .default, container, context)
 
         var idmsDeviceIDs: Set<String> = Set()
+        var accountIsDemo: Bool = false
 
-        if(performIDMS) {
+        if performIDMS {
             let store = ACAccountStore()
             guard let account = store.aa_primaryAppleAccount() else {
                 print("Unable to fetch primary Apple account!")
@@ -782,6 +782,12 @@ for command in commands {
             let requestArguments = AKDeviceListRequestContext()
             requestArguments.altDSID = account.aa_altDSID
             requestArguments.services = [AKServiceNameiCloud]
+
+            let akManager = AKAccountManager.sharedInstance
+            let authKitAccount = akManager.authKitAccount(withAltDSID: account.aa_altDSID)
+            if let account = authKitAccount {
+                accountIsDemo = akManager.demoAccount(for: account)
+            }
 
             guard let controller = AKAppleIDAuthenticationController() else {
                 print("Unable to create AKAppleIDAuthenticationController!")
@@ -804,10 +810,9 @@ for command in commands {
             }
             semaphore.wait()
         }
-
         let allMachineIDs = machineIDs.union(idmsDeviceIDs)
         print("Setting allowed machineIDs to \(allMachineIDs)")
-        tpHelper.setAllowedMachineIDsWithContainer(container, context: context, allowedMachineIDs: allMachineIDs) { listChanged, error in
+        tpHelper.setAllowedMachineIDsWithContainer(container, context: context, allowedMachineIDs: allMachineIDs, honorIDMSListChanges: accountIsDemo) { listChanged, error in
             guard error == nil else {
                 print("Error during allow:", error!)
                 return

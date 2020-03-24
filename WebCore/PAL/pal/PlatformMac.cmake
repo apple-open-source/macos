@@ -3,7 +3,9 @@ list(APPEND PAL_PUBLIC_HEADERS
 
     cf/CoreMediaSoftLink.h
 
+    cocoa/AppSSOSoftLink.h
     cocoa/AVFoundationSoftLink.h
+    cocoa/MediaToolboxSoftLink.h
     cocoa/PassKitSoftLink.h
 
     mac/LookupSoftLink.h
@@ -18,19 +20,22 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/cg/CoreGraphicsSPI.h
     spi/cg/ImageIOSPI.h
 
+    spi/cocoa/AppSSOSPI.h
+    spi/cocoa/AuthKitSPI.h
     spi/cocoa/AVKitSPI.h
     spi/cocoa/AudioToolboxSPI.h
     spi/cocoa/CFNSURLConnectionSPI.h
     spi/cocoa/CommonCryptoSPI.h
     spi/cocoa/CoreTextSPI.h
     spi/cocoa/DataDetectorsCoreSPI.h
+    spi/cocoa/IOKitSPI.h
     spi/cocoa/IOPMLibSPI.h
     spi/cocoa/IOPSLibSPI.h
     spi/cocoa/IOReturnSPI.h
     spi/cocoa/IOSurfaceSPI.h
     spi/cocoa/IOTypesSPI.h
     spi/cocoa/LaunchServicesSPI.h
-    spi/cocoa/MachVMSPI.h
+    spi/cocoa/MetalSPI.h
     spi/cocoa/NEFilterSourceSPI.h
     spi/cocoa/NSAttributedStringSPI.h
     spi/cocoa/NSButtonCellSPI.h
@@ -40,13 +45,17 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/cocoa/NSFileManagerSPI.h
     spi/cocoa/NSFileSizeFormatterSPI.h
     spi/cocoa/NSKeyedArchiverSPI.h
+    spi/cocoa/NSProgressSPI.h
     spi/cocoa/NSStringSPI.h
     spi/cocoa/NSTouchBarSPI.h
     spi/cocoa/NSURLConnectionSPI.h
     spi/cocoa/NSURLDownloadSPI.h
     spi/cocoa/NSURLFileTypeMappingsSPI.h
+    spi/cocoa/NSXPCConnectionSPI.h
+    spi/cocoa/OSVariantSPI.h
     spi/cocoa/PassKitSPI.h
     spi/cocoa/QuartzCoreSPI.h
+    spi/cocoa/SecKeyProxySPI.h
     spi/cocoa/ServersSPI.h
     spi/cocoa/URLFormattingSPI.h
     spi/cocoa/WebFilterEvaluatorSPI.h
@@ -66,6 +75,7 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/mac/NSAppearanceSPI.h
     spi/mac/NSApplicationSPI.h
     spi/mac/NSCellSPI.h
+    spi/mac/NSColorWellSPI.h
     spi/mac/NSEventSPI.h
     spi/mac/NSFontSPI.h
     spi/mac/NSGraphicsSPI.h
@@ -73,6 +83,7 @@ list(APPEND PAL_PUBLIC_HEADERS
     spi/mac/NSImmediateActionGestureRecognizerSPI.h
     spi/mac/NSMenuSPI.h
     spi/mac/NSPasteboardSPI.h
+    spi/mac/NSPopoverColorWellSPI.h
     spi/mac/NSPopoverSPI.h
     spi/mac/NSResponderSPI.h
     spi/mac/NSScrollViewSPI.h
@@ -105,8 +116,11 @@ list(APPEND PAL_SOURCES
 
     cf/CoreMediaSoftLink.cpp
 
+    cocoa/AppSSOSoftLink.mm
     cocoa/AVFoundationSoftLink.mm
     cocoa/FileSizeFormatterCocoa.mm
+    cocoa/Gunzip.cpp
+    cocoa/MediaToolboxSoftLink.cpp
     cocoa/PassKitSoftLink.mm
 
     crypto/commoncrypto/CryptoDigestCommonCrypto.cpp

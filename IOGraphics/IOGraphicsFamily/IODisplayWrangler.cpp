@@ -879,10 +879,11 @@ IODisplayWrangler::builtinPanelPowerNotify(bool state)
         w->getProperty(sIODWBuiltinPanelPowerKey));
     if (!b || (b->getValue() != state)) {
         w->setProperty(sIODWBuiltinPanelPowerKey, OSBoolean::withBoolean(state));
-        // payload required until rdar://48700300 is fixed
-        IOPowerStateChangeNotification zeros;
-        memset(&zeros, 0, sizeof(zeros));
+        IODWBuiltinPanelPower_t details = {0};
+        details.version = IODW_BUILTIN_PANEL_POWER_VERSION,
+        details.mct = mach_continuous_time();
+        details.state = state;
         w->messageClients(kIOMessageServicePropertyChange,
-            &zeros, sizeof(zeros));
+            &details, sizeof(details));
     }
 }

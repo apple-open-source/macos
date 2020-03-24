@@ -31,12 +31,11 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface OTFetchViewsOperation : CKKSGroupOperation
+@interface OTFetchViewsOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
 
-- (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies;
-
-@property (nonatomic) NSSet<NSString*>* viewList;
-@property (nonatomic) TPPolicy* _Nullable policy;
+- (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
+                       intendedState:(OctagonState*)intendedState
+                          errorState:(OctagonState*)errorState;
 
 @end
 

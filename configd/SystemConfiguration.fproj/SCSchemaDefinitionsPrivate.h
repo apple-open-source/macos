@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,6 +35,7 @@
  *
  * Preference Keys
  *
+ *   kSCPrefVersion                                     "__VERSION__"                  CFString
  *   kSCPrefVirtualNetworkInterfaces                    "VirtualNetworkInterfaces"     CFDictionary
  *
  * Network Entity Keys
@@ -354,6 +355,13 @@ extern const CFStringRef kSCPropDisableUntilNeeded                          API_
 /*!
   @group Preference Keys
  */
+
+/*!
+  @const kSCPrefVersion
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPrefVersion                                     API_AVAILABLE(macos(10.15.4)) SPI_AVAILABLE(ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));
+#define kSCPrefVersion kSCPrefVersion
 
 /*!
   @const kSCPrefVirtualNetworkInterfaces

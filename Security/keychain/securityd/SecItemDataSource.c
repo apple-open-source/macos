@@ -894,10 +894,23 @@ static SOSDataSourceFactoryRef SecItemDataSourceFactoryCreate(SecDbRef db) {
     return &dsf->factory;
 }
 
+
+static dispatch_once_t sDSFQueueOnce;
+static dispatch_queue_t sDSFQueue;
+static CFMutableDictionaryRef sDSTable = NULL;
+
+void SecItemDataSourceFactoryReleaseAll() {
+    // Ensure that the queue is set up
+    (void) SecItemDataSourceFactoryGetShared(nil);
+
+    dispatch_sync(sDSFQueue, ^{
+        if(sDSTable) {
+            CFDictionaryRemoveAllValues(sDSTable);
+        }
+    });
+}
+
 SOSDataSourceFactoryRef SecItemDataSourceFactoryGetShared(SecDbRef db) {
-    static dispatch_once_t sDSFQueueOnce;
-    static dispatch_queue_t sDSFQueue;
-    static CFMutableDictionaryRef sDSTable = NULL;
     
     dispatch_once(&sDSFQueueOnce, ^{
         sDSFQueue = dispatch_queue_create("dataSourceFactory queue", DISPATCH_QUEUE_SERIAL);

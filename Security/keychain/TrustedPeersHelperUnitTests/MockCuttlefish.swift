@@ -15,7 +15,7 @@ enum Handler {
     case updateTrust((UpdateTrustRequest, @escaping (UpdateTrustResponse?, Error?) -> Void) -> Void)
     case setRecoveryKey((SetRecoveryKeyRequest, @escaping (SetRecoveryKeyResponse?, Error?) -> Void) -> Void)
     case fetchChanges((FetchChangesRequest, @escaping (FetchChangesResponse?, Error?) -> Void) -> Void)
-    case fetchViableBottles((FetchViableBottlesRequest, @escaping (FetchViableBottlesResponse?, Error?) -> Void) ->Void)
+    case fetchViableBottles((FetchViableBottlesRequest, @escaping (FetchViableBottlesResponse?, Error?) -> Void) -> Void)
     case fetchPolicyDocuments((FetchPolicyDocumentsRequest,
         @escaping (FetchPolicyDocumentsResponse?, Error?) -> Void) -> Void)
 }
@@ -169,5 +169,7 @@ class MockCuttlefishAPIAsyncClient: CuttlefishAPIAsync {
     func getSupportAppInfo(_: GetSupportAppInfoRequest, completion: @escaping (GetSupportAppInfoResponse?, Error?) -> Void) {
         completion(GetSupportAppInfoResponse(), nil)
     }
-
+    func getClubCertificates(_: GetClubCertificatesRequest, completion: @escaping (GetClubCertificatesResponse?, Error?) -> Void) {
+        completion(GetClubCertificatesResponse(), nil)
+    }
 }

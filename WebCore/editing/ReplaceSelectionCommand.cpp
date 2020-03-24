@@ -781,6 +781,11 @@ void ReplaceSelectionCommand::makeInsertedContentRoundTrippableWithHTMLTreeBuild
     }
 }
 
+static inline bool hasRenderedText(const Text& text)
+{
+    return text.renderer() && text.renderer()->hasRenderedText();
+}
+
 void ReplaceSelectionCommand::moveNodeOutOfAncestor(Node& node, Node& ancestor, InsertedNodes& insertedNodes)
 {
     Ref<Node> protectedNode = node;
@@ -799,15 +804,26 @@ void ReplaceSelectionCommand::moveNodeOutOfAncestor(Node& node, Node& ancestor, 
         removeNode(node);
         insertNodeBefore(WTFMove(protectedNode), *nodeToSplitTo);
     }
-    if (!ancestor.firstChild()) {
+
+    document().updateLayoutIgnorePendingStylesheets();
+
+    bool safeToRemoveAncestor = true;
+    for (auto* child = ancestor.firstChild(); child; child = child->nextSibling()) {
+        if (is<Text>(child) && hasRenderedText(downcast<Text>(*child))) {
+            safeToRemoveAncestor = false;
+            break;
+        }
+
+        if (is<Element>(child)) {
+            safeToRemoveAncestor = false;
+            break;
+        }
+    }
+
+    if (safeToRemoveAncestor) {
         insertedNodes.willRemoveNode(&ancestor);
         removeNode(ancestor);
     }
-}
-
-static inline bool hasRenderedText(const Text& text)
-{
-    return text.renderer() && text.renderer()->hasRenderedText();
 }
 
 void ReplaceSelectionCommand::removeUnrenderedTextNodesAtEnds(InsertedNodes& insertedNodes)
@@ -1711,7 +1727,7 @@ void ReplaceSelectionCommand::updateNodesInserted(Node *node)
 ReplacementFragment* ReplaceSelectionCommand::ensureReplacementFragment()
 {
     if (!m_replacementFragment)
-        m_replacementFragment = std::make_unique<ReplacementFragment>(m_documentFragment.get(), endingSelection());
+        m_replacementFragment = makeUnique<ReplacementFragment>(m_documentFragment.get(), endingSelection());
     return m_replacementFragment.get();
 }
 

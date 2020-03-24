@@ -34,7 +34,7 @@
 }
 - (BOOL)hasIcloudAccountState
 {
-    return _has.icloudAccountState;
+    return _has.icloudAccountState != 0;
 }
 - (NSString *)icloudAccountStateAsString:(OTAccountMetadataClassC_AccountState)value
 {
@@ -56,7 +56,7 @@
 }
 - (BOOL)hasEpoch
 {
-    return _has.epoch;
+    return _has.epoch != 0;
 }
 - (BOOL)hasAltDSID
 {
@@ -79,7 +79,7 @@
 }
 - (BOOL)hasTrustState
 {
-    return _has.trustState;
+    return _has.trustState != 0;
 }
 - (NSString *)trustStateAsString:(OTAccountMetadataClassC_TrustState)value
 {
@@ -101,7 +101,7 @@
 }
 - (BOOL)hasLastHealthCheckup
 {
-    return _has.lastHealthCheckup;
+    return _has.lastHealthCheckup != 0;
 }
 @synthesize attemptedJoin = _attemptedJoin;
 - (OTAccountMetadataClassC_AttemptedAJoinState)attemptedJoin
@@ -119,7 +119,7 @@
 }
 - (BOOL)hasAttemptedJoin
 {
-    return _has.attemptedJoin;
+    return _has.attemptedJoin != 0;
 }
 - (NSString *)attemptedJoinAsString:(OTAccountMetadataClassC_AttemptedAJoinState)value
 {
@@ -128,6 +128,62 @@
 - (OTAccountMetadataClassC_AttemptedAJoinState)StringAsAttemptedJoin:(NSString *)str
 {
     return StringAsOTAccountMetadataClassC_AttemptedAJoinState(str);
+}
+@synthesize cdpState = _cdpState;
+- (OTAccountMetadataClassC_CDPState)cdpState
+{
+    return _has.cdpState ? _cdpState : OTAccountMetadataClassC_CDPState_UNKNOWN;
+}
+- (void)setCdpState:(OTAccountMetadataClassC_CDPState)v
+{
+    _has.cdpState = YES;
+    _cdpState = v;
+}
+- (void)setHasCdpState:(BOOL)f
+{
+    _has.cdpState = f;
+}
+- (BOOL)hasCdpState
+{
+    return _has.cdpState != 0;
+}
+- (NSString *)cdpStateAsString:(OTAccountMetadataClassC_CDPState)value
+{
+    return OTAccountMetadataClassC_CDPStateAsString(value);
+}
+- (OTAccountMetadataClassC_CDPState)StringAsCdpState:(NSString *)str
+{
+    return StringAsOTAccountMetadataClassC_CDPState(str);
+}
+- (BOOL)hasSyncingPolicy
+{
+    return _syncingPolicy != nil;
+}
+@synthesize syncingPolicy = _syncingPolicy;
+@synthesize syncingViews = _syncingViews;
+- (void)clearSyncingViews
+{
+    [_syncingViews removeAllObjects];
+}
+- (void)addSyncingView:(NSString *)i
+{
+    if (!_syncingViews)
+    {
+        _syncingViews = [[NSMutableArray alloc] init];
+    }
+    [_syncingViews addObject:i];
+}
+- (NSUInteger)syncingViewsCount
+{
+    return [_syncingViews count];
+}
+- (NSString *)syncingViewAtIndex:(NSUInteger)idx
+{
+    return [_syncingViews objectAtIndex:idx];
+}
++ (Class)syncingViewType
+{
+    return [NSString class];
 }
 
 - (NSString *)description
@@ -165,6 +221,18 @@
     if (self->_has.attemptedJoin)
     {
         [dict setObject:OTAccountMetadataClassC_AttemptedAJoinStateAsString(self->_attemptedJoin) forKey:@"attemptedJoin"];
+    }
+    if (self->_has.cdpState)
+    {
+        [dict setObject:OTAccountMetadataClassC_CDPStateAsString(self->_cdpState) forKey:@"cdpState"];
+    }
+    if (self->_syncingPolicy)
+    {
+        [dict setObject:self->_syncingPolicy forKey:@"syncingPolicy"];
+    }
+    if (self->_syncingViews)
+    {
+        [dict setObject:self->_syncingViews forKey:@"syncingView"];
     }
     return dict;
 }
@@ -225,6 +293,27 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             {
                 self->_has.attemptedJoin = YES;
                 self->_attemptedJoin = PBReaderReadInt32(reader);
+            }
+            break;
+            case 8 /* cdpState */:
+            {
+                self->_has.cdpState = YES;
+                self->_cdpState = PBReaderReadInt32(reader);
+            }
+            break;
+            case 9 /* syncingPolicy */:
+            {
+                NSData *new_syncingPolicy = PBReaderReadData(reader);
+                self->_syncingPolicy = new_syncingPolicy;
+            }
+            break;
+            case 10 /* syncingViews */:
+            {
+                NSString *new_syncingViews = PBReaderReadString(reader);
+                if (new_syncingViews)
+                {
+                    [self addSyncingView:new_syncingViews];
+                }
             }
             break;
             default:
@@ -291,6 +380,27 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
             PBDataWriterWriteInt32Field(writer, self->_attemptedJoin, 7);
         }
     }
+    /* cdpState */
+    {
+        if (self->_has.cdpState)
+        {
+            PBDataWriterWriteInt32Field(writer, self->_cdpState, 8);
+        }
+    }
+    /* syncingPolicy */
+    {
+        if (self->_syncingPolicy)
+        {
+            PBDataWriterWriteDataField(writer, self->_syncingPolicy, 9);
+        }
+    }
+    /* syncingViews */
+    {
+        for (NSString *s_syncingViews in self->_syncingViews)
+        {
+            PBDataWriterWriteStringField(writer, s_syncingViews, 10);
+        }
+    }
 }
 
 - (void)copyTo:(OTAccountMetadataClassC *)other
@@ -328,6 +438,24 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         other->_attemptedJoin = _attemptedJoin;
         other->_has.attemptedJoin = YES;
     }
+    if (self->_has.cdpState)
+    {
+        other->_cdpState = _cdpState;
+        other->_has.cdpState = YES;
+    }
+    if (_syncingPolicy)
+    {
+        other.syncingPolicy = _syncingPolicy;
+    }
+    if ([self syncingViewsCount])
+    {
+        [other clearSyncingViews];
+        NSUInteger syncingViewsCnt = [self syncingViewsCount];
+        for (NSUInteger i = 0; i < syncingViewsCnt; i++)
+        {
+            [other addSyncingView:[self syncingViewAtIndex:i]];
+        }
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -360,6 +488,17 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         copy->_attemptedJoin = _attemptedJoin;
         copy->_has.attemptedJoin = YES;
     }
+    if (self->_has.cdpState)
+    {
+        copy->_cdpState = _cdpState;
+        copy->_has.cdpState = YES;
+    }
+    copy->_syncingPolicy = [_syncingPolicy copyWithZone:zone];
+    for (NSString *v in _syncingViews)
+    {
+        NSString *vCopy = [v copyWithZone:zone];
+        [copy addSyncingView:vCopy];
+    }
     return copy;
 }
 
@@ -381,6 +520,12 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     ((self->_has.lastHealthCheckup && other->_has.lastHealthCheckup && self->_lastHealthCheckup == other->_lastHealthCheckup) || (!self->_has.lastHealthCheckup && !other->_has.lastHealthCheckup))
     &&
     ((self->_has.attemptedJoin && other->_has.attemptedJoin && self->_attemptedJoin == other->_attemptedJoin) || (!self->_has.attemptedJoin && !other->_has.attemptedJoin))
+    &&
+    ((self->_has.cdpState && other->_has.cdpState && self->_cdpState == other->_cdpState) || (!self->_has.cdpState && !other->_has.cdpState))
+    &&
+    ((!self->_syncingPolicy && !other->_syncingPolicy) || [self->_syncingPolicy isEqual:other->_syncingPolicy])
+    &&
+    ((!self->_syncingViews && !other->_syncingViews) || [self->_syncingViews isEqual:other->_syncingViews])
     ;
 }
 
@@ -401,6 +546,12 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     (self->_has.lastHealthCheckup ? PBHashInt((NSUInteger)self->_lastHealthCheckup) : 0)
     ^
     (self->_has.attemptedJoin ? PBHashInt((NSUInteger)self->_attemptedJoin) : 0)
+    ^
+    (self->_has.cdpState ? PBHashInt((NSUInteger)self->_cdpState) : 0)
+    ^
+    [self->_syncingPolicy hash]
+    ^
+    [self->_syncingViews hash]
     ;
 }
 
@@ -438,6 +589,19 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         self->_attemptedJoin = other->_attemptedJoin;
         self->_has.attemptedJoin = YES;
+    }
+    if (other->_has.cdpState)
+    {
+        self->_cdpState = other->_cdpState;
+        self->_has.cdpState = YES;
+    }
+    if (other->_syncingPolicy)
+    {
+        [self setSyncingPolicy:other->_syncingPolicy];
+    }
+    for (NSString *iter_syncingViews in other->_syncingViews)
+    {
+        [self addSyncingView:iter_syncingViews];
     }
 }
 

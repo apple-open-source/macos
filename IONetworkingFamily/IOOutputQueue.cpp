@@ -644,6 +644,8 @@ UInt32 IOBasicOutputQueue::flush()
 {
     UInt32 flushCount;
 	mbuf_t m;
+    
+    flushCount = 0;
     for(UInt32 i = 0; i < _priorities; i++)
     {
         QUEUE_LOCK;

@@ -45,10 +45,18 @@
 #include "RenderMultiColumnFlow.h"
 #include "RenderMultiColumnSet.h"
 #include "RenderTreeUpdaterGeneratedContent.h"
+#include "RenderView.h"
 #include "RuntimeEnabledFeatures.h"
 #include "StyleResolver.h"
 #include "StyleTreeResolver.h"
+#include "TextManipulationController.h"
 #include <wtf/SystemTracing.h>
+
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+#include "FrameView.h"
+#include "FrameViewLayoutContext.h"
+#include "LayoutState.h"
+#endif
 
 #if PLATFORM(IOS_FAMILY)
 #include "ContentChangeObserver.h"
@@ -71,7 +79,7 @@ RenderTreeUpdater::Parent::Parent(Element& element, const Style::ElementUpdates*
 
 RenderTreeUpdater::RenderTreeUpdater(Document& document)
     : m_document(document)
-    , m_generatedContent(std::make_unique<GeneratedContent>(*this))
+    , m_generatedContent(makeUnique<GeneratedContent>(*this))
     , m_builder(renderView())
 {
 }
@@ -137,10 +145,6 @@ static bool shouldCreateRenderer(const Element& element, const RenderElement& pa
 
 void RenderTreeUpdater::updateRenderTree(ContainerNode& root)
 {
-#if PLATFORM(IOS_FAMILY)
-    ContentChangeObserver::RenderTreeUpdateScope observingScope(m_document);
-#endif
-
     ASSERT(root.renderer());
     ASSERT(m_parentStack.isEmpty());
 
@@ -277,7 +281,7 @@ static bool pseudoStyleCacheIsInvalid(RenderElement* renderer, RenderStyle* newS
 
     for (auto& cache : *pseudoStyleCache) {
         PseudoId pseudoId = cache->styleType();
-        std::unique_ptr<RenderStyle> newPseudoStyle = renderer->getUncachedPseudoStyle(PseudoStyleRequest(pseudoId), newStyle, newStyle);
+        std::unique_ptr<RenderStyle> newPseudoStyle = renderer->getUncachedPseudoStyle({ pseudoId }, newStyle, newStyle);
         if (!newPseudoStyle)
             return true;
         if (*newPseudoStyle != *cache) {
@@ -293,6 +297,14 @@ void RenderTreeUpdater::updateRendererStyle(RenderElement& renderer, RenderStyle
     auto oldStyle = RenderStyle::clone(renderer.style());
     renderer.setStyle(WTFMove(newStyle), minimalStyleDifference);
     m_builder.normalizeTreeAfterStyleChange(renderer, oldStyle);
+#if ENABLE(LAYOUT_FORMATTING_CONTEXT)
+    if (RuntimeEnabledFeatures::sharedFeatures().layoutFormattingContextEnabled()) {
+        if (!m_document.view() || !m_document.view()->layoutContext().layoutTreeContent())
+            return;
+        if (auto* layoutBox = m_document.view()->layoutContext().layoutTreeContent()->layoutBoxForRenderer(renderer))
+            layoutBox->updateStyle(renderer.style());
+    }
+#endif
 }
 
 void RenderTreeUpdater::updateElementRenderer(Element& element, const Style::ElementUpdate& update)
@@ -385,6 +397,10 @@ void RenderTreeUpdater::createRenderer(Element& element, RenderStyle&& style)
 #endif
 
     m_builder.attach(insertionPosition, WTFMove(newRenderer));
+
+    auto* textManipulationController = m_document.textManipulationControllerIfExists();
+    if (UNLIKELY(textManipulationController))
+        textManipulationController->didCreateRendererForElement(element);
 
     if (AXObjectCache* cache = m_document.axObjectCache())
         cache->updateCacheAfterNodeIsAttached(&element);
@@ -544,7 +560,9 @@ void RenderTreeUpdater::tearDownRenderers(Element& root, TeardownType teardownTy
         while (teardownStack.size() > depth) {
             auto& element = *teardownStack.takeLast();
 
-            if (teardownType == TeardownType::Full || teardownType == TeardownType::RendererUpdateCancelingAnimations) {
+            switch (teardownType) {
+            case TeardownType::Full:
+            case TeardownType::RendererUpdateCancelingAnimations:
                 if (timeline) {
                     if (document.renderTreeBeingDestroyed())
                         timeline->elementWasRemoved(element);
@@ -552,6 +570,11 @@ void RenderTreeUpdater::tearDownRenderers(Element& root, TeardownType teardownTy
                         timeline->cancelDeclarativeAnimationsForElement(element);
                 }
                 animationController.cancelAnimations(element);
+                break;
+            case TeardownType::RendererUpdate:
+                if (timeline)
+                    timeline->willChangeRendererForElement(element);
+                break;
             }
 
             if (teardownType == TeardownType::Full)
@@ -561,9 +584,6 @@ void RenderTreeUpdater::tearDownRenderers(Element& root, TeardownType teardownTy
             GeneratedContent::removeAfterPseudoElement(element, builder);
 
             if (auto* renderer = element.renderer()) {
-#if PLATFORM(IOS_FAMILY)
-                document.contentChangeObserver().willDestroyRenderer(element);
-#endif
                 builder.destroyAndCleanUpAnonymousWrappers(*renderer);
                 element.setRenderer(nullptr);
             }

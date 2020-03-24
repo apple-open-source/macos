@@ -850,7 +850,7 @@ _OnSysChar(
 	modifiers &= ~MOD_MASK_SHIFT;
 
     /* Interpret the ALT key as making the key META, include SHIFT, etc. */
-    ch = extract_modifiers(ch, &modifiers);
+    ch = extract_modifiers(ch, &modifiers, TRUE, NULL);
     if (ch == CSI)
 	ch = K_CSI;
 
@@ -2074,7 +2074,7 @@ gui_mch_wait_for_chars(int wtime)
     focus = gui.in_focus;
     while (!s_timed_out)
     {
-	/* Stop or start blinking when focus changes */
+	// Stop or start blinking when focus changes
 	if (gui.in_focus != focus)
 	{
 	    if (gui.in_focus)
@@ -2094,29 +2094,31 @@ gui_mch_wait_for_chars(int wtime)
 	did_add_timer = FALSE;
 #endif
 #ifdef MESSAGE_QUEUE
-	/* Check channel I/O while waiting for a message. */
+	// Check channel I/O while waiting for a message.
 	for (;;)
 	{
 	    MSG msg;
 
 	    parse_queued_messages();
-
+#ifdef FEAT_TIMERS
+	    if (did_add_timer)
+		break;
+#endif
 	    if (pPeekMessage(&msg, NULL, 0, 0, PM_NOREMOVE))
 	    {
 		process_message();
 		break;
 	    }
-	    else if (MsgWaitForMultipleObjects(0, NULL, FALSE, 100, QS_ALLINPUT)
-							       != WAIT_TIMEOUT)
+	    else if (input_available()
+		    || MsgWaitForMultipleObjects(0, NULL, FALSE, 100,
+						  QS_ALLINPUT) != WAIT_TIMEOUT)
 		break;
 	}
 #else
-	/*
-	 * Don't use gui_mch_update() because then we will spin-lock until a
-	 * char arrives, instead we use GetMessage() to hang until an
-	 * event arrives.  No need to check for input_buf_full because we are
-	 * returning as soon as it contains a single char -- webb
-	 */
+	// Don't use gui_mch_update() because then we will spin-lock until a
+	// char arrives, instead we use GetMessage() to hang until an
+	// event arrives.  No need to check for input_buf_full because we are
+	// returning as soon as it contains a single char -- webb
 	process_message();
 #endif
 
@@ -2125,9 +2127,9 @@ gui_mch_wait_for_chars(int wtime)
 	    remove_any_timer();
 	    allow_scrollbar = FALSE;
 
-	    /* Clear pending mouse button, the release event may have been
-	     * taken by the dialog window.  But don't do this when getting
-	     * focus, we need the mouse-up event then. */
+	    // Clear pending mouse button, the release event may have been
+	    // taken by the dialog window.  But don't do this when getting
+	    // focus, we need the mouse-up event then.
 	    if (!s_getting_focus)
 		s_button_pending = -1;
 
@@ -2137,7 +2139,7 @@ gui_mch_wait_for_chars(int wtime)
 #ifdef FEAT_TIMERS
 	if (did_add_timer)
 	{
-	    /* Need to recompute the waiting time. */
+	    // Need to recompute the waiting time.
 	    remove_any_timer();
 	    break;
 	}
@@ -2608,7 +2610,9 @@ ex_simalt(exarg_T *eap)
 	key_name[1] = KS_EXTRA;
 	key_name[2] = KE_NOP;
 	key_name[3] = NUL;
+#if defined(FEAT_CLIENTSERVER) || defined(FEAT_EVAL)
 	typebuf_was_filled = TRUE;
+#endif
 	(void)ins_typebuf(key_name, REMAP_NONE, 0, TRUE, FALSE);
     }
 }
@@ -3120,9 +3124,9 @@ logfont2name(LOGFONTW lf)
     charset_name = charset_id2name((int)lf.lfCharSet);
     quality_name = quality_id2name((int)lf.lfQuality);
 
-    res = (char *)alloc((unsigned)(strlen(font_name) + 30
+    res = alloc(strlen(font_name) + 30
 		    + (charset_name == NULL ? 0 : strlen(charset_name) + 2)
-		    + (quality_name == NULL ? 0 : strlen(quality_name) + 2)));
+		    + (quality_name == NULL ? 0 : strlen(quality_name) + 2));
     if (res != NULL)
     {
 	p = res;
@@ -3639,7 +3643,7 @@ _OnDropFiles(
 
     reset_VIsual();
 
-    fnames = (char_u **)alloc(cFiles * sizeof(char_u *));
+    fnames = ALLOC_MULT(char_u *, cFiles);
 
     if (fnames != NULL)
 	for (i = 0; i < cFiles; ++i)
@@ -4230,33 +4234,57 @@ init_mouse_wheel(void)
 }
 
 
-/* Intellimouse wheel handler */
+/*
+ * Intellimouse wheel handler.
+ * Treat a mouse wheel event as if it were a scroll request.
+ */
     static void
 _OnMouseWheel(
     HWND hwnd,
     short zDelta)
 {
-/* Treat a mouse wheel event as if it were a scroll request */
     int i;
     int size;
     HWND hwndCtl;
+    win_T *wp;
 
-    if (curwin->w_scrollbars[SBAR_RIGHT].id != 0)
-    {
-	hwndCtl = curwin->w_scrollbars[SBAR_RIGHT].id;
-	size = curwin->w_scrollbars[SBAR_RIGHT].size;
-    }
-    else if (curwin->w_scrollbars[SBAR_LEFT].id != 0)
-    {
-	hwndCtl = curwin->w_scrollbars[SBAR_LEFT].id;
-	size = curwin->w_scrollbars[SBAR_LEFT].size;
-    }
-    else
-	return;
-
-    size = curwin->w_height;
     if (mouse_scroll_lines == 0)
 	init_mouse_wheel();
+
+    wp = gui_mouse_window(FIND_POPUP);
+
+#ifdef FEAT_TEXT_PROP
+    if (wp != NULL && popup_is_popup(wp))
+    {
+	cmdarg_T cap;
+	oparg_T	oa;
+
+	// Mouse hovers over popup window, scroll it if possible.
+	mouse_row = wp->w_winrow;
+	mouse_col = wp->w_wincol;
+	vim_memset(&cap, 0, sizeof(cap));
+	cap.arg = zDelta < 0 ? MSCR_UP : MSCR_DOWN;
+	cap.cmdchar = zDelta < 0 ? K_MOUSEUP : K_MOUSEDOWN;
+	clear_oparg(&oa);
+	cap.oap = &oa;
+	nv_mousescroll(&cap);
+	update_screen(0);
+	setcursor();
+	out_flush();
+	return;
+    }
+#endif
+
+    if (wp == NULL || !p_scf)
+	wp = curwin;
+
+    if (wp->w_scrollbars[SBAR_RIGHT].id != 0)
+	hwndCtl = wp->w_scrollbars[SBAR_RIGHT].id;
+    else if (wp->w_scrollbars[SBAR_LEFT].id != 0)
+	hwndCtl = wp->w_scrollbars[SBAR_LEFT].id;
+    else
+	return;
+    size = wp->w_height;
 
     mch_disable_flush();
     if (mouse_scroll_lines > 0
@@ -4916,7 +4944,7 @@ gui_mch_do_spawn(char_u *arg)
 	if (wsession == NULL)
 	    goto error;
 	len = (int)wcslen(wsession) * 2 + 27 + 1;
-	cmd = (LPWSTR)alloc(len * (int)sizeof(WCHAR));
+	cmd = ALLOC_MULT(WCHAR, len);
 	if (cmd == NULL)
 	{
 	    vim_free(wsession);
@@ -4942,7 +4970,7 @@ gui_mch_do_spawn(char_u *arg)
 
     // Set up the new command line.
     len = (int)wcslen(name) + (int)wcslen(cmd) + (int)wcslen(warg) + 4;
-    newcmd = (LPWSTR)alloc(len * (int)sizeof(WCHAR));
+    newcmd = ALLOC_MULT(WCHAR, len);
     if (newcmd == NULL)
 	goto error;
     _snwprintf(newcmd, len, L"\"%s\"%s %s", name, cmd, warg);
@@ -5293,11 +5321,9 @@ gui_mch_init(void)
 
     /* Initialise the struct */
     s_findrep_struct.lStructSize = sizeof(s_findrep_struct);
-    s_findrep_struct.lpstrFindWhat =
-			      (LPWSTR)alloc(MSWIN_FR_BUFSIZE * sizeof(WCHAR));
+    s_findrep_struct.lpstrFindWhat = ALLOC_MULT(WCHAR, MSWIN_FR_BUFSIZE);
     s_findrep_struct.lpstrFindWhat[0] = NUL;
-    s_findrep_struct.lpstrReplaceWith =
-			      (LPWSTR)alloc(MSWIN_FR_BUFSIZE * sizeof(WCHAR));
+    s_findrep_struct.lpstrReplaceWith = ALLOC_MULT(WCHAR, MSWIN_FR_BUFSIZE);
     s_findrep_struct.lpstrReplaceWith[0] = NUL;
     s_findrep_struct.wFindWhatLen = MSWIN_FR_BUFSIZE;
     s_findrep_struct.wReplaceWithLen = MSWIN_FR_BUFSIZE;
@@ -5613,7 +5639,7 @@ GetCompositionString_inUCS2(HIMC hIMC, DWORD GCS, int *lenp)
     if (ret > 0)
     {
 	/* Allocate the requested buffer plus space for the NUL character. */
-	wbuf = (LPWSTR)alloc(ret + sizeof(WCHAR));
+	wbuf = alloc(ret + sizeof(WCHAR));
 	if (wbuf != NULL)
 	{
 	    pImmGetCompositionStringW(hIMC, GCS, wbuf, ret);
@@ -6058,7 +6084,7 @@ gui_mch_draw_string(
 
 	/* Don't give an out-of-memory message here, it would call us
 	 * recursively. */
-	padding = (int *)lalloc(pad_size * sizeof(int), FALSE);
+	padding = LALLOC_MULT(int, pad_size);
 	if (padding != NULL)
 	    for (i = 0; i < pad_size; i++)
 		padding[i] = gui.char_width;
@@ -6095,10 +6121,10 @@ gui_mch_draw_string(
 	    && (unicodebuf == NULL || len > unibuflen))
     {
 	vim_free(unicodebuf);
-	unicodebuf = (WCHAR *)lalloc(len * sizeof(WCHAR), FALSE);
+	unicodebuf = LALLOC_MULT(WCHAR, len);
 
 	vim_free(unicodepdy);
-	unicodepdy = (int *)lalloc(len * sizeof(int), FALSE);
+	unicodepdy = LALLOC_MULT(int, len);
 
 	unibuflen = len;
     }
@@ -6654,7 +6680,7 @@ dialog_callback(
 	/* If the edit box exists, copy the string. */
 	if (s_textfield != NULL)
 	{
-	    WCHAR  *wp = (WCHAR *)alloc(IOSIZE * sizeof(WCHAR));
+	    WCHAR  *wp = ALLOC_MULT(WCHAR, IOSIZE);
 	    char_u *p;
 
 	    GetDlgItemTextW(hwnd, DLG_NONBUTTON_CONTROL + 2, wp, IOSIZE);
@@ -6720,7 +6746,7 @@ gui_mch_dialog(
     char_u	*buttons,
     int		 dfltbutton,
     char_u	*textfield,
-    int		ex_cmd)
+    int		ex_cmd UNUSED)
 {
     WORD	*p, *pdlgtemplate, *pnumitems;
     DWORD	*dwp;
@@ -6803,12 +6829,12 @@ gui_mch_dialog(
 	dfltbutton = -1;
 
     /* Allocate array to hold the width of each button */
-    buttonWidths = (int *)lalloc(numButtons * sizeof(int), TRUE);
+    buttonWidths = ALLOC_MULT(int, numButtons);
     if (buttonWidths == NULL)
 	return -1;
 
     /* Allocate array to hold the X position of each button */
-    buttonPositions = (int *)lalloc(numButtons * sizeof(int), TRUE);
+    buttonPositions = ALLOC_MULT(int, numButtons);
     if (buttonPositions == NULL)
 	return -1;
 
@@ -7718,7 +7744,7 @@ gui_mch_tearoff(
 	}
 
 	/* Allocate menu label and fill it in */
-	text = label = alloc((unsigned)len + 1);
+	text = label = alloc(len + 1);
 	if (label == NULL)
 	    break;
 
@@ -8232,8 +8258,7 @@ gui_mch_register_sign(char_u *signfile)
     }
 
     psign = NULL;
-    if (sign.hImage && (psign = (signicon_t *)alloc(sizeof(signicon_t)))
-								      != NULL)
+    if (sign.hImage && (psign = ALLOC_ONE(signicon_t)) != NULL)
 	*psign = sign;
 
     if (!psign)
@@ -8361,7 +8386,7 @@ make_tooltip(BalloonEval *beval, char *text, POINT pt)
     else
 	ToolInfoSize = sizeof(TOOLINFOW);
 
-    pti = (TOOLINFOW *)alloc(ToolInfoSize);
+    pti = alloc(ToolInfoSize);
     if (pti == NULL)
 	return;
 
@@ -8518,7 +8543,7 @@ gui_mch_post_balloon(BalloonEval *beval, char_u *mesg)
 
     BalloonEval *
 gui_mch_create_beval_area(
-    void	*target,	/* ignored, always use s_textArea */
+    void	*target UNUSED,	/* ignored, always use s_textArea */
     char_u	*mesg,
     void	(*mesgCB)(BalloonEval *, int),
     void	*clientData)
@@ -8532,7 +8557,7 @@ gui_mch_create_beval_area(
 	return NULL;
     }
 
-    beval = (BalloonEval *)alloc_clear(sizeof(BalloonEval));
+    beval = ALLOC_CLEAR_ONE(BalloonEval);
     if (beval != NULL)
     {
 	beval->target = s_textArea;

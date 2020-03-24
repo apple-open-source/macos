@@ -49,13 +49,16 @@ struct SoupNetworkProxySettings;
 class SoupNetworkSession {
     WTF_MAKE_NONCOPYABLE(SoupNetworkSession); WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit SoupNetworkSession(PAL::SessionID = PAL::SessionID::defaultSessionID(), SoupCookieJar* = nullptr);
+    explicit SoupNetworkSession(PAL::SessionID);
     ~SoupNetworkSession();
 
     SoupSession* soupSession() const { return m_soupSession.get(); }
 
     void setCookieJar(SoupCookieJar*);
     SoupCookieJar* cookieJar() const;
+
+    static void setHSTSPersistentStorage(const CString& hstsStorageDirectory);
+    void setupHSTSEnforcer();
 
     static void clearOldSoupCache(const String& cacheDirectory);
 
@@ -69,13 +72,15 @@ public:
     static Optional<ResourceError> checkTLSErrors(const URL&, GTlsCertificate*, GTlsCertificateFlags);
     static void allowSpecificHTTPSCertificateForHost(const CertificateInfo&, const String& host);
 
-    static void setCustomProtocolRequestType(GType);
-    void setupCustomProtocols();
+    void getHostNamesWithHSTSCache(HashSet<String>&);
+    void deleteHSTSCacheForHostNames(const Vector<String>&);
+    void clearHSTSCache(WallTime);
 
 private:
     void setupLogger();
 
     GRefPtr<SoupSession> m_soupSession;
+    PAL::SessionID m_sessionID;
 };
 
 } // namespace WebCore

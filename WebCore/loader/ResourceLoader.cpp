@@ -59,14 +59,16 @@
 #endif
 
 #if USE(QUICK_LOOK)
+#include "LegacyPreviewLoader.h"
 #include "PreviewConverter.h"
-#include "PreviewLoader.h"
 #endif
 
 #undef RELEASE_LOG_IF_ALLOWED
 #define RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(isAlwaysOnLoggingAllowed(), Network, "%p - ResourceLoader::" fmt, this, ##__VA_ARGS__)
 
 namespace WebCore {
+
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ResourceLoader);
 
 ResourceLoader::ResourceLoader(Frame& frame, ResourceLoaderOptions options)
     : m_frame { &frame }
@@ -285,7 +287,7 @@ void ResourceLoader::loadDataURL()
         dataResponse.setHTTPHeaderField(HTTPHeaderName::ContentType, result.contentType);
         dataResponse.setSource(ResourceResponse::Source::Network);
         this->didReceiveResponse(dataResponse, [this, protectedThis = WTFMove(protectedThis), dataSize, data = result.data.releaseNonNull()]() mutable {
-            if (!this->reachedTerminalState() && dataSize)
+            if (!this->reachedTerminalState() && dataSize && m_request.httpMethod() != "HEAD")
                 this->didReceiveBuffer(WTFMove(data), dataSize, DataPayloadWholeResource);
 
             if (!this->reachedTerminalState()) {
@@ -458,6 +460,7 @@ static void logResourceResponseSource(Frame* frame, ResourceResponse::Source sou
     case ResourceResponse::Source::MemoryCache:
     case ResourceResponse::Source::MemoryCacheAfterValidation:
     case ResourceResponse::Source::ApplicationCache:
+    case ResourceResponse::Source::InspectorOverride:
     case ResourceResponse::Source::Unknown:
         return;
     }
@@ -491,9 +494,6 @@ void ResourceLoader::didReceiveResponse(const ResourceResponse& r, CompletionHan
     logResourceResponseSource(m_frame.get(), r.source());
 
     m_response = r;
-
-    if (FormData* data = m_request.httpBody())
-        data->removeGeneratedFilesIfNeeded();
 
     if (m_options.sendLoadCallbacks == SendCallbackPolicy::SendCallbacks)
         frameLoader()->notifier().didReceiveResponse(this, m_response);
@@ -579,9 +579,6 @@ void ResourceLoader::didFail(const ResourceError& error)
 
 void ResourceLoader::cleanupForError(const ResourceError& error)
 {
-    if (FormData* data = m_request.httpBody())
-        data->removeGeneratedFilesIfNeeded();
-
     if (m_notifiedLoadComplete)
         return;
     m_notifiedLoadComplete = true;

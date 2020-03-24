@@ -28,25 +28,29 @@
 #include "config.h"
 #include "WorkerGlobalScope.h"
 
+#include "CSSValueList.h"
+#include "CSSValuePool.h"
 #include "ContentSecurityPolicy.h"
 #include "Crypto.h"
 #include "IDBConnectionProxy.h"
 #include "ImageBitmapOptions.h"
 #include "InspectorInstrumentation.h"
-#include "Microtasks.h"
 #include "Performance.h"
+#include "RuntimeEnabledFeatures.h"
 #include "ScheduledAction.h"
 #include "ScriptSourceCode.h"
 #include "SecurityOrigin.h"
 #include "SecurityOriginPolicy.h"
 #include "ServiceWorkerGlobalScope.h"
 #include "SocketProvider.h"
+#include "WorkerEventLoop.h"
 #include "WorkerInspectorController.h"
 #include "WorkerLoaderProxy.h"
 #include "WorkerLocation.h"
 #include "WorkerMessagingProxy.h"
 #include "WorkerNavigator.h"
 #include "WorkerReportingProxy.h"
+#include "WorkerSWClientConnection.h"
 #include "WorkerScriptLoader.h"
 #include "WorkerThread.h"
 #include <JavaScriptCore/ScriptArguments.h>
@@ -58,24 +62,21 @@ using namespace Inspector;
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(WorkerGlobalScope);
 
-WorkerGlobalScope::WorkerGlobalScope(const URL& url, Ref<SecurityOrigin>&& origin, const String& identifier, const String& userAgent, bool isOnline, WorkerThread& thread, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider, PAL::SessionID sessionID)
+WorkerGlobalScope::WorkerGlobalScope(const URL& url, Ref<SecurityOrigin>&& origin, const String& identifier, const String& userAgent, bool isOnline, WorkerThread& thread, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider)
     : m_url(url)
     , m_identifier(identifier)
     , m_userAgent(userAgent)
     , m_thread(thread)
-    , m_script(std::make_unique<WorkerScriptController>(this))
-    , m_inspectorController(std::make_unique<WorkerInspectorController>(*this))
-    , m_microtaskQueue(std::make_unique<MicrotaskQueue>(m_script->vm()))
+    , m_script(makeUnique<WorkerScriptController>(this))
+    , m_inspectorController(makeUnique<WorkerInspectorController>(*this))
     , m_isOnline(isOnline)
     , m_shouldBypassMainWorldContentSecurityPolicy(shouldBypassMainWorldContentSecurityPolicy)
-    , m_eventQueue(*this)
     , m_topOrigin(WTFMove(topOrigin))
 #if ENABLE(INDEXED_DATABASE)
     , m_connectionProxy(connectionProxy)
 #endif
     , m_socketProvider(socketProvider)
     , m_performance(Performance::create(this, timeOrigin))
-    , m_sessionID(sessionID)
 {
 #if !ENABLE(INDEXED_DATABASE)
     UNUSED_PARAM(connectionProxy);
@@ -87,7 +88,7 @@ WorkerGlobalScope::WorkerGlobalScope(const URL& url, Ref<SecurityOrigin>&& origi
         origin->grantStorageAccessFromFileURLsQuirk();
 
     setSecurityOriginPolicy(SecurityOriginPolicy::create(WTFMove(origin)));
-    setContentSecurityPolicy(std::make_unique<ContentSecurityPolicy>(URL { m_url }, *this));
+    setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { m_url }, *this));
 }
 
 WorkerGlobalScope::~WorkerGlobalScope()
@@ -103,6 +104,18 @@ WorkerGlobalScope::~WorkerGlobalScope()
     thread().workerReportingProxy().workerGlobalScopeDestroyed();
 }
 
+EventLoopTaskGroup& WorkerGlobalScope::eventLoop()
+{
+    ASSERT(isContextThread());
+    if (UNLIKELY(!m_defaultTaskGroup)) {
+        m_eventLoop = WorkerEventLoop::create(*this);
+        m_defaultTaskGroup = makeUnique<EventLoopTaskGroup>(*m_eventLoop);
+        if (activeDOMObjectsAreStopped())
+            m_defaultTaskGroup->stopAndDiscardAllTasks();
+    }
+    return *m_defaultTaskGroup;
+}
+
 String WorkerGlobalScope::origin() const
 {
     auto* securityOrigin = this->securityOrigin();
@@ -115,6 +128,8 @@ void WorkerGlobalScope::prepareForTermination()
     stopIndexedDatabase();
 #endif
 
+    if (m_defaultTaskGroup)
+        m_defaultTaskGroup->stopAndDiscardAllTasks();
     stopActiveDOMObjects();
 
     if (m_cacheStorageConnection)
@@ -127,7 +142,8 @@ void WorkerGlobalScope::prepareForTermination()
     removeAllEventListeners();
 
     // MicrotaskQueue and RejectedPromiseTracker reference Heap.
-    m_microtaskQueue = nullptr;
+    if (m_eventLoop)
+        m_eventLoop->clearMicrotaskQueue();
     removeRejectedPromiseTracker();
 }
 
@@ -140,6 +156,9 @@ void WorkerGlobalScope::removeAllEventListeners()
 
 bool WorkerGlobalScope::isSecureContext() const
 {
+    if (!RuntimeEnabledFeatures::sharedFeatures().secureContextChecksEnabled())
+        return true;
+
     return securityOrigin() && securityOrigin()->isPotentiallyTrustworthy();
 }
 
@@ -197,6 +216,22 @@ void WorkerGlobalScope::stopIndexedDatabase()
 #endif
 }
 
+void WorkerGlobalScope::suspend()
+{
+#if ENABLE(INDEXED_DATABASE_IN_WORKERS)
+    if (m_connectionProxy)
+        m_connectionProxy->setContextSuspended(*scriptExecutionContext(), true);
+#endif
+}
+
+void WorkerGlobalScope::resume()
+{
+#if ENABLE(INDEXED_DATABASE_IN_WORKERS)
+    if (m_connectionProxy)
+        m_connectionProxy->setContextSuspended(*scriptExecutionContext(), false);
+#endif
+}
+
 #endif // ENABLE(INDEXED_DATABASE)
 
 WorkerLocation& WorkerGlobalScope::location() const
@@ -242,7 +277,7 @@ void WorkerGlobalScope::postTask(Task&& task)
     thread().runLoop().postTask(WTFMove(task));
 }
 
-ExceptionOr<int> WorkerGlobalScope::setTimeout(JSC::ExecState& state, std::unique_ptr<ScheduledAction> action, int timeout, Vector<JSC::Strong<JSC::Unknown>>&& arguments)
+ExceptionOr<int> WorkerGlobalScope::setTimeout(JSC::JSGlobalObject& state, std::unique_ptr<ScheduledAction> action, int timeout, Vector<JSC::Strong<JSC::Unknown>>&& arguments)
 {
     // FIXME: Should this check really happen here? Or should it happen when code is about to eval?
     if (action->type() == ScheduledAction::Type::Code) {
@@ -260,7 +295,7 @@ void WorkerGlobalScope::clearTimeout(int timeoutId)
     DOMTimer::removeById(*this, timeoutId);
 }
 
-ExceptionOr<int> WorkerGlobalScope::setInterval(JSC::ExecState& state, std::unique_ptr<ScheduledAction> action, int timeout, Vector<JSC::Strong<JSC::Unknown>>&& arguments)
+ExceptionOr<int> WorkerGlobalScope::setInterval(JSC::JSGlobalObject& state, std::unique_ptr<ScheduledAction> action, int timeout, Vector<JSC::Strong<JSC::Unknown>>&& arguments)
 {
     // FIXME: Should this check really happen here? Or should it happen when code is about to eval?
     if (action->type() == ScheduledAction::Type::Code) {
@@ -354,7 +389,7 @@ void WorkerGlobalScope::addConsoleMessage(MessageSource source, MessageLevel lev
     addMessage(source, level, message, { }, 0, 0, nullptr, nullptr, requestIdentifier);
 }
 
-void WorkerGlobalScope::addMessage(MessageSource source, MessageLevel level, const String& messageText, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, RefPtr<ScriptCallStack>&& callStack, JSC::ExecState* state, unsigned long requestIdentifier)
+void WorkerGlobalScope::addMessage(MessageSource source, MessageLevel level, const String& messageText, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, RefPtr<ScriptCallStack>&& callStack, JSC::JSGlobalObject* state, unsigned long requestIdentifier)
 {
     if (!isContextThread()) {
         postTask(AddConsoleMessageTask(source, level, messageText));
@@ -363,9 +398,9 @@ void WorkerGlobalScope::addMessage(MessageSource source, MessageLevel level, con
 
     std::unique_ptr<Inspector::ConsoleMessage> message;
     if (callStack)
-        message = std::make_unique<Inspector::ConsoleMessage>(source, MessageType::Log, level, messageText, callStack.releaseNonNull(), requestIdentifier);
+        message = makeUnique<Inspector::ConsoleMessage>(source, MessageType::Log, level, messageText, callStack.releaseNonNull(), requestIdentifier);
     else
-        message = std::make_unique<Inspector::ConsoleMessage>(source, MessageType::Log, level, messageText, sourceURL, lineNumber, columnNumber, state, requestIdentifier);
+        message = makeUnique<Inspector::ConsoleMessage>(source, MessageType::Log, level, messageText, sourceURL, lineNumber, columnNumber, state, requestIdentifier);
     InspectorInstrumentation::addMessageToConsole(*this, WTFMove(message));
 }
 
@@ -377,11 +412,6 @@ bool WorkerGlobalScope::isContextThread() const
 bool WorkerGlobalScope::isJSExecutionForbidden() const
 {
     return m_script->isExecutionForbidden();
-}
-
-WorkerEventQueue& WorkerGlobalScope::eventQueue() const
-{
-    return m_eventQueue;
 }
 
 #if ENABLE(WEB_CRYPTO)
@@ -472,6 +502,22 @@ WorkerCacheStorageConnection& WorkerGlobalScope::cacheStorageConnection()
     return *m_cacheStorageConnection;
 }
 
+MessagePortChannelProvider& WorkerGlobalScope::messagePortChannelProvider()
+{
+    if (!m_messagePortChannelProvider)
+        m_messagePortChannelProvider = makeUnique<WorkerMessagePortChannelProvider>(*this);
+    return *m_messagePortChannelProvider;
+}
+
+#if ENABLE(SERVICE_WORKER)
+WorkerSWClientConnection& WorkerGlobalScope::swClientConnection()
+{
+    if (!m_swClientConnection)
+        m_swClientConnection = WorkerSWClientConnection::create(*this);
+    return *m_swClientConnection;
+}
+#endif
+
 void WorkerGlobalScope::createImageBitmap(ImageBitmap::Source&& source, ImageBitmapOptions&& options, ImageBitmap::Promise&& promise)
 {
     ImageBitmap::createPromise(*this, WTFMove(source), WTFMove(options), WTFMove(promise));
@@ -480,6 +526,13 @@ void WorkerGlobalScope::createImageBitmap(ImageBitmap::Source&& source, ImageBit
 void WorkerGlobalScope::createImageBitmap(ImageBitmap::Source&& source, int sx, int sy, int sw, int sh, ImageBitmapOptions&& options, ImageBitmap::Promise&& promise)
 {
     ImageBitmap::createPromise(*this, WTFMove(source), WTFMove(options), sx, sy, sw, sh, WTFMove(promise));
+}
+
+CSSValuePool& WorkerGlobalScope::cssValuePool()
+{
+    if (!m_cssValuePool)
+        m_cssValuePool = makeUnique<CSSValuePool>();
+    return *m_cssValuePool;
 }
 
 } // namespace WebCore

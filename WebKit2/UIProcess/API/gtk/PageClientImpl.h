@@ -94,6 +94,9 @@ private:
 #if ENABLE(INPUT_TYPE_COLOR)
     RefPtr<WebColorPicker> createColorPicker(WebPageProxy*, const WebCore::Color& initialColor, const WebCore::IntRect&, Vector<WebCore::Color>&&) override;
 #endif
+#if ENABLE(DATALIST_ELEMENT)
+    RefPtr<WebDataListSuggestionsDropdown> createDataListSuggestionsDropdown(WebPageProxy&) override;
+#endif
     void selectionDidChange() override;
     RefPtr<ViewSnapshot> takeViewSnapshot() override;
 #if ENABLE(DRAG_SUPPORT)
@@ -153,8 +156,6 @@ private:
     void isPlayingAudioWillChange() final { }
     void isPlayingAudioDidChange() final { }
 
-    void didFinishProcessingAllPendingMouseEvents() final { }
-
     void requestDOMPasteAccess(const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) final;
 
 #if ENABLE(VIDEO) && USE(GSTREAMER)
@@ -168,6 +169,8 @@ private:
 #if USE(WPE_RENDERER)
     IPC::Attachment hostFileDescriptor() override;
 #endif
+
+    void didChangeWebPageID() const override;
 
     // Members of PageClientImpl class
     GtkWidget* m_viewWidget;

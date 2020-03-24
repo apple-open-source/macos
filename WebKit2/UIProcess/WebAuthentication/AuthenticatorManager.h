@@ -30,8 +30,8 @@
 #include "Authenticator.h"
 #include "AuthenticatorTransportService.h"
 #include "WebAuthenticationRequestData.h"
+#include <WebCore/AuthenticatorResponse.h>
 #include <WebCore/ExceptionData.h>
-#include <WebCore/PublicKeyCredentialData.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
@@ -48,19 +48,20 @@ class AuthenticatorManager : public AuthenticatorTransportService::Observer, pub
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(AuthenticatorManager);
 public:
-    using Respond = Variant<WebCore::PublicKeyCredentialData, WebCore::ExceptionData>;
+    using Respond = Variant<Ref<WebCore::AuthenticatorResponse>, WebCore::ExceptionData>;
     using Callback = CompletionHandler<void(Respond&&)>;
     using TransportSet = HashSet<WebCore::AuthenticatorTransport, WTF::IntHash<WebCore::AuthenticatorTransport>, WTF::StrongEnumHashTraits<WebCore::AuthenticatorTransport>>;
-    using FrameIdentifier = uint64_t;
 
     using AuthenticatorTransportService::Observer::weakPtrFactory;
     using WeakValueType = AuthenticatorTransportService::Observer::WeakValueType;
+
+    const static size_t maxTransportNumber;
 
     AuthenticatorManager();
     virtual ~AuthenticatorManager() = default;
 
     void handleRequest(WebAuthenticationRequestData&&, Callback&&);
-    void cancelRequest(const WebCore::PageIdentifier&, const Optional<FrameIdentifier>&); // Called from WebPageProxy/WebProcessProxy.
+    void cancelRequest(const WebCore::PageIdentifier&, const Optional<WebCore::FrameIdentifier>&); // Called from WebPageProxy/WebProcessProxy.
     void cancelRequest(const API::WebAuthenticationPanel&); // Called from panel clients.
 
     virtual bool isMock() const { return false; }
@@ -84,14 +85,15 @@ private:
     // Overriden by MockAuthenticatorManager.
     virtual UniqueRef<AuthenticatorTransportService> createService(WebCore::AuthenticatorTransport, AuthenticatorTransportService::Observer&) const;
     // Overriden to return every exception for tests to confirm.
-    virtual void respondReceivedInternal(Respond&&);
+    virtual void respondReceivedInternal(Respond&&) { }
+    virtual void filterTransports(TransportSet&) const;
 
     void startDiscovery(const TransportSet&);
-    void initTimeOutTimer(const Optional<unsigned>& timeOutInMs);
+    void initTimeOutTimer();
     void timeOutTimerFired();
     void runPanel();
-    void startRequest();
     void restartDiscovery();
+    TransportSet getTransports() const;
 
     // Request: We only allow one request per time. A new request will cancel any pending ones.
     WebAuthenticationRequestData m_pendingRequestData;

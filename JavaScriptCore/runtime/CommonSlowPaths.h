@@ -72,32 +72,32 @@ ALWAYS_INLINE int numberOfStackPaddingSlotsWithExtraSlots(CodeBlock* codeBlock, 
     return numberOfStackPaddingSlots(codeBlock, argumentCountIncludingThis) + numberOfExtraSlots(argumentCountIncludingThis);
 }
 
-ALWAYS_INLINE CodeBlock* codeBlockFromCallFrameCallee(ExecState* exec, CodeSpecializationKind kind)
+ALWAYS_INLINE CodeBlock* codeBlockFromCallFrameCallee(CallFrame* callFrame, CodeSpecializationKind kind)
 {
-    JSFunction* callee = jsCast<JSFunction*>(exec->jsCallee());
+    JSFunction* callee = jsCast<JSFunction*>(callFrame->jsCallee());
     ASSERT(!callee->isHostFunction());
     return callee->jsExecutable()->codeBlockFor(kind);
 }
 
-ALWAYS_INLINE int arityCheckFor(ExecState* exec, VM& vm, CodeSpecializationKind kind)
+ALWAYS_INLINE int arityCheckFor(VM& vm, CallFrame* callFrame, CodeSpecializationKind kind)
 {
-    CodeBlock* newCodeBlock = codeBlockFromCallFrameCallee(exec, kind);
-    ASSERT(exec->argumentCountIncludingThis() < static_cast<unsigned>(newCodeBlock->numParameters()));
-    int padding = numberOfStackPaddingSlotsWithExtraSlots(newCodeBlock, exec->argumentCountIncludingThis());
+    CodeBlock* newCodeBlock = codeBlockFromCallFrameCallee(callFrame, kind);
+    ASSERT(callFrame->argumentCountIncludingThis() < static_cast<unsigned>(newCodeBlock->numParameters()));
+    int padding = numberOfStackPaddingSlotsWithExtraSlots(newCodeBlock, callFrame->argumentCountIncludingThis());
     
-    Register* newStack = exec->registers() - WTF::roundUpToMultipleOf(stackAlignmentRegisters(), padding);
+    Register* newStack = callFrame->registers() - WTF::roundUpToMultipleOf(stackAlignmentRegisters(), padding);
 
     if (UNLIKELY(!vm.ensureStackCapacityFor(newStack)))
         return -1;
     return padding;
 }
 
-inline bool opInByVal(ExecState* exec, JSValue baseVal, JSValue propName, ArrayProfile* arrayProfile = nullptr)
+inline bool opInByVal(JSGlobalObject* globalObject, JSValue baseVal, JSValue propName, ArrayProfile* arrayProfile = nullptr)
 {
-    VM& vm = exec->vm();
+    VM& vm = getVM(globalObject);
     auto scope = DECLARE_THROW_SCOPE(vm);
     if (!baseVal.isObject()) {
-        throwException(exec, scope, createInvalidInParameterError(exec, baseVal));
+        throwException(globalObject, scope, createInvalidInParameterError(globalObject, baseVal));
         return false;
     }
 
@@ -109,20 +109,20 @@ inline bool opInByVal(ExecState* exec, JSValue baseVal, JSValue propName, ArrayP
     if (propName.getUInt32(i)) {
         if (arrayProfile)
             arrayProfile->observeIndexedRead(vm, baseObj, i);
-        RELEASE_AND_RETURN(scope, baseObj->hasProperty(exec, i));
+        RELEASE_AND_RETURN(scope, baseObj->hasProperty(globalObject, i));
     }
 
-    auto property = propName.toPropertyKey(exec);
+    auto property = propName.toPropertyKey(globalObject);
     RETURN_IF_EXCEPTION(scope, false);
-    RELEASE_AND_RETURN(scope, baseObj->hasProperty(exec, property));
+    RELEASE_AND_RETURN(scope, baseObj->hasProperty(globalObject, property));
 }
 
 inline void tryCachePutToScopeGlobal(
-    ExecState* exec, CodeBlock* codeBlock, OpPutToScope& bytecode, JSObject* scope,
+    JSGlobalObject* globalObject, CodeBlock* codeBlock, OpPutToScope& bytecode, JSObject* scope,
     PutPropertySlot& slot, const Identifier& ident)
 {
     // Covers implicit globals. Since they don't exist until they first execute, we didn't know how to cache them at compile time.
-    auto& metadata = bytecode.metadata(exec);
+    auto& metadata = bytecode.metadata(codeBlock);
     ResolveType resolveType = metadata.m_getPutInfo.resolveType();
 
     switch (resolveType) {
@@ -143,10 +143,10 @@ inline void tryCachePutToScopeGlobal(
         if (scope->isGlobalLexicalEnvironment()) {
             JSGlobalLexicalEnvironment* globalLexicalEnvironment = jsCast<JSGlobalLexicalEnvironment*>(scope);
             ResolveType newResolveType = needsVarInjectionChecks(resolveType) ? GlobalLexicalVarWithVarInjectionChecks : GlobalLexicalVar;
-            metadata.m_getPutInfo = GetPutInfo(metadata.m_getPutInfo.resolveMode(), newResolveType, metadata.m_getPutInfo.initializationMode());
             SymbolTableEntry entry = globalLexicalEnvironment->symbolTable()->get(ident.impl());
             ASSERT(!entry.isNull());
             ConcurrentJSLocker locker(codeBlock->m_lock);
+            metadata.m_getPutInfo = GetPutInfo(metadata.m_getPutInfo.resolveMode(), newResolveType, metadata.m_getPutInfo.initializationMode());
             metadata.m_watchpointSet = entry.watchpointSet();
             metadata.m_operand = reinterpret_cast<uintptr_t>(globalLexicalEnvironment->variableAt(entry.scopeOffset()).slot());
             return;
@@ -158,7 +158,7 @@ inline void tryCachePutToScopeGlobal(
     }
 
     if (resolveType == GlobalProperty || resolveType == GlobalPropertyWithVarInjectionChecks) {
-        VM& vm = exec->vm();
+        VM& vm = getVM(globalObject);
         JSGlobalObject* globalObject = codeBlock->globalObject();
         ASSERT(globalObject == scope || globalObject->varInjectionWatchpoint()->hasBeenInvalidated());
         if (!slot.isCacheablePut()
@@ -182,9 +182,9 @@ inline void tryCachePutToScopeGlobal(
 }
 
 inline void tryCacheGetFromScopeGlobal(
-    ExecState* exec, VM& vm, OpGetFromScope& bytecode, JSObject* scope, PropertySlot& slot, const Identifier& ident)
+    JSGlobalObject* globalObject, CodeBlock* codeBlock, VM& vm, OpGetFromScope& bytecode, JSObject* scope, PropertySlot& slot, const Identifier& ident)
 {
-    auto& metadata = bytecode.metadata(exec);
+    auto& metadata = bytecode.metadata(codeBlock);
     ResolveType resolveType = metadata.m_getPutInfo.resolveType();
 
     switch (resolveType) {
@@ -193,7 +193,7 @@ inline void tryCacheGetFromScopeGlobal(
         if (scope->isGlobalObject()) {
             ResolveType newResolveType = needsVarInjectionChecks(resolveType) ? GlobalPropertyWithVarInjectionChecks : GlobalProperty;
             resolveType = newResolveType; // Allow below caching mechanism to kick in.
-            ConcurrentJSLocker locker(exec->codeBlock()->m_lock);
+            ConcurrentJSLocker locker(codeBlock->m_lock);
             metadata.m_getPutInfo = GetPutInfo(metadata.m_getPutInfo.resolveMode(), newResolveType, metadata.m_getPutInfo.initializationMode());
             break;
         }
@@ -207,7 +207,7 @@ inline void tryCacheGetFromScopeGlobal(
             ResolveType newResolveType = needsVarInjectionChecks(resolveType) ? GlobalLexicalVarWithVarInjectionChecks : GlobalLexicalVar;
             SymbolTableEntry entry = globalLexicalEnvironment->symbolTable()->get(ident.impl());
             ASSERT(!entry.isNull());
-            ConcurrentJSLocker locker(exec->codeBlock()->m_lock);
+            ConcurrentJSLocker locker(codeBlock->m_lock);
             metadata.m_getPutInfo = GetPutInfo(metadata.m_getPutInfo.resolveMode(), newResolveType, metadata.m_getPutInfo.initializationMode());
             metadata.m_watchpointSet = entry.watchpointSet();
             metadata.m_operand = reinterpret_cast<uintptr_t>(globalLexicalEnvironment->variableAt(entry.scopeOffset()).slot());
@@ -221,8 +221,6 @@ inline void tryCacheGetFromScopeGlobal(
 
     // Covers implicit globals. Since they don't exist until they first execute, we didn't know how to cache them at compile time.
     if (resolveType == GlobalProperty || resolveType == GlobalPropertyWithVarInjectionChecks) {
-        CodeBlock* codeBlock = exec->codeBlock();
-        JSGlobalObject* globalObject = codeBlock->globalObject();
         ASSERT(scope == globalObject || globalObject->varInjectionWatchpoint()->hasBeenInvalidated());
         if (slot.isCacheableValue() && slot.slotBase() == scope && scope == globalObject && scope->structure(vm)->propertyAccessesAreCacheable()) {
             Structure* structure = scope->structure(vm);
@@ -257,11 +255,11 @@ inline bool canAccessArgumentIndexQuickly(JSObject& object, uint32_t index)
     return false;
 }
 
-static ALWAYS_INLINE void putDirectWithReify(VM& vm, ExecState* exec, JSObject* baseObject, PropertyName propertyName, JSValue value, PutPropertySlot& slot, Structure** result = nullptr)
+static ALWAYS_INLINE void putDirectWithReify(VM& vm, JSGlobalObject* globalObject, JSObject* baseObject, PropertyName propertyName, JSValue value, PutPropertySlot& slot, Structure** result = nullptr)
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
     if (baseObject->inherits<JSFunction>(vm)) {
-        jsCast<JSFunction*>(baseObject)->reifyLazyPropertyIfNeeded(vm, exec, propertyName);
+        jsCast<JSFunction*>(baseObject)->reifyLazyPropertyIfNeeded(vm, globalObject, propertyName);
         RETURN_IF_EXCEPTION(scope, void());
     }
     if (result)
@@ -270,15 +268,15 @@ static ALWAYS_INLINE void putDirectWithReify(VM& vm, ExecState* exec, JSObject* 
     baseObject->putDirect(vm, propertyName, value, slot);
 }
 
-static ALWAYS_INLINE void putDirectAccessorWithReify(VM& vm, ExecState* exec, JSObject* baseObject, PropertyName propertyName, GetterSetter* accessor, unsigned attribute)
+static ALWAYS_INLINE void putDirectAccessorWithReify(VM& vm, JSGlobalObject* globalObject, JSObject* baseObject, PropertyName propertyName, GetterSetter* accessor, unsigned attribute)
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
     if (baseObject->inherits<JSFunction>(vm)) {
-        jsCast<JSFunction*>(baseObject)->reifyLazyPropertyIfNeeded(vm, exec, propertyName);
+        jsCast<JSFunction*>(baseObject)->reifyLazyPropertyIfNeeded(vm, globalObject, propertyName);
         RETURN_IF_EXCEPTION(scope, void());
     }
     scope.release();
-    baseObject->putDirectAccessor(exec, propertyName, accessor, attribute);
+    baseObject->putDirectAccessor(globalObject, propertyName, accessor, attribute);
 }
 
 inline JSArray* allocateNewArrayBuffer(VM& vm, Structure* structure, JSImmutableButterfly* immutableButterfly)
@@ -306,13 +304,13 @@ inline JSArray* allocateNewArrayBuffer(VM& vm, Structure* structure, JSImmutable
 
 } // namespace CommonSlowPaths
 
-class ExecState;
+class CallFrame;
 struct Instruction;
 
 #define SLOW_PATH
     
 #define SLOW_PATH_DECL(name) \
-extern "C" SlowPathReturnType SLOW_PATH name(ExecState* exec, const Instruction* pc)
+extern "C" SlowPathReturnType SLOW_PATH name(CallFrame* callFrame, const Instruction* pc)
     
 #define SLOW_PATH_HIDDEN_DECL(name) \
 SLOW_PATH_DECL(name) WTF_INTERNAL
@@ -322,6 +320,7 @@ SLOW_PATH_HIDDEN_DECL(slow_path_construct_arityCheck);
 SLOW_PATH_HIDDEN_DECL(slow_path_create_direct_arguments);
 SLOW_PATH_HIDDEN_DECL(slow_path_create_scoped_arguments);
 SLOW_PATH_HIDDEN_DECL(slow_path_create_cloned_arguments);
+SLOW_PATH_HIDDEN_DECL(slow_path_create_arguments_butterfly);
 SLOW_PATH_HIDDEN_DECL(slow_path_create_this);
 SLOW_PATH_HIDDEN_DECL(slow_path_enter);
 SLOW_PATH_HIDDEN_DECL(slow_path_get_callee);
@@ -341,6 +340,7 @@ SLOW_PATH_HIDDEN_DECL(slow_path_greatereq);
 SLOW_PATH_HIDDEN_DECL(slow_path_inc);
 SLOW_PATH_HIDDEN_DECL(slow_path_dec);
 SLOW_PATH_HIDDEN_DECL(slow_path_to_number);
+SLOW_PATH_HIDDEN_DECL(slow_path_to_numeric);
 SLOW_PATH_HIDDEN_DECL(slow_path_to_string);
 SLOW_PATH_HIDDEN_DECL(slow_path_to_object);
 SLOW_PATH_HIDDEN_DECL(slow_path_negate);
@@ -383,6 +383,9 @@ SLOW_PATH_HIDDEN_DECL(slow_path_push_with_scope);
 SLOW_PATH_HIDDEN_DECL(slow_path_resolve_scope);
 SLOW_PATH_HIDDEN_DECL(slow_path_is_var_scope);
 SLOW_PATH_HIDDEN_DECL(slow_path_resolve_scope_for_hoisting_func_decl_in_eval);
+SLOW_PATH_HIDDEN_DECL(slow_path_create_promise);
+SLOW_PATH_HIDDEN_DECL(slow_path_create_generator);
+SLOW_PATH_HIDDEN_DECL(slow_path_create_async_generator);
 SLOW_PATH_HIDDEN_DECL(slow_path_create_rest);
 SLOW_PATH_HIDDEN_DECL(slow_path_get_by_id_with_this);
 SLOW_PATH_HIDDEN_DECL(slow_path_get_by_val_with_this);
@@ -391,10 +394,12 @@ SLOW_PATH_HIDDEN_DECL(slow_path_put_by_val_with_this);
 SLOW_PATH_HIDDEN_DECL(slow_path_define_data_property);
 SLOW_PATH_HIDDEN_DECL(slow_path_define_accessor_property);
 SLOW_PATH_HIDDEN_DECL(slow_path_throw_static_error);
+SLOW_PATH_HIDDEN_DECL(slow_path_new_promise);
+SLOW_PATH_HIDDEN_DECL(slow_path_new_generator);
 SLOW_PATH_HIDDEN_DECL(slow_path_new_array_with_spread);
 SLOW_PATH_HIDDEN_DECL(slow_path_new_array_buffer);
 SLOW_PATH_HIDDEN_DECL(slow_path_spread);
 
-using SlowPathFunction = SlowPathReturnType(SLOW_PATH *)(ExecState*, const Instruction*);
+using SlowPathFunction = SlowPathReturnType(SLOW_PATH *)(CallFrame*, const Instruction*);
 
 } // namespace JSC

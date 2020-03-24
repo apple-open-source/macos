@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2019 Adobe. All rights reserved.
  *
  * Portions are Copyright (C) 1998 Netscape Communications Corporation.
  *
@@ -52,7 +53,6 @@
 #include "DebugPageOverlays.h"
 #include "DeprecatedGlobalSettings.h"
 #include "Document.h"
-#include "DocumentEventQueue.h"
 #include "DocumentMarkerController.h"
 #include "DocumentTimeline.h"
 #include "Editor.h"
@@ -125,7 +125,7 @@
 #include "StyleResolver.h"
 #include "TransformationMatrix.h"
 #include "TranslateTransformOperation.h"
-#include "WheelEventTestTrigger.h"
+#include "WheelEventTestMonitor.h"
 #include <stdio.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/StdLibExtras.h>
@@ -283,9 +283,13 @@ static TextStream& operator<<(TextStream& ts, const ClipRects& clipRects)
 
 #endif
 
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(RenderLayer);
+
 RenderLayer::RenderLayer(RenderLayerModelObject& rendererLayerModelObject)
     : m_isRenderViewLayer(rendererLayerModelObject.isRenderView())
     , m_forcedStackingContext(rendererLayerModelObject.isMedia())
+    , m_isNormalFlowOnly(false)
+    , m_isCSSStackingContext(false)
     , m_isOpportunisticStackingContext(false)
     , m_zOrderListsDirty(false)
     , m_normalFlowListDirty(true)
@@ -309,6 +313,7 @@ RenderLayer::RenderLayer(RenderLayerModelObject& rendererLayerModelObject)
     , m_has3DTransformedDescendant(false)
     , m_hasCompositingDescendant(false)
     , m_hasCompositedScrollingAncestor(false)
+    , m_hasCompositedScrollableOverflow(false)
     , m_hasTransformedAncestor(false)
     , m_has3DTransformedAncestor(false)
     , m_indirectCompositingReason(static_cast<unsigned>(IndirectCompositingReason::None))
@@ -494,7 +499,7 @@ void RenderLayer::dirtyPaintOrderListsOnChildChange(RenderLayer& child)
     }
 }
 
-void RenderLayer::insertOnlyThisLayer()
+void RenderLayer::insertOnlyThisLayer(LayerChangeTiming timing)
 {
     if (!m_parent && renderer().parent()) {
         // We need to connect ourselves when our renderer() has a parent.
@@ -509,14 +514,22 @@ void RenderLayer::insertOnlyThisLayer()
     for (auto& child : childrenOfType<RenderElement>(renderer()))
         child.moveLayers(m_parent, this);
 
+    if (parent()) {
+        if (timing == LayerChangeTiming::StyleChange)
+            renderer().view().layerChildrenChangedDuringStyleChange(*parent());
+    }
+    
     // Clear out all the clip rects.
     clearClipRectsIncludingDescendants();
 }
 
-void RenderLayer::removeOnlyThisLayer()
+void RenderLayer::removeOnlyThisLayer(LayerChangeTiming timing)
 {
     if (!m_parent)
         return;
+
+    if (timing == LayerChangeTiming::StyleChange)
+        renderer().view().layerChildrenChangedDuringStyleChange(*parent());
 
     // Mark that we are about to lose our layer. This makes render tree
     // walks ignore this layer while we're removing it.
@@ -564,7 +577,7 @@ static bool canCreateStackingContext(const RenderLayer& layer)
         || renderer.isPositioned() // Note that this only creates stacking context in conjunction with explicit z-index.
         || renderer.hasReflection()
         || renderer.style().hasIsolation()
-        || !renderer.style().hasAutoZIndex()
+        || !renderer.style().hasAutoUsedZIndex()
         || (renderer.style().willChange() && renderer.style().willChange()->canCreateStackingContext());
 }
 
@@ -585,7 +598,7 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
 
 bool RenderLayer::shouldBeCSSStackingContext() const
 {
-    return !renderer().style().hasAutoZIndex() || isRenderViewLayer();
+    return !renderer().style().hasAutoUsedZIndex() || isRenderViewLayer();
 }
 
 bool RenderLayer::setIsNormalFlowOnly(bool isNormalFlowOnly)
@@ -701,7 +714,7 @@ void RenderLayer::updateNormalFlowList()
         // Ignore non-overflow layers and reflections.
         if (child->isNormalFlowOnly() && !isReflectionLayer(*child)) {
             if (!m_normalFlowList)
-                m_normalFlowList = std::make_unique<Vector<RenderLayer*>>();
+                m_normalFlowList = makeUnique<Vector<RenderLayer*>>();
             m_normalFlowList->append(child);
         }
     }
@@ -713,7 +726,9 @@ void RenderLayer::rebuildZOrderLists()
 {
     ASSERT(layerListMutationAllowed());
     ASSERT(isDirtyStackingContext());
-    rebuildZOrderLists(m_posZOrderList, m_negZOrderList);
+    
+    OptionSet<Compositing> childDirtyFlags;
+    rebuildZOrderLists(m_posZOrderList, m_negZOrderList, childDirtyFlags);
     m_zOrderListsDirty = false;
     
     bool hasNegativeZOrderList = m_negZOrderList && m_negZOrderList->size();
@@ -725,14 +740,24 @@ void RenderLayer::rebuildZOrderLists()
         if (isComposited())
             setNeedsCompositingConfigurationUpdate();
     }
+
+    // Building lists may have added layers with dirty flags, so make sure we propagate dirty bits up the tree.
+    if (m_compositingDirtyBits.containsAll({ Compositing::DescendantsNeedRequirementsTraversal, Compositing::DescendantsNeedBackingAndHierarchyTraversal }))
+        return;
+
+    if (childDirtyFlags.containsAny(computeCompositingRequirementsFlags()))
+        setDescendantsNeedCompositingRequirementsTraversal();
+
+    if (childDirtyFlags.containsAny(updateBackingOrHierarchyFlags()))
+        setDescendantsNeedUpdateBackingAndHierarchyTraversal();
 }
 
-void RenderLayer::rebuildZOrderLists(std::unique_ptr<Vector<RenderLayer*>>& posZOrderList, std::unique_ptr<Vector<RenderLayer*>>& negZOrderList)
+void RenderLayer::rebuildZOrderLists(std::unique_ptr<Vector<RenderLayer*>>& posZOrderList, std::unique_ptr<Vector<RenderLayer*>>& negZOrderList, OptionSet<Compositing>& accumulatedDirtyFlags)
 {
     bool includeHiddenLayers = compositor().usesCompositing();
     for (RenderLayer* child = firstChild(); child; child = child->nextSibling()) {
         if (!isReflectionLayer(*child))
-            child->collectLayers(includeHiddenLayers, posZOrderList, negZOrderList);
+            child->collectLayers(includeHiddenLayers, posZOrderList, negZOrderList, accumulatedDirtyFlags);
     }
 
     auto compareZIndex = [] (const RenderLayer* first, const RenderLayer* second) -> bool {
@@ -747,7 +772,7 @@ void RenderLayer::rebuildZOrderLists(std::unique_ptr<Vector<RenderLayer*>>& posZ
         std::stable_sort(negZOrderList->begin(), negZOrderList->end(), compareZIndex);
 }
 
-void RenderLayer::collectLayers(bool includeHiddenLayers, std::unique_ptr<Vector<RenderLayer*>>& positiveZOrderList, std::unique_ptr<Vector<RenderLayer*>>& negativeZOrderList)
+void RenderLayer::collectLayers(bool includeHiddenLayers, std::unique_ptr<Vector<RenderLayer*>>& positiveZOrderList, std::unique_ptr<Vector<RenderLayer*>>& negativeZOrderList, OptionSet<Compositing>& accumulatedDirtyFlags)
 {
     updateDescendantDependentFlags();
 
@@ -757,8 +782,9 @@ void RenderLayer::collectLayers(bool includeHiddenLayers, std::unique_ptr<Vector
     if (includeHiddenLayer && !isNormalFlowOnly()) {
         auto& layerList = (zIndex() >= 0) ? positiveZOrderList : negativeZOrderList;
         if (!layerList)
-            layerList = std::make_unique<Vector<RenderLayer*>>();
+            layerList = makeUnique<Vector<RenderLayer*>>();
         layerList->append(this);
+        accumulatedDirtyFlags.add(m_compositingDirtyBits);
     }
 
     // Recur into our children to collect more layers, but only if we don't establish
@@ -767,7 +793,7 @@ void RenderLayer::collectLayers(bool includeHiddenLayers, std::unique_ptr<Vector
         for (RenderLayer* child = firstChild(); child; child = child->nextSibling()) {
             // Ignore reflections.
             if (!isReflectionLayer(*child))
-                child->collectLayers(includeHiddenLayers, positiveZOrderList, negativeZOrderList);
+                child->collectLayers(includeHiddenLayers, positiveZOrderList, negativeZOrderList, accumulatedDirtyFlags);
         }
     }
 }
@@ -875,13 +901,51 @@ bool RenderLayer::requiresFullLayerImageForFilters() const
     return m_filters && m_filters->hasFilterThatMovesPixels();
 }
 
-void RenderLayer::updateLayerPositionsAfterLayout(const RenderLayer* rootLayer, OptionSet<UpdateLayerPositionsFlag> flags)
+OptionSet<RenderLayer::UpdateLayerPositionsFlag> RenderLayer::flagsForUpdateLayerPositions(RenderLayer& startingLayer)
 {
+    OptionSet<UpdateLayerPositionsFlag> flags = { CheckForRepaint };
+
+    if (auto* parent = startingLayer.parent()) {
+        if (parent->hasTransformedAncestor() || parent->transform())
+            flags.add(SeenTransformedLayer);
+
+        if (parent->has3DTransformedAncestor() || (parent->transform() && !parent->transform()->isAffine()))
+            flags.add(Seen3DTransformedLayer);
+
+        if (parent->behavesAsFixed() || (parent->renderer().isFixedPositioned() && !parent->hasTransformedAncestor()))
+            flags.add(SeenFixedLayer);
+
+        if (parent->hasCompositedScrollingAncestor() || parent->hasCompositedScrollableOverflow())
+            flags.add(SeenCompositedScrollingLayer);
+    }
+
+    return flags;
+}
+
+void RenderLayer::updateLayerPositionsAfterStyleChange()
+{
+    updateLayerPositions(nullptr, flagsForUpdateLayerPositions(*this));
+}
+
+void RenderLayer::updateLayerPositionsAfterLayout(bool isRelayoutingSubtree, bool didFullRepaint)
+{
+    auto updateLayerPositionFlags = [&](bool isRelayoutingSubtree, bool didFullRepaint) {
+        auto flags = flagsForUpdateLayerPositions(*this);
+        if (didFullRepaint) {
+            flags.remove(RenderLayer::CheckForRepaint);
+            flags.add(RenderLayer::NeedsFullRepaintInBacking);
+        }
+        if (isRelayoutingSubtree && enclosingPaginationLayer(RenderLayer::IncludeCompositedPaginatedLayers))
+            flags.add(RenderLayer::UpdatePagination);
+        return flags;
+    };
+
     LOG(Compositing, "RenderLayer %p updateLayerPositionsAfterLayout", this);
     RenderGeometryMap geometryMap(UseTransforms);
-    if (this != rootLayer)
+    if (!isRenderViewLayer())
         geometryMap.pushMappingsToAncestor(parent(), nullptr);
-    updateLayerPositions(&geometryMap, flags);
+
+    updateLayerPositions(&geometryMap, updateLayerPositionFlags(isRelayoutingSubtree, didFullRepaint));
 }
 
 void RenderLayer::updateLayerPositions(RenderGeometryMap* geometryMap, OptionSet<UpdateLayerPositionsFlag> flags)
@@ -901,7 +965,7 @@ void RenderLayer::updateLayerPositions(RenderGeometryMap* geometryMap, OptionSet
             offsetFromRoot = LayoutSize(toFloatSize(geometryMap->absolutePoint(FloatPoint())));
         else {
             // FIXME: It looks suspicious to call convertToLayerCoords here
-            // as canUseConvertToLayerCoords may be true for an ancestor layer.
+            // as canUseOffsetFromAncestor may be true for an ancestor layer.
             offsetFromRoot = offsetFromAncestor(root());
         }
         positionOverflowControls(roundedIntSize(offsetFromRoot));
@@ -1170,6 +1234,11 @@ void RenderLayer::updateBlendMode()
         m_blendMode = static_cast<unsigned>(newBlendMode);
 }
 
+void RenderLayer::willRemoveChildWithBlendMode()
+{
+    parent()->dirtyAncestorChainHasBlendingDescendants();
+}
+
 void RenderLayer::updateAncestorChainHasBlendingDescendants()
 {
     for (auto* layer = this; layer; layer = layer->parent()) {
@@ -1199,6 +1268,65 @@ void RenderLayer::dirtyAncestorChainHasBlendingDescendants()
 }
 #endif
 
+static inline LayoutRect computeReferenceRectFromBox(const RenderBox& box, const CSSBoxType& boxType, const LayoutSize& offsetFromRoot)
+{
+    LayoutRect referenceBox;
+    switch (boxType) {
+    case CSSBoxType::ContentBox:
+    case CSSBoxType::FillBox:
+        referenceBox = box.contentBoxRect();
+        referenceBox.move(offsetFromRoot);
+        break;
+    case CSSBoxType::PaddingBox:
+        referenceBox = box.paddingBoxRect();
+        referenceBox.move(offsetFromRoot);
+        break;
+    case CSSBoxType::MarginBox:
+        referenceBox = box.marginBoxRect();
+        referenceBox.move(offsetFromRoot);
+        break;
+    // stroke-box, view-box compute to border-box for HTML elements.
+    case CSSBoxType::StrokeBox:
+    case CSSBoxType::ViewBox:
+    case CSSBoxType::BorderBox:
+    case CSSBoxType::BoxMissing:
+        referenceBox = box.borderBoxRect();
+        referenceBox.move(offsetFromRoot);
+        break;
+    }
+
+    return referenceBox;
+}
+
+static inline LayoutRect computeReferenceBox(const RenderObject& renderer, const CSSBoxType& boxType, const LayoutSize& offsetFromRoot, const LayoutRect& rootRelativeBounds)
+{
+    // FIXME: Support different reference boxes for inline content.
+    // https://bugs.webkit.org/show_bug.cgi?id=129047
+    if (!renderer.isBox())
+        return rootRelativeBounds;
+    
+    return computeReferenceRectFromBox(downcast<RenderBox>(renderer), boxType, offsetFromRoot);
+}
+
+static inline CSSBoxType transformBoxToCSSBoxType(TransformBox transformBox)
+{
+    switch (transformBox) {
+    case TransformBox::StrokeBox:
+        return CSSBoxType::StrokeBox;
+    case TransformBox::ContentBox:
+        return CSSBoxType::ContentBox;
+    case TransformBox::BorderBox:
+        return CSSBoxType::BorderBox;
+    case TransformBox::FillBox:
+        return CSSBoxType::FillBox;
+    case TransformBox::ViewBox:
+        return CSSBoxType::ViewBox;
+    default:
+        ASSERT_NOT_REACHED();
+        return CSSBoxType::BorderBox;
+    }
+}
+
 void RenderLayer::updateTransform()
 {
     bool hasTransform = renderer().hasTransform();
@@ -1207,7 +1335,7 @@ void RenderLayer::updateTransform()
     bool hadTransform = !!m_transform;
     if (hasTransform != hadTransform) {
         if (hasTransform)
-            m_transform = std::make_unique<TransformationMatrix>();
+            m_transform = makeUnique<TransformationMatrix>();
         else
             m_transform = nullptr;
         
@@ -1219,7 +1347,9 @@ void RenderLayer::updateTransform()
         RenderBox* box = renderBox();
         ASSERT(box);
         m_transform->makeIdentity();
-        box->style().applyTransform(*m_transform, snapRectToDevicePixels(box->borderBoxRect(), box->document().deviceScaleFactor()), RenderStyle::IncludeTransformOrigin);
+        LayoutSize offsetFromRoot;
+        auto computedReferenceBox = computeReferenceRectFromBox(*box, transformBoxToCSSBoxType(box->style().transformBox()), offsetFromRoot);
+        box->style().applyTransform(*m_transform, snapRectToDevicePixels(computedReferenceBox, box->document().deviceScaleFactor()), RenderStyle::IncludeTransformOrigin);
         makeMatrixRenderable(*m_transform, canRender3DTransforms());
     }
 
@@ -1241,8 +1371,10 @@ TransformationMatrix RenderLayer::currentTransform(RenderStyle::ApplyTransformOr
         if (auto* timeline = renderer().documentTimeline()) {
             if (timeline->isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform)) {
                 TransformationMatrix currTransform;
-                FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(box->borderBoxRect(), box->document().deviceScaleFactor());
+                LayoutSize offsetFromRoot;
                 std::unique_ptr<RenderStyle> style = timeline->animatedStyleForRenderer(renderer());
+                auto computedReferenceBox = computeReferenceBox(renderer(), transformBoxToCSSBoxType(style->transformBox()), offsetFromRoot, box->borderBoxRect());
+                FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(computedReferenceBox, box->document().deviceScaleFactor());
                 style->applyTransform(currTransform, pixelSnappedBorderRect, applyOrigin);
                 makeMatrixRenderable(currTransform, canRender3DTransforms());
                 return currTransform;
@@ -1251,8 +1383,10 @@ TransformationMatrix RenderLayer::currentTransform(RenderStyle::ApplyTransformOr
     } else {
         if (renderer().animation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform)) {
             TransformationMatrix currTransform;
-            FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(box->borderBoxRect(), box->document().deviceScaleFactor());
             std::unique_ptr<RenderStyle> style = renderer().animation().animatedStyleForRenderer(renderer());
+            LayoutSize offsetFromRoot;
+            auto computedReferenceBox = computeReferenceBox(renderer(), transformBoxToCSSBoxType(style->transformBox()), offsetFromRoot, box->borderBoxRect());
+            FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(computedReferenceBox, box->document().deviceScaleFactor());
             style->applyTransform(currTransform, pixelSnappedBorderRect, applyOrigin);
             makeMatrixRenderable(currTransform, canRender3DTransforms());
             return currTransform;
@@ -1263,7 +1397,10 @@ TransformationMatrix RenderLayer::currentTransform(RenderStyle::ApplyTransformOr
     // m_transform includes transform-origin, so we need to recompute the transform here.
     if (applyOrigin == RenderStyle::ExcludeTransformOrigin) {
         TransformationMatrix currTransform;
-        FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(box->borderBoxRect(), box->document().deviceScaleFactor());
+        LayoutSize offsetFromRoot;
+        std::unique_ptr<RenderStyle> style = renderer().animation().animatedStyleForRenderer(renderer());
+        auto computedReferenceBox = computeReferenceBox(renderer(), transformBoxToCSSBoxType(style->transformBox()), offsetFromRoot, box->borderBoxRect());
+        FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(computedReferenceBox, box->document().deviceScaleFactor());
         box->style().applyTransform(currTransform, pixelSnappedBorderRect, RenderStyle::ExcludeTransformOrigin);
         makeMatrixRenderable(currTransform, canRender3DTransforms());
         return currTransform;
@@ -1885,7 +2022,7 @@ void RenderLayer::setFilterBackendNeedsRepaintingInRect(const LayoutRect& rect)
         return;
     
     LayoutRect rectForRepaint = rect;
-    renderer().style().filterOutsets().expandRect(rectForRepaint);
+    rectForRepaint += filterOutsets();
 
     m_filters->expandDirtySourceRect(rectForRepaint);
     
@@ -1920,7 +2057,7 @@ void RenderLayer::setFilterBackendNeedsRepaintingInRect(const LayoutRect& rect)
 bool RenderLayer::hasAncestorWithFilterOutsets() const
 {
     for (const RenderLayer* curr = this; curr; curr = curr->parent()) {
-        if (curr->renderer().style().hasFilterOutsets())
+        if (curr->hasFilterOutsets())
             return true;
     }
     return false;
@@ -2043,7 +2180,7 @@ static LayoutRect transparencyClipBox(const RenderLayer& layer, const RenderLaye
         // paints unfragmented.
         LayoutRect clipRect = layer.boundingBox(&layer);
         expandClipRectForDescendantsAndReflection(clipRect, layer, &layer, transparencyBehavior, paintBehavior);
-        layer.renderer().style().filterOutsets().expandRect(clipRect);
+        clipRect += layer.filterOutsets();
         LayoutRect result = transform.mapRect(clipRect);
         if (!paginationLayer)
             return result;
@@ -2059,7 +2196,7 @@ static LayoutRect transparencyClipBox(const RenderLayer& layer, const RenderLaye
     
     LayoutRect clipRect = layer.boundingBox(rootLayer, layer.offsetFromAncestor(rootLayer), transparencyBehavior == HitTestingTransparencyClipBox ? RenderLayer::UseFragmentBoxesIncludingCompositing : RenderLayer::UseFragmentBoxesExcludingCompositing);
     expandClipRectForDescendantsAndReflection(clipRect, layer, rootLayer, transparencyBehavior, paintBehavior);
-    layer.renderer().style().filterOutsets().expandRect(clipRect);
+    clipRect += layer.filterOutsets();
 
     return clipRect;
 }
@@ -2122,6 +2259,27 @@ bool RenderLayer::isDescendantOf(const RenderLayer& layer) const
             return true;
     }
     return false;
+}
+
+static RenderLayer* findCommonAncestor(const RenderLayer& firstLayer, const RenderLayer& secondLayer)
+{
+    if (&firstLayer == &secondLayer)
+        return const_cast<RenderLayer*>(&firstLayer);
+
+    HashSet<const RenderLayer*> ancestorChain;
+    for (auto* currLayer = &firstLayer; currLayer; currLayer = currLayer->parent())
+        ancestorChain.add(currLayer);
+
+    for (auto* currLayer = &secondLayer; currLayer; currLayer = currLayer->parent()) {
+        if (ancestorChain.contains(currLayer))
+            return const_cast<RenderLayer*>(currLayer);
+    }
+    return nullptr;
+}
+
+RenderLayer* RenderLayer::commonAncestorWithLayer(const RenderLayer& layer) const
+{
+    return findCommonAncestor(*this, layer);
 }
 
 void RenderLayer::convertToPixelSnappedLayerCoords(const RenderLayer* ancestorLayer, IntPoint& roundedLocation, ColumnOffsetAdjustment adjustForColumns) const
@@ -2289,11 +2447,6 @@ bool RenderLayer::canUseCompositedScrolling() const
 #endif
 }
 
-bool RenderLayer::hasCompositedScrollableOverflow() const
-{
-    return canUseCompositedScrolling() && (hasScrollableHorizontalOverflow() || hasScrollableVerticalOverflow());
-}
-
 #if ENABLE(IOS_TOUCH_EVENTS)
 bool RenderLayer::handleTouchEvent(const PlatformTouchEvent& touchEvent)
 {
@@ -2455,7 +2608,7 @@ void RenderLayer::scrollToOffset(const ScrollOffset& scrollOffset, ScrollType sc
     bool handled = false;
 #if ENABLE(ASYNC_SCROLLING)
     if (ScrollingCoordinator* scrollingCoordinator = page().scrollingCoordinator())
-        handled = scrollingCoordinator->requestScrollPositionUpdate(*this, scrollPositionFromOffset(clampedScrollOffset));
+        handled = scrollingCoordinator->requestScrollPositionUpdate(*this, scrollPositionFromOffset(clampedScrollOffset), scrollType, clamping);
 #endif
 
     if (!handled)
@@ -2565,7 +2718,7 @@ void RenderLayer::scrollTo(const ScrollPosition& position)
 
     // Schedule the scroll and scroll-related DOM events.
     if (Element* element = renderer().element())
-        element->document().eventQueue().enqueueOrDispatchScrollEvent(*element);
+        element->document().addPendingScrollEventTarget(*element);
 
     if (scrollsOverflow())
         view.frameView().didChangeScrollOffset();
@@ -2896,23 +3049,23 @@ void RenderLayer::resize(const PlatformMouseEvent& evt, const LayoutSize& oldOff
     if (resize != Resize::Vertical && difference.width()) {
         if (is<HTMLFormControlElement>(*element)) {
             // Make implicit margins from the theme explicit (see <http://bugs.webkit.org/show_bug.cgi?id=9547>).
-            styledElement->setInlineStyleProperty(CSSPropertyMarginLeft, renderer->marginLeft() / zoomFactor, CSSPrimitiveValue::CSS_PX);
-            styledElement->setInlineStyleProperty(CSSPropertyMarginRight, renderer->marginRight() / zoomFactor, CSSPrimitiveValue::CSS_PX);
+            styledElement->setInlineStyleProperty(CSSPropertyMarginLeft, renderer->marginLeft() / zoomFactor, CSSUnitType::CSS_PX);
+            styledElement->setInlineStyleProperty(CSSPropertyMarginRight, renderer->marginRight() / zoomFactor, CSSUnitType::CSS_PX);
         }
         LayoutUnit baseWidth = renderer->width() - (isBoxSizingBorder ? 0_lu : renderer->horizontalBorderAndPaddingExtent());
         baseWidth = baseWidth / zoomFactor;
-        styledElement->setInlineStyleProperty(CSSPropertyWidth, roundToInt(baseWidth + difference.width()), CSSPrimitiveValue::CSS_PX);
+        styledElement->setInlineStyleProperty(CSSPropertyWidth, roundToInt(baseWidth + difference.width()), CSSUnitType::CSS_PX);
     }
 
     if (resize != Resize::Horizontal && difference.height()) {
         if (is<HTMLFormControlElement>(*element)) {
             // Make implicit margins from the theme explicit (see <http://bugs.webkit.org/show_bug.cgi?id=9547>).
-            styledElement->setInlineStyleProperty(CSSPropertyMarginTop, renderer->marginTop() / zoomFactor, CSSPrimitiveValue::CSS_PX);
-            styledElement->setInlineStyleProperty(CSSPropertyMarginBottom, renderer->marginBottom() / zoomFactor, CSSPrimitiveValue::CSS_PX);
+            styledElement->setInlineStyleProperty(CSSPropertyMarginTop, renderer->marginTop() / zoomFactor, CSSUnitType::CSS_PX);
+            styledElement->setInlineStyleProperty(CSSPropertyMarginBottom, renderer->marginBottom() / zoomFactor, CSSUnitType::CSS_PX);
         }
         LayoutUnit baseHeight = renderer->height() - (isBoxSizingBorder ? 0_lu : renderer->verticalBorderAndPaddingExtent());
         baseHeight = baseHeight / zoomFactor;
-        styledElement->setInlineStyleProperty(CSSPropertyHeight, roundToInt(baseHeight + difference.height()), CSSPrimitiveValue::CSS_PX);
+        styledElement->setInlineStyleProperty(CSSPropertyHeight, roundToInt(baseHeight + difference.height()), CSSUnitType::CSS_PX);
     }
 
     document.updateLayout();
@@ -3256,12 +3409,7 @@ void RenderLayer::invalidateScrollCornerRect(const IntRect& rect)
 
 static bool scrollbarHiddenByStyle(Scrollbar* scrollbar)
 {
-    if (!scrollbar || !scrollbar->isCustomScrollbar())
-        return false;
-
-    std::unique_ptr<RenderStyle> scrollbarStyle = static_cast<RenderScrollbar*>(scrollbar)->getScrollbarPseudoStyle(ScrollbarBGPart, PseudoId::Scrollbar);
-
-    return scrollbarStyle && scrollbarStyle->display() == DisplayType::None;
+    return scrollbar && scrollbar->isHiddenByStyle();
 }
 
 bool RenderLayer::horizontalScrollbarHiddenByStyle() const
@@ -3297,8 +3445,8 @@ Ref<Scrollbar> RenderLayer::createScrollbar(ScrollbarOrientation orientation)
     else {
         widget = Scrollbar::createNativeScrollbar(*this, orientation, RegularScrollbar);
         didAddScrollbar(widget.get(), orientation);
-        if (page().expectsWheelEventTriggers())
-            scrollAnimator().setWheelEventTestTrigger(page().testTrigger());
+        if (page().isMonitoringWheelEvents())
+            scrollAnimator().setWheelEventTestMonitor(page().wheelEventTestMonitor());
     }
     renderer().view().frameView().addChild(*widget);
     return widget.releaseNonNull();
@@ -3573,6 +3721,8 @@ void RenderLayer::computeScrollDimensions()
         scrollableLeftOverflow -= verticalScrollbarWidth();
     int scrollableTopOverflow = roundToInt(overflowTop() - box->borderTop());
     setScrollOrigin(IntPoint(-scrollableLeftOverflow, -scrollableTopOverflow));
+    
+    m_hasCompositedScrollableOverflow = canUseCompositedScrolling() && (hasScrollableHorizontalOverflow() || hasScrollableVerticalOverflow());
 }
 
 bool RenderLayer::hasScrollableHorizontalOverflow() const
@@ -4055,6 +4205,9 @@ void RenderLayer::restoreClip(GraphicsContext& context, const LayerPaintingInfo&
 
 static void performOverlapTests(OverlapTestRequestMap& overlapTestRequests, const RenderLayer* rootLayer, const RenderLayer* layer)
 {
+    if (overlapTestRequests.isEmpty())
+        return;
+
     Vector<OverlapTestRequestClient*> overlappedRequestClients;
     LayoutRect boundingBox = layer->boundingBox(rootLayer, layer->offsetFromAncestor(rootLayer));
     for (auto& request : overlapTestRequests) {
@@ -4229,42 +4382,6 @@ bool RenderLayer::setupFontSubpixelQuantization(GraphicsContext& context, bool& 
     return false;
 }
 
-static inline LayoutRect computeReferenceBox(const RenderObject& renderer, const CSSBoxType& boxType, const LayoutSize& offsetFromRoot, const LayoutRect& rootRelativeBounds)
-{
-    // FIXME: Support different reference boxes for inline content.
-    // https://bugs.webkit.org/show_bug.cgi?id=129047
-    if (!renderer.isBox())
-        return rootRelativeBounds;
-
-    LayoutRect referenceBox;
-    const auto& box = downcast<RenderBox>(renderer);
-    switch (boxType) {
-    case CSSBoxType::ContentBox:
-    case CSSBoxType::FillBox:
-        referenceBox = box.contentBoxRect();
-        referenceBox.move(offsetFromRoot);
-        break;
-    case CSSBoxType::PaddingBox:
-        referenceBox = box.paddingBoxRect();
-        referenceBox.move(offsetFromRoot);
-        break;
-    case CSSBoxType::MarginBox:
-        referenceBox = box.marginBoxRect();
-        referenceBox.move(offsetFromRoot);
-        break;
-    // stroke-box, view-box compute to border-box for HTML elements.
-    case CSSBoxType::StrokeBox:
-    case CSSBoxType::ViewBox:
-    case CSSBoxType::BorderBox:
-    case CSSBoxType::BoxMissing:
-        referenceBox = box.borderBoxRect();
-        referenceBox.move(offsetFromRoot);
-        break;
-    }
-
-    return referenceBox;
-}
-
 Path RenderLayer::computeClipPath(const LayoutSize& offsetFromRoot, LayoutRect& rootRelativeBounds, WindRule& windRule) const
 {
     const RenderStyle& style = renderer().style();
@@ -4412,12 +4529,21 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
     // foreground phase. Since scrolled contents are moved by repainting in this
     // case, the outline won't get 'dragged along'.
     bool shouldPaintOutline = isSelfPaintingLayer && !isPaintingOverlayScrollbars && !isCollectingEventRegion
+        && (renderer().view().printing() || renderer().view().hasRenderersWithOutline())
         && ((isPaintingScrollingContent && isPaintingCompositedBackground)
         || (!isPaintingScrollingContent && isPaintingCompositedForeground));
     bool shouldPaintContent = m_hasVisibleContent && isSelfPaintingLayer && !isPaintingOverlayScrollbars && !isCollectingEventRegion;
 
-    if (localPaintFlags & PaintLayerPaintingRootBackgroundOnly && !renderer().isRenderView() && !renderer().isDocumentElementRenderer())
+    if (localPaintFlags & PaintLayerPaintingRootBackgroundOnly && !renderer().isRenderView() && !renderer().isDocumentElementRenderer()) {
+        // If beginTransparencyLayers was called prior to this, ensure the transparency state is cleaned up before returning.
+        if (haveTransparency && m_usedTransparency && !m_paintingInsideReflection) {
+            context.endTransparencyLayer();
+            context.restore();
+            m_usedTransparency = false;
+        }
+
         return;
+    }
 
     updateLayerListsIfNeeded();
 
@@ -5532,7 +5658,7 @@ Ref<ClipRects> RenderLayer::updateClipRects(const ClipRectsContext& clipRectsCon
     }
     
     if (!m_clipRectsCache)
-        m_clipRectsCache = std::make_unique<ClipRectsCache>();
+        m_clipRectsCache = makeUnique<ClipRectsCache>();
 #ifndef NDEBUG
     m_clipRectsCache->m_clipRectsRoot[clipRectsType] = clipRectsContext.rootLayer;
     m_clipRectsCache->m_scrollbarRelevancy[clipRectsType] = clipRectsContext.overlayScrollbarSizeRelevancy;
@@ -5592,7 +5718,7 @@ void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, C
             ClipRectsContext parentContext(clipRectsContext);
             parentContext.overlayScrollbarSizeRelevancy = IgnoreOverlayScrollbarSize; // FIXME: why?
             
-            if (clipCrossesPaintingBoundary())
+            if ((parentContext.clipRectsType != TemporaryClipRects && parentContext.clipRectsType != AbsoluteClipRects) && clipCrossesPaintingBoundary())
                 parentContext.clipRectsType = TemporaryClipRects;
 
             parentLayer->calculateClipRects(parentContext, clipRects);
@@ -5618,11 +5744,12 @@ void RenderLayer::calculateClipRects(const ClipRectsContext& clipRectsContext, C
     if ((renderer().hasOverflowClip() && (clipRectsContext.respectOverflowClip == RespectOverflowClip || this != clipRectsContext.rootLayer)) || renderer().hasClip()) {
 #endif
         // This layer establishes a clip of some kind.
+        LayoutPoint offset;
+        if (!m_hasTransformedAncestor && canUseOffsetFromAncestor())
+            offset = toLayoutPoint(offsetFromAncestor(clipRectsContext.rootLayer, AdjustForColumns));
+        else
+            offset = LayoutPoint(renderer().localToContainerPoint(FloatPoint(), &clipRectsContext.rootLayer->renderer()));
 
-        // This offset cannot use convertToLayerCoords, because sometimes our rootLayer may be across
-        // some transformed layer boundary, for example, in the RenderLayerCompositor overlapMap, where
-        // clipRects are needed in view space.
-        LayoutPoint offset(renderer().localToContainerPoint(FloatPoint(), &clipRectsContext.rootLayer->renderer()));
         if (clipRects.fixed() && &clipRectsContext.rootLayer->renderer() == &renderer().view())
             offset -= toLayoutSize(renderer().view().frameView().scrollPositionForFixedPosition());
         
@@ -5657,7 +5784,7 @@ Ref<ClipRects> RenderLayer::parentClipRects(const ClipRectsContext& clipRectsCon
     if (clipRectsContext.clipRectsType == TemporaryClipRects)
         return temporaryParentClipRects(clipRectsContext);
 
-    if (clipCrossesPaintingBoundary()) {
+    if (clipRectsContext.clipRectsType != AbsoluteClipRects && clipCrossesPaintingBoundary()) {
         ClipRectsContext tempClipRectsContext(clipRectsContext);
         tempClipRectsContext.clipRectsType = TemporaryClipRects;
         return temporaryParentClipRects(tempClipRectsContext);
@@ -5894,13 +6021,8 @@ LayoutRect RenderLayer::localBoundingBox(OptionSet<CalculateLayerBoundsFlag> fla
         if (!(flags & DontConstrainForMask) && box->hasMask()) {
             result = box->maskClipRect(LayoutPoint());
             box->flipForWritingMode(result); // The mask clip rect is in physical coordinates, so we have to flip, since localBoundingBox is not.
-        } else {
-            LayoutRect bbox = box->borderBoxRect();
-            result = bbox;
-            LayoutRect overflowRect = box->visualOverflowRect();
-            if (bbox != overflowRect)
-                result.unite(overflowRect);
-        }
+        } else
+            result = box->visualOverflowRect();
     }
     return result;
 }
@@ -6073,7 +6195,7 @@ LayoutRect RenderLayer::calculateLayerBounds(const RenderLayer* ancestorLayer, c
         computeLayersUnion(*childLayer);
 
     if (flags.contains(IncludeFilterOutsets) || (flags.contains(IncludePaintedFilterOutsets) && paintsWithFilters()))
-        renderer().style().filterOutsets().expandRect(unionBounds);
+        unionBounds += filterOutsets();
 
     if ((flags & IncludeSelfTransform) && paintsWithTransform(PaintBehavior::Normal)) {
         TransformationMatrix* affineTrans = transform();
@@ -6110,7 +6232,7 @@ void RenderLayer::clearClipRects(ClipRectsType typeToClear)
 RenderLayerBacking* RenderLayer::ensureBacking()
 {
     if (!m_backing) {
-        m_backing = std::make_unique<RenderLayerBacking>(*this);
+        m_backing = makeUnique<RenderLayerBacking>(*this);
         compositor().layerBecameComposited(*this);
 
         updateFilterPaintingStrategy();
@@ -6249,7 +6371,7 @@ bool RenderLayer::listBackgroundIsKnownToBeOpaqueInRect(const LayerList& list, c
         if (childLayer->isComposited())
             continue;
 
-        if (!childLayer->canUseConvertToLayerCoords())
+        if (!childLayer->canUseOffsetFromAncestor())
             continue;
 
         LayoutRect childLocalRect(localRect);
@@ -6361,7 +6483,7 @@ static void determineNonLayerDescendantsPaintedContent(const RenderElement& rend
 
         if (is<RenderText>(child)) {
             const auto& renderText = downcast<RenderText>(child);
-            if (renderText.linesBoundingBox().isEmpty())
+            if (!renderText.hasRenderedText())
                 continue;
 
             if (renderer.style().userSelect() != UserSelect::None)
@@ -6516,10 +6638,10 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
 #endif
     }
 
-    // FIXME: RenderLayer already handles visibility changes through our visiblity dirty bits. This logic could
+    // FIXME: RenderLayer already handles visibility changes through our visibility dirty bits. This logic could
     // likely be folded along with the rest.
     if (oldStyle) {
-        if (oldStyle->zIndex() != renderer().style().zIndex() || oldStyle->visibility() != renderer().style().visibility()) {
+        if (oldStyle->usedZIndex() != renderer().style().usedZIndex() || oldStyle->visibility() != renderer().style().visibility()) {
             dirtyStackingContextZOrderLists();
             if (isStackingContext())
                 dirtyZOrderLists();
@@ -6528,7 +6650,7 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
 
     if (renderer().isHTMLMarquee() && renderer().style().marqueeBehavior() != MarqueeBehavior::None && renderer().isBox()) {
         if (!m_marquee)
-            m_marquee = std::make_unique<RenderMarquee>(this);
+            m_marquee = makeUnique<RenderMarquee>(this);
         m_marquee->updateMarqueeStyle();
     } else if (m_marquee)
         m_marquee = nullptr;
@@ -6616,7 +6738,7 @@ void RenderLayer::updateScrollableAreaSet(bool hasOverflow)
 void RenderLayer::updateScrollCornerStyle()
 {
     RenderElement* actualRenderer = rendererForScrollbar(renderer());
-    auto corner = renderer().hasOverflowClip() ? actualRenderer->getUncachedPseudoStyle(PseudoStyleRequest(PseudoId::ScrollbarCorner), &actualRenderer->style()) : nullptr;
+    auto corner = renderer().hasOverflowClip() ? actualRenderer->getUncachedPseudoStyle({ PseudoId::ScrollbarCorner }, &actualRenderer->style()) : nullptr;
 
     if (!corner) {
         clearScrollCorner();
@@ -6643,7 +6765,7 @@ void RenderLayer::clearScrollCorner()
 void RenderLayer::updateResizerStyle()
 {
     RenderElement* actualRenderer = rendererForScrollbar(renderer());
-    auto resizer = renderer().hasOverflowClip() ? actualRenderer->getUncachedPseudoStyle(PseudoStyleRequest(PseudoId::Resizer), &actualRenderer->style()) : nullptr;
+    auto resizer = renderer().hasOverflowClip() ? actualRenderer->getUncachedPseudoStyle({ PseudoId::Resizer }, &actualRenderer->style()) : nullptr;
 
     if (!resizer) {
         clearResizer();
@@ -6703,34 +6825,34 @@ RenderStyle RenderLayer::createReflectionStyle()
     // Map in our transform.
     TransformOperations transform;
     switch (renderer().style().boxReflect()->direction()) {
-        case ReflectionBelow:
-            transform.operations().append(TranslateTransformOperation::create(Length(0, Fixed), Length(100., Percent), TransformOperation::TRANSLATE));
-            transform.operations().append(TranslateTransformOperation::create(Length(0, Fixed), renderer().style().boxReflect()->offset(), TransformOperation::TRANSLATE));
-            transform.operations().append(ScaleTransformOperation::create(1.0, -1.0, ScaleTransformOperation::SCALE));
-            break;
-        case ReflectionAbove:
-            transform.operations().append(ScaleTransformOperation::create(1.0, -1.0, ScaleTransformOperation::SCALE));
-            transform.operations().append(TranslateTransformOperation::create(Length(0, Fixed), Length(100., Percent), TransformOperation::TRANSLATE));
-            transform.operations().append(TranslateTransformOperation::create(Length(0, Fixed), renderer().style().boxReflect()->offset(), TransformOperation::TRANSLATE));
-            break;
-        case ReflectionRight:
-            transform.operations().append(TranslateTransformOperation::create(Length(100., Percent), Length(0, Fixed), TransformOperation::TRANSLATE));
-            transform.operations().append(TranslateTransformOperation::create(renderer().style().boxReflect()->offset(), Length(0, Fixed), TransformOperation::TRANSLATE));
-            transform.operations().append(ScaleTransformOperation::create(-1.0, 1.0, ScaleTransformOperation::SCALE));
-            break;
-        case ReflectionLeft:
-            transform.operations().append(ScaleTransformOperation::create(-1.0, 1.0, ScaleTransformOperation::SCALE));
-            transform.operations().append(TranslateTransformOperation::create(Length(100., Percent), Length(0, Fixed), TransformOperation::TRANSLATE));
-            transform.operations().append(TranslateTransformOperation::create(renderer().style().boxReflect()->offset(), Length(0, Fixed), TransformOperation::TRANSLATE));
-            break;
+    case ReflectionDirection::Below:
+        transform.operations().append(TranslateTransformOperation::create(Length(0, Fixed), Length(100., Percent), TransformOperation::TRANSLATE));
+        transform.operations().append(TranslateTransformOperation::create(Length(0, Fixed), renderer().style().boxReflect()->offset(), TransformOperation::TRANSLATE));
+        transform.operations().append(ScaleTransformOperation::create(1.0, -1.0, ScaleTransformOperation::SCALE));
+        break;
+    case ReflectionDirection::Above:
+        transform.operations().append(ScaleTransformOperation::create(1.0, -1.0, ScaleTransformOperation::SCALE));
+        transform.operations().append(TranslateTransformOperation::create(Length(0, Fixed), Length(100., Percent), TransformOperation::TRANSLATE));
+        transform.operations().append(TranslateTransformOperation::create(Length(0, Fixed), renderer().style().boxReflect()->offset(), TransformOperation::TRANSLATE));
+        break;
+    case ReflectionDirection::Right:
+        transform.operations().append(TranslateTransformOperation::create(Length(100., Percent), Length(0, Fixed), TransformOperation::TRANSLATE));
+        transform.operations().append(TranslateTransformOperation::create(renderer().style().boxReflect()->offset(), Length(0, Fixed), TransformOperation::TRANSLATE));
+        transform.operations().append(ScaleTransformOperation::create(-1.0, 1.0, ScaleTransformOperation::SCALE));
+        break;
+    case ReflectionDirection::Left:
+        transform.operations().append(ScaleTransformOperation::create(-1.0, 1.0, ScaleTransformOperation::SCALE));
+        transform.operations().append(TranslateTransformOperation::create(Length(100., Percent), Length(0, Fixed), TransformOperation::TRANSLATE));
+        transform.operations().append(TranslateTransformOperation::create(renderer().style().boxReflect()->offset(), Length(0, Fixed), TransformOperation::TRANSLATE));
+        break;
     }
     newStyle.setTransform(transform);
 
     // Map in our mask.
     newStyle.setMaskBoxImage(renderer().style().boxReflect()->mask());
-    
+
     // Style has transform and mask, so needs to be stacking context.
-    newStyle.setZIndex(0);
+    newStyle.setUsedZIndex(0);
 
     return newStyle;
 }
@@ -6740,7 +6862,7 @@ void RenderLayer::ensureLayerFilters()
     if (m_filters)
         return;
     
-    m_filters = std::make_unique<RenderLayerFilters>(*this);
+    m_filters = makeUnique<RenderLayerFilters>(*this);
 }
 
 void RenderLayer::clearLayerFilters()
@@ -6794,6 +6916,13 @@ void RenderLayer::filterNeedsRepaint()
         element->invalidateStyleAndLayerComposition();
     }
     renderer().repaint();
+}
+
+IntOutsets RenderLayer::filterOutsets() const
+{
+    if (m_filters)
+        return m_filters->filter() ? m_filters->filter()->outsets() : IntOutsets();
+    return renderer().style().filterOutsets();
 }
 
 bool RenderLayer::isTransparentRespectingParentFrames() const
@@ -6882,6 +7011,7 @@ TextStream& operator<<(TextStream& ts, IndirectCompositingReason reason)
 {
     switch (reason) {
     case IndirectCompositingReason::None: ts << "none"; break;
+    case IndirectCompositingReason::Clipping: ts << "clipping"; break;
     case IndirectCompositingReason::Stacking: ts << "stacking"; break;
     case IndirectCompositingReason::OverflowScrollPositioning: ts << "overflow positioning"; break;
     case IndirectCompositingReason::Overlap: ts << "overlap"; break;
@@ -6928,7 +7058,7 @@ void showLayerTree(const WebCore::RenderObject* renderer)
 static void outputPaintOrderTreeLegend(TextStream& stream)
 {
     stream.nextLine();
-    stream << "(S)tacking Context/(F)orced SC/O(P)portunistic SC, (N)ormal flow only, (O)verflow clip, (A)lpha (opacity or mask), has (B)lend mode, (I)solates blending, (T)ransform-ish, (F)ilter, Fi(X)ed position, Behaves as fi(x)ed, (C)omposited, (P)rovides backing/uses (p)rovided backing/paints to (a)ncestor, (c)omposited descendant, (s)scrolling ancestor\n"
+    stream << "(S)tacking Context/(F)orced SC/O(P)portunistic SC, (N)ormal flow only, (O)verflow clip, (A)lpha (opacity or mask), has (B)lend mode, (I)solates blending, (T)ransform-ish, (F)ilter, Fi(X)ed position, Behaves as fi(x)ed, (C)omposited, (P)rovides backing/uses (p)rovided backing/paints to (a)ncestor, (c)omposited descendant, (s)scrolling ancestor, (t)transformed ancestor\n"
         "Dirty (z)-lists, Dirty (n)ormal flow lists\n"
         "Traversal needs: requirements (t)raversal on descendants, (b)acking or hierarchy traversal on descendants, (r)equirements traversal on all descendants, requirements traversal on all (s)ubsequent layers, (h)ierarchy traversal on all descendants, update of paint (o)rder children\n"
         "Update needs:    post-(l)ayout requirements, (g)eometry, (k)ids geometry, (c)onfig, layer conne(x)ion, (s)crolling tree\n";
@@ -6975,6 +7105,7 @@ static void outputPaintOrderTreeRecursive(TextStream& stream, const WebCore::Ren
     stream << compositedPaintingDestinationString();
     stream << (layer.hasCompositingDescendant() ? "c" : "-");
     stream << (layer.hasCompositedScrollingAncestor() ? "s" : "-");
+    stream << (layer.hasTransformedAncestor() ? "t" : "-");
 
     stream << " ";
 

@@ -67,7 +67,7 @@ static const char* const webKitBlobResourceDomain = "WebKitBlobResource";
 
 NetworkDataTaskBlob::NetworkDataTaskBlob(NetworkSession& session, BlobRegistryImpl& blobRegistry, NetworkDataTaskClient& client, const ResourceRequest& request, ContentSniffingPolicy shouldContentSniff, const Vector<RefPtr<WebCore::BlobDataFileReference>>& fileReferences)
     : NetworkDataTask(session, client, request, StoredCredentialsPolicy::DoNotUse, false, false)
-    , m_stream(std::make_unique<AsyncFileStream>(*this))
+    , m_stream(makeUnique<AsyncFileStream>(*this))
     , m_fileReferences(fileReferences)
     , m_networkProcess(session.networkProcess())
 {
@@ -86,7 +86,8 @@ NetworkDataTaskBlob::~NetworkDataTaskBlob()
         fileReference->revokeFileAccess();
 
     clearStream();
-    m_session->unregisterNetworkDataTask(*this);
+    if (m_session)
+        m_session->unregisterNetworkDataTask(*this);
 }
 
 void NetworkDataTaskBlob::clearStream()
@@ -289,7 +290,7 @@ void NetworkDataTaskBlob::dispatchDidReceiveResponse(Error errorCode)
         break;
     }
 
-    didReceiveResponse(WTFMove(response), [this, protectedThis = WTFMove(protectedThis), errorCode](PolicyAction policyAction) {
+    didReceiveResponse(WTFMove(response), NegotiatedLegacyTLS::No, [this, protectedThis = WTFMove(protectedThis), errorCode](PolicyAction policyAction) {
         LOG(NetworkSession, "%p - NetworkDataTaskBlob::didReceiveResponse completionHandler (%u)", this, static_cast<unsigned>(policyAction));
 
         if (m_state == State::Canceling || m_state == State::Completed) {
@@ -455,6 +456,7 @@ void NetworkDataTaskBlob::download()
 {
     ASSERT(isDownload());
     ASSERT(m_pendingDownloadLocation);
+    ASSERT(m_session);
 
     LOG(NetworkSession, "%p - NetworkDataTaskBlob::download to %s", this, m_pendingDownloadLocation.utf8().data());
 
@@ -465,7 +467,7 @@ void NetworkDataTaskBlob::download()
     }
 
     auto& downloadManager = m_networkProcess->downloadManager();
-    auto download = std::make_unique<Download>(downloadManager, m_pendingDownloadID, *this, m_session->sessionID(), suggestedFilename());
+    auto download = makeUnique<Download>(downloadManager, m_pendingDownloadID, *this, *m_session, suggestedFilename());
     auto* downloadPtr = download.get();
     downloadManager.dataTaskBecameDownloadTask(m_pendingDownloadID, WTFMove(download));
     downloadPtr->didCreateDestination(m_pendingDownloadLocation);

@@ -26,7 +26,6 @@
 #pragma once
 
 #include "CacheStorageConnection.h"
-#include <pal/SessionID.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -35,9 +34,13 @@ class CacheStorageProvider : public RefCounted<CacheStorageProvider> {
 public:
     class DummyCacheStorageConnection final : public WebCore::CacheStorageConnection {
     public:
-        static Ref<DummyCacheStorageConnection> create() { return adoptRef(*new DummyCacheStorageConnection); }
+        static Ref<DummyCacheStorageConnection> create() { return adoptRef(*new DummyCacheStorageConnection()); }
 
     private:
+        DummyCacheStorageConnection()
+        {
+        }
+
         void open(const ClientOrigin&, const String&, DOMCacheEngine::CacheIdentifierCallback&&) final { }
         void remove(uint64_t, DOMCacheEngine::CacheIdentifierCallback&&) final { }
         void retrieveCaches(const ClientOrigin&, uint64_t, DOMCacheEngine::CacheInfosCallback&&) final { }
@@ -49,7 +52,7 @@ public:
     };
 
     static Ref<CacheStorageProvider> create() { return adoptRef(*new CacheStorageProvider); }
-    virtual Ref<CacheStorageConnection> createCacheStorageConnection(PAL::SessionID) { return DummyCacheStorageConnection::create(); }
+    virtual Ref<CacheStorageConnection> createCacheStorageConnection() { return DummyCacheStorageConnection::create(); }
     virtual ~CacheStorageProvider() { };
 
 protected:

@@ -168,6 +168,10 @@ void printInternal(PrintStream& out, LocationKind kind)
         out.print("RegExpObjectLastIndexLoc");
         return;
 
+    case DateFieldLoc:
+        out.print("DateFieldLoc");
+        return;
+
     case MapBucketLoc:
         out.print("MapBucketLoc");
         return;
@@ -190,6 +194,10 @@ void printInternal(PrintStream& out, LocationKind kind)
 
     case WeakMapGetLoc:
         out.print("WeakMapGetLoc");
+        return;
+
+    case PromiseInternalFieldLoc:
+        out.print("PromiseInternalFieldLoc");
         return;
 
     case DOMStateLoc:

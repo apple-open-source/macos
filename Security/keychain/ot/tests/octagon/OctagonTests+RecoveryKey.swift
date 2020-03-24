@@ -1,6 +1,18 @@
 #if OCTAGON
 
-@objcMembers class OctagonRecoveryKeyTests: OctagonTestsBase {
+extension Container {
+    func removeRKFromContainer() {
+        self.moc.performAndWait {
+            self.containerMO.recoveryKeySigningSPKI = nil
+            self.containerMO.recoveryKeyEncryptionSPKI = nil
+
+            try! self.moc.save()
+        }
+    }
+}
+
+@objcMembers
+class OctagonRecoveryKeyTests: OctagonTestsBase {
     override func setUp() {
         super.setUp()
     }
@@ -10,6 +22,7 @@
         self.manager.setSOSEnabledForPlatformFlag(false)
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
@@ -34,7 +47,7 @@
         self.manager.setSOSEnabledForPlatformFlag(true)
 
         let createKeyExpectation = self.expectation(description: "createKeyExpectation returns")
-        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context ?? "defaultContext", recoveryKey: recoveryKey) { error in
+        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, recoveryKey: recoveryKey) { error in
             XCTAssertNil(error, "error should be nil")
             createKeyExpectation.fulfill()
         }
@@ -46,6 +59,7 @@
         self.manager.setSOSEnabledForPlatformFlag(false)
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -66,7 +80,7 @@
         self.manager.setSOSEnabledForPlatformFlag(true)
 
         let createKeyExpectation = self.expectation(description: "createKeyExpectation returns")
-        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context ?? "defaultContext", recoveryKey: recoveryKey) { error in
+        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, recoveryKey: recoveryKey) { error in
             XCTAssertNil(error, "error should be nil")
             createKeyExpectation.fulfill()
         }
@@ -89,7 +103,7 @@
         self.sendContainerChange(context: initiatorContext)
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        initiatorContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
+        initiatorContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNil(error, "error should be nil")
             joinWithBottleExpectation.fulfill()
         }
@@ -102,20 +116,19 @@
         self.verifyDatabaseMocks()
 
         let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -124,20 +137,19 @@
         self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
 
         let stableInfoAcceptorCheckDumpCallback = self.expectation(description: "stableInfoAcceptorCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: self.otcliqueContext.context ?? "defaultContext") {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: self.otcliqueContext.context) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -152,6 +164,7 @@
         self.manager.setSOSEnabledForPlatformFlag(false)
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -172,7 +185,7 @@
         self.manager.setSOSEnabledForPlatformFlag(true)
 
         let createKeyExpectation = self.expectation(description: "createKeyExpectation returns")
-        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context ?? "defaultContext", recoveryKey: recoveryKey) { error in
+        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, recoveryKey: recoveryKey) { error in
             XCTAssertNil(error, "error should be nil")
             createKeyExpectation.fulfill()
         }
@@ -196,7 +209,7 @@
         self.assertEnters(context: initiatorContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        initiatorContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
+        initiatorContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNil(error, "error should be nil")
             joinWithBottleExpectation.fulfill()
         }
@@ -213,20 +226,19 @@
         self.verifyDatabaseMocks()
 
         let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -235,20 +247,19 @@
         self.wait(for: [stableInfoCheckDumpCallback], timeout: 10)
 
         let stableInfoAcceptorCheckDumpCallback = self.expectation(description: "stableInfoAcceptorCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: self.otcliqueContext.context ?? "defaultContext") {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: self.otcliqueContext.context) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -263,7 +274,7 @@
 
         self.sendContainerChange(context: thirdPeerContext)
         let thirdPeerJoinWithBottleExpectation = self.expectation(description: "thirdPeerJoinWithBottleExpectation callback occurs")
-        thirdPeerContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
+        thirdPeerContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNil(error, "error should be nil")
             thirdPeerJoinWithBottleExpectation.fulfill()
         }
@@ -273,20 +284,19 @@
 
         self.sendContainerChangeWaitForFetch(context: thirdPeerContext)
         let thirdPeerStableInfoCheckDumpCallback = self.expectation(description: "thirdPeerStableInfoCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: thirdPeerContextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: thirdPeerContextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 3, "should be 3df peer ids")
 
@@ -315,6 +325,7 @@
         let establishContext = self.createEstablishContext(contextID: establishContextID)
 
         establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -336,8 +347,8 @@
         self.assertConsidersSelfTrusted(context: establishContext)
 
         // Fake that this peer also created some TLKShares for itself
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        try self.putSelfTLKShareInCloudKit(context: establishContext, zoneID: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
 
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
@@ -372,20 +383,19 @@
         self.sendContainerChangeWaitForFetch(context: recoveryContext)
 
         let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             let vouchers = dump!["vouchers"]
@@ -397,20 +407,19 @@
         self.sendContainerChangeWaitForFetch(context: establishContext)
 
         let stableInfoAcceptorCheckDumpCallback = self.expectation(description: "stableInfoAcceptorCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: establishContextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: establishContextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             let vouchers = dump!["vouchers"]
@@ -418,7 +427,7 @@
             stableInfoAcceptorCheckDumpCallback.fulfill()
         }
         self.wait(for: [stableInfoAcceptorCheckDumpCallback], timeout: 10)
-        try self.putSelfTLKShareInCloudKit(context: recoveryContext, zoneID: self.manateeZoneID)
+        try self.putSelfTLKSharesInCloudKit(context: recoveryContext)
         self.assertSelfTLKSharesInCloudKit(context: recoveryContext)
     }
 
@@ -431,6 +440,7 @@
         let establishContext = self.createEstablishContext(contextID: establishContextID)
 
         establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -466,11 +476,11 @@
         self.sendContainerChangeWaitForFetch(context: establishContext)
 
         self.silentFetchesAllowed = false
-        self.expectCKFetchAndRun(beforeFinished: {
-            self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-            self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
+        self.expectCKFetchAndRun {
+            self.putFakeKeyHierarchiesInCloudKit()
+            self.putFakeDeviceStatusesInCloudKit()
             self.silentFetchesAllowed = true
-        })
+        }
         let recoveryContext = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
 
         recoveryContext.startOctagonStateMachine()
@@ -497,6 +507,7 @@
         let establishContext = self.createEstablishContext(contextID: establishContextID)
 
         establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -532,6 +543,7 @@
         let establishContext = self.createEstablishContext(contextID: establishContextID)
 
         establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -575,6 +587,7 @@
 
         let initiatorContextID = "initiator-context-id"
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -607,7 +620,7 @@
         self.sendContainerChange(context: initiatorContext)
         let restoreExpectation = self.expectation(description: "restore returns")
 
-        self.manager!.restore(OTCKContainerName, contextID: initiatorContextID, bottleSalt: self.otcliqueContext.altDSID, entropy: entropy!, bottleID: bottle.bottleID) { error in
+        self.manager!.restore(OTCKContainerName, contextID: initiatorContextID, bottleSalt: self.otcliqueContext.altDSID!, entropy: entropy!, bottleID: bottle.bottleID) { error in
             XCTAssertNil(error, "error should be nil")
             restoreExpectation.fulfill()
         }
@@ -616,14 +629,13 @@
         self.assertEnters(context: initiatorContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
         var initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -662,15 +674,14 @@
 
         //now let's ensure recovery keys are set for both the first device and second device
         initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: initiatorContextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
@@ -678,7 +689,7 @@
             initiatorRecoverySigningKey = stableInfo!["recovery_signing_public_key"] as? Data
             initiatorRecoveryEncryptionKey = stableInfo!["recovery_encryption_public_key"] as? Data
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             let vouchers = dump!["vouchers"]
@@ -688,15 +699,14 @@
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let firstDeviceDumpCallback = self.expectation(description: "firstDeviceDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
@@ -704,7 +714,7 @@
             firstDeviceRecoverySigningKey = stableInfo!["recovery_signing_public_key"] as? Data
             firstDeviceRecoveryEncryptionKey = stableInfo!["recovery_encryption_public_key"] as? Data
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             let vouchers = dump!["vouchers"]
@@ -726,6 +736,7 @@
         let establishContext = self.createEstablishContext(contextID: establishContextID)
 
         establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -747,8 +758,8 @@
         self.assertConsidersSelfTrusted(context: establishContext)
 
         // Fake that this peer also created some TLKShares for itself
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        try self.putSelfTLKShareInCloudKit(context: establishContext, zoneID: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
 
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
@@ -787,20 +798,19 @@
         self.sendContainerChangeWaitForFetch(context: newGuyContext)
 
         let stableInfoAcceptorCheckDumpCallback = self.expectation(description: "stableInfoAcceptorCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             let vouchers = dump!["vouchers"]
@@ -810,26 +820,25 @@
         self.wait(for: [stableInfoAcceptorCheckDumpCallback], timeout: 10)
         self.assertEnters(context: newGuyContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: newGuyContext)
-        try self.putSelfTLKShareInCloudKit(context: newGuyContext, zoneID: self.manateeZoneID)
+        try self.putSelfTLKSharesInCloudKit(context: newGuyContext)
         self.assertSelfTLKSharesInCloudKit(context: newGuyContext)
 
         self.sendContainerChangeWaitForFetch(context: establishContext)
 
         let stableInfoCheckDumpCallback = self.expectation(description: "stableInfoCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: establishContextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: establishContextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             let vouchers = dump!["vouchers"]
@@ -866,20 +875,19 @@
         self.sendContainerChange(context: recoveryGuyContext)
 
         let newGuyCheckDumpCallback = self.expectation(description: "newGuyCheckDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) {
-            dump, _ in
+        self.tphClient.dump(withContainer: OTCKContainerName, context: OTDefaultContext) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
 
-            let stableInfo = egoSelf!["stableInfo"] as? Dictionary<String, AnyObject>
+            let stableInfo = egoSelf!["stableInfo"] as? [String: AnyObject]
             XCTAssertNotNil(stableInfo, "stableInfo should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_signing_public_key"], "recoverySigningPublicKey should not be nil")
             XCTAssertNotNil(stableInfo!["recovery_encryption_public_key"], "recoveryEncryptionPublicKey should not be nil")
 
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 1, "should be 1 peer ids")
             let vouchers = dump!["vouchers"]
@@ -898,6 +906,7 @@
         self.startCKAccountStatusMock()
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
@@ -921,7 +930,7 @@
         XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
 
         let createKeyExpectation = self.expectation(description: "createKeyExpectation returns")
-        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context ?? "defaultContext", recoveryKey: recoveryKey) { error in
+        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, recoveryKey: recoveryKey) { error in
             XCTAssertNotNil(error, "error should not be nil")
             XCTAssertEqual((error! as NSError).code, OctagonError.OTErrorLimitedPeer.rawValue, "error code should be limited peer")
             createKeyExpectation.fulfill()
@@ -938,6 +947,7 @@
         let establishContext = self.createEstablishContext(contextID: establishContextID)
 
         establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -959,8 +969,8 @@
         self.assertConsidersSelfTrusted(context: establishContext)
 
         // Fake that this peer also created some TLKShares for itself
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        try self.putSelfTLKShareInCloudKit(context: establishContext, zoneID: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
 
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
@@ -1013,6 +1023,7 @@
         let establishContext = self.createEstablishContext(contextID: establishContextID)
 
         establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -1034,8 +1045,8 @@
         self.assertConsidersSelfTrusted(context: establishContext)
 
         // Fake that this peer also created some TLKShares for itself
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        try self.putSelfTLKShareInCloudKit(context: establishContext, zoneID: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
 
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
@@ -1071,9 +1082,7 @@
         XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
 
         OTClique.recoverOctagon(usingData: newCliqueContext, recoveryKey: recoveryKey!) { error in
-            XCTAssertNotNil(error, "error should NOT be nil")
-            XCTAssertEqual((error! as NSError).code, 32, "error code should be 32/untrusted recovery keys")
-            XCTAssertEqual((error! as NSError).domain, "com.apple.security.trustedpeers.container", "error code domain should be com.apple.security.trustedpeers.container")
+            XCTAssertNil(error, "error should be nil")
             joinWithRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 10)
@@ -1088,6 +1097,7 @@
         let establishContext = self.createEstablishContext(contextID: establishContextID)
 
         establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -1109,8 +1119,8 @@
         self.assertConsidersSelfTrusted(context: establishContext)
 
         // Fake that this peer also created some TLKShares for itself
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        try self.putSelfTLKShareInCloudKit(context: establishContext, zoneID: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: establishContext)
 
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
@@ -1164,6 +1174,7 @@
         let establishContext = self.createEstablishContext(contextID: establishContextID)
 
         establishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try establishContext.setCDPEnabled())
         self.assertEnters(context: establishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -1185,9 +1196,8 @@
         self.assertConsidersSelfTrusted(context: establishContext)
 
         // Fake that this peer also created some TLKShares for itself
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        try self.putSelfTLKShareInCloudKit(context: establishContext, zoneID: self.manateeZoneID)
-
+        self.putFakeKeyHierarchiesInCloudKit()
+        try! self.putSelfTLKSharesInCloudKit(context: establishContext)
         self.assertSelfTLKSharesInCloudKit(context: establishContext)
 
         let recoveryKey = "malformedRecoveryKey"
@@ -1195,7 +1205,7 @@
         self.manager.setSOSEnabledForPlatformFlag(true)
 
         let createKeyExpectation = self.expectation(description: "createKeyExpectation returns")
-        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context ?? "defaultContext", recoveryKey: recoveryKey) { error in
+        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, recoveryKey: recoveryKey) { error in
             XCTAssertNotNil(error, "error should NOT be nil")
             XCTAssertEqual((error! as NSError).code, 41, "error code should be 41/malformed recovery key")
             XCTAssertEqual((error! as NSError).domain, "com.apple.security.octagon", "error code domain should be com.apple.security.octagon")
@@ -1224,6 +1234,117 @@
             joinWithRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 10)
+    }
+
+    @discardableResult
+    func createAndSetRecoveryKey(context: OTCuttlefishContext) -> String {
+        let cliqueConfiguration = OTConfigurationContext()
+        cliqueConfiguration.context = context.contextID
+        cliqueConfiguration.altDSID = try! context.authKitAdapter.primaryiCloudAccountAltDSID()
+        cliqueConfiguration.otControl = self.otControl
+
+        let recoveryKey = SecRKCreateRecoveryKeyString(nil)
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+
+        let setRecoveryKeyExpectation = self.expectation(description: "setRecoveryKeyExpectation callback occurs")
+        TestsObjectiveC.setNewRecoveryKeyWithData(cliqueConfiguration, recoveryKey: recoveryKey!) { _, error in
+            XCTAssertNil(error, "error should be nil")
+            setRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [setRecoveryKeyExpectation], timeout: 10)
+
+        return recoveryKey!
+    }
+
+    func testConcurWithTrustedPeer() throws {
+        self.startCKAccountStatusMock()
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let peer2Context = self.makeInitiatorContext(contextID: "peer2")
+        let peer2ID = self.assertJoinViaEscrowRecovery(joiningContext: peer2Context, sponsor: self.cuttlefishContext)
+
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+
+        // peer1 sets a recovery key
+        var rkSigningPubKey : Data? = nil
+        var rkEncryptionPubKey : Data? = nil
+
+        let setRKExpectation = self.expectation(description: "setRecoveryKey")
+        self.fakeCuttlefishServer.setRecoveryKeyListener = { request in
+            XCTAssertNotNil(request.recoverySigningPubKey, "signing public key should be present")
+            XCTAssertNotNil(request.recoveryEncryptionPubKey, "encryption public key should be present")
+
+            rkSigningPubKey = request.recoverySigningPubKey
+            rkEncryptionPubKey = request.recoveryEncryptionPubKey
+
+            setRKExpectation.fulfill()
+            return nil
+        }
+
+        self.createAndSetRecoveryKey(context: self.cuttlefishContext)
+        self.wait(for: [setRKExpectation], timeout: 10)
+
+        // And peer2 concurs with it upon receiving a push
+        let updateTrustExpectation = self.expectation(description: "updateTrust")
+        self.fakeCuttlefishServer.updateListener = { [unowned self] request in
+            XCTAssertEqual(request.peerID, peer2ID, "Update should be for peer2")
+
+            let newStableInfo = request.stableInfoAndSig.stableInfo()
+            XCTAssertEqual(newStableInfo.recoverySigningPublicKey, rkSigningPubKey, "Recovery signing key should match other peer")
+            XCTAssertEqual(newStableInfo.recoveryEncryptionPublicKey, rkEncryptionPubKey, "Recovery encryption key should match other peer")
+            self.fakeCuttlefishServer.updateListener = nil
+            updateTrustExpectation.fulfill()
+
+            return nil
+        }
+
+        self.sendContainerChangeWaitForFetch(context: peer2Context)
+        self.wait(for: [updateTrustExpectation], timeout: 10)
+
+        // Restart TPH, and ensure that more updates succeed
+        self.tphClient.containerMap.removeAllContainers()
+
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+        self.sendContainerChangeWaitForFetch(context: peer2Context)
+    }
+
+    func testRecoveryKeyLoadingOnContainerLoad() throws {
+        self.startCKAccountStatusMock()
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        let _ = self.assertResetAndBecomeTrustedInDefaultContext()
+        // peer1 sets a recovery key
+        self.createAndSetRecoveryKey(context: self.cuttlefishContext)
+
+        // Restart TPH
+        self.tphClient.containerMap.removeAllContainers()
+
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
+    }
+
+    func testRecoveryKeyLoadingOnContainerLoadEvenIfMissing() throws {
+        self.startCKAccountStatusMock()
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        let _ = self.assertResetAndBecomeTrustedInDefaultContext()
+        // peer1 sets a recovery key
+        self.createAndSetRecoveryKey(context: self.cuttlefishContext)
+
+        // Before restarting TPH, emulate a world in which the RK variables were not set on the container
+
+        let containerName = ContainerName(container: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID)
+        let container = try self.tphClient.containerMap.findOrCreate(name: containerName)
+        container.removeRKFromContainer()
+
+        // Restart TPH
+        self.tphClient.containerMap.removeAllContainers()
+
+        self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
     }
 }
 #endif

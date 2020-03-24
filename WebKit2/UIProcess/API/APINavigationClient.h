@@ -49,12 +49,12 @@ struct ContentRuleListResults;
 class ResourceError;
 class ResourceRequest;
 class ResourceResponse;
+class SharedBuffer;
 struct SecurityOriginData;
 }
 
 namespace WebKit {
 class AuthenticationChallengeProxy;
-class QuickLookDocumentData;
 class WebBackForwardListItem;
 class WebFramePolicyListenerProxy;
 class WebFrameProxy;
@@ -73,6 +73,7 @@ class NavigationResponse;
 class Object;
 
 class NavigationClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     virtual ~NavigationClient() { }
 
@@ -82,7 +83,7 @@ public:
     virtual void didPerformClientRedirect(WebKit::WebPageProxy&, const WTF::String& sourceURL, const WTF::String& destinationURL) { }
     virtual void didCancelClientRedirect(WebKit::WebPageProxy&) { }
     virtual void didFailProvisionalNavigationWithError(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, Navigation*, const WebCore::ResourceError&, Object*) { }
-    virtual void didFailProvisionalLoadInSubframeWithError(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, const WebCore::SecurityOriginData&, Navigation*, const WebCore::ResourceError&, Object*) { }
+    virtual void didFailProvisionalLoadInSubframeWithError(WebKit::WebPageProxy&, WebKit::WebFrameProxy&, WebCore::SecurityOriginData&&, Navigation*, const WebCore::ResourceError&, Object*) { }
     virtual void didCommitNavigation(WebKit::WebPageProxy&, Navigation*, Object*) { }
     virtual void didFinishDocumentLoad(WebKit::WebPageProxy&, Navigation*, Object*) { }
     virtual void didFinishNavigation(WebKit::WebPageProxy&, Navigation*, Object*) { }
@@ -95,6 +96,7 @@ public:
     virtual void renderingProgressDidChange(WebKit::WebPageProxy&, OptionSet<WebCore::LayoutMilestone>) { }
 
     virtual void didReceiveAuthenticationChallenge(WebKit::WebPageProxy&, WebKit::AuthenticationChallengeProxy& challenge) { challenge.listener().completeChallenge(WebKit::AuthenticationChallengeDisposition::PerformDefaultHandling); }
+    virtual void shouldAllowLegacyTLS(WebKit::WebPageProxy&, WebKit::AuthenticationChallengeProxy&, CompletionHandler<void(bool)>&& completionHandler) { completionHandler(true); }
     virtual bool shouldBypassContentModeSafeguards() const { return false; }
 
     // FIXME: These function should not be part of this client.
@@ -108,7 +110,7 @@ public:
 
 #if USE(QUICK_LOOK)
     virtual void didStartLoadForQuickLookDocumentInMainFrame(const WTF::String& fileName, const WTF::String& uti) { }
-    virtual void didFinishLoadForQuickLookDocumentInMainFrame(const WebKit::QuickLookDocumentData&) { }
+    virtual void didFinishLoadForQuickLookDocumentInMainFrame(const WebCore::SharedBuffer&) { }
 #endif
 
     virtual void decidePolicyForNavigationAction(WebKit::WebPageProxy&, Ref<NavigationAction>&&, Ref<WebKit::WebFramePolicyListenerProxy>&& listener, Object*)
@@ -137,7 +139,7 @@ public:
     virtual void resolveWebGLLoadPolicy(WebKit::WebPageProxy&, const WTF::URL&, CompletionHandler<void(WebCore::WebGLLoadPolicy)>&& completionHandler) const { completionHandler(WebCore::WebGLLoadPolicy::WebGLAllowCreation); }
 #endif
     
-    virtual bool willGoToBackForwardListItem(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem&, bool inPageCache) { return false; }
+    virtual bool willGoToBackForwardListItem(WebKit::WebPageProxy&, WebKit::WebBackForwardListItem&, bool inBackForwardCache) { return false; }
 
     virtual void didBeginNavigationGesture(WebKit::WebPageProxy&) { }
     virtual void willEndNavigationGesture(WebKit::WebPageProxy&, bool willNavigate, WebKit::WebBackForwardListItem&) { }

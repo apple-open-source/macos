@@ -180,9 +180,15 @@
 
 #define WebKitMenuItemElementEnabledPreferenceKey "WebKitMenuItemElementEnabled"
 
+#define WebKitKeygenElementEnabledPreferenceKey "WebKitKeygenElementEnabled"
+
 #define WebKitModernMediaControlsEnabledPreferenceKey "WebKitModernMediaControlsEnabled"
 
 #define WebKitWebAnimationsEnabledPreferenceKey "WebKitWebAnimationsEnabled"
+
+#define WebKitWebAnimationsCompositeOperationsEnabledPreferenceKey "WebKitWebAnimationsCompositeOperationsEnabled"
+
+#define WebKitWebAnimationsMutableTimelinesEnabledPreferenceKey "WebKitWebAnimationsMutableTimelinesEnabled"
 
 #define WebKitWebAnimationsCSSIntegrationEnabledPreferenceKey "WebKitWebAnimationsCSSIntegrationEnabled"
 
@@ -209,3 +215,9 @@
 #define WebKitResizeObserverEnabledPreferenceKey "WebKitResizeObserverEnabled"
 
 #define WebKitCoreMathMLEnabledPreferenceKey "WebKitCoreMathMLEnabled"
+
+#define WebKitRequestIdleCallbackEnabledPreferenceKey "WebKitRequestIdleCallbackEnabled"
+
+#define WebKitAsyncClipboardAPIEnabledPreferenceKey "WebKitAsyncClipboardAPIEnabled"
+
+#define WebKitRenderingUpdateThrottlingEnabledPreferenceKey "WebKitRenderingUpdateThrottlingEnabled"

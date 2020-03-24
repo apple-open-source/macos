@@ -215,13 +215,7 @@ bool SVGResources::buildCachedResources(const RenderElement& renderer, const Ren
 
     bool foundResources = false;
     if (clipperFilterMaskerTags().contains(tagName)) {
-        if (svgStyle.hasClipper()) {
-            AtomString id(svgStyle.clipperResource());
-            if (setClipper(getRenderSVGResourceById<RenderSVGResourceClipper>(document, id)))
-                foundResources = true;
-            else
-                registerPendingResource(extensions, id, element);
-        } else if (is<ReferenceClipPathOperation>(style.clipPath())) {
+        if (is<ReferenceClipPathOperation>(style.clipPath())) {
             // FIXME: -webkit-clip-path should support external resources
             // https://bugs.webkit.org/show_bug.cgi?id=127032
             auto& clipPath = downcast<ReferenceClipPathOperation>(*style.clipPath());
@@ -508,7 +502,7 @@ bool SVGResources::setClipper(RenderSVGResourceClipper* clipper)
     ASSERT(clipper->resourceType() == ClipperResourceType);
 
     if (!m_clipperFilterMaskerData)
-        m_clipperFilterMaskerData = std::make_unique<ClipperFilterMaskerData>();
+        m_clipperFilterMaskerData = makeUnique<ClipperFilterMaskerData>();
 
     m_clipperFilterMaskerData->clipper = clipper;
     return true;
@@ -529,7 +523,7 @@ bool SVGResources::setFilter(RenderSVGResourceFilter* filter)
     ASSERT(filter->resourceType() == FilterResourceType);
 
     if (!m_clipperFilterMaskerData)
-        m_clipperFilterMaskerData = std::make_unique<ClipperFilterMaskerData>();
+        m_clipperFilterMaskerData = makeUnique<ClipperFilterMaskerData>();
 
     m_clipperFilterMaskerData->filter = filter;
     return true;
@@ -550,7 +544,7 @@ bool SVGResources::setMarkerStart(RenderSVGResourceMarker* markerStart)
     ASSERT(markerStart->resourceType() == MarkerResourceType);
 
     if (!m_markerData)
-        m_markerData = std::make_unique<MarkerData>();
+        m_markerData = makeUnique<MarkerData>();
 
     m_markerData->markerStart = markerStart;
     return true;
@@ -571,7 +565,7 @@ bool SVGResources::setMarkerMid(RenderSVGResourceMarker* markerMid)
     ASSERT(markerMid->resourceType() == MarkerResourceType);
 
     if (!m_markerData)
-        m_markerData = std::make_unique<MarkerData>();
+        m_markerData = makeUnique<MarkerData>();
 
     m_markerData->markerMid = markerMid;
     return true;
@@ -592,7 +586,7 @@ bool SVGResources::setMarkerEnd(RenderSVGResourceMarker* markerEnd)
     ASSERT(markerEnd->resourceType() == MarkerResourceType);
 
     if (!m_markerData)
-        m_markerData = std::make_unique<MarkerData>();
+        m_markerData = makeUnique<MarkerData>();
 
     m_markerData->markerEnd = markerEnd;
     return true;
@@ -613,7 +607,7 @@ bool SVGResources::setMasker(RenderSVGResourceMasker* masker)
     ASSERT(masker->resourceType() == MaskerResourceType);
 
     if (!m_clipperFilterMaskerData)
-        m_clipperFilterMaskerData = std::make_unique<ClipperFilterMaskerData>();
+        m_clipperFilterMaskerData = makeUnique<ClipperFilterMaskerData>();
 
     m_clipperFilterMaskerData->masker = masker;
     return true;
@@ -636,7 +630,7 @@ bool SVGResources::setFill(RenderSVGResourceContainer* fill)
            || fill->resourceType() == RadialGradientResourceType);
 
     if (!m_fillStrokeData)
-        m_fillStrokeData = std::make_unique<FillStrokeData>();
+        m_fillStrokeData = makeUnique<FillStrokeData>();
 
     m_fillStrokeData->fill = fill;
     return true;
@@ -659,7 +653,7 @@ bool SVGResources::setStroke(RenderSVGResourceContainer* stroke)
            || stroke->resourceType() == RadialGradientResourceType);
 
     if (!m_fillStrokeData)
-        m_fillStrokeData = std::make_unique<FillStrokeData>();
+        m_fillStrokeData = makeUnique<FillStrokeData>();
 
     m_fillStrokeData->stroke = stroke;
     return true;

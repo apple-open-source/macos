@@ -9,6 +9,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -39,10 +40,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [healthCheckCallback], timeout: 10)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) {
-            dump, _ in
+        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
             dumpCallback.fulfill()
         }
@@ -56,6 +56,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
@@ -69,16 +70,16 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
         #if os(tvOS)
-        XCTAssertEqual(self.cuttlefishContext.postedRepairCFU, false, "Should not have posted a CFU on aTV")
+        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), false, "Should not have posted a CFU on aTV")
         #else
-        XCTAssertEqual(self.cuttlefishContext.postedRepairCFU, true, "Should have posted a CFU (due to being untrusted)")
+        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), true, "Should have posted a CFU (due to being untrusted)")
         #endif
 
         self.verifyDatabaseMocks()
         self.assertEnters(context: cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         // Reset flag for remainder of test
-        self.cuttlefishContext.setPostedBool(false)
+        self.cuttlefishContext.followupHandler.clearAllPostedFlags()
 
         // Set the "have I attempted to join" bit; TVs should still not CFU, but other devices should
         try! self.cuttlefishContext.accountMetadataStore.persistOctagonJoinAttempt(.ATTEMPTED)
@@ -91,9 +92,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [healthCheckCallback2], timeout: 10)
 
         #if os(tvOS)
-        XCTAssertEqual(self.cuttlefishContext.postedRepairCFU, false, "Should not have posted a CFU on aTV")
+        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), false, "Should not have posted a CFU on aTV")
         #else
-        XCTAssertEqual(self.cuttlefishContext.postedRepairCFU, true, "Should have posted a CFU")
+        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), true, "Should have posted a CFU")
         #endif
     }
 
@@ -104,6 +105,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -140,14 +142,13 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfTrusted(context: cuttlefishContext)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) {
-            dump, _ in
+        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 1, "should be 1 peer ids")
             dumpCallback.fulfill()
@@ -165,6 +166,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -210,19 +212,20 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [healthCheckCallback], timeout: 10)
 
         #if !os(tvOS)
-        XCTAssertEqual(cuttlefishContext.postedRepairCFU, true, "Should have posted a CFU")
+        XCTAssertTrue(cuttlefishContext.followupHandler.hasPosted(.stateRepair), "Should have posted a CFU")
         #else
-        XCTAssertFalse(cuttlefishContext.postedRepairCFU, "aTV should not have posted a CFU, as there's no iphone to recover from")
+        XCTAssertFalse(cuttlefishContext.followupHandler.hasPosted(.stateRepair), "aTV should not have posted a CFU, as there's no iphone to recover from")
         #endif
     }
 
-    func responseTestsSetup() throws -> (OTCuttlefishContext, String) {
+    func responseTestsSetup(expectedState: String) throws -> (OTCuttlefishContext, String) {
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -249,6 +252,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         // Reset any CFUs we've done so far
         self.otFollowUpController.postedFollowUp = false
+        self.cuttlefishContext.followupHandler.clearAllPostedFlags()
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
         self.manager.healthCheck(containerName, context: contextName, skipRateLimitingCheck: false) { error in
@@ -258,57 +262,55 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [healthCheckCallback], timeout: 10)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) {
-            dump, _ in
+        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
             dumpCallback.fulfill()
         }
         self.wait(for: [dumpCallback], timeout: 10)
 
         self.verifyDatabaseMocks()
-        self.assertEnters(context: cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: cuttlefishContext, state: expectedState, within: 10 * NSEC_PER_SEC)
 
         return (cuttlefishContext, originalCliqueIdentifier!)
     }
 
     func testCuttlefishResponseNoAction() throws {
         self.fakeCuttlefishServer.returnNoActionResponse = true
-        let (cuttlefishContext, _) = try responseTestsSetup()
+        let (cuttlefishContext, _) = try responseTestsSetup(expectedState: OctagonStateReady)
         XCTAssertFalse(self.otFollowUpController.postedFollowUp, "should not have posted a CFU")
-        XCTAssertEqual(cuttlefishContext.postedRepairCFU, false, "should not have posted a CFU")
+        XCTAssertFalse(cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should not have posted a Repair CFU")
     }
 
     func testCuttlefishResponseRepairAccount() throws {
         self.fakeCuttlefishServer.returnRepairAccountResponse = true
-        let (_, _) = try responseTestsSetup()
-        XCTAssertTrue(self.otFollowUpController.postedFollowUp, "should have posted a CFU")
+        let (_, _) = try responseTestsSetup(expectedState: OctagonStateReady)
+        XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should have posted a Repair CFU")
     }
 
     func testCuttlefishResponseRepairEscrow() throws {
         self.fakeCuttlefishServer.returnRepairEscrowResponse = true
         OTMockSecEscrowRequest.self.populateStatuses = false
-        let (cuttlefishContext, _) = try responseTestsSetup()
+        let (cuttlefishContext, _) = try responseTestsSetup(expectedState: OctagonStateReady)
         XCTAssertTrue(self.otFollowUpController.postedFollowUp, "should have posted a CFU")
-        XCTAssertEqual(cuttlefishContext.postedEscrowRepairCFU, true, "should have posted an escrow CFU")
+        XCTAssertTrue(cuttlefishContext.followupHandler.hasPosted(.offlinePasscodeChange), "should have posted an escrow CFU")
     }
 
     func testCuttlefishResponseResetOctagon() throws {
         let contextName = OTDefaultContext
         let containerName = OTCKContainerName
         self.fakeCuttlefishServer.returnResetOctagonResponse = true
-        let (cuttlefishContext, cliqueIdentifier) = try responseTestsSetup()
+        let (cuttlefishContext, cliqueIdentifier) = try responseTestsSetup(expectedState: OctagonStateReady)
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
         var newCliqueIdentifier: String?
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) {
-            dump, _ in
+        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             newCliqueIdentifier = egoSelf!["peerID"]! as? String
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
             dumpCallback.fulfill()
@@ -321,12 +323,22 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
     }
 
+    func testCuttlefishResponseLeaveTrust() throws {
+        OctagonSetSOSFeatureEnabled(false)
+
+        self.fakeCuttlefishServer.returnLeaveTrustResponse = true
+        let (_, _) = try responseTestsSetup(expectedState: OctagonStateUntrusted)
+
+        self.verifyDatabaseMocks()
+        assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTrust, within: 10 * NSEC_PER_SEC)
+    }
+
     func testCuttlefishResponseError() throws {
         self.fakeCuttlefishServer.returnRepairErrorResponse = FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired)
 
-        let (cuttlefishContext, _) = try responseTestsSetup()
-        XCTAssertEqual(cuttlefishContext.postedRepairCFU, false, "should not have posted an account repair CFU")
-        XCTAssertEqual(cuttlefishContext.postedEscrowRepairCFU, false, "should not have posted an escrow repair CFU")
+        let (cuttlefishContext, _) = try responseTestsSetup(expectedState: OctagonStateReady)
+        XCTAssertFalse(cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should not have posted an account repair CFU")
+        XCTAssertFalse(cuttlefishContext.followupHandler.hasPosted(.offlinePasscodeChange), "should not have posted an escrow repair CFU")
     }
 
     func testHealthCheckBeforeStateMachineStarts() throws {
@@ -350,6 +362,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         cuttlefishContext.startOctagonStateMachine()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -378,10 +391,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         }
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) {
-            dump, _ in
+        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
             dumpCallback.fulfill()
         }
@@ -395,6 +407,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
@@ -430,10 +443,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         }
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) {
-            dump, _ in
+        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
             dumpCallback.fulfill()
         }
@@ -450,6 +462,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
@@ -481,10 +494,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         }
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) {
-            dump, _ in
+        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
             dumpCallback.fulfill()
         }
@@ -523,6 +535,59 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
     }
 
+    func testHealthCheckWaitingForCDP() throws {
+        // Tell SOS that it is absent, so we don't enable CDP on bringup
+        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
+
+        self.cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
+
+        let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
+        self.manager.healthCheck(OTCKContainerName, context: self.cuttlefishContext.contextID, skipRateLimitingCheck: false) { error in
+            XCTAssertNil(error, "error should be nil")
+            healthCheckCallback.fulfill()
+        }
+        self.wait(for: [healthCheckCallback], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testHealthCheckRecoversFromWrongWaitingForCDP() throws {
+        // Tell SOS that it is absent, so we don't enable CDP on bringup
+        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
+
+        // Now, another client creates the circle, but we miss the push
+        let remote = self.makeInitiatorContext(contextID: "remote")
+        self.assertResetAndBecomeTrusted(context: remote)
+
+        // Now, does the health check get us into Untrusted?
+        self.cuttlefishContext.stateMachine.setWatcherTimeout(2 * NSEC_PER_SEC)
+
+        let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
+        self.manager.healthCheck(OTCKContainerName, context: self.cuttlefishContext.contextID, skipRateLimitingCheck: false) { error in
+            XCTAssertNil(error, "error should be nil")
+            healthCheckCallback.fulfill()
+        }
+        self.wait(for: [healthCheckCallback], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        #if !os(tvOS)
+        XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "Octagon should have posted a repair CFU after the health check")
+        #else
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "posted should be false on tvOS; there aren't any iphones around to repair it")
+        #endif
+    }
+
     func testHealthCheckWhenLocked() throws {
 
         let containerName = OTCKContainerName
@@ -531,6 +596,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -564,10 +630,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [healthCheckCallback], timeout: 10)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) {
-            dump, _ in
+        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
             dumpCallback.fulfill()
         }
@@ -584,6 +649,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -623,10 +689,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [healthCheckCallback], timeout: 10)
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
-        self.tphClient.dump(withContainer: containerName, context: contextName) {
-            dump, _ in
+        self.tphClient.dump(withContainer: containerName, context: contextName) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
             dumpCallback.fulfill()
         }
@@ -660,7 +725,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         //update the last health check to something way in the past
         do {
             let state = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext)
-            state.lastHealthCheckup = state.lastHealthCheckup - 172800000 /* 2 days of seconds * 1000*/
+            state.lastHealthCheckup -= 172800000 /* 2 days of seconds * 1000*/
             healthCheckMinusTwoDays = state.lastHealthCheckup
             XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext), "saving to the keychain should work")
         } catch {
@@ -705,6 +770,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         bottlerContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
+        XCTAssertNoThrow(try bottlerContext.setCDPEnabled())
         self.assertEnters(context: bottlerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique
@@ -729,13 +795,14 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         XCTAssertNotNil(entropy, "entropy should not be nil")
 
         // Fake that this peer also created some TLKShares for itself
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        try self.putSelfTLKShareInCloudKit(context: bottlerContext, zoneID: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: bottlerContext)
 
         let bottle = self.fakeCuttlefishServer.state.bottles[0]
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         // cheat: a bottle restore can only succeed after a fetch occurs
@@ -766,7 +833,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         }
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
-        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID) { error in
+        self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNotNil(error, "error should not be nil")
             joinWithBottleExpectation.fulfill()
         }
@@ -783,8 +850,8 @@ class OctagonHealthCheckTests: OctagonTestsBase {
     func testCuttlefishDontPostEscrowCFUDueToPendingPrecord() throws {
         self.fakeCuttlefishServer.returnRepairEscrowResponse = true
         OTMockSecEscrowRequest.self.populateStatuses = true
-        let (cuttlefishContext, _) = try responseTestsSetup()
-        XCTAssertEqual(cuttlefishContext.postedEscrowRepairCFU, false, "should NOT have posted an escrow CFU")
+        let (cuttlefishContext, _) = try responseTestsSetup(expectedState: OctagonStateReady)
+        XCTAssertFalse(cuttlefishContext.followupHandler.hasPosted(.offlinePasscodeChange), "should NOT have posted an escrow CFU")
     }
 
     func testHealthCheckWhileLocked() throws {
@@ -794,6 +861,7 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.startCKAccountStatusMock()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let clique: OTClique

@@ -61,6 +61,22 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
 
     // Public
 
+    showDefaultContentView()
+    {
+        let contentView = new WI.ContentView;
+
+        let contentPlaceholder = WI.createMessageTextView(this._searchQuerySetting.value ? WI.UIString("No search results") : WI.UIString("No search string"));
+        contentView.element.appendChild(contentPlaceholder);
+
+        let searchNavigationItem = new WI.ButtonNavigationItem("search", WI.UIString("Search Resource Content"), "Images/Search.svg", 15, 15);
+        searchNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._handleDefaultContentViewSearchNavigationItemClicked, this);
+
+        let importHelpElement = WI.createNavigationItemHelp(WI.UIString("Press %s to see recent searches"), searchNavigationItem);
+        contentPlaceholder.appendChild(importHelpElement);
+
+        this.contentBrowser.showContentView(contentView);
+    }
+
     closed()
     {
         super.closed();
@@ -97,8 +113,10 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
         if (this._changedBanner)
             this._changedBanner.remove();
 
-        if (!searchQuery.length)
+        if (!searchQuery.length) {
+            this.showDefaultContentView();
             return;
+        }
 
         let createSearchingPlaceholder = () => {
             let searchingPlaceholder = WI.createMessageTextView("");
@@ -109,7 +127,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
             this.updateEmptyContentPlaceholder(searchingPlaceholder);
         };
 
-        if (!WI.targetsAvailable()) {
+        if (!WI.targetsAvailable() && WI.sharedApp.isWebDebuggable()) {
             createSearchingPlaceholder();
             WI.whenTargetsAvailable().then(() => {
                 if (this._searchQuerySetting.value === searchQuery)
@@ -117,6 +135,8 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
             });
             return;
         }
+
+        let target = WI.assumingMainTarget();
 
         let promiseCount = 0;
         let countPromise = async (promise, callback) => {
@@ -131,8 +151,12 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
 
             --promiseCount;
             console.assert(promiseCount >= 0);
-            if (promiseCount === 0)
+            if (promiseCount === 0) {
                 this.updateEmptyContentPlaceholder(WI.UIString("No Search Results"));
+
+                if (!this.contentTreeOutline.children.length)
+                    this.showDefaultContentView();
+            }
         };
 
         let isCaseSensitive = !!this._searchInputSettings.caseSensitive.value;
@@ -202,7 +226,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                 preventDuplicates.add(key);
 
                 // COMPATIBILITY (iOS 9): Page.searchInResources did not have the optional requestId parameter.
-                countPromise(PageAgent.searchInResource(searchResult.frameId, searchResult.url, searchQuery, isCaseSensitive, isRegex, searchResult.requestId), resourceCallback.bind(this, searchResult.frameId, searchResult.url));
+                countPromise(target.PageAgent.searchInResource(searchResult.frameId, searchResult.url, searchQuery, isCaseSensitive, isRegex, searchResult.requestId), resourceCallback.bind(this, searchResult.frameId, searchResult.url));
             }
 
             let promises = [
@@ -287,20 +311,19 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                 }
             };
 
-            countPromise(DOMAgent.getSearchResults(searchId, 0, resultCount), domSearchResults);
+            countPromise(target.DOMAgent.getSearchResults(searchId, 0, resultCount), domSearchResults);
         };
 
-        if (window.DOMAgent)
-            WI.domManager.ensureDocument();
+        WI.domManager.ensureDocument();
 
-        if (window.PageAgent)
-            countPromise(PageAgent.searchInResources(searchQuery, isCaseSensitive, isRegex), resourcesCallback);
+        if (target.hasDomain("Page"))
+            countPromise(target.PageAgent.searchInResources(searchQuery, isCaseSensitive, isRegex), resourcesCallback);
 
         setTimeout(searchScripts.bind(this, WI.debuggerManager.searchableScripts), 0);
 
-        if (window.DOMAgent) {
+        if (target.hasDomain("DOM")) {
             if (this._domSearchIdentifier) {
-                DOMAgent.discardSearchResults(this._domSearchIdentifier);
+                target.DOMAgent.discardSearchResults(this._domSearchIdentifier);
                 this._domSearchIdentifier = undefined;
             }
 
@@ -308,8 +331,10 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                 query: searchQuery,
                 caseSensitive: isCaseSensitive,
             };
-            countPromise(DOMAgent.performSearch.invoke(commandArguments), domCallback);
+            countPromise(target.DOMAgent.performSearch.invoke(commandArguments), domCallback);
         }
+
+        // FIXME: Resource search should work with Local Overrides if enabled.
 
         // FIXME: Resource search should work in JSContext inspection.
         // <https://webkit.org/b/131252> Web Inspector: JSContext inspection Resource search does not work
@@ -441,5 +466,10 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
         }
 
         this.element.appendChild(this._changedBanner);
+    }
+
+    _handleDefaultContentViewSearchNavigationItemClicked(event)
+    {
+        this.focusSearchField();
     }
 };

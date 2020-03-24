@@ -31,6 +31,11 @@ Steps to rebuild files:
 +               echo -L${libdir} -lxml2 -lz   -lpthread   -licucore -lm   
             fi
         fi
+   c. Fix --cflags path (make sure to include the space at the end):
+     --cflags)
+-       	echo -I${includedir}/libxml2 
++       	echo -I${includedir} 
+        	;;
 5. [Optional] Run tests (compare output prior to patch as there is some spew):
    make -j $(sysctl -n hw.ncpu)
    make check

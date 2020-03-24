@@ -38,7 +38,7 @@ namespace WebKit {
 WebPaymentCoordinatorProxy& NetworkConnectionToWebProcess::paymentCoordinator()
 {
     if (!m_paymentCoordinator)
-        m_paymentCoordinator = std::make_unique<WebPaymentCoordinatorProxy>(*this);
+        m_paymentCoordinator = makeUnique<WebPaymentCoordinatorProxy>(*this);
     return *m_paymentCoordinator;
 }
 
@@ -52,37 +52,37 @@ UIViewController *NetworkConnectionToWebProcess::paymentCoordinatorPresentingVie
     return nil;
 }
 
-const String& NetworkConnectionToWebProcess::paymentCoordinatorBoundInterfaceIdentifier(const WebPaymentCoordinatorProxy&, PAL::SessionID sessionID)
+const String& NetworkConnectionToWebProcess::paymentCoordinatorBoundInterfaceIdentifier(const WebPaymentCoordinatorProxy&)
 {
-    if (auto* session = static_cast<NetworkSessionCocoa*>(m_networkProcess->networkSession(sessionID)))
+    if (auto* session = static_cast<NetworkSessionCocoa*>(networkSession()))
         return session->boundInterfaceIdentifier();
     return emptyString();
 }
 
-const String& NetworkConnectionToWebProcess::paymentCoordinatorCTDataConnectionServiceType(const WebPaymentCoordinatorProxy&, PAL::SessionID sessionID)
+const String& NetworkConnectionToWebProcess::paymentCoordinatorCTDataConnectionServiceType(const WebPaymentCoordinatorProxy&)
 {
-    if (auto* session = static_cast<NetworkSessionCocoa*>(m_networkProcess->networkSession(sessionID)))
-        return session->ctDataConnectionServiceType();
+    if (auto* session = static_cast<NetworkSessionCocoa*>(networkSession()))
+        return session->dataConnectionServiceType();
     return emptyString();
 }
 
-const String& NetworkConnectionToWebProcess::paymentCoordinatorSourceApplicationBundleIdentifier(const WebPaymentCoordinatorProxy&, PAL::SessionID sessionID)
+const String& NetworkConnectionToWebProcess::paymentCoordinatorSourceApplicationBundleIdentifier(const WebPaymentCoordinatorProxy&)
 {
-    if (auto* session = static_cast<NetworkSessionCocoa*>(m_networkProcess->networkSession(sessionID)))
+    if (auto* session = static_cast<NetworkSessionCocoa*>(networkSession()))
         return session->sourceApplicationBundleIdentifier();
     return emptyString();
 }
 
-const String& NetworkConnectionToWebProcess::paymentCoordinatorSourceApplicationSecondaryIdentifier(const WebPaymentCoordinatorProxy&, PAL::SessionID sessionID)
+const String& NetworkConnectionToWebProcess::paymentCoordinatorSourceApplicationSecondaryIdentifier(const WebPaymentCoordinatorProxy&)
 {
-    if (auto* session = static_cast<NetworkSessionCocoa*>(m_networkProcess->networkSession(sessionID)))
+    if (auto* session = static_cast<NetworkSessionCocoa*>(networkSession()))
         return session->sourceApplicationSecondaryIdentifier();
     return emptyString();
 }
 
 std::unique_ptr<PaymentAuthorizationPresenter> NetworkConnectionToWebProcess::paymentCoordinatorAuthorizationPresenter(WebPaymentCoordinatorProxy& coordinator, PKPaymentRequest *request)
 {
-    return std::make_unique<PaymentAuthorizationController>(coordinator, request);
+    return makeUnique<PaymentAuthorizationController>(coordinator, request);
 }
 
 void NetworkConnectionToWebProcess::paymentCoordinatorAddMessageReceiver(WebPaymentCoordinatorProxy&, const IPC::StringReference&, IPC::MessageReceiver&)

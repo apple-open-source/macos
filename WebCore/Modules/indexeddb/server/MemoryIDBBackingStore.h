@@ -31,6 +31,7 @@
 #include "IDBDatabaseIdentifier.h"
 #include "IDBResourceIdentifier.h"
 #include "MemoryBackingStoreTransaction.h"
+#include <pal/SessionID.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
@@ -41,9 +42,9 @@ class MemoryObjectStore;
 class MemoryIDBBackingStore : public IDBBackingStore {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static std::unique_ptr<MemoryIDBBackingStore> create(const IDBDatabaseIdentifier&);
+    static std::unique_ptr<MemoryIDBBackingStore> create(PAL::SessionID, const IDBDatabaseIdentifier&);
     
-    MemoryIDBBackingStore(const IDBDatabaseIdentifier&);
+    MemoryIDBBackingStore(PAL::SessionID, const IDBDatabaseIdentifier&);
     ~MemoryIDBBackingStore() final;
 
     IDBError getOrEstablishDatabaseInfo(IDBDatabaseInfo&) final;
@@ -79,9 +80,6 @@ public:
     bool supportsSimultaneousTransactions() final { return true; }
     bool isEphemeral() final { return true; }
 
-    void setQuota(uint64_t quota) final { UNUSED_PARAM(quota); };
-    uint64_t databasesSizeForOrigin() const final;
-
     void removeObjectStoreForVersionChangeAbort(MemoryObjectStore&);
     void restoreObjectStoreForVersionChangeAbort(Ref<MemoryObjectStore>&&);
 
@@ -90,7 +88,10 @@ public:
 private:
     RefPtr<MemoryObjectStore> takeObjectStoreByIdentifier(uint64_t identifier);
 
+    void close() final;
+
     IDBDatabaseIdentifier m_identifier;
+    PAL::SessionID m_sessionID;
     std::unique_ptr<IDBDatabaseInfo> m_databaseInfo;
 
     HashMap<IDBResourceIdentifier, std::unique_ptr<MemoryBackingStoreTransaction>> m_transactions;

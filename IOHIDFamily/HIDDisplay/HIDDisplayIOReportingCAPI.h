@@ -163,7 +163,7 @@ void HIDDisplayIOReportingCancel(HIDDisplayIOReportingInterfaceRef hidDisplayInt
  * field which will be filled with  error code on failure.
  *
  * @result
- * Returns true if data send is successful.
+ * Returns true if data send is successful.Additionally, if an error occurs and the error parameter is non-NULL, the error parameter will be set to a CFError describing the problem, which the caller must release.
  *
  */
 bool HIDDisplayIOReportingSetOutputData(HIDDisplayIOReportingInterfaceRef hidDisplayInterface, CFDataRef data, CFErrorRef* error);

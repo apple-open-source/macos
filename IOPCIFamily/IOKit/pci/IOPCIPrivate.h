@@ -95,6 +95,8 @@ struct IOPCIDeviceExpansionData
 	IOLock * lock;
     struct IOPCIConfigEntry * configEntry;
 
+	IOOptionBits sessionOptions;
+
 	IOPCIDevice * ltrDevice;
 	IOByteCount   ltrOffset;
 	uint32_t      ltrReg1;
@@ -327,7 +329,8 @@ enum
 #define kIOPCIDeviceChangedKey			"IOPCIDeviceChanged"
 
 // Entitlements
-#define kIOPCITransportDextEntitlement "com.apple.developer.driverkit.transport.pcie"
+#define kIOPCITransportDextEntitlement       "com.apple.developer.driverkit.transport.pci"
+#define kIOPCITransportBridgeDextEntitlement "com.apple.developer.driverkit.transport.pci.bridge"
 
 extern const    IORegistryPlane * gIOPCIACPIPlane;
 extern const    OSSymbol *        gIOPlatformDeviceASPMEnableKey;
@@ -471,6 +474,11 @@ public:
 };
 
 #endif /* defined(KERNEL) */
+
+enum
+{
+	kIOPCISessionOptionDriverkit = 0x00010000
+};
 
 enum
 {

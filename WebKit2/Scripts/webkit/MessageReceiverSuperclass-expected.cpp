@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -142,6 +142,7 @@ namespace WebKit {
 
 void WebPage::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
+    auto protectedThis = makeRef(*this);
     if (decoder.messageName() == Messages::WebPage::LoadURL::name()) {
         IPC::handleMessage<Messages::WebPage::LoadURL>(decoder, this, &WebPage::loadURL);
         return;
@@ -169,6 +170,7 @@ void WebPage::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decod
 
 void WebPage::didReceiveSyncMessage(IPC::Connection& connection, IPC::Decoder& decoder, std::unique_ptr<IPC::Encoder>& replyEncoder)
 {
+    auto protectedThis = makeRef(*this);
     if (decoder.messageName() == Messages::WebPage::TestSyncMessage::name()) {
         IPC::handleMessageSynchronous<Messages::WebPage::TestSyncMessage>(connection, decoder, replyEncoder, this, &WebPage::testSyncMessage);
         return;

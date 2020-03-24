@@ -39,8 +39,11 @@ namespace B3 { namespace Air {
 class Code;
 
 class GenerateAndAllocateRegisters {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONMOVABLE(GenerateAndAllocateRegisters);
+
     struct TmpData {
-        StackSlot* spillSlot;
+        StackSlot* spillSlot { nullptr };
         Reg reg;
     };
 
@@ -52,6 +55,7 @@ public:
 
 private:
     void insertBlocksForFlushAfterTerminalPatchpoints();
+    void release(Tmp, Reg);
     void flush(Tmp, Reg);
     void spill(Tmp, Reg);
     void alloc(Tmp, Reg, bool isDef);
@@ -59,6 +63,8 @@ private:
     bool assignTmp(Tmp&, Bank, bool isDef);
     void buildLiveRanges(UnifiedTmpLiveness&);
     bool isDisallowedRegister(Reg);
+
+    void checkConsistency();
 
     Code& m_code;
     CCallHelpers* m_jit { nullptr };
@@ -78,6 +84,7 @@ private:
     RegisterSet m_namedUsedRegs;
     RegisterSet m_namedDefdRegs;
     RegisterSet m_allowedRegisters;
+    std::unique_ptr<UnifiedTmpLiveness> m_liveness;
 
     struct PatchSpillData {
         CCallHelpers::Jump jump;

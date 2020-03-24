@@ -32,11 +32,13 @@
 #include "GraphicsTypes.h"
 #include "GraphicsTypes3D.h"
 #include "ImageBufferData.h"
+#include "ImagePaintingOptions.h"
 #include "IntSize.h"
 #include "PlatformLayer.h"
 #include <JavaScriptCore/Uint8ClampedArray.h>
 #include <memory>
 #include <wtf/Forward.h>
+#include <wtf/IsoMalloc.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
@@ -50,7 +52,7 @@ class ImageData;
 class IntPoint;
 class IntRect;
 class HostWindow;
-    
+
 enum BackingStoreCopy {
     CopyBackingStore, // Guarantee subsequent draws don't affect the copy.
     DontCopyBackingStore // Subsequent draws may affect the copy.
@@ -62,13 +64,14 @@ enum class PreserveResolution {
 };
 
 class ImageBuffer {
-    WTF_MAKE_NONCOPYABLE(ImageBuffer); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_ISO_ALLOCATED_EXPORT(ImageBuffer, WEBCORE_EXPORT);
+    WTF_MAKE_NONCOPYABLE(ImageBuffer);
     friend class IOSurface;
 public:
     // Will return a null pointer on allocation failure.
-    WEBCORE_EXPORT static std::unique_ptr<ImageBuffer> create(const FloatSize&, RenderingMode, float resolutionScale = 1, ColorSpace = ColorSpaceSRGB, const HostWindow* = nullptr);
+    WEBCORE_EXPORT static std::unique_ptr<ImageBuffer> create(const FloatSize&, RenderingMode, float resolutionScale = 1, ColorSpace = ColorSpace::SRGB, const HostWindow* = nullptr);
 #if USE(DIRECT2D)
-    WEBCORE_EXPORT static std::unique_ptr<ImageBuffer> create(const FloatSize&, RenderingMode, const GraphicsContext*, float resolutionScale = 1, ColorSpace = ColorSpaceSRGB, const HostWindow* = nullptr);
+    WEBCORE_EXPORT static std::unique_ptr<ImageBuffer> create(const FloatSize&, RenderingMode, const GraphicsContext*, float resolutionScale = 1, ColorSpace = ColorSpace::SRGB, const HostWindow* = nullptr);
 #endif
 
     // Create an image buffer compatible with the context and copy rect from this buffer into this new one.
@@ -113,6 +116,10 @@ public:
     Vector<uint8_t> toData(const String& mimeType, Optional<double> quality = WTF::nullopt) const;
     Vector<uint8_t> toBGRAData() const;
 
+#if USE(CAIRO)
+    NativeImagePtr nativeImage() const;
+#endif
+
 #if !USE(CG)
     AffineTransform baseTransform() const { return AffineTransform(); }
     void transformColorSpace(ColorSpace srcColorSpace, ColorSpace dstColorSpace);
@@ -149,10 +156,10 @@ private:
     void flushContext() const;
 #endif
     
-    void draw(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect = FloatRect(0, 0, -1, -1), CompositeOperator = CompositeSourceOver, BlendMode = BlendMode::Normal);
-    void drawPattern(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, CompositeOperator, BlendMode = BlendMode::Normal);
+    void draw(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect = FloatRect(0, 0, -1, -1), const ImagePaintingOptions& = { });
+    void drawPattern(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& = { });
 
-    static void drawConsuming(std::unique_ptr<ImageBuffer>, GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect = FloatRect(0, 0, -1, -1), CompositeOperator = CompositeSourceOver, BlendMode = BlendMode::Normal);
+    static void drawConsuming(std::unique_ptr<ImageBuffer>, GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect = FloatRect(0, 0, -1, -1), const ImagePaintingOptions& = { });
 
     inline void genericConvertToLuminanceMask();
 
@@ -162,6 +169,7 @@ private:
     friend class NamedImageGeneratedImage;
     friend class GradientImage;
     friend class CustomPaintImage;
+    friend class BitmapImage;
 
 private:
     ImageBufferData m_data;

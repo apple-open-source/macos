@@ -42,7 +42,7 @@ WI.Sidebar = class Sidebar extends WI.View
         if (hasNavigationBar) {
             this.element.classList.add("has-navigation-bar");
 
-            this._navigationBar = new WI.SidebarNavigationBar(null, null, "tablist");
+            this._navigationBar = new WI.NavigationBar(null, null, "tablist");
             this._navigationBar.addEventListener(WI.NavigationBar.Event.NavigationItemSelected, this._navigationItemSelected, this);
             this.addSubview(this._navigationBar);
         }
@@ -136,8 +136,10 @@ WI.Sidebar = class Sidebar extends WI.View
         if (this._selectedSidebarPanel) {
             this.addSubview(this._selectedSidebarPanel);
             this._selectedSidebarPanel.selected = true;
-            this._selectedSidebarPanel.shown();
-            this._selectedSidebarPanel.visibilityDidChange();
+            if (!this.collapsed) {
+                this._selectedSidebarPanel.shown();
+                this._selectedSidebarPanel.visibilityDidChange();
+            }
         }
 
         this.dispatchEventToListeners(WI.Sidebar.Event.SidebarPanelSelected);
@@ -274,10 +276,10 @@ WI.Sidebar = class Sidebar extends WI.View
             return;
 
         if (this._navigationBar)
-            this._navigationBar.updateLayoutIfNeeded(WI.View.LayoutReason.Resize);
+            this._navigationBar.updateLayout(WI.View.LayoutReason.Resize);
 
         if (this._selectedSidebarPanel)
-            this._selectedSidebarPanel.updateLayoutIfNeeded(WI.View.LayoutReason.Resize);
+            this._selectedSidebarPanel.updateLayout(WI.View.LayoutReason.Resize);
 
         this.dispatchEventToListeners(WI.Sidebar.Event.WidthDidChange, {newWidth});
     }

@@ -122,7 +122,9 @@ int testExecutionTimeLimit()
         { "LLINT",    0_ms,   "--useConcurrentJIT=false --useLLInt=true --useJIT=false" },
         { "Baseline", 0_ms,   "--useConcurrentJIT=false --useLLInt=true --useJIT=true --useDFGJIT=false" },
         { "DFG",      200_ms,   "--useConcurrentJIT=false --useLLInt=true --useJIT=true --useDFGJIT=true --useFTLJIT=false" },
+#if ENABLE(FTL_JIT)
         { "FTL",      500_ms, "--useConcurrentJIT=false --useLLInt=true --useJIT=true --useDFGJIT=true --useFTLJIT=true" },
+#endif
     };
     
     bool failed = false;
@@ -156,7 +158,11 @@ int testExecutionTimeLimit()
         timeLimit = 100_ms + tierAdjustment;
         JSContextGroupSetExecutionTimeLimit(contextGroup, timeLimit.seconds(), shouldTerminateCallback, 0);
         {
+#if OS(LINUX) && (CPU(MIPS) || CPU(ARM_THUMB2))
+            Seconds timeAfterWatchdogShouldHaveFired = 500_ms + tierAdjustment;
+#else
             Seconds timeAfterWatchdogShouldHaveFired = 300_ms + tierAdjustment;
+#endif
 
             JSStringRef script = JSStringCreateWithUTF8CString("function foo() { while (true) { } } foo();");
             exception = nullptr;
@@ -194,7 +200,7 @@ int testExecutionTimeLimit()
 
             StringBuilder scriptBuilder;
             scriptBuilder.appendLiteral("function foo() { var startTime = currentCPUTime(); while (true) { for (var i = 0; i < 1000; i++); if (currentCPUTime() - startTime > ");
-            scriptBuilder.appendFixedPrecisionNumber(timeAfterWatchdogShouldHaveFired.seconds());
+            scriptBuilder.append(FormattedNumber::fixedPrecision(timeAfterWatchdogShouldHaveFired.seconds()));
             scriptBuilder.appendLiteral(") break; } } foo();");
 
             JSStringRef script = JSStringCreateWithUTF8CString(scriptBuilder.toString().utf8().data());
@@ -235,7 +241,7 @@ int testExecutionTimeLimit()
                                      "'use strict';"
                                      "if (i % 1000 === 0) {"
                                         "if (currentCPUTime() - startTime >");
-            scriptBuilder.appendFixedPrecisionNumber(timeAfterWatchdogShouldHaveFired.seconds());
+            scriptBuilder.append(FormattedNumber::fixedPrecision(timeAfterWatchdogShouldHaveFired.seconds()));
             scriptBuilder.appendLiteral("       ) { return; }");
             scriptBuilder.appendLiteral("    }");
             scriptBuilder.appendLiteral("    return recurse(i + 1); }");
@@ -275,7 +281,7 @@ int testExecutionTimeLimit()
             
             StringBuilder scriptBuilder;
             scriptBuilder.appendLiteral("function foo() { var startTime = currentCPUTime(); try { while (true) { for (var i = 0; i < 1000; i++); if (currentCPUTime() - startTime > ");
-            scriptBuilder.appendFixedPrecisionNumber(timeAfterWatchdogShouldHaveFired.seconds());
+            scriptBuilder.append(FormattedNumber::fixedPrecision(timeAfterWatchdogShouldHaveFired.seconds()));
             scriptBuilder.appendLiteral(") break; } } catch(e) { } } foo();");
 
             JSStringRef script = JSStringCreateWithUTF8CString(scriptBuilder.toString().utf8().data());
@@ -314,7 +320,7 @@ int testExecutionTimeLimit()
             
             StringBuilder scriptBuilder;
             scriptBuilder.appendLiteral("function foo() { var startTime = currentCPUTime(); while (true) { for (var i = 0; i < 1000; i++); if (currentCPUTime() - startTime > ");
-            scriptBuilder.appendFixedPrecisionNumber(timeAfterWatchdogShouldHaveFired.seconds());
+            scriptBuilder.append(FormattedNumber::fixedPrecision(timeAfterWatchdogShouldHaveFired.seconds()));
             scriptBuilder.appendLiteral(") break; } } foo();");
             
             JSStringRef script = JSStringCreateWithUTF8CString(scriptBuilder.toString().utf8().data());
@@ -353,7 +359,7 @@ int testExecutionTimeLimit()
             
             StringBuilder scriptBuilder;
             scriptBuilder.appendLiteral("function foo() { var startTime = currentCPUTime(); while (true) { for (var i = 0; i < 1000; i++); if (currentCPUTime() - startTime > ");
-            scriptBuilder.appendFixedPrecisionNumber(timeAfterWatchdogShouldHaveFired.seconds());
+            scriptBuilder.append(FormattedNumber::fixedPrecision(timeAfterWatchdogShouldHaveFired.seconds()));
             scriptBuilder.appendLiteral(") break; } } foo();");
 
             JSStringRef script = JSStringCreateWithUTF8CString(scriptBuilder.toString().utf8().data());
@@ -392,7 +398,7 @@ int testExecutionTimeLimit()
 
             StringBuilder scriptBuilder;
             scriptBuilder.appendLiteral("function foo() { var startTime = currentCPUTime(); while (true) { for (var i = 0; i < 1000; i++); if (currentCPUTime() - startTime > ");
-            scriptBuilder.appendFixedPrecisionNumber(maxBusyLoopTime.seconds()); // in seconds.
+            scriptBuilder.append(FormattedNumber::fixedPrecision(maxBusyLoopTime.seconds())); // in seconds.
             scriptBuilder.appendLiteral(") break; } } foo();");
 
             JSStringRef script = JSStringCreateWithUTF8CString(scriptBuilder.toString().utf8().data());
@@ -435,7 +441,7 @@ int testExecutionTimeLimit()
 
             StringBuilder scriptBuilder;
             scriptBuilder.appendLiteral("function foo() { var startTime = currentCPUTime(); while (true) { for (var i = 0; i < 1000; i++); if (currentCPUTime() - startTime > ");
-            scriptBuilder.appendFixedPrecisionNumber(timeAfterWatchdogShouldHaveFired.seconds());
+            scriptBuilder.append(FormattedNumber::fixedPrecision(timeAfterWatchdogShouldHaveFired.seconds()));
             scriptBuilder.appendLiteral(") break; } } foo();");
 
             JSStringRef script = JSStringCreateWithUTF8CString(scriptBuilder.toString().utf8().data());

@@ -1359,13 +1359,26 @@ static bool isAppleExtensionOID(const DERItem *extnID)
     static const uint8_t appleComponentExtensionArc[8] = { 0x2a,0x86,0x48,0x86,0xf7,0x63,0x64,0x0b };
     static const uint8_t appleSigningExtensionArc[8] = { 0x2a,0x86,0x48,0x86,0xf7,0x63,0x64,0x0c };
     static const uint8_t appleEncryptionExtensionArc[8] = { 0x2a,0x86,0x48,0x86,0xf7,0x63,0x64,0x0d };
-    if (!extnID && !extnID->data && extnID->length <= sizeof(appleExtensionArc)) {
+    if (!extnID || !extnID->data || (extnID->length <= sizeof(appleExtensionArc))) {
         return false;
     }
     return (!memcmp(extnID->data, appleExtensionArc, sizeof(appleExtensionArc)) ||
             !memcmp(extnID->data, appleComponentExtensionArc, sizeof(appleComponentExtensionArc)) ||
             !memcmp(extnID->data, appleSigningExtensionArc, sizeof(appleSigningExtensionArc)) ||
             !memcmp(extnID->data, appleEncryptionExtensionArc, sizeof(appleEncryptionExtensionArc)));
+}
+
+static bool isCCCExtensionOID(const DERItem *extnID)
+{
+    static const uint8_t cccVehicleCA[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x09 };
+    static const uint8_t cccIntermediateCA[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x08 };
+    static const uint8_t cccVehicle[] = { 0x2B,0x06,0x01,0x04,0x01,0x82,0xC4,0x69,0x05,0x01 };
+    if (!extnID || !extnID->data || (extnID->length != sizeof(cccVehicleCA))) {
+        return false;
+    }
+    return (!memcmp(extnID->data, cccVehicleCA, sizeof(cccVehicleCA)) ||
+            !memcmp(extnID->data, cccIntermediateCA, sizeof(cccIntermediateCA)) ||
+            !memcmp(extnID->data, cccVehicle, sizeof(cccVehicle)));
 }
 
 /* Given the contents of an X.501 Name return the contents of a normalized
@@ -1841,7 +1854,7 @@ static bool SecCertificateParse(SecCertificateRef certificate)
                 }
                 require_quiet(parseResult || !certificate->_extensions[ix].critical, badCert);
             } else if (certificate->_extensions[ix].critical) {
-                if (isAppleExtensionOID(&extn.extnID)) {
+                if (isAppleExtensionOID(&extn.extnID) || isCCCExtensionOID(&extn.extnID)) {
                     continue;
                 }
                 secdebug("cert", "Found unknown critical extension");

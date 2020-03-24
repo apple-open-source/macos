@@ -75,15 +75,13 @@ bool UserMediaProcessManager::willCreateMediaStream(UserMediaPermissionRequestMa
     auto& process = proxy.page().process();
     size_t extensionCount = 0;
 
-    if (withAudio && !process.hasAudioCaptureExtension())
+    bool needsAudioSandboxExtension = withAudio && !process.hasAudioCaptureExtension() && !proxy.page().preferences().captureAudioInUIProcessEnabled();
+    if (needsAudioSandboxExtension)
         extensionCount++;
-    else
-        withAudio = false;
 
-    if (withVideo && !process.hasVideoCaptureExtension())
+    bool needsVideoSandboxExtension = withVideo && !process.hasVideoCaptureExtension() && !proxy.page().preferences().captureVideoInUIProcessEnabled();
+    if (needsVideoSandboxExtension)
         extensionCount++;
-    else
-        withVideo = false;
 
     if (extensionCount) {
         SandboxExtension::HandleArray handles;
@@ -93,11 +91,11 @@ bool UserMediaProcessManager::willCreateMediaStream(UserMediaPermissionRequestMa
             handles.allocate(extensionCount);
             ids.reserveInitialCapacity(extensionCount);
 
-            if (withAudio && SandboxExtension::createHandleForGenericExtension(audioExtensionPath, handles[--extensionCount]))
-                ids.append(audioExtensionPath);
+            if (needsAudioSandboxExtension && SandboxExtension::createHandleForGenericExtension(audioExtensionPath, handles[--extensionCount]))
+                ids.uncheckedAppend(audioExtensionPath);
 
-            if (withVideo && SandboxExtension::createHandleForGenericExtension(videoExtensionPath, handles[--extensionCount]))
-                ids.append(videoExtensionPath);
+            if (needsVideoSandboxExtension && SandboxExtension::createHandleForGenericExtension(videoExtensionPath, handles[--extensionCount]))
+                ids.uncheckedAppend(videoExtensionPath);
 
             if (ids.size() != handles.size()) {
                 WTFLogAlways("Could not create a required sandbox extension, capture will fail!");
@@ -108,9 +106,9 @@ bool UserMediaProcessManager::willCreateMediaStream(UserMediaPermissionRequestMa
         for (const auto& id : ids)
             RELEASE_LOG(WebRTC, "UserMediaProcessManager::willCreateMediaStream - granting extension %s", id.utf8().data());
 
-        if (withAudio)
+        if (needsAudioSandboxExtension)
             process.grantAudioCaptureExtension();
-        if (withVideo)
+        if (needsVideoSandboxExtension)
             process.grantVideoCaptureExtension();
         process.send(Messages::WebProcess::GrantUserMediaDeviceSandboxExtensions(MediaDeviceSandboxExtensions(ids, WTFMove(handles))), 0);
     }
@@ -130,13 +128,18 @@ void UserMediaProcessManager::revokeSandboxExtensionsIfNeeded(WebProcessProxy& p
 #if ENABLE(SANDBOX_EXTENSIONS)
     bool hasAudioCapture = false;
     bool hasVideoCapture = false;
+    bool hasPendingCapture = false;
 
-    UserMediaPermissionRequestManagerProxy::forEach([&hasAudioCapture, &hasVideoCapture, &process](auto& managerProxy) {
+    UserMediaPermissionRequestManagerProxy::forEach([&hasAudioCapture, &hasVideoCapture, &hasPendingCapture, &process](auto& managerProxy) {
         if (&process != &managerProxy.page().process())
             return;
         hasAudioCapture |= managerProxy.page().isCapturingAudio();
         hasVideoCapture |= managerProxy.page().isCapturingVideo();
+        hasPendingCapture |= managerProxy.hasPendingCapture();
     });
+
+    if (hasPendingCapture)
+        return;
 
     if (hasAudioCapture && hasVideoCapture)
         return;

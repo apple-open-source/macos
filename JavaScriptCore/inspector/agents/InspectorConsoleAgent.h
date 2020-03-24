@@ -36,7 +36,7 @@
 #include <wtf/text/StringHash.h>
 
 namespace JSC {
-class ExecState;
+class CallFrame;
 }
 
 namespace Inspector {
@@ -53,32 +53,34 @@ class JS_EXPORT_PRIVATE InspectorConsoleAgent : public InspectorAgentBase, publi
     WTF_MAKE_FAST_ALLOCATED;
 public:
     InspectorConsoleAgent(AgentContext&);
-    virtual ~InspectorConsoleAgent() = default;
+    ~InspectorConsoleAgent() override;
 
-    void didCreateFrontendAndBackend(FrontendRouter*, BackendDispatcher*) override;
-    void willDestroyFrontendAndBackend(DisconnectReason) override;
-    void discardValues() override;
+    // InspectorAgentBase
+    void didCreateFrontendAndBackend(FrontendRouter*, BackendDispatcher*) final;
+    void willDestroyFrontendAndBackend(DisconnectReason) final;
+    void discardValues() final;
+
+    // ConsoleBackendDispatcherHandler
+    void enable(ErrorString&) final;
+    void disable(ErrorString&) final;
+    void clearMessages(ErrorString&) override;
+    void getLoggingChannels(ErrorString&, RefPtr<JSON::ArrayOf<Protocol::Console::Channel>>&) override;
+    void setLoggingChannelLevel(ErrorString&, const String& channel, const String& level) override;
 
     void setInspectorHeapAgent(InspectorHeapAgent* agent) { m_heapAgent = agent; }
 
-    void enable(ErrorString&) override;
-    void disable(ErrorString&) override;
-    void clearMessages(ErrorString&) override;
-
     bool enabled() const { return m_enabled; }
+    bool developerExtrasEnabled() const;
     void reset();
 
     void addMessageToConsole(std::unique_ptr<ConsoleMessage>);
 
-    void startTiming(JSC::ExecState*, const String& label);
-    void logTiming(JSC::ExecState*, const String& label, Ref<ScriptArguments>&&);
-    void stopTiming(JSC::ExecState*, const String& label);
+    void startTiming(JSC::JSGlobalObject*, const String& label);
+    void logTiming(JSC::JSGlobalObject*, const String& label, Ref<ScriptArguments>&&);
+    void stopTiming(JSC::JSGlobalObject*, const String& label);
     void takeHeapSnapshot(const String& title);
-    void count(JSC::ExecState*, const String& label);
-    void countReset(JSC::ExecState*, const String& label);
-
-    void getLoggingChannels(ErrorString&, RefPtr<JSON::ArrayOf<Protocol::Console::Channel>>&) override;
-    void setLoggingChannelLevel(ErrorString&, const String& channel, const String& level) override;
+    void count(JSC::JSGlobalObject*, const String& label);
+    void countReset(JSC::JSGlobalObject*, const String& label);
 
 protected:
     void addConsoleMessage(std::unique_ptr<ConsoleMessage>);

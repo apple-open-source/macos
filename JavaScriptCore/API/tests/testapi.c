@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006-2019 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -77,6 +77,7 @@
 void testObjectiveCAPI(const char*);
 #endif
 
+void configureJSCForTesting(void);
 int testCAPIViaCpp(const char* filter);
 
 bool assertTrue(bool value, const char* message);
@@ -1387,9 +1388,12 @@ int main(int argc, char* argv[])
     SetErrorMode(0);
 #endif
 
+    configureJSCForTesting();
+
 #if !OS(WINDOWS)
     char resolvedPath[PATH_MAX];
-    realpath(argv[0], resolvedPath); 
+    if (!realpath(argv[0], resolvedPath))
+        fprintf(stdout, "Could not get the absolute pathname for: %s\n", argv[0]);
     char* newCWD = dirname(resolvedPath);
     if (chdir(newCWD))
         fprintf(stdout, "Could not chdir to: %s\n", newCWD);

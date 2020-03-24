@@ -16,6 +16,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property bool excludeSelfPeerFromTrustSet;
 
 @property SOSCCStatus circleStatus;
+@property (nullable) NSError* circleStatusError;
+
 @property CKKSSOSSelfPeer* selfPeer;
 @property NSMutableSet<id<CKKSSOSPeerProtocol>>* trustedPeers;
 

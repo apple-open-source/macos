@@ -34,6 +34,7 @@
 #include "IOHIDUsageTables.h"
 #include "IOHIDPrivateKeys.h"
 #include <math.h>
+#include <os/overflow.h>
 
 #if TARGET_OS_OSX
 #include "ev_keymap.h"
@@ -42,6 +43,7 @@
 #define EXTERNAL ((unsigned int) -1)
 
 #define super OSObject
+#define COMPILER_BARRIER() __asm__ __volatile__("" ::: "memory")
 
 OSDefineMetaClassAndStructors(IOHIDEvent, OSObject)
 
@@ -1551,42 +1553,81 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
     UInt32                      index       = 0;
     UInt32                      total       = 0;
     UInt32                      offset      = 0;
+    UInt32                      sz          = 0;
+    UInt32                      attributeLength = 0;
+    UInt32                      eventCount = 0;
+    UInt32                      eventDataSize = 0;
+    UInt32                      eventDataType = 0;
 
-    if ( !bytes || !size || ( sizeof(IOHIDSystemQueueElement) > size ) )
+    if ( !bytes || !size || ( sizeof(IOHIDSystemQueueElement) > size ) ) {
         return NULL;
+    }
 
     queueElement    = (IOHIDSystemQueueElement *)bytes;
     total           = (UInt32)size - sizeof(IOHIDSystemQueueElement);
 
-    for (index=0; index<queueElement->eventCount && offset<total; index++)
+
+    eventCount = queueElement->eventCount;
+    attributeLength = queueElement->attributeLength;
+    // to prevent complier reordering
+    // local assignment should be enforced
+    // before validation (55894984)
+    COMPILER_BARRIER();
+
+    for (index=0; index < eventCount && offset<total; index++)
     {
-        if (((UInt32)(queueElement->attributeLength + offset)) < queueElement->attributeLength)
+        if (os_add_overflow(attributeLength, offset, &sz)) {
             break;
+        }
         
-        if ( (queueElement->attributeLength + offset) > total )
-            break;
+        // Can bad value of offset cause overflow ??
+        // we already checked that above
         
-        if ((total - (queueElement->attributeLength + offset)) < sizeof(IOHIDEventData) )
+        if ( (attributeLength + offset) > total ) {
             break;
+        }
         
-        IOHIDEventData *    eventData   = (IOHIDEventData *)(queueElement->payload + queueElement->attributeLength + offset);
-        if ( eventData->type >= kIOHIDEventTypeCount )
+        if ((total - (attributeLength + offset)) < sizeof(IOHIDEventData) ) {
             break;
-        IOHIDEvent *        event       = IOHIDEvent::withType(eventData->type);
+        }
+        
 
-        if ( !event )
+        IOHIDEventData *eventData = (IOHIDEventData *)(queueElement->payload + attributeLength + offset);
+        
+        if (!eventData) {
             break;
+        }
+        
+        eventDataType = eventData->type;
+        eventDataSize = eventData->size;
+        COMPILER_BARRIER();
+        
+        if ( eventDataType >= kIOHIDEventTypeCount ) {
+            break;
+        }
+        
+        IOHIDEvent *event = IOHIDEvent::withType(eventDataType);
 
-        if ( eventData->size < event->_data->size )
+        if ( !event ) {
             break;
+        }
         
-        if ( (total - (queueElement->attributeLength + offset)) < eventData->size )
+        if ( eventDataSize < event->_data->size ) {
+            event->release();
             break;
+        }
         
-        if ( eventData->type == kIOHIDEventTypeVendorDefined ) {
+        if ( (total - (attributeLength + offset)) < eventDataSize ) {
+            event->release();
+            break;
+        }
+        
+        if ( eventDataType == kIOHIDEventTypeVendorDefined ) {
             
-            if ( !event->initWithCapacity(eventData->size) )
+            if ( !event->initWithCapacity(eventDataSize) ) {
+                event->release();
                 break;
+            }
         }
         
         bcopy(eventData, event->_data, event->_data->size);
@@ -1594,21 +1635,24 @@ IOHIDEvent * IOHIDEvent::withBytes(     const void *            bytes,
         event->_options = queueElement->options;
         event->_senderID = queueElement->senderID;
 
-        if ( !parent )
+        if ( !parent ) {
             parent = event;
+        }
         else {
             //Append event here;
             parent->appendChild(event);
             event->release();
         }
         
-        if ( ((UInt32) (offset + eventData->size) ) <= offset )
+        if ( ((UInt32) (offset + eventDataSize) ) <= offset ) {
             break;
-        offset += eventData->size;
+        }
+        offset += eventDataSize;
     }
 
     return parent;
 }
+
 //==============================================================================
 // IOHIDEvent::getChildren
 //==============================================================================

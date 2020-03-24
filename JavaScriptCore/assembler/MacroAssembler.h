@@ -128,6 +128,7 @@ public:
 
     using MacroAssemblerBase::pop;
     using MacroAssemblerBase::jump;
+    using MacroAssemblerBase::farJump;
     using MacroAssemblerBase::branch32;
     using MacroAssemblerBase::compare32;
     using MacroAssemblerBase::move;
@@ -502,7 +503,7 @@ public:
     void retFloat(FPRegisterID) { ret(); }
     void retDouble(FPRegisterID) { ret(); }
 
-    static const unsigned BlindingModulus = 64;
+    static constexpr unsigned BlindingModulus = 64;
     bool shouldConsiderBlinding()
     {
         return !(random() & (BlindingModulus - 1));

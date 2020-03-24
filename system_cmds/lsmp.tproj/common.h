@@ -123,7 +123,7 @@ typedef struct my_per_task_info {
 #define IKOT_LOCK_SET             24
 #define IKOT_CLOCK                25
 #define IKOT_CLOCK_CTRL           26
-#define IKOT_IOKIT_SPARE          27
+#define IKOT_IOKIT_IDENT          27
 #define IKOT_NAMED_ENTRY          28
 #define IKOT_IOKIT_CONNECT        29
 #define IKOT_IOKIT_OBJECT         30
@@ -135,7 +135,12 @@ typedef struct my_per_task_info {
 #define IKOT_TASK_RESUME          36
 #define IKOT_VOUCHER              37
 #define IKOT_VOUCHER_ATTR_CONTROL 38
-#define IKOT_UNKNOWN              39	/* magic catchall	*/
+#define IKOT_WORK_INTERVAL              39
+#define IKOT_UX_HANDLER                 40
+#define IKOT_UEXT_OBJECT                41
+#define IKOT_ARCADE_REG                 42
+
+#define IKOT_UNKNOWN              43	/* magic catchall	*/
 #define IKOT_MAX_TYPE             (IKOT_UNKNOWN+1)	/* # of IKOT_ types	*/
 
 

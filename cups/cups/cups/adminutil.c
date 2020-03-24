@@ -1,7 +1,7 @@
 /*
  * Administration utility API definitions for CUPS.
  *
- * Copyright © 2007-2018 by Apple Inc.
+ * Copyright © 2007-2019 by Apple Inc.
  * Copyright © 2001-2007 by Easy Software Products.
  *
  * Licensed under Apache License v2.0.  See the file "LICENSE" for more
@@ -738,13 +738,9 @@ cupsAdminSetServerSettings(
     {
       if (!wrote_browsing)
       {
-	int new_share_printers = (share_printers > 0 ||
-				  (share_printers == -1 &&
-				   old_share_printers > 0));
-
         wrote_browsing = 1;
 
-        if (new_share_printers)
+        if (share_printers)
 	{
 	  const char *localp = cupsGetOption("BrowseLocalProtocols",
 					     num_settings, settings);
@@ -989,7 +985,7 @@ cupsAdminSetServerSettings(
 
       in_cancel_job = 0;
     }
-    else if ((((in_admin_location || in_conf_location || in_root_location) &&
+    else if ((((in_admin_location || in_conf_location || in_root_location || in_log_location) &&
                (remote_admin >= 0 || remote_any >= 0)) ||
               (in_root_location && share_printers >= 0)) &&
              (!_cups_strcasecmp(line, "Allow") || !_cups_strcasecmp(line, "Deny") ||

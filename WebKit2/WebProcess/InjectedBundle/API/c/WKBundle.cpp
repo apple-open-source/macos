@@ -55,7 +55,7 @@ WKTypeID WKBundleGetTypeID()
 
 void WKBundleSetClient(WKBundleRef bundleRef, WKBundleClientBase *wkClient)
 {
-    WebKit::toImpl(bundleRef)->setClient(std::make_unique<WebKit::InjectedBundleClient>(wkClient));
+    WebKit::toImpl(bundleRef)->setClient(makeUnique<WebKit::InjectedBundleClient>(wkClient));
 }
 
 void WKBundleSetServiceWorkerProxyCreationCallback(WKBundleRef bundleRef, void (*callback)(uint64_t))
@@ -164,11 +164,6 @@ void WKBundleSetFrameFlatteningEnabled(WKBundleRef bundleRef, WKBundlePageGroupR
 void WKBundleSetJavaScriptCanAccessClipboard(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
 {
     WebKit::toImpl(bundleRef)->setJavaScriptCanAccessClipboard(WebKit::toImpl(pageGroupRef), enabled);
-}
-
-void WKBundleSetPrivateBrowsingEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
-{
-    WebKit::toImpl(bundleRef)->setPrivateBrowsingEnabled(WebKit::toImpl(pageGroupRef), enabled);
 }
 
 void WKBundleSetPopupBlockingEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
@@ -311,9 +306,13 @@ void WKBundleClearResourceLoadStatistics(WKBundleRef)
     WebCore::ResourceLoadObserver::shared().clearState();
 }
 
-void WKBundleResourceLoadStatisticsNotifyObserver(WKBundleRef)
+bool WKBundleResourceLoadStatisticsNotifyObserver(WKBundleRef)
 {
+    if (!WebCore::ResourceLoadObserver::shared().hasStatistics())
+        return false;
+
     WebCore::ResourceLoadObserver::shared().updateCentralStatisticsStore();
+    return true;
 }
 
 

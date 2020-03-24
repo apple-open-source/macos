@@ -26,7 +26,6 @@
 #include "config.h"
 #include "ProcessWarming.h"
 
-#include "CSSDefaultStyleSheets.h"
 #include "CommonVM.h"
 #include "Font.h"
 #include "FontCache.h"
@@ -38,6 +37,7 @@
 #include "SVGNames.h"
 #include "Settings.h"
 #include "TelephoneNumberDetector.h"
+#include "UserAgentStyle.h"
 #include "WebKitFontFamilyNames.h"
 #include "XLinkNames.h"
 #include "XMLNSNames.h"
@@ -58,7 +58,7 @@ void ProcessWarming::initializeNames()
     XMLNames::init();
     WebKitFontFamilyNames::init();
 }
-    
+
 void ProcessWarming::prewarmGlobally()
 {
     initializeNames();
@@ -67,19 +67,13 @@ void ProcessWarming::prewarmGlobally()
     Settings::create(nullptr);
     
     // Prewarms user agent stylesheet.
-    CSSDefaultStyleSheets::loadFullDefaultStyle();
+    Style::UserAgentStyle::loadFullDefaultStyle();
     
     // Prewarms JS VM.
     commonVM();
 
-#if USE(PLATFORM_SYSTEM_FALLBACK_LIST)
-    // Cache system UI font fallbacks. Almost every web process needs these.
-    // Initializing one size is sufficient to warm CoreText caches.
-    FontCascadeDescription systemFontDescription;
-    systemFontDescription.setOneFamily("system-ui");
-    systemFontDescription.setComputedSize(11);
-    systemFontDescription.effectiveFamilyCount();
-#endif
+    // Prewarm font cache
+    FontCache::singleton().prewarmGlobally();
 
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
     TelephoneNumberDetector::isSupported();

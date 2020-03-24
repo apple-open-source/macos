@@ -30,9 +30,10 @@
 #include "SecurityOrigin.h"
 
 #include "BlobURL.h"
+#include "LegacySchemeRegistry.h"
 #include "OriginAccessEntry.h"
 #include "PublicSuffix.h"
-#include "SchemeRegistry.h"
+#include "RuntimeApplicationChecks.h"
 #include "SecurityPolicy.h"
 #include "TextEncoding.h"
 #include "ThreadableBlobRegistry.h"
@@ -53,6 +54,11 @@ static bool schemeRequiresHost(const URL& url)
     // URL lacks an authority component, we get concerned and mark the origin
     // as unique.
     return url.protocolIsInHTTPFamily() || url.protocolIs("ftp");
+}
+
+bool SecurityOrigin::shouldIgnoreHost(const URL& url)
+{
+    return url.protocolIsData() || url.protocolIsAbout() || protocolIsJavaScript(url) || url.protocolIs("file");
 }
 
 bool SecurityOrigin::shouldUseInnerURL(const URL& url)
@@ -97,7 +103,7 @@ static bool shouldTreatAsUniqueOrigin(const URL& url)
     if (schemeRequiresHost(innerURL) && innerURL.host().isEmpty())
         return true;
 
-    if (SchemeRegistry::shouldTreatURLSchemeAsNoAccess(innerURL.protocol().toStringWithoutCopying()))
+    if (LegacySchemeRegistry::shouldTreatURLSchemeAsNoAccess(innerURL.protocol().toStringWithoutCopying()))
         return true;
 
     // This is the common case.
@@ -128,13 +134,13 @@ static bool isLoopbackIPAddress(StringView host)
 // https://w3c.github.io/webappsec-secure-contexts/#is-origin-trustworthy (Editor's Draft, 17 November 2016)
 static bool shouldTreatAsPotentiallyTrustworthy(const String& protocol, const String& host)
 {
-    if (SchemeRegistry::shouldTreatURLSchemeAsSecure(protocol))
+    if (LegacySchemeRegistry::shouldTreatURLSchemeAsSecure(protocol))
         return true;
 
     if (SecurityOrigin::isLocalHostOrLoopbackIPAddress(host))
         return true;
 
-    if (SchemeRegistry::shouldTreatURLSchemeAsLocal(protocol))
+    if (LegacySchemeRegistry::shouldTreatURLSchemeAsLocal(protocol))
         return true;
 
     return false;
@@ -147,7 +153,7 @@ bool shouldTreatAsPotentiallyTrustworthy(const URL& url)
 
 SecurityOrigin::SecurityOrigin(const URL& url)
     : m_data(SecurityOriginData::fromURL(url))
-    , m_isLocal(SchemeRegistry::shouldTreatURLSchemeAsLocal(m_data.protocol))
+    , m_isLocal(LegacySchemeRegistry::shouldTreatURLSchemeAsLocal(m_data.protocol))
 {
     // document.domain starts as m_data.host, but can be set by the DOM.
     m_domain = m_data.host;
@@ -231,11 +237,11 @@ void SecurityOrigin::setDomainFromDOM(const String& newDomain)
 bool SecurityOrigin::isSecure(const URL& url)
 {
     // Invalid URLs are secure, as are URLs which have a secure protocol.
-    if (!url.isValid() || SchemeRegistry::shouldTreatURLSchemeAsSecure(url.protocol().toStringWithoutCopying()))
+    if (!url.isValid() || LegacySchemeRegistry::shouldTreatURLSchemeAsSecure(url.protocol().toStringWithoutCopying()))
         return true;
 
     // URLs that wrap inner URLs are secure if those inner URLs are secure.
-    if (shouldUseInnerURL(url) && SchemeRegistry::shouldTreatURLSchemeAsSecure(extractInnerURL(url).protocol().toStringWithoutCopying()))
+    if (shouldUseInnerURL(url) && LegacySchemeRegistry::shouldTreatURLSchemeAsSecure(extractInnerURL(url).protocol().toStringWithoutCopying()))
         return true;
 
     return false;
@@ -355,6 +361,7 @@ static bool isFeedWithNestedProtocolInHTTPFamily(const URL& url)
 
 bool SecurityOrigin::canDisplay(const URL& url) const
 {
+    ASSERT(!isInNetworkProcess());
     if (m_universalAccess)
         return true;
 
@@ -371,10 +378,10 @@ bool SecurityOrigin::canDisplay(const URL& url) const
 
     String protocol = url.protocol().toString();
 
-    if (SchemeRegistry::canDisplayOnlyIfCanRequest(protocol))
+    if (LegacySchemeRegistry::canDisplayOnlyIfCanRequest(protocol))
         return canRequest(url);
 
-    if (SchemeRegistry::shouldTreatURLSchemeAsDisplayIsolated(protocol))
+    if (LegacySchemeRegistry::shouldTreatURLSchemeAsDisplayIsolated(protocol))
         return equalIgnoringASCIICase(m_data.protocol, protocol) || SecurityPolicy::isAccessToURLWhiteListed(this, url);
 
     if (!SecurityPolicy::restrictAccessToLocal())
@@ -383,7 +390,7 @@ bool SecurityOrigin::canDisplay(const URL& url) const
     if (url.isLocalFile() && url.fileSystemPath() == m_filePath)
         return true;
 
-    if (SchemeRegistry::shouldTreatURLSchemeAsLocal(protocol))
+    if (LegacySchemeRegistry::shouldTreatURLSchemeAsLocal(protocol))
         return canLoadLocalResources() || SecurityPolicy::isAccessToURLWhiteListed(this, url);
 
     return true;
@@ -487,7 +494,7 @@ String SecurityOrigin::domainForCachePartition() const
     if (isHTTPFamily())
         return host();
 
-    if (SchemeRegistry::shouldPartitionCacheForURLScheme(m_data.protocol))
+    if (LegacySchemeRegistry::shouldPartitionCacheForURLScheme(m_data.protocol))
         return host();
 
     return emptyString();

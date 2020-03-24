@@ -165,7 +165,7 @@ JIT::compileSetupFrame(const Op& bytecode, CallLinkInfo*)
     }
 
     addPtr(TrustedImm32(registerOffset * sizeof(Register) + sizeof(CallerFrameAndPC)), callFrameRegister, stackPointerRegister);
-    store32(TrustedImm32(argCount), Address(stackPointerRegister, CallFrameSlot::argumentCount * static_cast<int>(sizeof(Register)) + PayloadOffset - sizeof(CallerFrameAndPC)));
+    store32(TrustedImm32(argCount), Address(stackPointerRegister, CallFrameSlot::argumentCountIncludingThis * static_cast<int>(sizeof(Register)) + PayloadOffset - sizeof(CallerFrameAndPC)));
 }
 
 template<typename Op>
@@ -182,26 +182,26 @@ JIT::compileSetupFrame(const Op& bytecode, CallLinkInfo* info)
     int firstVarArgOffset = bytecode.m_firstVarArg;
 
     emitLoad(arguments, regT1, regT0);
-    Z_JITOperation_EJZZ sizeOperation;
+    Z_JITOperation_GJZZ sizeOperation;
     if (Op::opcodeID == op_tail_call_forward_arguments)
         sizeOperation = operationSizeFrameForForwardArguments;
     else
         sizeOperation = operationSizeFrameForVarargs;
-    callOperation(sizeOperation, JSValueRegs(regT1, regT0), -firstFreeRegister, firstVarArgOffset);
+    callOperation(sizeOperation, m_codeBlock->globalObject(), JSValueRegs(regT1, regT0), -firstFreeRegister, firstVarArgOffset);
     move(TrustedImm32(-firstFreeRegister), regT1);
     emitSetVarargsFrame(*this, returnValueGPR, false, regT1, regT1);
     addPtr(TrustedImm32(-(sizeof(CallerFrameAndPC) + WTF::roundUpToMultipleOf(stackAlignmentBytes(), 6 * sizeof(void*)))), regT1, stackPointerRegister);
     emitLoad(arguments, regT2, regT4);
-    F_JITOperation_EFJZZ setupOperation;
+    F_JITOperation_GFJZZ setupOperation;
     if (opcodeID == op_tail_call_forward_arguments)
         setupOperation = operationSetupForwardArgumentsFrame;
     else
         setupOperation = operationSetupVarargsFrame;
-    callOperation(setupOperation, regT1, JSValueRegs(regT2, regT4), firstVarArgOffset, regT0);
+    callOperation(setupOperation, m_codeBlock->globalObject(), regT1, JSValueRegs(regT2, regT4), firstVarArgOffset, regT0);
     move(returnValueGPR, regT1);
 
     // Profile the argument count.
-    load32(Address(regT1, CallFrameSlot::argumentCount * static_cast<int>(sizeof(Register)) + PayloadOffset), regT2);
+    load32(Address(regT1, CallFrameSlot::argumentCountIncludingThis * static_cast<int>(sizeof(Register)) + PayloadOffset), regT2);
     load32(info->addressOfMaxArgumentCountIncludingThis(), regT0);
     Jump notBiggest = branch32(Above, regT0, regT2);
     store32(regT2, info->addressOfMaxArgumentCountIncludingThis());
@@ -229,7 +229,7 @@ bool JIT::compileCallEval(const OpCallEval& bytecode)
 
     addPtr(TrustedImm32(stackPointerOffsetFor(m_codeBlock) * sizeof(Register)), callFrameRegister, stackPointerRegister);
 
-    callOperation(operationCallEval, regT1);
+    callOperation(operationCallEval, m_codeBlock->globalObject(), regT1);
 
     addSlowCase(branchIfEmpty(regT1));
 
@@ -246,7 +246,7 @@ void JIT::compileCallEvalSlowCase(const Instruction* instruction, Vector<SlowCas
 
     auto bytecode = instruction->as<OpCallEval>();
     CallLinkInfo* info = m_codeBlock->addCallLinkInfo();
-    info->setUpCall(CallLinkInfo::Call, CodeOrigin(m_bytecodeOffset), regT0);
+    info->setUpCall(CallLinkInfo::Call, CodeOrigin(m_bytecodeIndex), regT0);
 
     int registerOffset = -bytecode.m_argv;
     int callee = bytecode.m_callee.offset();
@@ -254,7 +254,7 @@ void JIT::compileCallEvalSlowCase(const Instruction* instruction, Vector<SlowCas
     addPtr(TrustedImm32(registerOffset * sizeof(Register) + sizeof(CallerFrameAndPC)), callFrameRegister, stackPointerRegister);
 
     emitLoad(callee, regT1, regT0);
-    emitDumbVirtualCall(*vm(), info);
+    emitDumbVirtualCall(vm(), m_codeBlock->globalObject(), info);
     addPtr(TrustedImm32(stackPointerOffsetFor(m_codeBlock) * sizeof(Register)), callFrameRegister, stackPointerRegister);
     checkStackPointerAlignment();
 
@@ -288,8 +288,8 @@ void JIT::compileOpCall(const Instruction* instruction, unsigned callLinkInfoInd
     compileSetupFrame(bytecode, info);
     // SP holds newCallFrame + sizeof(CallerFrameAndPC), with ArgumentCount initialized.
     
-    uint32_t locationBits = CallSiteIndex(instruction).bits();
-    store32(TrustedImm32(locationBits), tagFor(CallFrameSlot::argumentCount));
+    uint32_t locationBits = CallSiteIndex(BytecodeIndex(bitwise_cast<uint32_t>(instruction))).bits();
+    store32(TrustedImm32(locationBits), tagFor(CallFrameSlot::argumentCountIncludingThis));
     emitLoad(callee, regT1, regT0); // regT1, regT0 holds callee.
 
     store32(regT0, Address(stackPointerRegister, CallFrameSlot::callee * static_cast<int>(sizeof(Register)) + PayloadOffset - sizeof(CallerFrameAndPC)));
@@ -309,7 +309,7 @@ void JIT::compileOpCall(const Instruction* instruction, unsigned callLinkInfoInd
     addSlowCase(slowCase);
 
     ASSERT(m_callCompilationInfo.size() == callLinkInfoIndex);
-    info->setUpCall(CallLinkInfo::callTypeFor(opcodeID), CodeOrigin(m_bytecodeOffset), regT0);
+    info->setUpCall(CallLinkInfo::callTypeFor(opcodeID), CodeOrigin(m_bytecodeIndex), regT0);
     m_callCompilationInfo.append(CallCompilationInfo());
     m_callCompilationInfo[callLinkInfoIndex].hotPathBegin = addressOfLinkedFunctionCheck;
     m_callCompilationInfo[callLinkInfoIndex].callLinkInfo = info;
@@ -342,6 +342,7 @@ void JIT::compileOpCallSlowCase(const Instruction* instruction, Vector<SlowCaseE
 
     linkAllSlowCases(iter);
 
+    move(TrustedImmPtr(m_codeBlock->globalObject()), regT3);
     move(TrustedImmPtr(m_callCompilationInfo[callLinkInfoIndex].callLinkInfo), regT2);
 
     if (opcodeID == op_tail_call || opcodeID == op_tail_call_varargs || opcodeID == op_tail_call_forward_arguments)

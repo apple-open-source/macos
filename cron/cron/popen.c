@@ -114,7 +114,15 @@ cron_popen(program, type, e)
 #endif
 
 	iop = NULL;
+
+	/* vfork is not suitable as child would call getpwnam before execle.
+	 * see radar 58302931
+	 */
+#ifdef __APPLE__
+	switch(pid = fork()) {
+#else
 	switch(pid = vfork()) {
+#endif
 	case -1:			/* error */
 		(void)close(pdes[0]);
 		(void)close(pdes[1]);

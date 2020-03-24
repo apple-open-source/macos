@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2007-2009, 2011, 2012, 2017, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2007-2009, 2011, 2012, 2017-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -121,6 +121,22 @@ SCDynamicStoreKeyCreatePreferences	(
 					CFStringRef		prefsID,
 					SCPreferencesKeyType	keyType
 					)	API_DEPRECATED("No longer supported", macos(10.1,10.4), ios(2.0,2.0));
+
+/*!
+       @function SCPreferencesCreateCompanion
+       @discussion Initiates access to a [companion] of the configuration
+	       preferences.
+       @param prefs The base preferences session.
+       @param companionPrefsID  A string that identifies the companion name
+		of the group of preferences to be accessed or updated.
+       @result Returns a reference to the new SCPreferences.
+	       You must release the returned value.
+*/
+SCPreferencesRef
+SCPreferencesCreateCompanion		(
+					 SCPreferencesRef	prefs,
+					 CFStringRef		companionPrefsID
+					)	SPI_AVAILABLE(macos(10.15.4), ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));
 
 /*!
 	@function SCPreferencesCreateWithOptions

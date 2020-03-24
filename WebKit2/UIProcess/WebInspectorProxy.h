@@ -28,6 +28,7 @@
 
 #include "APIObject.h"
 #include "Attachment.h"
+#include "DebuggableInfoData.h"
 #include "MessageReceiver.h"
 #include "WebInspectorUtilities.h"
 #include <JavaScriptCore/InspectorFrontendChannel.h>
@@ -89,6 +90,7 @@ public:
 
     // Public APIs
     WebPageProxy* inspectedPage() const { return m_inspectedPage; }
+    WebPageProxy* inspectorPage() const { return m_inspectorPage; }
 
     bool isConnected() const { return !!m_inspectorPage; }
     bool isVisible() const { return m_isVisible; }
@@ -133,7 +135,6 @@ public:
 
     void showConsole();
     void showResources();
-    void showTimelines();
     void showMainResourceForFrame(WebFrameProxy*);
 
     AttachmentSide attachmentSide() const { return m_attachmentSide; }
@@ -159,11 +160,14 @@ public:
 
     bool isUnderTest() const { return m_underTest; }
 
+    void setDiagnosticLoggingAvailable(bool);
+
     // Provided by platform WebInspectorProxy implementations.
     static String inspectorPageURL();
     static String inspectorTestPageURL();
     static String inspectorBaseURL();
     static bool isMainOrTestInspectorPage(const URL&);
+    static DebuggableInfoData infoForLocalDebuggable();
 
     static const unsigned minimumWindowWidth;
     static const unsigned minimumWindowHeight;
@@ -223,10 +227,12 @@ private:
     void frontendLoaded();
     void didClose();
     void bringToFront();
+    void bringInspectedPageToFront();
     void attachAvailabilityChanged(bool);
     void inspectedURLChanged(const String&);
     void showCertificate(const WebCore::CertificateInfo&);
     void elementSelectionChanged(bool);
+    void timelineRecordingChanged(bool);
     void setMockCaptureDevicesEnabledOverride(Optional<bool>);
 
     void save(const String& filename, const String& content, bool base64Encoded, bool forceSaveAs);

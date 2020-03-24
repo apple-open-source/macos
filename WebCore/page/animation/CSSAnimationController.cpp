@@ -150,7 +150,7 @@ Optional<Seconds> CSSAnimationControllerPrivate::updateAnimations(SetChanged cal
                     break;
                 
                 Element& element = *compositeAnimation.key;
-                ASSERT(element.document().pageCacheState() == Document::NotInPageCache);
+                ASSERT(element.document().backForwardCacheState() == Document::NotInBackForwardCache);
                 element.invalidateStyle();
                 calledSetChanged = true;
             }
@@ -225,9 +225,9 @@ void CSSAnimationControllerPrivate::fireEventsAndUpdateStyle()
     for (auto& event : eventsToDispatch) {
         Element& element = event.element;
         if (event.eventType == eventNames().transitionendEvent)
-            element.dispatchEvent(TransitionEvent::create(event.eventType, event.name, event.elapsedTime, PseudoElement::pseudoElementNameForEvents(element.pseudoId())));
+            element.dispatchEvent(TransitionEvent::create(event.eventType, event.name, event.elapsedTime, PseudoElement::pseudoElementNameForEvents(element.pseudoId()), WTF::nullopt, nullptr));
         else
-            element.dispatchEvent(AnimationEvent::create(event.eventType, event.name, event.elapsedTime));
+            element.dispatchEvent(AnimationEvent::create(event.eventType, event.name, event.elapsedTime, PseudoElement::pseudoElementNameForEvents(element.pseudoId()), WTF::nullopt, nullptr));
     }
 
     for (auto& change : m_elementChangesToDispatch)
@@ -254,7 +254,7 @@ void CSSAnimationControllerPrivate::addEventToDispatch(Element& element, const A
 void CSSAnimationControllerPrivate::addElementChangeToDispatch(Element& element)
 {
     m_elementChangesToDispatch.append(element);
-    ASSERT(m_elementChangesToDispatch.last()->document().pageCacheState() == Document::NotInPageCache);
+    ASSERT(m_elementChangesToDispatch.last()->document().backForwardCacheState() == Document::NotInBackForwardCache);
     startUpdateStyleIfNeededDispatcher();
 }
 
@@ -596,7 +596,7 @@ void CSSAnimationControllerPrivate::animationWillBeRemoved(AnimationBase& animat
 }
 
 CSSAnimationController::CSSAnimationController(Frame& frame)
-    : m_data(std::make_unique<CSSAnimationControllerPrivate>(frame))
+    : m_data(makeUnique<CSSAnimationControllerPrivate>(frame))
 {
 }
 
@@ -609,7 +609,7 @@ void CSSAnimationController::cancelAnimations(Element& element)
 
     if (element.document().renderTreeBeingDestroyed())
         return;
-    ASSERT(element.document().pageCacheState() == Document::NotInPageCache);
+    ASSERT(element.document().backForwardCacheState() == Document::NotInBackForwardCache);
     element.invalidateStyle();
 }
 
@@ -619,7 +619,7 @@ AnimationUpdate CSSAnimationController::updateAnimations(Element& element, const
     if (!hasOrHadAnimations)
         return { };
 
-    if (element.document().pageCacheState() != Document::NotInPageCache)
+    if (element.document().backForwardCacheState() != Document::NotInBackForwardCache)
         return { };
 
     // Don't run transitions when printing.

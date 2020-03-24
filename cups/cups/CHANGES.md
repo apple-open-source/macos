@@ -1,11 +1,34 @@
-CHANGES - 2.3.0 - 2019-07-16
+CHANGES - 2.3.1 - 2019-11-18
 ============================
+
+
+Changes in CUPS v2.3.1
+----------------------
+
+- Documentation updates (Issue #5661, #5674, #5682)
+- Fixed a crash bug in the web interface (Issue #5621)
+- PPD files containing "custom" option keywords did not work (Issue #5639)
+- Added a workaround for the scheduler's systemd support (Issue #5640)
+- On Windows, TLS certificates generated on February 29 would likely fail
+  (Issue #5643)
+- Sandboxed applications were not able to get the default printer (Issue #5676)
+- Log file access controls were not preserved by `cupsctl` (Issue #5677)
+- Default printers set with `lpoptions` did not work in all cases (Issue #5681,
+  Issue #5683, Issue #5684)
+- The IPP backend did not detect all cases where a job should be retried using
+  a raster format (rdar://56021091)
+- Fixed spelling of "fold-accordion".
+- Fixed the default common name for TLS certificates used by `ippeveprinter`.
+- Fixed the option names used for IPP Everywhere finishing options.
 
 
 Changes in CUPS v2.3.0
 ----------------------
 
+- CVE-2019-8696 and CVE-2019-8675: Fixed SNMP buffer overflows (rdar://51685251)
+- Added a GPL2/LGPL2 exception to the new CUPS license terms.
 - Documentation updates (Issue #5604)
+- Localization updates (Issue #5637)
 - Fixed a bug in the scheduler job cleanup code (Issue #5588)
 - Fixed builds when there is no TLS library (Issue #5590)
 - Eliminated some new GCC compiler warnings (Issue #5591)
@@ -14,6 +37,7 @@ Changes in CUPS v2.3.0
 - Fixed potential excess logging from the scheduler when removing job files
   (Issue #5597)
 - Fixed a NULL pointer dereference bug in `httpGetSubField2` (Issue #5598)
+- Added FIPS-140 workarounds for GNU TLS (Issue #5601, Issue #5622)
 - The scheduler no longer provides a default value for the description
   (Issue #5603)
 - The scheduler now logs jobs held for authentication using the error level so
@@ -23,12 +47,23 @@ Changes in CUPS v2.3.0
 - The scheduler now uses both the group's membership list as well as the
   various OS-specific membership functions to determine whether a user belongs
   to a named group (Issue #5613)
+- Added USB quirks rule for HP LaserJet 1015 (Issue #5617)
+- Fixed some PPD parser issues (Issue #5623, Issue #5624)
+- The IPP parser no longer allows invalid member attributes in collections
+  (Issue #5630)
+- The configure script now treats the "wheel" group as a potential system
+  group (Issue #5638)
+- Fixed a USB printing issue on macOS (rdar://31433931)
+- Fixed IPP buffer overflow (rdar://50035411)
+- Fixed memory disclosure issue in the scheduler (rdar://51373853)
+- Fixed DoS issues in the scheduler (rdar://51373929)
 - Fixed an issue with unsupported "sides" values in the IPP backend
   (rdar://51775322)
 - The scheduler would restart continuously when idle and printers were not
   shared (rdar://52561199)
 - Fixed an issue with `EXPECT !name WITH-VALUE ...` tests.
 - Fixed a command ordering issue in the Zebra ZPL driver.
+- Fixed a memory leak in `ppdOpen`.
 
 
 Changes in CUPS v2.3rc1

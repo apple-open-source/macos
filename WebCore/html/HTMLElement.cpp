@@ -34,6 +34,7 @@
 #include "DOMTokenList.h"
 #include "DocumentFragment.h"
 #include "ElementAncestorIterator.h"
+#include "EnterKeyHint.h"
 #include "Event.h"
 #include "EventListener.h"
 #include "EventNames.h"
@@ -113,7 +114,7 @@ unsigned HTMLElement::parseBorderWidthAttribute(const AtomString& value) const
 
 void HTMLElement::applyBorderAttributeToStyle(const AtomString& value, MutableStyleProperties& style)
 {
-    addPropertyToPresentationAttributeStyle(style, CSSPropertyBorderWidth, parseBorderWidthAttribute(value), CSSPrimitiveValue::CSS_PX);
+    addPropertyToPresentationAttributeStyle(style, CSSPropertyBorderWidth, parseBorderWidthAttribute(value), CSSUnitType::CSS_PX);
     addPropertyToPresentationAttributeStyle(style, CSSPropertyBorderStyle, CSSValueSolid);
 }
 
@@ -714,13 +715,6 @@ String HTMLElement::title() const
     return attributeWithoutSynchronization(titleAttr);
 }
 
-int HTMLElement::tabIndex() const
-{
-    if (supportsFocus())
-        return Element::tabIndex();
-    return -1;
-}
-
 bool HTMLElement::translate() const
 {
     for (auto& element : lineageOfType<HTMLElement>(*this)) {
@@ -739,7 +733,7 @@ void HTMLElement::setTranslate(bool enable)
     setAttributeWithoutSynchronization(translateAttr, enable ? "yes" : "no");
 }
 
-bool HTMLElement::rendererIsNeeded(const RenderStyle& style)
+bool HTMLElement::rendererIsEverNeeded()
 {
     if (hasTagName(noscriptTag)) {
         RefPtr<Frame> frame = document().frame();
@@ -750,7 +744,7 @@ bool HTMLElement::rendererIsNeeded(const RenderStyle& style)
         if (frame && frame->loader().subframeLoader().allowPlugins())
             return false;
     }
-    return StyledElement::rendererIsNeeded(style);
+    return StyledElement::rendererIsEverNeeded();
 }
 
 RenderPtr<RenderElement> HTMLElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
@@ -1124,6 +1118,21 @@ const AtomString& HTMLElement::inputMode() const
 void HTMLElement::setInputMode(const AtomString& value)
 {
     setAttributeWithoutSynchronization(inputmodeAttr, value);
+}
+
+EnterKeyHint HTMLElement::canonicalEnterKeyHint() const
+{
+    return enterKeyHintForAttributeValue(attributeWithoutSynchronization(enterkeyhintAttr));
+}
+
+String HTMLElement::enterKeyHint() const
+{
+    return attributeValueForEnterKeyHint(canonicalEnterKeyHint());
+}
+
+void HTMLElement::setEnterKeyHint(const String& value)
+{
+    setAttributeWithoutSynchronization(enterkeyhintAttr, value);
 }
 
 } // namespace WebCore

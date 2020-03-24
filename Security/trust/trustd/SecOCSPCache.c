@@ -246,7 +246,9 @@ static void SecOCSPCacheWith(void(^cacheJob)(SecOCSPCacheRef cache)) {
             CFRelease(dbPath);
         }
     }
-    cacheJob(kSecOCSPCache);
+    if (kSecOCSPCache) {
+        cacheJob(kSecOCSPCache);
+    }
     os_unfair_lock_unlock(&cacheLock);
 }
 

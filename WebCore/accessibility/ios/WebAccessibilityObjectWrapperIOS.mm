@@ -123,14 +123,14 @@ static NSString * const UIAccessibilityTextualContextSourceCode = @"UIAccessibil
 static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityObjectWrapper *wrapper)
 {
     while (wrapper && ![wrapper isAccessibilityElement]) {
-        AccessibilityObject* object = [wrapper accessibilityObject];
+        AXCoreObject* object = [wrapper accessibilityObject];
         if (!object)
             break;
         
         if ([wrapper isAttachment] && ![[wrapper attachmentView] accessibilityIsIgnored])
             break;
             
-        AccessibilityObject* parentObject = object->parentObjectUnignored();
+        AXCoreObject* parentObject = object->parentObjectUnignored();
         if (!parentObject)
             break;
 
@@ -179,7 +179,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 // This is needed for external clients to be able to create a text marker without having a pointer to the cache.
 - (id)initWithData:(NSData *)data accessibilityObject:(AccessibilityObjectWrapper *)wrapper
 {
-    WebCore::AccessibilityObject* axObject = [wrapper accessibilityObject]; 
+    WebCore::AXCoreObject* axObject = [wrapper accessibilityObject];
     if (!axObject)
         return nil;
     
@@ -257,7 +257,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 
 @implementation WebAccessibilityObjectWrapper
 
-- (id)initWithAccessibilityObject:(AccessibilityObject*)axObject
+- (id)initWithAccessibilityObject:(AXCoreObject*)axObject
 {
     self = [super initWithAccessibilityObject:axObject];
     if (!self)
@@ -388,7 +388,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
         return nil;
     
     // Try a fuzzy hit test first to find an accessible element.
-    AccessibilityObjectInterface *axObject = nullptr;
+    AXCoreObject *axObject = nullptr;
     {
         AXAttributeCacheEnabler enableCache(m_object->axObjectCache());
         axObject = m_object->accessibilityHitTest(IntPoint(point));
@@ -550,31 +550,31 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 
 - (AccessibilityObjectWrapper*)_accessibilityTreeAncestor
 {
-    auto matchFunc = [] (const AccessibilityObject& object) {
+    auto matchFunc = [] (const AXCoreObject& object) {
         AccessibilityRole role = object.roleValue();
         return role == AccessibilityRole::Tree;
     };
-    
-    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, WTFMove(matchFunc)))
+
+    if (const AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*m_object, false, WTFMove(matchFunc)))
         return parent->wrapper();
     return nil;
 }
 
 - (AccessibilityObjectWrapper*)_accessibilityListAncestor
 {
-    auto matchFunc = [] (const AccessibilityObject& object) {
+    auto matchFunc = [] (const AXCoreObject& object) {
         AccessibilityRole role = object.roleValue();
         return role == AccessibilityRole::List || role == AccessibilityRole::ListBox;
     };
     
-    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, WTFMove(matchFunc)))
+    if (const AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*m_object, false, WTFMove(matchFunc)))
         return parent->wrapper();
     return nil;
 }
 
 - (AccessibilityObjectWrapper*)_accessibilityArticleAncestor
 {
-    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, [] (const AccessibilityObject& object) {
+    if (const AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*m_object, false, [] (const AXCoreObject& object) {
         return object.roleValue() == AccessibilityRole::DocumentArticle;
     }))
         return parent->wrapper();
@@ -583,7 +583,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 
 - (AccessibilityObjectWrapper*)_accessibilityLandmarkAncestor
 {
-    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, [self] (const AccessibilityObject& object) {
+    if (const AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*m_object, false, [self] (const AXCoreObject& object) {
         return [self _accessibilityIsLandmarkRole:object.roleValue()];
     }))
         return parent->wrapper();
@@ -592,7 +592,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 
 - (AccessibilityObjectWrapper*)_accessibilityTableAncestor
 {
-    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, [] (const AccessibilityObject& object) {
+    if (const AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*m_object, false, [] (const AXCoreObject& object) {
         return object.roleValue() == AccessibilityRole::Table;
     }))
         return parent->wrapper();
@@ -601,14 +601,14 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 
 - (BOOL)_accessibilityIsInTableCell
 {
-    return AccessibilityObject::matchedParent(*m_object, false, [] (const AccessibilityObject& object) {
+    return Accessibility::findAncestor<AXCoreObject>(*m_object, false, [] (const AXCoreObject& object) {
         return object.roleValue() == AccessibilityRole::Cell;
     }) != nullptr;
 }
 
 - (AccessibilityObjectWrapper*)_accessibilityFieldsetAncestor
 {
-    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*m_object, false, [] (const AccessibilityObject& object) {
+    if (const AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*m_object, false, [] (const AXCoreObject& object) {
         return object.isFieldset();
     }))
         return parent->wrapper();
@@ -617,7 +617,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 
 - (AccessibilityObjectWrapper*)_accessibilityFrameAncestor
 {
-    auto* parent = AccessibilityObject::matchedParent(*m_object, false, [] (const AccessibilityObject& object) {
+    auto* parent = Accessibility::findAncestor<AXCoreObject>(*m_object, false, [] (const AXCoreObject& object) {
         return object.isWebArea();
     });
     if (!parent)
@@ -632,7 +632,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     
     // Trait information also needs to be gathered from the parents above the object.
     // The parentObject is needed instead of the unignoredParentObject, because a table might be ignored, but information still needs to be gathered from it.    
-    for (AccessibilityObject* parent = m_object->parentObject(); parent != nil; parent = parent->parentObject()) {
+    for (auto* parent = m_object->parentObject(); parent != nil; parent = parent->parentObject()) {
         AccessibilityRole parentRole = parent->roleValue();
         if (parentRole == AccessibilityRole::WebArea)
             break;
@@ -1182,9 +1182,9 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 - (AccessibilityTableCell*)tableCellParent
 {
     // Find if this element is in a table cell.
-    if (AccessibilityObject* parent = const_cast<AccessibilityObject*>(AccessibilityObject::matchedParent(*m_object, true, [] (const AccessibilityObject& object) {
+    if (AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*m_object, true, [] (const AXCoreObject& object) {
         return object.isTableCell();
-    })))
+    }))
         return static_cast<AccessibilityTableCell*>(parent);
     return nil;
 }
@@ -1192,9 +1192,9 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 - (AccessibilityTable*)tableParent
 {
     // Find if the parent table for the table cell.
-    if (AccessibilityObject* parent = const_cast<AccessibilityObject*>(AccessibilityObject::matchedParent(*m_object, true, [] (const AccessibilityObject& object) {
+    if (AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*m_object, true, [] (const AXCoreObject& object) {
         return is<AccessibilityTable>(object) && downcast<AccessibilityTable>(object).isExposableThroughAccessibility();
-    })))
+    }))
         return static_cast<AccessibilityTable*>(parent);
     return nil;
 }
@@ -1204,7 +1204,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return nil;
 
-    AccessibilityObject* titleElement = m_object->titleUIElement();
+    AXCoreObject* titleElement = m_object->titleUIElement();
     if (titleElement)
         return titleElement->wrapper();
 
@@ -1240,7 +1240,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     
     unsigned columnRangeIndex = static_cast<unsigned>(columnRange.first);
     if (columnRangeIndex < columnHeaders.size()) {
-        RefPtr<AccessibilityObject> columnHeader = columnHeaders[columnRange.first];
+        RefPtr<AXCoreObject> columnHeader = columnHeaders[columnRange.first];
         AccessibilityObjectWrapper* wrapper = columnHeader->wrapper();
         if (wrapper)
             [headers addObject:wrapper];
@@ -1397,8 +1397,10 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 {
     if (![self _prepareAccessibilityCall])
         return nil;
-    
-    if (auto parent = AccessibilityObject::matchedParent(*m_object, true, [] (const AccessibilityObject& object) { return object.supportsDatetimeAttribute(); }))
+
+    if (auto* parent = Accessibility::findAncestor<AXCoreObject>(*m_object, true, [] (const AXCoreObject& object) {
+        return object.supportsDatetimeAttribute();
+    }))
         return parent->datetimeAttributeValue();
 
     return nil;
@@ -1664,7 +1666,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     AXAttributeCacheEnabler enableCache(m_object->axObjectCache());
     
     // As long as there's a parent wrapper, that's the correct chain to climb.
-    AccessibilityObject* parent = m_object->parentObjectUnignored(); 
+    AXCoreObject* parent = m_object->parentObjectUnignored();
     if (parent)
         return parent->wrapper();
 
@@ -1800,7 +1802,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
         return nil;
 
     // If this static text inside of a link, it should use its parent's linked element.
-    AccessibilityObject* element = m_object;
+    AXCoreObject* element = m_object;
     if (m_object->roleValue() == AccessibilityRole::StaticText && m_object->parentObjectUnignored()->isLink())
         element = m_object->parentObjectUnignored();
 
@@ -1967,34 +1969,34 @@ static RenderObject* rendererForView(WAKView* view)
     return m_object->scrollVisibleContentRect();
 }
 
-- (AccessibilityObject*)detailParentForSummaryObject:(AccessibilityObject*)object
+- (AXCoreObject*)detailParentForSummaryObject:(AXCoreObject*)object
 {
     // Use this to check if an object is the child of a summary object.
     // And return the summary's parent, which is the expandable details object.
-    if (const AccessibilityObject* summary = AccessibilityObject::matchedParent(*object, true, [] (const AccessibilityObject& object) {
+    if (const AXCoreObject* summary = Accessibility::findAncestor<AXCoreObject>(*object, true, [] (const AXCoreObject& object) {
         return object.hasTagName(summaryTag);
     }))
         return summary->parentObject();
     return nil;
 }
 
-- (AccessibilityObject*)detailParentForObject:(AccessibilityObject*)object
+- (AXCoreObject*)detailParentForObject:(AccessibilityObject*)object
 {
     // Use this to check if an object is inside a details object.
-    if (const AccessibilityObject* details = AccessibilityObject::matchedParent(*object, true, [] (const AccessibilityObject& object) {
+    if (AXCoreObject* details = Accessibility::findAncestor<AXCoreObject>(*object, true, [] (const AXCoreObject& object) {
         return object.hasTagName(detailsTag);
     }))
-        return const_cast<AccessibilityObject*>(details);
+        return details;
     return nil;
 }
 
-- (AccessibilityObject*)treeItemParentForObject:(AccessibilityObject*)object
+- (AXCoreObject*)treeItemParentForObject:(AXCoreObject*)object
 {
     // Use this to check if an object is inside a treeitem object.
-    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*object, true, [] (const AccessibilityObject& object) {
+    if (AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*object, true, [] (const AXCoreObject& object) {
         return object.roleValue() == AccessibilityRole::TreeItem;
     }))
-        return const_cast<AccessibilityObject*>(parent);
+        return parent;
     return nil;
 }
 
@@ -2205,11 +2207,11 @@ static void AXAttributeStringSetStyle(NSMutableAttributedString* attrString, Ren
 
     // Add code context if this node is within a <code> block.
     AccessibilityObject* axObject = renderer->document().axObjectCache()->getOrCreate(renderer);
-    auto matchFunc = [] (const AccessibilityObject& object) {
+    auto matchFunc = [] (const AXCoreObject& object) {
         return object.node() && object.node()->hasTagName(codeTag);
     };
-    
-    if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*axObject, true, WTFMove(matchFunc)))
+
+    if (const AXCoreObject* parent = Accessibility::findAncestor<AXCoreObject>(*axObject, true, WTFMove(matchFunc)))
         [attrString addAttribute:UIAccessibilityTextAttributeContext value:UIAccessibilityTextualContextSourceCode range:range];
 }
 
@@ -2280,7 +2282,7 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
                 if ([self _addAccessibilityObject:headingObject toTextMarkerArray:array])
                     continue;
                 
-                String listMarkerText = m_object->listMarkerTextForNodeAndPosition(&node, VisiblePosition(it.range()->startPosition()));
+                String listMarkerText = AccessibilityObject::listMarkerTextForNodeAndPosition(&node, VisiblePosition(it.range()->startPosition()));
                 
                 if (!listMarkerText.isEmpty()) 
                     [array addObject:listMarkerText];
@@ -2289,7 +2291,7 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
             }
             else
             {
-                String listMarkerText = m_object->listMarkerTextForNodeAndPosition(&node, VisiblePosition(it.range()->startPosition()));
+                String listMarkerText = AccessibilityObject::listMarkerTextForNodeAndPosition(&node, VisiblePosition(it.range()->startPosition()));
 
                 if (!listMarkerText.isEmpty()) {
                     NSMutableAttributedString* attrString = [[NSMutableAttributedString alloc] init];
@@ -2939,10 +2941,10 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
     
     // Since details element is ignored on iOS, we should expose the expanded status on its
     // summary's accessible children.
-    if (AccessibilityObject* detailParent = [self detailParentForSummaryObject:m_object])
+    if (AXCoreObject* detailParent = [self detailParentForSummaryObject:m_object])
         return detailParent->supportsExpanded();
     
-    if (AccessibilityObject* treeItemParent = [self treeItemParentForObject:m_object])
+    if (AXCoreObject* treeItemParent = [self treeItemParentForObject:m_object])
         return treeItemParent->supportsExpanded();
     
     return m_object->supportsExpanded();
@@ -2955,10 +2957,10 @@ static void AXAttributedStringAppendText(NSMutableAttributedString* attrString, 
 
     // Since details element is ignored on iOS, we should expose the expanded status on its
     // summary's accessible children.
-    if (AccessibilityObject* detailParent = [self detailParentForSummaryObject:m_object])
+    if (AXCoreObject* detailParent = [self detailParentForSummaryObject:m_object])
         return detailParent->isExpanded();
     
-    if (AccessibilityObject* treeItemParent = [self treeItemParentForObject:m_object])
+    if (AXCoreObject* treeItemParent = [self treeItemParentForObject:m_object])
         return treeItemParent->isExpanded();
     
     return m_object->isExpanded();

@@ -51,7 +51,7 @@ SHELL = /bin/sh
 EXAMPLES = $(srcdir)/pam.conf $(srcdir)/sudo.conf $(srcdir)/sudoers \
 	   $(srcdir)/syslog.conf
  
-VERSION = 1.8.29
+VERSION = 1.8.31
 PACKAGE_TARNAME = sudo
 
 all: $(EXAMPLES)

@@ -46,12 +46,8 @@
 #include <usp10.h>
 #endif
 
-#if USE(CG)
-#include <pal/spi/cg/CoreGraphicsSPI.h>
-#endif
-
 #if USE(DIRECT2D)
-interface IDWriteFactory;
+interface IDWriteFactory5;
 interface IDWriteGdiInterop;
 #endif
 
@@ -67,7 +63,9 @@ enum FontVariant { AutoVariant, NormalVariant, SmallCapsVariant, EmphasisMarkVar
 enum Pitch { UnknownPitch, FixedPitch, VariablePitch };
 enum class IsForPlatformFont : uint8_t { No, Yes };
 
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(Font);
 class Font : public RefCounted<Font> {
+    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Font);
 public:
     // Used to create platform fonts.
     enum class Origin : uint8_t {
@@ -187,6 +185,7 @@ public:
     Origin origin() const { return m_origin; }
     bool isInterstitial() const { return m_isInterstitial; }
     Visibility visibility() const { return m_visibility; }
+    bool allowsAntialiasing() const { return m_allowsAntialiasing; }
 
 #if !LOG_DISABLED
     String description() const;
@@ -217,11 +216,6 @@ public:
     static void setShouldApplyMacAscentHack(bool);
     static bool shouldApplyMacAscentHack();
     static float ascentConsideringMacAscentHack(const WCHAR*, float ascent, float descent);
-#endif
-
-#if USE(DIRECT2D)
-    WEBCORE_EXPORT static IDWriteFactory* systemDWriteFactory();
-    WEBCORE_EXPORT static IDWriteGdiInterop* systemDWriteGdiInterop();
 #endif
 
 private:
@@ -269,9 +263,7 @@ private:
 #endif
 
     struct DerivedFonts {
-#if !COMPILER(MSVC)
-        WTF_MAKE_FAST_ALLOCATED;
-#endif
+        WTF_MAKE_STRUCT_FAST_ALLOCATED;
     public:
 
         RefPtr<Font> smallCapsFont;
@@ -321,6 +313,8 @@ private:
     unsigned m_hasVerticalGlyphs : 1;
 
     unsigned m_isUsedInSystemFallbackCache : 1;
+    
+    unsigned m_allowsAntialiasing : 1;
 
 #if PLATFORM(IOS_FAMILY)
     unsigned m_shouldNotBeUsedForArabic : 1;
@@ -345,7 +339,7 @@ ALWAYS_INLINE FloatRect Font::boundsForGlyph(Glyph glyph) const
 
     bounds = platformBoundsForGlyph(glyph);
     if (!m_glyphToBoundsMap)
-        m_glyphToBoundsMap = std::make_unique<GlyphMetricsMap<FloatRect>>();
+        m_glyphToBoundsMap = makeUnique<GlyphMetricsMap<FloatRect>>();
     m_glyphToBoundsMap->setMetricsForGlyph(glyph, bounds);
     return bounds;
 }

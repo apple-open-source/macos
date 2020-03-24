@@ -46,7 +46,6 @@ SOFT_LINK_CLASS(ARKit, ARQuickLookPreviewItem);
 SOFT_LINK_PRIVATE_FRAMEWORK(AssetViewer);
 SOFT_LINK_CLASS(AssetViewer, ARQuickLookWebKitItem);
 
-@protocol ARQuickLookWebKitItemDelegate;
 static NSString * const _WKARQLWebsiteURLParameterKey = @"ARQLWebsiteURLParameterKey";
 
 @interface ARQuickLookWebKitItem ()

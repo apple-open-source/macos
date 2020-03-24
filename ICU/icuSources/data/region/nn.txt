@@ -76,7 +76,7 @@ nn{
         CF{"Den sentralafrikanske republikken"}
         CG{"Kongo-Brazzaville"}
         CH{"Sveits"}
-        CI{"Elfenbeinskysten"}
+        CI{"Côte d’Ivoire"}
         CK{"Cookøyane"}
         CL{"Chile"}
         CM{"Kamerun"}
@@ -302,6 +302,7 @@ nn{
     Countries%variant{
         CD{"Den demokratiske republikken Kongo"}
         CG{"Republikken Kongo"}
+        CI{"Elfenbeinskysten"}
         FK{"Falklandsøyane (Islas Malvinas)"}
         TL{"Aust-Timor"}
     }

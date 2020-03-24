@@ -22,9 +22,9 @@
 
 #if ENABLE(WEB_RTC)
 
-messages -> NetworkMDNSRegister {
+messages -> NetworkMDNSRegister NotRefCounted {
     UnregisterMDNSNames(WebCore::DocumentIdentifier documentIdentifier)
-    RegisterMDNSName(uint64_t requestIdentifier, PAL::SessionID sessionID, WebCore::DocumentIdentifier documentIdentifier, String ipAddress)
+    RegisterMDNSName(uint64_t requestIdentifier, WebCore::DocumentIdentifier documentIdentifier, String ipAddress)
 }
 
 #endif // ENABLE(WEB_RTC)

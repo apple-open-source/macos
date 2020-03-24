@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,39 +31,32 @@
 
 namespace JSC {
 
-std::unique_ptr<PolyProtoAccessChain> PolyProtoAccessChain::create(JSGlobalObject* globalObject, JSCell* base, const PropertySlot& slot, bool& usesPolyProto)
+std::unique_ptr<PolyProtoAccessChain> PolyProtoAccessChain::create(JSGlobalObject* globalObject, JSCell* base, const PropertySlot& slot)
 {
     JSObject* target = slot.isUnset() ? nullptr : slot.slotBase();
-    return create(globalObject, base, target, usesPolyProto);
+    return create(globalObject, base, target);
 }
 
-std::unique_ptr<PolyProtoAccessChain> PolyProtoAccessChain::create(JSGlobalObject* globalObject, JSCell* base, JSObject* target, bool& usesPolyProto)
+std::unique_ptr<PolyProtoAccessChain> PolyProtoAccessChain::create(JSGlobalObject* globalObject, JSCell* base, JSObject* target)
 {
     JSCell* current = base;
-    VM& vm = *base->vm();
+    VM& vm = base->vm();
 
     bool found = false;
-
-    usesPolyProto = false;
 
     std::unique_ptr<PolyProtoAccessChain> result(new PolyProtoAccessChain());
 
     for (unsigned iterationNumber = 0; true; ++iterationNumber) {
         Structure* structure = current->structure(vm);
 
+        if (structure->isDictionary())
+            return nullptr;
+
         if (!structure->propertyAccessesAreCacheable())
             return nullptr;
 
         if (structure->isProxy())
             return nullptr;
-
-        if (structure->isDictionary()) {
-            ASSERT(structure->isObject());
-            if (structure->hasBeenFlattenedBefore())
-                return nullptr;
-
-            structure->flattenDictionaryStructure(vm, asObject(current));
-        }
 
         // To save memory, we don't include the base in the chain. We let
         // AccessCase provide the base to us as needed.
@@ -76,12 +69,6 @@ std::unique_ptr<PolyProtoAccessChain> PolyProtoAccessChain::create(JSGlobalObjec
             found = true;
             break;
         }
-
-        // We only have poly proto if we need to access our prototype via
-        // the poly proto protocol. If the slot base is the only poly proto
-        // thing in the chain, and we have a cache hit on it, then we're not
-        // poly proto.
-        usesPolyProto |= structure->hasPolyProto();
 
         JSValue prototype = structure->prototypeForLookup(globalObject, current);
         if (prototype.isNull())

@@ -128,6 +128,7 @@ $(OBJROOT)/$(PROJECT):
 	patch $(PROJECT)/setup.py $(FIX)/setup.py-23359785.patch && \
 	(cd $(PROJECT) && patch -p1 < $(FIX)/lchmod.patch) && \
 	patch $(PROJECT)/Python/mactoolboxglue.c $(FIX)/mactoolboxglue.c.diff && \
+	(cd $(PROJECT) && patch -p1 < $(FIX)/PR-57240915.patch) && \
 	for i in `find $(PROJECT)/Mac -name setup.py | xargs fgrep -l "'-framework', 'Carbon'"`; do \
 	    ed - $$i < $(FIX)/Mac_setup.py.ed || exit 1; \
 	done && \

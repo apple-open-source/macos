@@ -57,7 +57,7 @@ $(PROJECT_DIR)/builtins/StringIteratorPrototype.js
 $(PROJECT_DIR)/builtins/StringPrototype.js
 $(PROJECT_DIR)/builtins/TypedArrayConstructor.js
 $(PROJECT_DIR)/builtins/TypedArrayPrototype.js
-$(PROJECT_DIR)/builtins/WebAssemblyPrototype.js
+$(PROJECT_DIR)/builtins/WebAssembly.js
 $(PROJECT_DIR)/bytecode/BytecodeList.rb
 $(PROJECT_DIR)/create_hash_table
 $(PROJECT_DIR)/disassembler/udis86/optable.xml
@@ -74,8 +74,10 @@ $(PROJECT_DIR)/generator/Options.rb
 $(PROJECT_DIR)/generator/Section.rb
 $(PROJECT_DIR)/generator/Template.rb
 $(PROJECT_DIR)/generator/Type.rb
+$(PROJECT_DIR)/generator/Wasm.rb
 $(PROJECT_DIR)/generator/main.rb
 $(PROJECT_DIR)/inspector/InjectedScriptSource.js
+$(PROJECT_DIR)/inspector/protocol/Animation.json
 $(PROJECT_DIR)/inspector/protocol/ApplicationCache.json
 $(PROJECT_DIR)/inspector/protocol/Audit.json
 $(PROJECT_DIR)/inspector/protocol/CPUProfiler.json
@@ -171,10 +173,11 @@ $(PROJECT_DIR)/ucd/language-subtag-registry.txt
 $(PROJECT_DIR)/wasm/generateWasm.py
 $(PROJECT_DIR)/wasm/generateWasmB3IRGeneratorInlinesHeader.py
 $(PROJECT_DIR)/wasm/generateWasmOpsHeader.py
-$(PROJECT_DIR)/wasm/generateWasmValidateInlinesHeader.py
 $(PROJECT_DIR)/wasm/js/JSWebAssembly.cpp
 $(PROJECT_DIR)/wasm/js/WebAssemblyCompileErrorConstructor.cpp
 $(PROJECT_DIR)/wasm/js/WebAssemblyCompileErrorPrototype.cpp
+$(PROJECT_DIR)/wasm/js/WebAssemblyGlobalConstructor.cpp
+$(PROJECT_DIR)/wasm/js/WebAssemblyGlobalPrototype.cpp
 $(PROJECT_DIR)/wasm/js/WebAssemblyInstanceConstructor.cpp
 $(PROJECT_DIR)/wasm/js/WebAssemblyInstancePrototype.cpp
 $(PROJECT_DIR)/wasm/js/WebAssemblyLinkErrorConstructor.cpp
@@ -183,7 +186,6 @@ $(PROJECT_DIR)/wasm/js/WebAssemblyMemoryConstructor.cpp
 $(PROJECT_DIR)/wasm/js/WebAssemblyMemoryPrototype.cpp
 $(PROJECT_DIR)/wasm/js/WebAssemblyModuleConstructor.cpp
 $(PROJECT_DIR)/wasm/js/WebAssemblyModulePrototype.cpp
-$(PROJECT_DIR)/wasm/js/WebAssemblyPrototype.cpp
 $(PROJECT_DIR)/wasm/js/WebAssemblyRuntimeErrorConstructor.cpp
 $(PROJECT_DIR)/wasm/js/WebAssemblyRuntimeErrorPrototype.cpp
 $(PROJECT_DIR)/wasm/js/WebAssemblyTableConstructor.cpp

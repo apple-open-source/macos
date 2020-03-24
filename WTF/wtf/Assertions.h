@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2017 Apple Inc.  All rights reserved.
+ * Copyright (C) 2003-2019 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -400,6 +400,11 @@ WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH void WTFCrashWithSecurityImplication(v
 } while (0)
 #endif
 
+#ifdef __cplusplus
+constexpr bool assertionFailureDueToUnreachableCode = false;
+#define ASSERT_NOT_REACHED_WITH_MESSAGE(...) ASSERT_WITH_MESSAGE(assertionFailureDueToUnreachableCode, __VA_ARGS__)
+#endif
+
 /* ASSERT_WITH_MESSAGE_UNUSED */
 
 #if ASSERT_MSG_DISABLED
@@ -548,17 +553,66 @@ WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH void WTFCrashWithSecurityImplication(v
 #endif
 
 #ifdef __cplusplus
+#define RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE(...) RELEASE_ASSERT_WITH_MESSAGE(assertionFailureDueToUnreachableCode, __VA_ARGS__)
 
 // The combination of line, file, function, and counter should be a unique number per call to this crash. This tricks the compiler into not coalescing calls to WTFCrashWithInfo.
 // The easiest way to fill these values per translation unit is to pass __LINE__, __FILE__, WTF_PRETTY_FUNCTION, and __COUNTER__.
-WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4, uint64_t misc5, uint64_t misc6);
-WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4, uint64_t misc5);
-WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4);
-WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3);
-WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2);
-WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1);
-WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, uint64_t reason);
+WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfoImpl(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4, uint64_t misc5, uint64_t misc6);
+WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfoImpl(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4, uint64_t misc5);
+WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfoImpl(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4);
+WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfoImpl(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3);
+WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfoImpl(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1, uint64_t misc2);
+WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfoImpl(int line, const char* file, const char* function, int counter, uint64_t reason, uint64_t misc1);
+WTF_EXPORT_PRIVATE NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfoImpl(int line, const char* file, const char* function, int counter, uint64_t reason);
 NO_RETURN_DUE_TO_CRASH NOT_TAIL_CALLED void WTFCrashWithInfo(int line, const char* file, const char* function, int counter);
+
+template<typename T>
+ALWAYS_INLINE uint64_t wtfCrashArg(T* arg) { return reinterpret_cast<uintptr_t>(arg); }
+
+template<typename T>
+ALWAYS_INLINE uint64_t wtfCrashArg(T arg) { return arg; }
+
+template<typename T>
+NO_RETURN_DUE_TO_CRASH ALWAYS_INLINE void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, T reason)
+{
+    WTFCrashWithInfoImpl(line, file, function, counter, wtfCrashArg(reason));
+}
+
+template<typename T, typename U>
+NO_RETURN_DUE_TO_CRASH ALWAYS_INLINE void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, T reason, U misc1)
+{
+    WTFCrashWithInfoImpl(line, file, function, counter, wtfCrashArg(reason), wtfCrashArg(misc1));
+}
+
+template<typename T, typename U, typename V>
+NO_RETURN_DUE_TO_CRASH ALWAYS_INLINE void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, T reason, U misc1, V misc2)
+{
+    WTFCrashWithInfoImpl(line, file, function, counter, wtfCrashArg(reason), wtfCrashArg(misc1), wtfCrashArg(misc2));
+}
+
+template<typename T, typename U, typename V, typename W>
+NO_RETURN_DUE_TO_CRASH ALWAYS_INLINE void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, T reason, U misc1, V misc2, W misc3)
+{
+    WTFCrashWithInfoImpl(line, file, function, counter, wtfCrashArg(reason), wtfCrashArg(misc1), wtfCrashArg(misc2), wtfCrashArg(misc3));
+}
+
+template<typename T, typename U, typename V, typename W, typename X>
+NO_RETURN_DUE_TO_CRASH ALWAYS_INLINE void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, T reason, U misc1, V misc2, W misc3, X misc4)
+{
+    WTFCrashWithInfoImpl(line, file, function, counter, wtfCrashArg(reason), wtfCrashArg(misc1), wtfCrashArg(misc2), wtfCrashArg(misc3), wtfCrashArg(misc4));
+}
+
+template<typename T, typename U, typename V, typename W, typename X, typename Y>
+NO_RETURN_DUE_TO_CRASH ALWAYS_INLINE void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, T reason, U misc1, V misc2, W misc3, X misc4, Y misc5)
+{
+    WTFCrashWithInfoImpl(line, file, function, counter, wtfCrashArg(reason), wtfCrashArg(misc1), wtfCrashArg(misc2), wtfCrashArg(misc3), wtfCrashArg(misc4), wtfCrashArg(misc5));
+}
+
+template<typename T, typename U, typename V, typename W, typename X, typename Y, typename Z>
+NO_RETURN_DUE_TO_CRASH ALWAYS_INLINE void WTFCrashWithInfo(int line, const char* file, const char* function, int counter, T reason, U misc1, V misc2, W misc3, X misc4, Y misc5, Z misc6)
+{
+    WTFCrashWithInfoImpl(line, file, function, counter, wtfCrashArg(reason), wtfCrashArg(misc1), wtfCrashArg(misc2), wtfCrashArg(misc3), wtfCrashArg(misc4), wtfCrashArg(misc5), wtfCrashArg(misc6));
+}
 
 inline void WTFCrashWithInfo(int, const char*, const char*, int)
 #if COMPILER(CLANG)
@@ -569,13 +623,13 @@ inline void WTFCrashWithInfo(int, const char*, const char*, int)
 }
 
 namespace WTF {
-inline void isIntegralType() { }
+inline void isIntegralOrPointerType() { }
 
 template<typename T, typename... Types>
-void isIntegralType(T, Types... types)
+void isIntegralOrPointerType(T, Types... types)
 {
-    static_assert(std::is_integral<T>::value || std::is_enum<T>::value, "All types need to be integral bitwise_cast to integral type for logging");
-    isIntegralType(types...);
+    static_assert(std::is_integral<T>::value || std::is_enum<T>::value || std::is_pointer<T>::value, "All types need to be bitwise_cast-able to integral type for logging");
+    isIntegralOrPointerType(types...);
 }
 }
 
@@ -589,16 +643,33 @@ inline void compilerFenceForCrash()
 }
 
 #ifndef CRASH_WITH_INFO
-// This is useful if you are going to stuff data into registers before crashing. Like the crashWithInfo functions below...
-// GCC doesn't like the ##__VA_ARGS__ here since this macro is called from another macro so we just CRASH instead there.
+// This is useful if you are going to stuff data into registers before crashing, like the
+// crashWithInfo functions below.
 #if COMPILER(CLANG) || COMPILER(MSVC)
 #define CRASH_WITH_INFO(...) do { \
-        WTF::isIntegralType(__VA_ARGS__); \
+        WTF::isIntegralOrPointerType(__VA_ARGS__); \
         compilerFenceForCrash(); \
         WTFCrashWithInfo(__LINE__, __FILE__, WTF_PRETTY_FUNCTION, __COUNTER__, ##__VA_ARGS__); \
     } while (false)
 #else
-#define CRASH_WITH_INFO(...) CRASH()
+// GCC does not allow ##__VA_ARGS__ unless GNU extensions are enabled (--std=gnu++NN instead of
+// --std=c++NN) and I think we don't want that, so we'll have a fallback path for GCC. Obviously
+// this will not actually succeed at getting the desired info into registers before crashing, but
+// it's just a fallback anyway.
+//
+// FIXME: When we enable C++20, we should replace ##__VA_ARGS__ with format __VA_OPT__(,) __VA_ARGS__
+// so that we can remove this fallback.
+inline NO_RETURN_DUE_TO_CRASH void CRASH_WITH_INFO(...)
+{
+    CRASH();
+}
+
+// We must define this here because CRASH_WITH_INFO() is not defined as a macro.
+// FIXME: Remove this when upgrading to C++20.
+inline NO_RETURN_DUE_TO_CRASH void CRASH_WITH_SECURITY_IMPLICATION_AND_INFO(...)
+{
+    CRASH();
+}
 #endif
 #endif // CRASH_WITH_INFO
 

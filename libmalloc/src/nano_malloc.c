@@ -1896,9 +1896,12 @@ nano_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 	mprotect(nanozone, sizeof(nanozone->basic_zone), PROT_READ); /* Prevent overwriting the function pointers in basic_zone. */
 
 	/* Nano zone does not support MALLOC_ADD_GUARD_PAGES. */
-	if (debug_flags & MALLOC_ADD_GUARD_PAGES) {
-		malloc_report(ASL_LEVEL_INFO, "nano zone does not support guard pages\n");
-		debug_flags &= ~MALLOC_ADD_GUARD_PAGES;
+	if (debug_flags & MALLOC_ALL_GUARD_PAGE_FLAGS) {
+		if (!(debug_flags & MALLOC_GUARD_ALL)) {
+			// Don't report when MallocGuardEdges == "all".
+			malloc_report(ASL_LEVEL_INFO, "nano zone does not support guard pages\n");
+		}
+		debug_flags &= ~MALLOC_ALL_GUARD_PAGE_FLAGS;
 	}
 
 	/* set up the remainder of the nanozone structure */

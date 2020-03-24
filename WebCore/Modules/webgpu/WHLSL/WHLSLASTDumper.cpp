@@ -134,11 +134,7 @@ void ASTDumper::visit(AST::EnumerationDefinition& enumerationDefinition)
 
 void ASTDumper::visit(AST::EnumerationMember& enumerationMember)
 {
-    m_out.print(enumerationMember.name());
-    if (enumerationMember.value()) {
-        m_out.print(" = ");
-        visit(*enumerationMember.value());
-    }
+    m_out.print(enumerationMember.name(), " = ", enumerationMember.value());
 }
 
 void ASTDumper::visit(AST::FunctionDefinition& functionDefinition)
@@ -306,12 +302,6 @@ void ASTDumper::visit(AST::FloatLiteral& floatLiteral)
     m_out.print(floatLiteral.value());
 }
 
-void ASTDumper::visit(AST::NullLiteral& nullLiteral)
-{
-    m_out.print("null");
-    visit(nullLiteral.type());
-}
-
 void ASTDumper::visit(AST::BooleanLiteral& booleanLiteral)
 {
     if (booleanLiteral.value())
@@ -329,10 +319,6 @@ void ASTDumper::visit(AST::UnsignedIntegerLiteralType&)
 }
 
 void ASTDumper::visit(AST::FloatLiteralType&)
-{
-}
-
-void ASTDumper::visit(AST::NullLiteralType&)
 {
 }
 
@@ -413,11 +399,7 @@ void ASTDumper::visit(AST::DoWhileLoop& doWhileLoop)
 void ASTDumper::visit(AST::ForLoop& forLoop)
 {
     m_out.print("for (");
-    WTF::visit(WTF::makeVisitor([&](UniqueRef<AST::Statement>& statement) {
-        visit(statement);
-    }, [&](UniqueRef<AST::Expression>& expression) {
-        visit(expression);
-    }), forLoop.initialization());
+    visit(forLoop.initialization());
     m_out.print("; ");
     if (forLoop.condition())
         visit(*forLoop.condition());
@@ -433,11 +415,23 @@ void ASTDumper::visit(AST::Expression& expression)
     bool skipParens = is<AST::BooleanLiteral>(expression)
         || is<AST::FloatLiteral>(expression)
         || is<AST::IntegerLiteral>(expression)
-        || is<AST::NullLiteral>(expression)
         || is<AST::UnsignedIntegerLiteral>(expression)
         || is<AST::EnumerationMemberLiteral>(expression)
         || is<AST::CommaExpression>(expression)
         || is<AST::VariableReference>(expression);
+
+    if (auto* annotation = expression.maybeTypeAnnotation()) {
+        if (auto addressSpace = annotation->leftAddressSpace())
+            m_out.print("<LV:", AST::toString(*addressSpace));
+        else if (annotation->isAbstractLeftValue())
+            m_out.print("<ALV");
+        else if (annotation->isRightValue())
+            m_out.print("<RV");
+
+        m_out.print(", ", expression.resolvedType().toString(), ">");
+
+        skipParens = false;
+    }
 
     if (!skipParens)
         m_out.print("(");
@@ -500,11 +494,6 @@ void ASTDumper::visit(AST::Return& returnStatement)
         m_out.print(" ");
         visit(*returnStatement.value());
     }
-}
-
-void ASTDumper::visit(AST::Trap&)
-{
-    m_out.print("trap");
 }
 
 void ASTDumper::visit(AST::SwitchStatement& switchStatement)

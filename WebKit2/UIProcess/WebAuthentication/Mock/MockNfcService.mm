@@ -32,6 +32,7 @@
 #import "NfcConnection.h"
 #import <WebCore/FidoConstants.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/RetainPtr.h>
 #import <wtf/RunLoop.h>
 #import <wtf/Vector.h>
 
@@ -249,10 +250,10 @@ void MockNfcService::detectTags() const
         if (configuration.nfc->error == Mock::NfcError::WrongTagType || configuration.nfc->multipleTags)
             [tags addObject:adoptNS([[WKMockNFTag alloc] initWithType:NFTagTypeUnknown]).get()];
         else
-            [tags addObject:[[WKMockNFTag alloc] initWithType:NFTagTypeGeneric4A]];
+            [tags addObject:adoptNS([[WKMockNFTag alloc] initWithType:NFTagTypeGeneric4A]).get()];
 
         if (configuration.nfc->multipleTags)
-            [tags addObject:[[WKMockNFTag alloc] initWithType:NFTagTypeGeneric4A]];
+            [tags addObject:adoptNS([[WKMockNFTag alloc] initWithType:NFTagTypeGeneric4A]).get()];
 
         if (configuration.nfc->multiplePhysicalTags)
             [tags addObject:adoptNS([[WKMockNFTag alloc] initWithType:NFTagTypeGeneric4A tagID:adoptNS([[NSData alloc] initWithBytes:tagID2 length:sizeof(tagID2)]).get()]).get()];

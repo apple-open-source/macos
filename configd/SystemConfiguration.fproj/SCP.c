@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011, 2014-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -58,6 +58,29 @@ __SCPSignatureFromStatbuf(const struct stat *statBuf)
 	sig->tv_nsec      = statBuf->st_mtimespec.tv_nsec;
 	sig->st_size      = statBuf->st_size;
 	return signature;
+}
+
+
+__private_extern__
+uint32_t
+__SCPreferencesGetNetworkConfigurationFlags(SCPreferencesRef prefs)
+{
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+
+	return (prefs != NULL) ? prefsPrivate->nc_flags : 0;
+}
+
+__private_extern__
+void
+__SCPreferencesSetNetworkConfigurationFlags(SCPreferencesRef prefs, uint32_t nc_flags)
+{
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+
+	if (prefs != NULL) {
+		prefsPrivate->nc_flags = nc_flags;
+	}
+
+	return;
 }
 
 
@@ -120,19 +143,6 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 
 
 __private_extern__
-Boolean
-__SCPreferencesGetLimitSCNetworkConfiguration(SCPreferencesRef prefs)
-{
-	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
-
-	if (prefs == NULL) {
-		return FALSE;
-	}
-	return prefsPrivate->limit_SCNetworkConfiguration;
-}
-
-
-__private_extern__
 off_t
 __SCPreferencesPrefsSize(SCPreferencesRef prefs)
 {
@@ -179,31 +189,13 @@ __private_extern__
 SCPreferencesRef
 __SCPreferencesCreateNIPrefsFromPrefs(SCPreferencesRef prefs)
 {
-	CFMutableStringRef newPath = NULL;
-	CFURLRef newURL = NULL;
-	SCPreferencesRef ni_prefs = NULL;
-	SCPreferencesPrivateRef prefsPrivate = (SCPreferencesPrivateRef)prefs;
-	char * prefsPath = __SCPreferencesPath(NULL, prefsPrivate->prefsID, FALSE);
+	SCPreferencesRef	ni_prefs;
 
+	// open [companion] NetworkInterfaces.plist
+	ni_prefs = SCPreferencesCreateCompanion(prefs, INTERFACES_DEFAULT_CONFIG);
 
-	newPath = CFStringCreateMutable(NULL, 0);
-	CFStringAppendFormat(newPath, NULL, CFSTR("%s"), prefsPath);
-
-	CFStringFindAndReplace(newPath,
-			       PREFS_DEFAULT_CONFIG,
-			       NETWORK_INTERFACES_PREFS,
-			       CFRangeMake(0, CFStringGetLength(newPath)),
-			       kCFCompareBackwards);
-
-	newURL = CFURLCreateWithFileSystemPath(NULL, newPath, kCFURLPOSIXPathStyle, FALSE);
-	if (!CFURLResourceIsReachable(newURL, NULL)) {
-		ni_prefs = __SCNetworkCreateDefaultNIPrefs(newPath);
-	} else {
-		ni_prefs = SCPreferencesCreate(NULL, prefsPrivate->name, newPath);
-	}
-	CFAllocatorDeallocate(NULL, prefsPath);
-	CFRelease(newPath);
-	CFRelease(newURL);
+	// if needed, populate
+	__SCNetworkPopulateDefaultNIPrefs(ni_prefs);
 
 	return ni_prefs;
 }
@@ -280,15 +272,3 @@ SCDynamicStoreKeyCreatePreferences(CFAllocatorRef	allocator,
 	return _SCPNotificationKey(allocator, prefsID, keyType);
 }
 
-
-__private_extern__ void
-__SCPreferencesSetLimitSCNetworkConfiguration(SCPreferencesRef	prefs,
-					      Boolean		limit_SCNetworkConfiguration)
-{
-	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
-
-	if (prefs == NULL) {
-		return;
-	}
-	prefsPrivate->limit_SCNetworkConfiguration = limit_SCNetworkConfiguration;
-}

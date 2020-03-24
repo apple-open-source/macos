@@ -37,9 +37,9 @@ InspectorBackend.Connection = class InspectorBackendConnection
     constructor()
     {
         this._pendingResponses = new Map;
-        this._agents = {};
         this._deferredCallbacks = [];
         this._target = null;
+        this._provisionalMessages = [];
     }
 
     // Public
@@ -52,14 +52,21 @@ InspectorBackend.Connection = class InspectorBackendConnection
     set target(target)
     {
         console.assert(!this._target);
-
         this._target = target;
+    }
 
-        for (let domain in this._agents) {
-            let dispatcher = this._agents[domain].dispatcher;
-            if (dispatcher)
-                dispatcher.target = target;
-        }
+    addProvisionalMessage(message)
+    {
+        console.assert(this.target && this.target.isProvisional);
+        this._provisionalMessages.push(message);
+    }
+
+    dispatchProvisionalMessages()
+    {
+        console.assert(this.target && !this.target.isProvisional);
+        for (let message of this._provisionalMessages)
+            this.dispatch(message);
+        this._provisionalMessages = [];
     }
 
     dispatch(message)
@@ -95,11 +102,8 @@ InspectorBackend.Connection = class InspectorBackendConnection
     {
         console.assert(this._pendingResponses.size >= 0);
 
-        if (messageObject["error"]) {
-            // FIXME: Eliminate Target.exists
-            if (messageObject["error"].code !== -32000 && messageObject["error"].message !== "'Target' domain was not found")
-                console.error("Request with id = " + messageObject["id"] + " failed. " + JSON.stringify(messageObject["error"]));
-        }
+        if (messageObject.error && messageObject.error.code !== -32000)
+            console.error("Request with id = " + messageObject["id"] + " failed. " + JSON.stringify(messageObject.error));
 
         let sequenceId = messageObject["id"];
         console.assert(this._pendingResponses.has(sequenceId), sequenceId, this._target ? this._target.identifier : "(unknown)", this._pendingResponses);
@@ -140,14 +144,14 @@ InspectorBackend.Connection = class InspectorBackendConnection
         callbackArguments.push(responseObject["error"] ? responseObject["error"].message : null);
 
         if (responseObject["result"]) {
-            for (let parameterName of command.replySignature)
+            for (let parameterName of command._replySignature)
                 callbackArguments.push(responseObject["result"][parameterName]);
         }
 
         try {
             callback.apply(null, callbackArguments);
         } catch (e) {
-            WI.reportInternalError(e, {"cause": `An uncaught exception was thrown while dispatching response callback for command ${command.qualifiedName}.`});
+            WI.reportInternalError(e, {"cause": `An uncaught exception was thrown while dispatching response callback for command ${command._qualifiedName}.`});
         }
     }
 
@@ -162,28 +166,38 @@ InspectorBackend.Connection = class InspectorBackendConnection
 
     _dispatchEvent(messageObject)
     {
-        let qualifiedName = messageObject["method"];
+        let qualifiedName = messageObject.method;
         let [domainName, eventName] = qualifiedName.split(".");
-        if (!(domainName in this._agents)) {
-            console.error("Protocol Error: Attempted to dispatch method '" + eventName + "' for non-existing domain '" + domainName + "'", messageObject);
+
+        // COMPATIBILITY (iOS 12.2 and iOS 13): because the multiplexing target isn't created until
+        // `Target.exists` returns, any `Target.targetCreated` won't have a dispatcher for the
+        // message, so create a multiplexing target here to force this._target._agents.Target.
+        if (!this._target && this === InspectorBackend.backendConnection && WI.sharedApp.debuggableType === WI.DebuggableType.WebPage && qualifiedName === "Target.targetCreated")
+            WI.targetManager.createMultiplexingBackendTarget();
+
+        let agent = this._target._agents[domainName];
+        if (!agent) {
+            console.error(`Protocol Error: Attempted to dispatch method '${qualifiedName}' for non-existing domain '${domainName}'`, messageObject);
             return;
         }
 
-        let agent = this._agents[domainName];
-        if (!agent.active) {
-            console.error("Protocol Error: Attempted to dispatch method for domain '" + domainName + "' which exists but is not active.", messageObject);
+        let dispatcher = agent._dispatcher;
+        if (!dispatcher) {
+            console.error(`Protocol Error: Missing dispatcher for domain '${domainName}', for event '${qualifiedName}'`, messageObject);
             return;
         }
 
-        let event = agent.getEvent(eventName);
+        let event = agent._events[eventName];
         if (!event) {
-            console.error("Protocol Error: Attempted to dispatch an unspecified method '" + qualifiedName + "'", messageObject);
+            console.error(`Protocol Error: Attempted to dispatch an unspecified method '${qualifiedName}'`, messageObject);
             return;
         }
 
-        let eventArguments = [];
-        if (messageObject["params"])
-            eventArguments = event.parameterNames.map((name) => messageObject["params"][name]);
+        let handler = dispatcher[eventName];
+        if (!handler) {
+            console.error(`Protocol Error: Attempted to dispatch an unimplemented method '${qualifiedName}'`, messageObject);
+            return;
+        }
 
         let processingStartTimestamp = performance.now();
         for (let tracer of InspectorBackend.activeTracers)
@@ -192,7 +206,8 @@ InspectorBackend.Connection = class InspectorBackendConnection
         InspectorBackend.currentDispatchState.event = messageObject;
 
         try {
-            agent.dispatchEvent(eventName, eventArguments);
+            let params = messageObject.params || {};
+            handler.apply(dispatcher, event._parameterNames.map((name) => params[name]));
         } catch (e) {
             for (let tracer of InspectorBackend.activeTracers)
                 tracer.logFrontendException(this, messageObject, e);
@@ -213,7 +228,7 @@ InspectorBackend.Connection = class InspectorBackendConnection
 
         let messageObject = {
             "id": sequenceId,
-            "method": command.qualifiedName,
+            "method": command._qualifiedName,
         };
 
         if (!isEmptyObject(parameters))
@@ -234,7 +249,7 @@ InspectorBackend.Connection = class InspectorBackendConnection
 
         let messageObject = {
             "id": sequenceId,
-            "method": command.qualifiedName,
+            "method": command._qualifiedName,
         };
 
         if (!isEmptyObject(parameters))
@@ -276,13 +291,6 @@ InspectorBackend.Connection = class InspectorBackendConnection
 
 InspectorBackend.BackendConnection = class InspectorBackendBackendConnection extends InspectorBackend.Connection
 {
-    constructor()
-    {
-        super();
-
-        this._agents = InspectorBackend._agents;
-    }
-
     sendMessageToBackend(message)
     {
         InspectorFrontendHost.sendMessageToBackend(message);
@@ -291,48 +299,29 @@ InspectorBackend.BackendConnection = class InspectorBackendBackendConnection ext
 
 InspectorBackend.WorkerConnection = class InspectorBackendWorkerConnection extends InspectorBackend.Connection
 {
-    constructor(workerId)
-    {
-        super();
-
-        this._workerId = workerId;
-
-        for (let [domain, agent] of Object.entries(InspectorBackend._agents)) {
-            let clone = Object.create(agent);
-            clone.connection = this;
-            if (agent.dispatcher)
-                clone.dispatcher = new agent.dispatcher.constructor;
-            this._agents[domain] = clone;
-        }
-    }
-
     sendMessageToBackend(message)
     {
-        // Ignore errors if a worker went away quickly.
-        WorkerAgent.sendMessageToWorker(this._workerId, message).catch(function(){});
+        let workerId = this.target.identifier;
+        this.target.parentTarget.WorkerAgent.sendMessageToWorker(workerId, message).catch((error) => {
+            // Ignore errors if a worker went away quickly.
+            if (this.target.isDestroyed)
+                return;
+            WI.reportInternalError(error);
+        });
     }
 };
 
 InspectorBackend.TargetConnection = class InspectorBackendTargetConnection extends InspectorBackend.Connection
 {
-    constructor(targetId)
-    {
-        super();
-
-        this._targetId = targetId;
-
-        for (let [domain, agent] of Object.entries(InspectorBackend._agents)) {
-            let clone = Object.create(agent);
-            clone.connection = this;
-            if (agent.dispatcher)
-                clone.dispatcher = new agent.dispatcher.constructor;
-            this._agents[domain] = clone;
-        }
-    }
-
     sendMessageToBackend(message)
     {
-        TargetAgent.sendMessageToTarget(this._targetId, message);
+        let targetId = this.target.identifier;
+        this.target.parentTarget.TargetAgent.sendMessageToTarget(targetId, message).catch((error) => {
+            // Ignore errors if the target was destroyed after the command was dispatched.
+            if (this.target.isDestroyed)
+                return;
+            WI.reportInternalError(error);
+        });
     }
 };
 

@@ -413,10 +413,10 @@ namespace JSC {
     {
     }
 
-    inline BytecodeIntrinsicNode::BytecodeIntrinsicNode(Type type, const JSTokenLocation& location, EmitterType emitter, const Identifier& ident, ArgumentsNode* args, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
+    inline BytecodeIntrinsicNode::BytecodeIntrinsicNode(Type type, const JSTokenLocation& location, BytecodeIntrinsicRegistry::Entry entry, const Identifier& ident, ArgumentsNode* args, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
         : ExpressionNode(location)
         , ThrowableExpressionData(divot, divotStart, divotEnd)
-        , m_emitter(emitter)
+        , m_entry(entry)
         , m_ident(ident)
         , m_args(args)
         , m_type(type)
@@ -666,6 +666,21 @@ namespace JSC {
         , m_operator(oper)
         , m_expr1(expr1)
         , m_expr2(expr2)
+    {
+    }
+
+    inline CoalesceNode::CoalesceNode(const JSTokenLocation& location, ExpressionNode* expr1, ExpressionNode* expr2, bool hasAbsorbedOptionalChain)
+        : ExpressionNode(location, ResultType::forCoalesce(expr1->resultDescriptor(), expr2->resultDescriptor()))
+        , m_expr1(expr1)
+        , m_expr2(expr2)
+        , m_hasAbsorbedOptionalChain(hasAbsorbedOptionalChain)
+    {
+    }
+
+    inline OptionalChainNode::OptionalChainNode(const JSTokenLocation& location, ExpressionNode* expr, bool isOutermost)
+        : ExpressionNode(location)
+        , m_expr(expr)
+        , m_isOutermost(isOutermost)
     {
     }
 

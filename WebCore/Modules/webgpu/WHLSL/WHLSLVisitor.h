@@ -27,9 +27,11 @@
 
 #if ENABLE(WEBGPU)
 
+#include "WHLSLError.h"
 #include "WHLSLFunctionAttribute.h"
 #include "WHLSLSemantic.h"
 #include "WHLSLTypeArgument.h"
+#include <wtf/Expected.h>
 
 namespace WebCore {
 
@@ -61,7 +63,6 @@ class StageInOutSemantic;
 class IntegerLiteral;
 class UnsignedIntegerLiteral;
 class FloatLiteral;
-class NullLiteral;
 class BooleanLiteral;
 class EnumerationMemberLiteral;
 class NumThreadsFunctionAttribute;
@@ -83,7 +84,6 @@ class IfStatement;
 class Return;
 class SwitchCase;
 class SwitchStatement;
-class Trap;
 class VariableDeclarationsStatement;
 class WhileLoop;
 class VariableDeclaration;
@@ -137,12 +137,10 @@ public:
     virtual void visit(AST::IntegerLiteral&);
     virtual void visit(AST::UnsignedIntegerLiteral&);
     virtual void visit(AST::FloatLiteral&);
-    virtual void visit(AST::NullLiteral&);
     virtual void visit(AST::BooleanLiteral&);
     virtual void visit(AST::IntegerLiteralType&);
     virtual void visit(AST::UnsignedIntegerLiteralType&);
     virtual void visit(AST::FloatLiteralType&);
-    virtual void visit(AST::NullLiteralType&);
     virtual void visit(AST::EnumerationMemberLiteral&);
     virtual void visit(AST::FunctionAttribute&);
     virtual void visit(AST::NumThreadsFunctionAttribute&);
@@ -164,7 +162,6 @@ public:
     virtual void visit(AST::Return&);
     virtual void visit(AST::SwitchCase&);
     virtual void visit(AST::SwitchStatement&);
-    virtual void visit(AST::Trap&);
     virtual void visit(AST::VariableDeclarationsStatement&);
     virtual void visit(AST::WhileLoop&);
     virtual void visit(AST::VariableDeclaration&);
@@ -180,23 +177,24 @@ public:
     virtual void visit(AST::TernaryExpression&);
     virtual void visit(AST::VariableReference&);
 
-    bool error() const { return m_error; }
+    bool hasError() const { return !m_expectedError; }
+    Expected<void, Error> result() { return m_expectedError; }
 
     template<typename T> void checkErrorAndVisit(T& x)
     {
-        if (!m_error)
+        if (!hasError())
             visit(x);
     }
 
 protected:
-    void setError()
+    void setError(Error error)
     {
-        ASSERT(!m_error);
-        m_error = true;
+        ASSERT(!hasError());
+        m_expectedError = makeUnexpected(error);
     }
 
 private:
-    bool m_error { false }; // FIXME: https://bugs.webkit.org/show_bug.cgi?id=195682 Migrate this to be some sort of descriptive string.
+    Expected<void, Error> m_expectedError;
 };
 
 } // namespace WHLSL

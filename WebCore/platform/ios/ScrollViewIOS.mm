@@ -89,71 +89,45 @@ void ScrollView::platformScrollbarModes(ScrollbarMode& horizontal, ScrollbarMode
 void ScrollView::platformSetCanBlitOnScroll(bool canBlitOnScroll)
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [[scrollView() contentView] setCopiesOnScroll:canBlitOnScroll];
+    ALLOW_DEPRECATED_DECLARATIONS_END
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
 bool ScrollView::platformCanBlitOnScroll() const
 {
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return [[scrollView() contentView] copiesOnScroll];
+    ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
-IntRect ScrollView::unobscuredContentRect(VisibleContentRectIncludesScrollbars) const
+IntRect ScrollView::platformUnobscuredContentRect(VisibleContentRectIncludesScrollbars) const
 {
-    if (WAKScrollView *view = static_cast<WAKScrollView *>(platformWidget())) {
-        CGRect r = CGRectZero;
-        BEGIN_BLOCK_OBJC_EXCEPTIONS;
-        r = [view unobscuredContentRect];
-        END_BLOCK_OBJC_EXCEPTIONS;
-        return enclosingIntRect(r);
+    ASSERT(platformWidget());
+    WAKScrollView *view = static_cast<WAKScrollView *>(platformWidget());
+    CGRect r = CGRectZero;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    r = [view unobscuredContentRect];
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return enclosingIntRect(r);
+}
+
+FloatRect ScrollView::platformExposedContentRect() const
+{
+    ASSERT(platformWidget());
+    NSScrollView *view = static_cast<NSScrollView *>(platformWidget());
+    CGRect r = CGRectZero;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    if ([view isKindOfClass:[NSScrollView class]])
+        r = [view exposedContentRect];
+    else {
+        r.origin = [view visibleRect].origin;
+        r.size = [view bounds].size;
     }
 
-    if (!m_unobscuredContentSize.isEmpty())
-        return IntRect(m_scrollPosition, roundedIntSize(m_unobscuredContentSize));
-
-    return unobscuredContentRectInternal();
-}
-
-void ScrollView::setUnobscuredContentSize(const FloatSize& size)
-{
-    ASSERT(!platformWidget());
-    if (size == m_unobscuredContentSize)
-        return;
-
-    m_unobscuredContentSize = size;
-    unobscuredContentSizeChanged();
-}
-
-FloatRect ScrollView::exposedContentRect() const
-{
-    if (NSScrollView *view = static_cast<NSScrollView *>(platformWidget())) {
-        CGRect r = CGRectZero;
-        BEGIN_BLOCK_OBJC_EXCEPTIONS;
-        if ([view isKindOfClass:[NSScrollView class]])
-            r = [view exposedContentRect];
-        else {
-            r.origin = [view visibleRect].origin;
-            r.size = [view bounds].size;
-        }
-
-        END_BLOCK_OBJC_EXCEPTIONS;
-        return r;
-    }
-
-    const ScrollView* parent = this->parent();
-    if (!parent)
-        return m_exposedContentRect;
-
-    IntRect parentViewExtentContentRect = enclosingIntRect(parent->exposedContentRect());
-    IntRect selfExtentContentRect = rootViewToContents(parentViewExtentContentRect);
-    selfExtentContentRect.intersect(boundsRect());
-    return selfExtentContentRect;
-}
-
-void ScrollView::setExposedContentRect(const FloatRect& rect)
-{
-    ASSERT(!platformWidget());
-    m_exposedContentRect = rect;
+    END_BLOCK_OBJC_EXCEPTIONS;
+    return r;
 }
 
 void ScrollView::setActualScrollPosition(const IntPoint& position)

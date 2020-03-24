@@ -65,8 +65,6 @@ WI.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel extends WI.
     {
         super.initialLayout();
 
-        WI.settings.showShadowDOM.addEventListener(WI.Setting.Event.Changed, this._showShadowDOMSettingChanged, this);
-
         this._buildLayerInfoSection();
         this._buildDataGridSection();
         this._buildBottomBar();
@@ -76,7 +74,7 @@ WI.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel extends WI.
     {
         super.layout();
 
-        if (!this.domNode)
+        if (!this.domNode || this.domNode.destroyed)
             return;
 
         WI.layerTreeManager.layersForNode(this.domNode, (layers) => {
@@ -100,12 +98,6 @@ WI.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel extends WI.
     _layerTreeDidChange(event)
     {
         this.needsLayout();
-    }
-
-    _showShadowDOMSettingChanged(event)
-    {
-        if (this.selected)
-            this._updateDisplayWithLayers(this._layerForNode, this._unfilteredChildLayers);
     }
 
     _buildLayerInfoSection()
@@ -232,18 +224,17 @@ WI.LayerTreeDetailsSidebarPanel = class LayerTreeDetailsSidebarPanel extends WI.
         var layer = dataGridNode.layer;
         if (layer.isGeneratedContent || layer.isReflection || layer.isAnonymous)
             WI.domManager.highlightRect(layer.bounds, true);
-        else
-            WI.domManager.highlightDOMNode(layer.nodeId);
+        else {
+            let domNode = WI.domManager.nodeForId(layer.nodeId);
+            if (domNode)
+                domNode.highlight();
+            else
+                WI.domManager.hideDOMNodeHighlight();
+        }
     }
 
     _updateDisplayWithLayers(layerForNode, childLayers)
     {
-        if (!WI.settings.showShadowDOM.value) {
-            childLayers = childLayers.filter(function(layer) {
-                return !layer.isInShadowTree;
-            });
-        }
-
         this._updateLayerInfoSection(layerForNode);
         this._updateDataGrid(layerForNode, childLayers);
         this._updateMetrics(layerForNode, childLayers);

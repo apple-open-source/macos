@@ -457,10 +457,9 @@ static SOSAccount* SOSAccountCreateFromDER(CFAllocatorRef allocator,
     }
     CFReleaseNull(oldPI);
 
+    SOSAccountEnsureRecoveryRing(account);
 
     [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-        SOSAccountEnsureRecoveryRing(account);
-
         secnotice("circleop", "Setting account.key_interests_need_updating to true in SOSAccountCreateFromDER");
         account.key_interests_need_updating = true;
     }];

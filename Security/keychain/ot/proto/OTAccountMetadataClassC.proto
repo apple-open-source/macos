@@ -13,6 +13,9 @@ message AccountMetadataClassC {
     //  If there is an SA account, we will bt in NO_ACCOUNT and have an altDSID
     //  If there is an HSA2 account, we will be in ACCOUNT_AVAILABLE and have an altDSID
 
+    // Once you're in an HSA2 account, CDP might be enabled or disabled. If it's not enabled,
+    // then Octagon shouldn't be active.
+
     enum AccountState {
         UNKNOWN = 0;
         NO_ACCOUNT = 1;
@@ -32,6 +35,12 @@ message AccountMetadataClassC {
         ATTEMPTED = 2;
     }
 
+    enum CDPState {
+        UNKNOWN = 0;
+        DISABLED = 1;
+        ENABLED = 2;
+    }
+
     optional string peerID = 1;
     optional AccountState icloudAccountState = 2;
     optional int64 epoch = 3;
@@ -43,4 +52,10 @@ message AccountMetadataClassC {
     optional uint64 lastHealthCheckup = 6;
 
     optional AttemptedAJoinState attemptedJoin = 7;
+
+    optional CDPState cdpState = 8;
+
+    // These store the current policy and view list, so that we don't need to re-ask TPH every time
+    optional bytes syncingPolicy = 9;
+    repeated string syncingView = 10;
 }

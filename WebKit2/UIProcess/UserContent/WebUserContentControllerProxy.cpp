@@ -84,6 +84,18 @@ WebUserContentControllerProxy::~WebUserContentControllerProxy()
 #endif
 }
 
+#if ENABLE(CONTENT_EXTENSIONS)
+void WebUserContentControllerProxy::addNetworkProcess(NetworkProcessProxy& proxy)
+{
+    m_networkProcesses.add(proxy);
+}
+
+void WebUserContentControllerProxy::removeNetworkProcess(NetworkProcessProxy& proxy)
+{
+    m_networkProcesses.remove(proxy);
+}
+#endif
+
 void WebUserContentControllerProxy::addProcess(WebProcessProxy& webProcessProxy, WebPageCreationParameters& parameters)
 {
     ASSERT(!m_processes.hasNullReferences());
@@ -342,9 +354,9 @@ void WebUserContentControllerProxy::removeAllUserMessageHandlers(API::UserConten
     removeUserContentWorldUses(world, numberRemoved);
 }
 
-void WebUserContentControllerProxy::didPostMessage(IPC::Connection& connection, PageIdentifier pageID, const FrameInfoData& frameInfoData, uint64_t messageHandlerID, const IPC::DataReference& dataReference)
+void WebUserContentControllerProxy::didPostMessage(IPC::Connection& connection, WebPageProxyIdentifier pageProxyID, FrameInfoData&& frameInfoData, uint64_t messageHandlerID, const IPC::DataReference& dataReference)
 {
-    WebPageProxy* page = WebProcessProxy::webPage(pageID);
+    WebPageProxy* page = WebProcessProxy::webPage(pageProxyID);
     if (!page)
         return;
 
@@ -355,7 +367,7 @@ void WebUserContentControllerProxy::didPostMessage(IPC::Connection& connection, 
     if (!handler)
         return;
 
-    handler->client().didPostMessage(*page, frameInfoData, WebCore::SerializedScriptValue::adopt(dataReference.vector()));
+    handler->client().didPostMessage(*page, WTFMove(frameInfoData), WebCore::SerializedScriptValue::adopt(dataReference.vector()));
 }
 
 #if ENABLE(CONTENT_EXTENSIONS)

@@ -37,7 +37,7 @@
 namespace JSC {
 
 struct InlineCallFrame;
-class ExecState;
+class CallFrame;
 class JSFunction;
 
 struct InlineCallFrame {
@@ -207,7 +207,7 @@ struct InlineCallFrame {
     JSFunction* calleeConstant() const;
     
     // Get the callee given a machine call frame to which this InlineCallFrame belongs.
-    JSFunction* calleeForCallFrame(ExecState*) const;
+    JSFunction* calleeForCallFrame(CallFrame*) const;
     
     CString inferredName() const;
     CodeBlockHash hash() const;
@@ -240,7 +240,7 @@ inline CodeBlock* baselineCodeBlockForInlineCallFrame(InlineCallFrame* inlineCal
 
 inline CodeBlock* baselineCodeBlockForOriginAndBaselineCodeBlock(const CodeOrigin& codeOrigin, CodeBlock* baselineCodeBlock)
 {
-    ASSERT(baselineCodeBlock->jitType() == JITType::BaselineJIT);
+    ASSERT(JITCode::isBaselineCode(baselineCodeBlock->jitType()));
     auto* inlineCallFrame = codeOrigin.inlineCallFrame();
     if (inlineCallFrame)
         return baselineCodeBlockForInlineCallFrame(inlineCallFrame);

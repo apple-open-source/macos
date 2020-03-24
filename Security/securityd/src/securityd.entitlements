@@ -8,5 +8,7 @@
 	<array>
 		<string>kTCCServiceSystemPolicyAllFiles</string>
 	</array>
+	<key>com.apple.private.security.storage.SystemKeychain</key>
+	<true/>
 </dict>
 </plist>

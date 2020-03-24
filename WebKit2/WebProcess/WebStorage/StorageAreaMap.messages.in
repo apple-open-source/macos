@@ -20,12 +20,11 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-messages -> StorageAreaMap {
-    DidGetValues(uint64_t storageMapSeed)
+messages -> StorageAreaMap NotRefCounted {
     DidSetItem(uint64_t storageMapSeed, String key, bool quotaException)
     DidRemoveItem(uint64_t storageMapSeed, String key)
     DidClear(uint64_t storageMapSeed)
 
-    DispatchStorageEvent(uint64_t sourceStorageAreaID, String key, String oldValue, String newValue, String urlString)
+    DispatchStorageEvent(Optional<WebKit::StorageAreaImplIdentifier> storageAreaImplID, String key, String oldValue, String newValue, String urlString)
     ClearCache()
 }

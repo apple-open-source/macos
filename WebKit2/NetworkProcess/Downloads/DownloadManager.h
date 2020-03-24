@@ -55,7 +55,6 @@ namespace WebKit {
 
 class AuthenticationManager;
 class Download;
-class NetworkBlobRegistry;
 class NetworkConnectionToWebProcess;
 class NetworkLoad;
 class PendingDownload;
@@ -74,11 +73,9 @@ public:
         virtual IPC::Connection* parentProcessConnectionForDownloads() = 0;
         virtual AuthenticationManager& downloadsAuthenticationManager() = 0;
         virtual void pendingDownloadCanceled(DownloadID) = 0;
-        virtual NetworkSession* networkSession(const PAL::SessionID&) const = 0;
-        virtual NetworkBlobRegistry& networkBlobRegistry() = 0;
+        virtual NetworkSession* networkSession(PAL::SessionID) const = 0;
         virtual void ref() const = 0;
         virtual void deref() const = 0;
-        virtual uint32_t downloadMonitorSpeedMultiplier() const = 0;
     };
 
     explicit DownloadManager(Client&);
@@ -101,7 +98,6 @@ public:
 
     void downloadFinished(Download&);
     bool isDownloading() const { return !m_downloads.isEmpty(); }
-    uint64_t activeDownloadCount() const { return m_downloads.size(); }
 
     void applicationDidEnterBackground();
     void applicationWillEnterForeground();

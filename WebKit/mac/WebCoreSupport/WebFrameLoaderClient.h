@@ -64,13 +64,12 @@ private:
     bool hasWebView() const final; // mainly for assertions
 
     Optional<WebCore::PageIdentifier> pageID() const final;
-    Optional<uint64_t> frameID() const final;
-    PAL::SessionID sessionID() const final;
+    Optional<WebCore::FrameIdentifier> frameID() const final;
 
     void makeRepresentation(WebCore::DocumentLoader*) final;
     bool hasHTMLView() const final;
 #if PLATFORM(IOS_FAMILY)
-    bool forceLayoutOnRestoreFromPageCache() final;
+    bool forceLayoutOnRestoreFromBackForwardCache() final;
 #endif
     void forceLayoutForNonHTML() final;
 
@@ -79,7 +78,7 @@ private:
     void detachedFromParent2() final;
     void detachedFromParent3() final;
 
-    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, PAL::SessionID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&) final;
+    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&) final;
 
     void assignIdentifierToInitialRequest(unsigned long identifier, WebCore::DocumentLoader*, const WebCore::ResourceRequest&) final;
 
@@ -116,7 +115,7 @@ private:
     void dispatchWillClose() final;
     void dispatchDidStartProvisionalLoad() final;
     void dispatchDidReceiveTitle(const WebCore::StringWithDirection&) final;
-    void dispatchDidCommitLoad(Optional<WebCore::HasInsecureContent>) final;
+    void dispatchDidCommitLoad(Optional<WebCore::HasInsecureContent>, Optional<WebCore::UsedLegacyTLS>) final;
     void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&, WebCore::WillContinueLoading) final;
     void dispatchDidFailLoad(const WebCore::ResourceError&) final;
     void dispatchDidFinishDocumentLoad() final;
@@ -185,8 +184,7 @@ private:
 #endif
     void transitionToCommittedForNewPage() final;
 
-    void didSaveToPageCache() final;
-    void didRestoreFromPageCache() final;
+    void didRestoreFromBackForwardCache() final;
 
     void dispatchDidBecomeFrameset(bool) final;
 
@@ -243,7 +241,7 @@ private:
     bool shouldPaintBrokenImage(const URL&) const final;
 
 #if USE(QUICK_LOOK)
-    RefPtr<WebCore::PreviewLoaderClient> createPreviewLoaderClient(const String& fileName, const String& uti) final;
+    RefPtr<WebCore::LegacyPreviewLoaderClient> createPreviewLoaderClient(const String& fileName, const String& uti) final;
 #endif
 
 #if ENABLE(CONTENT_FILTERING)
@@ -261,3 +259,6 @@ private:
 
     WeakObjCPtr<WebFramePolicyListener> m_policyListener;
 };
+
+WebDataSource *dataSource(WebCore::DocumentLoader*);
+void addTypesFromClass(NSMutableDictionary *, Class, NSArray *);

@@ -55,6 +55,8 @@
 
 -(uint64_t) syncRemoteTimestamp:(uint64_t)inTimestamp forEndpoint:(__nonnull id)endpoint;
 
+-(BOOL) setTimeSync:(BOOL)state forDevice:(HIDRemoteDevice * __nonnull)device;
+
 @end
 
 

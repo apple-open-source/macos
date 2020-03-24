@@ -28,8 +28,8 @@
 
 #include "Document.h"
 #include "Frame.h"
+#include "LegacySchemeRegistry.h"
 #include "Page.h"
-#include "SchemeRegistry.h"
 #include "SecurityOrigin.h"
 #include "StorageArea.h"
 #include "StorageType.h"
@@ -95,11 +95,6 @@ ExceptionOr<void> Storage::removeItem(const String& key)
 
     m_storageArea->removeItem(frame, key);
     return { };
-}
-
-bool Storage::prewarm()
-{
-    return m_storageArea->prewarm();
 }
 
 ExceptionOr<void> Storage::clear()

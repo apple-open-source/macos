@@ -168,6 +168,7 @@ using LayerHostingContextID = uint32_t;
 #endif
 
 class PageClient : public CanMakeWeakPtr<PageClient> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     virtual ~PageClient() { }
 
@@ -194,6 +195,11 @@ public:
 
     // Return whether the view is visible.
     virtual bool isViewVisible() = 0;
+
+#if PLATFORM(IOS_FAMILY)
+    // Return whether the application is visible.
+    virtual bool isApplicationVisible() = 0;
+#endif
 
     // Return whether the view is visible, or occluded by another window.
     virtual bool isViewVisibleOrOccluded() { return isViewVisible(); }
@@ -269,8 +275,11 @@ public:
 #endif
 #endif
 
-#if PLATFORM(COCOA) || PLATFORM(GTK)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
     virtual void selectionDidChange() = 0;
+#endif
+
+#if PLATFORM(COCOA) || PLATFORM(GTK)
     virtual RefPtr<ViewSnapshot> takeViewSnapshot() = 0;
 #endif
 
@@ -299,6 +308,9 @@ public:
     virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled) = 0;
 #if ENABLE(TOUCH_EVENTS)
     virtual void doneWithTouchEvent(const NativeWebTouchEvent&, bool wasEventHandled) = 0;
+#endif
+#if ENABLE(IOS_TOUCH_EVENTS)
+    virtual void doneDeferringNativeGestures(bool preventNativeGestures) = 0;
 #endif
 
     virtual RefPtr<WebPopupMenuProxy> createPopupMenuProxy(WebPageProxy&) = 0;
@@ -452,8 +464,6 @@ public:
     virtual void didHandleAcceptedCandidate() = 0;
 #endif
 
-    virtual void didFinishProcessingAllPendingMouseEvents() = 0;
-
     virtual void videoControlsManagerDidChange() { }
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
@@ -501,7 +511,7 @@ public:
     virtual RetainPtr<WKDrawingView> createDrawingView(WebCore::GraphicsLayer::EmbeddedViewID) { return nullptr; }
 #endif
 
-#if ENABLE(POINTER_EVENTS)
+#if ENABLE(POINTER_EVENTS) && PLATFORM(COCOA)
     virtual void cancelPointersForGestureRecognizer(UIGestureRecognizer*) { }
     virtual WTF::Optional<unsigned> activeTouchIdentifierForGestureRecognizer(UIGestureRecognizer*) { return WTF::nullopt; }
 #endif
@@ -509,6 +519,8 @@ public:
 #if USE(WPE_RENDERER)
     virtual IPC::Attachment hostFileDescriptor() = 0;
 #endif
+
+    virtual void didChangeWebPageID() const { }
 };
 
 } // namespace WebKit

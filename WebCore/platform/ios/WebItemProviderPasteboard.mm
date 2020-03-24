@@ -383,10 +383,18 @@ static UIPreferredPresentationStyle uiPreferredPresentationStyle(WebPreferredPre
     if ([_itemProvider web_containsFileURLAndFileUploadContent])
         return YES;
 
+    if ([_itemProvider preferredPresentationStyle] == UIPreferredPresentationStyleInline)
+        return NO;
+
 #if PLATFORM(MACCATALYST)
-    return NO;
+    // On macCatalyst, -preferredPresentationStyle always returns UIPreferredPresentationStyleUnspecified,
+    // even when the preferredPresentationStyle is set to something other than unspecified using the setter.
+    // This means we're unable to avoid exposing item providers that have been marked as inline data as files
+    // to the page -- see <rdar://55002929> for more details. In the meantime, only expose item providers as
+    // files if they have explicitly been given a suggested file name.
+    return [_itemProvider suggestedName].length;
 #else
-    return [_itemProvider preferredPresentationStyle] != UIPreferredPresentationStyleInline;
+    return YES;
 #endif
 }
 
@@ -454,7 +462,7 @@ static UIPreferredPresentationStyle uiPreferredPresentationStyle(WebPreferredPre
     // FIXME: These ivars should be refactored to be Vector<RetainPtr<Type>> instead of generic NSArrays.
     RetainPtr<NSArray> _itemProviders;
     RetainPtr<NSArray> _supportedTypeIdentifiers;
-    RetainPtr<WebItemProviderRegistrationInfoList> _stagedRegistrationInfoList;
+    RetainPtr<NSArray<WebItemProviderRegistrationInfoList *>> _stagedRegistrationInfoLists;
 
     Vector<RetainPtr<WebItemProviderLoadResult>> _loadResults;
 }
@@ -476,7 +484,7 @@ static UIPreferredPresentationStyle uiPreferredPresentationStyle(WebPreferredPre
         _changeCount = 0;
         _pendingOperationCount = 0;
         _supportedTypeIdentifiers = nil;
-        _stagedRegistrationInfoList = nil;
+        _stagedRegistrationInfoLists = nil;
         _loadResults = { };
     }
     return self;
@@ -653,7 +661,7 @@ static Class classForTypeIdentifier(NSString *typeIdentifier, NSString *&outType
 - (NSArray<NSURL *> *)allDroppedFileURLs
 {
     NSMutableArray<NSURL *> *fileURLs = [NSMutableArray array];
-    for (auto loadResult : _loadResults) {
+    for (const auto& loadResult : _loadResults) {
         if ([loadResult canBeRepresentedAsFileUpload])
             [fileURLs addObjectsFromArray:[loadResult loadedFileURLs]];
     }
@@ -845,16 +853,20 @@ static NSURL *linkTemporaryItemProviderFilesToDropStagingDirectory(NSURL *url, N
     [_itemProviders enumerateObjectsUsingBlock:block];
 }
 
-- (void)stageRegistrationList:(nullable WebItemProviderRegistrationInfoList *)info
+- (void)stageRegistrationLists:(NSArray<WebItemProviderRegistrationInfoList *> *)lists
 {
-    _stagedRegistrationInfoList = info.numberOfItems ? info : nil;
+    ASSERT(lists.count);
+    _stagedRegistrationInfoLists = lists;
 }
 
-- (WebItemProviderRegistrationInfoList *)takeRegistrationList
+- (void)clearRegistrationLists
 {
-    auto stagedRegistrationInfoList = _stagedRegistrationInfoList;
-    _stagedRegistrationInfoList = nil;
-    return stagedRegistrationInfoList.autorelease();
+    _stagedRegistrationInfoLists = nil;
+}
+
+- (NSArray<WebItemProviderRegistrationInfoList *> *)takeRegistrationLists
+{
+    return _stagedRegistrationInfoLists.autorelease();
 }
 
 @end

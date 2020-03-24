@@ -37,6 +37,7 @@
 #include <wtf/MathExtras.h>
 #include <wtf/PrintStream.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/TextStream.h>
 
 namespace WTF {
 
@@ -593,7 +594,9 @@ String MediaTime::toString() const
         builder.appendNumber(m_timeScale);
         builder.appendLiteral(" = ");
     }
-    builder.appendFixedPrecisionNumber(toDouble());
+    builder.append(FormattedNumber::fixedPrecision(toDouble()));
+    if (isInvalid())
+        builder.appendLiteral(", invalid");
     builder.append('}');
     return builder.toString();
 }
@@ -607,7 +610,9 @@ Ref<JSON::Object> MediaTime::toJSONObject() const
         return object;
     }
 
-    if (isInvalid() || isIndefinite())
+    if (isInvalid())
+        object->setBoolean("invalid"_s, true);
+    else if (isIndefinite())
         object->setString("value"_s, "NaN"_s);
     else if (isPositiveInfinite())
         object->setString("value"_s, "POSITIVE_INFINITY"_s);
@@ -651,5 +656,14 @@ String MediaTimeRange::toJSONString() const
 
     return object->toJSONString();
 }
+
+#ifndef NDEBUG
+
+TextStream& operator<<(TextStream& stream, const MediaTime& time)
+{
+    return stream << time.toJSONString();
+}
+
+#endif
 
 }

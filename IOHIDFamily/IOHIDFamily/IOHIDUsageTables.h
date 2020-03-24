@@ -1014,7 +1014,9 @@ enum
     kHIDUsage_Csmr_DisplayBrightnessMinimum = 0x73, /* One Shot Control */
     kHIDUsage_Csmr_DisplayBrightnessMaximum = 0x74, /* One Shot Control */
     kHIDUsage_Csmr_DisplayBrightnessSetAutoBrightness = 0x75, /* On Off Control */
-    /* 0x76 - 0x7F Reserved */
+    kHIDUsage_Csmr_KeyboardBrightnessIncrement = 0x79, /* Re-Trigger Control */
+    kHIDUsage_Csmr_KeyboardBrightnessDecrement = 0x7A, /* Re-Trigger Control */
+    /* 0x7B - 0x7F Reserved */
     kHIDUsage_Csmr_Selection    = 0x80,    /* Named Array */
     kHIDUsage_Csmr_Assign    = 0x81,    /* Selector */
     kHIDUsage_Csmr_ModeStep    = 0x82,    /* One-Shot Control */
@@ -1425,6 +1427,8 @@ enum
     kHIDUsage_Dig_DeviceIdentifier                  = 0x53,     /* Dynamic Value */
     kHIDUsage_Dig_ContactCount                      = 0x54,     /* Dynamic Value */
     kHIDUsage_Dig_ContactCountMaximum               = 0x55,     /* Static Value */
+    kHIDUsage_Dig_RelativeScanTime                  = 0x56,     /* Dynamic Value */
+    kHIDUsage_Dig_SurfaceSwitch                     = 0x57,     /* Dynamic Flag */
     
     /* 0x56 - 0x5F Reserved */
     kHIDUsage_Dig_GestureCharacterEnable            = 0x60,     /* Dynamic Flag */
@@ -1437,6 +1441,8 @@ enum
     kHIDUsage_Dig_GestureCharacterEncodingUTF16BE   = 0x67,     /* Selector */
     kHIDUsage_Dig_GestureCharacterEncodingUTF32LE   = 0x68,     /* Selector */
     kHIDUsage_Dig_GestureCharacterEncodingUTF32BE   = 0x69,     /* Selector */
+    
+    kHIDUsage_Dig_ReportRate                        = 0xA1,     /* Dynamic Value */
     
     /* 0x70 - 0xFFFF Reserved */
     kHIDUsage_Dig_Reserved                          = 0xFFFF

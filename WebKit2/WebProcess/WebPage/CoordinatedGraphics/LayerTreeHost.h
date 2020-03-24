@@ -74,7 +74,6 @@ public:
     void cancelPendingLayerFlush();
     void setRootCompositingLayer(WebCore::GraphicsLayer*);
     void setViewOverlayRootLayer(WebCore::GraphicsLayer*);
-    void invalidate();
 
     void scrollNonCompositedContents(const WebCore::IntRect&);
     void forceRepaint();
@@ -96,6 +95,8 @@ public:
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID);
 #endif
+
+    WebCore::PlatformDisplayID displayID() const { return m_displayID; }
 
 private:
 #if USE(COORDINATED_GRAPHICS)
@@ -183,7 +184,6 @@ private:
     bool m_layerFlushSchedulingEnabled { true };
     bool m_notifyAfterScheduledLayerFlush { false };
     bool m_isSuspended { false };
-    bool m_isValid { true };
     bool m_isWaitingForRenderer { false };
     bool m_scheduledWhileWaitingForRenderer { false };
     float m_lastPageScaleFactor { 1 };
@@ -191,7 +191,6 @@ private:
     bool m_isDiscardable { false };
     OptionSet<DiscardableSyncActions> m_discardableSyncActions;
     WebCore::GraphicsLayer* m_viewOverlayRootLayer { nullptr };
-    CompositingCoordinator m_coordinator;
     CompositorClient m_compositorClient;
     std::unique_ptr<AcceleratedSurface> m_surface;
     RefPtr<ThreadedCompositor> m_compositor;
@@ -202,7 +201,9 @@ private:
     } m_forceRepaintAsync;
     RunLoop::Timer<LayerTreeHost> m_layerFlushTimer;
     Ref<Nicosia::SceneIntegration> m_sceneIntegration;
+    CompositingCoordinator m_coordinator;
 #endif // USE(COORDINATED_GRAPHICS)
+    WebCore::PlatformDisplayID m_displayID;
 };
 
 #if !USE(COORDINATED_GRAPHICS)
@@ -214,7 +215,6 @@ inline void LayerTreeHost::scheduleLayerFlush() { }
 inline void LayerTreeHost::cancelPendingLayerFlush() { }
 inline void LayerTreeHost::setRootCompositingLayer(WebCore::GraphicsLayer*) { }
 inline void LayerTreeHost::setViewOverlayRootLayer(WebCore::GraphicsLayer*) { }
-inline void LayerTreeHost::invalidate() { }
 inline void LayerTreeHost::scrollNonCompositedContents(const WebCore::IntRect&) { }
 inline void LayerTreeHost::forceRepaint() { }
 inline bool LayerTreeHost::forceRepaintAsync(CallbackID) { return false; }

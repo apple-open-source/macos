@@ -155,6 +155,7 @@ MALLOC_STATIC_ASSERT(sizeof(nanov2_block_meta_t) == sizeof(uint32_t),
 
 // Distinguished values of next_slot
 #define SLOT_NULL			0		// Slot has never been used.
+#define SLOT_GUARD			0x7fa	// Marks a guard block.
 #define SLOT_BUMP 			0x7fb	// Marks the end of the free list
 #define SLOT_FULL			0x7fc	// Slot is full (no free slots)
 #define SLOT_CAN_MADVISE 	0x7fd	// Block can be madvised (and in_use == 0)

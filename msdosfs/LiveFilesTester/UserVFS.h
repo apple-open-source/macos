@@ -491,7 +491,7 @@ typedef int (*fsops_getfsattr_func_t)(UVFSFileNode Node, const char *attr, UVFSF
  * This function slot is reserved for future use; all current implementations should return
  * ENOTSUP.
  */
-typedef int (*fsops_setfsattr_func_t)(UVFSFileNode Node, const char *attr, const UVFSFSAttributeValue *val, size_t len);
+typedef int (*fsops_setfsattr_func_t)(UVFSFileNode Node, const char *attr, const UVFSFSAttributeValue *val, size_t len, UVFSFSAttributeValue *out_value, size_t out_len);
 
 //* Enumeration which controls how the filesystem check is actually performed */
 typedef enum {

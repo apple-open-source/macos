@@ -20,13 +20,14 @@
 #include "config.h"
 #include "WebKitWebsiteDataManager.h"
 
-#include "APIWebsiteDataStore.h"
 #include "WebKitCookieManagerPrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitWebsiteDataManagerPrivate.h"
 #include "WebKitWebsiteDataPrivate.h"
 #include "WebsiteDataFetchOption.h"
+#include "WebsiteDataStore.h"
 #include <glib/gi18n-lib.h>
+#include <pal/SessionID.h>
 #include <wtf/FileSystem.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/WTFGType.h>
@@ -84,6 +85,7 @@ enum {
     PROP_APPLICATION_CACHE_DIRECTORY,
     PROP_INDEXEDDB_DIRECTORY,
     PROP_WEBSQL_DIRECTORY,
+    PROP_HSTS_CACHE_DIRECTORY,
     PROP_IS_EPHEMERAL
 };
 
@@ -93,7 +95,7 @@ struct _WebKitWebsiteDataManagerPrivate {
         ASSERT(processPools.isEmpty());
     }
 
-    RefPtr<API::WebsiteDataStore> websiteDataStore;
+    RefPtr<WebKit::WebsiteDataStore> websiteDataStore;
     GUniquePtr<char> baseDataDirectory;
     GUniquePtr<char> baseCacheDirectory;
     GUniquePtr<char> localStorageDirectory;
@@ -101,6 +103,7 @@ struct _WebKitWebsiteDataManagerPrivate {
     GUniquePtr<char> applicationCacheDirectory;
     GUniquePtr<char> indexedDBDirectory;
     GUniquePtr<char> webSQLDirectory;
+    GUniquePtr<char> hstsCacheDirectory;
 
     GRefPtr<WebKitCookieManager> cookieManager;
     Vector<WebProcessPool*> processPools;
@@ -136,6 +139,9 @@ static void webkitWebsiteDataManagerGetProperty(GObject* object, guint propID, G
         g_value_set_string(value, webkit_website_data_manager_get_websql_directory(manager));
         ALLOW_DEPRECATED_DECLARATIONS_END
         break;
+    case PROP_HSTS_CACHE_DIRECTORY:
+        g_value_set_string(value, webkit_website_data_manager_get_hsts_cache_directory(manager));
+        break;
     case PROP_IS_EPHEMERAL:
         g_value_set_boolean(value, webkit_website_data_manager_is_ephemeral(manager));
         break;
@@ -170,9 +176,12 @@ static void webkitWebsiteDataManagerSetProperty(GObject* object, guint propID, c
     case PROP_WEBSQL_DIRECTORY:
         manager->priv->webSQLDirectory.reset(g_value_dup_string(value));
         break;
+    case PROP_HSTS_CACHE_DIRECTORY:
+        manager->priv->hstsCacheDirectory.reset(g_value_dup_string(value));
+        break;
     case PROP_IS_EPHEMERAL:
         if (g_value_get_boolean(value))
-            manager->priv->websiteDataStore = API::WebsiteDataStore::createNonPersistentDataStore();
+            manager->priv->websiteDataStore = WebKit::WebsiteDataStore::createNonPersistent();
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, paramSpec);
@@ -198,6 +207,8 @@ static void webkitWebsiteDataManagerConstructed(GObject* object)
             priv->diskCacheDirectory.reset(g_strdup(priv->baseCacheDirectory.get()));
         if (!priv->applicationCacheDirectory)
             priv->applicationCacheDirectory.reset(g_build_filename(priv->baseCacheDirectory.get(), "applications", nullptr));
+        if (!priv->hstsCacheDirectory)
+            priv->hstsCacheDirectory.reset(g_strdup(priv->baseCacheDirectory.get()));
     }
 }
 
@@ -333,6 +344,23 @@ static void webkit_website_data_manager_class_init(WebKitWebsiteDataManagerClass
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_DEPRECATED)));
 
     /**
+     * WebKitWebsiteDataManager:hsts-cache-directory:
+     *
+     * The directory where the HTTP Strict-Transport-Security (HSTS) cache will be stored.
+     *
+     * Since: 2.26
+     */
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_HSTS_CACHE_DIRECTORY,
+        g_param_spec_string(
+            "hsts-cache-directory",
+            _("HSTS Cache Directory"),
+            _("The directory where the HTTP Strict-Transport-Security cache will be stored"),
+            nullptr,
+            static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
+
+    /**
      * WebKitWebsiteDataManager:is-ephemeral:
      *
      * Whether the #WebKitWebsiteDataManager is ephemeral. An ephemeral #WebKitWebsiteDataManager
@@ -353,29 +381,25 @@ static void webkit_website_data_manager_class_init(WebKitWebsiteDataManagerClass
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
 }
 
-WebKitWebsiteDataManager* webkitWebsiteDataManagerCreate(Ref<WebsiteDataStoreConfiguration>&& configuration)
-{
-    WebKitWebsiteDataManager* manager = WEBKIT_WEBSITE_DATA_MANAGER(g_object_new(WEBKIT_TYPE_WEBSITE_DATA_MANAGER, nullptr));
-    manager->priv->websiteDataStore = API::WebsiteDataStore::createLegacy(WTFMove(configuration));
-
-    return manager;
-}
-
-API::WebsiteDataStore& webkitWebsiteDataManagerGetDataStore(WebKitWebsiteDataManager* manager)
+WebKit::WebsiteDataStore& webkitWebsiteDataManagerGetDataStore(WebKitWebsiteDataManager* manager)
 {
     WebKitWebsiteDataManagerPrivate* priv = manager->priv;
     if (!priv->websiteDataStore) {
-        auto configuration = WebsiteDataStoreConfiguration::create();
+        auto configuration = WebsiteDataStoreConfiguration::create(IsPersistent::Yes);
         configuration->setLocalStorageDirectory(!priv->localStorageDirectory ?
-            API::WebsiteDataStore::defaultLocalStorageDirectory() : FileSystem::stringFromFileSystemRepresentation(priv->localStorageDirectory.get()));
+            WebKit::WebsiteDataStore::defaultLocalStorageDirectory() : FileSystem::stringFromFileSystemRepresentation(priv->localStorageDirectory.get()));
         configuration->setNetworkCacheDirectory(!priv->diskCacheDirectory ?
-            API::WebsiteDataStore::defaultNetworkCacheDirectory() : FileSystem::pathByAppendingComponent(FileSystem::stringFromFileSystemRepresentation(priv->diskCacheDirectory.get()), networkCacheSubdirectory));
+            WebKit::WebsiteDataStore::defaultNetworkCacheDirectory() : FileSystem::pathByAppendingComponent(FileSystem::stringFromFileSystemRepresentation(priv->diskCacheDirectory.get()), networkCacheSubdirectory));
         configuration->setApplicationCacheDirectory(!priv->applicationCacheDirectory ?
-            API::WebsiteDataStore::defaultApplicationCacheDirectory() : FileSystem::stringFromFileSystemRepresentation(priv->applicationCacheDirectory.get()));
+            WebKit::WebsiteDataStore::defaultApplicationCacheDirectory() : FileSystem::stringFromFileSystemRepresentation(priv->applicationCacheDirectory.get()));
+        configuration->setIndexedDBDatabaseDirectory(!priv->indexedDBDirectory ?
+            WebKit::WebsiteDataStore::defaultIndexedDBDatabaseDirectory() : FileSystem::stringFromFileSystemRepresentation(priv->indexedDBDirectory.get()));
         configuration->setWebSQLDatabaseDirectory(!priv->webSQLDirectory ?
-            API::WebsiteDataStore::defaultWebSQLDatabaseDirectory() : FileSystem::stringFromFileSystemRepresentation(priv->webSQLDirectory.get()));
-        configuration->setMediaKeysStorageDirectory(API::WebsiteDataStore::defaultMediaKeysStorageDirectory());
-        priv->websiteDataStore = API::WebsiteDataStore::createLegacy(WTFMove(configuration));
+            WebKit::WebsiteDataStore::defaultWebSQLDatabaseDirectory() : FileSystem::stringFromFileSystemRepresentation(priv->webSQLDirectory.get()));
+        configuration->setHSTSStorageDirectory(!priv->hstsCacheDirectory ?
+            WebKit::WebsiteDataStore::defaultHSTSDirectory() : FileSystem::stringFromFileSystemRepresentation(priv->hstsCacheDirectory.get()));
+        configuration->setMediaKeysStorageDirectory(WebKit::WebsiteDataStore::defaultMediaKeysStorageDirectory());
+        priv->websiteDataStore = WebKit::WebsiteDataStore::create(WTFMove(configuration), PAL::SessionID::defaultSessionID());
     }
 
     return *priv->websiteDataStore;
@@ -440,7 +464,7 @@ WebKitWebsiteDataManager* webkit_website_data_manager_new_ephemeral()
  *
  * Get whether a #WebKitWebsiteDataManager is ephemeral. See #WebKitWebsiteDataManager:is-ephemeral for more details.
  *
- * Returns: %TRUE if @manager is epheral or %FALSE otherwise.
+ * Returns: %TRUE if @manager is ephemeral or %FALSE otherwise.
  *
  * Since: 2.16
  */
@@ -512,7 +536,7 @@ const gchar* webkit_website_data_manager_get_local_storage_directory(WebKitWebsi
         return nullptr;
 
     if (!priv->localStorageDirectory)
-        priv->localStorageDirectory.reset(g_strdup(API::WebsiteDataStore::defaultLocalStorageDirectory().utf8().data()));
+        priv->localStorageDirectory.reset(g_strdup(WebKit::WebsiteDataStore::defaultLocalStorageDirectory().utf8().data()));
     return priv->localStorageDirectory.get();
 }
 
@@ -536,7 +560,7 @@ const gchar* webkit_website_data_manager_get_disk_cache_directory(WebKitWebsiteD
 
     if (!priv->diskCacheDirectory) {
         // The default directory already has the subdirectory.
-        priv->diskCacheDirectory.reset(g_strdup(FileSystem::directoryName(API::WebsiteDataStore::defaultNetworkCacheDirectory()).utf8().data()));
+        priv->diskCacheDirectory.reset(g_strdup(FileSystem::directoryName(WebKit::WebsiteDataStore::defaultNetworkCacheDirectory()).utf8().data()));
     }
     return priv->diskCacheDirectory.get();
 }
@@ -560,7 +584,7 @@ const gchar* webkit_website_data_manager_get_offline_application_cache_directory
         return nullptr;
 
     if (!priv->applicationCacheDirectory)
-        priv->applicationCacheDirectory.reset(g_strdup(API::WebsiteDataStore::defaultApplicationCacheDirectory().utf8().data()));
+        priv->applicationCacheDirectory.reset(g_strdup(WebKit::WebsiteDataStore::defaultApplicationCacheDirectory().utf8().data()));
     return priv->applicationCacheDirectory.get();
 }
 
@@ -583,7 +607,7 @@ const gchar* webkit_website_data_manager_get_indexeddb_directory(WebKitWebsiteDa
         return nullptr;
 
     if (!priv->indexedDBDirectory)
-        priv->indexedDBDirectory.reset(g_strdup(API::WebsiteDataStore::defaultIndexedDBDatabaseDirectory().utf8().data()));
+        priv->indexedDBDirectory.reset(g_strdup(WebKit::WebsiteDataStore::defaultIndexedDBDatabaseDirectory().utf8().data()));
     return priv->indexedDBDirectory.get();
 }
 
@@ -608,8 +632,31 @@ const gchar* webkit_website_data_manager_get_websql_directory(WebKitWebsiteDataM
         return nullptr;
 
     if (!priv->webSQLDirectory)
-        priv->webSQLDirectory.reset(g_strdup(API::WebsiteDataStore::defaultWebSQLDatabaseDirectory().utf8().data()));
+        priv->webSQLDirectory.reset(g_strdup(WebKit::WebsiteDataStore::defaultWebSQLDatabaseDirectory().utf8().data()));
     return priv->webSQLDirectory.get();
+}
+
+/**
+ * webkit_website_data_manager_get_hsts_cache_directory:
+ * @manager: a #WebKitWebsiteDataManager
+ *
+ * Get the #WebKitWebsiteDataManager:hsts-cache-directory property.
+ *
+ * Returns: (allow-none): the directory where the HSTS cache is stored or %NULL if @manager is ephemeral.
+ *
+ * Since: 2.26
+ */
+const gchar* webkit_website_data_manager_get_hsts_cache_directory(WebKitWebsiteDataManager* manager)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEBSITE_DATA_MANAGER(manager), nullptr);
+
+    WebKitWebsiteDataManagerPrivate* priv = manager->priv;
+    if (priv->websiteDataStore && !priv->websiteDataStore->isPersistent())
+        return nullptr;
+
+    if (!priv->hstsCacheDirectory)
+        priv->hstsCacheDirectory.reset(g_strdup(WebKit::WebsiteDataStore::defaultHSTSDirectory().utf8().data()));
+    return priv->hstsCacheDirectory.get();
 }
 
 /**
@@ -649,6 +696,8 @@ static OptionSet<WebsiteDataType> toWebsiteDataTypes(WebKitWebsiteDataTypes type
         returnValue.add(WebsiteDataType::WebSQLDatabases);
     if (types & WEBKIT_WEBSITE_DATA_INDEXEDDB_DATABASES)
         returnValue.add(WebsiteDataType::IndexedDBDatabases);
+    if (types & WEBKIT_WEBSITE_DATA_HSTS_CACHE)
+        returnValue.add(WebsiteDataType::HSTSCache);
 #if ENABLE(NETSCAPE_PLUGIN_API)
     if (types & WEBKIT_WEBSITE_DATA_PLUGIN_DATA)
         returnValue.add(WebsiteDataType::PlugInData);
@@ -680,7 +729,7 @@ void webkit_website_data_manager_fetch(WebKitWebsiteDataManager* manager, WebKit
     g_return_if_fail(WEBKIT_IS_WEBSITE_DATA_MANAGER(manager));
 
     GRefPtr<GTask> task = adoptGRef(g_task_new(manager, cancellable, callback, userData));
-    manager->priv->websiteDataStore->websiteDataStore().fetchData(toWebsiteDataTypes(types), WebsiteDataFetchOption::ComputeSizes, [task = WTFMove(task)] (Vector<WebsiteDataRecord> records) {
+    manager->priv->websiteDataStore->fetchData(toWebsiteDataTypes(types), WebsiteDataFetchOption::ComputeSizes, [task = WTFMove(task)] (Vector<WebsiteDataRecord> records) {
         GList* dataList = nullptr;
         while (!records.isEmpty()) {
             if (auto* data = webkitWebsiteDataCreate(records.takeLast()))
@@ -754,7 +803,7 @@ void webkit_website_data_manager_remove(WebKitWebsiteDataManager* manager, WebKi
         return;
     }
 
-    manager->priv->websiteDataStore->websiteDataStore().removeData(toWebsiteDataTypes(types), records, [task = WTFMove(task)] {
+    manager->priv->websiteDataStore->removeData(toWebsiteDataTypes(types), records, [task = WTFMove(task)] {
         g_task_return_boolean(task.get(), TRUE);
     });
 }
@@ -806,7 +855,7 @@ void webkit_website_data_manager_clear(WebKitWebsiteDataManager* manager, WebKit
 
     WallTime timePoint = timeSpan ? WallTime::now() - Seconds::fromMicroseconds(timeSpan) : WallTime::fromRawSeconds(0);
     GRefPtr<GTask> task = adoptGRef(g_task_new(manager, cancellable, callback, userData));
-    manager->priv->websiteDataStore->websiteDataStore().removeData(toWebsiteDataTypes(types), timePoint, [task = WTFMove(task)] {
+    manager->priv->websiteDataStore->removeData(toWebsiteDataTypes(types), timePoint, [task = WTFMove(task)] {
         g_task_return_boolean(task.get(), TRUE);
     });
 }

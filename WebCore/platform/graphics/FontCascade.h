@@ -104,6 +104,7 @@ public:
     int pixelSize() const { return fontDescription().computedPixelSize(); }
     float size() const { return fontDescription().computedSize(); }
 
+    bool isCurrent(const FontSelector&) const;
     WEBCORE_EXPORT void update(RefPtr<FontSelector>&& = nullptr) const;
 
     enum CustomFontNotReadyAction { DoNotPaintIfFontNotReady, UseFallbackIfFontNotReady };
@@ -229,6 +230,7 @@ private:
     static std::pair<unsigned, bool> expansionOpportunityCountInternal(const UChar*, unsigned length, TextDirection, ExpansionBehavior);
 
     friend struct WidthIterator;
+    friend class ComplexTextController;
 
 public:
 #if ENABLE(TEXT_AUTOSIZING)

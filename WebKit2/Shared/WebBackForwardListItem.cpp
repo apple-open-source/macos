@@ -27,6 +27,8 @@
 #include "WebBackForwardListItem.h"
 
 #include "SuspendedPageProxy.h"
+#include "WebBackForwardCache.h"
+#include "WebBackForwardCacheEntry.h"
 #include "WebProcessPool.h"
 #include "WebProcessProxy.h"
 #include <wtf/DebugUtilities.h>
@@ -35,12 +37,12 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<WebBackForwardListItem> WebBackForwardListItem::create(BackForwardListItemState&& backForwardListItemState, PageIdentifier pageID)
+Ref<WebBackForwardListItem> WebBackForwardListItem::create(BackForwardListItemState&& backForwardListItemState, WebPageProxyIdentifier pageID)
 {
     return adoptRef(*new WebBackForwardListItem(WTFMove(backForwardListItemState), pageID));
 }
 
-WebBackForwardListItem::WebBackForwardListItem(BackForwardListItemState&& backForwardListItemState, PageIdentifier pageID)
+WebBackForwardListItem::WebBackForwardListItem(BackForwardListItemState&& backForwardListItemState, WebPageProxyIdentifier pageID)
     : m_itemState(WTFMove(backForwardListItemState))
     , m_pageID(pageID)
     , m_lastProcessIdentifier(m_itemState.identifier.processIdentifier)
@@ -53,12 +55,12 @@ WebBackForwardListItem::~WebBackForwardListItem()
 {
     ASSERT(allItems().get(m_itemState.identifier) == this);
     allItems().remove(m_itemState.identifier);
-
-    removeSuspendedPageFromProcessPool();
+    removeFromBackForwardCache();
 }
 
 HashMap<BackForwardItemIdentifier, WebBackForwardListItem*>& WebBackForwardListItem::allItems()
 {
+    RELEASE_ASSERT(RunLoop::isMain());
     static NeverDestroyed<HashMap<BackForwardItemIdentifier, WebBackForwardListItem*>> items;
     return items;
 }
@@ -159,33 +161,32 @@ bool WebBackForwardListItem::itemIsClone(const WebBackForwardListItem& other)
     return hasSameFrames(mainFrameState, otherMainFrameState);
 }
 
-void WebBackForwardListItem::setSuspendedPage(SuspendedPageProxy* page)
+void WebBackForwardListItem::wasRemovedFromBackForwardList()
 {
-    if (m_suspendedPage == page)
-        return;
+    removeFromBackForwardCache();
+}
 
-    removeSuspendedPageFromProcessPool();
-    m_suspendedPage = makeWeakPtr(page);
+void WebBackForwardListItem::removeFromBackForwardCache()
+{
+    if (m_backForwardCacheEntry)
+        m_backForwardCacheEntry->backForwardCache().removeEntry(*this);
+    ASSERT(!m_backForwardCacheEntry);
+}
+
+void WebBackForwardListItem::setBackForwardCacheEntry(std::unique_ptr<WebBackForwardCacheEntry>&& backForwardCacheEntry)
+{
+    m_backForwardCacheEntry = WTFMove(backForwardCacheEntry);
 }
 
 SuspendedPageProxy* WebBackForwardListItem::suspendedPage() const
 {
-    return m_suspendedPage.get();
-}
-
-void WebBackForwardListItem::removeSuspendedPageFromProcessPool()
-{
-    if (!m_suspendedPage)
-        return;
-
-    m_suspendedPage->process().processPool().removeSuspendedPage(*m_suspendedPage);
-    ASSERT(!m_suspendedPage);
+    return m_backForwardCacheEntry ? m_backForwardCacheEntry->suspendedPage() : nullptr;
 }
 
 #if !LOG_DISABLED
 const char* WebBackForwardListItem::loggingString()
 {
-    return debugString("Back/forward item ID ", itemID().logString(), ", original URL ", originalURL(), ", current URL ", url(), m_suspendedPage ? "(has a suspended page)" : "");
+    return debugString("Back/forward item ID ", itemID().logString(), ", original URL ", originalURL(), ", current URL ", url(), m_backForwardCacheEntry ? "(has a back/forward cache entry)" : "");
 }
 #endif // !LOG_DISABLED
 

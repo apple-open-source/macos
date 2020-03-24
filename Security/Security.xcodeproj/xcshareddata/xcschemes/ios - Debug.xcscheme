@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1000"
+   LastUpgradeVersion = "1120"
    version = "1.8">
    <BuildAction
       parallelizeBuildables = "NO"
@@ -276,10 +276,6 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_26_sectrust_copyproperties"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_27_sectrust_exceptions"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

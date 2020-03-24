@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,6 +39,11 @@ extern "C" OS_NOTHROW void voucher_replace_default_voucher(void);
 #endif
 #endif
 
+#define WEBCONTENT_SERVICE_INITIALIZER WebContentServiceInitializer
+#define NETWORK_SERVICE_INITIALIZER NetworkServiceInitializer
+#define PLUGIN_SERVICE_INITIALIZER PluginServiceInitializer
+#define GPU_SERVICE_INITIALIZER GPUServiceInitializer
+
 namespace WebKit {
 
 class XPCServiceInitializerDelegate {
@@ -76,8 +81,12 @@ void initializeAuxiliaryProcess(AuxiliaryProcessInitializationParameters&& param
 template<typename XPCServiceType, typename XPCServiceInitializerDelegateType>
 void XPCServiceInitializer(OSObjectPtr<xpc_connection_t> connection, xpc_object_t initializerMessage, xpc_object_t priorityBoostMessage)
 {
-    if (initializerMessage && xpc_dictionary_get_bool(initializerMessage, "disable-jit"))
-        JSC::ExecutableAllocator::setJITEnabled(false);
+    if (initializerMessage) {
+        if (xpc_dictionary_get_bool(initializerMessage, "configure-jsc-for-testing"))
+            JSC::Config::configureForTesting();
+        if (xpc_dictionary_get_bool(initializerMessage, "disable-jit"))
+            JSC::ExecutableAllocator::setJITEnabled(false);
+    }
 
     XPCServiceInitializerDelegateType delegate(WTFMove(connection), initializerMessage);
 

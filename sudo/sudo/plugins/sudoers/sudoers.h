@@ -263,6 +263,7 @@ int find_path(const char *infile, char **outfile, struct stat *sbp,
 
 /* check.c */
 int check_user(int validate, int mode);
+bool check_user_shell(const struct passwd *pw);
 bool user_is_exempt(void);
 
 /* prompt.c */
@@ -293,6 +294,7 @@ extern char *errorfile;
 extern int errorlineno;
 extern bool parse_error;
 extern bool sudoers_warnings;
+extern bool sudoers_strict;
 
 /* toke.l */
 YY_DECL;

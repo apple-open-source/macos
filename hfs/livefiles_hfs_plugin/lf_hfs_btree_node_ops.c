@@ -122,7 +122,7 @@ OSStatus    GetNode        (BTreeControlBlockPtr     btreePtr,
     return noErr;
 
 ErrorExit:
-    nodePtr->buffer            = nil;
+    nodePtr->buffer         = nil;
     nodePtr->blockHeader    = nil;
 
     return    err;

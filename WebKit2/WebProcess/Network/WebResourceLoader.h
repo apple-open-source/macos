@@ -28,12 +28,16 @@
 #include "Connection.h"
 #include "MessageSender.h"
 #include "ShareableResource.h"
+#include "WebPageProxyIdentifier.h"
+#include "WebResourceInterceptController.h"
+#include <WebCore/FrameIdentifier.h>
 #include <WebCore/PageIdentifier.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
 namespace IPC {
 class DataReference;
+class FormDataReference;
 }
 
 namespace WebCore {
@@ -51,8 +55,9 @@ typedef uint64_t ResourceLoadIdentifier;
 class WebResourceLoader : public RefCounted<WebResourceLoader>, public IPC::MessageSender {
 public:
     struct TrackingParameters {
+        WebPageProxyIdentifier webPageProxyID;
         WebCore::PageIdentifier pageID;
-        uint64_t frameID { 0 };
+        WebCore::FrameIdentifier frameID;
         ResourceLoadIdentifier resourceID { 0 };
     };
 
@@ -75,13 +80,14 @@ private:
     IPC::Connection* messageSenderConnection() const override;
     uint64_t messageSenderDestinationID() const override;
 
-    void willSendRequest(WebCore::ResourceRequest&&, WebCore::ResourceResponse&&);
+    void willSendRequest(WebCore::ResourceRequest&&, IPC::FormDataReference&& requestBody, WebCore::ResourceResponse&&);
     void didSendData(uint64_t bytesSent, uint64_t totalBytesToBeSent);
     void didReceiveResponse(const WebCore::ResourceResponse&, bool needsContinueDidReceiveResponseMessage);
     void didReceiveData(const IPC::DataReference&, int64_t encodedDataLength);
-    void didRetrieveDerivedData(const String& type, const IPC::DataReference&);
     void didFinishResourceLoad(const WebCore::NetworkLoadMetrics&);
     void didFailResourceLoad(const WebCore::ResourceError&);
+    void didFailServiceWorkerLoad(const WebCore::ResourceError&);
+    void serviceWorkerDidNotHandle();
     void didBlockAuthenticationChallenge();
 
     void stopLoadingAfterXFrameOptionsOrContentSecurityPolicyDenied(const WebCore::ResourceResponse&);
@@ -92,6 +98,7 @@ private:
 
     RefPtr<WebCore::ResourceLoader> m_coreLoader;
     TrackingParameters m_trackingParameters;
+    WebResourceInterceptController m_interceptController;
     size_t m_numBytesReceived { 0 };
 
 #if !ASSERT_DISABLED

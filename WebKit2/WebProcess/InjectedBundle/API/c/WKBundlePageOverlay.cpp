@@ -54,6 +54,7 @@ template<> struct ClientTraits<WKBundlePageOverlayAccessibilityClientBase> {
 }
 
 class PageOverlayClientImpl : API::Client<WKBundlePageOverlayClientBase>, public WebKit::WebPageOverlay::Client {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit PageOverlayClientImpl(WKBundlePageOverlayClientBase* client)
     {
@@ -216,7 +217,7 @@ WKTypeID WKBundlePageOverlayGetTypeID()
 
 WKBundlePageOverlayRef WKBundlePageOverlayCreate(WKBundlePageOverlayClientBase* wkClient)
 {
-    auto clientImpl = std::make_unique<PageOverlayClientImpl>(wkClient);
+    auto clientImpl = makeUnique<PageOverlayClientImpl>(wkClient);
     return toAPI(&WebKit::WebPageOverlay::create(WTFMove(clientImpl)).leakRef());
 }
 

@@ -48,7 +48,8 @@ namespace WTF {
 
 // StringView is a non-owning reference to a string, similar to the proposed std::string_view.
 
-class StringView {
+class StringView final {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     StringView();
 #if CHECK_STRINGVIEW_LIFETIME
@@ -66,6 +67,7 @@ public:
     StringView(const LChar*, unsigned length);
     StringView(const UChar*, unsigned length);
     StringView(const char*);
+    StringView(const char*, unsigned length);
 
     static StringView empty();
 
@@ -89,6 +91,8 @@ public:
     bool is8Bit() const;
     const LChar* characters8() const;
     const UChar* characters16() const;
+
+    bool isAllASCII() const;
 
     String toString() const;
     String toStringWithoutCopying() const;
@@ -231,6 +235,7 @@ WTF_EXPORT_PRIVATE String normalizedNFC(const String&);
 namespace WTF {
 
 struct StringViewWithUnderlyingString {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
     StringView view;
     String underlyingString;
 };
@@ -329,6 +334,11 @@ inline StringView::StringView(const char* characters)
     initialize(reinterpret_cast<const LChar*>(characters), strlen(characters));
 }
 
+inline StringView::StringView(const char* characters, unsigned length)
+{
+    initialize(reinterpret_cast<const LChar*>(characters), length);
+}
+
 inline StringView::StringView(const StringImpl& string)
 {
     setUnderlyingString(&string);
@@ -378,7 +388,7 @@ inline void StringView::clear()
 
 inline StringView StringView::empty()
 {
-    return StringView(reinterpret_cast<const LChar*>(""), 0);
+    return StringView("", 0);
 }
 
 inline const LChar* StringView::characters8() const
@@ -395,7 +405,15 @@ inline const UChar* StringView::characters16() const
     return static_cast<const UChar*>(m_characters);
 }
 
+inline bool StringView::isAllASCII() const
+{
+    if (is8Bit())
+        return charactersAreAllASCII(characters8(), length());
+    return charactersAreAllASCII(characters16(), length());
+}
+
 class StringView::UpconvertedCharacters {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit UpconvertedCharacters(const StringView&);
     operator const UChar*() const { return m_characters; }
@@ -654,6 +672,7 @@ inline bool equalIgnoringASCIICase(StringView a, const char* b)
 }
 
 class StringView::SplitResult {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     SplitResult(StringView, UChar separator, bool allowEmptyEntries);
 
@@ -668,6 +687,7 @@ private:
 };
 
 class StringView::GraphemeClusters {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit GraphemeClusters(const StringView&);
 
@@ -680,6 +700,7 @@ private:
 };
 
 class StringView::CodePoints {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit CodePoints(const StringView&);
 
@@ -692,6 +713,7 @@ private:
 };
 
 class StringView::CodeUnits {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit CodeUnits(const StringView&);
 
@@ -704,6 +726,7 @@ private:
 };
 
 class StringView::SplitResult::Iterator {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     StringView operator*() const;
 
@@ -728,6 +751,7 @@ private:
 };
 
 class StringView::GraphemeClusters::Iterator {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     Iterator() = delete;
     WTF_EXPORT_PRIVATE Iterator(const StringView&, unsigned index);
@@ -751,6 +775,7 @@ private:
 };
 
 class StringView::CodePoints::Iterator {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     Iterator(const StringView&, unsigned index);
 
@@ -767,6 +792,7 @@ private:
 };
 
 class StringView::CodeUnits::Iterator {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     Iterator(const StringView&, unsigned index);
 

@@ -33,7 +33,7 @@ WI.QuickConsole = class QuickConsole extends WI.View
         this._toggleOrFocusKeyboardShortcut.implicitlyPreventsDefault = false;
 
         this._automaticExecutionContextPathComponent = this._createExecutionContextPathComponent(null, WI.UIString("Auto"));
-        this._automaticExecutionContextPathComponent.tooltip = WI.UIString("Execution context for $0");
+        this._updateAutomaticExecutionContextPathComponentTooltip();
 
         this._mainExecutionContextPathComponent = null;
         this._otherExecutionContextPathComponents = [];
@@ -69,7 +69,7 @@ WI.QuickConsole = class QuickConsole extends WI.View
         this._executionContextSelectorDivider = new WI.DividerNavigationItem;
         this._navigationBar.addNavigationItem(this._executionContextSelectorDivider);
 
-        this.initializeMainExecutionContextPathComponent();
+        WI.settings.consoleSavedResultAlias.addEventListener(WI.Setting.Event.Changed, this._updateAutomaticExecutionContextPathComponentTooltip, this);
 
         WI.consoleDrawer.toggleButtonShortcutTooltip(this._toggleOrFocusKeyboardShortcut);
         WI.consoleDrawer.addEventListener(WI.ConsoleDrawer.Event.CollapsedStateChanged, this._updateStyles, this);
@@ -80,6 +80,7 @@ WI.QuickConsole = class QuickConsole extends WI.View
         WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.ActiveCallFrameDidChange, this._debuggerActiveCallFrameDidChange, this);
 
         WI.runtimeManager.addEventListener(WI.RuntimeManager.Event.ActiveExecutionContextChanged, this._activeExecutionContextChanged, this);
+        WI.notifications.addEventListener(WI.Notification.TransitionPageTarget, this._pageTargetTransitioned, this);
 
         WI.targetManager.addEventListener(WI.TargetManager.Event.TargetAdded, this._targetAdded, this);
         WI.targetManager.addEventListener(WI.TargetManager.Event.TargetRemoved, this._targetRemoved, this);
@@ -87,6 +88,10 @@ WI.QuickConsole = class QuickConsole extends WI.View
         WI.domManager.addEventListener(WI.DOMManager.Event.InspectedNodeChanged, this._handleInspectedNodeChanged, this);
 
         WI.TabBrowser.addEventListener(WI.TabBrowser.Event.SelectedTabContentViewDidChange, this._updateStyles, this);
+
+        WI.whenTargetsAvailable().then(() => {
+            this._initializeMainExecutionContextPathComponent();
+        });
     }
 
     // Public
@@ -98,6 +103,7 @@ WI.QuickConsole = class QuickConsole extends WI.View
 
     closed()
     {
+        WI.settings.consoleSavedResultAlias.removeEventListener(null, null, this);
         WI.Frame.removeEventListener(null, null, this);
         WI.debuggerManager.removeEventListener(null, null, this);
         WI.runtimeManager.removeEventListener(null, null, this);
@@ -108,13 +114,21 @@ WI.QuickConsole = class QuickConsole extends WI.View
         super.closed();
     }
 
-    initializeMainExecutionContextPathComponent()
+    _pageTargetTransitioned()
     {
-        if (!WI.mainTarget || !WI.mainTarget.executionContext)
+        this._initializeMainExecutionContextPathComponent();
+    }
+
+    _initializeMainExecutionContextPathComponent()
+    {
+        if (!WI.mainTarget || WI.mainTarget instanceof WI.MultiplexingBackendTarget)
             return;
+
+        let nextSibling = this._mainExecutionContextPathComponent ? this._mainExecutionContextPathComponent.nextSibling : null;
 
         this._mainExecutionContextPathComponent = this._createExecutionContextPathComponent(WI.mainTarget.executionContext);
         this._mainExecutionContextPathComponent.previousSibling = this._automaticExecutionContextPathComponent;
+        this._mainExecutionContextPathComponent.nextSibling = nextSibling;
 
         this._automaticExecutionContextPathComponent.nextSibling = this._mainExecutionContextPathComponent;
 
@@ -155,13 +169,20 @@ WI.QuickConsole = class QuickConsole extends WI.View
             }
         }
 
-        console.assert(executionContext);
         if (!executionContext)
             executionContext = WI.mainTarget.executionContext;
 
-        WI.runtimeManager.activeExecutionContext = executionContext;
-
         this._automaticExecutionContextPathComponent.displayName = WI.UIString("Auto - %s").format(preferredName || executionContext.name);
+
+        let changed = WI.runtimeManager.activeExecutionContext !== executionContext;
+        if (changed)
+            WI.runtimeManager.activeExecutionContext = executionContext;
+        return changed;
+    }
+
+    _updateAutomaticExecutionContextPathComponentTooltip()
+    {
+        this._automaticExecutionContextPathComponent.tooltip = WI.UIString("Execution context for %s").format(WI.RuntimeManager.preferredSavedResultPrefix() + "0");
     }
 
     _handleMouseDown(event)
@@ -365,6 +386,7 @@ WI.QuickConsole = class QuickConsole extends WI.View
     {
         if (frame.isMainFrame()) {
             this._shouldAutomaticallySelectExecutionContext = true;
+            this._initializeMainExecutionContextPathComponent();
             return;
         }
 
@@ -375,10 +397,10 @@ WI.QuickConsole = class QuickConsole extends WI.View
     _targetAdded(event)
     {
         let target = event.data.target;
-        if (target.type !== WI.Target.Type.Worker)
+        if (target.type !== WI.TargetType.Worker)
             return;
 
-        console.assert(target.type === WI.Target.Type.Worker);
+        console.assert(target.type === WI.TargetType.Worker);
         let preferredName = WI.UIString("Worker \u2014 %s").format(target.displayName);
         let executionContextPathComponent = this._createExecutionContextPathComponent(target.executionContext, preferredName);
 
@@ -389,7 +411,7 @@ WI.QuickConsole = class QuickConsole extends WI.View
     _targetRemoved(event)
     {
         let target = event.data.target;
-        if (target.type !== WI.Target.Type.Worker)
+        if (target.type !== WI.TargetType.Worker)
             return;
 
         let executionContextPathComponent = this._targetToPathComponent.take(target);
@@ -405,7 +427,11 @@ WI.QuickConsole = class QuickConsole extends WI.View
     _pathComponentSelected(event)
     {
         this._shouldAutomaticallySelectExecutionContext = event.data.pathComponent === this._automaticExecutionContextPathComponent;
-        this._selectExecutionContext(event.data.pathComponent.representedObject);
+
+        // Only manually rebuild the execution context path components if the newly selected
+        // execution context matches the previously selected one.
+        if (!this._selectExecutionContext(event.data.pathComponent.representedObject))
+            this._rebuildExecutionContextPathComponents();
     }
 
     _pathComponentClicked(event)

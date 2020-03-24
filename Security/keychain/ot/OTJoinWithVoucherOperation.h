@@ -40,12 +40,10 @@ NS_ASSUME_NONNULL_BEGIN
                    ckksConflictState:(OctagonState*)ckksConflictState
                           errorState:(OctagonState*)errorState
                          voucherData:(NSData*)voucherData
-                          voucherSig:(NSData*)voucherSig
-                     preapprovedKeys:(NSArray<NSData *>*)preapprovedKeys;
+                          voucherSig:(NSData*)voucherSig;
 
 @property (nonatomic) NSData* voucherData;
 @property (nonatomic) NSData* voucherSig;
-@property (nonatomic) NSArray<NSData *>* preapprovedKeys;
 
 @property (nonatomic) NSString* peerID;
 

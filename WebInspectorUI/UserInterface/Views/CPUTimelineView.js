@@ -483,7 +483,7 @@ WI.CPUTimelineView = class CPUTimelineView extends WI.TimelineView
         let unknownThreadAverage = 0;
 
         for (let record of visibleRecords) {
-            let time = record.startTime;
+            let time = record.timestamp;
             let {usage, mainThreadUsage, workerThreadUsage, webkitThreadUsage, unknownThreadUsage} = record;
 
             if (discontinuities.length && discontinuities[0].endTime <= time) {
@@ -1289,7 +1289,6 @@ WI.CPUTimelineView = class CPUTimelineView extends WI.TimelineView
                 if (recordEnd < millisecondStartTime)
                     continue;
 
-                let offset = recordStart - millisecondStartTime;
                 recordStart = Math.max(recordStart, millisecondStartTime);
                 recordEnd = Math.min(recordEnd, millisecondEndTime);
 
@@ -1420,7 +1419,7 @@ WI.CPUTimelineView = class CPUTimelineView extends WI.TimelineView
                 this._layoutStatisticsAndSources();
             });
             return span;
-        }
+        };
 
         this._sourcesFilterRow.hidden = false;
         this._sourcesFilterLabelElement.removeChildren();

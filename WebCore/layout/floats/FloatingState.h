@@ -28,7 +28,6 @@
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
 #include "DisplayBox.h"
-#include "LayoutBox.h"
 #include "LayoutContainer.h"
 #include <wtf/IsoMalloc.h>
 #include <wtf/Ref.h>
@@ -36,45 +35,40 @@
 
 namespace WebCore {
 
+namespace Display {
+class Box;
+}
+
 namespace Layout {
 
-class FormattingState;
+class Box;
+class FloatingContext;
 class LayoutState;
 
 // FloatingState holds the floating boxes per formatting context.
 class FloatingState : public RefCounted<FloatingState> {
     WTF_MAKE_ISO_ALLOCATED(FloatingState);
 public:
-    static Ref<FloatingState> create(LayoutState& layoutState, const Box& formattingContextRoot) { return adoptRef(*new FloatingState(layoutState, formattingContextRoot)); }
+    static Ref<FloatingState> create(LayoutState& layoutState, const Container& formattingContextRoot) { return adoptRef(*new FloatingState(layoutState, formattingContextRoot)); }
 
-    void append(const Box& layoutBox);
-    void remove(const Box& layoutBox);
+    const Container& root() const { return *m_formattingContextRoot; }
 
-    bool isEmpty() const { return m_floats.isEmpty(); }
-
-    const Box& root() const { return *m_formattingContextRoot; }
-
-    Optional<PositionInContextRoot> top(const Box& formattingContextRoot) const;
-    Optional<PositionInContextRoot> leftBottom(const Box& formattingContextRoot) const;
-    Optional<PositionInContextRoot> rightBottom(const Box& formattingContextRoot) const;
-    Optional<PositionInContextRoot> bottom(const Box& formattingContextRoot) const;
-
-    struct Constraints {
-        Optional<PointInContextRoot> left;
-        Optional<PointInContextRoot> right;
-    };
-    Constraints constraints(PositionInContextRoot verticalPosition, const Box& formattingContextRoot) const;
+    Optional<PositionInContextRoot> top(const Container& formattingContextRoot) const;
+    Optional<PositionInContextRoot> leftBottom(const Container& formattingContextRoot) const;
+    Optional<PositionInContextRoot> rightBottom(const Container& formattingContextRoot) const;
+    Optional<PositionInContextRoot> bottom(const Container& formattingContextRoot) const;
 
     class FloatItem {
     public:
-        FloatItem(const Box&, const FloatingState&);
+        FloatItem(const Box&, Display::Box absoluteDisplayBox);
 
         bool operator==(const Box& layoutBox) const { return m_layoutBox.get() == &layoutBox; }
 
         bool isLeftPositioned() const { return m_layoutBox->isLeftFloatingPositioned(); }
-        bool isDescendantOfFormattingRoot(const Box&) const;
+        bool isDescendantOfFormattingRoot(const Container&) const;
 
         Display::Rect rectWithMargin() const { return m_absoluteDisplayBox.rectWithMargin(); }
+        UsedHorizontalMargin horizontalMargin() const { return m_absoluteDisplayBox.horizontalMargin(); }
         PositionInContextRoot bottom() const { return { m_absoluteDisplayBox.bottom() }; }
 
     private:
@@ -83,44 +77,45 @@ public:
     };
     using FloatList = Vector<FloatItem>;
     const FloatList& floats() const { return m_floats; }
-    const FloatItem* last() const { return isEmpty() ? nullptr : &m_floats.last(); }
+    const FloatItem* last() const { return floats().isEmpty() ? nullptr : &m_floats.last(); }
 
 private:
     friend class FloatingContext;
-    FloatingState(LayoutState&, const Box& formattingContextRoot);
+    FloatingState(LayoutState&, const Container& formattingContextRoot);
+
+    void append(FloatItem);
+    void remove(const Box& layoutBox);
 
     LayoutState& layoutState() const { return m_layoutState; }
 
-    Optional<PositionInContextRoot> bottom(const Box& formattingContextRoot, Clear) const;
+    Optional<PositionInContextRoot> bottom(const Container& formattingContextRoot, Clear) const;
 
     LayoutState& m_layoutState;
-    WeakPtr<const Box> m_formattingContextRoot;
+    WeakPtr<const Container> m_formattingContextRoot;
     FloatList m_floats;
 };
 
-inline Optional<PositionInContextRoot> FloatingState::leftBottom(const Box& formattingContextRoot) const
+inline Optional<PositionInContextRoot> FloatingState::leftBottom(const Container& formattingContextRoot) const
 { 
     ASSERT(formattingContextRoot.establishesFormattingContext());
     return bottom(formattingContextRoot, Clear::Left);
 }
 
-inline Optional<PositionInContextRoot> FloatingState::rightBottom(const Box& formattingContextRoot) const
+inline Optional<PositionInContextRoot> FloatingState::rightBottom(const Container& formattingContextRoot) const
 {
     ASSERT(formattingContextRoot.establishesFormattingContext());
     return bottom(formattingContextRoot, Clear::Right);
 }
 
-inline Optional<PositionInContextRoot> FloatingState::bottom(const Box& formattingContextRoot) const
+inline Optional<PositionInContextRoot> FloatingState::bottom(const Container& formattingContextRoot) const
 {
     ASSERT(formattingContextRoot.establishesFormattingContext());
     return bottom(formattingContextRoot, Clear::Both);
 }
 
-inline bool FloatingState::FloatItem::isDescendantOfFormattingRoot(const Box& formattingContextRoot) const
+inline bool FloatingState::FloatItem::isDescendantOfFormattingRoot(const Container& formattingContextRoot) const
 {
     ASSERT(formattingContextRoot.establishesFormattingContext());
-    if (!is<Container>(formattingContextRoot))
-        return false;
     return m_layoutBox->isContainingBlockDescendantOf(downcast<Container>(formattingContextRoot));
 }
 

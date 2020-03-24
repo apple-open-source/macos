@@ -27,10 +27,11 @@
 
 #if ENABLE(WEBGPU)
 
-#include "WHLSLLexer.h"
+#include "WHLSLCodeLocation.h"
 #include "WHLSLNamedType.h"
 #include "WHLSLTypeArgument.h"
 #include "WHLSLTypeReference.h"
+#include <wtf/FastMalloc.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -39,20 +40,19 @@ namespace WHLSL {
 
 namespace AST {
 
-class NativeTypeDeclaration : public NamedType {
+class NativeTypeDeclaration final : public NamedType {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     NativeTypeDeclaration(CodeLocation location, String&& name, TypeArguments&& typeArguments)
-        : NamedType(location, WTFMove(name))
+        : NamedType(Kind::NativeTypeDeclaration, location, WTFMove(name))
         , m_typeArguments(WTFMove(typeArguments))
     {
     }
 
-    virtual ~NativeTypeDeclaration() = default;
+    ~NativeTypeDeclaration() = default;
 
     NativeTypeDeclaration(const NativeTypeDeclaration&) = delete;
     NativeTypeDeclaration(NativeTypeDeclaration&&) = default;
-
-    bool isNativeTypeDeclaration() const override { return true; }
 
     TypeArguments& typeArguments() { return m_typeArguments; }
 
@@ -67,6 +67,7 @@ public:
     bool isTextureArray() const { return m_isTextureArray; }
     bool isDepthTexture() const { return m_isDepthTexture; }
     bool isWritableTexture() const { return m_isWritableTexture; }
+    bool isCubeTexture() const { return m_isCubeTexture; }
     uint textureDimension() const { return m_textureDimension; }
     bool isSigned() const { return m_isSigned; }
     const std::function<bool(int)>& canRepresentInteger() const { return m_canRepresentInteger; }
@@ -76,6 +77,40 @@ public:
     const std::function<int64_t(int)>& formatValueFromInteger() const { return m_formatValueFromInteger; }
     const std::function<int64_t(unsigned)>& formatValueFromUnsignedInteger() const { return m_formatValueFromUnsignedInteger; }
     void iterateAllValues(const std::function<bool(int64_t)>& callback) { m_iterateAllValues(callback); }
+private:
+    unsigned matrixDimension(unsigned typeArgumentIndex)
+    {
+        ASSERT(isMatrix());
+        ASSERT(typeArguments().size() == 3);
+        return WTF::get<AST::ConstantExpression>(typeArguments()[typeArgumentIndex]).integerLiteral().value();
+    }
+public:
+    unsigned numberOfMatrixRows()
+    {
+        return matrixDimension(2);
+    }
+    unsigned numberOfMatrixColumns()
+    {
+        return matrixDimension(1);
+    }
+
+    TypeReference& vectorTypeArgument()
+    {
+        ASSERT(isVector());
+        return WTF::get<Ref<AST::TypeReference>>(typeArguments()[0]);
+    }
+
+    unsigned vectorSize()
+    {
+        ASSERT(isVector());
+        return WTF::get<AST::ConstantExpression>(typeArguments()[1]).integerLiteral().value();
+    }
+
+    TypeReference& matrixTypeArgument()
+    {
+        ASSERT(isMatrix());
+        return WTF::get<Ref<AST::TypeReference>>(typeArguments()[0]);
+    }
 
     void setIsInt() { m_isInt = true; }
     void setIsNumber() { m_isNumber = true; }
@@ -88,6 +123,7 @@ public:
     void setIsTextureArray() { m_isTextureArray = true; }
     void setIsDepthTexture() { m_isDepthTexture = true; }
     void setIsWritableTexture() { m_isWritableTexture = true; }
+    void setIsCubeTexture() { m_isCubeTexture = true; }
     void setTextureDimension(uint textureDimension) { m_textureDimension = textureDimension; }
     void setIsSigned() { m_isSigned = true; }
     void setCanRepresentInteger(std::function<bool(int)>&& canRepresent) { m_canRepresentInteger = WTFMove(canRepresent); }
@@ -119,6 +155,7 @@ private:
     bool m_isTextureArray { false };
     bool m_isDepthTexture { false };
     bool m_isWritableTexture { false };
+    bool m_isCubeTexture { false };
     bool m_isSigned { false };
 };
 
@@ -128,6 +165,6 @@ private:
 
 }
 
-SPECIALIZE_TYPE_TRAITS_WHLSL_NAMED_TYPE(NativeTypeDeclaration, isNativeTypeDeclaration())
+SPECIALIZE_TYPE_TRAITS_WHLSL_TYPE(NativeTypeDeclaration, isNativeTypeDeclaration())
 
 #endif

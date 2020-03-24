@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,17 +43,76 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         this._sourceMapURLMap = new Map;
         this._downloadingSourceMaps = new Set;
 
-        this._localResourcesMap = new Map;
+        this._localResourceOverrides = new Set;
+        this._harImportLocalResourceMap = new Set;
+
+        this._pendingLocalResourceOverrideSaves = null;
+        this._saveLocalResourceOverridesDebouncer = null;
+
+        // FIXME: Provide dedicated UI to toggle Network Interception globally?
+        this._interceptionEnabled = true;
 
         WI.notifications.addEventListener(WI.Notification.ExtraDomainsActivated, this._extraDomainsActivated, this);
         WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._handleFrameMainResourceDidChange, this);
+
+        if (NetworkManager.supportsLocalResourceOverrides()) {
+            WI.Resource.addEventListener(WI.SourceCode.Event.ContentDidChange, this._handleResourceContentDidChange, this);
+            WI.LocalResourceOverride.addEventListener(WI.LocalResourceOverride.Event.DisabledChanged, this._handleResourceOverrideDisabledChanged, this);
+
+            WI.Target.registerInitializationPromise((async () => {
+                let serializedLocalResourceOverrides = await WI.objectStores.localResourceOverrides.getAll();
+
+                this._restoringLocalResourceOverrides = true;
+                for (let serializedLocalResourceOverride of serializedLocalResourceOverrides) {
+                    let localResourceOverride = WI.LocalResourceOverride.fromJSON(serializedLocalResourceOverride);
+
+                    const key = null;
+                    WI.objectStores.localResourceOverrides.associateObject(localResourceOverride, key, serializedLocalResourceOverride);
+
+                    this.addLocalResourceOverride(localResourceOverride);
+                }
+                this._restoringLocalResourceOverrides = false;
+            })());
+        }
+
+        this._bootstrapScript = null;
+        if (NetworkManager.supportsBootstrapScript()) {
+            this._bootstrapScriptEnabledSetting = new WI.Setting("bootstrap-script-enabled", true);
+
+            WI.Target.registerInitializationPromise((async () => {
+                let bootstrapScriptSource = await WI.objectStores.general.get(NetworkManager.bootstrapScriptSourceObjectStoreKey);
+                if (bootstrapScriptSource !== undefined)
+                    this.createBootstrapScript(bootstrapScriptSource);
+            })());
+        }
     }
 
     // Static
 
     static supportsShowCertificate()
     {
-        return InspectorFrontendHost.supportsShowCertificate && window.NetworkAgent && NetworkAgent.getSerializedCertificate;
+        return InspectorFrontendHost.supportsShowCertificate
+            && InspectorBackend.hasCommand("Network.getSerializedCertificate");
+    }
+
+    static supportsLocalResourceOverrides()
+    {
+        return InspectorBackend.hasCommand("Network.setInterceptionEnabled");
+    }
+
+    static supportsBootstrapScript()
+    {
+        return InspectorBackend.hasCommand("Page.setBootstrapScript");
+    }
+
+    static get bootstrapScriptURL()
+    {
+        return "web-inspector://bootstrap.js";
+    }
+
+    static get bootstrapScriptSourceObjectStoreKey()
+    {
+        return "bootstrap-script-source";
     }
 
     static synthesizeImportError(message)
@@ -75,23 +134,44 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     initializeTarget(target)
     {
-        if (target.PageAgent) {
+        if (target.hasDomain("Page")) {
             target.PageAgent.enable();
             target.PageAgent.getResourceTree(this._processMainFrameResourceTreePayload.bind(this));
+
+            // COMPATIBILITY (iOS 13.0): Page.setBootstrapScript did not exist yet.
+            if (target.hasCommand("Page.setBootstrapScript") && this._bootstrapScript && this._bootstrapScriptEnabledSetting.value)
+                target.PageAgent.setBootstrapScript(this._bootstrapScript.content);
         }
 
-        if (target.ServiceWorkerAgent)
+        if (target.hasDomain("ServiceWorker"))
             target.ServiceWorkerAgent.getInitializationInfo(this._processServiceWorkerConfiguration.bind(this));
 
-        if (target.NetworkAgent) {
+        if (target.hasDomain("Network")) {
             target.NetworkAgent.enable();
 
             // COMPATIBILITY (iOS 10.3): Network.setDisableResourceCaching did not exist.
-            if (target.NetworkAgent.setResourceCachingDisabled)
+            if (target.hasCommand("Network.setResourceCachingDisabled"))
                 target.NetworkAgent.setResourceCachingDisabled(WI.settings.resourceCachingDisabled.value);
+
+            // COMPATIBILITY (iOS 13.0): Network.setInterceptionEnabled did not exist.
+            if (target.hasCommand("Network.setInterceptionEnabled")) {
+                if (this._interceptionEnabled)
+                    target.NetworkAgent.setInterceptionEnabled(this._interceptionEnabled);
+
+                for (let localResourceOverride of this._localResourceOverrides) {
+                    if (!localResourceOverride.disabled) {
+                        target.NetworkAgent.addInterception.invoke({
+                            url: localResourceOverride.url,
+                            caseSensitive: localResourceOverride.isCaseSensitive,
+                            isRegex: localResourceOverride.isRegex,
+                            networkStage: InspectorBackend.Enum.Network.NetworkStage.Response,
+                        });
+                    }
+                }
+            }
         }
 
-        if (target.type === WI.Target.Type.Worker)
+        if (target.type === WI.TargetType.Worker)
             this.adoptOrphanedResourcesForTarget(target);
     }
 
@@ -103,14 +183,36 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     // Public
 
-    get mainFrame()
-    {
-        return this._mainFrame;
-    }
+    get mainFrame() { return this._mainFrame; }
+    get bootstrapScript() { return this._bootstrapScript; }
 
     get frames()
     {
-        return [...this._frameIdentifierMap.values()];
+        return Array.from(this._frameIdentifierMap.values());
+    }
+
+    get localResourceOverrides()
+    {
+        return Array.from(this._localResourceOverrides);
+    }
+
+    get interceptionEnabled()
+    {
+        return this._interceptionEnabled;
+    }
+
+    set interceptionEnabled(enabled)
+    {
+        if (this._interceptionEnabled === enabled)
+            return;
+
+        this._interceptionEnabled = enabled;
+
+        for (let target of WI.targets) {
+            // COMPATIBILITY (iOS 13.0): Network.setInterceptionEnabled did not exist.
+            if (target.hasCommand("Network.setInterceptionEnabled"))
+                target.NetworkAgent.setInterceptionEnabled(this._interceptionEnabled);
+        }
     }
 
     frameForIdentifier(frameId)
@@ -165,10 +267,270 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         loadAndParseSourceMap();
     }
 
+    get bootstrapScriptEnabled()
+    {
+        console.assert(NetworkManager.supportsBootstrapScript());
+        console.assert(this._bootstrapScript);
+
+        return this._bootstrapScriptEnabledSetting.value;
+    }
+
+    set bootstrapScriptEnabled(enabled)
+    {
+        console.assert(NetworkManager.supportsBootstrapScript());
+        console.assert(this._bootstrapScript);
+
+        this._bootstrapScriptEnabledSetting.value = !!enabled;
+
+        let source = this._bootstrapScriptEnabledSetting.value ? this._bootstrapScript.content : undefined;
+
+        // COMPATIBILITY (iOS 13.0): Page.setBootstrapScript did not exist yet.
+        for (let target of WI.targets) {
+            if (target.hasCommand("Page.setBootstrapScript"))
+                target.PageAgent.setBootstrapScript(source);
+        }
+
+        this.dispatchEventToListeners(NetworkManager.Event.BootstrapScriptEnabledChanged, {bootstrapScript: this._bootstrapScript});
+    }
+
+    async createBootstrapScript(source)
+    {
+        console.assert(NetworkManager.supportsBootstrapScript());
+
+        if (this._bootstrapScript)
+            return;
+
+        if (!arguments.length)
+            source = await WI.objectStores.general.get(NetworkManager.bootstrapScriptSourceObjectStoreKey);
+
+        if (!source) {
+            source = `
+/*
+ * ${WI.UIString("The Inspector Bootstrap Script is guaranteed to be the first script evaluated in any page, as well as any sub-frames.")}
+ * ${WI.UIString("It is evaluated immediately after the global object is created, before any other content has loaded.")}
+ * 
+ * ${WI.UIString("Modifications made here will take effect on the next load of any page or sub-frame.")}
+ * ${WI.UIString("The contents and enabled state will be preserved across Web Inspector sessions.")}
+ * 
+ * ${WI.UIString("Some examples of ways to use this script include (but are not limited to):")}
+ *  - ${WI.UIString("overriding built-in functions to log call traces or add `debugger` statements")}
+ *  - ${WI.UIString("ensuring that common debugging functions are available on every page via the Console")}
+ */
+`;
+        }
+
+        const target = null;
+        const url = null;
+        const sourceURL = NetworkManager.bootstrapScriptURL;
+        this._bootstrapScript = new WI.LocalScript(target, url, sourceURL, WI.Script.SourceType.Program, source, {injected: true, editable: true});
+        this._bootstrapScript.addEventListener(WI.SourceCode.Event.ContentDidChange, this._handleBootstrapScriptContentDidChange, this);
+        this._handleBootstrapScriptContentDidChange();
+
+        this.dispatchEventToListeners(NetworkManager.Event.BootstrapScriptCreated, {bootstrapScript: this._bootstrapScript});
+    }
+
+    destroyBootstrapScript()
+    {
+        console.assert(NetworkManager.supportsBootstrapScript());
+
+        if (!this._bootstrapScript)
+            return;
+
+        let bootstrapScript = this._bootstrapScript;
+
+        this._bootstrapScript = null;
+        WI.objectStores.general.delete(NetworkManager.bootstrapScriptSourceObjectStoreKey);
+
+        // COMPATIBILITY (iOS 13.0): Page.setBootstrapScript did not exist yet.
+        for (let target of WI.targets) {
+            if (target.hasCommand("Page.setBootstrapScript"))
+                target.PageAgent.setBootstrapScript();
+        }
+
+        this.dispatchEventToListeners(NetworkManager.Event.BootstrapScriptDestroyed, {bootstrapScript});
+    }
+
+    addLocalResourceOverride(localResourceOverride)
+    {
+        console.assert(localResourceOverride instanceof WI.LocalResourceOverride);
+
+        console.assert(!this._localResourceOverrides.has(localResourceOverride), "Already had an existing local resource override.");
+        this._localResourceOverrides.add(localResourceOverride);
+
+        if (!this._restoringLocalResourceOverrides)
+            WI.objectStores.localResourceOverrides.putObject(localResourceOverride);
+
+        if (!localResourceOverride.disabled) {
+            let commandArguments = {
+                url: localResourceOverride.url,
+                caseSensitive: localResourceOverride.isCaseSensitive,
+                isRegex: localResourceOverride.isRegex,
+                networkStage: InspectorBackend.Enum.Network.NetworkStage.Response,
+            };
+
+            // COMPATIBILITY (iOS 13.0): Network.addInterception did not exist.
+            for (let target of WI.targets) {
+                if (target.hasCommand("Network.addInterception"))
+                    target.NetworkAgent.addInterception.invoke(commandArguments);
+            }
+        }
+
+        this.dispatchEventToListeners(WI.NetworkManager.Event.LocalResourceOverrideAdded, {localResourceOverride});
+    }
+
+    removeLocalResourceOverride(localResourceOverride)
+    {
+        console.assert(localResourceOverride instanceof WI.LocalResourceOverride);
+
+        if (!this._localResourceOverrides.delete(localResourceOverride)) {
+            console.assert(false, "Attempted to remove a local resource override that was not known.");
+            return;
+        }
+
+        if (this._pendingLocalResourceOverrideSaves)
+            this._pendingLocalResourceOverrideSaves.delete(localResourceOverride);
+
+        if (!this._restoringLocalResourceOverrides)
+            WI.objectStores.localResourceOverrides.deleteObject(localResourceOverride);
+
+        if (!localResourceOverride.disabled) {
+            let commandArguments = {
+                url: localResourceOverride.url,
+                caseSensitive: localResourceOverride.isCaseSensitive,
+                isRegex: localResourceOverride.isRegex,
+                networkStage: InspectorBackend.Enum.Network.NetworkStage.Response,
+            };
+
+            // COMPATIBILITY (iOS 13.0): Network.removeInterception did not exist.
+            for (let target of WI.targets) {
+                if (target.hasCommand("Network.removeInterception"))
+                    target.NetworkAgent.removeInterception.invoke(commandArguments);
+            }
+        }
+
+        this.dispatchEventToListeners(WI.NetworkManager.Event.LocalResourceOverrideRemoved, {localResourceOverride});
+    }
+
+    localResourceOverrideForURL(url)
+    {
+        for (let localResourceOverride of this._localResourceOverrides) {
+            if (localResourceOverride.matches(url))
+                return localResourceOverride;
+        }
+        return null;
+    }
+
+    canBeOverridden(resource)
+    {
+        if (!(resource instanceof WI.Resource))
+            return false;
+
+        if (resource instanceof WI.SourceMapResource)
+            return false;
+
+        if (resource.isLocalResourceOverride)
+            return false;
+
+        const schemes = ["http:", "https:", "file:"];
+        if (!schemes.some((scheme) => resource.url.startsWith(scheme)))
+            return false;
+
+        let existingOverride = this.localResourceOverrideForURL(resource.url);
+        if (existingOverride)
+            return false;
+
+        switch (resource.type) {
+        case WI.Resource.Type.Document:
+        case WI.Resource.Type.StyleSheet:
+        case WI.Resource.Type.Script:
+        case WI.Resource.Type.XHR:
+        case WI.Resource.Type.Fetch:
+        case WI.Resource.Type.Image:
+        case WI.Resource.Type.Font:
+        case WI.Resource.Type.Other:
+            break;
+        case WI.Resource.Type.Ping:
+        case WI.Resource.Type.Beacon:
+            // Responses aren't really expected for Ping/Beacon.
+            return false;
+        case WI.Resource.Type.WebSocket:
+            // Non-HTTP traffic.
+            console.assert(false, "Scheme check above should have been sufficient.");
+            return false;
+        }
+
+        return true;
+    }
+
+    resourceForURL(url)
+    {
+        if (!this._mainFrame)
+            return null;
+
+        if (this._mainFrame.mainResource.url === url)
+            return this._mainFrame.mainResource;
+
+        return this._mainFrame.resourceForURL(url, true);
+    }
+
+    adoptOrphanedResourcesForTarget(target)
+    {
+        let resources = this._orphanedResources.take(target.identifier);
+        if (!resources)
+            return;
+
+        for (let resource of resources)
+            target.adoptResource(resource);
+    }
+
+    processHAR({json, error})
+    {
+        if (error) {
+            WI.NetworkManager.synthesizeImportError(error);
+            return null;
+        }
+
+        if (typeof json !== "object" || json === null) {
+            WI.NetworkManager.synthesizeImportError(WI.UIString("invalid JSON"));
+            return null;
+        }
+
+        if (typeof json.log !== "object" || typeof json.log.version !== "string") {
+            WI.NetworkManager.synthesizeImportError(WI.UIString("invalid HAR"));
+            return null;
+        }
+
+        if (json.log.version !== "1.2") {
+            WI.NetworkManager.synthesizeImportError(WI.UIString("unsupported HAR version"));
+            return null;
+        }
+
+        if (!Array.isArray(json.log.entries) || !Array.isArray(json.log.pages) || !json.log.pages[0] || !json.log.pages[0].startedDateTime) {
+            WI.NetworkManager.synthesizeImportError(WI.UIString("invalid HAR"));
+            return null;
+        }
+
+        let mainResourceSentWalltime = WI.HARBuilder.dateFromHARDate(json.log.pages[0].startedDateTime) / 1000;
+        if (isNaN(mainResourceSentWalltime)) {
+            WI.NetworkManager.synthesizeImportError(WI.UIString("invalid HAR"));
+            return null;
+        }
+
+        let localResources = [];
+
+        for (let entry of json.log.entries) {
+            let localResource = WI.LocalResource.fromHAREntry(entry, mainResourceSentWalltime);
+            this._harImportLocalResourceMap.add(localResource);
+            localResources.push(localResource);
+        }
+
+        return localResources;
+    }
+
+    // PageObserver
+
     frameDidNavigate(framePayload)
     {
-        // Called from WI.PageObserver.
-
         // Ignore this while waiting for the whole frame/resource tree.
         if (this._waitingForMainFrameResourceTreePayload)
             return;
@@ -241,8 +603,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     frameDidDetach(frameId)
     {
-        // Called from WI.PageObserver.
-
         // Ignore this while waiting for the whole frame/resource tree.
         if (this._waitingForMainFrameResourceTreePayload)
             return;
@@ -269,10 +629,10 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             this._mainFrameDidChange(oldMainFrame);
     }
 
+    // NetworkObserver
+
     resourceRequestWillBeSent(requestIdentifier, frameIdentifier, loaderIdentifier, request, type, redirectResponse, timestamp, walltime, initiator, targetId)
     {
-        // Called from WI.NetworkObserver.
-
         // Ignore this while waiting for the whole frame/resource tree.
         if (this._waitingForMainFrameResourceTreePayload)
             return;
@@ -329,7 +689,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             return;
 
         // COMPATIBILITY(iOS 10.3): `walltime` did not exist in 10.3 and earlier.
-        if (!InspectorBackend.domains.Network.hasEventParameter("webSocketWillSendHandshakeRequest", "walltime")) {
+        if (!InspectorBackend.hasEvent("Network.webSocketWillSendHandshakeRequest", "walltime")) {
             request = arguments[2];
             walltime = NaN;
         }
@@ -414,8 +774,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     markResourceRequestAsServedFromMemoryCache(requestIdentifier)
     {
-        // Called from WI.NetworkObserver.
-
         // Ignore this while waiting for the whole frame/resource tree.
         if (this._waitingForMainFrameResourceTreePayload)
             return;
@@ -423,7 +781,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         let resource = this._resourceRequestIdentifierMap.get(requestIdentifier);
 
         // We might not have a resource if the inspector was opened during the page load (after resourceRequestWillBeSent is called).
-        // We don't want to assert in this case since we do likely have the resource, via PageAgent.getResourceTree. The Resource
+        // We don't want to assert in this case since we do likely have the resource, via Page.getResourceTree. The Resource
         // just doesn't have a requestIdentifier for us to look it up.
         if (!resource)
             return;
@@ -433,8 +791,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     resourceRequestWasServedFromMemoryCache(requestIdentifier, frameIdentifier, loaderIdentifier, cachedResourcePayload, timestamp, initiator)
     {
-        // Called from WI.NetworkObserver.
-
         // Ignore this while waiting for the whole frame/resource tree.
         if (this._waitingForMainFrameResourceTreePayload)
             return;
@@ -443,7 +799,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
         let elapsedTime = WI.timelineManager.computeElapsedTime(timestamp);
         let response = cachedResourcePayload.response;
-        const responseSource = NetworkAgent.ResponseSource.MemoryCache;
+        const responseSource = InspectorBackend.Enum.Network.ResponseSource.MemoryCache;
 
         let resource = this._addNewResourceToFrameOrTarget(cachedResourcePayload.url, frameIdentifier, {
             type: cachedResourcePayload.type,
@@ -472,8 +828,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     resourceRequestDidReceiveResponse(requestIdentifier, frameIdentifier, loaderIdentifier, type, response, timestamp)
     {
-        // Called from WI.NetworkObserver.
-
         // Ignore this while waiting for the whole frame/resource tree.
         if (this._waitingForMainFrameResourceTreePayload)
             return;
@@ -482,14 +836,14 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         let resource = this._resourceRequestIdentifierMap.get(requestIdentifier);
 
         // We might not have a resource if the inspector was opened during the page load (after resourceRequestWillBeSent is called).
-        // We don't want to assert in this case since we do likely have the resource, via PageAgent.getResourceTree. The Resource
+        // We don't want to assert in this case since we do likely have the resource, via Page.getResourceTree. The Resource
         // just doesn't have a requestIdentifier for us to look it up, but we can try to look it up by its URL.
         if (!resource) {
             var frame = this.frameForIdentifier(frameIdentifier);
             if (frame)
                 resource = frame.resourceForURL(response.url);
 
-            // If we find the resource this way we had marked it earlier as finished via PageAgent.getResourceTree.
+            // If we find the resource this way we had marked it earlier as finished via Page.getResourceTree.
             // Associate the resource with the requestIdentifier so it can be found in future loading events.
             // and roll it back to an unfinished state, we know now it is still loading.
             if (resource) {
@@ -522,8 +876,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     resourceRequestDidReceiveData(requestIdentifier, dataLength, encodedDataLength, timestamp)
     {
-        // Called from WI.NetworkObserver.
-
         // Ignore this while waiting for the whole frame/resource tree.
         if (this._waitingForMainFrameResourceTreePayload)
             return;
@@ -532,7 +884,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         var elapsedTime = WI.timelineManager.computeElapsedTime(timestamp);
 
         // We might not have a resource if the inspector was opened during the page load (after resourceRequestWillBeSent is called).
-        // We don't want to assert in this case since we do likely have the resource, via PageAgent.getResourceTree. The Resource
+        // We don't want to assert in this case since we do likely have the resource, via Page.getResourceTree. The Resource
         // just doesn't have a requestIdentifier for us to look it up.
         if (!resource)
             return;
@@ -545,14 +897,12 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     resourceRequestDidFinishLoading(requestIdentifier, timestamp, sourceMapURL, metrics)
     {
-        // Called from WI.NetworkObserver.
-
         // Ignore this while waiting for the whole frame/resource tree.
         if (this._waitingForMainFrameResourceTreePayload)
             return;
 
         // By now we should always have the Resource. Either it was fetched when the inspector first opened with
-        // PageAgent.getResourceTree, or it was a currently loading resource that we learned about in resourceRequestDidReceiveResponse.
+        // Page.getResourceTree, or it was a currently loading resource that we learned about in resourceRequestDidReceiveResponse.
         let resource = this._resourceRequestIdentifierMap.get(requestIdentifier);
         console.assert(resource);
         if (!resource)
@@ -572,14 +922,12 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     resourceRequestDidFailLoading(requestIdentifier, canceled, timestamp, errorText)
     {
-        // Called from WI.NetworkObserver.
-
         // Ignore this while waiting for the whole frame/resource tree.
         if (this._waitingForMainFrameResourceTreePayload)
             return;
 
         // By now we should always have the Resource. Either it was fetched when the inspector first opened with
-        // PageAgent.getResourceTree, or it was a currently loading resource that we learned about in resourceRequestDidReceiveResponse.
+        // Page.getResourceTree, or it was a currently loading resource that we learned about in resourceRequestDidReceiveResponse.
         let resource = this._resourceRequestIdentifierMap.get(requestIdentifier);
         console.assert(resource);
         if (!resource)
@@ -594,10 +942,40 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         this._resourceRequestIdentifierMap.delete(requestIdentifier);
     }
 
+    responseIntercepted(target, requestId, response)
+    {
+        let url = WI.urlWithoutFragment(response.url);
+        let localResourceOverride = this.localResourceOverrideForURL(url);
+        if (!localResourceOverride || localResourceOverride.disabled) {
+            target.NetworkAgent.interceptContinue(requestId);
+            return;
+        }
+
+        let localResource = localResourceOverride.localResource;
+        let revision = localResource.currentRevision;
+
+        let content = revision.content;
+        let base64Encoded = revision.base64Encoded;
+        let mimeType = revision.mimeType;
+        let statusCode = localResource.statusCode;
+        let statusText = localResource.statusText;
+        let responseHeaders = localResource.responseHeaders;
+        console.assert(revision.mimeType === localResource.mimeType);
+
+        if (isNaN(statusCode))
+            statusCode = undefined;
+        if (!statusText)
+            statusText = undefined;
+        if (!responseHeaders)
+            responseHeaders = undefined;
+
+        target.NetworkAgent.interceptWithResponse(requestId, content, base64Encoded, mimeType, statusCode, statusText, responseHeaders);
+    }
+
+    // RuntimeObserver
+
     executionContextCreated(contextPayload)
     {
-        // Called from WI.RuntimeObserver.
-
         let frame = this.frameForIdentifier(contextPayload.frameId);
         console.assert(frame);
         if (!frame)
@@ -607,76 +985,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         let target = frame.mainResource.target;
         let executionContext = new WI.ExecutionContext(target, contextPayload.id, displayName, contextPayload.isPageContext, frame);
         frame.addExecutionContext(executionContext);
-    }
-
-    localResourceForURL(url)
-    {
-        return this._localResourcesMap.get(url);
-    }
-
-    resourceForURL(url)
-    {
-        if (!this._mainFrame)
-            return null;
-
-        if (this._mainFrame.mainResource.url === url)
-            return this._mainFrame.mainResource;
-
-        return this._mainFrame.resourceForURL(url, true);
-    }
-
-    adoptOrphanedResourcesForTarget(target)
-    {
-        let resources = this._orphanedResources.take(target.identifier);
-        if (!resources)
-            return;
-
-        for (let resource of resources)
-            target.adoptResource(resource);
-    }
-
-    processHAR({json, error})
-    {
-        if (error) {
-            WI.NetworkManager.synthesizeImportError(error);
-            return null;
-        }
-
-        if (typeof json !== "object" || json === null) {
-            WI.NetworkManager.synthesizeImportError(WI.UIString("invalid JSON"));
-            return null;
-        }
-
-        if (typeof json.log !== "object" || typeof json.log.version !== "string") {
-            WI.NetworkManager.synthesizeImportError(WI.UIString("invalid HAR"));
-            return null;
-        }
-
-        if (json.log.version !== "1.2") {
-            WI.NetworkManager.synthesizeImportError(WI.UIString("unsupported HAR version"));
-            return null;
-        }
-
-        if (!Array.isArray(json.log.entries) || !Array.isArray(json.log.pages) || !json.log.pages[0] || !json.log.pages[0].startedDateTime) {
-            WI.NetworkManager.synthesizeImportError(WI.UIString("invalid HAR"));
-            return null;
-        }
-
-        let mainResourceSentWalltime = WI.HARBuilder.dateFromHARDate(json.log.pages[0].startedDateTime) / 1000;
-        if (isNaN(mainResourceSentWalltime)) {
-            WI.NetworkManager.synthesizeImportError(WI.UIString("invalid HAR"));
-            return null;
-        }
-
-        let localResources = [];
-
-        for (let entry of json.log.entries) {
-            let localResource = WI.LocalResource.fromHAREntry(entry, mainResourceSentWalltime);
-            this._localResourcesMap.set(localResource.url, localResource);
-            localResources.push(localResource);
-        }
-
-        return localResources;
     }
 
     // Private
@@ -842,8 +1150,9 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         WI.mainTarget.name = initializationPayload.url;
 
         // Create a main resource with this content in case the content never shows up as a WI.Script.
-        const type = WI.Script.SourceType.Program;
-        let script = new WI.LocalScript(WI.mainTarget, initializationPayload.url, type, initializationPayload.content);
+        const sourceURL = null;
+        const sourceType = WI.Script.SourceType.Program;
+        let script = new WI.LocalScript(WI.mainTarget, initializationPayload.url, sourceURL, sourceType, initializationPayload.content);
         WI.mainTarget.mainResource = script;
 
         InspectorBackend.runAfterPendingDispatches(() => {
@@ -1019,7 +1328,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             return;
         }
 
-        if (!window.NetworkAgent) {
+        if (!InspectorBackend.hasDomain("Network")) {
             this._sourceMapLoadAndParseFailed(sourceMapURL);
             return;
         }
@@ -1031,7 +1340,8 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         if (!frameIdentifier)
             frameIdentifier = WI.networkManager.mainFrame ? WI.networkManager.mainFrame.id : "";
 
-        NetworkAgent.loadResource(frameIdentifier, sourceMapURL, sourceMapLoaded);
+        let target = WI.assumingMainTarget();
+        target.NetworkAgent.loadResource(frameIdentifier, sourceMapURL, sourceMapLoaded);
     }
 
     _sourceMapLoadAndParseFailed(sourceMapURL)
@@ -1064,10 +1374,80 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         }
     }
 
+    _handleResourceContentDidChange(event)
+    {
+        let resource = event.target;
+        if (!(resource instanceof WI.Resource))
+            return;
+
+        if (!resource.isLocalResourceOverride)
+            return;
+
+        let localResourceOverride = this.localResourceOverrideForURL(resource.url);
+        console.assert(localResourceOverride);
+        if (!localResourceOverride)
+            return;
+
+        if (!this._saveLocalResourceOverridesDebouncer) {
+            this._pendingLocalResourceOverrideSaves = new Set;
+            this._saveLocalResourceOverridesDebouncer = new Debouncer(() => {
+                for (let localResourceOverride of this._pendingLocalResourceOverrideSaves) {
+                    console.assert(localResourceOverride instanceof WI.LocalResourceOverride);
+                    WI.objectStores.localResourceOverrides.putObject(localResourceOverride);
+                }
+            });
+        }
+
+        this._pendingLocalResourceOverrideSaves.add(localResourceOverride);
+        this._saveLocalResourceOverridesDebouncer.delayForTime(500);
+    }
+
+    _handleResourceOverrideDisabledChanged(event)
+    {
+        console.assert(WI.NetworkManager.supportsLocalResourceOverrides());
+
+        let localResourceOverride = event.target;
+        WI.objectStores.localResourceOverrides.putObject(localResourceOverride);
+
+        let commandArguments = {
+            url: localResourceOverride.url,
+            caseSensitive: localResourceOverride.isCaseSensitive,
+            isRegex: localResourceOverride.isRegex,
+            networkStage: InspectorBackend.Enum.Network.NetworkStage.Response,
+        };
+
+        // COMPATIBILITY (iOS 13.0): Network.addInterception / Network.removeInterception did not exist.
+        for (let target of WI.targets) {
+            if (target.hasDomain("Network")) {
+                if (localResourceOverride.disabled)
+                    target.NetworkAgent.removeInterception.invoke(commandArguments);
+                else
+                    target.NetworkAgent.addInterception.invoke(commandArguments);
+            }
+        }
+    }
+
+    _handleBootstrapScriptContentDidChange(event)
+    {
+        let source = this._bootstrapScript.content || "";
+
+        WI.objectStores.general.put(source, NetworkManager.bootstrapScriptSourceObjectStoreKey);
+
+        if (!this._bootstrapScriptEnabledSetting.value)
+            return;
+
+        // COMPATIBILITY (iOS 13.0): Page.setBootstrapScript did not exist yet.
+        for (let target of WI.targets) {
+            if (target.hasCommand("Page.setBootstrapScript"))
+                target.PageAgent.setBootstrapScript(source);
+        }
+    }
+
     _extraDomainsActivated(event)
     {
-        if (event.data.domains.includes("Page") && window.PageAgent)
-            PageAgent.getResourceTree(this._processMainFrameResourceTreePayload.bind(this));
+        let target = WI.assumingMainTarget();
+        if (target.hasDomain("Page") && event.data.domains.includes("Page"))
+            target.PageAgent.getResourceTree(this._processMainFrameResourceTreePayload.bind(this));
     }
 
     _handleFrameMainResourceDidChange(event)
@@ -1084,4 +1464,9 @@ WI.NetworkManager.Event = {
     FrameWasAdded: "network-manager-frame-was-added",
     FrameWasRemoved: "network-manager-frame-was-removed",
     MainFrameDidChange: "network-manager-main-frame-did-change",
+    BootstrapScriptCreated: "network-manager-bootstrap-script-created",
+    BootstrapScriptEnabledChanged: "network-manager-bootstrap-script-enabled-changed",
+    BootstrapScriptDestroyed: "network-manager-bootstrap-script-destroyed",
+    LocalResourceOverrideAdded: "network-manager-local-resource-override-added",
+    LocalResourceOverrideRemoved: "network-manager-local-resource-override-removed",
 };

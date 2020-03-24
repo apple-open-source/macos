@@ -33,9 +33,9 @@
 
 namespace WebCore {
 
-Ref<ExtendedColor> ExtendedColor::create(float r, float g, float b, float a, ColorSpace colorSpace)
+Ref<ExtendedColor> ExtendedColor::create(float red, float green, float blue, float alpha, ColorSpace colorSpace)
 {
-    return adoptRef(*new ExtendedColor(r, g, b, a, colorSpace));
+    return adoptRef(*new ExtendedColor(red, green, blue, alpha, colorSpace));
 }
 
 String ExtendedColor::cssText() const
@@ -45,10 +45,10 @@ String ExtendedColor::cssText() const
     builder.appendLiteral("color(");
 
     switch (m_colorSpace) {
-    case ColorSpaceSRGB:
+    case ColorSpace::SRGB:
         builder.appendLiteral("srgb ");
         break;
-    case ColorSpaceDisplayP3:
+    case ColorSpace::DisplayP3:
         builder.appendLiteral("display-p3 ");
         break;
     default:
@@ -56,16 +56,16 @@ String ExtendedColor::cssText() const
         return WTF::emptyString();
     }
 
-    builder.appendFixedPrecisionNumber(red());
+    builder.append(FormattedNumber::fixedPrecision(red()));
     builder.append(' ');
 
-    builder.appendFixedPrecisionNumber(green());
+    builder.append(FormattedNumber::fixedPrecision(green()));
     builder.append(' ');
 
-    builder.appendFixedPrecisionNumber(blue());
+    builder.append(FormattedNumber::fixedPrecision(blue()));
     if (!WTF::areEssentiallyEqual(alpha(), 1.0f)) {
         builder.appendLiteral(" / ");
-        builder.appendFixedPrecisionNumber(alpha());
+        builder.append(FormattedNumber::fixedPrecision(alpha()));
     }
     builder.append(')');
 

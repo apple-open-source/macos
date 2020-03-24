@@ -23,6 +23,7 @@
 
 #if USE(GSTREAMER_GL)
 
+#include "FloatRect.h"
 #include "GLContext.h"
 #include "ImageOrientation.h"
 #include "TextureMapperShaderProgram.h"
@@ -34,8 +35,6 @@ VideoTextureCopierGStreamer::VideoTextureCopierGStreamer(ColorConversion colorCo
     GLContext* previousContext = GLContext::current();
     ASSERT(previousContext);
     PlatformDisplay::sharedDisplayForCompositing().sharingGLContext()->makeContextCurrent();
-
-    m_shaderProgram = TextureMapperShaderProgram::create(TextureMapperShaderProgram::Texture);
 
     glGenFramebuffers(1, &m_framebuffer);
     glGenTextures(1, &m_resultTexture);
@@ -84,6 +83,9 @@ void VideoTextureCopierGStreamer::updateColorConversionMatrix(ColorConversion co
     case ColorConversion::ConvertARGBToRGBA:
         m_colorConversionMatrix.setMatrix(0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0);
         break;
+    case ColorConversion::NoConvert:
+        m_colorConversionMatrix.makeIdentity();
+        break;
     default:
         RELEASE_ASSERT_NOT_REACHED();
     }
@@ -94,17 +96,17 @@ void VideoTextureCopierGStreamer::updateTextureSpaceMatrix()
     m_textureSpaceMatrix.makeIdentity();
 
     switch (m_orientation) {
-    case DefaultImageOrientation:
+    case ImageOrientation::OriginTopLeft:
         break;
-    case OriginRightTop:
+    case ImageOrientation::OriginRightTop:
         m_textureSpaceMatrix.rotate(-90);
         m_textureSpaceMatrix.translate(-1, 0);
         break;
-    case OriginBottomRight:
+    case ImageOrientation::OriginBottomRight:
         m_textureSpaceMatrix.rotate(180);
         m_textureSpaceMatrix.translate(-1, -1);
         break;
-    case OriginLeftBottom:
+    case ImageOrientation::OriginLeftBottom:
         m_textureSpaceMatrix.rotate(-270);
         m_textureSpaceMatrix.translate(0, -1);
         break;
@@ -134,9 +136,9 @@ void VideoTextureCopierGStreamer::updateTransformationMatrix()
         -1, 1, -(farValue + nearValue) / (farValue - nearValue), 1);
 }
 
-bool VideoTextureCopierGStreamer::copyVideoTextureToPlatformTexture(GLuint inputTexture, IntSize& frameSize, GLuint outputTexture, GLenum outputTarget, GLint level, GLenum internalFormat, GLenum format, GLenum type, bool flipY, ImageOrientation& sourceOrientation)
+bool VideoTextureCopierGStreamer::copyVideoTextureToPlatformTexture(TextureMapperPlatformLayerBuffer& inputTexture, IntSize& frameSize, GLuint outputTexture, GLenum outputTarget, GLint level, GLenum internalFormat, GLenum format, GLenum type, bool flipY, ImageOrientation sourceOrientation)
 {
-    if (!m_shaderProgram || !m_framebuffer || !m_vbo || frameSize.isEmpty())
+    if (!m_framebuffer || !m_vbo || frameSize.isEmpty())
         return false;
 
     if (m_size != frameSize) {
@@ -154,6 +156,38 @@ bool VideoTextureCopierGStreamer::copyVideoTextureToPlatformTexture(GLuint input
     GLContext* previousContext = GLContext::current();
     ASSERT(previousContext);
     PlatformDisplay::sharedDisplayForCompositing().sharingGLContext()->makeContextCurrent();
+
+    // Determine what shader program to use and create it if necessary.
+    using Buffer = TextureMapperPlatformLayerBuffer;
+    TextureMapperShaderProgram::Options options;
+    WTF::switchOn(inputTexture.textureVariant(),
+        [&](const Buffer::RGBTexture&) { options = TextureMapperShaderProgram::TextureRGB; },
+        [&](const Buffer::YUVTexture& texture) {
+            switch (texture.numberOfPlanes) {
+            case 1:
+                ASSERT(texture.yuvPlane[0] == texture.yuvPlane[1] && texture.yuvPlane[1] == texture.yuvPlane[2]);
+                ASSERT(texture.yuvPlaneOffset[0] == 2 && texture.yuvPlaneOffset[1] == 1 && !texture.yuvPlaneOffset[2]);
+                options = TextureMapperShaderProgram::TexturePackedYUV;
+                break;
+            case 2:
+                ASSERT(!texture.yuvPlaneOffset[0]);
+                options = texture.yuvPlaneOffset[1] ? TextureMapperShaderProgram::TextureNV21 : TextureMapperShaderProgram::TextureNV12;
+                break;
+            case 3:
+                ASSERT(!texture.yuvPlaneOffset[0] && !texture.yuvPlaneOffset[1] && !texture.yuvPlaneOffset[2]);
+                options = TextureMapperShaderProgram::TextureYUV;
+                break;
+            }
+        });
+
+    if (options != m_shaderOptions) {
+        m_shaderProgram = TextureMapperShaderProgram::create(options);
+        m_shaderOptions = options;
+    }
+    if (!m_shaderProgram) {
+        previousContext->makeContextCurrent();
+        return false;
+    }
 
     // Save previous bound framebuffer, texture and viewport.
     GLint boundFramebuffer = 0;
@@ -178,18 +212,48 @@ bool VideoTextureCopierGStreamer::copyVideoTextureToPlatformTexture(GLuint input
     glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, outputTexture, 0);
 
-    // Set proper wrap parameter to the source texture.
-    glBindTexture(GL_TEXTURE_2D, inputTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
     // Set the viewport.
     glViewport(0, 0, m_size.width(), m_size.height());
 
     // Set program parameters.
     glUseProgram(m_shaderProgram->programID());
-    glUniform1i(m_shaderProgram->samplerLocation(), 0);
+
+    WTF::switchOn(inputTexture.textureVariant(),
+        [&](const Buffer::RGBTexture& texture) {
+            glUniform1i(m_shaderProgram->samplerLocation(), 0);
+
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture.id);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        },
+        [&](const Buffer::YUVTexture& texture) {
+            switch (texture.numberOfPlanes) {
+            case 1:
+                glUniform1i(m_shaderProgram->samplerLocation(), texture.yuvPlane[0]);
+                break;
+            case 2:
+                glUniform1i(m_shaderProgram->samplerYLocation(), texture.yuvPlane[0]);
+                glUniform1i(m_shaderProgram->samplerULocation(), texture.yuvPlane[1]);
+                break;
+            case 3:
+                glUniform1i(m_shaderProgram->samplerYLocation(), texture.yuvPlane[0]);
+                glUniform1i(m_shaderProgram->samplerULocation(), texture.yuvPlane[1]);
+                glUniform1i(m_shaderProgram->samplerVLocation(), texture.yuvPlane[2]);
+                break;
+            }
+            glUniformMatrix3fv(m_shaderProgram->yuvToRgbLocation(), 1, GL_FALSE, static_cast<const GLfloat *>(&texture.yuvToRgbMatrix[0]));
+
+            for (int i = texture.numberOfPlanes - 1; i >= 0; --i) {
+                glActiveTexture(GL_TEXTURE0 + i);
+                glBindTexture(GL_TEXTURE_2D, texture.planes[i]);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            }
+        });
+
     m_shaderProgram->setMatrix(m_shaderProgram->modelViewMatrixLocation(), m_modelViewMatrix);
     m_shaderProgram->setMatrix(m_shaderProgram->projectionMatrixLocation(), m_projectionMatrix);
     m_shaderProgram->setMatrix(m_shaderProgram->textureSpaceMatrixLocation(), m_textureSpaceMatrix);

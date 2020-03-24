@@ -116,7 +116,7 @@ post-install:
 	$(MV) $(DSTROOT)/usr/sbin/apxs $(DSTROOT)/usr/local/bin/apxs
 	sed -e "29s,\".installbuilddir,\"$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build," < $(DSTROOT)/usr/local/bin/apxs > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
 	$(CHMOD) 0755 $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
-	sed -e "55s,.*,includedir = $(SDKROOT)/usr/include/apache2," -e 's,/BuildRoot,,g' < $(DSTROOT)/usr/share/httpd/build/config_vars.mk > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build/config_vars.mk
+	sed -e "55s,.*,includedir = $(SDKROOT)/usr/include/apache2," -e 's,/AppleInternal/BuildRoot,,g' < $(DSTROOT)/usr/share/httpd/build/config_vars.mk > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build/config_vars.mk
 	$(RM) $(DSTROOT)/usr/share/httpd/build/config_vars.mk
 	$(RM) $(DSTROOT)/usr/share/httpd/build/config.nice
 	$(RM) $(DSTROOT)/usr/local/bin/apxs
@@ -125,6 +125,7 @@ post-install:
 	$(CHMOD) 0755 $(DSTROOT)/usr/share/httpd/icons/small
 	$(CHMOD) 0755 $(DSTROOT)/usr/share/httpd/error/include
 	$(SILENT) $(RM) -Rf $(DSTROOT)/BuildRoot
+	$(SILENT) $(RM) -Rf $(DSTROOT)/AppleInternal/BuildRoot
 	/usr/bin/codesign --force --sign - --entitlements $(SRCROOT)/entitlements.plist $(DSTROOT)/usr/sbin/httpd
 	
 strip-modules:

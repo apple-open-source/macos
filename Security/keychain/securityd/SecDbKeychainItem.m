@@ -71,7 +71,7 @@ static CFDataRef kc_copy_protection_data(SecAccessControlRef access_control);
 static CFTypeRef kc_copy_protection_from(const uint8_t *der, const uint8_t *der_end);
 static CF_RETURNS_RETAINED CFMutableDictionaryRef s3dl_item_v2_decode(CFDataRef plain, CFErrorRef *error);
 static CF_RETURNS_RETAINED CFMutableDictionaryRef s3dl_item_v3_decode(CFDataRef plain, CFErrorRef *error);
-#if USE_KEYSTORE
+#if USE_KEYSTORE && !TARGET_OS_SIMULATOR
 static bool kc_attribs_key_encrypted_data_from_blob(keybag_handle_t keybag, const SecDbClass *class, const void *blob_data, size_t blob_data_len, SecAccessControlRef access_control, uint32_t version,
                                                     CFMutableDictionaryRef *authenticated_attributes, aks_ref_key_t *ref_key, CFDataRef *encrypted_data, CFErrorRef *error);
 static CFDataRef kc_create_auth_data(SecAccessControlRef access_control, CFDictionaryRef auth_attributes);
@@ -155,7 +155,7 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
             CFRelease(attributes_dict);
         }
     } else {
-#if USE_KEYSTORE
+#if USE_KEYSTORE && !TARGET_OS_SIMULATOR
         if (attributes) {
             plainText = CFPropertyListCreateDERData(kCFAllocatorDefault, attributes, error);
         }
@@ -195,7 +195,7 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
     if (!keyclass)
         goto out;
 
-#if USE_KEYSTORE
+#if USE_KEYSTORE && !TARGET_OS_SIMULATOR
     if (version >= 4) {
         auth_data = kc_create_auth_data(access_control, authenticated_attributes);
         require_quiet(ok = ks_encrypt_acl(keybag, keyclass, bulkKeySize, bulkKey, bulkKeyWrapped, auth_data, acm_context, access_control, error), out);
@@ -603,7 +603,7 @@ bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessContro
         }
     }
 
-#if USE_KEYSTORE
+#if USE_KEYSTORE && !TARGET_OS_SIMULATOR
     if (hasProtectionData) {
         if (caller_access_groups) {
             caller_access_groups_data = kc_copy_access_groups_data(caller_access_groups, error);
@@ -777,7 +777,8 @@ static CFTypeRef kc_encode_keyclass(keyclass_t keyclass) {
     }
 }
 
-#if USE_KEYSTORE
+// Simulator fakes security, this code is unused on it
+#if USE_KEYSTORE && !TARGET_OS_SIMULATOR
 static bool kc_attribs_key_encrypted_data_from_blob(keybag_handle_t keybag, const SecDbClass *class, const void *blob_data, size_t blob_data_len, SecAccessControlRef access_control, uint32_t version,
                                              CFMutableDictionaryRef *authenticated_attributes, aks_ref_key_t *ref_key, CFDataRef *encrypted_data, CFErrorRef *error)
 {

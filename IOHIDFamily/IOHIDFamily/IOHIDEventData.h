@@ -143,7 +143,7 @@ enum {
  @field      payload     Begining offset of contiguous mememory that contains the
  pertinent attribute and event data
  */
-typedef struct __attribute__((packed)) _IOHIDSystemQueueElement {
+typedef struct  __attribute__((packed,,aligned(4))) _IOHIDSystemQueueElement {
     uint64_t        timeStamp;
     uint64_t        senderID;
     uint32_t        options;

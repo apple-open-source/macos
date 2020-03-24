@@ -29,7 +29,7 @@
 #include "SandboxExtension.h"
 #include "TextCheckerState.h"
 #include "UserData.h"
-#include <pal/SessionID.h>
+#include "WebProcessDataStoreParameters.h"
 #include <wtf/HashMap.h>
 #include <wtf/ProcessID.h>
 #include <wtf/RetainPtr.h>
@@ -85,6 +85,7 @@ struct WebProcessCreationParameters {
 #if ENABLE(MEDIA_STREAM)
     SandboxExtension::Handle audioCaptureExtensionHandle;
     bool shouldCaptureAudioInUIProcess { false };
+    bool shouldCaptureAudioInGPUProcess { false };
     bool shouldCaptureVideoInUIProcess { false };
     bool shouldCaptureDisplayInUIProcess { false };
 #endif
@@ -114,6 +115,7 @@ struct WebProcessCreationParameters {
     CacheModel cacheModel;
 
     double defaultRequestTimeoutInterval { INT_MAX };
+    unsigned backForwardCacheCapacity { 0 };
 
     bool shouldAlwaysUseComplexTextCodePath { false };
     bool shouldEnableMemoryPressureReliefLogging { false };
@@ -157,7 +159,6 @@ struct WebProcessCreationParameters {
     HashMap<String, bool> notificationPermissions;
 #endif
 
-    HashMap<PAL::SessionID, HashMap<unsigned, WallTime>> plugInAutoStartOriginHashes;
     Vector<String> plugInAutoStartOrigins;
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -193,6 +194,23 @@ struct WebProcessCreationParameters {
     bool isServiceWorkerProcess { false };
     IPC::Attachment hostClientFileDescriptor;
     CString implementationLibraryName;
+#endif
+
+    Optional<WebProcessDataStoreParameters> websiteDataStoreParameters;
+    
+#if PLATFORM(IOS)
+    Optional<SandboxExtension::Handle> compilerServiceExtensionHandle;
+    Optional<SandboxExtension::Handle> contentFilterExtensionHandle;
+    Optional<SandboxExtension::Handle> diagnosticsExtensionHandle;
+#endif
+
+#if PLATFORM(COCOA)
+    Optional<SandboxExtension::Handle> neHelperExtensionHandle;
+    Optional<SandboxExtension::Handle> neSessionManagerExtensionHandle;
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    bool currentUserInterfaceIdiomIsPad { false };
 #endif
 };
 

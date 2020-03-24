@@ -284,7 +284,7 @@ static void print_entry(id k, id v, int ind)
     return status;
 }
 
-- (void)printHumanReadableStatus: (NSString*) view {
+- (void)printHumanReadableStatus:(NSString*)view shortenOutput:(BOOL)shortenOutput {
 #if OCTAGON
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
 
@@ -306,15 +306,25 @@ static void print_entry(id k, id v, int ind)
             NSString* lockStateTracker = pop(global,@"lockstatetracker", NSString);
             NSString* retry = pop(global,@"cloudkitRetryAfter", NSString);
             NSDate *lastCKKSPush = pop(global, @"lastCKKSPush", NSDate);
+            NSString *syncingPolicy = pop(global, @"policy", NSString);
+            NSString *viewsFromPolicy = pop(global, @"viewsFromPolicy", NSString);
 
-            printf("================================================================================\n\n");
-            printf("Global state:\n\n");
-            printf("Reachability:         %s\n", [[reachability description] UTF8String]);
-            printf("Retry:                %s\n", [[retry description] UTF8String]);
-            printf("CK DeviceID:          %s\n", [[ckdeviceID description] UTF8String]);
-            printf("CK DeviceID Error:    %s\n", [[ckdeviceIDError description] UTF8String]);
-            printf("Lock state:           %s\n", [[lockStateTracker description] UTF8String]);
-            printf("Last CKKS push:       %s\n", [[lastCKKSPush description] UTF8String]);
+            if(!shortenOutput) {
+                printf("================================================================================\n\n");
+                printf("Global state:\n\n");
+            }
+
+            printf("Syncing Policy:       %s\n", [[syncingPolicy description] UTF8String]);
+            printf("Views from policy:    %s\n", [[viewsFromPolicy description] UTF8String]);
+
+            if(!shortenOutput) {
+                printf("Reachability:         %s\n", [[reachability description] UTF8String]);
+                printf("Retry:                %s\n", [[retry description] UTF8String]);
+                printf("CK DeviceID:          %s\n", [[ckdeviceID description] UTF8String]);
+                printf("CK DeviceID Error:    %s\n", [[ckdeviceIDError description] UTF8String]);
+                printf("Lock state:           %s\n", [[lockStateTracker description] UTF8String]);
+                printf("Last CKKS push:       %s\n", [[lastCKKSPush description] UTF8String]);
+            }
 
             printf("\n");
         }
@@ -326,6 +336,16 @@ static void print_entry(id k, id v, int ind)
         }
 
         for(NSDictionary* viewStatus in remainingViews) {
+            if(shortenOutput) {
+                NSMutableDictionary* status = [viewStatus mutableCopy];
+
+                NSString* viewName = pop(status, @"view", NSString);
+                NSString* keystate = pop(status, @"keystate", NSString);
+
+                printf("%-25s: %s\n", [viewName UTF8String], [keystate UTF8String]);
+                continue;
+            }
+
             NSMutableDictionary* status = [viewStatus mutableCopy];
 
             NSString* viewName = pop(status,@"view", NSString);
@@ -525,6 +545,7 @@ static int resetCloudKit = false;
 static int fetch = false;
 static int push = false;
 static int json = false;
+static int shortOutput = false;
 static int ckmetric = false;
 
 static char* viewArg = NULL;
@@ -534,6 +555,7 @@ int main(int argc, char **argv)
     static struct argument options[] = {
         { .shortname='p', .longname="perfcounters", .flag=&perfCounters, .flagval=true, .description="Print CKKS performance counters"},
         { .shortname='j', .longname="json", .flag=&json, .flagval=true, .description="Output in JSON format"},
+        { .shortname='s', .longname="short", .flag=&shortOutput, .flagval=true, .description="Output a short format"},
         { .shortname='v', .longname="view", .argument=&viewArg, .description="Operate on a single view"},
 
         { .command="status", .flag=&status, .flagval=true, .description="Report status on CKKS views"},
@@ -585,7 +607,7 @@ int main(int argc, char **argv)
             }
 
             if(!json) {
-                [ctl printHumanReadableStatus:view];
+                [ctl printHumanReadableStatus:view shortenOutput:shortOutput];
             }
             return 0;
         } else if(perfCounters) {

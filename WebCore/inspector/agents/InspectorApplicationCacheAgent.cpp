@@ -44,11 +44,13 @@ using namespace Inspector;
 
 InspectorApplicationCacheAgent::InspectorApplicationCacheAgent(PageAgentContext& context)
     : InspectorAgentBase("ApplicationCache"_s, context)
-    , m_frontendDispatcher(std::make_unique<Inspector::ApplicationCacheFrontendDispatcher>(context.frontendRouter))
+    , m_frontendDispatcher(makeUnique<Inspector::ApplicationCacheFrontendDispatcher>(context.frontendRouter))
     , m_backendDispatcher(Inspector::ApplicationCacheBackendDispatcher::create(context.backendDispatcher, this))
     , m_inspectedPage(context.inspectedPage)
 {
 }
+
+InspectorApplicationCacheAgent::~InspectorApplicationCacheAgent() = default;
 
 void InspectorApplicationCacheAgent::didCreateFrontendAndBackend(FrontendRouter*, BackendDispatcher*)
 {
@@ -56,15 +58,31 @@ void InspectorApplicationCacheAgent::didCreateFrontendAndBackend(FrontendRouter*
 
 void InspectorApplicationCacheAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReason)
 {
-    m_instrumentingAgents.setInspectorApplicationCacheAgent(nullptr);
+    ErrorString ignored;
+    disable(ignored);
 }
 
-void InspectorApplicationCacheAgent::enable(ErrorString&)
+void InspectorApplicationCacheAgent::enable(ErrorString& errorString)
 {
+    if (m_instrumentingAgents.inspectorApplicationCacheAgent() == this) {
+        errorString = "ApplicationCache domain already enabled"_s;
+        return;
+    }
+
     m_instrumentingAgents.setInspectorApplicationCacheAgent(this);
 
     // We need to pass initial navigator.onOnline.
     networkStateChanged();
+}
+
+void InspectorApplicationCacheAgent::disable(ErrorString& errorString)
+{
+    if (m_instrumentingAgents.inspectorApplicationCacheAgent() != this) {
+        errorString = "ApplicationCache domain already disabled"_s;
+        return;
+    }
+
+    m_instrumentingAgents.setInspectorApplicationCacheAgent(nullptr);
 }
 
 void InspectorApplicationCacheAgent::updateApplicationCacheStatus(Frame* frame)
@@ -92,11 +110,15 @@ void InspectorApplicationCacheAgent::networkStateChanged()
     m_frontendDispatcher->networkStateUpdated(platformStrategies()->loaderStrategy()->isOnLine());
 }
 
-void InspectorApplicationCacheAgent::getFramesWithManifests(ErrorString&, RefPtr<JSON::ArrayOf<Inspector::Protocol::ApplicationCache::FrameWithManifest>>& result)
+void InspectorApplicationCacheAgent::getFramesWithManifests(ErrorString& errorString, RefPtr<JSON::ArrayOf<Inspector::Protocol::ApplicationCache::FrameWithManifest>>& result)
 {
-    result = JSON::ArrayOf<Inspector::Protocol::ApplicationCache::FrameWithManifest>::create();
-
     auto* pageAgent = m_instrumentingAgents.inspectorPageAgent();
+    if (!pageAgent) {
+        errorString = "Page domain must be enabled"_s;
+        return;
+    }
+
+    result = JSON::ArrayOf<Inspector::Protocol::ApplicationCache::FrameWithManifest>::create();
 
     for (Frame* frame = &m_inspectedPage.mainFrame(); frame; frame = frame->tree().traverseNext()) {
         auto* documentLoader = frame->loader().documentLoader();
@@ -119,11 +141,11 @@ DocumentLoader* InspectorApplicationCacheAgent::assertFrameWithDocumentLoader(Er
 {
     auto* pageAgent = m_instrumentingAgents.inspectorPageAgent();
     if (!pageAgent) {
-        errorString = "Missing Page agent"_s;
+        errorString = "Page domain must be enabled"_s;
         return nullptr;
     }
 
-    Frame* frame = pageAgent->assertFrame(errorString, frameId);
+    auto* frame = pageAgent->assertFrame(errorString, frameId);
     if (!frame)
         return nullptr;
 

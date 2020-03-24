@@ -31,8 +31,6 @@
 
 namespace JSC {
 
-const Seconds CodeCacheMap::workingSetTime = 10_s;
-
 void CodeCacheMap::pruneSlowCase()
 {
     m_minCapacity = std::max(m_size - m_sizeAtLastPrune, static_cast<int64_t>(0));
@@ -45,7 +43,7 @@ void CodeCacheMap::pruneSlowCase()
     while (m_size > m_capacity || !canPruneQuickly()) {
         MapType::iterator it = m_map.begin();
 
-        writeCodeBlock(*it->value.cell->vm(), it->key, it->value);
+        writeCodeBlock(it->value.cell->vm(), it->key, it->value);
 
         m_size -= it->key.length();
         m_map.remove(it);
@@ -151,7 +149,7 @@ UnlinkedFunctionExecutable* CodeCache::getUnlinkedGlobalFunctionExecutable(VM& v
     // The Function constructor only has access to global variables, so no variables will be under TDZ unless they're
     // in the global lexical environment, which we always TDZ check accesses from.
     ConstructAbility constructAbility = constructAbilityForParseMode(metadata->parseMode());
-    UnlinkedFunctionExecutable* functionExecutable = UnlinkedFunctionExecutable::create(&vm, source, metadata, UnlinkedNormalFunction, constructAbility, JSParserScriptMode::Classic, WTF::nullopt, DerivedContextType::None);
+    UnlinkedFunctionExecutable* functionExecutable = UnlinkedFunctionExecutable::create(vm, source, metadata, UnlinkedNormalFunction, constructAbility, JSParserScriptMode::Classic, WTF::nullopt, DerivedContextType::None);
 
     if (!source.provider()->sourceURLDirective().isNull())
         functionExecutable->setSourceURLDirective(source.provider()->sourceURLDirective());
@@ -225,7 +223,7 @@ SourceCodeKey sourceCodeKeyForSerializedModule(VM& vm, const SourceCode& sourceC
     return sourceCodeKeyForSerializedBytecode(vm, sourceCode, SourceCodeType::ModuleType, strictMode, scriptMode, { });
 }
 
-RefPtr<CachedBytecode> serializeBytecode(VM& vm, UnlinkedCodeBlock* codeBlock, const SourceCode& source, SourceCodeType codeType, JSParserStrictMode strictMode, JSParserScriptMode scriptMode, int fd, BytecodeCacheError& error, OptionSet<CodeGenerationMode> codeGenerationMode)
+RefPtr<CachedBytecode> serializeBytecode(VM& vm, UnlinkedCodeBlock* codeBlock, const SourceCode& source, SourceCodeType codeType, JSParserStrictMode strictMode, JSParserScriptMode scriptMode, FileSystem::PlatformFileHandle fd, BytecodeCacheError& error, OptionSet<CodeGenerationMode> codeGenerationMode)
 {
     return encodeCodeBlock(vm,
         sourceCodeKeyForSerializedBytecode(vm, source, codeType, strictMode, scriptMode, codeGenerationMode), codeBlock, fd, error);

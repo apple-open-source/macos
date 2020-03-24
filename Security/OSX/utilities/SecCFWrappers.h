@@ -223,6 +223,15 @@ static inline bool isNull(CFTypeRef cfType) {
     return cfType && CFGetTypeID(cfType) == CFNullGetTypeID();
 }
 
+// Usage: void foo(CFTypeRef value) { CFDataRef data = CFCast(CFData, value); }
+#define CFCast(type, value)                                               \
+    ((value != NULL) && CFGetTypeID(value) == type ## GetTypeID() ? (type ## Ref)(value) : NULL)
+
+#define CFCastWithError(type, value, error)                               \
+    ((value != NULL) && CFGetTypeID(value) == type ## GetTypeID() ?       \
+        (type ## Ref)(value) :                                            \
+        (SecError(errSecParam, error, CFSTR("Unexpected type")), NULL))
+
 //
 // MARK CFEqual Helpers
 //

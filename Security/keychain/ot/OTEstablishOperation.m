@@ -31,6 +31,7 @@
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
 #import "keychain/ckks/CKKSKeychainView.h"
+#import "keychain/SecureObjectSync/SOSAccount.h"
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/ObjCImprovements.h"
@@ -93,19 +94,16 @@
     WEAKIFY(self);
 
     NSArray<NSData*>* publicSigningSPKIs = nil;
-
     if(self.operationDependencies.sosAdapter.sosEnabled) {
-        NSError* peerError = nil;
+        NSError* sosPreapprovalError = nil;
+        publicSigningSPKIs = [OTSOSAdapterHelpers peerPublicSigningKeySPKIsForCircle:self.operationDependencies.sosAdapter error:&sosPreapprovalError];
 
-        secnotice("octagon-sos", "SOS not enabled; no preapproved keys");
-        NSSet<id<CKKSRemotePeerProtocol>>* peerSet = [self.operationDependencies.sosAdapter fetchTrustedPeers:&peerError];
-
-        if(!peerSet || peerError) {
-            secerror("octagon-sos: Can't fetch trusted peers during establish: %@", peerError);
+        if(publicSigningSPKIs) {
+            secnotice("octagon-sos", "SOS preapproved keys are %@", publicSigningSPKIs);
+        } else {
+            secnotice("octagon-sos", "Unable to fetch SOS preapproved keys: %@", sosPreapprovalError);
         }
 
-        publicSigningSPKIs = [OTSOSActualAdapter peerPublicSigningKeySPKIs:peerSet];
-        secnotice("octagon-sos", "SOS preapproved keys are %@", publicSigningSPKIs);
     } else {
         secnotice("octagon-sos", "SOS not enabled; no preapproved keys");
     }

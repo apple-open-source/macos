@@ -55,13 +55,12 @@
 namespace WebCore {
 
 MediaPlayerPrivateAVFoundation::MediaPlayerPrivateAVFoundation(MediaPlayer* player)
-    : m_weakThis(makeWeakPtr(*this))
-    , m_player(player)
+    : m_player(player)
     , m_queuedNotifications()
     , m_queueMutex()
-    , m_networkState(MediaPlayer::Empty)
-    , m_readyState(MediaPlayer::HaveNothing)
-    , m_preload(MediaPlayer::Auto)
+    , m_networkState(MediaPlayer::NetworkState::Empty)
+    , m_readyState(MediaPlayer::ReadyState::HaveNothing)
+    , m_preload(MediaPlayer::Preload::Auto)
 #if !RELEASE_LOG_DISABLED
     , m_logger(player->mediaPlayerLogger())
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
@@ -111,7 +110,7 @@ MediaPlayerPrivateAVFoundation::MediaRenderingMode MediaPlayerPrivateAVFoundatio
     if (!m_player->visible() || assetStatus() == MediaPlayerAVAssetStatusUnknown)
         return MediaRenderingNone;
 
-    if (supportsAcceleratedRendering() && m_player->client().mediaPlayerRenderingCanBeAccelerated(m_player))
+    if (supportsAcceleratedRendering() && m_player->renderingCanBeAccelerated())
         return MediaRenderingToLayer;
 
     return MediaRenderingToContext;
@@ -147,7 +146,7 @@ void MediaPlayerPrivateAVFoundation::setUpVideoRendering()
 
     // If using a movie layer, inform the client so the compositing tree is updated.
     if (currentMode == MediaRenderingToLayer || preferredMode == MediaRenderingToLayer)
-        m_player->client().mediaPlayerRenderingModeChanged(m_player);
+        m_player->renderingModeChanged();
 }
 
 void MediaPlayerPrivateAVFoundation::tearDownVideoRendering()
@@ -169,8 +168,8 @@ void MediaPlayerPrivateAVFoundation::load(const String& url)
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    setNetworkState(m_preload == MediaPlayer::None ? MediaPlayer::Idle : MediaPlayer::Loading);
-    setReadyState(MediaPlayer::HaveNothing);
+    setNetworkState(m_preload == MediaPlayer::Preload::None ? MediaPlayer::NetworkState::Idle : MediaPlayer::NetworkState::Loading);
+    setReadyState(MediaPlayer::ReadyState::HaveNothing);
 
     m_assetURL = URL({ }, url);
     m_requestedOrigin = SecurityOrigin::create(m_assetURL);
@@ -185,7 +184,7 @@ void MediaPlayerPrivateAVFoundation::load(const String& url)
 #if ENABLE(MEDIA_SOURCE)
 void MediaPlayerPrivateAVFoundation::load(const String&, MediaSourcePrivateClient*)
 {
-    setNetworkState(MediaPlayer::FormatError);
+    setNetworkState(MediaPlayer::NetworkState::FormatError);
 }
 #endif
 
@@ -211,7 +210,7 @@ void MediaPlayerPrivateAVFoundation::playabilityKnown()
 void MediaPlayerPrivateAVFoundation::prepareToPlay()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
-    setPreload(MediaPlayer::Auto);
+    setPreload(MediaPlayer::Preload::Auto);
 }
 
 void MediaPlayerPrivateAVFoundation::play()
@@ -384,7 +383,7 @@ std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateAVFoundation::buffered() c
     if (!m_cachedLoadedTimeRanges)
         m_cachedLoadedTimeRanges = platformBufferedTimeRanges();
 
-    return std::make_unique<PlatformTimeRanges>(*m_cachedLoadedTimeRanges);
+    return makeUnique<PlatformTimeRanges>(*m_cachedLoadedTimeRanges);
 }
 
 MediaTime MediaPlayerPrivateAVFoundation::maxMediaTimeSeekable() const
@@ -407,11 +406,6 @@ MediaTime MediaPlayerPrivateAVFoundation::minMediaTimeSeekable() const
         m_cachedMinTimeSeekable = platformMinTimeSeekable();
 
     return m_cachedMinTimeSeekable;
-}
-
-double MediaPlayerPrivateAVFoundation::requestedRate() const
-{
-    return m_player->requestedRate();
 }
 
 MediaTime MediaPlayerPrivateAVFoundation::maxTimeLoaded() const
@@ -441,7 +435,7 @@ bool MediaPlayerPrivateAVFoundation::isReadyForVideoSetup() const
     // AVFoundation will not return true for firstVideoFrameAvailable until
     // an AVPlayerLayer has been added to the AVPlayerItem, so allow video setup
     // here if a video track to trigger allocation of a AVPlayerLayer.
-    return (m_isAllowedToRender || m_cachedHasVideo) && m_readyState >= MediaPlayer::HaveMetadata && m_player->visible();
+    return (m_isAllowedToRender || m_cachedHasVideo) && m_readyState >= MediaPlayer::ReadyState::HaveMetadata && m_player->visible();
 }
 
 void MediaPlayerPrivateAVFoundation::prepareForRendering()
@@ -453,7 +447,7 @@ void MediaPlayerPrivateAVFoundation::prepareForRendering()
     setUpVideoRendering();
 
     if (currentRenderingMode() == MediaRenderingToLayer || preferredRenderingMode() == MediaRenderingToLayer)
-        m_player->client().mediaPlayerRenderingModeChanged(m_player);
+        m_player->renderingModeChanged();
 }
 
 bool MediaPlayerPrivateAVFoundation::supportsFullscreen() const
@@ -492,30 +486,30 @@ void MediaPlayerPrivateAVFoundation::updateStates()
     MediaPlayer::ReadyState newReadyState = m_readyState;
 
     if (m_loadingMetadata)
-        newNetworkState = MediaPlayer::Loading;
+        newNetworkState = MediaPlayer::NetworkState::Loading;
     else {
         // -loadValuesAsynchronouslyForKeys:completionHandler: has invoked its handler; test status of keys and determine state.
         AssetStatus assetStatus = this->assetStatus();
         ItemStatus itemStatus = playerItemStatus();
         
         m_assetIsPlayable = (assetStatus == MediaPlayerAVAssetStatusPlayable);
-        if (m_readyState < MediaPlayer::HaveMetadata && assetStatus > MediaPlayerAVAssetStatusLoading) {
+        if (m_readyState < MediaPlayer::ReadyState::HaveMetadata && assetStatus > MediaPlayerAVAssetStatusLoading) {
             if (m_assetIsPlayable) {
                 if (assetStatus >= MediaPlayerAVAssetStatusLoaded)
-                    newReadyState = MediaPlayer::HaveMetadata;
+                    newReadyState = MediaPlayer::ReadyState::HaveMetadata;
                 if (itemStatus <= MediaPlayerAVPlayerItemStatusUnknown) {
-                    if (assetStatus == MediaPlayerAVAssetStatusFailed || m_preload > MediaPlayer::MetaData || isLiveStream()) {
+                    if (assetStatus == MediaPlayerAVAssetStatusFailed || m_preload > MediaPlayer::Preload::MetaData || isLiveStream()) {
                         // The asset is playable but doesn't support inspection prior to playback (eg. streaming files),
                         // or we are supposed to prepare for playback immediately, so create the player item now.
-                        newNetworkState = MediaPlayer::Loading;
+                        newNetworkState = MediaPlayer::NetworkState::Loading;
                         prepareToPlay();
                     } else
-                        newNetworkState = MediaPlayer::Idle;
+                        newNetworkState = MediaPlayer::NetworkState::Idle;
                 }
             } else {
                 // FIX ME: fetch the error associated with the @"playable" key to distinguish between format 
                 // and network errors.
-                newNetworkState = MediaPlayer::FormatError;
+                newNetworkState = MediaPlayer::NetworkState::FormatError;
             }
         }
         
@@ -531,25 +525,25 @@ void MediaPlayerPrivateAVFoundation::updateStates()
                 // If the status becomes PlaybackBufferFull, loading stops and the status will not
                 // progress to LikelyToKeepUp. Set the readyState to  HAVE_ENOUGH_DATA, on the
                 // presumption that if the playback buffer is full, playback will probably not stall.
-                newReadyState = MediaPlayer::HaveEnoughData;
+                newReadyState = MediaPlayer::ReadyState::HaveEnoughData;
                 break;
 
             case MediaPlayerAVPlayerItemStatusReadyToPlay:
-                if (m_readyState != MediaPlayer::HaveEnoughData && maxTimeLoaded() > currentMediaTime())
-                    newReadyState = MediaPlayer::HaveFutureData;
+                if (m_readyState != MediaPlayer::ReadyState::HaveEnoughData && maxTimeLoaded() > currentMediaTime())
+                    newReadyState = MediaPlayer::ReadyState::HaveFutureData;
                 break;
 
             case MediaPlayerAVPlayerItemStatusPlaybackBufferEmpty:
-                newReadyState = MediaPlayer::HaveCurrentData;
+                newReadyState = MediaPlayer::ReadyState::HaveCurrentData;
                 break;
             }
 
             if (itemStatus == MediaPlayerAVPlayerItemStatusPlaybackBufferFull)
-                newNetworkState = MediaPlayer::Idle;
+                newNetworkState = MediaPlayer::NetworkState::Idle;
             else if (itemStatus == MediaPlayerAVPlayerItemStatusFailed)
-                newNetworkState = MediaPlayer::DecodeError;
+                newNetworkState = MediaPlayer::NetworkState::DecodeError;
             else if (itemStatus != MediaPlayerAVPlayerItemStatusPlaybackBufferFull && itemStatus >= MediaPlayerAVPlayerItemStatusReadyToPlay)
-                newNetworkState = (maxTimeLoaded() == durationMediaTime()) ? MediaPlayer::Loaded : MediaPlayer::Loading;
+                newNetworkState = (maxTimeLoaded() == durationMediaTime()) ? MediaPlayer::NetworkState::Loaded : MediaPlayer::NetworkState::Loading;
         }
     }
 
@@ -557,8 +551,8 @@ void MediaPlayerPrivateAVFoundation::updateStates()
         setUpVideoRendering();
 
     if (!m_haveReportedFirstVideoFrame && m_cachedHasVideo && hasAvailableVideoFrame()) {
-        if (m_readyState < MediaPlayer::HaveCurrentData)
-            newReadyState = MediaPlayer::HaveCurrentData;
+        if (m_readyState < MediaPlayer::ReadyState::HaveCurrentData)
+            newReadyState = MediaPlayer::ReadyState::HaveCurrentData;
         m_haveReportedFirstVideoFrame = true;
         m_player->firstVideoFrameAvailable();
     } else if (!hasAvailableVideoFrame())
@@ -571,10 +565,6 @@ void MediaPlayerPrivateAVFoundation::updateStates()
 
     setNetworkState(newNetworkState);
     setReadyState(newReadyState);
-}
-
-void MediaPlayerPrivateAVFoundation::setSize(const IntSize&) 
-{ 
 }
 
 void MediaPlayerPrivateAVFoundation::setVisible(bool visible)
@@ -621,12 +611,14 @@ void MediaPlayerPrivateAVFoundation::loadedTimeRangesChanged()
     m_cachedLoadedTimeRanges = nullptr;
     m_cachedMaxTimeLoaded = MediaTime::zeroTime();
     invalidateCachedDuration();
+    m_player->bufferedTimeRangesChanged();
 }
 
 void MediaPlayerPrivateAVFoundation::seekableTimeRangesChanged()
 {
     m_cachedMaxTimeSeekable = MediaTime::zeroTime();
     m_cachedMinTimeSeekable = MediaTime::zeroTime();
+    m_player->seekableTimeRangesChanged();
 }
 
 void MediaPlayerPrivateAVFoundation::timeChanged(const MediaTime& time)
@@ -686,20 +678,15 @@ void MediaPlayerPrivateAVFoundation::invalidateCachedDuration()
     
 }
 
-void MediaPlayerPrivateAVFoundation::repaint()
-{
-    m_player->repaint();
-}
-
 MediaPlayer::MovieLoadType MediaPlayerPrivateAVFoundation::movieLoadType() const
 {
     if (!metaDataAvailable() || assetStatus() == MediaPlayerAVAssetStatusUnknown)
-        return MediaPlayer::Unknown;
+        return MediaPlayer::MovieLoadType::Unknown;
 
     if (isLiveStream())
-        return MediaPlayer::LiveStream;
+        return MediaPlayer::MovieLoadType::LiveStream;
 
-    return MediaPlayer::Download;
+    return MediaPlayer::MovieLoadType::Download;
 }
 
 void MediaPlayerPrivateAVFoundation::setPreload(MediaPlayer::Preload preload)
@@ -711,14 +698,14 @@ void MediaPlayerPrivateAVFoundation::setPreload(MediaPlayer::Preload preload)
 
     setDelayCallbacks(true);
 
-    if (m_preload >= MediaPlayer::MetaData && assetStatus() == MediaPlayerAVAssetStatusDoesNotExist) {
+    if (m_preload >= MediaPlayer::Preload::MetaData && assetStatus() == MediaPlayerAVAssetStatusDoesNotExist) {
         createAVAssetForURL(m_assetURL);
         checkPlayability();
     }
 
     // Don't force creation of the player and player item unless we already know that the asset is playable. If we aren't
     // there yet, or if we already know it is not playable, creating them now won't help.
-    if (m_preload == MediaPlayer::Auto && m_assetIsPlayable) {
+    if (m_preload == MediaPlayer::Preload::Auto && m_assetIsPlayable) {
         createAVPlayerItem();
         createAVPlayer();
     }
@@ -775,7 +762,7 @@ void MediaPlayerPrivateAVFoundation::scheduleMainThreadNotification(Notification
     if (delayDispatch && !m_mainThreadCallPending) {
         m_mainThreadCallPending = true;
 
-        callOnMainThread([weakThis = m_weakThis] {
+        callOnMainThread([weakThis = makeWeakPtr(*this)] {
             if (!weakThis)
                 return;
 
@@ -808,7 +795,7 @@ void MediaPlayerPrivateAVFoundation::dispatchNotification()
         }
         
         if (!m_queuedNotifications.isEmpty() && !m_mainThreadCallPending) {
-            callOnMainThread([weakThis = m_weakThis] {
+            callOnMainThread([weakThis = makeWeakPtr(*this)] {
                 if (!weakThis)
                     return;
 

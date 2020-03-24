@@ -131,6 +131,75 @@ size_t RAWFILE_read(NodeRecord_s* psFileNode, uint64_t uOffset, size_t uLength, 
     return uAcctuallyRead;
 }
 
+static void registerUnAlignedCondTable(NodeRecord_s* psFileNode, uint64_t uOffset)
+{
+
+    pthread_mutex_lock(&psFileNode->sRecordData.sUnAlignedWriteLck);
+    uint64_t uSector;
+retry:
+    uSector = uOffset / GET_FSRECORD(psFileNode)->sFSInfo.uBytesPerSector;
+    bool needToWait = false;
+    pthread_cond_t* condToWait = NULL;
+    int iFreeLocation = NUM_OF_COND;
+    for (int iCond = 0; iCond < NUM_OF_COND; iCond++)
+    {
+        //Found someone that is writing into this sector
+        if (psFileNode->sRecordData.sCondTable[iCond].uSectorNum == uSector)
+        {
+            needToWait = true;
+            condToWait = &psFileNode->sRecordData.sCondTable[iCond].sCond;
+            break;
+        }
+        
+        if (psFileNode->sRecordData.sCondTable[iCond].uSectorNum == 0 && iFreeLocation == NUM_OF_COND)
+        {
+            iFreeLocation = iCond;
+        }
+    }
+    
+    //If we never found someone that is locking us
+    if (!needToWait)
+    {
+        //if we found a free location
+        if (iFreeLocation != NUM_OF_COND)
+        {
+            psFileNode->sRecordData.sCondTable[iFreeLocation].uSectorNum = uSector;
+        } else {
+            //we will wait on the last one to finish
+            needToWait = true;
+            condToWait = &psFileNode->sRecordData.sCondTable[NUM_OF_COND - 1].sCond;
+        }
+    }
+    
+    pthread_mutex_unlock(&psFileNode->sRecordData.sUnAlignedWriteLck);
+    
+    if (needToWait)
+    {
+        pthread_cond_wait(condToWait, &psFileNode->sRecordData.sUnAlignedWriteLck);
+        goto retry;
+    }
+}
+
+static void unregisterUnAlignedCondTable(NodeRecord_s* psFileNode, uint64_t uOffset) {
+ 
+    pthread_mutex_lock(&psFileNode->sRecordData.sUnAlignedWriteLck);
+    uint64_t uSector = uOffset / GET_FSRECORD(psFileNode)->sFSInfo.uBytesPerSector;
+    bool unregistered = false;
+    for (int iCond = 0; iCond < NUM_OF_COND; iCond++)
+    {
+        //Found my condition
+        if (psFileNode->sRecordData.sCondTable[iCond].uSectorNum == uSector)
+        {
+            psFileNode->sRecordData.sCondTable[iCond].uSectorNum = 0;
+            pthread_cond_broadcast(&psFileNode->sRecordData.sCondTable[iCond].sCond);
+            unregistered = true;
+            break;
+        }
+    }
+    assert(unregistered);
+    pthread_mutex_unlock(&psFileNode->sRecordData.sUnAlignedWriteLck);
+}
+
 size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLength, void *pvBuf, int* piError)
 {
     FileSystemRecord_s* psFSRecord  = GET_FSRECORD(psFileNode);
@@ -178,7 +247,7 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
                 return 0;
             }
 
-            MultiReadSingleWrite_LockWrite(&psFileNode->sRecordData.sUnAlignedWriteLck);
+            registerUnAlignedCondTable(psFileNode, uWriteOffset);
 
             uint64_t uInSectorOffset = uOffset % uSectorSize;
             uBytesToCopy             = MIN( uBytesStillMissing, uSectorSize - uInSectorOffset );
@@ -188,7 +257,7 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
             {
                 *piError = errno;
                 free(pvBuffer);
-                MultiReadSingleWrite_FreeWrite(&psFileNode->sRecordData.sUnAlignedWriteLck);
+                unregisterUnAlignedCondTable(psFileNode, uWriteOffset);
                 return 0;
             }
             
@@ -200,12 +269,12 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
             {
                 *piError = errno;
                 free(pvBuffer);
-                MultiReadSingleWrite_FreeWrite(&psFileNode->sRecordData.sUnAlignedWriteLck);
+                unregisterUnAlignedCondTable(psFileNode, uWriteOffset);
                 return 0;
             }
 
             free(pvBuffer);
-            MultiReadSingleWrite_FreeWrite(&psFileNode->sRecordData.sUnAlignedWriteLck);
+            unregisterUnAlignedCondTable(psFileNode, uWriteOffset);
             
         }
         // If uBytesStillMissing < uSectorSize, need to R/M/W 1 sector.
@@ -218,7 +287,7 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
                 return 0;
             }
 
-            MultiReadSingleWrite_LockWrite(&psFileNode->sRecordData.sUnAlignedWriteLck);
+            registerUnAlignedCondTable(psFileNode, uWriteOffset);
 
             uBytesToCopy =  uBytesStillMissing;
 
@@ -227,7 +296,7 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
             {
                 *piError = errno;
                 free(pvBuffer);
-                MultiReadSingleWrite_FreeWrite(&psFileNode->sRecordData.sUnAlignedWriteLck);
+                unregisterUnAlignedCondTable(psFileNode, uWriteOffset);
                 return 0;
             }
             
@@ -239,12 +308,12 @@ size_t RAWFILE_write(NodeRecord_s* psFileNode, uint64_t uOffset, uint64_t uLengt
             {
                 *piError = errno;
                 free(pvBuffer);
-                MultiReadSingleWrite_FreeWrite(&psFileNode->sRecordData.sUnAlignedWriteLck);
+                unregisterUnAlignedCondTable(psFileNode, uWriteOffset);
                 return 0;
             }
             
             free(pvBuffer);
-            MultiReadSingleWrite_FreeWrite(&psFileNode->sRecordData.sUnAlignedWriteLck);
+            unregisterUnAlignedCondTable(psFileNode, uWriteOffset);
         }
         // Can write buffer size chunk
         else

@@ -20,10 +20,9 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-messages -> NetworkProcessProxy LegacyReceiver {
-    DidCreateNetworkConnectionToWebProcess(IPC::Attachment connectionIdentifier)
-
-    DidReceiveAuthenticationChallenge(WebCore::PageIdentifier pageID, uint64_t frameID, WebCore::AuthenticationChallenge challenge, uint64_t challengeID)
+messages -> NetworkProcessProxy LegacyReceiver NotRefCounted {
+    DidReceiveAuthenticationChallenge(PAL::SessionID sessionID, WebKit::WebPageProxyIdentifier pageID, Optional<WebCore::SecurityOriginData> topOrigin, WebCore::AuthenticationChallenge challenge, bool negotiatedLegacyTLS, uint64_t challengeID)
+    NegotiatedLegacyTLS(WebKit::WebPageProxyIdentifier pageID)
 
     DidFetchWebsiteData(uint64_t callbackID, struct WebKit::WebsiteData websiteData)
     DidDeleteWebsiteData(uint64_t callbackID)
@@ -31,15 +30,15 @@ messages -> NetworkProcessProxy LegacyReceiver {
 
     DidSyncAllCookies()
 
-    TestProcessIncomingSyncMessagesWhenWaitingForSyncReply(WebCore::PageIdentifier webPageID) -> (bool handled) Synchronous
+    TestProcessIncomingSyncMessagesWhenWaitingForSyncReply(WebKit::WebPageProxyIdentifier pageID) -> (bool handled) Synchronous
+    TerminateUnresponsiveServiceWorkerProcesses(WebCore::RegistrableDomain domain, PAL::SessionID sessionId)
 
-    ProcessReadyToSuspend()
     SetIsHoldingLockedFiles(bool isHoldingLockedFiles)
 
     # Diagnostic messages logging
-    LogDiagnosticMessage(WebCore::PageIdentifier pageID, String message, String description, enum:bool WebCore::ShouldSample shouldSample)
-    LogDiagnosticMessageWithResult(WebCore::PageIdentifier pageID, String message, String description, uint32_t result, enum:bool WebCore::ShouldSample shouldSample)
-    LogDiagnosticMessageWithValue(WebCore::PageIdentifier pageID, String message, String description, double value, unsigned significantFigures, enum:bool WebCore::ShouldSample shouldSample)
+    LogDiagnosticMessage(WebKit::WebPageProxyIdentifier pageID, String message, String description, enum:bool WebCore::ShouldSample shouldSample)
+    LogDiagnosticMessageWithResult(WebKit::WebPageProxyIdentifier pageID, String message, String description, uint32_t result, enum:bool WebCore::ShouldSample shouldSample)
+    LogDiagnosticMessageWithValue(WebKit::WebPageProxyIdentifier pageID, String message, String description, double value, unsigned significantFigures, enum:bool WebCore::ShouldSample shouldSample)
     LogGlobalDiagnosticMessageWithValue(String message, String description, double value, unsigned significantFigures, enum:bool WebCore::ShouldSample shouldSample)
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
@@ -47,10 +46,10 @@ messages -> NetworkProcessProxy LegacyReceiver {
     NotifyResourceLoadStatisticsProcessed()
     NotifyWebsiteDataDeletionForRegistrableDomainsFinished()
     NotifyWebsiteDataScanForRegistrableDomainsFinished()
-    NotifyResourceLoadStatisticsTelemetryFinished(unsigned totalPrevalentResources, unsigned totalPrevalentResourcesWithUserInteraction, unsigned top3SubframeUnderTopFrameOrigins)
-    RequestStorageAccessConfirm(WebCore::PageIdentifier pageID, uint64_t frameID, WebCore::RegistrableDomain subFrameDomain, WebCore::RegistrableDomain topFrameDomain) -> (bool userDidGrantAccess) Async
+    NotifyResourceLoadStatisticsTelemetryFinished(unsigned numberOfPrevalentResources, unsigned numberOfPrevalentResourcesWithUserInteraction, unsigned numberOfPrevalentResourcesWithoutUserInteraction, unsigned topPrevalentResourceWithUserInteractionDaysSinceUserInteraction, unsigned medianDaysSinceUserInteractionPrevalentResourceWithUserInteraction, unsigned top3NumberOfPrevalentResourcesWithUI, unsigned top3MedianSubFrameWithoutUI, unsigned top3MedianSubResourceWithoutUI, unsigned top3MedianUniqueRedirectsWithoutUI, unsigned top3MedianDataRecordsRemovedWithoutUI)
+    RequestStorageAccessConfirm(WebKit::WebPageProxyIdentifier pageID, WebCore::FrameIdentifier frameID, WebCore::RegistrableDomain subFrameDomain, WebCore::RegistrableDomain topFrameDomain) -> (bool userDidGrantAccess) Async
     DeleteWebsiteDataInUIProcessForRegistrableDomains(PAL::SessionID sessionID, OptionSet<WebKit::WebsiteDataType> dataTypes, OptionSet<WebKit::WebsiteDataFetchOption> fetchOptions, Vector<WebCore::RegistrableDomain> domains) -> (HashSet<WebCore::RegistrableDomain> domainsWithMatchingDataRecords) Async
-    DidCommitCrossSiteLoadWithDataTransferFromPrevalentResource(WebCore::PageIdentifier pageID)
+    DidCommitCrossSiteLoadWithDataTransferFromPrevalentResource(WebKit::WebPageProxyIdentifier pageID)
 #endif
 #if ENABLE(CONTENT_EXTENSIONS)
     ContentExtensionRules(WebKit::UserContentControllerIdentifier identifier)
@@ -58,13 +57,11 @@ messages -> NetworkProcessProxy LegacyReceiver {
 
     RetrieveCacheStorageParameters(PAL::SessionID sessionID)
 
-#if ENABLE(SANDBOX_EXTENSIONS)
-    GetSandboxExtensionsForBlobFiles(Vector<String> paths) -> (WebKit::SandboxExtension::HandleArray extensions) Async
-#endif
-
 #if ENABLE(SERVICE_WORKER)
-    EstablishWorkerContextConnectionToNetworkProcess(WebCore::RegistrableDomain registrableDomain)
-    EstablishWorkerContextConnectionToNetworkProcessForExplicitSession(WebCore::RegistrableDomain registrableDomain, PAL::SessionID explicitSession)
+    EstablishWorkerContextConnectionToNetworkProcess(WebCore::RegistrableDomain registrableDomain, PAL::SessionID sessionID) -> () Async
+    WorkerContextConnectionNoLongerNeeded(WebCore::ProcessIdentifier identifier)
+    RegisterServiceWorkerClientProcess(WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier serviceWorkerProcessIdentifier)
+    UnregisterServiceWorkerClientProcess(WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier serviceWorkerProcessIdentifier)
 #endif
 
     RequestStorageSpace(PAL::SessionID sessionID, struct WebCore::ClientOrigin origin, uint64_t quota, uint64_t currentSize, uint64_t spaceRequired) -> (Optional<uint64_t> newQuota) Async

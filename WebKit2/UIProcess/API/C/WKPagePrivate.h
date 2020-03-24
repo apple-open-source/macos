@@ -169,9 +169,6 @@ WK_EXPORT void WKPageLoadURLWithShouldOpenExternalURLsPolicy(WKPageRef page, WKU
 typedef void (*WKPagePostPresentationUpdateFunction)(WKErrorRef, void*);
 WK_EXPORT void WKPageCallAfterNextPresentationUpdate(WKPageRef page, void* context, WKPagePostPresentationUpdateFunction function);
 
-WK_EXPORT bool WKPageGetResourceCachingDisabled(WKPageRef page);
-WK_EXPORT void WKPageSetResourceCachingDisabled(WKPageRef page, bool disabled);
-
 WK_EXPORT void WKPageRestoreFromSessionStateWithoutNavigation(WKPageRef page, WKTypeRef sessionState);
 
 WK_EXPORT void WKPageSetIgnoresViewportScaleLimits(WKPageRef page, bool ignoresViewportScaleLimits);
@@ -193,6 +190,9 @@ typedef void (*WKPageSetAdClickAttributionConversionURLForTestingFunction)(void*
 WK_EXPORT void WKPageSetAdClickAttributionConversionURLForTesting(WKPageRef page, WKURLRef urlString, WKPageSetAdClickAttributionConversionURLForTestingFunction callback, void* callbackContext);
 typedef void (*WKPageMarkAdClickAttributionsAsExpiredForTestingFunction)(void* functionContext);
 WK_EXPORT void WKPageMarkAdClickAttributionsAsExpiredForTesting(WKPageRef page, WKPageMarkAdClickAttributionsAsExpiredForTestingFunction callback, void* callbackContext);
+
+WK_EXPORT void WKPageSetMockCameraOrientation(WKPageRef page, uint64_t orientation);
+WK_EXPORT bool WKPageIsMockRealtimeMediaSourceCenterEnabled(WKPageRef page);
 
 #ifdef __cplusplus
 }

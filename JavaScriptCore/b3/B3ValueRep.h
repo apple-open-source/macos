@@ -47,8 +47,9 @@ namespace B3 {
 // output.
 
 class ValueRep {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    enum Kind {
+    enum Kind : uint8_t {
         // As an input representation, this means that B3 can pick any representation. As an output
         // representation, this means that we don't know. This will only arise as an output
         // representation for the active arguments of Check/CheckAdd/CheckSub/CheckMul.
@@ -94,7 +95,7 @@ public:
         Stack,
 
         // As an input representation, this forces the value to end up in the argument area at some
-        // offset.
+        // offset. As an output representation this tells us what offset from SP B3 picked.
         StackArgument,
 
         // As an output representation, this tells us that B3 constant-folded the value.
@@ -111,6 +112,8 @@ public:
     {
         u.reg = reg;
     }
+
+    ValueRep(const ValueRep&) = default;
 
     ValueRep(Kind kind)
         : m_kind(kind)
@@ -157,6 +160,11 @@ public:
     static ValueRep constantDouble(double value)
     {
         return ValueRep::constant(bitwise_cast<int64_t>(value));
+    }
+
+    static ValueRep constantFloat(float value)
+    {
+        return ValueRep::constant(static_cast<uint64_t>(bitwise_cast<uint32_t>(value)));
     }
 
     Kind kind() const { return m_kind; }
@@ -232,6 +240,11 @@ public:
         return bitwise_cast<double>(value());
     }
 
+    float floatValue() const
+    {
+        return bitwise_cast<float>(static_cast<uint32_t>(static_cast<uint64_t>(value())));
+    }
+
     ValueRep withOffset(intptr_t offset) const
     {
         switch (kind()) {
@@ -271,7 +284,6 @@ public:
     ValueRecovery recoveryForJSValue() const;
 
 private:
-    Kind m_kind;
     union U {
         Reg reg;
         intptr_t offsetFromFP;
@@ -283,6 +295,7 @@ private:
             memset(static_cast<void*>(this), 0, sizeof(*this));
         }
     } u;
+    Kind m_kind;
 };
 
 } } // namespace JSC::B3

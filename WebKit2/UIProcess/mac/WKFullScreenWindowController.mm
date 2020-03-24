@@ -46,6 +46,7 @@
 #import <WebCore/VideoFullscreenModel.h>
 #import <WebCore/WebCoreFullScreenPlaceholderView.h>
 #import <WebCore/WebCoreFullScreenWindow.h>
+#import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/system/SleepDisabler.h>
 #import <wtf/BlockObjCExceptions.h>
 
@@ -54,6 +55,7 @@ static const NSTimeInterval DefaultWatchdogTimerInterval = 1;
 namespace WebKit {
 
 class WKFullScreenWindowControllerVideoFullscreenModelClient : WebCore::VideoFullscreenModelClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     void setParent(WKFullScreenWindowController *parent) { m_parent = parent; }
 
@@ -150,7 +152,7 @@ static void makeResponderFirstResponderIfDescendantOfView(NSWindow *window, NSRe
     _webView = webView;
     _page = &page;
 
-    _videoFullscreenClient = std::make_unique<WebKit::WKFullScreenWindowControllerVideoFullscreenModelClient>();
+    _videoFullscreenClient = makeUnique<WebKit::WKFullScreenWindowControllerVideoFullscreenModelClient>();
     _videoFullscreenClient->setParent(self);
 
     [self videoControlsManagerDidChange];

@@ -24,7 +24,7 @@
 .nr BA @BAMAN@
 .nr LC @LCMAN@
 .nr PS @PSMAN@
-.Dd October 20, 2019
+.Dd December 9, 2019
 .Dt SUDOERS @mansectform@
 .Os Sudo @PACKAGE_VERSION@
 .Sh NAME
@@ -911,7 +911,17 @@ is a command built into
 .Nm sudo
 itself and must be specified in the
 .Em sudoers
-file without a leading path.
+file
+.Sy without
+a leading path.
+If a leading path is present, for example
+.Pa /usr/bin/sudoedit ,
+the path name will be silently converted to
+.Dq Li sudoedit .
+A fully-qualified path for
+.Nm sudoedit
+is treated as an error by
+.Nm visudo .
 .Pp
 If a
 .Li command name
@@ -2768,6 +2778,42 @@ when running a command or editing a file.
 This flag is
 .Em off
 by default.
+.It runas_allow_unknown_id
+If enabled, allow matching of runas user and group IDs that are
+not present in the password or group databases.
+In addition to explicitly matching unknown user or group IDs in a
+.Li Runas_List ,
+this option also allows the
+.Sy ALL
+alias to match unknown IDs.
+This flag is
+.Em off
+by default.
+.Pp
+This setting is only supported by version 1.8.30 or higher.
+Older versions of
+.Nm sudo
+always allowed matching of unknown user and group IDs.
+.It runas_check_shell
+If enabled,
+.Nm sudo
+will only run commands as a user whose shell appears in the
+.Pa /etc/shells
+file, even if the invoking user's
+.Li Runas_List
+would otherwise permit it.
+If no
+.Pa /etc/shells
+file is present, a system-dependent list of built-in default shells is used.
+On many operating systems, system users such as
+.Dq bin ,
+do not have a valid shell and this flag can be used to prevent
+commands from being run as those users.
+This flag is
+.Em off
+by default.
+.Pp
+This setting is only supported by version 1.8.30 or higher.
 .It runaspw
 If set,
 .Nm sudo

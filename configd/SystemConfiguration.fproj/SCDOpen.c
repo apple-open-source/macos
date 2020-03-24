@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,7 +44,6 @@
 #include "config.h"		/* MiG generated file */
 #include "SCD.h"
 
-static CFStringRef		_sc_bundleID	= NULL;
 static pthread_mutex_t		_sc_lock	= PTHREAD_MUTEX_INITIALIZER;
 static mach_port_t		_sc_server	= MACH_PORT_NULL;
 static unsigned int		_sc_store_cnt	= 0;
@@ -222,37 +221,11 @@ static pthread_once_t initialized	= PTHREAD_ONCE_INIT;
 static void
 __SCDynamicStoreInitialize(void)
 {
-	CFBundleRef	bundle;
-
 	/* register with CoreFoundation */
 	__kSCDynamicStoreTypeID = _CFRuntimeRegisterClass(&__SCDynamicStoreClass);
 
 	/* add handler to cleanup after fork() */
 	(void) pthread_atfork(NULL, NULL, childForkHandler);
-
-	/* get the application/executable/bundle name */
-	bundle = CFBundleGetMainBundle();
-	if (bundle != NULL) {
-		_sc_bundleID = CFBundleGetIdentifier(bundle);
-		if (_sc_bundleID != NULL) {
-			CFRetain(_sc_bundleID);
-		} else {
-			CFURLRef	url;
-
-			url = CFBundleCopyExecutableURL(bundle);
-			if (url != NULL) {
-				_sc_bundleID = CFURLCopyPath(url);
-				CFRelease(url);
-			}
-		}
-
-		if (_sc_bundleID != NULL) {
-			if (CFEqual(_sc_bundleID, CFSTR("/"))) {
-				CFRelease(_sc_bundleID);
-				_sc_bundleID = CFStringCreateWithFormat(NULL, NULL, CFSTR("(%d)"), getpid());
-			}
-		}
-	}
 
 	return;
 }
@@ -805,11 +778,7 @@ SCDynamicStoreCreateWithOptions(CFAllocatorRef		allocator,
 	}
 
 	// set "name"
-	if (_sc_bundleID != NULL) {
-		storePrivate->name = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@:%@"), _sc_bundleID, name);
-	} else {
-		storePrivate->name = CFRetain(name);
-	}
+	storePrivate->name = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@:%@"), _SC_getApplicationBundleID(), name);
 
 	// set "options"
 

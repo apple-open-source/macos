@@ -95,13 +95,13 @@
 - (int)tabIndex
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->tabIndex();
+    return IMPL->tabIndexForBindings();
 }
 
 - (void)setTabIndex:(int)newTabIndex
 {
     WebCore::JSMainThreadNullState state;
-    IMPL->setTabIndex(newTabIndex);
+    IMPL->setTabIndexForBindings(newTabIndex);
 }
 
 - (BOOL)draggable
@@ -296,3 +296,5 @@ DOMHTMLElement *kit(WebCore::HTMLElement* value)
     WebCoreThreadViolationCheckRoundOne();
     return static_cast<DOMHTMLElement*>(kit(static_cast<WebCore::Node*>(value)));
 }
+
+#undef IMPL

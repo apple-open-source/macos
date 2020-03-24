@@ -101,8 +101,6 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("OTASecExperimentGetAsset");
         case kSecXPCOpAcceptApplicants:
             return CFSTR("AcceptApplicants");
-        case kSecXPCOpApplyToARing:
-            return CFSTR("ApplyToARing");
         case kSecXPCOpBailFromCircle:
             return CFSTR("BailFromCircle");
         case kSecXPCOpCanAuthenticate:
@@ -115,8 +113,6 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("CopyEngineState");
         case kSecXPCOpCopyGenerationPeerInfo:
             return CFSTR("CopyGenerationPeerInfo");
-        case kSecXPCOpCopyIncompatibilityInfo:
-            return CFSTR("CopyIncompatibilityInfo");
         case kSecXPCOpCopyMyPeerInfo:
             return CFSTR("CopyMyPeerInfo");
         case kSecXPCOpCopyNotValidPeerPeerInfo:
@@ -131,10 +127,6 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("CopyViewUnawarePeerInfo");
         case kSecXPCOpDeviceInCircle:
             return CFSTR("DeviceInCircle");
-        case kSecXPCOpEnableRing:
-            return CFSTR("EnableRing");
-        case kSecXPCOpGetAllTheRings:
-            return CFSTR("GetAllTheRings");
         case kSecXPCOpGetLastDepartureReason:
             return CFSTR("GetLastDepartureReason");
         case kSecXPCOpLoggedOutOfAccount:
@@ -157,8 +149,6 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("RemovePeersFromCircle");
         case kSecXPCOpRemovePeersFromCircleWithAnalytics:
             return CFSTR("RemovePeersFromCircleWithAnalytics");
-        case kSecXPCOpRequestEnsureFreshParameters:
-            return CFSTR("RequestEnsureFreshParameters");
         case kSecXPCOpRequestToJoin:
             return CFSTR("RequestToJoin");
         case kSecXPCOpRequestToJoinWithAnalytics:
@@ -173,8 +163,6 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("ResetToEmptyWithAnalytics");
         case kSecXPCOpResetToOffering:
             return CFSTR("ResetToOffering");
-        case kSecXPCOpRingStatus:
-            return CFSTR("RingStatus");
         case kSecXPCOpRollKeys:
             return CFSTR("RollKeys");
         case kSecXPCOpSetBagForAllSlices:
@@ -195,8 +183,6 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("ValidateUserPublic");
         case kSecXPCOpView:
             return CFSTR("View");
-        case kSecXPCOpWithdrawlFromARing:
-            return CFSTR("WithdrawlFromARing");
         case sec_add_shared_web_credential_id:
             return CFSTR("add_shared_web_credential");
         case sec_copy_shared_web_credential_id:
@@ -259,24 +245,10 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("ocsp_cache_flush");
         case soscc_EnsurePeerRegistration_id:
             return CFSTR("EnsurePeerRegistration");
-        case kSecXPCOpSetEscrowRecord:
-            return CFSTR("SetEscrowRecord");
-        case kSecXPCOpGetEscrowRecord:
-            return CFSTR("GetEscrowRecord");
         case kSecXPCOpWhoAmI:
             return CFSTR("WhoAmI");
         case kSecXPCOpTransmogrifyToSyncBubble:
             return CFSTR("TransmogrifyToSyncBubble");
-        case kSecXPCOpWrapToBackupSliceKeyBagForView:
-            return CFSTR("WrapToBackupSliceKeyBagForView");
-        case kSecXPCOpCopyAccountData:
-            return CFSTR("CopyAccountDataFromKeychain");
-        case kSecXPCOpDeleteAccountData:
-            return CFSTR("DeleteAccountDataFromKeychain");
-        case kSecXPCOpCopyEngineData:
-            return CFSTR("CopyEngineDataFromKeychain");
-        case kSecXPCOpDeleteEngineData:
-            return CFSTR("DeleteEngineDataFromKeychain");
         case sec_item_update_token_items_id:
             return CFSTR("UpdateTokenItems");
         case sec_delete_items_with_access_groups_id:
@@ -287,8 +259,6 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("RegisterRecoveryPublicKey");
         case kSecXPCOpGetRecoveryPublicKey:
             return CFSTR("GetRecoveryPublicKey");
-        case kSecXPCOpCopyBackupInformation:
-            return CFSTR("CopyBackupInformation");
         case kSecXPCOpMessageFromPeerIsPending:
             return CFSTR("MessageFromPeerIsPending");
         case kSecXPCOpSendToPeerIsPending:

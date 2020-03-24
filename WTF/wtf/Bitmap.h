@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ *  Copyright (C) 2010-2019 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -29,7 +29,7 @@
 namespace WTF {
 
 template<size_t bitmapSize, typename WordType = uint32_t>
-class Bitmap {
+class Bitmap final {
     WTF_MAKE_FAST_ALLOCATED;
     
     static_assert(sizeof(WordType) <= sizeof(unsigned), "WordType must not be bigger than unsigned");
@@ -70,6 +70,7 @@ public:
     size_t findBit(size_t startIndex, bool value) const;
     
     class iterator {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         iterator()
             : m_bitmap(nullptr)
@@ -119,15 +120,15 @@ public:
     unsigned hash() const;
 
 private:
-    static const unsigned wordSize = sizeof(WordType) * 8;
-    static const unsigned words = (bitmapSize + wordSize - 1) / wordSize;
+    static constexpr unsigned wordSize = sizeof(WordType) * 8;
+    static constexpr unsigned words = (bitmapSize + wordSize - 1) / wordSize;
 
     // the literal '1' is of type signed int.  We want to use an unsigned
     // version of the correct size when doing the calculations because if
     // WordType is larger than int, '1 << 31' will first be sign extended
     // and then casted to unsigned, meaning that set(31) when WordType is
     // a 64 bit unsigned int would give 0xffff8000
-    static const WordType one = 1;
+    static constexpr WordType one = 1;
 
     std::array<WordType, words> bits;
 };

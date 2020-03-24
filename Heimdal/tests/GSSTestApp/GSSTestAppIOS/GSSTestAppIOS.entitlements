@@ -13,5 +13,22 @@
 	<true/>
 	<key>com.apple.private.gssapi.credential-introspection</key>
 	<true/>
+	<key>com.apple.security.attestation.access</key>
+	<true/>
+	<key>com.apple.security.smartcard</key>
+	<true/>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>apple</string>
+	</array>
+	<key>com.apple.security.smartcard</key>
+	<true/>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>com.apple.ist.ds.appleconnect</string>
+                <string>apple</string>
+                <string>test</string>
+                <string>*</string>
+	</array>
 </dict>
 </plist>

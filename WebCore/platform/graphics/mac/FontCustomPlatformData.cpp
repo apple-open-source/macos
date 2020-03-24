@@ -35,7 +35,7 @@ namespace WebCore {
 
 FontCustomPlatformData::~FontCustomPlatformData() = default;
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription& fontDescription, bool bold, bool italic, const FontFeatureSettings& fontFaceFeatures, const FontVariantSettings& fontFaceVariantSettings, FontSelectionSpecifiedCapabilities fontFaceCapabilities)
+FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription& fontDescription, bool bold, bool italic, const FontFeatureSettings& fontFaceFeatures, FontSelectionSpecifiedCapabilities fontFaceCapabilities)
 {
     auto attributes = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
     addAttributesForWebFonts(attributes.get(), fontDescription.shouldAllowUserInstalledFonts());
@@ -46,7 +46,7 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription&
     FontOrientation orientation = fontDescription.orientation();
     FontWidthVariant widthVariant = fontDescription.widthVariant();
     RetainPtr<CTFontRef> font = adoptCF(CTFontCreateWithFontDescriptor(modifiedFontDescriptor.get(), size, nullptr));
-    font = preparePlatformFont(font.get(), fontDescription, &fontFaceFeatures, &fontFaceVariantSettings, fontFaceCapabilities);
+    font = preparePlatformFont(font.get(), fontDescription, &fontFaceFeatures, fontFaceCapabilities);
     ASSERT(font);
     return FontPlatformData(font.get(), size, bold, italic, orientation, widthVariant, fontDescription.textRenderingMode());
 }
@@ -56,7 +56,7 @@ std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffe
     RetainPtr<CFDataRef> bufferData = buffer.createCFData();
 
     RetainPtr<CTFontDescriptorRef> fontDescriptor;
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
+#if PLATFORM(MAC) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
     auto array = adoptCF(CTFontManagerCreateFontDescriptorsFromData(bufferData.get()));
     if (!array)
         return nullptr;
@@ -84,7 +84,7 @@ std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffe
         return nullptr;
 #endif
 
-    return std::make_unique<FontCustomPlatformData>(fontDescriptor.get());
+    return makeUnique<FontCustomPlatformData>(fontDescriptor.get());
 }
 
 bool FontCustomPlatformData::supportsFormat(const String& format)

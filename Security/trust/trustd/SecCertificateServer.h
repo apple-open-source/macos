@@ -129,6 +129,7 @@ bool SecCertificatePathVCIsRevocationDone(SecCertificatePathVCRef certificatePat
 void SecCertificatePathVCAllocateRVCs(SecCertificatePathVCRef certificatePath, CFIndex certCount);
 CFAbsoluteTime SecCertificatePathVCGetEarliestNextUpdate(SecCertificatePathVCRef path);
 void *SecCertificatePathVCGetRVCAtIndex(SecCertificatePathVCRef certificatePath, CFIndex ix); // Returns a SecRVCRef
+bool SecCertificatePathVCRevocationCheckedAllCerts(SecCertificatePathVCRef path);
 bool SecCertificatePathVCIsRevocationRequiredForCertificateAtIndex(SecCertificatePathVCRef certificatePath,
                                                                    CFIndex ix);
 void SecCertificatePathVCSetRevocationRequiredForCertificateAtIndex(SecCertificatePathVCRef certificatePath,

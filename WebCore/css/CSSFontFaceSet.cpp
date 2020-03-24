@@ -119,7 +119,7 @@ void CSSFontFaceSet::ensureLocalFontFacesForFamilyRegistered(const String& famil
         familyList->append(CSSValuePool::singleton().createFontFamilyValue(familyName));
         face->setFamilies(familyList.get());
         face->setFontSelectionCapabilities(item);
-        face->adoptSource(std::make_unique<CSSFontFaceSource>(face.get(), familyName));
+        face->adoptSource(makeUnique<CSSFontFaceSource>(face.get(), familyName));
         ASSERT(!face->computeFailureState());
         faces.append(WTFMove(face));
     }
@@ -316,10 +316,10 @@ static ExceptionOr<FontSelectionRequest> computeFontSelectionRequest(MutableStyl
 
     if (weightValue->isGlobalKeyword() || stretchValue->isGlobalKeyword() || styleValue->isGlobalKeyword())
         return Exception { SyntaxError };
-    
-    auto weightSelectionValue = StyleBuilderConverter::convertFontWeightFromValue(*weightValue);
-    auto stretchSelectionValue = StyleBuilderConverter::convertFontStretchFromValue(*stretchValue);
-    auto styleSelectionValue = StyleBuilderConverter::convertFontStyleFromValue(*styleValue);
+
+    auto weightSelectionValue = Style::BuilderConverter::convertFontWeightFromValue(*weightValue);
+    auto stretchSelectionValue = Style::BuilderConverter::convertFontStretchFromValue(*stretchValue);
+    auto styleSelectionValue = Style::BuilderConverter::convertFontStyleFromValue(*styleValue);
 
     return {{ weightSelectionValue, stretchSelectionValue, styleSelectionValue }};
 }

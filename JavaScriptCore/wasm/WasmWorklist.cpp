@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,7 +34,7 @@
 namespace JSC { namespace Wasm {
 
 namespace WasmWorklistInternal {
-static const bool verbose = false;
+static constexpr bool verbose = false;
 }
 
 const char* Worklist::priorityString(Priority priority)
@@ -152,8 +152,12 @@ void Worklist::enqueue(Ref<Plan> plan)
     }
 
     dataLogLnIf(WasmWorklistInternal::verbose, "Enqueuing plan");
-    m_queue.enqueue({ Priority::Preparation, nextTicket(),  WTFMove(plan) });
-    m_planEnqueued->notifyOne(locker);
+    bool multiThreaded = plan->multiThreaded();
+    m_queue.enqueue({ multiThreaded ? Priority::Compilation : Priority::Preparation, nextTicket(),  WTFMove(plan) });
+    if (multiThreaded)
+        m_planEnqueued->notifyAll(locker);
+    else
+        m_planEnqueued->notifyOne(locker);
 }
 
 void Worklist::completePlanSynchronously(Plan& plan)
@@ -210,7 +214,7 @@ Worklist::Worklist()
     m_threads.reserveCapacity(numberOfCompilationThreads);
     LockHolder locker(*m_lock);
     for (unsigned i = 0; i < numberOfCompilationThreads; i++)
-        m_threads.uncheckedAppend(std::make_unique<Worklist::Thread>(locker, *this));
+        m_threads.uncheckedAppend(makeUnique<Worklist::Thread>(locker, *this));
 }
 
 Worklist::~Worklist()

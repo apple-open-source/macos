@@ -254,8 +254,6 @@
 		724DABBC0EE8908A008900D0 /* com.apple.kdumpd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7261206E0EE86F2D00AFED1B /* com.apple.kdumpd.plist */; };
 		724DAC120EE89423008900D0 /* ndp.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120870EE86F4000AFED1B /* ndp.c */; };
 		724DAC3B0EE89555008900D0 /* ndp.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 726120860EE86F4000AFED1B /* ndp.8 */; };
-		7255D4311E44036D008F4A32 /* libcrypto.35.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7255D4301E44036D008F4A32 /* libcrypto.35.dylib */; };
-		7255D4331E44037F008F4A32 /* libssl.35.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7255D4321E44037F008F4A32 /* libssl.35.dylib */; };
 		726121310EE8711E00AFED1B /* arp.c in Sources */ = {isa = PBXBuildFile; fileRef = 7261204E0EE86EF900AFED1B /* arp.c */; };
 		726121350EE8713800AFED1B /* arp.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7261204D0EE86EF900AFED1B /* arp.8 */; };
 		7261215A0EE8883900AFED1B /* ifbond.c in Sources */ = {isa = PBXBuildFile; fileRef = 726120550EE86F0900AFED1B /* ifbond.c */; };
@@ -307,6 +305,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "$(PROJECT_DIR)/spray.tproj/spray.x";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_FILES_DIR)/$(INPUT_FILE_BASE).h",
@@ -1426,8 +1426,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7255D4331E44037F008F4A32 /* libssl.35.dylib in Frameworks */,
-				7255D4311E44036D008F4A32 /* libcrypto.35.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4062,9 +4060,15 @@
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
+				HEADER_SEARCH_PATHS = /usr/local/libressl/include;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = /usr/local/libressl/lib;
 				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_LDFLAGS = (
+					"-lssl",
+					"-lcrypto",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
@@ -4092,9 +4096,15 @@
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
+				HEADER_SEARCH_PATHS = /usr/local/libressl/include;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = /usr/local/libressl/lib;
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = (
+					"-lssl",
+					"-lcrypto",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
@@ -4122,9 +4132,15 @@
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
+				HEADER_SEARCH_PATHS = /usr/local/libressl/include;
 				INSTALL_MODE_FLAG = 0555;
 				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = /usr/local/libressl/lib;
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_LDFLAGS = (
+					"-lssl",
+					"-lcrypto",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;

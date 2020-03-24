@@ -77,7 +77,7 @@ tr{
         CF{"Orta Afrika Cumhuriyeti"}
         CG{"Kongo - Brazavil"}
         CH{"İsviçre"}
-        CI{"Fildişi Sahili"}
+        CI{"Côte d’Ivoire"}
         CK{"Cook Adaları"}
         CL{"Şili"}
         CM{"Kamerun"}
@@ -304,6 +304,7 @@ tr{
     Countries%variant{
         CD{"Kongo Demokratik Cumhuriyeti"}
         CG{"Kongo Cumhuriyeti"}
+        CI{"Fildişi Sahili"}
         CZ{"Çek Cumhuriyeti"}
         FK{"Falkland Adaları (Malvinas Adaları)"}
         SZ{"Svaziland"}

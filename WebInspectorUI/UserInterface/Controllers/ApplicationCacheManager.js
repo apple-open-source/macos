@@ -31,19 +31,30 @@ WI.ApplicationCacheManager = class ApplicationCacheManager extends WI.Object
     {
         super();
 
-        WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
-        WI.Frame.addEventListener(WI.Frame.Event.ChildFrameWasRemoved, this._childFrameWasRemoved, this);
+        this._enabled = false;
+        this._reset();
+    }
 
-        this._online = true;
+    // Agent
 
-        this.initialize();
+    get domains() { return ["ApplicationCache"]; }
+
+    activateExtraDomain(domain)
+    {
+        console.assert(domain === "ApplicationCache");
+
+        for (let target of WI.targets)
+            this.initializeTarget(target);
     }
 
     // Target
 
     initializeTarget(target)
     {
-        if (target.ApplicationCacheAgent) {
+        if (!this._enabled)
+            return;
+
+        if (target.hasDomain("ApplicationCache")) {
             target.ApplicationCacheAgent.enable();
             target.ApplicationCacheAgent.getFramesWithManifests(this._framesWithManifestsLoaded.bind(this));
         }
@@ -51,10 +62,7 @@ WI.ApplicationCacheManager = class ApplicationCacheManager extends WI.Object
 
     // Public
 
-    initialize()
-    {
-        this._applicationCacheObjects = {};
-    }
+    get online() { return this._online; }
 
     get applicationCacheObjects()
     {
@@ -64,29 +72,42 @@ WI.ApplicationCacheManager = class ApplicationCacheManager extends WI.Object
         return applicationCacheObjects;
     }
 
-    networkStateUpdated(isNowOnline)
+    enable()
     {
-        this._online = isNowOnline;
+        console.assert(!this._enabled);
 
-        this.dispatchEventToListeners(WI.ApplicationCacheManager.Event.NetworkStateUpdated, {online: this._online});
+        this._enabled = true;
+
+        this._reset();
+
+        for (let target of WI.targets)
+            this.initializeTarget(target);
+
+        WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+        WI.Frame.addEventListener(WI.Frame.Event.ChildFrameWasRemoved, this._childFrameWasRemoved, this);
     }
 
-    get online()
+    disable()
     {
-        return this._online;
-    }
+        console.assert(this._enabled);
 
-    applicationCacheStatusUpdated(frameId, manifestURL, status)
-    {
-        var frame = WI.networkManager.frameForIdentifier(frameId);
-        if (!frame)
-            return;
+        this._enabled = false;
 
-        this._frameManifestUpdated(frame, manifestURL, status);
+        for (let target of WI.targets) {
+            // COMPATIBILITY (iOS 13): ApplicationCache.disable did not exist yet.
+            if (target.hasCommand("ApplicationCache.disable"))
+                target.ApplicationCacheAgent.disable();
+        }
+
+        WI.Frame.removeEventListener(null, null, this);
+
+        this._reset();
     }
 
     requestApplicationCache(frame, callback)
     {
+        console.assert(this._enabled);
+
         function callbackWrapper(error, applicationCache)
         {
             if (error) {
@@ -97,26 +118,54 @@ WI.ApplicationCacheManager = class ApplicationCacheManager extends WI.Object
             callback(applicationCache);
         }
 
-        ApplicationCacheAgent.getApplicationCacheForFrame(frame.id, callbackWrapper);
+        let target = WI.assumingMainTarget();
+        target.ApplicationCacheAgent.getApplicationCacheForFrame(frame.id, callbackWrapper);
+    }
+
+    // ApplicationCacheObserver
+
+    networkStateUpdated(isNowOnline)
+    {
+        console.assert(this._enabled);
+
+        this._online = isNowOnline;
+
+        this.dispatchEventToListeners(WI.ApplicationCacheManager.Event.NetworkStateUpdated, {online: this._online});
+    }
+
+    applicationCacheStatusUpdated(frameId, manifestURL, status)
+    {
+        console.assert(this._enabled);
+
+        let frame = WI.networkManager.frameForIdentifier(frameId);
+        if (!frame)
+            return;
+
+        this._frameManifestUpdated(frame, manifestURL, status);
     }
 
     // Private
+
+    _reset()
+    {
+        this._online = true;
+        this._applicationCacheObjects = {};
+
+        this.dispatchEventToListeners(WI.ApplicationCacheManager.Event.Cleared);
+    }
 
     _mainResourceDidChange(event)
     {
         console.assert(event.target instanceof WI.Frame);
 
         if (event.target.isMainFrame()) {
-            // If we are dealing with the main frame, we want to clear our list of objects, because we are navigating to a new page.
-            this.initialize();
-
-            this.dispatchEventToListeners(WI.ApplicationCacheManager.Event.Cleared);
-
+            this._reset();
             return;
         }
 
-        if (window.ApplicationCacheAgent)
-            ApplicationCacheAgent.getManifestForFrame(event.target.id, this._manifestForFrameLoaded.bind(this, event.target.id));
+        let target = WI.assumingMainTarget();
+        if (target.hasDomain("ApplicationCache"))
+            target.ApplicationCacheAgent.getManifestForFrame(event.target.id, this._manifestForFrameLoaded.bind(this, event.target.id));
     }
 
     _childFrameWasRemoved(event)
@@ -126,12 +175,19 @@ WI.ApplicationCacheManager = class ApplicationCacheManager extends WI.Object
 
     _manifestForFrameLoaded(frameId, error, manifestURL)
     {
-        if (error)
+        if (!this._enabled)
             return;
 
         var frame = WI.networkManager.frameForIdentifier(frameId);
         if (!frame)
             return;
+
+        // A frame can go away between `ApplicationCache.getManifestForFrame` being called and the
+        // response being received.
+        if (error) {
+            WI.reportInternalError(error);
+            return;
+        }
 
         if (!manifestURL)
             this._frameManifestRemoved(frame);
@@ -139,7 +195,12 @@ WI.ApplicationCacheManager = class ApplicationCacheManager extends WI.Object
 
     _framesWithManifestsLoaded(error, framesWithManifests)
     {
-        if (error)
+        if (error) {
+            WI.reportInternalError(error);
+            return;
+        }
+
+        if (!this._enabled)
             return;
 
         for (var i = 0; i < framesWithManifests.length; ++i) {

@@ -652,11 +652,9 @@
     NSError* error = NULL;
     NSDictionary* queryAttributes = @{(__bridge NSString*) kSecClass: (__bridge NSString*) classP->name,
                                       (__bridge NSString*) kSecAttrUUID: iqe.uuid,
-                                      (__bridge NSString*) kSecAttrSyncViewHint: ckks.zoneID.zoneName,
                                       (__bridge NSString*) kSecAttrSynchronizable: @(YES)};
     ckksnotice("ckksincoming", ckks, "trying to delete with query: %@", queryAttributes);
     Query *q = query_create_with_limit( (__bridge CFDictionaryRef) queryAttributes, NULL, kSecMatchUnlimited, &cferror);
-
 
     if(cferror) {
         ckkserror("ckksincoming", ckks, "couldn't create query: %@", cferror);

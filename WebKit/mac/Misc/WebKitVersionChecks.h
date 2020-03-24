@@ -74,11 +74,12 @@
 
 enum class SDKVersion : uint32_t {
 #if PLATFORM(IOS_FAMILY)
-    FirstToExcludeLocalStorageFromBackup = DYLD_IOS_VERSION_11_0,
     FirstThatDefaultsToPassiveTouchListenersOnDocument = DYLD_IOS_VERSION_11_3,
+    FirstThatRestrictsBaseURLSchemes = DYLD_IOS_VERSION_13_4,
 #else
     FirstWithDropToNavigateDisallowedByDefault = DYLD_MACOSX_VERSION_10_13,
     FirstWithWebIconDatabaseWarning = DYLD_MACOSX_VERSION_10_13,
+    FirstThatRestrictsBaseURLSchemes = DYLD_MACOSX_VERSION_10_15_4,
 #endif
 };
 

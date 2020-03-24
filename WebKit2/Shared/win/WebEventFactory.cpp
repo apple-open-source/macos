@@ -27,9 +27,11 @@
 #include "config.h"
 #include "WebEventFactory.h"
 
+#include <WebCore/GDIUtilities.h>
 #include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/PlatformWheelEvent.h>
 #include <WebCore/Scrollbar.h>
+#include <WebCore/WindowsKeyNames.h>
 #include <WebCore/WindowsKeyboardCodes.h>
 #include <windowsx.h>
 #include <wtf/ASCIICType.h>
@@ -396,8 +398,9 @@ WebMouseEvent WebEventFactory::createWebMouseEvent(HWND hWnd, UINT message, WPAR
 
     int clickCount = WebKit::clickCount(type, button, position, timestamp);
     auto modifiers = modifiersForEvent(wParam);
+    auto buttons = buttonsForEvent(wParam);
 
-    return WebMouseEvent(type, button, 0, position, globalPosition, 0, 0, 0, clickCount, modifiers, WallTime::now(), didActivateWebView);
+    return WebMouseEvent(type, button, buttons, position, globalPosition, 0, 0, 0, clickCount, modifiers, WallTime::now(), didActivateWebView);
 }
 
 WebWheelEvent WebEventFactory::createWebWheelEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -444,11 +447,19 @@ WebWheelEvent WebEventFactory::createWebWheelEvent(HWND hWnd, UINT message, WPAR
     return WebWheelEvent(WebEvent::Wheel, position, globalPosition, FloatSize(deltaX, deltaY), FloatSize(wheelTicksX, wheelTicksY), granularity, modifiers, WallTime::now());
 }
 
+static WindowsKeyNames& windowsKeyNames()
+{
+    static NeverDestroyed<WindowsKeyNames> keyNames;
+    return keyNames;
+}
+
 WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam)
 {
     WebEvent::Type type = keyboardEventTypeForEvent(message);
     String text = textFromEvent(wparam, type);
     String unmodifiedText = unmodifiedTextFromEvent(wparam, type);
+    String key = message == WM_CHAR ? windowsKeyNames().domKeyFromChar(wparam) : windowsKeyNames().domKeyFromLParam(lparam);
+    String code = windowsKeyNames().domCodeFromLParam(lparam);
     String keyIdentifier = keyIdentifierFromEvent(wparam, type);
     int windowsVirtualKeyCode = static_cast<int>(wparam);
     int nativeVirtualKeyCode = static_cast<int>(wparam);
@@ -458,7 +469,7 @@ WebKeyboardEvent WebEventFactory::createWebKeyboardEvent(HWND hwnd, UINT message
     bool isSystemKey = isSystemKeyEvent(message);
     auto modifiers = modifiersForCurrentKeyState();
 
-    return WebKeyboardEvent(type, text, unmodifiedText, keyIdentifier, windowsVirtualKeyCode, nativeVirtualKeyCode, macCharCode, autoRepeat, isKeypad, isSystemKey, modifiers, WallTime::now());
+    return WebKeyboardEvent(type, text, unmodifiedText, key, code, keyIdentifier, windowsVirtualKeyCode, nativeVirtualKeyCode, macCharCode, autoRepeat, isKeypad, isSystemKey, modifiers, WallTime::now());
 }
 
 #if ENABLE(TOUCH_EVENTS)

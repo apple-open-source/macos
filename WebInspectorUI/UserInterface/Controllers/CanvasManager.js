@@ -32,11 +32,24 @@ WI.CanvasManager = class CanvasManager extends WI.Object
         super();
 
         this._enabled = false;
+        this._canvasCollection = new WI.CanvasCollection;
         this._canvasIdentifierMap = new Map;
         this._shaderProgramIdentifierMap = new Map;
         this._savedRecordings = new Set;
 
         WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+    }
+
+    // Agent
+
+    get domains() { return ["Canvas"]; }
+
+    activateExtraDomain(domain)
+    {
+        console.assert(domain === "Canvas");
+
+        for (let target of WI.targets)
+            this.initializeTarget(target);
     }
 
     // Target
@@ -46,10 +59,11 @@ WI.CanvasManager = class CanvasManager extends WI.Object
         if (!this._enabled)
             return;
 
-        if (target.CanvasAgent) {
+        if (target.hasDomain("Canvas")) {
             target.CanvasAgent.enable();
 
-            if (target.CanvasAgent.setRecordingAutoCaptureFrameCount && WI.settings.canvasRecordingAutoCaptureEnabled.value && WI.settings.canvasRecordingAutoCaptureFrameCount.value)
+            // COMPATIBILITY (iOS 12): Canvas.setRecordingAutoCaptureFrameCount did not exist yet.
+            if (target.hasCommand("Canvas.setRecordingAutoCaptureFrameCount") && WI.settings.canvasRecordingAutoCaptureEnabled.value && WI.settings.canvasRecordingAutoCaptureFrameCount.value)
                 target.CanvasAgent.setRecordingAutoCaptureFrameCount(WI.settings.canvasRecordingAutoCaptureFrameCount.value);
         }
     }
@@ -58,17 +72,13 @@ WI.CanvasManager = class CanvasManager extends WI.Object
 
     static supportsRecordingAutoCapture()
     {
-        return InspectorBackend.domains.Canvas && InspectorBackend.domains.Canvas.setRecordingAutoCaptureFrameCount;
+        return InspectorBackend.hasCommand("Canvas.setRecordingAutoCaptureFrameCount");
     }
 
     // Public
 
+    get canvasCollection() { return this._canvasCollection; }
     get savedRecordings() { return this._savedRecordings; }
-
-    get canvases()
-    {
-        return Array.from(this._canvasIdentifierMap.values());
-    }
 
     get shaderPrograms()
     {
@@ -116,10 +126,11 @@ WI.CanvasManager = class CanvasManager extends WI.Object
         console.assert(this._enabled);
 
         for (let target of WI.targets) {
-            if (target.CanvasAgent)
+            if (target.hasDomain("Canvas"))
                 target.CanvasAgent.disable();
         }
 
+        this._canvasCollection.clear();
         this._canvasIdentifierMap.clear();
         this._shaderProgramIdentifierMap.clear();
         this._savedRecordings.clear();
@@ -132,7 +143,8 @@ WI.CanvasManager = class CanvasManager extends WI.Object
         console.assert(!isNaN(count) && count >= 0);
 
         for (let target of WI.targets) {
-            if (target.CanvasAgent)
+            // COMPATIBILITY (iOS 12): Canvas.setRecordingAutoCaptureFrameCount did not exist yet.
+            if (target.hasCommand("Canvas.setRecordingAutoCaptureFrameCount"))
                 target.CanvasAgent.setRecordingAutoCaptureFrameCount(enabled ? count : 0);
         }
 
@@ -140,34 +152,36 @@ WI.CanvasManager = class CanvasManager extends WI.Object
         WI.settings.canvasRecordingAutoCaptureFrameCount.value = count;
     }
 
+    // CanvasObserver
+
     canvasAdded(canvasPayload)
     {
-        // Called from WI.CanvasObserver.
-
         console.assert(!this._canvasIdentifierMap.has(canvasPayload.canvasId), `Canvas already exists with id ${canvasPayload.canvasId}.`);
 
         let canvas = WI.Canvas.fromPayload(canvasPayload);
+        this._canvasCollection.add(canvas);
         this._canvasIdentifierMap.set(canvas.identifier, canvas);
-
-        this.dispatchEventToListeners(WI.CanvasManager.Event.CanvasAdded, {canvas});
     }
 
     canvasRemoved(canvasIdentifier)
     {
-        // Called from WI.CanvasObserver.
-
         let canvas = this._canvasIdentifierMap.take(canvasIdentifier);
         console.assert(canvas);
         if (!canvas)
             return;
 
-        this._removeCanvas(canvas);
+        this._saveRecordings(canvas);
+
+        this._canvasCollection.remove(canvas);
+
+        for (let program of canvas.shaderProgramCollection)
+            this._shaderProgramIdentifierMap.delete(program.identifier);
+
+        canvas.shaderProgramCollection.clear();
     }
 
     canvasMemoryChanged(canvasIdentifier, memoryCost)
     {
-        // Called from WI.CanvasObserver.
-
         let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
         console.assert(canvas);
         if (!canvas)
@@ -176,22 +190,18 @@ WI.CanvasManager = class CanvasManager extends WI.Object
         canvas.memoryCost = memoryCost;
     }
 
-    cssCanvasClientNodesChanged(canvasIdentifier)
+    clientNodesChanged(canvasIdentifier)
     {
-        // Called from WI.CanvasObserver.
-
         let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
         console.assert(canvas);
         if (!canvas)
             return;
 
-        canvas.cssCanvasClientNodesChanged();
+        canvas.clientNodesChanged();
     }
 
     recordingStarted(canvasIdentifier, initiator)
     {
-        // Called from WI.CanvasObserver.
-
         let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
         console.assert(canvas);
         if (!canvas)
@@ -202,8 +212,6 @@ WI.CanvasManager = class CanvasManager extends WI.Object
 
     recordingProgress(canvasIdentifier, framesPayload, bufferUsed)
     {
-        // Called from WI.CanvasObserver.
-
         let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
         console.assert(canvas);
         if (!canvas)
@@ -214,8 +222,6 @@ WI.CanvasManager = class CanvasManager extends WI.Object
 
     recordingFinished(canvasIdentifier, recordingPayload)
     {
-        // Called from WI.CanvasObserver.
-
         let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
         console.assert(canvas);
         if (!canvas)
@@ -226,8 +232,6 @@ WI.CanvasManager = class CanvasManager extends WI.Object
 
     extensionEnabled(canvasIdentifier, extension)
     {
-        // Called from WI.CanvasObserver.
-
         let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
         console.assert(canvas);
         if (!canvas)
@@ -236,18 +240,28 @@ WI.CanvasManager = class CanvasManager extends WI.Object
         canvas.enableExtension(extension);
     }
 
-    programCreated(canvasIdentifier, programIdentifier)
+    programCreated(shaderProgramPayload)
     {
-        // Called from WI.CanvasObserver.
-
-        let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
+        let canvas = this._canvasIdentifierMap.get(shaderProgramPayload.canvasId);
         console.assert(canvas);
         if (!canvas)
             return;
 
-        console.assert(!this._shaderProgramIdentifierMap.has(programIdentifier), `ShaderProgram already exists with id ${programIdentifier}.`);
+        let programId = shaderProgramPayload.programId;
+        console.assert(!this._shaderProgramIdentifierMap.has(programId), `ShaderProgram already exists with id ${programId}.`);
 
-        let program = new WI.ShaderProgram(programIdentifier, canvas);
+        // COMPATIBILITY (iOS 13.0): `Canvas.ShaderProgram.programType` did not exist yet.
+        let programType = shaderProgramPayload.programType;
+        if (!programType)
+            programType = WI.ShaderProgram.ProgramType.Render;
+
+        let options = {};
+
+        // COMPATIBILITY (iOS 13.0): `Canvas.ShaderProgram.sharesVertexFragmentShader` did not exist yet.
+        if (shaderProgramPayload.sharesVertexFragmentShader)
+            options.sharesVertexFragmentShader = true;
+
+        let program = new WI.ShaderProgram(programId, programType, canvas, options);
         this._shaderProgramIdentifierMap.set(program.identifier, program);
 
         canvas.shaderProgramCollection.add(program);
@@ -255,8 +269,6 @@ WI.CanvasManager = class CanvasManager extends WI.Object
 
     programDeleted(programIdentifier)
     {
-        // Called from WI.CanvasObserver.
-
         let program = this._shaderProgramIdentifierMap.take(programIdentifier);
         console.assert(program);
         if (!program)
@@ -267,21 +279,14 @@ WI.CanvasManager = class CanvasManager extends WI.Object
 
     // Private
 
-    _removeCanvas(canvas)
+    _saveRecordings(canvas)
     {
-        for (let program of canvas.shaderProgramCollection)
-            this._shaderProgramIdentifierMap.delete(program.identifier);
-
-        canvas.shaderProgramCollection.clear();
-
         for (let recording of canvas.recordingCollection) {
             recording.source = null;
             recording.createDisplayName(recording.displayName);
             this._savedRecordings.add(recording);
             this.dispatchEventToListeners(WI.CanvasManager.Event.RecordingSaved, {recording});
         }
-
-        this.dispatchEventToListeners(WI.CanvasManager.Event.CanvasRemoved, {canvas});
     }
 
     _mainResourceDidChange(event)
@@ -293,15 +298,14 @@ WI.CanvasManager = class CanvasManager extends WI.Object
         WI.Canvas.resetUniqueDisplayNameNumbers();
 
         for (let canvas of this._canvasIdentifierMap.values())
-            this._removeCanvas(canvas);
+            this._saveRecordings(canvas);
 
-        this._shaderProgramIdentifierMap.clear();
+        this._canvasCollection.clear();
         this._canvasIdentifierMap.clear();
+        this._shaderProgramIdentifierMap.clear();
     }
 };
 
 WI.CanvasManager.Event = {
-    CanvasAdded: "canvas-manager-canvas-was-added",
-    CanvasRemoved: "canvas-manager-canvas-was-removed",
     RecordingSaved: "canvas-manager-recording-saved",
 };

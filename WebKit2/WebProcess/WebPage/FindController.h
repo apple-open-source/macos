@@ -46,16 +46,18 @@ enum class DidWrap : bool;
 
 namespace WebKit {
 
+class CallbackID;
 class WebPage;
 
 class FindController : private WebCore::PageOverlay::Client {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(FindController);
 
 public:
     explicit FindController(WebPage*);
     virtual ~FindController();
 
-    void findString(const String&, FindOptions, unsigned maxMatchCount);
+    void findString(const String&, FindOptions, unsigned maxMatchCount, Optional<CallbackID>);
     void findStringMatches(const String&, FindOptions, unsigned maxMatchCount);
     void getImageForFindMatch(uint32_t matchIndex);
     void selectFindMatch(uint32_t matchIndex);
@@ -65,6 +67,7 @@ public:
     uint32_t replaceMatches(const Vector<uint32_t>& matchIndices, const String& replacementText, bool selectionOnly);
     
     void hideFindIndicator();
+    void resetMatchIndex();
     void showFindIndicatorInSelection();
 
     bool isShowingOverlay() const { return m_isShowingFindIndicator && m_findPageOverlay; }

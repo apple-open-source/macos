@@ -25,14 +25,15 @@
 
 #pragma once
 
-#if ENABLE(WEB_RTC_DTMF)
+#if ENABLE(WEB_RTC)
 
 #include "Event.h"
 #include <wtf/text/AtomString.h>
 
 namespace WebCore {
 
-class RTCDTMFToneChangeEvent : public Event {
+class RTCDTMFToneChangeEvent final : public Event {
+    WTF_MAKE_ISO_ALLOCATED(RTCDTMFToneChangeEvent);
 public:
     virtual ~RTCDTMFToneChangeEvent();
 

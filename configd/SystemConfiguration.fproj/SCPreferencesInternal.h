@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2011, 2013-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,15 +44,22 @@
 #include <SystemConfiguration/SCDynamicStore.h>
 
 
-#define	PREFS_DEFAULT_DIR		CFSTR("/Library/Preferences/SystemConfiguration")
-#define	PREFS_DEFAULT_CONFIG		CFSTR("preferences.plist")
+#define PREFS_DEFAULT_DIR_PATH_RELATIVE	"Library/Preferences/SystemConfiguration"
+#define	PREFS_DEFAULT_DIR_RELATIVE	CFSTR(PREFS_DEFAULT_DIR_PATH_RELATIVE "/")
+
+#define	PREFS_DEFAULT_DIR_PATH		"/" PREFS_DEFAULT_DIR_PATH_RELATIVE
+#define	PREFS_DEFAULT_DIR		CFSTR(PREFS_DEFAULT_DIR_PATH)
+
+#define	PREFS_DEFAULT_CONFIG_PLIST	"preferences.plist"
+#define	PREFS_DEFAULT_CONFIG		CFSTR(PREFS_DEFAULT_CONFIG_PLIST)
 
 #define	PREFS_DEFAULT_DIR_OLD		CFSTR("/var/db/SystemConfiguration")
 #define	PREFS_DEFAULT_CONFIG_OLD	CFSTR("preferences.xml")
 
 #define	PREFS_DEFAULT_USER_DIR		CFSTR("Library/Preferences")
 
-#define	NETWORK_INTERFACES_PREFS	CFSTR("NetworkInterfaces.plist")
+#define	INTERFACES_DEFAULT_CONFIG_PLIST	"NetworkInterfaces.plist"
+#define	INTERFACES_DEFAULT_CONFIG	CFSTR(INTERFACES_DEFAULT_CONFIG_PLIST)
 #define	INTERFACES			CFSTR("Interfaces")
 
 
@@ -108,11 +115,15 @@ typedef struct {
 	/* preferences */
 	CFMutableDictionaryRef	prefs;
 
+	/* companion preferences, manipulate under lock */
+	SCPreferencesRef	parent;		// [strong] reference from companion to parent
+	CFMutableDictionaryRef	companions;	// [weak] reference from parent to companions
+
 	/* flags */
 	Boolean			accessed;
 	Boolean			changed;
 	Boolean			isRoot;
-	Boolean			limit_SCNetworkConfiguration;
+	uint32_t		nc_flags;	// SCNetworkConfiguration flags
 
 	/* authorization, helper */
 	CFDataRef		authorizationData;
@@ -132,6 +143,12 @@ typedef struct {
 
 
 __BEGIN_DECLS
+
+static __inline__ CFTypeRef
+isA_SCPreferences(CFTypeRef obj)
+{
+	return (isA_CFType(obj, SCPreferencesGetTypeID()));
+}
 
 os_log_t
 __log_SCPreferences			(void);
@@ -172,16 +189,18 @@ CFStringRef
 _SCPNotificationKey			(CFAllocatorRef		allocator,
 					 CFStringRef		prefsID,
 					 int			keyType);
-Boolean
-__SCPreferencesGetLimitSCNetworkConfiguration	(SCPreferencesRef prefs);
+
+uint32_t
+__SCPreferencesGetNetworkConfigurationFlags
+					(SCPreferencesRef	prefs);
 
 void
-__SCPreferencesSetLimitSCNetworkConfiguration
+__SCPreferencesSetNetworkConfigurationFlags
 					(SCPreferencesRef	prefs,
-					 Boolean		limit_SCNetworkConfiguration);
+					 uint32_t		nc_flags);
 
 Boolean
-__SCPreferencesUsingDefaultPrefs		(SCPreferencesRef	prefs);
+__SCPreferencesUsingDefaultPrefs	(SCPreferencesRef	prefs);
 
 SCPreferencesRef
 __SCPreferencesCreateNIPrefsFromPrefs	(SCPreferencesRef prefs);

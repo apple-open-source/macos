@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006, 2011, 2014, 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2011, 2014, 2016, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -118,6 +118,7 @@ void		do_net_commit	(int argc, char **argv);
 void		do_net_apply	(int argc, char **argv);
 void		do_net_close	(int argc, char **argv);
 
+void		do_net_clean	(int argc, char **argv);
 void		do_net_create	(int argc, char **argv);
 void		do_net_disable	(int argc, char **argv);
 void		do_net_enable	(int argc, char **argv);
@@ -127,6 +128,7 @@ void		do_net_select	(int argc, char **argv);
 void		do_net_set	(int argc, char **argv);
 void		do_net_show	(int argc, char **argv);
 void		do_net_update	(int argc, char **argv);
+void		do_net_upgrade	(int argc, char **argv);
 
 void		do_net_snapshot	(int argc, char **argv);
 

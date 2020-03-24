@@ -32,9 +32,9 @@
 #import "APIIconLoadingClient.h"
 #import "APIPageConfiguration.h"
 #import "WKBrowsingContextGroupPrivate.h"
-#import "WKDragDestinationAction.h"
 #import "WKNSData.h"
 #import "WKProcessGroupPrivate.h"
+#import "WKWebViewMac.h"
 #import "WebBackForwardListItem.h"
 #import "WebKit2Initialize.h"
 #import "WebPageGroup.h"
@@ -43,6 +43,7 @@
 #import "WebProcessPool.h"
 #import "WebViewImpl.h"
 #import "_WKLinkIconParametersInternal.h"
+#import <WebKit/WKDragDestinationAction.h>
 #import <pal/spi/cocoa/AVKitSPI.h>
 #import <wtf/BlockPtr.h>
 
@@ -310,7 +311,9 @@ WEBCORE_COMMAND(yankAndSelect)
     return _data->_impl->readSelectionFromPasteboard(pasteboard);
 }
 
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)changeFont:(id)sender
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     _data->_impl->changeFontFromFontManager();
 }
@@ -869,17 +872,23 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     _data->_impl->removeTrackingRects(tags, count);
 }
 
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (NSString *)view:(NSView *)view stringForToolTip:(NSToolTipTag)tag point:(NSPoint)point userData:(void *)data
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     return _data->_impl->stringForToolTip(tag);
 }
 
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)pasteboardChangedOwner:(NSPasteboard *)pasteboard
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     _data->_impl->pasteboardChangedOwner(pasteboard);
 }
 
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)pasteboard:(NSPasteboard *)pasteboard provideDataForType:(NSString *)type
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
     _data->_impl->provideDataForPasteboard(pasteboard, type);
 }
@@ -891,10 +900,16 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     return _data->_impl->namesOfPromisedFilesDroppedAtDestination(dropDestination);
 }
 
+- (void)_web_grantDOMPasteAccess
+{
+    _data->_impl->handleDOMPasteRequestWithResult(WebCore::DOMPasteAccessResponse::GrantedForGesture);
+}
+
 - (void)maybeInstallIconLoadingClient
 {
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     class IconLoadingClient : public API::IconLoadingClient {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         explicit IconLoadingClient(WKView *wkView)
             : m_wkView(wkView)
@@ -932,7 +947,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     ALLOW_DEPRECATED_DECLARATIONS_END
 
     if ([self respondsToSelector:IconLoadingClient::delegateSelector()])
-        _data->_impl->page().setIconLoadingClient(std::make_unique<IconLoadingClient>(self));
+        _data->_impl->page().setIconLoadingClient(makeUnique<IconLoadingClient>(self));
 }
 
 - (instancetype)initWithFrame:(NSRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration
@@ -944,7 +959,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     WebKit::InitializeWebKit2();
 
     _data = [[WKViewData alloc] init];
-    _data->_impl = std::make_unique<WebKit::WebViewImpl>(self, nullptr, processPool, WTFMove(configuration));
+    _data->_impl = makeUnique<WebKit::WebViewImpl>(self, nullptr, processPool, WTFMove(configuration));
 
     [self maybeInstallIconLoadingClient];
 
@@ -1458,40 +1473,6 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(NSUs
 - (CGFloat)_totalHeightOfBanners
 {
     return _data->_impl->totalHeightOfBanners();
-}
-
-static Optional<WebCore::ScrollbarOverlayStyle> toCoreScrollbarStyle(_WKOverlayScrollbarStyle scrollbarStyle)
-{
-    switch (scrollbarStyle) {
-    case _WKOverlayScrollbarStyleDark:
-        return WebCore::ScrollbarOverlayStyleDark;
-    case _WKOverlayScrollbarStyleLight:
-        return WebCore::ScrollbarOverlayStyleLight;
-    case _WKOverlayScrollbarStyleDefault:
-        return WebCore::ScrollbarOverlayStyleDefault;
-    case _WKOverlayScrollbarStyleAutomatic:
-    default:
-        break;
-    }
-
-    return WTF::nullopt;
-}
-
-static _WKOverlayScrollbarStyle toAPIScrollbarStyle(Optional<WebCore::ScrollbarOverlayStyle> coreScrollbarStyle)
-{
-    if (!coreScrollbarStyle)
-        return _WKOverlayScrollbarStyleAutomatic;
-
-    switch (coreScrollbarStyle.value()) {
-    case WebCore::ScrollbarOverlayStyleDark:
-        return _WKOverlayScrollbarStyleDark;
-    case WebCore::ScrollbarOverlayStyleLight:
-        return _WKOverlayScrollbarStyleLight;
-    case WebCore::ScrollbarOverlayStyleDefault:
-        return _WKOverlayScrollbarStyleDefault;
-    default:
-        return _WKOverlayScrollbarStyleAutomatic;
-    }
 }
 
 - (void)_setOverlayScrollbarStyle:(_WKOverlayScrollbarStyle)scrollbarStyle

@@ -41,6 +41,7 @@
 #include "GenericEventQueue.h"
 #include "HTMLMediaElement.h"
 #include "InbandTextTrack.h"
+#include "InbandTextTrackPrivate.h"
 #include "Logging.h"
 #include "MediaDescription.h"
 #include "MediaSample.h"
@@ -57,6 +58,7 @@
 #include <limits>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -107,7 +109,7 @@ SourceBuffer::SourceBuffer(Ref<SourceBufferPrivate>&& sourceBufferPrivate, Media
     : ActiveDOMObject(source->scriptExecutionContext())
     , m_private(WTFMove(sourceBufferPrivate))
     , m_source(source)
-    , m_asyncEventQueue(*this)
+    , m_asyncEventQueue(MainThreadGenericEventQueue::create(*this))
     , m_appendBufferTimer(*this, &SourceBuffer::appendBufferTimerFired)
     , m_appendWindowStart(MediaTime::zeroTime())
     , m_appendWindowEnd(MediaTime::positiveInfiniteTime())
@@ -528,38 +530,13 @@ MediaTime SourceBuffer::sourceBufferPrivateFastSeekTimeForMediaTime(const MediaT
 
 bool SourceBuffer::hasPendingActivity() const
 {
-    return m_source || m_asyncEventQueue.hasPendingEvents();
-}
-
-void SourceBuffer::suspend(ReasonForSuspension reason)
-{
-    switch (reason) {
-    case ReasonForSuspension::PageCache:
-    case ReasonForSuspension::PageWillBeSuspended:
-        m_asyncEventQueue.suspend();
-        break;
-    case ReasonForSuspension::JavaScriptDebuggerPaused:
-    case ReasonForSuspension::WillDeferLoading:
-        // Do nothing, we don't pause media playback in these cases.
-        break;
-    }
-}
-
-void SourceBuffer::resume()
-{
-    m_asyncEventQueue.resume();
+    return m_source || m_asyncEventQueue->hasPendingEvents();
 }
 
 void SourceBuffer::stop()
 {
-    m_asyncEventQueue.close();
     m_appendBufferTimer.stop();
     m_removeTimer.stop();
-}
-
-bool SourceBuffer::canSuspendForDocumentSuspension() const
-{
-    return !hasPendingActivity();
 }
 
 const char* SourceBuffer::activeDOMObjectName() const
@@ -577,7 +554,7 @@ void SourceBuffer::scheduleEvent(const AtomString& eventName)
     auto event = Event::create(eventName, Event::CanBubble::No, Event::IsCancelable::No);
     event->setTarget(this);
 
-    m_asyncEventQueue.enqueueEvent(WTFMove(event));
+    m_asyncEventQueue->enqueueEvent(WTFMove(event));
 }
 
 ExceptionOr<void> SourceBuffer::appendBufferInternal(const unsigned char* data, unsigned size)
@@ -825,6 +802,10 @@ void SourceBuffer::removeCodedFrames(const MediaTime& start, const MediaTime& en
 {
     DEBUG_LOG(LOGIDENTIFIER, "start = ", start, ", end = ", end);
 
+    ASSERT(start < end);
+    if (start >= end)
+        return;
+
     // 3.5.9 Coded Frame Removal Algorithm
     // https://dvcs.w3.org/hg/html-media/raw-file/tip/media-source/media-source.html#sourcebuffer-coded-frame-removal
 
@@ -834,7 +815,10 @@ void SourceBuffer::removeCodedFrames(const MediaTime& start, const MediaTime& en
 
     // 2. Let end be the end presentation timestamp for the removal range.
     // 3. For each track buffer in this source buffer, run the following steps:
-    for (auto& trackBuffer : m_trackBufferMap.values()) {
+    for (auto& trackBufferKeyValue : m_trackBufferMap) {
+        TrackBuffer& trackBuffer = trackBufferKeyValue.value;
+        AtomString trackID = trackBufferKeyValue.key;
+
         // 3.1. Let remove end timestamp be the current value of duration
         // 3.2 If this track buffer has a random access point timestamp that is greater than or equal to end, then update
         // remove end timestamp to that random access point timestamp.
@@ -886,8 +870,11 @@ void SourceBuffer::removeCodedFrames(const MediaTime& start, const MediaTime& en
         if (trackBuffer.lastEnqueuedPresentationTime.isValid() && currentMediaTime < trackBuffer.lastEnqueuedPresentationTime) {
             PlatformTimeRanges possiblyEnqueuedRanges(currentMediaTime, trackBuffer.lastEnqueuedPresentationTime);
             possiblyEnqueuedRanges.intersectWith(erasedRanges);
-            if (possiblyEnqueuedRanges.length())
+            if (possiblyEnqueuedRanges.length()) {
                 trackBuffer.needsReenqueueing = true;
+                DEBUG_LOG(LOGIDENTIFIER, "the range in removeCodedFrames() includes already enqueued samples, reenqueueing from ", currentMediaTime);
+                reenqueueMediaForTime(trackBuffer, trackID, currentMediaTime);
+            }
         }
 
         erasedRanges.invert();
@@ -897,8 +884,8 @@ void SourceBuffer::removeCodedFrames(const MediaTime& start, const MediaTime& en
         // 3.4 If this object is in activeSourceBuffers, the current playback position is greater than or equal to start
         // and less than the remove end timestamp, and HTMLMediaElement.readyState is greater than HAVE_METADATA, then set
         // the HTMLMediaElement.readyState attribute to HAVE_METADATA and stall playback.
-        if (m_active && currentMediaTime >= start && currentMediaTime < end && m_private->readyState() > MediaPlayer::HaveMetadata)
-            m_private->setReadyState(MediaPlayer::HaveMetadata);
+        if (m_active && currentMediaTime >= start && currentMediaTime < end && m_private->readyState() > MediaPlayer::ReadyState::HaveMetadata)
+            m_private->setReadyState(MediaPlayer::ReadyState::HaveMetadata);
     }
     
     updateBufferedFromTrackBuffers();
@@ -1051,21 +1038,21 @@ size_t SourceBuffer::maximumBufferSize() const
 VideoTrackList& SourceBuffer::videoTracks()
 {
     if (!m_videoTracks)
-        m_videoTracks = VideoTrackList::create(m_source->mediaElement(), scriptExecutionContext());
+        m_videoTracks = VideoTrackList::create(makeWeakPtr(m_source->mediaElement()), scriptExecutionContext());
     return *m_videoTracks;
 }
 
 AudioTrackList& SourceBuffer::audioTracks()
 {
     if (!m_audioTracks)
-        m_audioTracks = AudioTrackList::create(m_source->mediaElement(), scriptExecutionContext());
+        m_audioTracks = AudioTrackList::create(makeWeakPtr(m_source->mediaElement()), scriptExecutionContext());
     return *m_audioTracks;
 }
 
 TextTrackList& SourceBuffer::textTracks()
 {
     if (!m_textTracks)
-        m_textTracks = TextTrackList::create(m_source->mediaElement(), scriptExecutionContext());
+        m_textTracks = TextTrackList::create(makeWeakPtr(m_source->mediaElement()), scriptExecutionContext());
     return *m_textTracks;
 }
 
@@ -1299,7 +1286,7 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(const Init
     m_pendingInitializationSegmentForChangeType = false;
 
     // 6. If the HTMLMediaElement.readyState attribute is HAVE_NOTHING, then run the following steps:
-    if (m_private->readyState() == MediaPlayer::HaveNothing) {
+    if (m_private->readyState() == MediaPlayer::ReadyState::HaveNothing) {
         // 6.1 If one or more objects in sourceBuffers have first initialization segment flag set to false, then abort these steps.
         for (auto& sourceBuffer : *m_source->sourceBuffers()) {
             if (!sourceBuffer->m_receivedFirstInitializationSegment)
@@ -1308,14 +1295,14 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(const Init
 
         // 6.2 Set the HTMLMediaElement.readyState attribute to HAVE_METADATA.
         // 6.3 Queue a task to fire a simple event named loadedmetadata at the media element.
-        m_private->setReadyState(MediaPlayer::HaveMetadata);
+        m_private->setReadyState(MediaPlayer::ReadyState::HaveMetadata);
     }
 
     // 7. If the active track flag equals true and the HTMLMediaElement.readyState
     // attribute is greater than HAVE_CURRENT_DATA, then set the HTMLMediaElement.readyState
     // attribute to HAVE_METADATA.
-    if (activeTrackFlag && m_private->readyState() > MediaPlayer::HaveCurrentData)
-        m_private->setReadyState(MediaPlayer::HaveMetadata);
+    if (activeTrackFlag && m_private->readyState() > MediaPlayer::ReadyState::HaveCurrentData)
+        m_private->setReadyState(MediaPlayer::ReadyState::HaveMetadata);
 }
 
 bool SourceBuffer::validateInitializationSegment(const InitializationSegment& segment)
@@ -1689,6 +1676,29 @@ void SourceBuffer::sourceBufferPrivateDidReceiveSample(MediaSample& sample)
             if (iter_pair.first != trackBuffer.samples.presentationOrder().end())
                 erasedSamples.addRange(iter_pair.first, iter_pair.second);
         }
+
+        // When appending media containing B-frames (media whose samples' presentation timestamps
+        // do not increase monotonically, the prior erase steps could leave a sample in the trackBuffer
+        // which will be disconnected from its previous I-frame. If the incoming frame is an I-frame,
+        // remove all samples in decode order between the incoming I-frame's decode timestamp and the
+        // next I-frame. See <https://github.com/w3c/media-source/issues/187> for a discussion of what
+        // the how the MSE specification should handlie this secnario.
+        do {
+            if (!sample.isSync())
+                break;
+
+            DecodeOrderSampleMap::KeyType decodeKey(sample.decodeTime(), sample.presentationTime());
+            auto nextSampleInDecodeOrder = trackBuffer.samples.decodeOrder().findSampleAfterDecodeKey(decodeKey);
+            if (nextSampleInDecodeOrder == trackBuffer.samples.decodeOrder().end())
+                break;
+
+            if (nextSampleInDecodeOrder->second->isSync())
+                break;
+
+            auto nextSyncSample = trackBuffer.samples.decodeOrder().findSyncSampleAfterDecodeIterator(nextSampleInDecodeOrder);
+            INFO_LOG(LOGIDENTIFIER, "Discovered out-of-order frames, from: ", *nextSampleInDecodeOrder->second, " to: ", (nextSyncSample == trackBuffer.samples.decodeOrder().end() ? "[end]"_s : toString(*nextSyncSample->second)));
+            erasedSamples.addRange(nextSampleInDecodeOrder, nextSyncSample);
+        } while (false);
 
         // There are many files out there where the frame times are not perfectly contiguous and may have small overlaps
         // between the beginning of a frame and the end of the previous one; therefore a tolerance is needed whenever

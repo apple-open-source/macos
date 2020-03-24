@@ -51,6 +51,8 @@ public:
 
     virtual ~SocketStreamHandleImpl();
 
+    WEBCORE_EXPORT static void setLegacyTLSEnabled(bool);
+
     WEBCORE_EXPORT void platformSend(const uint8_t* data, size_t length, Function<void(bool)>&&) final;
     WEBCORE_EXPORT void platformSendHandshake(const uint8_t* data, size_t length, const Optional<CookieRequestHeaderFieldProxy>&, Function<void(bool, bool)>&&) final;
     WEBCORE_EXPORT void platformClose() final;
@@ -101,7 +103,6 @@ private:
     RetainPtr<CFWriteStreamRef> m_writeStream;
 
     RetainPtr<CFURLRef> m_httpsURL; // ws(s): replaced with https:
-    PAL::SessionID m_sessionID;
     String m_credentialPartition;
     SourceApplicationAuditToken m_auditData;
     RefPtr<const StorageSessionProvider> m_storageSessionProvider;

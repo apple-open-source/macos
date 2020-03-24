@@ -148,7 +148,7 @@ void NetworkDataTaskCurl::curlDidReceiveResponse(CurlRequest& request, CurlRespo
 
     m_response = ResourceResponse(receivedResponse);
     m_response.setCertificateInfo(WTFMove(receivedResponse.certificateInfo));
-    m_response.setDeprecatedNetworkLoadMetrics(WTFMove(receivedResponse.networkLoadMetrics));
+    m_response.setDeprecatedNetworkLoadMetrics(Box<NetworkLoadMetrics>::create(WTFMove(receivedResponse.networkLoadMetrics)));
 
     handleCookieHeaders(request.resourceRequest(), receivedResponse);
 
@@ -223,7 +223,7 @@ bool NetworkDataTaskCurl::shouldRedirectAsGET(const ResourceRequest& request, bo
 
 void NetworkDataTaskCurl::invokeDidReceiveResponse()
 {
-    didReceiveResponse(ResourceResponse(m_response), [this, protectedThis = makeRef(*this)](PolicyAction policyAction) {
+    didReceiveResponse(ResourceResponse(m_response), NegotiatedLegacyTLS::No, [this, protectedThis = makeRef(*this)](PolicyAction policyAction) {
         if (m_state == State::Canceling || m_state == State::Completed)
             return;
 
@@ -353,7 +353,7 @@ void NetworkDataTaskCurl::tryHttpAuthentication(AuthenticationChallenge&& challe
         }
     }
 
-    m_client->didReceiveChallenge(AuthenticationChallenge(challenge), [this, protectedThis = makeRef(*this), challenge](AuthenticationChallengeDisposition disposition, const Credential& credential) {
+    m_client->didReceiveChallenge(AuthenticationChallenge(challenge), NegotiatedLegacyTLS::No, [this, protectedThis = makeRef(*this), challenge](AuthenticationChallengeDisposition disposition, const Credential& credential) {
         if (m_state == State::Canceling || m_state == State::Completed)
             return;
 
@@ -379,7 +379,7 @@ void NetworkDataTaskCurl::tryHttpAuthentication(AuthenticationChallenge&& challe
 
 void NetworkDataTaskCurl::tryProxyAuthentication(WebCore::AuthenticationChallenge&& challenge)
 {
-    m_client->didReceiveChallenge(AuthenticationChallenge(challenge), [this, protectedThis = makeRef(*this), challenge](AuthenticationChallengeDisposition disposition, const Credential& credential) {
+    m_client->didReceiveChallenge(AuthenticationChallenge(challenge), NegotiatedLegacyTLS::No, [this, protectedThis = makeRef(*this), challenge](AuthenticationChallengeDisposition disposition, const Credential& credential) {
         if (m_state == State::Canceling || m_state == State::Completed)
             return;
 
@@ -404,7 +404,7 @@ void NetworkDataTaskCurl::tryProxyAuthentication(WebCore::AuthenticationChalleng
 
 void NetworkDataTaskCurl::tryServerTrustEvaluation(AuthenticationChallenge&& challenge)
 {
-    m_client->didReceiveChallenge(AuthenticationChallenge(challenge), [this, protectedThis = makeRef(*this), challenge](AuthenticationChallengeDisposition disposition, const Credential& credential) {
+    m_client->didReceiveChallenge(AuthenticationChallenge(challenge), NegotiatedLegacyTLS::No, [this, protectedThis = makeRef(*this), challenge](AuthenticationChallengeDisposition disposition, const Credential& credential) {
         if (m_state == State::Canceling || m_state == State::Completed)
             return;
 

@@ -33,6 +33,7 @@
 #import "DrawingAreaProxyMessages.h"
 #import "LayerTreeContext.h"
 #import "WebPageProxy.h"
+#import "WebPageProxyMessages.h"
 #import "WebProcessProxy.h"
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/BlockPtr.h>
@@ -76,7 +77,7 @@ void TiledCoreAnimationDrawingAreaProxy::colorSpaceDidChange()
     send(Messages::DrawingArea::SetColorSpace(m_webPageProxy.colorSpace()));
 }
 
-void TiledCoreAnimationDrawingAreaProxy::viewLayoutSizeDidChange()
+void TiledCoreAnimationDrawingAreaProxy::minimumSizeForAutoLayoutDidChange()
 {
     if (!m_webPageProxy.hasRunningProcess())
         return;
@@ -111,23 +112,23 @@ void TiledCoreAnimationDrawingAreaProxy::didUpdateGeometry()
 
     m_isWaitingForDidUpdateGeometry = false;
 
-    IntSize viewLayoutSize = m_webPageProxy.viewLayoutSize();
+    IntSize minimumSizeForAutoLayout = m_webPageProxy.minimumSizeForAutoLayout();
 
     // If the WKView was resized while we were waiting for a DidUpdateGeometry reply from the web process,
     // we need to resend the new size here.
-    if (m_lastSentSize != m_size || m_lastSentViewLayoutSize != viewLayoutSize)
+    if (m_lastSentSize != m_size || m_lastSentMinimumSizeForAutoLayout != minimumSizeForAutoLayout)
         sendUpdateGeometry();
 }
 
 void TiledCoreAnimationDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStateChangeID)
 {
     Seconds activityStateUpdateTimeout = Seconds::fromMilliseconds(250);
-    process().connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DidUpdateActivityState>(m_webPageProxy.pageID(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
+    process().connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DidUpdateActivityState>(m_webPageProxy.webPageID(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
 }
 
 void TiledCoreAnimationDrawingAreaProxy::willSendUpdateGeometry()
 {
-    m_lastSentViewLayoutSize = m_webPageProxy.viewLayoutSize();
+    m_lastSentMinimumSizeForAutoLayout = m_webPageProxy.minimumSizeForAutoLayout();
     m_lastSentSize = m_size;
     m_isWaitingForDidUpdateGeometry = true;
 }

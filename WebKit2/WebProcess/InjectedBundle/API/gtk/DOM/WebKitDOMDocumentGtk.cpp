@@ -1151,7 +1151,9 @@ WebKitDOMXPathNSResolver* webkit_dom_document_create_ns_resolver(WebKitDOMDocume
     g_return_val_if_fail(WEBKIT_DOM_IS_NODE(nodeResolver), 0);
     WebCore::Document* item = WebKit::core(self);
     WebCore::Node* convertedNodeResolver = WebKit::core(nodeResolver);
-    RefPtr<WebCore::XPathNSResolver> gobjectResult = WTF::getPtr(item->createNSResolver(convertedNodeResolver));
+    if (!convertedNodeResolver)
+        return nullptr;
+    RefPtr<WebCore::XPathNSResolver> gobjectResult = WTF::getPtr(item->createNSResolver(*convertedNodeResolver));
     return WebKit::kit(gobjectResult.get());
 }
 
@@ -1160,7 +1162,7 @@ WebKitDOMXPathResult* webkit_dom_document_evaluate(WebKitDOMDocument* self, cons
     WebCore::JSMainThreadNullState state;
     g_return_val_if_fail(WEBKIT_DOM_IS_DOCUMENT(self), 0);
     g_return_val_if_fail(expression, 0);
-    g_return_val_if_fail(WEBKIT_DOM_IS_NODE(contextNode), 0);
+    g_return_val_if_fail(contextNode && WEBKIT_DOM_IS_NODE(contextNode), 0);
     g_return_val_if_fail(!resolver || WEBKIT_DOM_IS_XPATH_NS_RESOLVER(resolver), 0);
     g_return_val_if_fail(!inResult || WEBKIT_DOM_IS_XPATH_RESULT(inResult), 0);
     g_return_val_if_fail(!error || !*error, 0);
@@ -1169,7 +1171,7 @@ WebKitDOMXPathResult* webkit_dom_document_evaluate(WebKitDOMDocument* self, cons
     WebCore::Node* convertedContextNode = WebKit::core(contextNode);
     RefPtr<WebCore::XPathNSResolver> convertedResolver = WebKit::core(resolver);
     WebCore::XPathResult* convertedInResult = WebKit::core(inResult);
-    auto result = item->evaluate(convertedExpression, convertedContextNode, WTFMove(convertedResolver), type, convertedInResult);
+    auto result = item->evaluate(convertedExpression, *convertedContextNode, WTFMove(convertedResolver), type, convertedInResult);
     if (result.hasException()) {
         auto description = WebCore::DOMException::description(result.releaseException().code());
         g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.legacyCode, description.name);

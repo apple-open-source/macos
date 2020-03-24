@@ -28,6 +28,7 @@ static void t_puts(int *t_col, char_u *t_s, char_u *s, int attr);
 static void msg_puts_printf(char_u *str, int maxlen);
 static int do_more_prompt(int typed_char);
 static void msg_screen_putchar(int c, int attr);
+static void msg_moremsg(int full);
 static int  msg_check_screen(void);
 static void redir_write(char_u *s, int maxlen);
 #ifdef FEAT_CON_DIALOG
@@ -35,6 +36,7 @@ static char_u *msg_show_console_dialog(char_u *message, char_u *buttons, int dfl
 static int	confirm_msg_used = FALSE;	/* displaying confirm_msg */
 static char_u	*confirm_msg = NULL;		/* ":confirm" message */
 static char_u	*confirm_msg_tail;		/* tail of confirm_msg */
+static void display_confirm_msg(void);
 #endif
 #ifdef FEAT_JOB_CHANNEL
 static int emsg_to_channel_log = FALSE;
@@ -165,11 +167,6 @@ msg_attr_keep(
 	/* Write message in the channel log. */
 	ch_log(NULL, "ERROR: %s", (char *)s);
 #endif
-
-    /* When displaying keep_msg, don't let msg_start() free it, caller must do
-     * that. */
-    if ((char_u *)s == keep_msg)
-	keep_msg = NULL;
 
     /* Truncate the message if needed. */
     msg_start();
@@ -359,34 +356,61 @@ int vim_snprintf(char *str, size_t str_m, const char *fmt, ...);
     int
 smsg(const char *s, ...)
 {
-    va_list arglist;
+    if (IObuff == NULL)
+    {
+	// Very early in initialisation and already something wrong, just
+	// give the raw message so the user at least gets a hint.
+	return msg((char *)s);
+    }
+    else
+    {
+	va_list arglist;
 
-    va_start(arglist, s);
-    vim_vsnprintf((char *)IObuff, IOSIZE, s, arglist);
-    va_end(arglist);
-    return msg((char *)IObuff);
+	va_start(arglist, s);
+	vim_vsnprintf((char *)IObuff, IOSIZE, s, arglist);
+	va_end(arglist);
+	return msg((char *)IObuff);
+    }
 }
 
     int
 smsg_attr(int attr, const char *s, ...)
 {
-    va_list arglist;
+    if (IObuff == NULL)
+    {
+	// Very early in initialisation and already something wrong, just
+	// give the raw message so the user at least gets a hint.
+	return msg_attr((char *)s, attr);
+    }
+    else
+    {
+	va_list arglist;
 
-    va_start(arglist, s);
-    vim_vsnprintf((char *)IObuff, IOSIZE, s, arglist);
-    va_end(arglist);
-    return msg_attr((char *)IObuff, attr);
+	va_start(arglist, s);
+	vim_vsnprintf((char *)IObuff, IOSIZE, s, arglist);
+	va_end(arglist);
+	return msg_attr((char *)IObuff, attr);
+    }
 }
 
     int
 smsg_attr_keep(int attr, const char *s, ...)
 {
-    va_list arglist;
+    if (IObuff == NULL)
+    {
+	// Very early in initialisation and already something wrong, just
+	// give the raw message so the user at least gets a hint.
+	return msg_attr_keep((char *)s, attr, TRUE);
+    }
+    else
+    {
+	va_list arglist;
 
-    va_start(arglist, s);
-    vim_vsnprintf((char *)IObuff, IOSIZE, s, arglist);
-    va_end(arglist);
-    return msg_attr_keep((char *)IObuff, attr, TRUE);
+	va_start(arglist, s);
+	vim_vsnprintf((char *)IObuff, IOSIZE, s, arglist);
+	va_end(arglist);
+	return msg_attr_keep((char *)IObuff, attr, TRUE);
+    }
 }
 
 #endif
@@ -437,7 +461,7 @@ get_emsg_source(void)
     if (sourcing_name != NULL && other_sourcing_name())
     {
 	p = (char_u *)_("Error detected while processing %s:");
-	Buf = alloc((unsigned)(STRLEN(sourcing_name) + STRLEN(p)));
+	Buf = alloc(STRLEN(sourcing_name) + STRLEN(p));
 	if (Buf != NULL)
 	    sprintf((char *)Buf, (char *)p, sourcing_name);
 	return Buf;
@@ -462,7 +486,7 @@ get_emsg_lnum(void)
 	    && sourcing_lnum != 0)
     {
 	p = (char_u *)_("line %4ld:");
-	Buf = alloc((unsigned)(STRLEN(p) + 20));
+	Buf = alloc(STRLEN(p) + 20);
 	if (Buf != NULL)
 	    sprintf((char *)Buf, (char *)p, (long)sourcing_lnum);
 	return Buf;
@@ -513,7 +537,7 @@ msg_source(int attr)
  * If "msg" is in 'debug': do error message but without side effects.
  * If "emsg_skip" is set: never do error messages.
  */
-    int
+    static int
 emsg_not_now(void)
 {
     if ((emsg_off > 0 && vim_strchr(p_debug, 'm') == NULL
@@ -652,7 +676,7 @@ emsg_core(char_u *s)
 		redir_write(s, -1);
 	    }
 #ifdef FEAT_JOB_CHANNEL
-	    ch_log(NULL, "ERROR: %s", (char *)s);
+	    ch_log(NULL, "ERROR silent: %s", (char *)s);
 #endif
 	    return TRUE;
 	}
@@ -726,17 +750,26 @@ emsg(char *s)
     int
 semsg(const char *s, ...)
 {
-    /* Skip this if not giving error messages at the moment. */
+    // Skip this if not giving error messages at the moment.
     if (!emsg_not_now())
     {
-	va_list ap;
+	if (IObuff == NULL)
+	{
+	    // Very early in initialisation and already something wrong, just
+	    // give the raw message so the user at least gets a hint.
+	    return emsg_core((char_u *)s);
+	}
+	else
+	{
+	    va_list ap;
 
-	va_start(ap, s);
-	vim_vsnprintf((char *)IObuff, IOSIZE, s, ap);
-	va_end(ap);
-	return emsg_core(IObuff);
+	    va_start(ap, s);
+	    vim_vsnprintf((char *)IObuff, IOSIZE, s, ap);
+	    va_end(ap);
+	    return emsg_core(IObuff);
+	}
     }
-    return TRUE;		/* no error messages at the moment */
+    return TRUE;		// no error messages at the moment
 }
 #endif
 
@@ -767,12 +800,21 @@ siemsg(const char *s, ...)
 {
     if (!emsg_not_now())
     {
-	va_list ap;
+	if (IObuff == NULL)
+	{
+	    // Very early in initialisation and already something wrong, just
+	    // give the raw message so the user at least gets a hint.
+	    emsg_core((char_u *)s);
+	}
+	else
+	{
+	    va_list ap;
 
-	va_start(ap, s);
-	vim_vsnprintf((char *)IObuff, IOSIZE, s, ap);
-	va_end(ap);
-	emsg_core(IObuff);
+	    va_start(ap, s);
+	    vim_vsnprintf((char *)IObuff, IOSIZE, s, ap);
+	    va_end(ap);
+	    emsg_core(IObuff);
+	}
     }
 # ifdef ABORT_ON_INTERNAL_ERROR
     abort();
@@ -875,7 +917,7 @@ add_msg_hist(
 	(void)delete_first_msg();
 
     /* allocate an entry and add the message at the end of the history */
-    p = (struct msg_hist *)alloc((int)sizeof(struct msg_hist));
+    p = ALLOC_ONE(struct msg_hist);
     if (p != NULL)
     {
 	if (len < 0)
@@ -1061,9 +1103,7 @@ wait_return(int redraw)
 	screenalloc(FALSE);
 
 	State = HITRETURN;
-#ifdef FEAT_MOUSE
 	setmouse();
-#endif
 #ifdef USE_ON_FLY_SCROLL
 	dont_scroll = TRUE;		/* disallow scrolling here */
 #endif
@@ -1160,7 +1200,6 @@ wait_return(int redraw)
 #ifdef FEAT_GUI
 				|| c == K_VER_SCROLLBAR || c == K_HOR_SCROLLBAR
 #endif
-#ifdef FEAT_MOUSE
 				|| c == K_LEFTDRAG   || c == K_LEFTRELEASE
 				|| c == K_MIDDLEDRAG || c == K_MIDDLERELEASE
 				|| c == K_RIGHTDRAG  || c == K_RIGHTRELEASE
@@ -1174,19 +1213,15 @@ wait_return(int redraw)
 					|| c == K_RIGHTMOUSE
 					|| c == K_X1MOUSE
 					|| c == K_X2MOUSE))
-#endif
 				);
 	ui_breakcheck();
-#ifdef FEAT_MOUSE
 	/*
 	 * Avoid that the mouse-up event causes visual mode to start.
 	 */
 	if (c == K_LEFTMOUSE || c == K_MIDDLEMOUSE || c == K_RIGHTMOUSE
 					  || c == K_X1MOUSE || c == K_X2MOUSE)
 	    (void)jump_to_mouse(MOUSE_SETPOS, NULL, 0);
-	else
-#endif
-	    if (vim_strchr((char_u *)"\r\n ", c) == NULL && c != Ctrl_C)
+	else if (vim_strchr((char_u *)"\r\n ", c) == NULL && c != Ctrl_C)
 	{
 	    /* Put the character back in the typeahead buffer.  Don't use the
 	     * stuff buffer, because lmaps wouldn't work. */
@@ -1219,9 +1254,7 @@ wait_return(int redraw)
      */
     tmpState = State;
     State = oldState;		    /* restore State before set_shellsize */
-#ifdef FEAT_MOUSE
     setmouse();
-#endif
     msg_check();
 
 #if defined(UNIX) || defined(VMS)
@@ -1583,7 +1616,7 @@ msg_make(char_u *arg)
 msg_outtrans_special(
     char_u	*strstart,
     int		from,	// TRUE for lhs of a mapping
-    int		maxlen) // screen columns, 0 for unlimeted
+    int		maxlen) // screen columns, 0 for unlimited
 {
     char_u	*str = strstart;
     int		retval = 0;
@@ -1930,13 +1963,7 @@ msg_puts_title(char *s)
  * part in the middle and replace it with "..." when necessary.
  * Does not handle multi-byte characters!
  */
-    void
-msg_outtrans_long_attr(char_u *longstr, int attr)
-{
-    msg_outtrans_long_len_attr(longstr, (int)STRLEN(longstr), attr);
-}
-
-    void
+    static void
 msg_outtrans_long_len_attr(char_u *longstr, int len, int attr)
 {
     int		slen = len;
@@ -1950,6 +1977,12 @@ msg_outtrans_long_len_attr(char_u *longstr, int len, int attr)
 	msg_puts_attr("...", HL_ATTR(HLF_8));
     }
     msg_outtrans_len_attr(longstr + len - slen, slen, attr);
+}
+
+    void
+msg_outtrans_long_attr(char_u *longstr, int attr)
+{
+    msg_outtrans_long_len_attr(longstr, (int)STRLEN(longstr), attr);
 }
 
 /*
@@ -1987,15 +2020,14 @@ msg_puts_attr_len(char *str, int maxlen, int attr)
 	attr &= ~MSG_HIST;
     }
 
-    /*
-     * When writing something to the screen after it has scrolled, requires a
-     * wait-return prompt later.  Needed when scrolling, resetting
-     * need_wait_return after some prompt, and then outputting something
-     * without scrolling
-     */
-    if (msg_scrolled != 0 && !msg_scrolled_ign)
+    // When writing something to the screen after it has scrolled, requires a
+    // wait-return prompt later.  Needed when scrolling, resetting
+    // need_wait_return after some prompt, and then outputting something
+    // without scrolling
+    // Not needed when only using CR to move the cursor.
+    if (msg_scrolled != 0 && !msg_scrolled_ign && STRCMP(str, "\r") != 0)
 	need_wait_return = TRUE;
-    msg_didany = TRUE;		/* remember that something was outputted */
+    msg_didany = TRUE;		// remember that something was outputted
 
     /*
      * If there is no valid screen, use fprintf so we can see error messages.
@@ -2360,7 +2392,7 @@ store_sb_text(
 
     if (s > *sb_str)
     {
-	mp = (msgchunk_T *)alloc((int)(sizeof(msgchunk_T) + (s - *sb_str)));
+	mp = alloc(sizeof(msgchunk_T) + (s - *sb_str));
 	if (mp != NULL)
 	{
 	    mp->sb_eol = finish;
@@ -2586,16 +2618,19 @@ msg_puts_printf(char_u *str, int maxlen)
 		int n = (int)(s - p);
 
 		buf = alloc(n + 3);
-		memcpy(buf, p, n);
-		if (!info_message)
-		    buf[n++] = CAR;
-		buf[n++] = NL;
-		buf[n++] = NUL;
-		if (info_message)   // informative message, not an error
-		    mch_msg((char *)buf);
-		else
-		    mch_errmsg((char *)buf);
-		vim_free(buf);
+		if (buf != NULL)
+		{
+		    memcpy(buf, p, n);
+		    if (!info_message)
+			buf[n++] = CAR;
+		    buf[n++] = NL;
+		    buf[n++] = NUL;
+		    if (info_message)   // informative message, not an error
+			mch_msg((char *)buf);
+		    else
+			mch_errmsg((char *)buf);
+		    vim_free(buf);
+		}
 		p = s + 1;
 	    }
 	}
@@ -2684,9 +2719,7 @@ do_more_prompt(int typed_char)
     }
 
     State = ASKMORE;
-#ifdef FEAT_MOUSE
     setmouse();
-#endif
     if (typed_char == NUL)
 	msg_moremsg(FALSE);
     for (;;)
@@ -2902,9 +2935,7 @@ do_more_prompt(int typed_char)
     /* clear the --more-- message */
     screen_fill((int)Rows - 1, (int)Rows, 0, (int)Columns, ' ', ' ', 0);
     State = oldState;
-#ifdef FEAT_MOUSE
     setmouse();
-#endif
     if (quit_more)
     {
 	msg_row = Rows - 1;
@@ -3141,7 +3172,7 @@ msg_screen_putchar(int c, int attr)
     }
 }
 
-    void
+    static void
 msg_moremsg(int full)
 {
     int		attr;
@@ -3515,8 +3546,17 @@ give_warning(char_u *message, int hl)
     void
 give_warning2(char_u *message, char_u *a1, int hl)
 {
-    vim_snprintf((char *)IObuff, IOSIZE, (char *)message, a1);
-    give_warning(IObuff, hl);
+    if (IObuff == NULL)
+    {
+	// Very early in initialisation and already something wrong, just give
+	// the raw message so the user at least gets a hint.
+	give_warning((char_u *)message, hl);
+    }
+    else
+    {
+	vim_snprintf((char *)IObuff, IOSIZE, (char *)message, a1);
+	give_warning(IObuff, hl);
+    }
 }
 #endif
 
@@ -3608,9 +3648,7 @@ do_dialog(
 
     oldState = State;
     State = CONFIRM;
-#ifdef FEAT_MOUSE
     setmouse();
-#endif
 
     /*
      * Since we wait for a keypress, don't make the
@@ -3673,9 +3711,7 @@ do_dialog(
     }
 
     State = oldState;
-#ifdef FEAT_MOUSE
     setmouse();
-#endif
     --no_wait_return;
     msg_end_prompt();
 
@@ -3882,7 +3918,7 @@ msg_show_console_dialog(
 /*
  * Display the ":confirm" message.  Also called when screen resized.
  */
-    void
+    static void
 display_confirm_msg(void)
 {
     /* avoid that 'q' at the more prompt truncates the message here */
@@ -3951,168 +3987,6 @@ vim_dialog_yesnoallcancel(
 }
 
 #endif /* FEAT_GUI_DIALOG || FEAT_CON_DIALOG */
-
-#if defined(FEAT_BROWSE) || defined(PROTO)
-/*
- * Generic browse function.  Calls gui_mch_browse() when possible.
- * Later this may pop-up a non-GUI file selector (external command?).
- */
-    char_u *
-do_browse(
-    int		flags,		/* BROWSE_SAVE and BROWSE_DIR */
-    char_u	*title,		/* title for the window */
-    char_u	*dflt,		/* default file name (may include directory) */
-    char_u	*ext,		/* extension added */
-    char_u	*initdir,	/* initial directory, NULL for current dir or
-				   when using path from "dflt" */
-    char_u	*filter,	/* file name filter */
-    buf_T	*buf)		/* buffer to read/write for */
-{
-    char_u		*fname;
-    static char_u	*last_dir = NULL;    /* last used directory */
-    char_u		*tofree = NULL;
-    int			save_browse = cmdmod.browse;
-
-    /* Must turn off browse to avoid that autocommands will get the
-     * flag too!  */
-    cmdmod.browse = FALSE;
-
-    if (title == NULL || *title == NUL)
-    {
-	if (flags & BROWSE_DIR)
-	    title = (char_u *)_("Select Directory dialog");
-	else if (flags & BROWSE_SAVE)
-	    title = (char_u *)_("Save File dialog");
-	else
-	    title = (char_u *)_("Open File dialog");
-    }
-
-    /* When no directory specified, use default file name, default dir, buffer
-     * dir, last dir or current dir */
-    if ((initdir == NULL || *initdir == NUL) && dflt != NULL && *dflt != NUL)
-    {
-	if (mch_isdir(dflt))		/* default file name is a directory */
-	{
-	    initdir = dflt;
-	    dflt = NULL;
-	}
-	else if (gettail(dflt) != dflt)	/* default file name includes a path */
-	{
-	    tofree = vim_strsave(dflt);
-	    if (tofree != NULL)
-	    {
-		initdir = tofree;
-		*gettail(initdir) = NUL;
-		dflt = gettail(dflt);
-	    }
-	}
-    }
-
-    if (initdir == NULL || *initdir == NUL)
-    {
-	/* When 'browsedir' is a directory, use it */
-	if (STRCMP(p_bsdir, "last") != 0
-		&& STRCMP(p_bsdir, "buffer") != 0
-		&& STRCMP(p_bsdir, "current") != 0
-		&& mch_isdir(p_bsdir))
-	    initdir = p_bsdir;
-	/* When saving or 'browsedir' is "buffer", use buffer fname */
-	else if (((flags & BROWSE_SAVE) || *p_bsdir == 'b')
-		&& buf != NULL && buf->b_ffname != NULL)
-	{
-	    if (dflt == NULL || *dflt == NUL)
-		dflt = gettail(curbuf->b_ffname);
-	    tofree = vim_strsave(curbuf->b_ffname);
-	    if (tofree != NULL)
-	    {
-		initdir = tofree;
-		*gettail(initdir) = NUL;
-	    }
-	}
-	/* When 'browsedir' is "last", use dir from last browse */
-	else if (*p_bsdir == 'l')
-	    initdir = last_dir;
-	/* When 'browsedir is "current", use current directory.  This is the
-	 * default already, leave initdir empty. */
-    }
-
-# ifdef FEAT_GUI
-    if (gui.in_use)		/* when this changes, also adjust f_has()! */
-    {
-	if (filter == NULL
-#  ifdef FEAT_EVAL
-		&& (filter = get_var_value((char_u *)"b:browsefilter")) == NULL
-		&& (filter = get_var_value((char_u *)"g:browsefilter")) == NULL
-#  endif
-	)
-	    filter = BROWSE_FILTER_DEFAULT;
-	if (flags & BROWSE_DIR)
-	{
-#  if defined(FEAT_GUI_GTK) || defined(MSWIN)
-	    /* For systems that have a directory dialog. */
-	    fname = gui_mch_browsedir(title, initdir);
-#  else
-	    /* Generic solution for selecting a directory: select a file and
-	     * remove the file name. */
-	    fname = gui_mch_browse(0, title, dflt, ext, initdir, (char_u *)"");
-#  endif
-#  if !defined(FEAT_GUI_GTK)
-	    /* Win32 adds a dummy file name, others return an arbitrary file
-	     * name.  GTK+ 2 returns only the directory, */
-	    if (fname != NULL && *fname != NUL && !mch_isdir(fname))
-	    {
-		/* Remove the file name. */
-		char_u	    *tail = gettail_sep(fname);
-
-		if (tail == fname)
-		    *tail++ = '.';	/* use current dir */
-		*tail = NUL;
-	    }
-#  endif
-	}
-	else
-	    fname = gui_mch_browse(flags & BROWSE_SAVE,
-			       title, dflt, ext, initdir, (char_u *)_(filter));
-
-	/* We hang around in the dialog for a while, the user might do some
-	 * things to our files.  The Win32 dialog allows deleting or renaming
-	 * a file, check timestamps. */
-	need_check_timestamps = TRUE;
-	did_check_timestamps = FALSE;
-    }
-    else
-# endif
-    {
-	/* TODO: non-GUI file selector here */
-	emsg(_("E338: Sorry, no file browser in console mode"));
-	fname = NULL;
-    }
-
-    /* keep the directory for next time */
-    if (fname != NULL)
-    {
-	vim_free(last_dir);
-	last_dir = vim_strsave(fname);
-	if (last_dir != NULL && !(flags & BROWSE_DIR))
-	{
-	    *gettail(last_dir) = NUL;
-	    if (*last_dir == NUL)
-	    {
-		/* filename only returned, must be in current dir */
-		vim_free(last_dir);
-		last_dir = alloc(MAXPATHL);
-		if (last_dir != NULL)
-		    mch_dirname(last_dir, MAXPATHL);
-	    }
-	}
-    }
-
-    vim_free(tofree);
-    cmdmod.browse = save_browse;
-
-    return fname;
-}
-#endif
 
 #if defined(FEAT_EVAL)
 static char *e_printf = N_("E766: Insufficient arguments for printf()");
@@ -4579,12 +4453,16 @@ vim_vsnprintf_typval(
 				     - mb_string2cells((char_u *)str_arg, -1);
 			if (precision)
 			{
-			    char_u *p1 = (char_u *)str_arg;
-			    size_t i;
+			    char_u  *p1;
+			    size_t  i = 0;
 
-			    for (i = 0; i < precision && *p1; i++)
-				p1 += mb_ptr2len(p1);
-
+			    for (p1 = (char_u *)str_arg; *p1;
+							  p1 += mb_ptr2len(p1))
+			    {
+				i += (size_t)mb_ptr2cells(p1);
+				if (i > precision)
+				    break;
+			    }
 			    str_arg_l = precision = p1 - (char_u *)str_arg;
 			}
 		    }

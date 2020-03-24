@@ -450,6 +450,13 @@
 
     // Bring all operations down, too
     [self cancelAllOperations];
+
+    // And now, wait for all operations that are running
+    for(NSOperation* op in self.operationQueue.operations) {
+        if(op.isExecuting) {
+            [op waitUntilFinished];
+        }
+    }
 }
 
 @end

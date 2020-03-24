@@ -164,7 +164,7 @@ bool WebEditorClient::shouldApplyStyle(StyleProperties* style, Range* range)
 
 void WebEditorClient::registerAttachmentIdentifier(const String& identifier, const String& contentType, const String& preferredFileName, Ref<SharedBuffer>&& data)
 {
-    m_page->send(Messages::WebPageProxy::RegisterAttachmentIdentifierFromData(identifier, contentType, preferredFileName, { data }));
+    m_page->send(Messages::WebPageProxy::RegisterAttachmentIdentifierFromData(identifier, contentType, preferredFileName, data.get()));
 }
 
 void WebEditorClient::registerAttachments(Vector<WebCore::SerializedAttachmentData>&& data)
@@ -606,7 +606,7 @@ void WebEditorClient::willSetInputMethodState()
 
 void WebEditorClient::setInputMethodState(bool enabled)
 {
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(WPE)
     m_page->setInputMethodState(enabled);
 #else
     notImplemented();

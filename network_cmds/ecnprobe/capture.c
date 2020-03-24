@@ -82,7 +82,17 @@ void CaptureInit(u_int32_t sourceIP, u_int16_t sourcePort,
   if (dev != NULL) {
     device = dev;
   } else {
-    device = pcap_lookupdev(errbuf);
+    pcap_if_t *devlist;
+    /*
+    * Find the list of interfaces, and pick
+     * the first interface.
+     */
+    if (pcap_findalldevs(&devlist, errbuf) >= 0 &&
+	      devlist != NULL) {
+      device = strdup(devlist->name);
+      pcap_freealldevs(devlist);
+    }
+
     if (device == NULL) {
       fprintf(stderr, "Can't find capture device: %s\n", errbuf);
       exit(-1);

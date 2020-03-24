@@ -30,6 +30,7 @@ WI.ComputedStyleDetailsPanel = class ComputedStyleDetailsPanel extends WI.StyleD
         super(delegate, WI.ComputedStyleDetailsPanel.StyleClassName, "computed", WI.UIString("Styles \u2014 Computed"));
 
         this._computedStyleShowAllSetting = new WI.Setting("computed-style-show-all", false);
+        this._computedStylePreferShorthandsSetting = new WI.Setting("computed-style-use-shorthands", false);
 
         this._filterText = null;
     }
@@ -82,25 +83,35 @@ WI.ComputedStyleDetailsPanel = class ComputedStyleDetailsPanel extends WI.StyleD
 
     initialLayout()
     {
-        let computedStyleShowAllLabel = document.createElement("label");
-        computedStyleShowAllLabel.textContent = WI.UIString("Show All");
+        this._boxModelDiagramRow = new WI.BoxModelDetailsSectionRow;
 
-        this._computedStyleShowAllCheckbox = document.createElement("input");
-        this._computedStyleShowAllCheckbox.type = "checkbox";
-        this._computedStyleShowAllCheckbox.checked = this._computedStyleShowAllSetting.value;
-        this._computedStyleShowAllCheckbox.addEventListener("change", this._computedStyleShowAllCheckboxValueChanged.bind(this));
-        computedStyleShowAllLabel.appendChild(this._computedStyleShowAllCheckbox);
+        let boxModelGroup = new WI.DetailsSectionGroup([this._boxModelDiagramRow]);
+        let boxModelSection = new WI.DetailsSection("computed-style-box-model", WI.UIString("Box Model"), [boxModelGroup]);
+
+        this.element.appendChild(boxModelSection.element);
+
+        let propertyFiltersElement = WI.ImageUtilities.useSVGSymbol("Images/FilterFieldGlyph.svg", "filter");
+        WI.addMouseDownContextMenuHandlers(propertyFiltersElement, (contextMenu) => {
+            contextMenu.appendCheckboxItem(WI.UIString("Show All"), () => {
+                this._computedStyleShowAllSetting.value = !this._computedStyleShowAllSetting.value;
+            }, this._computedStyleShowAllSetting.value);
+
+            contextMenu.appendCheckboxItem(WI.UIString("Prefer Shorthands"), () => {
+                this._computedStylePreferShorthandsSetting.value = !this._computedStylePreferShorthandsSetting.value;
+            }, this._computedStylePreferShorthandsSetting.value);
+        });
 
         this._computedStyleSection = new WI.ComputedStyleSection(this);
-        this._computedStyleSection.propertyVisibilityMode = WI.ComputedStyleSection.PropertyVisibilityMode.HideVariables;
         this._computedStyleSection.addEventListener(WI.ComputedStyleSection.Event.FilterApplied, this._handleEditorFilterApplied, this);
         this._computedStyleSection.showsImplicitProperties = this._computedStyleShowAllSetting.value;
+        this._computedStyleSection.propertyVisibilityMode = WI.ComputedStyleSection.PropertyVisibilityMode.HideVariables;
+        this._computedStyleSection.showsShorthandsInsteadOfLonghands = this._computedStylePreferShorthandsSetting.value;
         this._computedStyleSection.alwaysShowPropertyNames = ["display", "width", "height"];
         this._computedStyleSection.hideFilterNonMatchingProperties = true;
 
         let propertiesRow = new WI.DetailsSectionRow;
         let propertiesGroup = new WI.DetailsSectionGroup([propertiesRow]);
-        this._propertiesSection = new WI.DetailsSection("computed-style-properties", WI.UIString("Properties"), [propertiesGroup], computedStyleShowAllLabel);
+        this._propertiesSection = new WI.DetailsSection("computed-style-properties", WI.UIString("Properties"), [propertiesGroup], propertyFiltersElement);
         this._propertiesSection.addEventListener(WI.DetailsSection.Event.CollapsedStateChanged, this._handlePropertiesSectionCollapsedStateChanged, this);
 
         this.addSubview(this._computedStyleSection);
@@ -112,10 +123,11 @@ WI.ComputedStyleDetailsPanel = class ComputedStyleDetailsPanel extends WI.StyleD
         this._variablesTextEditor.hideFilterNonMatchingProperties = true;
         this._variablesTextEditor.sortPropertiesByName = true;
         this._variablesTextEditor.addEventListener(WI.SpreadsheetCSSStyleDeclarationEditor.Event.FilterApplied, this._handleEditorFilterApplied, this);
+        this._variablesTextEditor.element.dir = "ltr";
 
         let variablesRow = new WI.DetailsSectionRow;
         let variablesGroup = new WI.DetailsSectionGroup([variablesRow]);
-        this._variablesSection = new WI.DetailsSection("computed-style-properties", WI.UIString("Variables"), [variablesGroup]);
+        this._variablesSection = new WI.DetailsSection("computed-style-variables", WI.UIString("Variables"), [variablesGroup]);
         this._variablesSection.addEventListener(WI.DetailsSection.Event.CollapsedStateChanged, this._handleVariablesSectionCollapsedStateChanged, this);
 
         this.addSubview(this._variablesTextEditor);
@@ -125,12 +137,8 @@ WI.ComputedStyleDetailsPanel = class ComputedStyleDetailsPanel extends WI.StyleD
         this.element.appendChild(this._propertiesSection.element);
         this.element.appendChild(this._variablesSection.element);
 
-        this._boxModelDiagramRow = new WI.BoxModelDetailsSectionRow;
-
-        let boxModelGroup = new WI.DetailsSectionGroup([this._boxModelDiagramRow]);
-        let boxModelSection = new WI.DetailsSection("computed-style-box-model", WI.UIString("Box Model"), [boxModelGroup]);
-
-        this.element.appendChild(boxModelSection.element);
+        this._computedStyleShowAllSetting.addEventListener(WI.Setting.Event.Changed, this._handleShowAllSettingChanged, this);
+        this._computedStylePreferShorthandsSetting.addEventListener(WI.Setting.Event.Changed, this._handleUseShorthandsSettingChanged, this);
     }
 
     filterDidChange(filterBar)
@@ -159,13 +167,6 @@ WI.ComputedStyleDetailsPanel = class ComputedStyleDetailsPanel extends WI.StyleD
         return result;
     }
 
-    _computedStyleShowAllCheckboxValueChanged(event)
-    {
-        let checked = this._computedStyleShowAllCheckbox.checked;
-        this._computedStyleShowAllSetting.value = checked;
-        this._computedStyleSection.showsImplicitProperties = checked;
-    }
-
     _handlePropertiesSectionCollapsedStateChanged(event)
     {
         if (event && event.data && !event.data.collapsed)
@@ -188,6 +189,16 @@ WI.ComputedStyleDetailsPanel = class ComputedStyleDetailsPanel extends WI.StyleD
 
         if (section)
             section.element.classList.toggle("hidden", !event.data.matches);
+    }
+
+    _handleShowAllSettingChanged(event)
+    {
+        this._computedStyleSection.showsImplicitProperties = this._computedStyleShowAllSetting.value;
+    }
+
+    _handleUseShorthandsSettingChanged(event)
+    {
+        this._computedStyleSection.showsShorthandsInsteadOfLonghands = this._computedStylePreferShorthandsSetting.value;
     }
 };
 

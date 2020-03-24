@@ -38,15 +38,6 @@ OBJC_CLASS NSURLSessionConfiguration;
 OBJC_CLASS WKCustomProtocol;
 #endif
 
-#if USE(SOUP)
-#include <wtf/glib/GRefPtr.h>
-
-typedef struct _GCancellable GCancellable;
-typedef struct _GInputStream GInputStream;
-typedef struct _GTask GTask;
-typedef struct _WebKitSoupRequestGeneric WebKitSoupRequestGeneric;
-#endif
-
 namespace IPC {
 class DataReference;
 } // namespace IPC
@@ -63,6 +54,7 @@ class NetworkProcess;
 struct NetworkProcessCreationParameters;
 
 class LegacyCustomProtocolManager : public NetworkProcessSupplement, public IPC::MessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(LegacyCustomProtocolManager);
 public:
     explicit LegacyCustomProtocolManager(NetworkProcess&);
@@ -76,18 +68,6 @@ public:
 #if PLATFORM(COCOA)
     typedef RetainPtr<WKCustomProtocol> CustomProtocol;
 #endif
-#if USE(SOUP)
-    struct WebSoupRequestAsyncData {
-        WebSoupRequestAsyncData(GRefPtr<GTask>&&, WebKitSoupRequestGeneric*);
-        ~WebSoupRequestAsyncData();
-
-        GRefPtr<GTask> task;
-        WebKitSoupRequestGeneric* request;
-        GRefPtr<GCancellable> cancellable;
-        GRefPtr<GInputStream> stream;
-    };
-    typedef std::unique_ptr<WebSoupRequestAsyncData> CustomProtocol;
-#endif
 
     uint64_t addCustomProtocol(CustomProtocol&&);
     void removeCustomProtocol(uint64_t customProtocolID);
@@ -96,8 +76,6 @@ public:
 
 #if PLATFORM(COCOA)
     void registerProtocolClass(NSURLSessionConfiguration*);
-#endif
-#if PLATFORM(COCOA) || USE(SOUP)
     static void networkProcessCreated(NetworkProcess&);
 #endif
 
@@ -129,10 +107,6 @@ private:
     // WKCustomProtocol objects can be removed from the m_customProtocolMap from multiple threads.
     // We return a RetainPtr here because it is unsafe to return a raw pointer since the object might immediately be destroyed from a different thread.
     RetainPtr<WKCustomProtocol> protocolForID(uint64_t customProtocolID);
-#endif
-
-#if USE(SOUP)
-    GRefPtr<GPtrArray> m_registeredSchemes;
 #endif
 };
 

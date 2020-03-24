@@ -78,7 +78,7 @@ std::unique_ptr<ContentFilter> ContentFilter::create(DocumentLoader& documentLoa
     if (filters.isEmpty())
         return nullptr;
 
-    return std::make_unique<ContentFilter>(WTFMove(filters), documentLoader);
+    return makeUnique<ContentFilter>(WTFMove(filters), documentLoader);
 }
 
 ContentFilter::ContentFilter(Container&& contentFilters, DocumentLoader& documentLoader)
@@ -233,7 +233,7 @@ void ContentFilter::didDecide(State state)
     if (!unblockRequestDeniedScript.isEmpty() && frame) {
         unblockHandler.wrapWithDecisionHandler([scriptController = makeWeakPtr(frame->script()), script = unblockRequestDeniedScript.isolatedCopy()](bool unblocked) {
             if (!unblocked && scriptController)
-                scriptController->executeScript(script);
+                scriptController->executeScriptIgnoringException(script);
         });
     }
     m_documentLoader.frameLoader()->client().contentFilterDidBlockLoad(WTFMove(unblockHandler));

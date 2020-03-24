@@ -102,7 +102,10 @@ InternalSettings::Backup::Backup(Settings& settings)
     , m_incompleteImageBorderEnabled(settings.incompleteImageBorderEnabled())
     , m_shouldDispatchSyntheticMouseEventsWhenModifyingSelection(settings.shouldDispatchSyntheticMouseEventsWhenModifyingSelection())
     , m_shouldDispatchSyntheticMouseOutAfterSyntheticClick(settings.shouldDispatchSyntheticMouseOutAfterSyntheticClick())
+#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
     , m_shouldDeactivateAudioSession(PlatformMediaSessionManager::shouldDeactivateAudioSession())
+#endif
+    , m_animatedImageDebugCanvasDrawingEnabled(settings.animatedImageDebugCanvasDrawingEnabled())
     , m_userInterfaceDirectionPolicy(settings.userInterfaceDirectionPolicy())
     , m_systemLayoutDirection(settings.systemLayoutDirection())
     , m_pdfImageCachingPolicy(settings.pdfImageCachingPolicy())
@@ -204,14 +207,16 @@ void InternalSettings::Backup::restoreTo(Settings& settings)
     settings.setForcedDisplayIsMonochromeAccessibilityValue(m_forcedDisplayIsMonochromeAccessibilityValue);
     settings.setForcedPrefersReducedMotionAccessibilityValue(m_forcedPrefersReducedMotionAccessibilityValue);
     settings.setFontLoadTimingOverride(m_fontLoadTimingOverride);
-    DeprecatedGlobalSettings::setAllowsAnySSLCertificate(false);
     RenderTheme::singleton().setShouldMockBoldSystemFontForAccessibility(m_shouldMockBoldSystemFontForAccessibility);
     FontCache::singleton().setShouldMockBoldSystemFontForAccessibility(m_shouldMockBoldSystemFontForAccessibility);
     settings.setFrameFlattening(m_frameFlattening);
     settings.setIncompleteImageBorderEnabled(m_incompleteImageBorderEnabled);
     settings.setShouldDispatchSyntheticMouseEventsWhenModifyingSelection(m_shouldDispatchSyntheticMouseEventsWhenModifyingSelection);
     settings.setShouldDispatchSyntheticMouseOutAfterSyntheticClick(m_shouldDispatchSyntheticMouseOutAfterSyntheticClick);
+#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
     PlatformMediaSessionManager::setShouldDeactivateAudioSession(m_shouldDeactivateAudioSession);
+#endif
+    settings.setAnimatedImageDebugCanvasDrawingEnabled(m_animatedImageDebugCanvasDrawingEnabled);
 
 #if ENABLE(INDEXED_DATABASE_IN_WORKERS)
     RuntimeEnabledFeatures::sharedFeatures().setIndexedDBWorkersEnabled(m_indexedDBWorkersEnabled);
@@ -231,6 +236,7 @@ void InternalSettings::Backup::restoreTo(Settings& settings)
 }
 
 class InternalSettingsWrapper : public Supplement<Page> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit InternalSettingsWrapper(Page* page)
         : m_internalSettings(InternalSettings::create(page)) { }
@@ -252,7 +258,7 @@ const char* InternalSettings::supplementName()
 InternalSettings* InternalSettings::from(Page* page)
 {
     if (!Supplement<Page>::from(page, supplementName()))
-        Supplement<Page>::provideTo(page, supplementName(), std::make_unique<InternalSettingsWrapper>(page));
+        Supplement<Page>::provideTo(page, supplementName(), makeUnique<InternalSettingsWrapper>(page));
     return static_cast<InternalSettingsWrapper*>(Supplement<Page>::from(page, supplementName()))->internalSettings();
 }
 
@@ -775,6 +781,14 @@ ExceptionOr<void> InternalSettings::setShouldMockBoldSystemFontForAccessibility(
     return { };
 }
 
+ExceptionOr<void> InternalSettings::setAnimatedImageDebugCanvasDrawingEnabled(bool ignore)
+{
+    if (!m_page)
+        return Exception { InvalidAccessError };
+    settings().setAnimatedImageDebugCanvasDrawingEnabled(ignore);
+    return { };
+}
+
 void InternalSettings::setIndexedDBWorkersEnabled(bool enabled)
 {
 #if ENABLE(INDEXED_DATABASE_IN_WORKERS)
@@ -1006,6 +1020,16 @@ void InternalSettings::setForcedPrefersReducedMotionAccessibilityValue(InternalS
     settings().setForcedPrefersReducedMotionAccessibilityValue(internalSettingsToSettingsValue(value));
 }
 
+InternalSettings::ForcedAccessibilityValue InternalSettings::forcedSupportsHighDynamicRangeValue() const
+{
+    return settingsToInternalSettingsValue(settings().forcedSupportsHighDynamicRangeValue());
+}
+
+void InternalSettings::setForcedSupportsHighDynamicRangeValue(InternalSettings::ForcedAccessibilityValue value)
+{
+    settings().setForcedSupportsHighDynamicRangeValue(internalSettingsToSettingsValue(value));
+}
+
 bool InternalSettings::webAnimationsCSSIntegrationEnabled()
 {
     return RuntimeEnabledFeatures::sharedFeatures().webAnimationsCSSIntegrationEnabled();
@@ -1013,7 +1037,9 @@ bool InternalSettings::webAnimationsCSSIntegrationEnabled()
 
 void InternalSettings::setShouldDeactivateAudioSession(bool should)
 {
+#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
     PlatformMediaSessionManager::setShouldDeactivateAudioSession(should);
+#endif
 }
 
 // If you add to this class, make sure that you update the Backup class for test reproducability!

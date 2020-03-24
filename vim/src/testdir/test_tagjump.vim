@@ -1,5 +1,8 @@
 " Tests for tagjump (tags and special searches)
 
+source check.vim
+source screendump.vim
+
 " SEGV occurs in older versions.  (At least 7.4.1748 or older)
 func Test_ptag_with_notagstack()
   set notagstack
@@ -20,6 +23,7 @@ func Test_cancel_ptjump()
   call assert_equal(2, winnr('$'))
 
   call delete('Xtags')
+  set tags&
   quit
 endfunc
 
@@ -104,6 +108,7 @@ func Test_tagjump_switchbuf()
   enew | only
   call delete('Xfile1')
   call delete('Xtags')
+  set tags&
   set switchbuf&vim
 endfunc
 
@@ -266,7 +271,7 @@ func Test_getsettagstack()
   enew | only
   call settagstack(1, {'items' : []})
   call assert_equal(0, gettagstack(1).length)
-  call assert_equal([], gettagstack(1).items)
+  call assert_equal([], 1->gettagstack().items)
   " Error cases
   call assert_equal({}, gettagstack(100))
   call assert_equal(-1, settagstack(100, {'items' : []}))
@@ -301,7 +306,7 @@ func Test_getsettagstack()
   " Try to set current index to invalid values
   call settagstack(1, {'curidx' : -1})
   call assert_equal(1, gettagstack().curidx)
-  call settagstack(1, {'curidx' : 50})
+  eval {'curidx' : 50}->settagstack(1)
   call assert_equal(4, gettagstack().curidx)
 
   " Try pushing invalid items onto the stack
@@ -431,7 +436,7 @@ func Test_tagnr_recall()
   tag
   call assert_equal(bufname('%'), 'Xtest.h')
 
-  set tag&
+  set tags&
   call delete('Xtags')
   bwipe Xtest.h
   bwipe Xtest.c
@@ -454,7 +459,8 @@ func Test_tag_line_toolong()
     call assert_report(v:exception)
   catch /.*/
   endtry
-  call assert_equal('Ignoring long line in tags file', split(execute('messages'), '\n')[-1])
+  call assert_equal('Searching tags file Xtags', split(execute('messages'), '\n')[-1])
+
   call writefile([
 	\ '123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567	django/contrib/admin/templates/admin/edit_inline/stacked.html	16;"	j	line:16	language:HTML'
 	\ ], 'Xtags')
@@ -465,9 +471,59 @@ func Test_tag_line_toolong()
     call assert_report(v:exception)
   catch /.*/
   endtry
-  call assert_equal('Ignoring long line in tags file', split(execute('messages'), '\n')[-1])
+  call assert_equal('Searching tags file Xtags', split(execute('messages'), '\n')[-1])
+
+  " binary search works in file with long line
+  call writefile([
+        \ 'asdfasfd	nowhere	16',
+	\ 'foobar	Xsomewhere	3; " 12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567',
+        \ 'zasdfasfd	nowhere	16',
+	\ ], 'Xtags')
+  call writefile([
+        \ 'one',
+        \ 'two',
+        \ 'trhee',
+        \ 'four',
+        \ ], 'Xsomewhere')
+  tag foobar
+  call assert_equal('Xsomewhere', expand('%'))
+  call assert_equal(3, getcurpos()[1])
+
   call delete('Xtags')
+  call delete('Xsomewhere')
+  set tags&
   let &verbose = old_vbs
+endfunc
+
+" Check that using :tselect does not run into the hit-enter prompt.
+" Requires a terminal to trigger that prompt.
+func Test_tselect()
+  CheckScreendump
+
+  call writefile([
+	\ 'main	Xtest.h	/^void test();$/;"	f',
+	\ 'main	Xtest.c	/^int main()$/;"	f',
+	\ 'main	Xtest.x	/^void test()$/;"	f',
+	\ ], 'Xtags')
+  cal writefile([
+	\ 'int main()',
+	\ 'void test()',
+	\ ], 'Xtest.c')
+
+  let lines =<< trim [SCRIPT]
+    set tags=Xtags
+  [SCRIPT]
+  call writefile(lines, 'XTest_tselect')
+  let buf = RunVimInTerminal('-S XTest_tselect', {'rows': 10, 'cols': 50})
+
+  call term_wait(buf, 100)
+  call term_sendkeys(buf, ":tselect main\<CR>2\<CR>")
+  call VerifyScreenDump(buf, 'Test_tselect_1', {})
+
+  call StopVimInTerminal(buf)
+  call delete('Xtags')
+  call delete('Xtest.c')
+  call delete('XTest_tselect')
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

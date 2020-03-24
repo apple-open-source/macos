@@ -1,197 +1,1466 @@
-2019-09-27  Alan Coon  <alancoon@apple.com>
+2020-02-11  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r250374. rdar://problem/55770710
+        Cherry-pick r256073. rdar://problem/59299148
 
-    Unreviewed build fix for Windows ports.
-    https://bugs.webkit.org/show_bug.cgi?id=202125
-    <rdar://problem/14944104>
+    Remember if we used legacy TLS in the back/forward cache like we remember if we have only secure content
+    https://bugs.webkit.org/show_bug.cgi?id=207409
+    rdar://problem/59275641
     
-    * WebCoreSupport/WebEditorClient.h: Added missing subFrameScrollPositionChanged.
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@250374 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2019-09-25  Fujii Hironori  <Hironori.Fujii@sony.com>
-
-            Unreviewed build fix for Windows ports.
-            https://bugs.webkit.org/show_bug.cgi?id=202125
-            <rdar://problem/14944104>
-
-            * WebCoreSupport/WebEditorClient.h: Added missing subFrameScrollPositionChanged.
-
-2019-08-12  Alan Coon  <alancoon@apple.com>
-
-        Cherry-pick r248472. rdar://problem/54225658
-
-    [Win] Remove compiler workaround for VS2013
-    https://bugs.webkit.org/show_bug.cgi?id=200582
-    
-    Reviewed by Don Olmstead.
-    
-    A VS2013 compiler workaround can be removed now.
-    
-    * WebKitQuartzCoreAdditions/API/WebKitQuartzCoreAdditions.cpp:
-    (DllMain):
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@248472 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2019-08-09  Per Arne Vollan  <pvollan@apple.com>
-
-            [Win] Remove compiler workaround for VS2013
-            https://bugs.webkit.org/show_bug.cgi?id=200582
-
-            Reviewed by Don Olmstead.
-
-            A VS2013 compiler workaround can be removed now.
-
-            * WebKitQuartzCoreAdditions/API/WebKitQuartzCoreAdditions.cpp:
-            (DllMain):
-
-2019-08-09  Alan Coon  <alancoon@apple.com>
-
-        Cherry-pick r248462. rdar://problem/54144119
-
-    [Win] Fix internal build
-    https://bugs.webkit.org/show_bug.cgi?id=200519
-    
-    Reviewed by Alex Christensen.
-    
-    Source/JavaScriptCore:
-    
-    The script 'generate-js-builtins.py' cannot be found when building WebCore. Copy the JavaScriptCore Scripts
-    folder after building JSC.
-    
-    * JavaScriptCore.vcxproj/JavaScriptCore.proj:
-    
-    Source/WebKitLegacy/win:
-    
-    Switch to the String::wideCharacers method, since its return type is compatible with the Win32 api.
-    
-    * WebDownloadCFNet.cpp:
-    (WebDownload::didFinish):
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@248462 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2019-08-08  Per Arne Vollan  <pvollan@apple.com>
-
-            [Win] Fix internal build
-            https://bugs.webkit.org/show_bug.cgi?id=200519
-
-            Reviewed by Alex Christensen.
-
-            Switch to the String::wideCharacers method, since its return type is compatible with the Win32 api.
-
-            * WebDownloadCFNet.cpp:
-            (WebDownload::didFinish):
-
-2019-08-06  Alan Coon  <alancoon@apple.com>
-
-        Apply patch. rdar://problem/53992160
-
-    2019-08-06  Per Arne Vollan  <pvollan@apple.com>
-
-            [Win] Fix AppleWin build
-            https://bugs.webkit.org/show_bug.cgi?id=200414
-
-            Reviewed by Brent Fulgham.
-
-            * WebKitQuartzCoreAdditions/CMakeLists.txt:
-
-2019-07-29  Alan Coon  <alancoon@apple.com>
-
-        Cherry-pick r247722. rdar://problem/53647293
-
-    [macOS 10.15] Web process crashes when attempting to show the font panel via Font > Show Fonts
-    https://bugs.webkit.org/show_bug.cgi?id=200021
-    <rdar://problem/53301325>
-    
-    Reviewed by Ryosuke Niwa.
+    Patch by Alex Christensen <achristensen@apple.com> on 2020-02-07
+    Reviewed by Chris Dumez.
     
     Source/WebCore:
     
-    In macOS 10.15, attempting to access ~/Library/FontCollections/ from the web process causes a Sandbox violation
-    and a subsequent crash. This can be triggered by trying to show the font panel via Font > Show Fonts in the
-    context menu after right clicking.
+    Covered by an API test.
     
-    In the (near) future, we should fix this by moving logic to show the font panel, color panel and styles panel
-    from the Editor in the web process to the UI process in WebKit2. However, for the time being, we can just work
-    around this by adding a new EditorClient hook to determine whether to allow the font panel to show; this returns
-    true in the legacy macOS WebKit port, and false everywhere else.
-    
-    Test: editing/mac/style/do-not-crash-when-showing-font-panel.html
-    
-    * editing/mac/EditorMac.mm:
-    (WebCore::Editor::showFontPanel):
-    * loader/EmptyClients.cpp:
-    * page/EditorClient.h:
+    * history/CachedFrame.cpp:
+    (WebCore::CachedFrame::setHasInsecureContent):
+    * history/CachedFrame.h:
+    (WebCore::CachedFrame::usedLegacyTLS const):
+    * loader/EmptyFrameLoaderClient.h:
+    * loader/FrameLoader.cpp:
+    (WebCore::FrameLoader::receivedFirstData):
+    (WebCore::FrameLoader::commitProvisionalLoad):
+    (WebCore::FrameLoader::dispatchDidCommitLoad):
+    * loader/FrameLoader.h:
+    * loader/FrameLoaderClient.h:
     
     Source/WebKit:
     
-    Always return false from canShowFontPanel in WebKit2.
-    
-    * WebProcess/WebCoreSupport/WebEditorClient.h:
+    * Scripts/webkit/messages.py:
+    * UIProcess/WebPageProxy.cpp:
+    (WebKit::WebPageProxy::hasInsecureContent):
+    * UIProcess/WebPageProxy.h:
+    * UIProcess/WebPageProxy.messages.in:
+    * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+    (WebKit::WebFrameLoaderClient::dispatchDidCommitLoad):
+    (WebKit::WebFrameLoaderClient::savePlatformDataToCachedFrame):
+    * WebProcess/WebCoreSupport/WebFrameLoaderClient.h:
     
     Source/WebKitLegacy/mac:
     
-    Implement a new editing client hook. In WebKit1, this always returns true on macOS and false on iOS.
-    
-    * WebCoreSupport/WebEditorClient.h:
+    * WebCoreSupport/WebFrameLoaderClient.h:
+    * WebCoreSupport/WebFrameLoaderClient.mm:
+    (WebFrameLoaderClient::dispatchDidCommitLoad):
     
     Source/WebKitLegacy/win:
     
-    Implement a new editing client hook.
-    
-    * WebCoreSupport/WebEditorClient.h:
+    * WebCoreSupport/WebFrameLoaderClient.cpp:
+    (WebFrameLoaderClient::dispatchDidCommitLoad):
+    * WebCoreSupport/WebFrameLoaderClient.h:
     
     Tools:
     
-    Add support for grabbing the child menu items of a context menu item.
+    * TestWebKitAPI/Tests/WebKitCocoa/TLSDeprecation.mm:
+    (TestWebKitAPI::TEST):
     
-    * WebKitTestRunner/InjectedBundle/EventSendingController.cpp:
-    (WTR::getMenuItemChildrenCallback):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@256073 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-02-07  Alex Christensen  <achristensen@apple.com>
+
+            Remember if we used legacy TLS in the back/forward cache like we remember if we have only secure content
+            https://bugs.webkit.org/show_bug.cgi?id=207409
+            rdar://problem/59275641
+
+            Reviewed by Chris Dumez.
+
+            * WebCoreSupport/WebFrameLoaderClient.cpp:
+            (WebFrameLoaderClient::dispatchDidCommitLoad):
+            * WebCoreSupport/WebFrameLoaderClient.h:
+
+2020-02-11  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r255158. rdar://problem/59298137
+
+    Throttling requestAnimationFrame should be controlled by RenderingUpdateScheduler
+    https://bugs.webkit.org/show_bug.cgi?id=204713
+    
+    Patch by Said Abou-Hallawa <sabouhallawa@apple.com> on 2020-01-27
+    Reviewed by Simon Fraser.
+    
+    Source/WebCore:
+    
+    Test: fast/animation/request-animation-frame-throttling-outside-viewport.html
+    
+    requestAnimationFrame is throttled by a timer although its callback are
+    serviced by the page RenderingUpdate. This led to excessive rAF firing
+    which makes it more than the preferred frame per seconds.
+    
+    The solution is to have two throttling types:
+    
+    1) Page throttling (or full throttling) which slows down all the steps of
+       RenderingUpdate for the main document and all the sub-documents.
+    2) Document throttling (or partial throttling) which only slows down the
+       rAF of a certain document.
+    
+    * Headers.cmake:
+    * WebCore.xcodeproj/project.pbxproj:
+    
+    * animation/DocumentTimeline.cpp:
+    (WebCore::DocumentTimeline::animationInterval const):
+    (WebCore::DocumentTimeline::updateThrottlingState): Deleted.
+    * animation/DocumentTimeline.h:
+    There is no need to have DocumentTimeline throttling. It is already
+    throttled when the page RenderingUpdate is throttled.
+    
+    * dom/Document.cpp:
+    (WebCore::Document::requestAnimationFrame):
+    (WebCore::Document::updateLastHandledUserGestureTimestamp):
+    LowPowerMode throttling is now handled by the page. So remove its handling
+    in the Document side.
+    
+    * dom/ScriptedAnimationController.cpp:
+    (WebCore::ScriptedAnimationController::ScriptedAnimationController):
+    (WebCore::ScriptedAnimationController::page const):
+    (WebCore::ScriptedAnimationController::preferredScriptedAnimationInterval const):
+    (WebCore::ScriptedAnimationController::interval const):
+    (WebCore::ScriptedAnimationController::isThrottled const):
+    (WebCore::ScriptedAnimationController::isThrottledRelativeToPage const):
+    (WebCore::ScriptedAnimationController::shouldRescheduleRequestAnimationFrame const):
+    (WebCore::ScriptedAnimationController::registerCallback):
+    (WebCore::ScriptedAnimationController::cancelCallback):
+    (WebCore::ScriptedAnimationController::serviceRequestAnimationFrameCallbacks):
+    (WebCore::ScriptedAnimationController::scheduleAnimation):
+    (WebCore::throttlingReasonToString): Deleted.
+    (WebCore::throttlingReasonsToString): Deleted.
+    (WebCore::ScriptedAnimationController::addThrottlingReason): Deleted.
+    (WebCore::ScriptedAnimationController::removeThrottlingReason): Deleted.
+    (WebCore::ScriptedAnimationController::animationTimerFired): Deleted.
+    * dom/ScriptedAnimationController.h:
+    (WebCore::ScriptedAnimationController::addThrottlingReason):
+    (WebCore::ScriptedAnimationController::removeThrottlingReason):
+    Get rid of the rAF throttling timer. Service the rAF callback only when
+    the period from the current time stamp till the last service time stamp
+    is greater than the preferred rAF interval .
+    
+    * page/FrameView.cpp:
+    (WebCore::FrameView::updateScriptedAnimationsAndTimersThrottlingState):
+    ThrottlingReason is now defined outside ScriptedAnimationController.
+    
+    * page/Page.cpp:
+    (WebCore::Page::renderingUpdateThrottlingEnabled const):
+    (WebCore::Page::renderingUpdateThrottlingEnabledChanged):
+    (WebCore::Page::isRenderingUpdateThrottled const):
+    
+    (WebCore::Page::preferredRenderingUpdateInterval const):
+    Calculate the preferred RenderingUpdate interval from the throttling
+    reasons.
+    
+    (WebCore::Page::setIsVisuallyIdleInternal):
+    (WebCore::Page::handleLowModePowerChange):
+    Call adjustRenderingUpdateFrequency() when isLowPowerModeEnabled or
+    IsVisuallyIdle is toggled.
+    
+    (WebCore::updateScriptedAnimationsThrottlingReason): Deleted.
+    * page/Page.h:
+    
+    * page/RenderingUpdateScheduler.cpp:
+    (WebCore::RenderingUpdateScheduler::adjustFramesPerSecond):
+    (WebCore::RenderingUpdateScheduler::adjustRenderingUpdateFrequency):
+    Change the preferredFramesPerSecond of the DisplayRefreshMonitor if the
+    throttling is not aggressive e.g. 10_s. Otherwise use the timer.
+    
+    (WebCore::RenderingUpdateScheduler::scheduleTimedRenderingUpdate):
+    Call adjustFramesPerSecond() when DisplayRefreshMonitor is created.
+    
+    (WebCore::RenderingUpdateScheduler::startTimer):
+    * page/RenderingUpdateScheduler.h:
+    
+    * page/Settings.yaml:
+    * page/SettingsBase.cpp:
+    (WebCore::SettingsBase::renderingUpdateThrottlingEnabledChanged):
+    * page/SettingsBase.h:
+    Add a setting to enable/disable RenderingUpdateThrottling.
+    
+    * platform/graphics/AnimationFrameRate.h: Added.
+    (WebCore::preferredFrameInterval):
+    (WebCore::preferredFramesPerSecond):
+    
+    * platform/graphics/DisplayRefreshMonitor.h:
+    (WebCore::DisplayRefreshMonitor::setPreferredFramesPerSecond):
+    * platform/graphics/DisplayRefreshMonitorManager.cpp:
+    (WebCore::DisplayRefreshMonitorManager::monitorForClient):
+    Rename createMonitorForClient() to monitorForClient() since it may return
+    a cached DisplayRefreshMonitor.
+    
+    (WebCore::DisplayRefreshMonitorManager::setPreferredFramesPerSecond):
+    (WebCore::DisplayRefreshMonitorManager::scheduleAnimation):
+    (WebCore::DisplayRefreshMonitorManager::windowScreenDidChange):
+    No need to call registerClient(). This function was just ensuring the
+    DisplayRefreshMonitor is created. scheduleAnimation() does the same thing.
+    
+    (WebCore::DisplayRefreshMonitorManager::createMonitorForClient): Deleted.
+    (WebCore::DisplayRefreshMonitorManager::registerClient): Deleted.
+    * platform/graphics/DisplayRefreshMonitorManager.h:
+    (WebCore::DisplayRefreshMonitorManager::DisplayRefreshMonitorManager): Deleted.
+    
+    * platform/graphics/GraphicsLayerUpdater.cpp:
+    (WebCore::GraphicsLayerUpdater::GraphicsLayerUpdater):
+    * platform/graphics/ios/DisplayRefreshMonitorIOS.mm:
+    (-[WebDisplayLinkHandler setPreferredFramesPerSecond:]):
+    Set the preferredFramesPerSecond of the CADisplayLink.
+    
+    Source/WebKit:
+    
+    Create an IPC message on the DrawingArea to send a message from the
+    WebProcess to the UIProcess to setPreferredFramesPerSecond of the
+    DisplayRefreshMonitor.
+    
+    * Shared/WebPreferences.yaml:
+    * UIProcess/API/C/WKPreferences.cpp:
+    (WKPreferencesSetRenderingUpdateThrottlingEnabled):
+    (WKPreferencesGetRenderingUpdateThrottlingEnabled):
+    * UIProcess/API/C/WKPreferencesRefPrivate.h:
+    Add a WKPreference key for RenderingUpdateThrottlingEnabled.
+    
+    * UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy.h:
+    * UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy.messages.in:
+    
+    * UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy.mm:
+    (-[WKOneShotDisplayLinkHandler setPreferredFramesPerSecond:]):
+    (WebKit::RemoteLayerTreeDrawingAreaProxy::setPreferredFramesPerSecond):
+    Set the preferredFramesPerSecond of the CADisplayLink.
+    
+    * WebProcess/WebPage/RemoteLayerTree/RemoteLayerTreeDisplayRefreshMonitor.h:
+    * WebProcess/WebPage/RemoteLayerTree/RemoteLayerTreeDisplayRefreshMonitor.mm:
+    (WebKit::RemoteLayerTreeDisplayRefreshMonitor::setPreferredFramesPerSecond):
+    Delegate the call to RemoteLayerTreeDrawingArea.
+    
+    * WebProcess/WebPage/RemoteLayerTree/RemoteLayerTreeDrawingArea.h:
+    * WebProcess/WebPage/RemoteLayerTree/RemoteLayerTreeDrawingArea.mm:
+    (WebKit::RemoteLayerTreeDrawingArea::setPreferredFramesPerSecond):
+    Send the IPC message from the WebProcess to the UIProcess.
+    
+    Source/WebKitLegacy/mac:
+    
+    Add a WKPreference key for RenderingUpdateThrottling.
+    
+    * WebView/WebPreferenceKeysPrivate.h:
+    * WebView/WebPreferences.mm:
+    (+[WebPreferences initialize]):
+    (-[WebPreferences renderingUpdateThrottlingEnabled]):
+    (-[WebPreferences setRenderingUpdateThrottlingEnabled:]):
+    * WebView/WebPreferencesPrivate.h:
+    * WebView/WebView.mm:
+    (-[WebView _preferencesChanged:]):
+    
+    Source/WebKitLegacy/win:
+    
+    Add a WKPreference key for RenderingUpdateThrottling.
+    
+    * Interfaces/IWebPreferencesPrivate.idl:
+    * WebPreferenceKeysPrivate.h:
+    * WebPreferences.cpp:
+    (WebPreferences::initializeDefaultSettings):
+    (WebPreferences::renderingUpdateThrottlingEnabled):
+    (WebPreferences::setRenderingUpdateThrottlingEnabled):
+    * WebPreferences.h:
+    * WebView.cpp:
+    (WebView::notifyPreferencesChanged):
+    
+    Tools:
+    
+    RenderingUpdateThrottling is enabled by default. Turn it off for DRT and
+    WTR. In some cases, the page may not get visually active while it's
+    waiting for rAF. Throttling tests will have to explicitly turn it on.
+    
+    * DumpRenderTree/mac/DumpRenderTree.mm:
+    (resetWebPreferencesToConsistentValues):
+    * DumpRenderTree/win/DumpRenderTree.cpp:
+    (resetWebPreferencesToConsistentValues):
+    * WebKitTestRunner/TestController.cpp:
+    (WTR::TestController::resetPreferencesToConsistentValues):
     
     LayoutTests:
     
-    Add a new layout test to verify that attempting to show the font panel doesn't crash the web process in WebKit2.
-    This test is skipped in WebKit1, since EventSender::contextClick() in WebKit1 only returns an array of strings
-    corresponding to the titles of each menu item.
+    * fast/animation/css-animation-throttling-lowPowerMode.html:
+    * fast/animation/request-animation-frame-throttle-subframe.html:
+    * fast/animation/request-animation-frame-throttling-detached-iframe.html:
+    Enable RenderingUpdateThrottling for these tests.
     
-    * editing/mac/style/do-not-crash-when-showing-font-panel-expected.txt: Added.
-    * editing/mac/style/do-not-crash-when-showing-font-panel.html: Added.
-    * platform/mac-wk1/TestExpectations:
+    * fast/animation/request-animation-frame-throttling-lowPowerMode-expected.txt:
+    * fast/animation/request-animation-frame-throttling-lowPowerMode.html:
+    Ensure the actual rAF interval is > 30ms for lowPowerMode.
     
+    * fast/animation/request-animation-frame-throttling-outside-viewport-expected.txt: Added.
+    * fast/animation/request-animation-frame-throttling-outside-viewport.html: Added.
+    * fast/animation/resources/frame-with-animation-2.html: Added.
+    Test the OutsideViewport throttling case.
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@247722 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    * http/tests/frame-throttling/raf-throttle-in-cross-origin-subframe.html:
+    Enable RenderingUpdateThrottling for this test.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@255158 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2019-07-23  Wenson Hsieh  <wenson_hsieh@apple.com>
+    2020-01-27  Said Abou-Hallawa  <sabouhallawa@apple.com>
 
-            [macOS 10.15] Web process crashes when attempting to show the font panel via Font > Show Fonts
-            https://bugs.webkit.org/show_bug.cgi?id=200021
-            <rdar://problem/53301325>
+            Throttling requestAnimationFrame should be controlled by RenderingUpdateScheduler
+            https://bugs.webkit.org/show_bug.cgi?id=204713
 
-            Reviewed by Ryosuke Niwa.
+            Reviewed by Simon Fraser.
 
-            Implement a new editing client hook.
+            Add a WKPreference key for RenderingUpdateThrottling.
 
-            * WebCoreSupport/WebEditorClient.h:
-
-2019-07-24  Alan Coon  <alancoon@apple.com>
-
-        Apply patch. rdar://problem/53483293
-
-    2019-07-24  Keith Rollin  <krollin@apple.com>
-
-            Disable Web Animations in WebKitLegacy
-            https://bugs.webkit.org/show_bug.cgi?id=200041
-            <rdar://problem/53458020>
-
-            Reviewed by Jon Lee.
-
-            We want this disabled for WebKitLegacy in shipping branches.
-
+            * Interfaces/IWebPreferencesPrivate.idl:
+            * WebPreferenceKeysPrivate.h:
             * WebPreferences.cpp:
             (WebPreferences::initializeDefaultSettings):
+            (WebPreferences::renderingUpdateThrottlingEnabled):
+            (WebPreferences::setRenderingUpdateThrottlingEnabled):
+            * WebPreferences.h:
+            * WebView.cpp:
+            (WebView::notifyPreferencesChanged):
+
+2020-02-10  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r256075. rdar://problem/59298173
+
+    [Hardening] Validate Geolocation access permission on UIProcess side
+    https://bugs.webkit.org/show_bug.cgi?id=207393
+    <rdar://problem/56816051>
+    
+    Reviewed by Brent Fulgham.
+    
+    Source/WebCore:
+    
+    Validate Geolocation access permission on UIProcess side, instead of only relying solely on the WebProcess for this.
+    
+    The workflow is as follows:
+    - The Geolocation objects request for permission to access location data
+    - The UIProcess shows a prompt
+    - If the user accepts, the UIProcess sends an authorization token (a UUID
+      string) to the Geolocation object.
+    - When the Geolocation object later asks for location updates from the UIProcess, the UIProcess validates
+      that this is a valid authorization token (one that it previously issued for this page)
+    - When the Geolocation objects gets destroyed (or resets its permission), the authorization token gets
+      revoked so that it is no longer valid.
+    
+    No new tests, no Web-facing behavior change, merely hardening.
+    
+    * Modules/geolocation/Geolocation.cpp:
+    (WebCore::Geolocation::~Geolocation):
+    (WebCore::Geolocation::resumeTimerFired):
+    (WebCore::Geolocation::resetAllGeolocationPermission):
+    (WebCore::Geolocation::stop):
+    (WebCore::Geolocation::setIsAllowed):
+    (WebCore::Geolocation::revokeAuthorizationTokenIfNecessary):
+    (WebCore::Geolocation::resetIsAllowed):
+    * Modules/geolocation/Geolocation.h:
+    * Modules/geolocation/GeolocationClient.h:
+    (WebCore::GeolocationClient::revokeAuthorizationToken):
+    * Modules/geolocation/GeolocationController.cpp:
+    (WebCore::GeolocationController::addObserver):
+    (WebCore::GeolocationController::revokeAuthorizationToken):
+    (WebCore::GeolocationController::activityStateDidChange):
+    * Modules/geolocation/GeolocationController.h:
+    * platform/mock/GeolocationClientMock.cpp:
+    (WebCore::GeolocationClientMock::permissionTimerFired):
+    (WebCore::GeolocationClientMock::startUpdating):
+    * platform/mock/GeolocationClientMock.h:
+    
+    Source/WebKit:
+    
+    * UIProcess/GeolocationPermissionRequestManagerProxy.cpp:
+    (WebKit::GeolocationPermissionRequestManagerProxy::didReceiveGeolocationPermissionDecision):
+    (WebKit::GeolocationPermissionRequestManagerProxy::isValidAuthorizationToken const):
+    (WebKit::GeolocationPermissionRequestManagerProxy::revokeAuthorizationToken):
+    * UIProcess/GeolocationPermissionRequestManagerProxy.h:
+    * UIProcess/WebGeolocationManagerProxy.cpp:
+    (WebKit::WebGeolocationManagerProxy::startUpdating):
+    * UIProcess/WebGeolocationManagerProxy.h:
+    * UIProcess/WebGeolocationManagerProxy.messages.in:
+    * UIProcess/WebPageProxy.cpp:
+    * UIProcess/WebPageProxy.h:
+    (WebKit::WebPageProxy::geolocationPermissionRequestManager):
+    * UIProcess/WebPageProxy.messages.in:
+    * WebProcess/Geolocation/GeolocationPermissionRequestManager.cpp:
+    (WebKit::GeolocationPermissionRequestManager::startRequestForGeolocation):
+    (WebKit::GeolocationPermissionRequestManager::revokeAuthorizationToken):
+    (WebKit::GeolocationPermissionRequestManager::didReceiveGeolocationPermissionDecision):
+    * WebProcess/Geolocation/GeolocationPermissionRequestManager.h:
+    * WebProcess/Geolocation/WebGeolocationManager.cpp:
+    (WebKit::WebGeolocationManager::registerWebPage):
+    * WebProcess/Geolocation/WebGeolocationManager.h:
+    * WebProcess/WebCoreSupport/WebGeolocationClient.cpp:
+    (WebKit::WebGeolocationClient::startUpdating):
+    (WebKit::WebGeolocationClient::revokeAuthorizationToken):
+    * WebProcess/WebCoreSupport/WebGeolocationClient.h:
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::didReceiveGeolocationPermissionDecision):
+    * WebProcess/WebPage/WebPage.h:
+    * WebProcess/WebPage/WebPage.messages.in:
+    
+    Source/WebKitLegacy/mac:
+    
+    * WebCoreSupport/WebGeolocationClient.h:
+    * WebCoreSupport/WebGeolocationClient.mm:
+    (WebGeolocationClient::startUpdating):
+    (WebGeolocationClient::requestPermission):
+    (-[WebGeolocationPolicyListener allow]):
+    (-[WebGeolocationPolicyListener deny]):
+    
+    Source/WebKitLegacy/win:
+    
+    * WebCoreSupport/WebGeolocationClient.cpp:
+    (WebGeolocationClient::startUpdating):
+    * WebCoreSupport/WebGeolocationClient.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@256075 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-02-07  Chris Dumez  <cdumez@apple.com>
+
+            [Hardening] Validate Geolocation access permission on UIProcess side
+            https://bugs.webkit.org/show_bug.cgi?id=207393
+            <rdar://problem/56816051>
+
+            Reviewed by Brent Fulgham.
+
+            * WebCoreSupport/WebGeolocationClient.cpp:
+            (WebGeolocationClient::startUpdating):
+            * WebCoreSupport/WebGeolocationClient.h:
+
+2020-02-04  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r255234. rdar://problem/59098321
+
+    [Web Animations] Make Animation.timeline read-write only if a runtime flag is enabled
+    https://bugs.webkit.org/show_bug.cgi?id=206173
+    <rdar://problem/58527432>
+    
+    Reviewed by Dean Jackson.
+    
+    Source/WebCore:
+    
+    Make the timeline property of Animation read-write only if the new WebAnimationsMutableTimelines runtime flag is enabled.
+    
+    * animation/WebAnimation.idl: Make the "timeline" property conditionally read-write if WebAnimationsMutableTimelines is enabled.
+    * bindings/js/WebCoreBuiltinNames.h: With the new RuntimeConditionallyReadWrite property used in WebAnimation.idl, it is necessary
+    to declare the name of the affected property, in this case "timeline", in WebCoreBuiltinNames.
+    * page/RuntimeEnabledFeatures.h:
+    (WebCore::RuntimeEnabledFeatures::setWebAnimationsMutableTimelinesEnabled):
+    (WebCore::RuntimeEnabledFeatures::webAnimationsMutableTimelinesEnabled const):
+    
+    Source/WebKit:
+    
+    Add a new WebAnimationsMutableTimelines runtime flag.
+    
+    * Shared/WebPreferences.yaml:
+    
+    Source/WebKitLegacy/mac:
+    
+    Add a new WebAnimationsMutableTimelines runtime flag.
+    
+    * WebView/WebPreferenceKeysPrivate.h:
+    * WebView/WebPreferences.mm:
+    (-[WebPreferences webAnimationsMutableTimelinesEnabled]):
+    (-[WebPreferences setWebAnimationsMutableTimelinesEnabled:]):
+    * WebView/WebPreferencesPrivate.h:
+    * WebView/WebView.mm:
+    (-[WebView _preferencesChanged:]):
+    
+    Source/WebKitLegacy/win:
+    
+    Add a new WebAnimationsMutableTimelines runtime flag.
+    
+    * Interfaces/IWebPreferencesPrivate.idl:
+    * WebPreferenceKeysPrivate.h:
+    * WebPreferences.cpp:
+    (WebPreferences::initializeDefaultSettings):
+    (WebPreferences::setWebAnimationsMutableTimelinesEnabled):
+    (WebPreferences::webAnimationsMutableTimelinesEnabled):
+    * WebPreferences.h:
+    * WebView.cpp:
+    (WebView::notifyPreferencesChanged):
+    
+    Tools:
+    
+    Manually enable the new WebAnimationsMutableTimelines runtime flag in DumpRenderTree.
+    
+    * DumpRenderTree/mac/DumpRenderTree.mm:
+    (enableExperimentalFeatures):
+    * DumpRenderTree/win/DumpRenderTree.cpp:
+    (enableExperimentalFeatures):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@255234 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-01-27  Antoine Quint  <graouts@apple.com>
+
+            [Web Animations] Make Animation.timeline read-write only if a runtime flag is enabled
+            https://bugs.webkit.org/show_bug.cgi?id=206173
+            <rdar://problem/58527432>
+
+            Reviewed by Dean Jackson.
+
+            Add a new WebAnimationsMutableTimelines runtime flag.
+
+            * Interfaces/IWebPreferencesPrivate.idl:
+            * WebPreferenceKeysPrivate.h:
+            * WebPreferences.cpp:
+            (WebPreferences::initializeDefaultSettings):
+            (WebPreferences::setWebAnimationsMutableTimelinesEnabled):
+            (WebPreferences::webAnimationsMutableTimelinesEnabled):
+            * WebPreferences.h:
+            * WebView.cpp:
+            (WebView::notifyPreferencesChanged):
+
+2020-02-03  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r255532. rdar://problem/59098561
+
+    Add support for specifying background colors when setting marked text
+    https://bugs.webkit.org/show_bug.cgi?id=207065
+    <rdar://problem/57876140>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebCore:
+    
+    Add support for rendering custom highlights (background colors) behind marked text in WebCore. To do this, we
+    plumb a Vector of CompositionHighlights alongside the Vector of CompositionUnderlines to Editor. At paint time,
+    we then consult this highlight data to determine which ranges of text in the composition should paint using
+    custom background colors.
+    
+    Note that in the future, we should consider refactoring both composition underlines and highlights to use the
+    MarkedText mechanism for decorating ranges of text instead.
+    
+    Test: editing/input/composition-highlights.html
+    
+    * Headers.cmake:
+    * WebCore.xcodeproj/project.pbxproj:
+    * editing/CompositionHighlight.h: Added.
+    (WebCore::CompositionHighlight::CompositionHighlight):
+    (WebCore::CompositionHighlight::encode const):
+    (WebCore::CompositionHighlight::decode):
+    
+    Add CompositionHighlight, which represents a range in the composition that should be highlighted with a given
+    background color.
+    
+    * editing/Editor.cpp:
+    (WebCore::Editor::clear):
+    (WebCore::Editor::setComposition):
+    
+    Add logic for clearing and updating m_customCompositionHighlights.
+    
+    * editing/Editor.h:
+    (WebCore::Editor::compositionUsesCustomHighlights const):
+    (WebCore::Editor::customCompositionHighlights const):
+    * rendering/InlineTextBox.cpp:
+    (WebCore::InlineTextBox::paintCompositionBackground):
+    
+    If custom composition highlights are given, use those when painting the composition background; otherwise,
+    default to painting the entire composition range using `Color::compositionFill`.
+    
+    Source/WebCore/PAL:
+    
+    Add an SPI soft-linking declaration for NSMarkedClauseSegmentAttributeName.
+    
+    * pal/spi/cocoa/NSAttributedStringSPI.h:
+    
+    Source/WebKit:
+    
+    Implement -setAttributedMarkedText:selectedRange: on WKContentView, and have it extract highlight color
+    information from the given attributed string. Plumb this through to the web process by serializing and
+    deserializing `WebCore::CompositionHighlight`s.
+    
+    * UIProcess/Cocoa/WebViewImpl.mm:
+    (WebKit::WebViewImpl::setMarkedText):
+    * UIProcess/WebPageProxy.cpp:
+    * UIProcess/WebPageProxy.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (compositionHighlights):
+    
+    For each marked text clause, grab the specified background color (defaulting to Color::compositionFill) and use
+    it to create a list of CompositionHighlights.
+    
+    (-[WKContentView setAttributedMarkedText:selectedRange:]):
+    (-[WKContentView setMarkedText:selectedRange:]):
+    (-[WKContentView _setMarkedText:highlights:selectedRange:]):
+    * WebProcess/InjectedBundle/API/c/WKBundlePage.cpp:
+    (WKBundlePageSetComposition):
+    
+    Add testing support for specifying highlight ranges when setting marked text.
+    
+    * WebProcess/InjectedBundle/API/c/WKBundlePagePrivate.h:
+    * WebProcess/WebCoreSupport/glib/WebEditorClientGLib.cpp:
+    (WebKit::WebEditorClient::didDispatchInputMethodKeydown):
+    * WebProcess/WebPage/WebPage.cpp:
+    (WebKit::WebPage::setCompositionForTesting):
+    (WebKit::WebPage::setCompositionAsync):
+    * WebProcess/WebPage/WebPage.h:
+    * WebProcess/WebPage/WebPage.messages.in:
+    
+    Source/WebKitLegacy/mac:
+    
+    Adjust some call sites of Editor::setComposition().
+    
+    * WebView/WebFrame.mm:
+    (-[WebFrame setMarkedText:selectedRange:]):
+    (-[WebFrame setMarkedText:forCandidates:]):
+    * WebView/WebHTMLView.mm:
+    (-[WebHTMLView setMarkedText:selectedRange:]):
+    
+    Source/WebKitLegacy/win:
+    
+    Adjust some call sites of Editor::setComposition().
+    
+    * WebView.cpp:
+    (WebView::onIMEComposition):
+    (WebView::setCompositionForTesting):
+    
+    Tools:
+    
+    Add support in WebKitTestRunner for specifying a list of highlight ranges when setting marked text. This comes
+    in the form of an additional argument to TextInputController::setMarkedText, which contains an array of objects,
+    each describing one range (in the composition) to highlight.
+    
+    * DumpRenderTree/ios/TextInputControllerIOS.m:
+    (+[TextInputController isSelectorExcludedFromWebScript:]):
+    (+[TextInputController webScriptNameForSelector:]):
+    (-[TextInputController setMarkedText:selectedFrom:length:suppressUnderline:highlights:]):
+    (-[TextInputController setMarkedText:selectedFrom:length:suppressUnderline:]): Deleted.
+    * DumpRenderTree/mac/TextInputControllerMac.m:
+    (+[TextInputController isSelectorExcludedFromWebScript:]):
+    (+[TextInputController webScriptNameForSelector:]):
+    (-[TextInputController setMarkedText:selectedFrom:length:suppressUnderline:highlights:]):
+    (-[TextInputController setMarkedText:selectedFrom:length:suppressUnderline:]): Deleted.
+    * WebKitTestRunner/InjectedBundle/Bindings/TextInputController.idl:
+    * WebKitTestRunner/InjectedBundle/TextInputController.cpp:
+    (WTR::arrayLength):
+    (WTR::createCompositionHighlightData):
+    
+    Add logic to convert a given JSObject containing the composition highlight information into a WKArrayRef, which
+    is then passed into WebKit via WKBundlePageSetComposition.
+    
+    (WTR::TextInputController::setMarkedText):
+    * WebKitTestRunner/InjectedBundle/TextInputController.h:
+    
+    LayoutTests:
+    
+    Add a test to check that highlighting different parts of a composition range results in the same behavior as
+    applying background colors using CSS. This test is currently only supported in WebKit2.
+    
+    * TestExpectations:
+    * editing/input/composition-highlights-expected.html: Added.
+    * editing/input/composition-highlights.html: Added.
+    * platform/wk2/TestExpectations:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@255532 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-01-31  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Add support for specifying background colors when setting marked text
+            https://bugs.webkit.org/show_bug.cgi?id=207065
+            <rdar://problem/57876140>
+
+            Reviewed by Tim Horton.
+
+            Adjust some call sites of Editor::setComposition().
+
+            * WebView.cpp:
+            (WebView::onIMEComposition):
+            (WebView::setCompositionForTesting):
+
+2019-12-23  Darin Adler  <darin@apple.com>
+
+        Refactor to simplify broadcasting to all media elements
+        https://bugs.webkit.org/show_bug.cgi?id=205567
+
+        Reviewed by Eric Carlson.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::get_attribute): Updated for "atomic" -> "atom".
+
+2019-12-21  Brian Burg  <bburg@apple.com>
+
+        Web Inspector: add InspectedTargetTypes diagnostic event and related hooks
+        https://bugs.webkit.org/show_bug.cgi?id=205174
+        <rdar://problem/57887953>
+
+        Reviewed by Devin Rousso.
+
+        * WebCoreSupport/WebInspectorClient.h:
+
+2019-12-20  Brian Burg  <bburg@apple.com>
+
+        Web Inspector: convert some InspectorFrontendHost methods to getters
+        https://bugs.webkit.org/show_bug.cgi?id=205475
+
+        Reviewed by Devin Rousso.
+
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorFrontendClient::localizedStringsURL const):
+        (WebInspectorFrontendClient::localizedStringsURL): Deleted.
+        * WebCoreSupport/WebInspectorClient.h:
+
+2019-12-13  Brady Eidson  <beidson@apple.com>
+
+        Refactor ScriptController's proliferation of ExceptionDetails*.
+        https://bugs.webkit.org/show_bug.cgi?id=205151
+
+        Reviewed by Alex Christensen.
+
+        * Plugins/PluginView.cpp:
+        (WebCore::PluginView::performRequest):
+
+        * WebFrame.cpp:
+        (WebFrame::stringByEvaluatingJavaScriptInScriptWorld):
+
+        * WebView.cpp:
+        (WebView::stringByEvaluatingJavaScriptFromString):
+        
+2019-12-05  Chris Dumez  <cdumez@apple.com>
+
+        PageConfiguration::dragClient should use a smart pointer
+        https://bugs.webkit.org/show_bug.cgi?id=204816
+
+        Reviewed by Alex Christensen.
+
+        * WebView.cpp:
+        (WebView::initWithFrame):
+
+2019-12-04  Chris Dumez  <cdumez@apple.com>
+
+        PageConfiguration::progressTrackerClient should use a smart pointer
+        https://bugs.webkit.org/show_bug.cgi?id=204854
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::progressStarted): Deleted.
+        (WebFrameLoaderClient::progressEstimateChanged): Deleted.
+        (WebFrameLoaderClient::progressFinished): Deleted.
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebProgressTrackerClient.cpp: Added.
+        (WebProgressTrackerClient::progressStarted):
+        (WebProgressTrackerClient::progressEstimateChanged):
+        (WebProgressTrackerClient::progressFinished):
+        * WebCoreSupport/WebProgressTrackerClient.h: Added.
+        * WebView.cpp:
+        (WebView::initWithFrame):
+
+2019-12-03  Antoine Quint  <graouts@apple.com>
+
+        [Web Animations] Add a runtime flag for Web Animations composite operations
+        https://bugs.webkit.org/show_bug.cgi?id=204718
+
+        Reviewed by Dean Jackson.
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::setWebAnimationsCompositeOperationsEnabled):
+        (WebPreferences::webAnimationsCompositeOperationsEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2019-12-03  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [PSON] Tooltips from previous page shown on new page
+        https://bugs.webkit.org/show_bug.cgi?id=204735
+
+        Reviewed by Chris Dumez.
+
+        Update to the new ChromeClient API.
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::mouseDidMoveOverElement):
+        * WebCoreSupport/WebChromeClient.h:
+
+2019-12-01  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [Win] Retrieve all following WM_CHAR events at the beginning of processing WM_KEYDOWN event
+        https://bugs.webkit.org/show_bug.cgi?id=204694
+
+        Reviewed by Ross Kirsling.
+
+        * WebView.cpp:
+        (WebView::keyDown): Added a variable pendingCharEvents of
+        Vector<MSG> to preserve following WM_CHAR events. Dispatch them if
+        the WM_KEYDOWN isn't consumed.
+
+2019-12-01  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [CMake] Ninja can't build WebKitQuartzCoreAdditions of AppleWin port
+        https://bugs.webkit.org/show_bug.cgi?id=204696
+
+        Reviewed by Don Olmstead.
+
+        It seems unnecessary to explicitly add Windows SDK to link_directories.
+
+        * WebKitQuartzCoreAdditions/CMakeLists.txt: Removed link_directories for Windows SDK.
+
+2019-11-30  Tim Horton  <timothy_horton@apple.com>
+
+        Make CompositeOperator and BlendMode encodable
+        https://bugs.webkit.org/show_bug.cgi?id=204722
+
+        Reviewed by Eric Carlson.
+
+        * FullscreenVideoController.cpp:
+        (FullscreenVideoController::draw):
+        * WebView.cpp:
+        (WebView::paintWithDirect2D):
+        (WebView::paintIntoBackingStore):
+
+2019-10-31  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Windows build fix attempt after r251798.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::get_accParent):
+        (AccessibleBase::getAccessibilityObjectForChild const):
+
+2019-10-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Thread JSGlobalObject* instead of ExecState*
+        https://bugs.webkit.org/show_bug.cgi?id=202392
+
+        Reviewed by Geoffrey Garen.
+
+        * Plugins/PluginPackage.cpp:
+        (WebCore::getListFromVariantArgs):
+        (WebCore::NPN_Evaluate):
+        (WebCore::NPN_Invoke):
+        * Plugins/PluginView.cpp:
+        (WebCore::PluginView::performRequest):
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::dispatchDidClearWindowObjectInWorld):
+        * WebFrame.cpp:
+        (WebFrame::globalContext):
+        (WebFrame::globalContextForScriptWorld):
+        (WebFrame::stringByEvaluatingJavaScriptInScriptWorld):
+        * WebView.cpp:
+        (WebView::stringByEvaluatingJavaScriptFromString):
+        (WebView::reportException):
+        (WebView::elementFromJS):
+
+2019-10-17  Devin Rousso  <drousso@apple.com>
+
+        Web Inspector: rework frontend agent construction to allow commands/events to be controlled by the related target's type
+        https://bugs.webkit.org/show_bug.cgi?id=200384
+        <rdar://problem/53850352>
+
+        Reviewed by Joseph Pecoraro.
+
+        * WebCoreSupport/WebInspectorClient.h:
+        (WebInspectorFrontendClient::debuggableType const): Added.
+        Split the `Web` debuggable type into `Page` (WebCore::Page) and `WebPage` (WebKit::WebPageProxy).
+
+2019-10-16  Chris Dumez  <cdumez@apple.com>
+
+        Rename PageCache to BackForwardCache
+        https://bugs.webkit.org/show_bug.cgi?id=203048
+
+        Reviewed by Alex Christensen.
+
+        Rename PageCache to BackForwardCache for clarity and consistency with the UIProcess's WebBackForwardCache.
+
+        * BackForwardList.cpp:
+        (BackForwardList::addItem):
+        (BackForwardList::setCapacity):
+        * WebCoreStatistics.cpp:
+        (WebCoreStatistics::cachedPageCount):
+        (WebCoreStatistics::cachedFrameCount):
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::didRestoreFromBackForwardCache):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebVisitedLinkStore.cpp:
+        * WebFrame.cpp:
+        (WebFrame::accessible const):
+        * WebView.cpp:
+        (WebView::setCacheModel):
+        (WebView::notifyPreferencesChanged):
+
+2019-10-15  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        REGRESSION: editing/async-clipboard/clipboard-interfaces.html is failing in WebKit1
+        https://bugs.webkit.org/show_bug.cgi?id=202940
+        <rdar://problem/56262298>
+
+        Reviewed by Ryosuke Niwa.
+
+        Add support for the asyncClipboardAPIEnabled feature flag in legacy WebKit on Windows.
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::asyncClipboardAPIEnabled):
+        (WebPreferences::setAsyncClipboardAPIEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2019-10-14  Chris Dumez  <cdumez@apple.com>
+
+        [WK2] Have WebBackForwardCache class coordinate page caching in all WebProcesses
+        https://bugs.webkit.org/show_bug.cgi?id=202929
+        <rdar://problem/56250421>
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        * WebCoreSupport/WebFrameLoaderClient.h:
+
+2019-10-12  Ryosuke Niwa  <rniwa@webkit.org>
+
+        requestIdleCallback is not enabled in DumpRenderTree on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=202876
+
+        Address the forgotten review comment.
+
+        * WebPreferenceKeysPrivate.h:
+
+2019-10-12  Ryosuke Niwa  <rniwa@webkit.org>
+
+        requestIdleCallback is not enabled in DumpRenderTree on Windows
+        https://bugs.webkit.org/show_bug.cgi?id=202876
+
+        Reviewed by Wenson Hsieh.
+
+        Added the missing plumbing to enable requestIdleCallback.
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::requestIdleCallbackEnabled):
+        (WebPreferences::setRequestIdleCallbackEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2019-10-04  Alex Christensen  <achristensen@webkit.org>
+
+        Rename SchemeRegistry to LegacySchemeRegistry
+        https://bugs.webkit.org/show_bug.cgi?id=202586
+
+        Reviewed by Tim Horton.
+
+        * WebView.cpp:
+        (WebView::registerURLSchemeAsLocal):
+        (WebView::setDomainRelaxationForbiddenForURLScheme):
+        (WebView::registerURLSchemeAsSecure):
+        (WebView::registerURLSchemeAsAllowingDatabaseAccessInPrivateBrowsing):
+
+2019-09-27  Chris Dumez  <cdumez@apple.com>
+
+        Pages using WebGLRenderingContext fail to enter the back/forward cache
+        https://bugs.webkit.org/show_bug.cgi?id=202318
+        <rdar://problem/55783612>
+
+        Reviewed by Tim Horton.
+
+        * WebView.cpp:
+        (WindowCloseTimer::WindowCloseTimer):
+        (WindowCloseTimer::contextDestroyed):
+        * WebView.h:
+
+2019-09-25  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        Unreviewed build fix for Windows ports.
+        https://bugs.webkit.org/show_bug.cgi?id=202125
+        <rdar://problem/14944104>
+
+        * WebCoreSupport/WebEditorClient.h: Added missing subFrameScrollPositionChanged.
+
+2019-09-24  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        Remove SchemeRegistry's list of URL schemes allowing local storage in private browsing, which is unused
+        https://bugs.webkit.org/show_bug.cgi?id=202181
+
+        Unreviewed build fix for Windows ports.
+
+        ..\..\Source\WebKitLegacy\win\WebView.cpp(7342): error C2039: 'registerURLSchemeAsAllowingLocalStorageAccessInPrivateBrowsing': is not a member of 'WebCore::SchemeRegistry'
+
+        * WebView.cpp:
+        (WebView::registerURLSchemeAsAllowingLocalStorageAccessInPrivateBrowsing): Removed calling the removed function.
+
+2019-09-21  Chris Dumez  <cdumez@apple.com>
+
+        Reduce use of SessionID::defaultSessionID() in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=202080
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::convertMainResourceLoadToDownload):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+
+2019-09-18  Chris Dumez  <cdumez@apple.com>
+
+        BlobRegistry no longer needs SessionIDs
+        https://bugs.webkit.org/show_bug.cgi?id=201936
+
+        Reviewed by Geoffrey Garen.
+
+        BlobRegistry no longer needs SessionIDs, now that we have a single session per WebProcess.
+
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+
+2019-09-16  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WinCairo][curl] Don't compile unused CertificateCFWin.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=201860
+
+        Reviewed by Alex Christensen.
+
+        * WebMutableURLRequest.cpp: Include <WebCore/CertificateCFWin.h> only if USE(CFURLCONNECTION).
+        (WebMutableURLRequest::setClientCertificate): Don't use PCCERT_CONTEXT for curl port which is defined in WinCrypt.
+
+2019-09-13  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WinCairo][WK1] Accelerated Compositing can't be disabled by using WebPreferences::setAcceleratedCompositingEnabled
+        https://bugs.webkit.org/show_bug.cgi?id=201749
+
+        Reviewed by Don Olmstead.
+
+        WebPreferences::acceleratedCompositingEnabled always returned TRUE
+        for !USE(CA). It should reflect the pref value set by
+        setAcceleratedCompositingEnabled.
+
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings): Set kCFBooleanTrue to WebKitAcceleratedCompositingEnabledPreferenceKey even for !USE(CG).
+        (WebPreferences::acceleratedCompositingEnabled): Return the pref value for !USE(CA).
+
+2019-09-12  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [Win][WK1] Invert Colors inverts a part of the viewport in high DPI
+        https://bugs.webkit.org/show_bug.cgi?id=201719
+
+        Reviewed by Don Olmstead.
+
+        * WebView.cpp:
+        (WebView::paintWithDirect2D):
+        (WebView::paintIntoBackingStore):
+        Call gc.restore() after inverting the dirty rect.
+
+2019-09-10  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [Win][WebKitLegacy][Clang] WebKit.h warning: 'IWebEditingDelegate2::shouldInsertNode' hides overloaded virtual function [-Woverloaded-virtual]
+        https://bugs.webkit.org/show_bug.cgi?id=192581
+        <rdar://problem/46651605>
+
+        Reviewed by Alex Christensen.
+
+        WebKitLegacy COM interfaces have same name methods within the old
+        and new interfaces. For example, both IWebEditingDelegate and
+        IWebEditingDelegate2 interfaces have 'shouldInsertNode' method.
+        This is a part of public API, can't be renamed.
+
+        * Interfaces/IWebEditingDelegate.idl:
+        * Interfaces/IWebViewPrivate.idl:
+        Added #pragma to ignore the warning.
+
+2019-09-09  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [Win][WebKitLegacy] WebKitDLL.h(53,37): warning: 'gClassNameCount' has C-linkage specified, but returns user-defined type 'HashCountedSet<WTF::String> &' which is incompatible with C [-Wreturn-type-c-linkage]
+        https://bugs.webkit.org/show_bug.cgi?id=201601
+
+        Reviewed by Ross Kirsling.
+
+        Fixed a clang-cl warning. Names which aren't dllexport-ed don't
+        need to be in a extern "C" scope because they aren't exported to
+        other DLLs.
+
+        * WebKitDLL.h: Moved some variables and gClassNameCount() out of extern "C" scope.
+
+2019-09-06  Alex Christensen  <achristensen@webkit.org>
+
+        When disabling legacy private browsing for testing, change the SessionID back to what it was, not the defaultSessionID
+        https://bugs.webkit.org/show_bug.cgi?id=201480
+
+        Reviewed by Youenn Fablet.
+
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2019-09-06  Rob Buis  <rbuis@igalia.com>
+
+        Add runtime flag for lazy image loading
+        https://bugs.webkit.org/show_bug.cgi?id=199794
+
+        Reviewed by Frédéric Wang.
+
+        Remove parts of r248409 that were meant for WK1 since
+        lazy image loading is WK2 only.
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::setResizeObserverEnabled):
+        (WebPreferences::lazyImageLoadingEnabled): Deleted.
+        (WebPreferences::setLazyImageLoadingEnabled): Deleted.
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2019-09-05  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WinCairo][WK1] ASSERTION FAILED: !isAcceleratedCompositing() in WebView::updateBackingStore
+        https://bugs.webkit.org/show_bug.cgi?id=201493
+
+        Reviewed by Don Olmstead.
+
+        WebView::paint switches painting code path by checking accelerated
+        compositing enabled. However, accelerated compositing could be
+        enabled after the checking.
+
+        WebView::paint called WebView::paintCompositedContentToHDC and
+        WebCore::Page::updateRendering.
+        WebView::paintCompositedContentToHDC checks accelerated
+        compositing enabled. Then, WebCore::Page::updateRendering executes
+        JavaScript and accelerated compositing could be enabled.
+
+        * WebView.cpp:
+        (WebView::paint): Call WebCore::Page::updateRendering the
+        beginning of the function.
+
+2019-09-03  Antti Koivisto  <antti@apple.com>
+
+        Remove redundant painting phase arguments from GraphicsLayerClient functions
+        https://bugs.webkit.org/show_bug.cgi?id=201443
+
+        Reviewed by Simon Fraser.
+
+        * WebView.cpp:
+        (WebView::paintContents):
+        * WebView.h:
+
+2019-08-27  Mark Lam  <mark.lam@apple.com>
+
+        Refactor to use VM& instead of VM* at as many places as possible.
+        https://bugs.webkit.org/show_bug.cgi?id=201172
+
+        Reviewed by Yusuke Suzuki.
+
+        * WebFrame.cpp:
+        (WebFrame::stringByEvaluatingJavaScriptInScriptWorld):
+
+2019-08-21  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Put keygen element behind a runtime flag and disable it by default
+        https://bugs.webkit.org/show_bug.cgi?id=200850
+
+        Reviewed by Antti Koivisto.
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::keygenElementEnabled):
+        (WebPreferences::setKeygenElementEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2019-08-19  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [WinCairo][WK1] A browser window starts as an inactive window because AcceleratedCompositingContext::acceleratedCompositingAvailable creates temporary window
+        https://bugs.webkit.org/show_bug.cgi?id=200493
+
+        Reviewed by Ross Kirsling.
+
+        Reverted r179962.
+
+        * WebCoreSupport/AcceleratedCompositingContext.cpp:
+        (AcceleratedCompositingContext::acceleratedCompositingAvailable): Deleted.
+        * WebCoreSupport/AcceleratedCompositingContext.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2019-08-19  Sihui Liu  <sihui_liu@apple.com>
+
+        Remove IDB-specific quota
+        https://bugs.webkit.org/show_bug.cgi?id=196545
+        <rdar://problem/54201783>
+
+        Reviewed by Youenn Fablet.
+
+        * Interfaces/IWebDatabaseManager.idl:
+        * WebDatabaseManager.cpp:
+        (WebDatabaseManager::setIDBPerOriginQuota): Deleted.
+        * WebDatabaseManager.h:
+
+2019-08-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Add makeUnique<T>, which ensures T is fast-allocated, makeUnique / makeUniqueWithoutFastMallocCheck part
+        https://bugs.webkit.org/show_bug.cgi?id=200620
+
+        Reviewed by Geoffrey Garen.
+
+        * FullscreenVideoController.cpp:
+        (FullscreenVideoController::FullscreenVideoController):
+        * Plugins/PluginStream.cpp:
+        (WebCore::PluginStream::didReceiveData):
+        * Plugins/PluginView.cpp:
+        (WebCore::PluginView::load):
+        * Plugins/PluginViewWin.cpp:
+        (WebCore::PluginView::wndProc):
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::WebChromeClient):
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::WebFrameLoaderClient):
+        (WebFrameLoaderClient::savePlatformDataToCachedFrame):
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorClient::openLocalFrontend):
+        (WebInspectorClient::highlight):
+        * WebElementPropertyBag.cpp:
+        (WebElementPropertyBag::WebElementPropertyBag):
+        * WebHistoryItem.cpp:
+        (WebHistoryItem::initFromDictionaryRepresentation):
+        * WebKitQuartzCoreAdditions/CAD3DRenderer.cpp:
+        (WKQCA::CAD3DRenderer::createD3DPostProcessingContext):
+        * WebNotificationCenter.cpp:
+        (WebNotificationCenter::WebNotificationCenter):
+        * WebView.cpp:
+        (WebView::handleMouseEvent):
+        (WebView::registerEmbeddedViewMIMEType):
+        (WebView::enterVideoFullscreenForVideoElement):
+        (WebView::addUserScriptToGroup):
+        (WebView::addUserStyleSheetToGroup):
+        (WebView::setAcceleratedCompositing):
+
+2019-08-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Add makeUnique<T>, which ensures T is fast-allocated, WTF_MAKE_FAST_ALLOCATED annotation part
+        https://bugs.webkit.org/show_bug.cgi?id=200620
+
+        Reviewed by Geoffrey Garen.
+
+        * FullscreenVideoController.cpp:
+        * FullscreenVideoController.h:
+        * Plugins/PluginMessageThrottlerWin.h:
+        * WebCachedFramePlatformData.h:
+        * WebCoreSupport/AcceleratedCompositingContext.h:
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebContextMenuClient.h:
+        * WebCoreSupport/WebDesktopNotificationsDelegate.h:
+        * WebCoreSupport/WebDragClient.h:
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        * WebCoreSupport/WebGeolocationClient.h:
+        * WebCoreSupport/WebInspectorClient.h:
+        * WebDatabaseManager.cpp:
+        * WebKitQuartzCoreAdditions/CAD3DRenderer.h:
+        * WebNodeHighlight.h:
+        * WebNotificationCenter.cpp:
+        * WebNotificationCenter.h:
+
+2019-08-15  Brent Fulgham  <bfulgham@apple.com>
+
+        [FTW] Enable CoreFoundation use if building for Apple target
+        https://bugs.webkit.org/show_bug.cgi?id=200799
+
+        Reviewed by Alex Christensen.
+
+        * FullscreenVideoController.cpp:
+        (FullscreenVideoController::FullscreenVideoController):
+        (FullscreenVideoController::enterFullscreen):
+        (FullscreenVideoController::exitFullscreen):
+        (FullscreenVideoController::createHUDWindow):
+        * FullscreenVideoController.h:
+        * WebView.cpp:
+        (WebView::exitFullscreenIfNeeded):
+
+2019-08-15  Youenn Fablet  <youenn@apple.com>
+
+        Always create a Document with a valid SessionID
+        https://bugs.webkit.org/show_bug.cgi?id=200727
+
+        Reviewed by Alex Christensen.
+
+        Implement WebKit1 sessionID getter like done for WebKit2.
+        Either the loader client has a page in which case the page session ID is used
+        or the client has no page, in which case the default session ID is used.
+        This is the same behavior as CachedResourceLoader.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::sessionID const):
+
+2019-08-14  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r248526.
+
+        Caused two IndexedDB perf tests to fail
+
+        Reverted changeset:
+
+        "Remove IDB-specific quota"
+        https://bugs.webkit.org/show_bug.cgi?id=196545
+        https://trac.webkit.org/changeset/248526
+
+2019-08-14  Youenn Fablet  <youenn@apple.com>
+
+        ThreadableBlobRegistry::blobSize should take a SessionID as parameter
+        https://bugs.webkit.org/show_bug.cgi?id=200671
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+
+2019-08-13  Youenn Fablet  <youenn@apple.com>
+
+        Blob registries should be keyed by session IDs
+        https://bugs.webkit.org/show_bug.cgi?id=200567
+        <rdar://problem/54120212>
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+        (WebPlatformStrategies::createBlobRegistry):
+
+2019-08-12  Youenn Fablet  <youenn@apple.com>
+
+        Remove IDB-specific quota
+        https://bugs.webkit.org/show_bug.cgi?id=196545
+
+        Reviewed by Alex Christensen.
+
+        * Interfaces/IWebDatabaseManager.idl:
+        * WebDatabaseManager.cpp:
+        (WebDatabaseManager::setIDBPerOriginQuota): Deleted.
+        * WebDatabaseManager.h:
+
+2019-08-09  Per Arne Vollan  <pvollan@apple.com>
+
+        [Win] Remove compiler workaround for VS2013
+        https://bugs.webkit.org/show_bug.cgi?id=200582
+
+        Reviewed by Don Olmstead.
+
+        A VS2013 compiler workaround can be removed now.
+
+        * WebKitQuartzCoreAdditions/API/WebKitQuartzCoreAdditions.cpp:
+        (DllMain):
+
+2019-08-08  Per Arne Vollan  <pvollan@apple.com>
+
+        [Win] Fix internal build
+        https://bugs.webkit.org/show_bug.cgi?id=200519
+
+        Reviewed by Alex Christensen.
+
+        Switch to the String::wideCharacers method, since its return type is compatible with the Win32 api.
+
+        * WebDownloadCFNet.cpp:
+        (WebDownload::didFinish):
+
+2019-08-08  Brent Fulgham  <bfulgham@apple.com>
+
+        [FTW] Get WebKit, WebKit2, and MiniBrowser building and executing
+        https://bugs.webkit.org/show_bug.cgi?id=200539
+        <rdar://problem/54082550>
+
+        Reviewed by Dean Jackson.
+
+        * AccessibleBase.cpp:
+        (AccessibleBase::get_locale):
+        * CFDictionaryPropertyBag.cpp:
+        (ConvertCFTypeToVariant):
+        (CFDictionaryPropertyBag::Read):
+        (CFDictionaryPropertyBag::Write):
+        * CFDictionaryPropertyBag.h:
+        * COMPropertyBag.h:
+        (HashType>::Read):
+        (HashType>::GetPropertyInfo):
+        * MarshallingHelpers.cpp:
+        * MarshallingHelpers.h:
+        * WebApplicationCache.cpp:
+        * WebArchive.cpp:
+        * WebArchive.h:
+        * WebCache.cpp:
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        * WebDatabaseManager.cpp:
+        * WebHistory.cpp:
+        * WebHistoryItem.cpp:
+        * WebKitCOMAPI.cpp:
+        * WebKitCOMAPI.h:
+        * WebKitDLL.cpp:
+        * WebLocalizableStrings.cpp:
+        * WebLocalizableStrings.h:
+        * WebMutableURLRequest.cpp:
+        * WebPreferences.cpp:
+        * WebPreferences.h:
+        * WebView.cpp:
+        * WebView.h:
+
+2019-08-08  Rob Buis  <rbuis@igalia.com>
+
+        Add runtime flag for lazy image loading
+        https://bugs.webkit.org/show_bug.cgi?id=199794
+
+        Reviewed by Darin Adler.
+
+        Set lazyImageLoading runtime flag if preference is set.
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::lazyImageLoadingEnabled):
+        (WebPreferences::setLazyImageLoadingEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2019-07-28  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [Win][WK1] Can't change Web Inspector frontend height in high DPI
+        https://bugs.webkit.org/show_bug.cgi?id=200153
+
+        Reviewed by Don Olmstead.
+
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorFrontendClient::setAttachedWindowHeight):
+        Applied deviceScaleFactor to the argument height.
+
+2019-07-26  Konstantin Tokarev  <annulen@yandex.ru>
+
+        [Win] Remove unused methods from WebPluginInfoProvider
+        https://bugs.webkit.org/show_bug.cgi?id=200178
+
+        Reviewed by Brent Fulgham.
+
+        These methods are guarded with PLATFORM(MAC) and have no definitions.
+        Also remove unused friend declaration.
+
+        * WebCoreSupport/WebPluginInfoProvider.h:
+
+2019-07-25  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [Win][WK1] The inspected webview window is misplaced after changing Web Inspector frontend window height
+        https://bugs.webkit.org/show_bug.cgi?id=200152
+
+        Reviewed by Brent Fulgham.
+
+        In WebInspectorFrontendClient::setAttachedWindowHeight, the size
+        of m_inspectedWebViewHwnd was changed to the whole host window
+        size. But, it's too tall because MiniBrowser's host window has a
+        toolbar. The toolbar height should be taken into account.
+
+        Change to the height of m_inspectedWebViewHwnd to the sum of
+        inspected WebView and inspector frontend WebView heights.
+
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorFrontendClient::setAttachedWindowHeight):
+
+2019-07-23  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [macOS 10.15] Web process crashes when attempting to show the font panel via Font > Show Fonts
+        https://bugs.webkit.org/show_bug.cgi?id=200021
+        <rdar://problem/53301325>
+
+        Reviewed by Ryosuke Niwa.
+
+        Implement a new editing client hook.
+
+        * WebCoreSupport/WebEditorClient.h:
 
 2019-07-13  Zalan Bujtas  <zalan@apple.com>
 

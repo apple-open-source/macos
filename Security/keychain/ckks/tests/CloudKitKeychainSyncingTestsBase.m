@@ -62,7 +62,7 @@
         // Wait for the ViewManager to be brought up
         XCTAssertEqual(0, [self.injectedManager.completedSecCKKSInitialize wait:20*NSEC_PER_SEC], "No timeout waiting for SecCKKSInitialize");
 
-        self.keychainView = [[CKKSViewManager manager] findOrCreateView:@"keychain"];
+        self.keychainView = [[CKKSViewManager manager] findView:@"keychain"];
         XCTAssertNotNil(self.keychainView, "CKKSViewManager created the keychain view");
         [self.ckksViews addObject:self.keychainView];
     }
@@ -70,10 +70,6 @@
     // Check that your environment is set up correctly
     XCTAssertFalse([CKKSManifest shouldSyncManifests], "Manifests syncing is disabled");
     XCTAssertFalse([CKKSManifest shouldEnforceManifests], "Manifests enforcement is disabled");
-
-    self.aksLockState = false; // Lie and say AKS is always unlocked
-    self.mockLockStateTracker = OCMClassMock([CKKSLockStateTracker class]);
-    OCMStub([self.mockLockStateTracker queryAKSLocked]).andCall(self, @selector(aksLockState));
 }
 
 

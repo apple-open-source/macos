@@ -83,6 +83,7 @@ enum TestConfidence { "high", "kinda-low" };
     attribute record<ByteString, long> usvstringLongRecordAttr;
     attribute record<DOMString, TestObj> stringObjRecordAttr;
     attribute record<DOMString, TestObj?> stringNullableObjRecordAttr;
+    attribute record<DOMString, VoidCallback> stringVoidCallbackRecordAttr;
     attribute TestDictionary dictionaryAttr;
     attribute TestDictionary? nullableDictionaryAttr;
     attribute (DOMString or [Clamp] long) annotatedTypeInUnionAttr;
@@ -195,10 +196,10 @@ enum TestConfidence { "high", "kinda-low" };
     [ImplementedAs=onfoo] attribute EventHandler onwebkitfoo;
 
     // 'CallWith' extended attribute
-    [CallWith=ExecState] void withExecStateVoid();
-    [CallWith=ExecState] TestObj withExecStateObj();
-    [CallWith=ExecState, MayThrowException] void withExecStateVoidException();
-    [CallWith=ExecState, MayThrowException] TestObj withExecStateObjException();
+    [CallWith=GlobalObject] void withExecStateVoid();
+    [CallWith=GlobalObject] TestObj withExecStateObj();
+    [CallWith=GlobalObject, MayThrowException] void withExecStateVoidException();
+    [CallWith=GlobalObject, MayThrowException] TestObj withExecStateObjException();
     [CallWith=ScriptExecutionContext] void withScriptExecutionContext();
     [CallWith=ScriptExecutionContext&ExecState] void withScriptExecutionContextAndExecState();
     [CallWith=ScriptExecutionContext&ExecState, MayThrowException] TestObj withScriptExecutionContextAndExecStateObjException();
@@ -207,8 +208,8 @@ enum TestConfidence { "high", "kinda-low" };
     [CallWith=IncumbentDocument] void withCallerDocumentArgument();
     [CallWith=IncumbentWindow] void withCallerWindowArgument();
 
-    [CallWith=ExecState] attribute long withExecStateAttribute;
-    [CallWith=ExecState, SetterCallWith=ActiveWindow&FirstWindow] attribute long withCallWithAndSetterCallWithAttribute;
+    [CallWith=GlobalObject] attribute long withExecStateAttribute;
+    [CallWith=GlobalObject, SetterCallWith=ActiveWindow&FirstWindow] attribute long withCallWithAndSetterCallWithAttribute;
     [CallWith=ScriptExecutionContext] attribute TestObj withScriptExecutionContextAttribute;
     [CallWith=ScriptExecutionContext&ExecState] attribute TestObj withScriptExecutionContextAndExecStateAttribute;
     [CallWith=  ScriptExecutionContext  &  ExecState  ] attribute TestObj withScriptExecutionContextAndExecStateWithSpacesAttribute;
@@ -448,6 +449,8 @@ enum TestConfidence { "high", "kinda-low" };
 
     [ConditionallyReadWrite=CONDITION] attribute Node conditionallyReadWriteAttribute;
     [Conditional=CONDITION2, ConditionallyReadWrite=CONDITION] attribute Node conditionalAndConditionallyReadWriteAttribute;
+
+    [RuntimeConditionallyReadWrite=TestFeature] attribute Node runtimeConditionallyReadWriteAttribute;
 
     [Exposed=Window] attribute long conditionallyExposedToWindowAttribute;
     [Exposed=Worker] attribute long conditionallyExposedToWorkerAttribute;

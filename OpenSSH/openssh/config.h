@@ -46,9 +46,6 @@
    against it */
 /* #undef BROKEN_READ_COMPARISON */
 
-/* realpath does not work with nonexistent files */
-#define BROKEN_REALPATH 1
-
 /* Needed for NeXT */
 /* #undef BROKEN_SAVED_UIDS */
 
@@ -394,19 +391,19 @@
 /* Define if you have /dev/ptc */
 /* #undef HAVE_DEV_PTS_AND_PTC */
 
-/* Define if libcrypto has DH_get0_key */
+/* Define to 1 if you have the `DH_get0_key' function. */
 #define HAVE_DH_GET0_KEY 1
 
-/* Define if libcrypto has DH_get0_pqg */
+/* Define to 1 if you have the `DH_get0_pqg' function. */
 #define HAVE_DH_GET0_PQG 1
 
-/* Define if libcrypto has DH_set0_key */
+/* Define to 1 if you have the `DH_set0_key' function. */
 #define HAVE_DH_SET0_KEY 1
 
-/* Define if libcrypto has DH_set0_pqg */
+/* Define to 1 if you have the `DH_set0_pqg' function. */
 #define HAVE_DH_SET0_PQG 1
 
-/* Define if libcrypto has DH_set_length */
+/* Define to 1 if you have the `DH_set_length' function. */
 #define HAVE_DH_SET_LENGTH 1
 
 /* Define to 1 if you have the <dirent.h> header file. */
@@ -421,29 +418,32 @@
 /* Define to 1 if you have the `DSA_generate_parameters_ex' function. */
 #define HAVE_DSA_GENERATE_PARAMETERS_EX 1
 
-/* Define if libcrypto has DSA_get0_key */
+/* Define to 1 if you have the `DSA_get0_key' function. */
 #define HAVE_DSA_GET0_KEY 1
 
-/* Define if libcrypto has DSA_get0_pqg */
+/* Define to 1 if you have the `DSA_get0_pqg' function. */
 #define HAVE_DSA_GET0_PQG 1
 
-/* Define if libcrypto has DSA_set0_key */
+/* Define to 1 if you have the `DSA_set0_key' function. */
 #define HAVE_DSA_SET0_KEY 1
 
-/* Define if libcrypto has DSA_set0_pqg */
+/* Define to 1 if you have the `DSA_set0_pqg' function. */
 #define HAVE_DSA_SET0_PQG 1
 
-/* Define if libcrypto has DSA_SIG_get0 */
+/* Define to 1 if you have the `DSA_SIG_get0' function. */
 #define HAVE_DSA_SIG_GET0 1
 
-/* Define if libcrypto has DSA_SIG_set0 */
+/* Define to 1 if you have the `DSA_SIG_set0' function. */
 #define HAVE_DSA_SIG_SET0 1
 
-/* Define if libcrypto has ECDSA_SIG_get0 */
+/* Define to 1 if you have the `ECDSA_SIG_get0' function. */
 #define HAVE_ECDSA_SIG_GET0 1
 
-/* Define if libcrypto has ECDSA_SIG_set0 */
+/* Define to 1 if you have the `ECDSA_SIG_set0' function. */
 #define HAVE_ECDSA_SIG_SET0 1
+
+/* Define to 1 if you have the `EC_KEY_METHOD_new' function. */
+/* #undef HAVE_EC_KEY_METHOD_NEW */
 
 /* Define to 1 if you have the <elf.h> header file. */
 /* #undef HAVE_ELF_H */
@@ -472,17 +472,20 @@
 /* Define if your system has /etc/default/login */
 /* #undef HAVE_ETC_DEFAULT_LOGIN */
 
-/* Define if libcrypto has EVP_CIPHER_CTX_ctrl */
+/* Define to 1 if you have the `EVP_CIPHER_CTX_ctrl' function. */
 #define HAVE_EVP_CIPHER_CTX_CTRL 1
 
-/* Define if libcrypto has EVP_CIPHER_CTX_set_iv */
+/* Define to 1 if you have the `EVP_CIPHER_CTX_get_iv' function. */
 /* #undef HAVE_EVP_CIPHER_CTX_GET_IV */
 
-/* Define if libcrypto has EVP_CIPHER_CTX_iv */
+/* Define to 1 if you have the `EVP_CIPHER_CTX_iv' function. */
 /* #undef HAVE_EVP_CIPHER_CTX_IV */
 
-/* Define if libcrypto has EVP_CIPHER_CTX_iv_noconst */
+/* Define to 1 if you have the `EVP_CIPHER_CTX_iv_noconst' function. */
 /* #undef HAVE_EVP_CIPHER_CTX_IV_NOCONST */
+
+/* Define to 1 if you have the `EVP_CIPHER_CTX_set_iv' function. */
+/* #undef HAVE_EVP_CIPHER_CTX_SET_IV */
 
 /* Define to 1 if you have the `EVP_DigestFinal_ex' function. */
 #define HAVE_EVP_DIGESTFINAL_EX 1
@@ -496,16 +499,16 @@
 /* Define to 1 if you have the `EVP_MD_CTX_copy_ex' function. */
 #define HAVE_EVP_MD_CTX_COPY_EX 1
 
-/* Define if libcrypto has EVP_MD_CTX_free */
+/* Define to 1 if you have the `EVP_MD_CTX_free' function. */
 #define HAVE_EVP_MD_CTX_FREE 1
 
 /* Define to 1 if you have the `EVP_MD_CTX_init' function. */
 #define HAVE_EVP_MD_CTX_INIT 1
 
-/* Define if libcrypto has EVP_MD_CTX_new */
+/* Define to 1 if you have the `EVP_MD_CTX_new' function. */
 #define HAVE_EVP_MD_CTX_NEW 1
 
-/* Define if libcrypto has EVP_PKEY_get0_RSA */
+/* Define to 1 if you have the `EVP_PKEY_get0_RSA' function. */
 #define HAVE_EVP_PKEY_GET0_RSA 1
 
 /* Define to 1 if you have the `EVP_ripemd160' function. */
@@ -513,6 +516,12 @@
 
 /* Define to 1 if you have the `EVP_sha256' function. */
 #define HAVE_EVP_SHA256 1
+
+/* Define to 1 if you have the `EVP_sha384' function. */
+#define HAVE_EVP_SHA384 1
+
+/* Define to 1 if you have the `EVP_sha512' function. */
+#define HAVE_EVP_SHA512 1
 
 /* Define if you have ut_exit in utmp.h */
 /* #undef HAVE_EXIT_IN_UTMP */
@@ -523,8 +532,14 @@
 /* Define to 1 if you have the `fchmod' function. */
 #define HAVE_FCHMOD 1
 
+/* Define to 1 if you have the `fchmodat' function. */
+#define HAVE_FCHMODAT 1
+
 /* Define to 1 if you have the `fchown' function. */
 #define HAVE_FCHOWN 1
+
+/* Define to 1 if you have the `fchownat' function. */
+#define HAVE_FCHOWNAT 1
 
 /* Use F_CLOSEM fcntl for closefrom */
 /* #undef HAVE_FCNTL_CLOSEM */
@@ -802,6 +817,9 @@
 /* Define to 1 if you have the `pam' library (-lpam). */
 #define HAVE_LIBPAM 1
 
+/* Define to 1 if you have the <libproc.h> header file. */
+#define HAVE_LIBPROC_H 1
+
 /* Define to 1 if you have the `socket' library (-lsocket). */
 /* #undef HAVE_LIBSOCKET */
 
@@ -878,6 +896,9 @@
 /* Define if you want to allow MD5 passwords */
 /* #undef HAVE_MD5_PASSWORDS */
 
+/* Define to 1 if you have the `memmem' function. */
+#define HAVE_MEMMEM 1
+
 /* Define to 1 if you have the `memmove' function. */
 #define HAVE_MEMMOVE 1
 
@@ -936,8 +957,17 @@
 /* Define to 1 if you have the `openpty' function. */
 #define HAVE_OPENPTY 1
 
-/* Define if your ssl headers are included with #include <openssl/header.h> */
-#define HAVE_OPENSSL 1
+/* as a macro */
+#define HAVE_OPENSSL_ADD_ALL_ALGORITHMS 1
+
+/* Define to 1 if you have the `OPENSSL_init_crypto' function. */
+#define HAVE_OPENSSL_INIT_CRYPTO 1
+
+/* Define to 1 if you have the `OpenSSL_version' function. */
+#define HAVE_OPENSSL_VERSION 1
+
+/* Define to 1 if you have the `OpenSSL_version_num' function. */
+#define HAVE_OPENSSL_VERSION_NUM 1
 
 /* Define if you have Digital Unix Security Integration Architecture */
 /* #undef HAVE_OSF_SIA */
@@ -981,6 +1011,9 @@
 /* Define if you have /proc/$pid/fd */
 /* #undef HAVE_PROC_PID */
 
+/* Define to 1 if you have the `proc_pidinfo' function. */
+#define HAVE_PROC_PIDINFO 1
+
 /* Define to 1 if you have the `pstat' function. */
 /* #undef HAVE_PSTAT */
 
@@ -1009,9 +1042,6 @@
 /* Define to 1 if you have the `reallocarray' function. */
 /* #undef HAVE_REALLOCARRAY */
 
-/* Define to 1 if you have the `realpath' function. */
-#define HAVE_REALPATH 1
-
 /* Define to 1 if you have the `recallocarray' function. */
 /* #undef HAVE_RECALLOCARRAY */
 
@@ -1030,46 +1060,46 @@
 /* Define to 1 if you have the `RSA_generate_key_ex' function. */
 #define HAVE_RSA_GENERATE_KEY_EX 1
 
-/* Define if libcrypto has RSA_get0_crt_params */
+/* Define to 1 if you have the `RSA_get0_crt_params' function. */
 #define HAVE_RSA_GET0_CRT_PARAMS 1
 
-/* Define if libcrypto has RSA_get0_factors */
+/* Define to 1 if you have the `RSA_get0_factors' function. */
 #define HAVE_RSA_GET0_FACTORS 1
 
-/* Define if libcrypto has RSA_get0_key */
+/* Define to 1 if you have the `RSA_get0_key' function. */
 #define HAVE_RSA_GET0_KEY 1
 
 /* Define to 1 if you have the `RSA_get_default_method' function. */
 #define HAVE_RSA_GET_DEFAULT_METHOD 1
 
-/* Define if libcrypto has RSA_meth_dup */
+/* Define to 1 if you have the `RSA_meth_dup' function. */
 #define HAVE_RSA_METH_DUP 1
 
-/* Define if libcrypto has RSA_meth_free */
+/* Define to 1 if you have the `RSA_meth_free' function. */
 #define HAVE_RSA_METH_FREE 1
 
-/* Define if libcrypto has RSA_meth_get_finish */
+/* Define to 1 if you have the `RSA_meth_get_finish' function. */
 /* #undef HAVE_RSA_METH_GET_FINISH */
 
-/* Define if libcrypto has RSA_meth_set1_name */
+/* Define to 1 if you have the `RSA_meth_set1_name' function. */
 /* #undef HAVE_RSA_METH_SET1_NAME */
 
-/* Define if libcrypto has RSA_meth_set_finish */
+/* Define to 1 if you have the `RSA_meth_set_finish' function. */
 #define HAVE_RSA_METH_SET_FINISH 1
 
-/* Define if libcrypto has RSA_meth_set_priv_dec */
+/* Define to 1 if you have the `RSA_meth_set_priv_dec' function. */
 #define HAVE_RSA_METH_SET_PRIV_DEC 1
 
-/* Define if libcrypto has RSA_meth_set_priv_enc */
+/* Define to 1 if you have the `RSA_meth_set_priv_enc' function. */
 #define HAVE_RSA_METH_SET_PRIV_ENC 1
 
-/* Define if libcrypto has RSA_get0_srt_params */
+/* Define to 1 if you have the `RSA_set0_crt_params' function. */
 #define HAVE_RSA_SET0_CRT_PARAMS 1
 
-/* Define if libcrypto has RSA_set0_factors */
+/* Define to 1 if you have the `RSA_set0_factors' function. */
 #define HAVE_RSA_SET0_FACTORS 1
 
-/* Define if libcrypto has RSA_set0_key */
+/* Define to 1 if you have the `RSA_set0_key' function. */
 #define HAVE_RSA_SET0_KEY 1
 
 /* Define to 1 if you have the <sandbox.h> header file. */
@@ -1171,11 +1201,17 @@
 /* Define to 1 if you have the `set_id' function. */
 /* #undef HAVE_SET_ID */
 
-/* Define to 1 if you have the `SHA256_Update' function. */
-#define HAVE_SHA256_UPDATE 1
+/* Define to 1 if you have the `SHA256Update' function. */
+/* #undef HAVE_SHA256UPDATE */
 
 /* Define to 1 if you have the <sha2.h> header file. */
 /* #undef HAVE_SHA2_H */
+
+/* Define to 1 if you have the `SHA384Update' function. */
+/* #undef HAVE_SHA384UPDATE */
+
+/* Define to 1 if you have the `SHA512Update' function. */
+/* #undef HAVE_SHA512UPDATE */
 
 /* Define to 1 if you have the <shadow.h> header file. */
 /* #undef HAVE_SHADOW_H */
@@ -1512,6 +1548,9 @@
 
 /* Define to 1 if you have the <util.h> header file. */
 #define HAVE_UTIL_H 1
+
+/* Define to 1 if you have the `utimensat' function. */
+#define HAVE_UTIMENSAT 1
 
 /* Define to 1 if you have the `utimes' function. */
 #define HAVE_UTIMES 1

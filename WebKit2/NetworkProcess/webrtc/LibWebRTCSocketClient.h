@@ -27,41 +27,29 @@
 
 #if USE(LIBWEBRTC)
 
-#include <WebCore/LibWebRTCMacros.h>
-#include <webrtc/rtc_base/asyncpacketsocket.h>
-#include <webrtc/rtc_base/third_party/sigslot/sigslot.h>
+#include "NetworkRTCProvider.h"
+#include <webrtc/rtc_base/async_packet_socket.h>
 
 namespace rtc {
 class AsyncPacketSocket;
-class SocketAddress;
-struct PacketOptions;
 struct SentPacket;
 typedef int64_t PacketTime;
 }
 
-namespace WebCore {
-class SharedBuffer;
-}
-
 namespace WebKit {
 
-class NetworkRTCProvider;
-
-class LibWebRTCSocketClient final : public sigslot::has_slots<> {
+class LibWebRTCSocketClient final : public NetworkRTCProvider::Socket, public sigslot::has_slots<> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    enum class Type { UDP, ServerTCP, ClientTCP, ServerConnectionTCP };
-
-    LibWebRTCSocketClient(uint64_t identifier, NetworkRTCProvider&, std::unique_ptr<rtc::AsyncPacketSocket>&&, Type);
-
-    uint64_t identifier() const { return m_identifier; }
-    Type type() const { return m_type; }
-    void close();
+    LibWebRTCSocketClient(WebCore::LibWebRTCSocketIdentifier, NetworkRTCProvider&, std::unique_ptr<rtc::AsyncPacketSocket>&&, Type);
 
 private:
-    friend class NetworkRTCSocket;
+    WebCore::LibWebRTCSocketIdentifier identifier() const final { return m_identifier; }
+    Type type() const final { return m_type; }
+    void close() final;
 
-    void setOption(int option, int value);
-    void sendTo(const WebCore::SharedBuffer&, const rtc::SocketAddress&, const rtc::PacketOptions&);
+    void setOption(int option, int value) final;
+    void sendTo(const WebCore::SharedBuffer&, const rtc::SocketAddress&, const rtc::PacketOptions&) final;
 
     void signalReadPacket(rtc::AsyncPacketSocket*, const char*, size_t, const rtc::SocketAddress&, const rtc::PacketTime&);
     void signalSentPacket(rtc::AsyncPacketSocket*, const rtc::SentPacket&);
@@ -72,7 +60,7 @@ private:
 
     void signalAddressReady();
 
-    uint64_t m_identifier;
+    WebCore::LibWebRTCSocketIdentifier m_identifier;
     Type m_type;
     NetworkRTCProvider& m_rtcProvider;
     std::unique_ptr<rtc::AsyncPacketSocket> m_socket;

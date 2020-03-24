@@ -44,27 +44,41 @@ typedef NS_ENUM(NSInteger, CliqueStatus) {
 #import <Security/SecureObjectSync/SOSTypes.h>
 #import <Security/OTConstants.h>
 
+typedef NS_ENUM(NSInteger, OTCDPStatus) {
+    OTCDPStatusUnknown = 0,
+    OTCDPStatusDisabled = 1,
+    OTCDPStatusEnabled = 2,
+};
+
 NS_ASSUME_NONNULL_BEGIN
 
 NSString* OTCliqueStatusToString(CliqueStatus status);
 CliqueStatus OTCliqueStatusFromString(NSString* str);
+NSString* OTCDPStatusToString(OTCDPStatus status);
 
 @class KCPairingChannelContext;
 @class KCPairingChannel;
 @class OTPairingChannel;
 @class OTPairingChannelContext;
 @class OTControl;
+@class CKKSControl;
 
 extern NSString* kSecEntitlementPrivateOctagonEscrow;
 
 @interface OTConfigurationContext : NSObject
-@property (nonatomic, copy, nullable) NSString* context;
-@property (nonatomic, copy) NSString* dsid;
-@property (nonatomic, copy) NSString* altDSID;
+@property (nonatomic, copy) NSString* context;
+@property (nonatomic, copy, nullable) NSString* dsid;
+@property (nonatomic, copy, nullable) NSString* altDSID;
 @property (nonatomic, strong, nullable) SFSignInAnalytics* analytics;
+@property (nonatomic, copy, nullable) NSString* authenticationAppleID;
+@property (nonatomic, copy, nullable) NSString* passwordEquivalentToken;
 
 // Use this to inject your own OTControl object. It must be configured as synchronous.
 @property (nullable, strong) OTControl* otControl;
+
+// Use this to inject your own CKKSControl object. It must be configured as synchronous.
+@property (nullable, strong) CKKSControl* ckksControl;
+
 // Use this to inject your own SecureBackup object. It must conform to the OctagonEscrowRecoverer protocol.
 @property (nullable, strong) id sbd;
 
@@ -110,10 +124,15 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
 
 /* *
  * @abstract, initializes a clique object given a context.  A clique object enables octagon trust operations for a given context and dsid.
- * @param ctx, a unique string that is used as a way to retrieve current trust state
+ * @param ctx, a collection of arguments describing the world
  * @return an instance of octagon trust
  */
-- (instancetype _Nullable)initWithContextData:(OTConfigurationContext *)ctx error:(NSError * __autoreleasing * _Nonnull)error;
+- (instancetype)initWithContextData:(OTConfigurationContext *)ctx;
+
+/*
+ * Much like initWithContextData, but might fail. There are currently no failures possible.
+ */
+- (instancetype _Nullable)initWithContextData:(OTConfigurationContext *)ctx error:(NSError**)error __deprecated_msg("Use initWithContextData instead");
 
 /* *
  * @abstract   Establish a new clique, reset protected data
@@ -155,10 +174,8 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
 /* *
  * @abstract   Create pairing channel with
  *
- * @param ctx, context containing parameters to setup OTClique
- * @param pairingChannelContext, context containing parameters to setup the pairing channel as the initiator
- * @return  clique, An instance of an OTClique
- * @return  error, error gets filled if something goes horribly wrong
+ * @param ctx, context containing parameters to setup the pairing channel as the initiator
+ * @return  KCPairingChannel, An instance of a KCPairingCHannel
  */
 - (KCPairingChannel *)setupPairingChannelAsInitiator:(KCPairingChannelContext *)ctx;
 
@@ -167,10 +184,8 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
 /* *
  * @abstract   Configure this peer as the acceptor during piggybacking
  *
- * @param ctx, context containing parameters to setup OTClique
- * @param pairingChannelContext, context containing parameters to setup the pairing channel as the acceptor
- * @param error, error gets filled if something goes horribly wrong
- * @return  KCPairingChannel, An instance of an OTClique
+ * @param ctx, context containing parameters to setup the pairing channel as the acceptor
+ * @return  KCPairingChannel, An instance of a KCPairingChannel
  */
 - (KCPairingChannel *)setupPairingChannelAsAcceptor:(KCPairingChannelContext *)ctx;
 
@@ -233,6 +248,15 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
 - (NSDictionary<NSString*,NSString*>* _Nullable)peerDeviceNamesByPeerID:(NSError * __autoreleasing *)error;
 
 
+/*
+ * CDP bit handling
+ */
+
++ (BOOL)setCDPEnabled:(OTConfigurationContext*)arguments
+                error:(NSError* __autoreleasing*)error;
+
++ (OTCDPStatus)getCDPStatus:(OTConfigurationContext*)arguments
+                      error:(NSError* __autoreleasing *)error;
 
 /* SOS glue */
 
@@ -321,6 +345,17 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
 // CoreCDP will call this function when they are upgrading an account from SA to HSA2
 - (BOOL)waitForOctagonUpgrade:(NSError** _Nullable)error;
 
+
+/*
+* @abstract CoreCDP to call this function when they need to reset protected data.
+*   This routine resets all circles, creates a new octagon and sos circle, then puts this device into each circle.
+*   This routine does not create a new escrow record
+*   This routine will need ensure OTConfigurationContext contains appleID and passwordEquivalentToken to delete all CDP records
+* @param data The OTClique configuration data
+* @param error Reports any error along the process
+* @return a new clique
+*/
++ (OTClique* _Nullable)resetProtectedData:(OTConfigurationContext*)data error:(NSError**)error;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -125,6 +125,8 @@ bool SecDbPerformWrite(SecDbRef db, CFErrorRef *error, void (^perform)(SecDbConn
 CFIndex SecDbIdleConnectionCount(SecDbRef db);
 void SecDbReleaseAllConnections(SecDbRef db);
 
+void SecDbForceClose(SecDbRef db);
+
 CFStringRef SecDbGetPath(SecDbRef db);
 
 // MARK: -

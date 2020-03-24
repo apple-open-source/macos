@@ -30,6 +30,7 @@
 
 #include "WHLSLCallExpression.h"
 #include "WHLSLFunctionDefinition.h"
+#include "WHLSLProgram.h"
 #include "WHLSLVisitor.h"
 #include <wtf/HashSet.h>
 
@@ -38,7 +39,7 @@ namespace WebCore {
 namespace WHLSL {
 
 // Makes sure there is no function recursion.
-class RecursionChecker : public Visitor {
+class RecursionChecker final : public Visitor {
 private:
     void visit(Program& program) override
     {
@@ -53,11 +54,12 @@ private:
 
         auto addResult = m_startedVisiting.add(&functionDefinition);
         if (!addResult.isNewEntry) {
-            setError();
+            setError(Error("Cannot use recursion in the call graph.", functionDefinition.codeLocation()));
             return;
         }
 
-        Visitor::visit(functionDefinition);
+        if (functionDefinition.parsingMode() != ParsingMode::StandardLibrary)
+            Visitor::visit(functionDefinition);
 
         {
             auto addResult = m_finishedVisiting.add(&functionDefinition);
@@ -76,11 +78,11 @@ private:
     HashSet<AST::FunctionDefinition*> m_finishedVisiting;
 };
 
-bool checkRecursion(Program& program)
+Expected<void, Error> checkRecursion(Program& program)
 {
     RecursionChecker recursionChecker;
     recursionChecker.Visitor::visit(program);
-    return !recursionChecker.error();
+    return recursionChecker.result();
 }
 
 }

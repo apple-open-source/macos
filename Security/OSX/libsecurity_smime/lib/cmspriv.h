@@ -95,7 +95,7 @@ SecCmsAlgArrayGetIndexByAlgID(SECAlgorithmID **algorithmArray, SECAlgorithmID *a
 extern int
 SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID **algorithmArray, SECOidTag algtag);
 
-extern CSSM_CC_HANDLE
+extern void *
 SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid);
 
 /*

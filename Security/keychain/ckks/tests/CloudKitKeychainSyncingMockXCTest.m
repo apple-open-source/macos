@@ -106,9 +106,10 @@
     self.suggestTLKUpload = OCMClassMock([CKKSNearFutureScheduler class]);
     OCMStub([self.suggestTLKUpload trigger]);
 
-    self.ckksZones = [NSMutableSet set];
-    self.ckksViews = [NSMutableSet set];
-    self.keys = [[NSMutableDictionary alloc] init];
+    // If a subclass wants to fill these in before calling setUp, fine.
+    self.ckksZones = self.ckksZones ?: [NSMutableSet set];
+    self.ckksViews = self.ckksViews ?: [NSMutableSet set];
+    self.keys = self.keys ?: [[NSMutableDictionary alloc] init];
 
     [SecMockAKS reset];
 
@@ -203,6 +204,7 @@
 
 - (void)verifyDatabaseMocks {
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
 }
 
 - (void)createClassCItemAndWaitForUpload:(CKRecordZoneID*)zoneID account:(NSString*)account {
@@ -1046,15 +1048,23 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     return ret;
 }
 
-- (void)addGenericPassword: (NSString*) password account: (NSString*) account viewHint: (NSString*) viewHint access: (NSString*) access expecting: (OSStatus) status message: (NSString*) message {
+- (BOOL)addGenericPassword:(NSString*)password
+                   account:(NSString*)account
+                    access:(NSString*)access
+                  viewHint:(NSString* _Nullable)viewHint
+               accessGroup:(NSString* _Nullable)accessGroup
+                 expecting:(OSStatus)status
+                   message:(NSString*)message
+{
     NSMutableDictionary* query = [@{
                                     (id)kSecClass : (id)kSecClassGenericPassword,
-                                    (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
-                                    (id)kSecAttrAccessible: access,
+                                    (id)kSecAttrAccessible: (id)access,
                                     (id)kSecAttrAccount : account,
                                     (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
                                     (id)kSecValueData : (id) [password dataUsingEncoding:NSUTF8StringEncoding],
                                     } mutableCopy];
+
+    query[(id)kSecAttrAccessGroup] = accessGroup ?: @"com.apple.security.ckks";
 
     if(viewHint) {
         query[(id)kSecAttrSyncViewHint] = viewHint;
@@ -1064,6 +1074,16 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     }
 
     XCTAssertEqual(status, SecItemAdd((__bridge CFDictionaryRef) query, NULL), @"%@", message);
+}
+
+- (void)addGenericPassword: (NSString*) password account: (NSString*) account viewHint: (NSString*) viewHint access: (NSString*) access expecting: (OSStatus) status message: (NSString*) message {
+    [self addGenericPassword:password
+                     account:account
+                      access:access
+                    viewHint:viewHint
+                 accessGroup:nil
+                   expecting:status
+                     message:message];
 }
 
 - (void)addGenericPassword: (NSString*) password account: (NSString*) account expecting: (OSStatus) status message: (NSString*) message {

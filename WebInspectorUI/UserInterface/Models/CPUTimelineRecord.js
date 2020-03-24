@@ -45,13 +45,13 @@ WI.CPUTimelineRecord = class CPUTimelineRecord extends WI.TimelineRecord
         this._workersData = null;
 
         for (let thread of this._threads) {
-            if (thread.type === InspectorBackend.domains.CPUProfiler.ThreadInfoType.Main) {
+            if (thread.type === InspectorBackend.Enum.CPUProfiler.ThreadInfoType.Main) {
                 console.assert(!this._mainThreadUsage, "There should only be one main thread.");
                 this._mainThreadUsage += thread.usage;
                 continue;
             }
 
-            if (thread.type === InspectorBackend.domains.CPUProfiler.ThreadInfoType.WebKit) {
+            if (thread.type === InspectorBackend.Enum.CPUProfiler.ThreadInfoType.WebKit) {
                 if (thread.targetId) {
                     if (!this._workersData)
                         this._workersData = [];
@@ -78,7 +78,7 @@ WI.CPUTimelineRecord = class CPUTimelineRecord extends WI.TimelineRecord
 
     // Import / Export
 
-    static fromJSON(json)
+    static async fromJSON(json)
     {
         return new WI.CPUTimelineRecord(json);
     }
@@ -97,6 +97,8 @@ WI.CPUTimelineRecord = class CPUTimelineRecord extends WI.TimelineRecord
 
     get timestamp() { return this._timestamp; }
     get usage() { return this._usage; }
+
+    get unadjustedStartTime() { return this._timestamp; }
 
     get mainThreadUsage() { return this._mainThreadUsage; }
     get webkitThreadUsage() { return this._webkitThreadUsage; }

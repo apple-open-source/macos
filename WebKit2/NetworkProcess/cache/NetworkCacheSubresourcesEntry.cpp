@@ -30,6 +30,7 @@
 
 #include "Logging.h"
 #include "NetworkCacheCoders.h"
+#include <WebCore/RegistrableDomain.h>
 
 namespace WebKit {
 namespace NetworkCache {
@@ -81,6 +82,12 @@ bool SubresourceInfo::decode(WTF::Persistence::Decoder& decoder, SubresourceInfo
     return true;
 }
 
+bool SubresourceInfo::isFirstParty() const
+{
+    WebCore::RegistrableDomain firstPartyDomain { m_firstPartyForCookies };
+    return firstPartyDomain.matches(URL(URL(), key().identifier()));
+}
+
 Storage::Record SubresourcesEntry::encodeAsStorageRecord() const
 {
     WTF::Persistence::Encoder encoder;
@@ -93,7 +100,7 @@ Storage::Record SubresourcesEntry::encodeAsStorageRecord() const
 
 std::unique_ptr<SubresourcesEntry> SubresourcesEntry::decodeStorageRecord(const Storage::Record& storageEntry)
 {
-    auto entry = std::make_unique<SubresourcesEntry>(storageEntry);
+    auto entry = makeUnique<SubresourcesEntry>(storageEntry);
 
     WTF::Persistence::Decoder decoder(storageEntry.header.data(), storageEntry.header.size());
     if (!decoder.decode(entry->m_subresources))

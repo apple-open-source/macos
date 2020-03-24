@@ -6,6 +6,11 @@
 # THIS TABLE IS SORTED.  KEEP IT THAT WAY.
 # Most of the time we can define all the variables all at once...
 case "${host}" in
+  aarch64*-*-cygwin* | aarch64*-*-mingw* | aarch64*-*-win* )
+	TARGET=ARM_WIN64; TARGETDIR=aarch64
+	MSVC=1
+	;;
+
   aarch64*-*-*)
 	TARGET=AARCH64; TARGETDIR=aarch64
 	SOURCES="ffi.c sysv.S"
@@ -21,6 +26,11 @@ case "${host}" in
   arc*-*-*)
 	TARGET=ARC; TARGETDIR=arc
 	SOURCES="ffi.c arcompact.S"
+	;;
+
+  arm*-*-cygwin* | arm*-*-mingw* | arm*-*-win* )
+	TARGET=ARM_WIN32; TARGETDIR=arm
+	MSVC=1
 	;;
 
   arm*-*-*)
@@ -74,12 +84,6 @@ case "${host}" in
 	fi
 	if test "${ax_cv_c_compiler_vendor}" = "microsoft"; then
 	  MSVC=1
-	  if test $ac_cv_sizeof_size_t = 4; then
-	    # libffi does not support microsoft tools for 32-bit windows
-	    # hosts.  Try porting src/x86/sysv.S to intel assembly
-	    # format.
-	    UNSUPPORTED=1
-          fi
 	fi
 	# All mingw/cygwin/win32 builds require -no-undefined for sharedlib.
 	# We must also check with_cross_host to decide if this is a native
@@ -248,6 +252,12 @@ esac
 
 # ... but some of the cases above share configury.
 case "${TARGET}" in
+  ARM_WIN32)
+	SOURCES="ffi.c sysv_msvc_arm32.S"
+	;;
+  ARM_WIN64)
+	SOURCES="ffi.c win64_armasm.S"
+	;;
   MIPS)
 	SOURCES="ffi.c o32.S n32.S"
 	;;
@@ -265,7 +275,11 @@ case "${TARGET}" in
 	SOURCES="ffi.c ffi_sysv.c sysv.S ppc_closure.S"
 	;;
   X86 | X86_DARWIN | X86_FREEBSD | X86_WIN32)
-	SOURCES="ffi.c sysv.S"
+	if test "$MSVC" = 1; then
+		SOURCES="ffi.c sysv_intel.S"
+	else
+		SOURCES="ffi.c sysv.S"
+	fi
 	;;
   X86_64)
 	if test x"$TARGET_X32" = xyes; then

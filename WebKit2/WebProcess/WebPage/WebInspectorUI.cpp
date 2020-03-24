@@ -38,6 +38,7 @@
 #include <WebCore/InspectorController.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/RuntimeEnabledFeatures.h>
+#include <WebCore/Settings.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -50,20 +51,23 @@ Ref<WebInspectorUI> WebInspectorUI::create(WebPage& page)
 WebInspectorUI::WebInspectorUI(WebPage& page)
     : m_page(page)
     , m_frontendAPIDispatcher(page)
+    , m_debuggableInfo(DebuggableInfoData::empty())
 {
     RuntimeEnabledFeatures::sharedFeatures().setInspectorAdditionsEnabled(true);
-    RuntimeEnabledFeatures::sharedFeatures().setImageBitmapOffscreenCanvasEnabled(true);
+    RuntimeEnabledFeatures::sharedFeatures().setImageBitmapEnabled(true);
 #if ENABLE(WEBGL2)
     RuntimeEnabledFeatures::sharedFeatures().setWebGL2Enabled(true);
 #endif
 }
 
-void WebInspectorUI::establishConnection(PageIdentifier inspectedPageIdentifier, bool underTest, unsigned inspectionLevel)
+void WebInspectorUI::establishConnection(WebPageProxyIdentifier inspectedPageIdentifier, const DebuggableInfoData& debuggableInfo, bool underTest, unsigned inspectionLevel)
 {
     m_inspectedPageIdentifier = inspectedPageIdentifier;
-    m_frontendAPIDispatcher.reset();
+    m_debuggableInfo = debuggableInfo;
     m_underTest = underTest;
     m_inspectionLevel = inspectionLevel;
+
+    m_frontendAPIDispatcher.reset();
 
     m_frontendController = &m_page.corePage()->inspectorController();
     m_frontendController->setInspectorFrontendClient(this);
@@ -263,8 +267,10 @@ void WebInspectorUI::changeSheetRect(const FloatRect& rect)
 
 void WebInspectorUI::openInNewTab(const String& url)
 {
-    if (m_backendConnection)
+    if (m_backendConnection) {
         m_backendConnection->send(Messages::WebInspector::OpenInNewTab(url), 0);
+        WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::BringInspectedPageToFront(), m_inspectedPageIdentifier);
+    }
 }
 
 void WebInspectorUI::save(const WTF::String& filename, const WTF::String& content, bool base64Encoded, bool forceSaveAs)
@@ -287,6 +293,27 @@ void WebInspectorUI::showCertificate(const CertificateInfo& certificateInfo)
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::ShowCertificate(certificateInfo), m_inspectedPageIdentifier);
 }
 
+#if ENABLE(INSPECTOR_TELEMETRY)
+bool WebInspectorUI::supportsDiagnosticLogging()
+{
+    return m_page.corePage()->settings().diagnosticLoggingEnabled();
+}
+
+void WebInspectorUI::logDiagnosticEvent(const String& eventName, const DiagnosticLoggingClient::ValueDictionary& dictionary)
+{
+    m_page.corePage()->diagnosticLoggingClient().logDiagnosticMessageWithValueDictionary(eventName, "Web Inspector Frontend Diagnostics"_s, dictionary, ShouldSample::No);
+}
+
+void WebInspectorUI::setDiagnosticLoggingAvailable(bool available)
+{
+    // Inspector's diagnostic logging client should never be used unless the page setting is also enabled.
+    ASSERT(!available || supportsDiagnosticLogging());
+    m_diagnosticLoggingAvailable = available;
+
+    m_frontendAPIDispatcher.dispatchCommand("setDiagnosticLoggingAvailable"_s, m_diagnosticLoggingAvailable);
+}
+#endif
+
 void WebInspectorUI::showConsole()
 {
     m_frontendAPIDispatcher.dispatchCommand("showConsole"_s);
@@ -295,11 +322,6 @@ void WebInspectorUI::showConsole()
 void WebInspectorUI::showResources()
 {
     m_frontendAPIDispatcher.dispatchCommand("showResources"_s);
-}
-
-void WebInspectorUI::showTimelines()
-{
-    m_frontendAPIDispatcher.dispatchCommand("showTimelines"_s);
 }
 
 void WebInspectorUI::showMainResourceForFrame(const String& frameIdentifier)
@@ -355,6 +377,21 @@ void WebInspectorUI::pageUnpaused()
 void WebInspectorUI::sendMessageToBackend(const String& message)
 {
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::SendMessageToBackend(message), m_inspectedPageIdentifier);
+}
+
+String WebInspectorUI::targetPlatformName() const
+{
+    return m_debuggableInfo.targetPlatformName;
+}
+
+String WebInspectorUI::targetBuildVersion() const
+{
+    return m_debuggableInfo.targetBuildVersion;
+}
+
+String WebInspectorUI::targetProductVersion() const
+{
+    return m_debuggableInfo.targetProductVersion;
 }
 
 } // namespace WebKit

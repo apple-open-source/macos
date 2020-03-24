@@ -107,7 +107,7 @@ NSString * RemoteHIDPacketToString (NSData * data)
 
 exit:
     
-    return pktStr;
+    return (pktStr ? pktStr : @"");
 }
 
 

@@ -31,8 +31,10 @@
 namespace WTF {
 
 class TextStream {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     struct FormatNumberRespectingIntegers {
+        WTF_MAKE_STRUCT_FAST_ALLOCATED;
         FormatNumberRespectingIntegers(double number)
             : value(number) { }
 
@@ -55,6 +57,7 @@ public:
     }
 
     WTF_EXPORT_PRIVATE TextStream& operator<<(bool);
+    WTF_EXPORT_PRIVATE TextStream& operator<<(char);
     WTF_EXPORT_PRIVATE TextStream& operator<<(int);
     WTF_EXPORT_PRIVATE TextStream& operator<<(unsigned);
     WTF_EXPORT_PRIVATE TextStream& operator<<(long);
@@ -108,6 +111,7 @@ public:
     }
 
     struct Repeat {
+        WTF_MAKE_STRUCT_FAST_ALLOCATED;
         Repeat(unsigned inWidth, char inCharacter)
             : width(inWidth), character(inCharacter)
         { }
@@ -171,6 +175,15 @@ inline TextStream& indent(TextStream& ts)
 }
 
 template<typename Item>
+TextStream& operator<<(TextStream& ts, const Optional<Item>& item)
+{
+    if (item)
+        return ts << item.value();
+    
+    return ts << "nullopt";
+}
+
+template<typename Item>
 TextStream& operator<<(TextStream& ts, const Vector<Item>& vector)
 {
     ts << "[";
@@ -180,6 +193,38 @@ TextStream& operator<<(TextStream& ts, const Vector<Item>& vector)
         ts << vector[i];
         if (i < size - 1)
             ts << ", ";
+    }
+
+    return ts << "]";
+}
+
+template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTraitsArg, typename MappedTraitsArg>
+TextStream& operator<<(TextStream& ts, const HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg>& map)
+{
+    ts << "{";
+
+    bool first = true;
+    for (const auto& keyValuePair : map) {
+        ts << keyValuePair.key << ": " << keyValuePair.value;
+        if (!first)
+            ts << ", ";
+        first = false;
+    }
+
+    return ts << "}";
+}
+
+template<typename ValueArg, typename HashArg, typename TraitsArg>
+TextStream& operator<<(TextStream& ts, const HashSet<ValueArg, HashArg, TraitsArg>& set)
+{
+    ts << "[";
+
+    bool first = true;
+    for (const auto& item : set) {
+        ts << item;
+        if (!first)
+            ts << ", ";
+        first = false;
     }
 
     return ts << "]";

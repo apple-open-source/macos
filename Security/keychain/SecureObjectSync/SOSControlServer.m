@@ -149,9 +149,14 @@
     [self.account importInitialSyncCredentials:items complete:complete];
 }
 
-- (void)rpcTriggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
+- (void)triggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
 {
-    [self.account rpcTriggerSync:peers complete:complete];
+    if (![self checkEntitlement:(__bridge NSString *)kSecEntitlementKeychainCloudCircle]) {
+        complete(false, [NSError errorWithDomain:(__bridge NSString *)kSOSErrorDomain code:kSOSEntitlementMissing userInfo:NULL]);
+        return;
+    }
+
+    [self.account triggerSync:peers complete:complete];
 }
 
 - (void)getWatchdogParameters:(void (^)(NSDictionary* parameters, NSError* error))complete
@@ -180,14 +185,11 @@
     [self.account ghostBustInfo:complete];
 }
 
-- (void)rpcTriggerBackup:(NSArray<NSString *>* _Nullable)backupPeers complete:(void (^)(NSError *error))complete
+- (void)triggerBackup:(NSArray<NSString *>* _Nullable)backupPeers complete:(void (^)(NSError *error))complete
 {
-    [self.account rpcTriggerBackup:backupPeers complete:complete];
+    [self.account triggerBackup:backupPeers complete:complete];
 }
 
-- (void)rpcTriggerRingUpdate:(void (^)(NSError *))complete {
-    [self.account rpcTriggerRingUpdate:complete];
-}
 
 @end
 

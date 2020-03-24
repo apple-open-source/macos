@@ -124,11 +124,11 @@ NSURLRequest *ResourceHandle::applySniffingPoliciesIfNeeded(NSURLRequest *reques
 
 #if USE(CFNETWORK_CONTENT_ENCODING_SNIFFING_OVERRIDE)
     if (!shouldContentEncodingSniff)
-        [mutableRequest _setProperty:@(YES) forKey:(__bridge NSString *)kCFURLRequestContentDecoderSkipURLCheck];
+        [mutableRequest _setProperty:@YES forKey:(__bridge NSString *)kCFURLRequestContentDecoderSkipURLCheck];
 #endif
 
     if (!shouldContentSniff)
-        [mutableRequest _setProperty:@(NO) forKey:(__bridge NSString *)_kCFURLConnectionPropertyShouldSniff];
+        [mutableRequest _setProperty:@NO forKey:(__bridge NSString *)_kCFURLConnectionPropertyShouldSniff];
 
     return mutableRequest.autorelease();
 }
@@ -141,10 +141,6 @@ void ResourceHandle::createNSURLConnection(id delegate, bool shouldUseCredential
 void ResourceHandle::createNSURLConnection(id delegate, bool shouldUseCredentialStorage, bool shouldContentSniff, bool shouldContentEncodingSniff, SchedulingBehavior schedulingBehavior, NSDictionary *connectionProperties)
 #endif
 {
-#if !HAVE(TIMINGDATAOPTIONS)
-    setCollectsTimingData();
-#endif
-
     // Credentials for ftp can only be passed in URL, the connection:didReceiveAuthenticationChallenge: delegate call won't be made.
     if ((!d->m_user.isEmpty() || !d->m_pass.isEmpty()) && !firstRequest().url().protocolIsInHTTPFamily()) {
         URL urlWithCredentials(firstRequest().url());
@@ -217,9 +213,7 @@ void ResourceHandle::createNSURLConnection(id delegate, bool shouldUseCredential
     NSMutableDictionary *propertyDictionary = [NSMutableDictionary dictionaryWithObject:streamProperties forKey:@"kCFURLConnectionSocketStreamProperties"];
     const bool usesCache = true;
 #endif
-#if HAVE(TIMINGDATAOPTIONS)
     [propertyDictionary setObject:@{@"_kCFURLConnectionPropertyTimingDataOptions": @(_TimingDataOptionsEnableW3CNavigationTiming)} forKey:@"kCFURLConnectionURLConnectionProperties"];
-#endif
 
     // This is used to signal that to CFNetwork that this connection should be considered
     // web content for purposes of App Transport Security.
@@ -315,15 +309,15 @@ void ResourceHandle::unschedule(SchedulePair& pair)
         [d->m_connection.get() unscheduleFromRunLoop:runLoop forMode:(__bridge NSString *)pair.mode()];
 }
 
-id ResourceHandle::makeDelegate(bool shouldUseCredentialStorage, MessageQueue<Function<void()>>* queue)
+id ResourceHandle::makeDelegate(bool shouldUseCredentialStorage, RefPtr<SynchronousLoaderMessageQueue>&& queue)
 {
     ASSERT(!d->m_delegate);
 
     id <NSURLConnectionDelegate> delegate;
     if (shouldUseCredentialStorage)
-        delegate = [[WebCoreResourceHandleAsOperationQueueDelegate alloc] initWithHandle:this messageQueue:queue];
+        delegate = [[WebCoreResourceHandleAsOperationQueueDelegate alloc] initWithHandle:this messageQueue:WTFMove(queue)];
     else
-        delegate = [[WebCoreResourceHandleWithCredentialStorageAsOperationQueueDelegate alloc] initWithHandle:this messageQueue:queue];
+        delegate = [[WebCoreResourceHandleWithCredentialStorageAsOperationQueueDelegate alloc] initWithHandle:this messageQueue:WTFMove(queue)];
 
     d->m_delegate = delegate;
     [delegate release];
@@ -659,9 +653,9 @@ void ResourceHandle::receivedChallengeRejection(const AuthenticationChallenge& c
     clearAuthentication();
 }
 
-void ResourceHandle::getConnectionTimingData(NSURLConnection *connection, NetworkLoadMetrics& timing)
+Box<NetworkLoadMetrics> ResourceHandle::getConnectionTimingData(NSURLConnection *connection)
 {
-    copyTimingData([connection _timingData], timing);
+    return copyTimingData([connection _timingData]);
 }
 
 } // namespace WebCore

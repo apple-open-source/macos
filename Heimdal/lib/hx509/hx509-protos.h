@@ -2464,6 +2464,11 @@ hx509_private_key_assign_rsa (
 	hx509_private_key key,
 	void *ptr);
 
+void
+hx509_private_key_assign_ecdsa (
+	hx509_private_key key,
+	void *ptr);
+
 int
 hx509_private_key_free (hx509_private_key *key);
 

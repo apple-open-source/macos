@@ -77,9 +77,9 @@ bool BitmapImage::getHBITMAPOfSize(HBITMAP bmp, const IntSize* size)
 
     FloatSize imageSize = BitmapImage::size();
     if (size)
-        drawFrameMatchingSourceSize(gc, FloatRect(0.0f, 0.0f, bmpInfo.bmWidth, bmpInfo.bmHeight), *size, CompositeCopy);
+        drawFrameMatchingSourceSize(gc, FloatRect(0.0f, 0.0f, bmpInfo.bmWidth, bmpInfo.bmHeight), *size, CompositeOperator::Copy);
     else
-        draw(gc, FloatRect(0.0f, 0.0f, bmpInfo.bmWidth, bmpInfo.bmHeight), FloatRect(0.0f, 0.0f, imageSize.width(), imageSize.height()), CompositeCopy, BlendMode::Normal, DecodingMode::Synchronous, ImageOrientationDescription());
+        draw(gc, FloatRect(0.0f, 0.0f, bmpInfo.bmWidth, bmpInfo.bmHeight), FloatRect(0.0f, 0.0f, imageSize.width(), imageSize.height()), { CompositeOperator::Copy });
 
     // Do cleanup
     CGContextRelease(cgContext);
@@ -95,7 +95,7 @@ void BitmapImage::drawFrameMatchingSourceSize(GraphicsContext& ctxt, const Float
         if (image && CGImageGetHeight(image) == static_cast<size_t>(srcSize.height()) && CGImageGetWidth(image) == static_cast<size_t>(srcSize.width())) {
             size_t currentFrame = m_currentFrame;
             m_currentFrame = i;
-            draw(ctxt, dstRect, FloatRect(0.0f, 0.0f, srcSize.width(), srcSize.height()), compositeOp, BlendMode::Normal, DecodingMode::Synchronous, ImageOrientationDescription());
+            draw(ctxt, dstRect, FloatRect(0.0f, 0.0f, srcSize.width(), srcSize.height()), { compositeOp });
             m_currentFrame = currentFrame;
             return;
         }
@@ -103,7 +103,7 @@ void BitmapImage::drawFrameMatchingSourceSize(GraphicsContext& ctxt, const Float
 
     // No image of the correct size was found, fallback to drawing the current frame
     FloatSize imageSize = BitmapImage::size();
-    draw(ctxt, dstRect, FloatRect(0.0f, 0.0f, imageSize.width(), imageSize.height()), compositeOp, BlendMode::Normal, DecodingMode::Synchronous, ImageOrientationDescription());
+    draw(ctxt, dstRect, FloatRect(0.0f, 0.0f, imageSize.width(), imageSize.height()), { compositeOp });
 }
 
 } // namespace WebCore

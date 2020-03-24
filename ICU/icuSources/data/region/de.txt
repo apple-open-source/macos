@@ -77,7 +77,7 @@ de{
         CF{"Zentralafrikanische Republik"}
         CG{"Kongo-Brazzaville"}
         CH{"Schweiz"}
-        CI{"Elfenbeinküste"}
+        CI{"Côte d’Ivoire"}
         CK{"Cookinseln"}
         CL{"Chile"}
         CM{"Kamerun"}

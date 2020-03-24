@@ -246,7 +246,7 @@ uint8* BigNumValue::CloneContents (AttachedInstance *ai, uint32 &numberOfItems, 
 
 bool BigNumValue::GetSignBit ()
 {
-	return (mValue[mSize - 1] & 0x80) != 0;
+	return ((uint8)mValue[mSize - 1] & 0x80) != 0;
 }
 
 

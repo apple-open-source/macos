@@ -43,21 +43,20 @@ namespace WebCore {
 
 using namespace Inspector;
 
-WebConsoleAgent::WebConsoleAgent(AgentContext& context)
+WebConsoleAgent::WebConsoleAgent(WebAgentContext& context)
     : InspectorConsoleAgent(context)
 {
 }
 
+WebConsoleAgent::~WebConsoleAgent() = default;
+
 void WebConsoleAgent::frameWindowDiscarded(DOMWindow* window)
 {
-    if (!m_injectedScriptManager.inspectorEnvironment().developerExtrasEnabled())
-        return;
-
     for (auto& message : m_consoleMessages) {
-        JSC::ExecState* exec = message->scriptState();
-        if (!exec)
+        JSC::JSGlobalObject* lexicalGlobalObject = message->globalObject();
+        if (!lexicalGlobalObject)
             continue;
-        if (domWindowFromExecState(exec) != window)
+        if (domWindowFromExecState(lexicalGlobalObject) != window)
             continue;
         message->clear();
     }
@@ -67,20 +66,14 @@ void WebConsoleAgent::frameWindowDiscarded(DOMWindow* window)
 
 void WebConsoleAgent::didReceiveResponse(unsigned long requestIdentifier, const ResourceResponse& response)
 {
-    if (!m_injectedScriptManager.inspectorEnvironment().developerExtrasEnabled())
-        return;
-
     if (response.httpStatusCode() >= 400) {
         String message = makeString("Failed to load resource: the server responded with a status of ", response.httpStatusCode(), " (", response.httpStatusText(), ')');
-        addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::Network, MessageType::Log, MessageLevel::Error, message, response.url().string(), 0, 0, nullptr, requestIdentifier));
+        addMessageToConsole(makeUnique<ConsoleMessage>(MessageSource::Network, MessageType::Log, MessageLevel::Error, message, response.url().string(), 0, 0, nullptr, requestIdentifier));
     }
 }
 
 void WebConsoleAgent::didFailLoading(unsigned long requestIdentifier, const ResourceError& error)
 {
-    if (!m_injectedScriptManager.inspectorEnvironment().developerExtrasEnabled())
-        return;
-
     // Report failures only.
     if (error.isCancellation())
         return;
@@ -92,7 +85,7 @@ void WebConsoleAgent::didFailLoading(unsigned long requestIdentifier, const Reso
         message.append(error.localizedDescription());
     }
 
-    addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::Network, MessageType::Log, MessageLevel::Error, message.toString(), error.failingURL(), 0, 0, nullptr, requestIdentifier));
+    addMessageToConsole(makeUnique<ConsoleMessage>(MessageSource::Network, MessageType::Log, MessageLevel::Error, message.toString(), error.failingURL(), 0, 0, nullptr, requestIdentifier));
 }
 
 } // namespace WebCore

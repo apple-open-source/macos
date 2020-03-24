@@ -32,6 +32,7 @@
 #pragma once
 
 #include "BlobPropertyBag.h"
+#include "ScriptExecutionContext.h"
 #include "ScriptWrappable.h"
 #include <wtf/IsoMalloc.h>
 #include <wtf/URL.h>
@@ -115,21 +116,23 @@ protected:
     Blob(ReferencingExistingBlobConstructor, const Blob&);
 
     enum UninitializedContructor { uninitializedContructor };
-    Blob(UninitializedContructor);
+    Blob(UninitializedContructor, URL&&, String&& type);
 
     enum DeserializationContructor { deserializationContructor };
-    Blob(DeserializationContructor, const URL& srcURL, const String& type, long long size, const String& fileBackedPath);
+    Blob(DeserializationContructor, const URL& srcURL, const String& type, Optional<unsigned long long> size, const String& fileBackedPath);
 
     // For slicing.
     Blob(const URL& srcURL, long long start, long long end, const String& contentType);
 
+private:
     // This is an internal URL referring to the blob data associated with this object. It serves
     // as an identifier for this blob. The internal URL is never used to source the blob's content
     // into an HTML or for FileRead'ing, public blob URLs must be used for those purposes.
     URL m_internalURL;
 
     String m_type;
-    mutable long long m_size;
+
+    mutable Optional<unsigned long long> m_size;
 };
 
 } // namespace WebCore

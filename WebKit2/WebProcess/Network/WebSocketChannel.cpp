@@ -34,24 +34,36 @@
 #include "WebProcess.h"
 #include <WebCore/Blob.h>
 #include <WebCore/Document.h>
-#include <WebCore/FileReaderLoader.h>
-#include <WebCore/FileReaderLoaderClient.h>
-#include <WebCore/NotImplemented.h>
 #include <WebCore/WebSocketChannel.h>
 #include <WebCore/WebSocketChannelClient.h>
-#include <pal/SessionID.h>
 #include <wtf/CheckedArithmetic.h>
+
+using namespace WebCore;
 
 namespace WebKit {
 
-Ref<WebSocketChannel> WebSocketChannel::create(WebCore::Document& document, WebCore::WebSocketChannelClient& client)
+Ref<WebSocketChannel> WebSocketChannel::create(Document& document, WebSocketChannelClient& client)
 {
     return adoptRef(*new WebSocketChannel(document, client));
 }
 
-WebSocketChannel::WebSocketChannel(WebCore::Document& document, WebCore::WebSocketChannelClient& client)
+NetworkSendQueue WebSocketChannel::createMessageQueue(Document& document, WebSocketChannel& channel)
+{
+    return { document, [&channel](auto& string) {
+        auto byteLength = string.sizeInBytes();
+        channel.sendMessage(Messages::NetworkSocketChannel::SendString { string }, byteLength);
+    }, [&channel](const char* data, size_t byteLength) {
+        channel.sendMessage(Messages::NetworkSocketChannel::SendData { IPC::DataReference { reinterpret_cast<const uint8_t*>(data), byteLength } }, byteLength);
+    }, [&channel](auto errorCode) {
+        channel.fail(makeString("Failed to load Blob: error code = ", errorCode));
+        return NetworkSendQueue::Continue::No;
+    } };
+}
+
+WebSocketChannel::WebSocketChannel(Document& document, WebSocketChannelClient& client)
     : m_document(makeWeakPtr(document))
     , m_client(makeWeakPtr(client))
+    , m_messageQueue(createMessageQueue(document, *this))
 {
 }
 
@@ -76,8 +88,7 @@ String WebSocketChannel::subprotocol()
 
 String WebSocketChannel::extensions()
 {
-    // FIXME: support extensions.
-    return emptyString();
+    return m_extensions.isNull() ? emptyString() : m_extensions;
 }
 
 WebSocketChannel::ConnectStatus WebSocketChannel::connect(const URL& url, const String& protocol)
@@ -92,7 +103,7 @@ WebSocketChannel::ConnectStatus WebSocketChannel::connect(const URL& url, const 
     if (request->url() != url && m_client)
         m_client->didUpgradeURL();
 
-    MessageSender::send(Messages::NetworkConnectionToWebProcess::CreateSocketChannel { m_document->sessionID(), *request, protocol, identifier() });
+    MessageSender::send(Messages::NetworkConnectionToWebProcess::CreateSocketChannel { *request, protocol, identifier() });
     return ConnectStatus::OK;
 }
 
@@ -139,11 +150,7 @@ WebSocketChannel::SendResult WebSocketChannel::send(const String& message)
     if (!increaseBufferedAmount(byteLength))
         return SendFail;
 
-    if (m_pendingMessages.isEmpty())
-        sendMessage(Messages::NetworkSocketChannel::SendString { message }, byteLength);
-    else
-        m_pendingMessages.append(std::make_unique<PendingMessage>(message));
-
+    m_messageQueue.enqueue(message);
     return SendSuccess;
 }
 
@@ -152,138 +159,20 @@ WebSocketChannel::SendResult WebSocketChannel::send(const JSC::ArrayBuffer& bina
     if (!increaseBufferedAmount(byteLength))
         return SendFail;
 
-    if (m_pendingMessages.isEmpty())
-        sendMessage(Messages::NetworkSocketChannel::SendData { IPC::DataReference { static_cast<const uint8_t*>(binaryData.data()) + byteOffset, byteLength } }, byteLength);
-    else
-        m_pendingMessages.append(std::make_unique<PendingMessage>(binaryData, byteOffset, byteLength));
-
+    m_messageQueue.enqueue(binaryData, byteOffset, byteLength);
     return SendSuccess;
 }
 
-class BlobLoader final : public WebCore::FileReaderLoaderClient {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    BlobLoader(WebCore::Document* document, Blob& blob, CompletionHandler<void()>&& completionHandler)
-        : m_loader(std::make_unique<FileReaderLoader>(FileReaderLoader::ReadAsArrayBuffer, this))
-        , m_completionHandler(WTFMove(completionHandler))
-    {
-        m_loader->start(document, blob);
-    }
-
-    ~BlobLoader()
-    {
-        if (m_loader)
-            m_loader->cancel();
-    }
-
-    bool isLoading() const { return !!m_loader; }
-    const RefPtr<JSC::ArrayBuffer>& result() const { return m_buffer; }
-    Optional<int> errorCode() const { return m_errorCode; }
-
-private:
-    void didStartLoading() final { }
-    void didReceiveData() final { }
-
-    void didFinishLoading() final
-    {
-        m_buffer = m_loader->arrayBufferResult();
-        complete();
-    }
-
-    void didFail(int errorCode) final
-    {
-        m_errorCode = errorCode;
-        complete();
-    }
-
-    void complete()
-    {
-        m_loader = nullptr;
-        m_completionHandler();
-    }
-
-    std::unique_ptr<WebCore::FileReaderLoader> m_loader;
-    RefPtr<JSC::ArrayBuffer> m_buffer;
-    Optional<int> m_errorCode;
-    CompletionHandler<void()> m_completionHandler;
-};
-
-class PendingMessage {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    enum class Type { Text, Binary, Blob };
-
-    explicit PendingMessage(const String& message)
-        : m_type(Type::Text)
-        , m_textMessage(message)
-    {
-    }
-
-    PendingMessage(const JSC::ArrayBuffer& binaryData, unsigned byteOffset, unsigned byteLength)
-        : m_type(Type::Binary)
-        , m_binaryData(WebCore::SharedBuffer::create(static_cast<const uint8_t*>(binaryData.data()) + byteOffset, byteLength))
-    {
-    }
-
-    PendingMessage(WebCore::Document* document, Blob& blob, CompletionHandler<void()>&& completionHandler)
-        : m_type(Type::Blob)
-        , m_blobLoader(std::make_unique<BlobLoader>(document, blob, WTFMove(completionHandler)))
-    {
-    }
-
-    ~PendingMessage() = default;
-
-    Type type() const { return m_type; }
-    const String& textMessage() const { ASSERT(m_type == Type::Text); return m_textMessage; }
-    const WebCore::SharedBuffer& binaryData() const { ASSERT(m_type == Type::Binary); return *m_binaryData; }
-    const BlobLoader& blobLoader() const { ASSERT(m_type == Type::Blob); return *m_blobLoader; }
-
-private:
-    Type m_type;
-    String m_textMessage;
-    RefPtr<WebCore::SharedBuffer> m_binaryData;
-    std::unique_ptr<BlobLoader> m_blobLoader;
-};
-
-WebSocketChannel::SendResult WebSocketChannel::send(WebCore::Blob& blob)
+WebSocketChannel::SendResult WebSocketChannel::send(Blob& blob)
 {
-    // Avoid the Blob queue and loading for empty blobs.
+    auto byteLength = blob.size();
     if (!blob.size())
-        return send(JSC::ArrayBuffer::create(blob.size(), 1), 0, 0);
+        return send(JSC::ArrayBuffer::create(byteLength, 1), 0, 0);
 
-    m_pendingMessages.append(std::make_unique<PendingMessage>(m_document.get(), blob, [this] {
-        while (!m_pendingMessages.isEmpty()) {
-            auto& message = m_pendingMessages.first();
+    if (!increaseBufferedAmount(byteLength))
+        return SendFail;
 
-            switch (message->type()) {
-            case PendingMessage::Type::Text:
-                sendMessage(Messages::NetworkSocketChannel::SendString { message->textMessage() }, message->textMessage().sizeInBytes());
-                break;
-            case PendingMessage::Type::Binary: {
-                const auto& binaryData = message->binaryData();
-                sendMessage(Messages::NetworkSocketChannel::SendData { IPC::DataReference { reinterpret_cast<const uint8_t*>(binaryData.data()), binaryData.size() } }, binaryData.size());
-                break;
-            }
-            case PendingMessage::Type::Blob: {
-                auto& loader = message->blobLoader();
-                if (loader.isLoading())
-                    return;
-
-                if (const auto& result = loader.result()) {
-                    auto byteLength = result->byteLength();
-                    if (increaseBufferedAmount(byteLength))
-                        sendMessage(Messages::NetworkSocketChannel::SendData { IPC::DataReference { reinterpret_cast<const uint8_t*>(result->data()), byteLength } }, byteLength);
-                } else if (auto errorCode = loader.errorCode())
-                    fail(makeString("Failed to load Blob: error code = ", errorCode.value()));
-                else
-                    ASSERT_NOT_REACHED();
-                break;
-            }
-            }
-
-            m_pendingMessages.removeFirst();
-        }
-    }));
+    m_messageQueue.enqueue(blob);
     return SendSuccess;
 }
 
@@ -317,12 +206,12 @@ void WebSocketChannel::disconnect()
     m_client = nullptr;
     m_document = nullptr;
     m_pendingTasks.clear();
-    m_pendingMessages.clear();
+    m_messageQueue.clear();
 
     MessageSender::send(Messages::NetworkSocketChannel::Close { 0, { } });
 }
 
-void WebSocketChannel::didConnect(String&& subprotocol)
+void WebSocketChannel::didConnect(String&& subprotocol, String&& extensions)
 {
     if (m_isClosing)
         return;
@@ -331,13 +220,14 @@ void WebSocketChannel::didConnect(String&& subprotocol)
         return;
 
     if (m_isSuspended) {
-        enqueueTask([this, subprotocol = WTFMove(subprotocol)] () mutable {
-            didConnect(WTFMove(subprotocol));
+        enqueueTask([this, subprotocol = WTFMove(subprotocol), extensions = WTFMove(extensions)] () mutable {
+            didConnect(WTFMove(subprotocol), WTFMove(extensions));
         });
         return;
     }
 
     m_subprotocol = WTFMove(subprotocol);
+    m_extensions = WTFMove(extensions);
     m_client->didConnect();
 }
 

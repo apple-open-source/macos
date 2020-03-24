@@ -31,6 +31,7 @@
 #include "OSX/sec/Security/SecItemShim.h"
 #import "server_security_helpers.h"
 #import "spi.h"
+#import "utilities/SecAKSWrappers.h"
 #import <utilities/SecCFWrappers.h>
 #import <utilities/SecFileLocations.h>
 #import "utilities/der_plist.h"
@@ -363,7 +364,8 @@
 
 - (void)testCreateSampleDatabase
 {
-#if USE_KEYSTORE
+    // The keychain code only does the right thing with generation count if TARGET_HAS_KEYSTORE
+#if TARGET_HAS_KEYSTORE
     id mock = OCMClassMock([SecMockAKS class]);
     OCMStub([mock useGenerationCount]).andReturn(true);
 #endif
@@ -383,16 +385,22 @@
     */
 
     [self findManyItems:50];
+
+#if TARGET_HAS_KEYSTORE
+    [mock stopMocking];
+#endif
 }
 
 - (void)testTestAKSGenerationCount
 {
-#if USE_KEYSTORE
+#if TARGET_HAS_KEYSTORE
     id mock = OCMClassMock([SecMockAKS class]);
     OCMStub([mock useGenerationCount]).andReturn(true);
 
     [self createManyItems];
     [self findManyItems:50];
+
+    [mock stopMocking];
 #endif
 }
 

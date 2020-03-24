@@ -55,6 +55,7 @@
 #include "TypeLocation.h"
 #include "ValueProfile.h"
 #include <type_traits>
+#include <wtf/FastMalloc.h>
 #include <wtf/ListDump.h>
 #include <wtf/LoggingHashSet.h>
 
@@ -278,8 +279,9 @@ enum class BucketOwnerType : uint32_t {
 // === Node ===
 //
 // Node represents a single operation in the data flow graph.
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(DFGNode);
 struct Node {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_STRUCT_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(DFGNode);
 public:
     static const char HashSetTemplateInstantiationString[];
     
@@ -752,6 +754,25 @@ public:
     {
         ASSERT(m_op == CallObjectConstructor || m_op == CreateThis || m_op == ObjectCreate);
         setOpAndDefaultFlags(NewObject);
+        children.reset();
+        m_opInfo = structure;
+        m_opInfo2 = OpInfoWrapper();
+    }
+
+    void convertToNewPromise(RegisteredStructure structure)
+    {
+        ASSERT(m_op == CreatePromise);
+        bool internal = isInternalPromise();
+        setOpAndDefaultFlags(NewPromise);
+        children.reset();
+        m_opInfo = structure;
+        m_opInfo2 = internal;
+    }
+
+    void convertToNewInternalFieldObject(NodeType newOp, RegisteredStructure structure)
+    {
+        ASSERT(m_op == CreateAsyncGenerator || m_op == CreateGenerator);
+        setOpAndDefaultFlags(newOp);
         children.reset();
         m_opInfo = structure;
         m_opInfo2 = OpInfoWrapper();
@@ -1246,6 +1267,17 @@ public:
         return m_opInfo.as<unsigned>();
     }
 
+    bool hasIsInternalPromise()
+    {
+        return op() == CreatePromise || op() == NewPromise;
+    }
+
+    bool isInternalPromise()
+    {
+        ASSERT(hasIsInternalPromise());
+        return m_opInfo2.as<bool>();
+    }
+
     void setIndexingType(IndexingType indexingType)
     {
         ASSERT(hasIndexingType());
@@ -1261,6 +1293,17 @@ public:
     {
         ASSERT(hasScopeOffset());
         return ScopeOffset(m_opInfo.as<uint32_t>());
+    }
+
+    unsigned hasInternalFieldIndex()
+    {
+        return op() == GetInternalField || op() == PutInternalField;
+    }
+
+    unsigned internalFieldIndex()
+    {
+        ASSERT(hasInternalFieldIndex());
+        return m_opInfo.as<uint32_t>();
     }
     
     bool hasDirectArgumentsOffset()
@@ -1340,7 +1383,7 @@ public:
         return op() == IsCellWithType;
     }
 
-    SpeculatedType speculatedTypeForQuery()
+    Optional<SpeculatedType> speculatedTypeForQuery()
     {
         return speculationFromJSType(queriedType());
     }
@@ -1378,6 +1421,9 @@ public:
         case ValueBitAnd:
         case ValueBitOr:
         case ValueBitXor:
+        case ValueBitNot:
+        case ValueBitLShift:
+        case ValueBitRShift:
         case ValueNegate:
             return true;
         default:
@@ -1510,9 +1556,21 @@ public:
         return m_opInfo.as<EntrySwitchData*>();
     }
 
+    bool hasIntrinsic()
+    {
+        switch (op()) {
+        case CPUIntrinsic:
+        case DateGetTime:
+        case DateGetInt32OrNaN:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     Intrinsic intrinsic()
     {
-        RELEASE_ASSERT(op() == CPUIntrinsic);
+        ASSERT(hasIntrinsic());
         return m_opInfo.as<Intrinsic>();
     }
     
@@ -1667,6 +1725,7 @@ public:
         case GetByOffset:
         case MultiGetByOffset:
         case GetClosureVar:
+        case GetInternalField:
         case GetFromArguments:
         case GetArgument:
         case ArrayPop:
@@ -1681,12 +1740,14 @@ public:
         case StringReplace:
         case StringReplaceRegExp:
         case ToNumber:
+        case ToNumeric:
         case ToObject:
         case ValueBitAnd:
         case ValueBitOr:
         case ValueBitXor:
         case ValueBitNot:
         case ValueBitLShift:
+        case ValueBitRShift:
         case CallObjectConstructor:
         case LoadKeyFromMapBucket:
         case LoadValueFromMapBucket:
@@ -1707,6 +1768,7 @@ public:
         case ToThis:
         case DataViewGetInt:
         case DataViewGetFloat:
+        case DateGetInt32OrNaN:
             return true;
         default:
             return false;
@@ -1813,7 +1875,7 @@ public:
 
     bool hasUidOperand()
     {
-        return op() == CheckStringIdent;
+        return op() == CheckIdent;
     }
 
     UniquedStringImpl* uidOperand()
@@ -1875,6 +1937,9 @@ public:
         switch (op()) {
         case ArrayifyToStructure:
         case NewObject:
+        case NewPromise:
+        case NewGenerator:
+        case NewAsyncGenerator:
         case NewStringObject:
             return true;
         default:
@@ -2060,6 +2125,7 @@ public:
         case GetByVal:
         case StringCharAt:
         case StringCharCodeAt:
+        case StringCodePointAt:
         case CheckArray:
         case Arrayify:
         case ArrayifyToStructure:
@@ -2852,15 +2918,15 @@ public:
         return m_opInfo.as<CallLinkStatus*>();
     }
     
-    bool hasGetByIdStatus()
+    bool hasGetByStatus()
     {
-        return op() == FilterGetByIdStatus;
+        return op() == FilterGetByStatus;
     }
     
-    GetByIdStatus* getByIdStatus()
+    GetByStatus* getByStatus()
     {
-        ASSERT(hasGetByIdStatus());
-        return m_opInfo.as<GetByIdStatus*>();
+        ASSERT(hasGetByStatus());
+        return m_opInfo.as<GetByStatus*>();
     }
     
     bool hasInByIdStatus()

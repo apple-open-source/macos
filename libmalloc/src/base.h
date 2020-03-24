@@ -100,20 +100,28 @@
 #define vm_page_quanta_size (vm_page_size)
 #define vm_page_quanta_shift (vm_page_shift)
 
-// add a guard page before and after each VM region to help debug
-#define MALLOC_ADD_GUARD_PAGES (1 << 0)
+// add a guard page before each VM region to help debug
+#define MALLOC_ADD_PRELUDE_GUARD_PAGE (1 << 0)
+// add a guard page after each VM region to help debug
+#define MALLOC_ADD_POSTLUDE_GUARD_PAGE (1 << 1)
+// Mask both guard page flags
+#define MALLOC_ADD_GUARD_PAGE_FLAGS (MALLOC_ADD_PRELUDE_GUARD_PAGE|MALLOC_ADD_POSTLUDE_GUARD_PAGE)
+// apply guard pages to all regions
+#define MALLOC_GUARD_ALL (1 << 2)
+// Mask for guard page request flags
+#define MALLOC_ALL_GUARD_PAGE_FLAGS (MALLOC_ADD_GUARD_PAGE_FLAGS|MALLOC_GUARD_ALL)
 // do not protect prelude page
-#define MALLOC_DONT_PROTECT_PRELUDE (1 << 1)
+#define MALLOC_DONT_PROTECT_PRELUDE (1 << 3)
 // do not protect postlude page
-#define MALLOC_DONT_PROTECT_POSTLUDE (1 << 2)
+#define MALLOC_DONT_PROTECT_POSTLUDE (1 << 4)
 // write 0x55 onto free blocks
-#define MALLOC_DO_SCRIBBLE (1 << 3)
+#define MALLOC_DO_SCRIBBLE (1 << 5)
 // call abort() on any malloc error, such as double free or out of memory.
-#define MALLOC_ABORT_ON_ERROR (1 << 4)
+#define MALLOC_ABORT_ON_ERROR (1 << 6)
 // allocate objects such that they may be used with VM purgability APIs
-#define MALLOC_PURGEABLE (1 << 5)
+#define MALLOC_PURGEABLE (1 << 7)
 // call abort() on malloc errors, but not on out of memory.
-#define MALLOC_ABORT_ON_CORRUPTION (1 << 6)
+#define MALLOC_ABORT_ON_CORRUPTION (1 << 8)
 
 /*
  * msize - a type to refer to the number of quanta of a tiny or small

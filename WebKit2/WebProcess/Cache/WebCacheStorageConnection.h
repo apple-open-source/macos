@@ -40,14 +40,14 @@ class WebCacheStorageProvider;
 
 class WebCacheStorageConnection final : public WebCore::CacheStorageConnection {
 public:
-    static Ref<WebCacheStorageConnection> create(WebCacheStorageProvider& provider, PAL::SessionID sessionID) { return adoptRef(*new WebCacheStorageConnection(provider, sessionID)); }
+    static Ref<WebCacheStorageConnection> create(WebCacheStorageProvider& provider) { return adoptRef(*new WebCacheStorageConnection(provider)); }
 
     ~WebCacheStorageConnection();
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
 private:
-    WebCacheStorageConnection(WebCacheStorageProvider&, PAL::SessionID);
+    WebCacheStorageConnection(WebCacheStorageProvider&);
 
     IPC::Connection& connection();
 
@@ -68,7 +68,6 @@ private:
     void updateQuotaBasedOnSpaceUsage(const WebCore::ClientOrigin&) final;
 
     WebCacheStorageProvider& m_provider;
-    PAL::SessionID m_sessionID;
 };
 
 }

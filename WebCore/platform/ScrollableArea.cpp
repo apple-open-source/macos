@@ -80,7 +80,7 @@ ScrollAnimator& ScrollableArea::scrollAnimator() const
 {
     if (!m_scrollAnimator) {
         if (usesMockScrollAnimator()) {
-            m_scrollAnimator = std::make_unique<ScrollAnimatorMock>(const_cast<ScrollableArea&>(*this), [this](const String& message) {
+            m_scrollAnimator = makeUnique<ScrollAnimatorMock>(const_cast<ScrollableArea&>(*this), [this](const String& message) {
                 logMockScrollAnimatorMessage(message);
             });
         } else
@@ -227,7 +227,7 @@ void ScrollableArea::setScrollOffsetFromInternals(const ScrollOffset& offset)
 void ScrollableArea::setScrollOffsetFromAnimation(const ScrollOffset& offset)
 {
     ScrollPosition position = scrollPositionFromOffset(offset);
-    if (requestScrollPositionUpdate(position))
+    if (requestScrollPositionUpdate(position, currentScrollType()))
         return;
 
     scrollPositionChanged(position);
@@ -435,7 +435,7 @@ bool ScrollableArea::hasLayerForScrollCorner() const
 ScrollSnapOffsetsInfo<LayoutUnit>& ScrollableArea::ensureSnapOffsetsInfo()
 {
     if (!m_snapOffsetsInfo)
-        m_snapOffsetsInfo = std::make_unique<ScrollSnapOffsetsInfo<LayoutUnit>>();
+        m_snapOffsetsInfo = makeUnique<ScrollSnapOffsetsInfo<LayoutUnit>>();
     return *m_snapOffsetsInfo;
 }
 

@@ -27,9 +27,10 @@
 
 #if ENABLE(WEBGPU)
 
-#include "WHLSLLexer.h"
+#include "WHLSLCodeLocation.h"
 #include "WHLSLNamedType.h"
 #include "WHLSLStructureElement.h"
+#include <wtf/FastMalloc.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -39,20 +40,19 @@ namespace WHLSL {
 
 namespace AST {
 
-class StructureDefinition : public NamedType {
+class StructureDefinition final : public NamedType {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     StructureDefinition(CodeLocation location, String&& name, StructureElements&& structureElements)
-        : NamedType(location, WTFMove(name))
+        : NamedType(Kind::StructureDefinition, location, WTFMove(name))
         , m_structureElements(WTFMove(structureElements))
     {
     }
 
-    virtual ~StructureDefinition() = default;
+    ~StructureDefinition() = default;
 
     StructureDefinition(const StructureDefinition&) = delete;
     StructureDefinition(StructureDefinition&&) = default;
-
-    bool isStructureDefinition() const override { return true; }
 
     StructureElements& structureElements() { return m_structureElements; }
     StructureElement* find(const String& name)
@@ -75,6 +75,8 @@ private:
 
 }
 
-SPECIALIZE_TYPE_TRAITS_WHLSL_NAMED_TYPE(StructureDefinition, isStructureDefinition())
+DEFINE_DEFAULT_DELETE(StructureDefinition)
+
+SPECIALIZE_TYPE_TRAITS_WHLSL_TYPE(StructureDefinition, isStructureDefinition())
 
 #endif

@@ -47,11 +47,11 @@ bool PutByIdStatus::appendVariant(const PutByIdVariant& variant)
     return appendICStatusVariant(m_variants, variant);
 }
 
-PutByIdStatus PutByIdStatus::computeFromLLInt(CodeBlock* profiledBlock, unsigned bytecodeIndex, UniquedStringImpl* uid)
+PutByIdStatus PutByIdStatus::computeFromLLInt(CodeBlock* profiledBlock, BytecodeIndex bytecodeIndex, UniquedStringImpl* uid)
 {
-    VM& vm = *profiledBlock->vm();
+    VM& vm = profiledBlock->vm();
     
-    auto instruction = profiledBlock->instructions().at(bytecodeIndex);
+    auto instruction = profiledBlock->instructions().at(bytecodeIndex.offset());
     auto bytecode = instruction->as<OpPutById>();
     auto& metadata = bytecode.metadata(profiledBlock);
 
@@ -92,7 +92,7 @@ PutByIdStatus PutByIdStatus::computeFromLLInt(CodeBlock* profiledBlock, unsigned
 }
 
 #if ENABLE(JIT)
-PutByIdStatus PutByIdStatus::computeFor(CodeBlock* profiledBlock, ICStatusMap& map, unsigned bytecodeIndex, UniquedStringImpl* uid, ExitFlag didExit, CallLinkStatus::ExitSiteData callExitSiteData)
+PutByIdStatus PutByIdStatus::computeFor(CodeBlock* profiledBlock, ICStatusMap& map, BytecodeIndex bytecodeIndex, UniquedStringImpl* uid, ExitFlag didExit, CallLinkStatus::ExitSiteData callExitSiteData)
 {
     ConcurrentJSLocker locker(profiledBlock->m_lock);
     
@@ -133,7 +133,7 @@ PutByIdStatus PutByIdStatus::computeForStubInfo(
     if (!isInlineable(summary))
         return PutByIdStatus(summary);
     
-    switch (stubInfo->cacheType) {
+    switch (stubInfo->cacheType()) {
     case CacheType::Unset:
         // This means that we attempted to cache but failed for some reason.
         return PutByIdStatus(JSC::slowVersion(summary));
@@ -202,7 +202,7 @@ PutByIdStatus PutByIdStatus::computeForStubInfo(
                     
                 case ComplexGetStatus::Inlineable: {
                     std::unique_ptr<CallLinkStatus> callLinkStatus =
-                        std::make_unique<CallLinkStatus>();
+                        makeUnique<CallLinkStatus>();
                     if (CallLinkInfo* callLinkInfo = access.as<GetterSetterAccessCase>().callLinkInfo()) {
                         *callLinkStatus = CallLinkStatus::computeFor(
                             locker, profiledBlock, *callLinkInfo, callExitSiteData);
@@ -237,7 +237,7 @@ PutByIdStatus PutByIdStatus::computeForStubInfo(
 
 PutByIdStatus PutByIdStatus::computeFor(CodeBlock* baselineBlock, ICStatusMap& baselineMap, ICStatusContextStack& contextStack, CodeOrigin codeOrigin, UniquedStringImpl* uid)
 {
-    unsigned bytecodeIndex = codeOrigin.bytecodeIndex();
+    BytecodeIndex bytecodeIndex = codeOrigin.bytecodeIndex();
     CallLinkStatus::ExitSiteData callExitSiteData = CallLinkStatus::computeExitSiteData(baselineBlock, bytecodeIndex);
     ExitFlag didExit = hasBadCacheExitSite(baselineBlock, bytecodeIndex);
 

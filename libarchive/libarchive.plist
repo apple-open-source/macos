@@ -46,6 +46,7 @@
 		<string>libarchive/archive_read_support_format_zip.c 51855785</string>
 		<string>libarchive/archive_write_disk_posix.c 52273121</string>
 		<string>libarchive/archive_write_disk_posix.c 53392409</string>
+        <string>libarchive/archive_string.c 57570559 (22b1db9d46654afc6f0c28f90af8cdc84a199f41)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

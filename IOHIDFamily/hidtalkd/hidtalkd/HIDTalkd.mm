@@ -34,7 +34,7 @@ void showHelp(int __unused argc, const char **argv) {
     std::cerr << "Options:\n";
     std::cerr << "--bridged | -r: Use RemoteXPC framework for service "
                  "registration and message sending. Used for communicating "
-                 "to/from bridgeOS to macOS.";
+                 "to/from bridgeOS to macOS." << std::endl;
 }
 
 int main(int argc, const char *argv[]) {
@@ -44,7 +44,7 @@ int main(int argc, const char *argv[]) {
         while ((curOpt = getopt_long(argc, (char *const *)argv, "r", longopts,
                                      NULL)) != -1) {
             switch (curOpt) {
-            case 'd':
+            case 'r':
                 remoteXPC = true;
                 break;
             default:

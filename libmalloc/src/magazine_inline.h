@@ -410,7 +410,7 @@ static region_t *
 hash_regions_alloc_no_lock(size_t num_entries)
 {
 	size_t size = num_entries * sizeof(region_t);
-	return mvm_allocate_pages(round_page_quanta(size), 0, 0, VM_MEMORY_MALLOC);
+	return mvm_allocate_pages(round_page_quanta(size), 0, DISABLE_ASLR, VM_MEMORY_MALLOC);
 }
 
 /*
@@ -492,28 +492,28 @@ mag_lock_zine_for_region_trailer(magazine_t *magazines, region_trailer_t *traile
 
 extern uint64_t malloc_entropy[2];
 
-static uint32_t
+static region_cookie_t
 region_cookie(void)
 {
-	return (uint32_t)(malloc_entropy[0] >> 8) & 0xffff;
+	return (region_cookie_t)(malloc_entropy[0] >> 8) & 0xffff;
 }
 
 static MALLOC_INLINE void
-region_check_cookie(region_t region, region_trailer_t *trailer)
+region_check_cookie(region_t region, region_cookie_t *cookiep)
 {
-	if (trailer->region_cookie != region_cookie())
+	if (*cookiep != region_cookie())
 	{
 		malloc_zone_error(MALLOC_ABORT_ON_ERROR, true,
-				"Region cookie corrupted for region %p (value is %x)\n",
-				region, trailer->region_cookie);
+				"Region cookie corrupted for region %p (value is %x)[%p]\n",
+				region, *cookiep, cookiep);
 		__builtin_unreachable();
 	}
 }
 
 static MALLOC_INLINE void
-region_set_cookie(region_trailer_t *trailer)
+region_set_cookie(region_cookie_t *cookiep)
 {
-	trailer->region_cookie = region_cookie();
+	*cookiep = region_cookie();
 }
 
 #pragma mark tiny allocator
@@ -540,7 +540,7 @@ static MALLOC_INLINE msize_t
 get_tiny_free_size_offset(const void *ptr, off_t mapped_offset)
 {
 	void *next_block = (void *)((uintptr_t)ptr + TINY_QUANTUM);
-	void *region_end = TINY_REGION_END(TINY_REGION_FOR_PTR(ptr));
+	void *region_end = TINY_REGION_HEAP_END(TINY_REGION_FOR_PTR(ptr));
 
 	// check whether the next block is outside the tiny region or a block header
 	// if so, then the size of this block is one, and there is no stored size.
@@ -626,7 +626,7 @@ static MALLOC_INLINE boolean_t
 tiny_region_below_recirc_threshold(region_t region)
 {
 	region_trailer_t *trailer = REGION_TRAILER_FOR_TINY_REGION(region);
-	return trailer->bytes_used < DENSITY_THRESHOLD(TINY_REGION_PAYLOAD_BYTES);
+	return trailer->bytes_used < DENSITY_THRESHOLD(TINY_HEAP_SIZE);
 }
 
 /**
@@ -639,7 +639,7 @@ tiny_magazine_below_recirc_threshold(magazine_t *mag_ptr)
 	size_t a = mag_ptr->num_bytes_in_magazine;	// Total bytes allocated to this magazine
 	size_t u = mag_ptr->mag_num_bytes_in_objects; // In use (malloc'd) from this magaqzine
 
-	return a - u > ((3 * TINY_REGION_PAYLOAD_BYTES) / 2)
+	return a - u > ((3 * TINY_HEAP_SIZE) / 2)
 			&& u < DENSITY_THRESHOLD(a);
 }
 #endif // CONFIG_RECIRC_DEPOT
@@ -668,7 +668,7 @@ static MALLOC_INLINE boolean_t
 small_region_below_recirc_threshold(region_t region)
 {
 	region_trailer_t *trailer = REGION_TRAILER_FOR_SMALL_REGION(region);
-	return trailer->bytes_used < DENSITY_THRESHOLD(SMALL_REGION_PAYLOAD_BYTES);
+	return trailer->bytes_used < DENSITY_THRESHOLD(SMALL_HEAP_SIZE);
 }
 
 /**
@@ -681,8 +681,7 @@ small_magazine_below_recirc_threshold(magazine_t *mag_ptr)
 	size_t a = mag_ptr->num_bytes_in_magazine;	// Total bytes allocated to this magazine
 	size_t u = mag_ptr->mag_num_bytes_in_objects; // In use (malloc'd) from this magaqzine
 
-	return a - u > ((3 * SMALL_REGION_PAYLOAD_BYTES) / 2)
-			&& u < DENSITY_THRESHOLD(a);
+	return a - u > ((3 * SMALL_HEAP_SIZE) / 2) && u < DENSITY_THRESHOLD(a);
 }
 #endif // CONFIG_RECIRC_DEPOT
 

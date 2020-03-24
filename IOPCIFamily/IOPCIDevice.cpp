@@ -26,6 +26,7 @@
 
 #include <IOKit/pci/IOPCIBridge.h>
 #include <IOKit/pci/IOPCIPrivate.h>
+#include <PCIDriverKit/PCIDriverKitPrivate.h>
 #include <IOKit/pci/IOAGPDevice.h>
 #include <IOKit/pci/IOPCIConfigurator.h>
 #include <IOKit/pci/IOPCIPrivate.h>
@@ -33,6 +34,7 @@
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOUserClient.h>
 #include <IOKit/IOUserServer.h>
+#include <IOKit/IOKitKeys.h>
 
 #include <IOKit/IOLib.h>
 #include <IOKit/assert.h>
@@ -635,6 +637,73 @@ IOReturn IOPCIDevice::restoreDeviceState( IOOptionBits options )
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+bool IOPCIDevice::matchPropertyTable(OSDictionary* table)
+{
+    OSArray*      entitlementArray      = NULL;
+    OSDictionary* entitlementDictionary = NULL;
+    OSString*     builtInEntitlement    = NULL;
+    bool          builtInEntitled       = false;
+    bool          isMatch               = false;
+    SInt32        matchScore            = 0;
+
+    isMatch = matchPropertyTable(table, &matchScore);
+
+    // Check if the entitlements match, but only if:
+    // 1. The original matching dictionary matches
+    // 2. The kIOPCITransportDextEntitlement key exists.
+    // Otherwise return the value of 'isMatch' and don't do any entitlement validation.
+    if (  (isMatch == true)
+       && (table->getObject(kIOPCITransportDextEntitlement)))
+    {
+        isMatch = false;
+        entitlementArray = OSDynamicCast(OSArray, table->getObject(kIOPCITransportDextEntitlement));
+        if (entitlementArray != NULL)
+        {
+            for (unsigned int i = 0; i < entitlementArray->getCount(); i++)
+            {
+                OSObject* entitlement = entitlementArray->getObject(i);
+                entitlementDictionary = OSDynamicCast(OSDictionary, entitlement);
+                if (entitlementDictionary != NULL)
+                {
+                    isMatch = matchPropertyTable(entitlementDictionary, &matchScore);
+                    if (isMatch == true)
+                    {
+                        DLOG("The %s entitlements array has matched at index %d \n", kIOPCITransportDextEntitlement, i);
+                        break;
+                    }
+                }
+                else if(   ((builtInEntitlement = OSDynamicCast(OSString, entitlement)) != NULL)
+                        && (builtInEntitlement->isEqualTo(kIODriverKitTransportBuiltinEntitlementKey) == true))
+                {
+                    builtInEntitled = true;
+                }
+            }
+
+            if(   (getProperty("built-in") != NULL)
+               && (builtInEntitled != true))
+            {
+                isMatch = false;
+            }
+
+            if (isMatch == false)
+            {
+                DLOG("The %s entitlements property doesn't contain a matching entitlement\n", kIOPCITransportDextEntitlement);
+            }
+        }
+        else if (table->getObject(kIOPCITransportDextEntitlement) == kOSBooleanTrue)
+        {
+            isMatch = true;
+            DLOG("The %s entitlement is not a dictionary, this is intended for Apple internal use only\n", kIOPCITransportDextEntitlement);
+        }
+        else
+        {
+            DLOG("The %s entitlements property is malformed\n", kIOPCITransportDextEntitlement);
+        }
+    }
+
+    return isMatch;
+}
 
 bool IOPCIDevice::matchPropertyTable( OSDictionary * table, SInt32 * score )
 {
@@ -1326,6 +1395,34 @@ IOReturn IOPCIDevice::newUserClient(task_t owningTask, void * securityID,
     return (kIOReturnUnsupported);
 }
 
+bool IOPCIDevice::handleOpen(IOService * forClient, IOOptionBits options, void * arg)
+{
+    bool result = super::handleOpen(forClient, options, arg);
+
+    if (result == true)
+    {
+        reserved->sessionOptions = options;
+    }
+
+    return result;
+}
+
+void IOPCIDevice::handleClose(IOService * forClient, IOOptionBits options)
+{
+    if (   (isOpen(forClient) == true)
+        && ((reserved->sessionOptions & kIOPCISessionOptionDriverkit) != 0))
+    {
+        // Driverkit either called close or crashed. Turn off bus mastering to prevent any further DMAs
+        uint16_t command = extendedConfigRead16(kIOPCIConfigurationOffsetCommand);
+        if ((command & (kIOPCICommandBusMaster | kIOPCICommandMemorySpace)) != 0)
+        {
+            DLOG("IOPCIDevice::handleClose: disabling memory and bus mastering for client %s\n", (forClient) ? forClient->getName() : "unknown");
+            extendedConfigWrite16(kIOPCIConfigurationOffsetCommand, command & ~(kIOPCICommandBusMaster | kIOPCICommandMemorySpace));
+        }
+    }
+    super::handleClose(forClient, options);
+}
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 void IOPCIDevice::copyAERErrorDescriptionForBit(bool uncorrectable, uint32_t bit, char * string, size_t maxLength)
@@ -1427,64 +1524,256 @@ void IOPCIDevice::copyAERErrorDescriptionForBit(bool uncorrectable, uint32_t bit
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+#if TARGET_OS_OSX
 
-#include "Gravity/Implementation/IOKitUser/IOPCIDevice.h"
-
+#pragma mark Private DriverKit Methods
 kern_return_t
-IMPL(IOPCIDevice, MemoryAccess)
+IMPL(IOPCIDevice, _ManageSession)
 {
-	IOReturn  ret;
+    IOReturn result = kIOReturnNotOpen;
 
-	ret = kIOReturnUnsupported;
-    switch (operation)
+	DLOG("IOPCIDevice::%s: for client %s\n", __FUNCTION__, (forClient) ? forClient->getName() : "unknown");
+
+    if(openClient == true)
     {
-        case kIOPCIMemoryConfigAccessReadDevice | kIOPCIMemoryAccess32Bit:
-            *returnData = extendedConfigRead32(address);
-            ret = kIOReturnSuccess;
-            break;
-        case kIOPCIMemoryConfigAccessReadDevice | kIOPCIMemoryAccess16Bit:
-            *returnData = extendedConfigRead16(address);
-            ret = kIOReturnSuccess;
-            break;
-        case kIOPCIMemoryConfigAccessReadDevice | kIOPCIMemoryAccess8Bit:
-            *returnData = extendedConfigRead8(address);
-            ret = kIOReturnSuccess;
-            break;
-
-        case kIOPCIMemoryConfigAccessWriteDevice | kIOPCIMemoryAccess32Bit:
-            extendedConfigWrite32(address, data);
-            ret = kIOReturnSuccess;
-            break;
-        case kIOPCIMemoryConfigAccessWriteDevice | kIOPCIMemoryAccess16Bit:
-            extendedConfigWrite16(address, data);
-            ret = kIOReturnSuccess;
-            break;
-        case kIOPCIMemoryConfigAccessWriteDevice | kIOPCIMemoryAccess8Bit:
-            extendedConfigWrite8(address, data);
-            ret = kIOReturnSuccess;
-            break;
+        if(open(forClient, (openOptions & (~kIOServiceFamilyOpenOptions)) | kIOPCISessionOptionDriverkit, NULL) == true)
+        {
+            result = kIOReturnSuccess;
+        }
+    }
+    else
+    {
+        close(forClient);
+        result = kIOReturnSuccess;
     }
 
-	return ret;
+
+    return result;
 }
 
 kern_return_t
-IMPL(IOPCIDevice, CopyMemoryDescriptor)
+IMPL(IOPCIDevice, _MemoryAccess)
 {
-	IOReturn ret = kIOReturnUnsupported;
-	IOMemoryDescriptor * md;
+    if (isOpen(forClient) == false)
+    {
+        DLOG("IOPCIDevice::%s: device not open for client %s\n", __FUNCTION__, (forClient != NULL) ? forClient->getName() : "unknown client");
+        return kIOReturnNotOpen;
+    }
 
-	md = getDeviceMemoryWithIndex(index);
-	IOLog("IOPCIDevice_CopyMemoryDescriptor_Rpl %p\n", md);
-	if (md) {
-		md->retain();
-		*memory = md;
-		ret = kIOReturnSuccess;
-	}
+    IOReturn  result = kIOReturnSuccess;
 
-	return ret;
+#if TARGET_CPU_X86 || TARGET_CPU_X86_64
+    if((operation & (kPCIDriverKitMemoryAccessOperationIORead | kPCIDriverKitMemoryAccessOperationIOWrite)) != 0)
+    {
+        uint16_t ioSpaceOffset = 0;
+
+        if(os_convert_overflow(offset, &ioSpaceOffset) == true)
+        {
+            result = kIOReturnBadArgument;
+            DLOG("%s::%s bad offset 0x%llx\n", "IOPCIDevice", __FUNCTION__, offset);
+        }
+
+        uint8_t memoryIndex = operation & kPCIDriverKitMemoryAccessOperationDeviceMemoryIndexMask;
+        IOMemoryDescriptor* memoryDescriptor = getDeviceMemoryWithIndex(memoryIndex);
+        if (   (memoryDescriptor != NULL)
+            && (ioMap != NULL))
+        {
+            IOPCIAddressSpace addressSpace;
+            addressSpace.bits = static_cast<uint32_t>(memoryDescriptor->getTag());
+
+            IOPhysicalAddress ioSpaceStartAddress = ioMap->getPhysicalAddress();
+            IOPhysicalAddress ioSpaceBarAddress   = memoryDescriptor->getPhysicalAddress();
+
+            if(   (addressSpace.s.space == kIOPCIIOSpace)
+               && (ioSpaceOffset < memoryDescriptor->getLength())
+               && (ioSpaceStartAddress <= ioSpaceBarAddress))
+            {
+                // I/O space is physically contiguous
+                // The I/O accessor methods use offsets from the beginning of I/O space, so the total offset needs to be
+                // calculated
+                ioSpaceOffset += static_cast<uint16_t>(ioSpaceBarAddress - ioSpaceStartAddress);
+            }
+            else
+            {
+                result = kIOReturnBadArgument;
+                DLOG("%s::%s bad request with memeoryIndex %u, offset 0x%x\n", "IOPCIDevice", __FUNCTION__, memoryIndex, ioSpaceOffset);
+            }
+            memoryDescriptor = NULL;
+        }
+        else
+        {
+            result = kIOReturnBadArgument;
+        }
+
+        if (result == kIOReturnSuccess)
+        {
+            switch (operation & (~kPCIDriverKitMemoryAccessOperationDeviceMemoryIndexMask))
+            {
+                case kPCIDriverKitMemoryAccessOperationIORead | kPCIDriverKitMemoryAccessOperation32Bit:
+                {
+                    *readData = ioRead32(ioSpaceOffset);
+                    break;
+                }
+                case kPCIDriverKitMemoryAccessOperationIORead | kPCIDriverKitMemoryAccessOperation16Bit:
+                {
+                    *readData = ioRead16(ioSpaceOffset);
+                    break;
+                }
+                case kPCIDriverKitMemoryAccessOperationIORead | kPCIDriverKitMemoryAccessOperation8Bit:
+                {
+                    *readData = ioRead8(ioSpaceOffset);
+                    break;
+                }
+                case kPCIDriverKitMemoryAccessOperationIOWrite | kPCIDriverKitMemoryAccessOperation32Bit:
+                {
+                    ioWrite32(ioSpaceOffset, static_cast<uint32_t>(data));
+                    break;
+                }
+                case kPCIDriverKitMemoryAccessOperationIOWrite | kPCIDriverKitMemoryAccessOperation16Bit:
+                {
+                    ioWrite16(ioSpaceOffset, static_cast<uint16_t>(data));
+                    break;
+                }
+                case kPCIDriverKitMemoryAccessOperationIOWrite | kPCIDriverKitMemoryAccessOperation8Bit:
+                {
+                    ioWrite8(ioSpaceOffset,  static_cast<uint8_t>(data));
+                    break;
+                }
+                default:
+                {
+                    DLOG("%s::%s bad request with memeoryIndex %u, offset 0x%x, operation 0x%llx\n",
+                         "IOPCIDevice",
+                         __FUNCTION__,
+                         memoryIndex,
+                         ioSpaceOffset,
+                         operation);
+                    result = kIOReturnUnsupported;
+                    break;
+                }
+            }
+        }
+    }
+    else
+#endif
+    {
+        switch (operation)
+        {
+            case kPCIDriverKitMemoryAccessOperationConfigurationRead | kPCIDriverKitMemoryAccessOperation32Bit:
+            {
+                *readData = extendedConfigRead32(offset);
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationConfigurationRead | kPCIDriverKitMemoryAccessOperation16Bit:
+            {
+                *readData = extendedConfigRead16(offset);
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationConfigurationRead | kPCIDriverKitMemoryAccessOperation8Bit:
+            {
+                *readData = extendedConfigRead8(offset);
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationConfigurationWrite | kPCIDriverKitMemoryAccessOperation32Bit:
+            {
+                extendedConfigWrite32(offset, static_cast<uint32_t>(data));
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationConfigurationWrite | kPCIDriverKitMemoryAccessOperation16Bit:
+            {
+                extendedConfigWrite16(offset, static_cast<uint16_t>(data));
+                break;
+            }
+            case kPCIDriverKitMemoryAccessOperationConfigurationWrite | kPCIDriverKitMemoryAccessOperation8Bit:
+            {
+                extendedConfigWrite8(offset, static_cast<uint8_t>(data));
+                break;
+            }
+            default:
+            {
+                result = kIOReturnUnsupported;
+                break;
+            }
+        }
+    }
+
+    return result;
 }
 
+kern_return_t
+IMPL(IOPCIDevice, _CopyDeviceMemoryWithIndex)
+{
+    if (isOpen(forClient) == false)
+    {
+        DLOG("IOPCIDevice::%s: device not open for client %s\n", __FUNCTION__, (forClient != NULL) ? forClient->getName() : "unknown client");
+        return kIOReturnNotOpen;
+    }
+
+    IOReturn result = kIOReturnUnsupported;
+    IOMemoryDescriptor * memoryDescriptor;
+
+    memoryDescriptor = getDeviceMemoryWithIndex(memoryIndex);
+
+    if (memoryDescriptor != NULL)
+    {
+        IOPCIAddressSpace addressSpace;
+        addressSpace.bits = static_cast<uint32_t>(memoryDescriptor->getTag());
+
+        if(addressSpace.s.space == kIOPCIIOSpace)
+        {
+            memoryDescriptor = NULL;
+            *returnMemory    = NULL;
+        }
+        else
+        {
+            memoryDescriptor->retain();
+            *returnMemory = memoryDescriptor;
+            result = kIOReturnSuccess;
+        }
+    }
+
+    return result;
+}
+
+#pragma mark Configuration Space helpers
+
+kern_return_t
+IMPL(IOPCIDevice, FindPCICapability)
+{
+    IOReturn result = kIOReturnNotFound;
+    *foundCapabilityOffset = searchOffset;
+    if(extendedFindPCICapability(capabilityID, foundCapabilityOffset) != 0)
+    {
+        result = kIOReturnSuccess;
+    }
+
+    return result;
+}
+
+kern_return_t
+IMPL(IOPCIDevice, GetBusDeviceFunction)
+{
+    *returnBusNumber      = getBusNumber();
+    *returnDeviceNumber   = getDeviceNumber();
+    *returnFunctionNumber = getFunctionNumber();
+    return kIOReturnSuccess;
+}
+
+#pragma mark Power Management
+
+kern_return_t
+IMPL(IOPCIDevice, HasPCIPowerManagement)
+{
+    return hasPCIPowerManagement(state) ? kIOReturnSuccess : kIOReturnUnsupported;
+}
+
+kern_return_t
+IMPL(IOPCIDevice, EnablePCIPowerManagement)
+{
+    return enablePCIPowerManagement(state);
+}
+
+
+#endif
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #undef super

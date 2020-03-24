@@ -63,4 +63,7 @@ int LFHFS_GetXAttr    ( UVFSFileNode psNode, const char *pcAttr, void *pvOutBuf,
 int LFHFS_SetXAttr    ( UVFSFileNode psNode, const char *pcAttr, const void *pvInBuf, size_t iBufSize, UVFSXattrHow How );
 int LFHFS_ListXAttr   ( UVFSFileNode psNode, void *pvOutBuf, size_t iBufSize, size_t *iActualSize );
 
+int LFHFS_StreamLookup ( UVFSFileNode psFileNode, UVFSStreamNode *ppsOutNode );
+int LFHFS_StreamReclaim (UVFSStreamNode psStreamNode );
+int LFHFS_StreamRead (UVFSStreamNode psStreamNode, uint64_t uOffset, size_t iLength, void *pvBuf, size_t *iActuallyRead );
 #endif /* lf_hfs_fileops_handler_h */

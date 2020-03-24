@@ -12,6 +12,7 @@
 #import "KeychainCircle/KCJoiningRequestSession+Internal.h"
 #import "KeychainCircle/KCJoiningAcceptSession+Internal.h"
 #import <KeychainCircle/KCJoiningMessages.h>
+#import <KeychainCircle/PairingChannel.h>
 
 #import <TrustedPeers/TrustedPeers.h>
 #import <TrustedPeers/TPHash.h>
@@ -59,12 +60,19 @@
 #import "keychain/ckks/CKKSTLKShare.h"
 #import "keychain/ckks/CKKSAnalytics.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/ckks/CKKSCurrentKeyPointer.h"
 
 #import "keychain/ot/OctagonControlServer.h"
 
 #import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
 #import "keychain/ot/categories/OctagonEscrowRecoverer.h"
+
+#import "KeychainCircle/generated_source/KCInitialMessageData.h"
+#import "keychain/ot/proto/generated_source/OTPairingMessage.h"
+#import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound1M2.h"
+#import "keychain/ot/proto/generated_source/OTApplicantToSponsorRound2M1.h"
+#import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound2M2.h"
 
 #import "keychain/otctl/OTControlCLI.h"
 

@@ -25,16 +25,16 @@
 
 #pragma once
 
+#include "VM.h"
+#include <wtf/FileSystem.h>
 #include <wtf/MallocPtr.h>
 
 namespace JSC {
 
 class CachePayload {
 public:
-#if !OS(WINDOWS)
-    JS_EXPORT_PRIVATE static CachePayload makeMappedPayload(void*, size_t);
-#endif
-    JS_EXPORT_PRIVATE static CachePayload makeMallocPayload(MallocPtr<uint8_t>&&, size_t);
+    JS_EXPORT_PRIVATE static CachePayload makeMappedPayload(FileSystem::MappedFileData&&);
+    JS_EXPORT_PRIVATE static CachePayload makeMallocPayload(MallocPtr<uint8_t, VMMalloc>&&, size_t);
     JS_EXPORT_PRIVATE static CachePayload makeEmptyPayload();
 
     JS_EXPORT_PRIVATE CachePayload(CachePayload&&);

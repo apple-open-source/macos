@@ -2,9 +2,9 @@
 
 class OctagonSOSUpgradeTests: OctagonTestsBase {
     func testSOSUpgrade() throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -33,14 +33,18 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
 
         self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        // Also, CKKS should be configured with the prevailing policy version
+        XCTAssertNotNil(self.injectedManager?.policy, "Should have given CKKS a TPPolicy during SOS upgrade")
+        XCTAssertEqual(self.injectedManager?.policy?.version, prevailingPolicyVersion, "Policy given to CKKS should be prevailing policy")
     }
 
     // Verify that an SOS upgrade only does one establish (and no update trust).
     func testSOSUpgradeUpdateNoUpdateTrust() throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -74,9 +78,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testSOSUpgradeAuthkitError() throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID!)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID!)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID!)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -116,9 +120,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         // Test that we tries to perform SOS upgrade once we unlock device again
         //
 
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -148,9 +152,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
     func testSOSUpgradeDuringNetworkOutage() throws {
         // Test that we tries to perform SOS upgrade after a bit after a failure
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -182,9 +186,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
     func testSOSUpgradeStopsIfSplitGraph() throws {
         // Test that we tries to perform SOS upgrade after a bit after a failure
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -242,8 +246,8 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testSOSUpgradeWithNoTLKs() throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putFakeDeviceStatusesInCloudKit()
 
         self.startCKAccountStatusMock()
 
@@ -262,11 +266,11 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     func testsSOSUpgradeWithCKKSConflict() throws {
         // Right after CKKS fetches for the first time, insert a new key hierarchy into CloudKit
         self.silentFetchesAllowed = false
-        self.expectCKFetchAndRun(beforeFinished: {
-            self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-            self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
+        self.expectCKFetchAndRun {
+            self.putFakeKeyHierarchiesInCloudKit()
+            self.putFakeDeviceStatusesInCloudKit()
             self.silentFetchesAllowed = true
-        })
+        }
 
         self.startCKAccountStatusMock()
 
@@ -283,7 +287,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testSOSJoin() throws {
-        if(!OctagonPerformSOSUpgrade()) {
+        if !OctagonPerformSOSUpgrade() {
             return
         }
         self.startCKAccountStatusMock()
@@ -360,9 +364,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
     func testSOSJoinUponNotificationOfPreapproval() throws {
         // Peer 1 becomes SOS+Octagon
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -379,7 +383,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        // Peer 2 attempts to join via preapprovalh
+        // Peer 2 attempts to join via preapproval
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         let peer2contextID = "peer2"
         let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
@@ -433,9 +437,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
     func testSOSJoinUponNotificationOfPreapprovalRetry() throws {
         // Peer 1 becomes SOS+Octagon
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID!)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID!)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID!)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -452,7 +456,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        // Peer 2 attempts to join via preapprovalh
+        // Peer 2 attempts to join via preapproval
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         let peer2contextID = "peer2"
         let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
@@ -517,9 +521,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
     func testSOSJoinUponNotificationOfPreapprovalRetryFail() throws {
         // Peer 1 becomes SOS+Octagon
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID!)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID!)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID!)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -536,7 +540,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
-        // Peer 2 attempts to join via preapprovalh
+        // Peer 2 attempts to join via preapproval
         let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
         let peer2contextID = "peer2"
         let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
@@ -658,6 +662,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.cuttlefishContext.incompleteNotificationOfMachineIDListChange()
         self.wait(for: [updateTrustExpectation], timeout: 10)
 
+        self.verifyDatabaseMocks()
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
     }
 
@@ -694,8 +699,12 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 40 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
+
+        // Also, CKKS should be configured with the prevailing policy version
+        XCTAssertNotNil(self.injectedManager?.policy, "Should have given CKKS a TPPolicy during SOS upgrade")
+        XCTAssertEqual(self.injectedManager?.policy?.version, prevailingPolicyVersion, "Policy given to CKKS should be prevailing policy")
     }
 
     func testSOSDoNotAttemptUpgradeWhenPlatformDoesntSupport() throws {
@@ -707,6 +716,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let everEnteredSOSUpgrade: CKKSCondition = self.cuttlefishContext.stateMachine.stateConditions[OctagonStateAttemptSOSUpgrade] as! CKKSCondition
 
         self.cuttlefishContext.startOctagonStateMachine()
+
+        // Cheat and even turn on CDP for the account
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
@@ -727,9 +739,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testSosUpgradeAndReady() throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         self.startCKAccountStatusMock()
 
@@ -743,7 +755,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         let upgradeExpectation = self.expectation(description: "waitForOctagonUpgrade")
-        self.manager.wait(forOctagonUpgrade: OTCKContainerName, context: self.otcliqueContext.context ?? "defaultContext") { error in
+        self.manager.wait(forOctagonUpgrade: OTCKContainerName, context: self.otcliqueContext.context) { error in
             XCTAssertNil(error, "operation should not fail")
             upgradeExpectation.fulfill()
         }
@@ -803,7 +815,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testSOSJoinAndBottle() throws {
-        if(!OctagonPerformSOSUpgrade()) {
+        if !OctagonPerformSOSUpgrade() {
             return
         }
         self.startCKAccountStatusMock()
@@ -931,9 +943,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testSOSPeerUpdatePreapprovesNewPeer() throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         self.startCKAccountStatusMock()
 
@@ -989,9 +1001,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testSOSPeerUpdateOnRestartAfterMissingNotification() throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         self.startCKAccountStatusMock()
 
@@ -1063,9 +1075,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testResetAndEstablishDoesNotReuploadSOSTLKShares() throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -1125,9 +1137,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testResetAndEstablishReusesSOSKeys() throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -1148,14 +1160,13 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         let dumpExpectation = self.expectation(description: "dump callback occurs")
         var encryptionPubKey = Data()
         var signingPubKey = Data()
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, error in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, error in
             XCTAssertNil(error, "Should be no error dumping data")
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
 
-            let permanentInfo = egoSelf!["permanentInfo"] as? Dictionary<String, AnyObject>
+            let permanentInfo = egoSelf!["permanentInfo"] as? [String: AnyObject]
             XCTAssertNotNil(permanentInfo, "should have a permanent info")
 
             let epk = permanentInfo!["encryption_pub_key"] as? Data
@@ -1186,14 +1197,13 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         // And check that the pub keys are equivalent
         let dumpResetExpectation = self.expectation(description: "dump callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, error in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, error in
             XCTAssertNil(error, "Should be no error dumping data")
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
 
-            let permanentInfo = egoSelf!["permanentInfo"] as? Dictionary<String, AnyObject>
+            let permanentInfo = egoSelf!["permanentInfo"] as? [String: AnyObject]
             XCTAssertNotNil(permanentInfo, "should have a permanent info")
 
             let epk = permanentInfo!["encryption_pub_key"] as? Data
@@ -1210,9 +1220,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testSOSUpgradeWithFailingAuthKit() throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
@@ -1231,9 +1241,9 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
     }
 
     func testCliqueOctagonUpgrade () throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
         self.startCKAccountStatusMock()
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
@@ -1241,29 +1251,27 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         OctagonSetPlatformSupportsSOS(true)
 
-        var clique: OTClique?
-        XCTAssertNoThrow(clique = try OTClique(contextData: self.otcliqueContext))
+        let clique = OTClique(contextData: self.otcliqueContext)
         XCTAssertNotNil(clique, "Clique should not be nil")
-        XCTAssertNoThrow(try clique!.waitForOctagonUpgrade(), "Upgrading should pass")
+        XCTAssertNoThrow(try clique.waitForOctagonUpgrade(), "Upgrading should pass")
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
     }
 
     func testCliqueOctagonUpgradeFail () throws {
-        self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-        self.putSelfTLKShares(inCloudKit: self.manateeZoneID)
-        self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.putSelfTLKSharesInCloudKit()
+        self.saveTLKMaterialToKeychain()
         self.startCKAccountStatusMock()
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
 
         OctagonSetPlatformSupportsSOS(true)
 
-        var clique: OTClique?
-        XCTAssertNoThrow(clique = try OTClique(contextData: self.otcliqueContext))
+        let clique = OTClique(contextData: self.otcliqueContext)
         XCTAssertNotNil(clique, "Clique should not be nil")
-        XCTAssertThrowsError(try clique!.waitForOctagonUpgrade(), "Upgrading should fail")
+        XCTAssertThrowsError(try clique.waitForOctagonUpgrade(), "Upgrading should fail")
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
@@ -1323,7 +1331,6 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trustsByPreapproval, target: peer2ID)),
                       "peer 1 should trust peer 3 by preapproval")
 
-
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer1ID)),
                       "peer 2 should trust peer 1")
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer3ID)),
@@ -1359,7 +1366,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         // And if peer3 decides to reupgrade, but it shouldn't: there's no potentially-trusted peer that preapproves it
         let upgradeExpectation = self.expectation(description: "sosUpgrade call returns")
-        peer3.attemptSOSUpgrade() { error in
+        peer3.attemptSOSUpgrade { error in
             XCTAssertNotNil(error, "should be an error performing an SOS upgrade (the second time)")
             upgradeExpectation.fulfill()
         }
@@ -1371,7 +1378,7 @@ class OctagonSOSUpgradeTests: OctagonTestsBase {
 
         // And "wait for upgrade" does something reasonable too
         let upgradeWaitExpectation = self.expectation(description: "sosWaitForUpgrade call returns")
-        peer3.waitForOctagonUpgrade() { error in
+        peer3.waitForOctagonUpgrade { error in
             XCTAssertNotNil(error, "should be an error waiting for an SOS upgrade (the second time)")
             upgradeWaitExpectation.fulfill()
         }

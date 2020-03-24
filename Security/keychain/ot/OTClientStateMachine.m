@@ -42,7 +42,6 @@
 
 #import "keychain/ot/OTConstants.h"
 #import "keychain/ot/OTClientStateMachine.h"
-#import "keychain/ot/OTPrepareOperation.h"
 #import "keychain/ot/OTSOSAdapter.h"
 #import "keychain/ot/OTEpochOperation.h"
 #import "keychain/ot/OTClientVoucherOperation.h"

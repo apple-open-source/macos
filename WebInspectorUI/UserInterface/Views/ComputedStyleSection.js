@@ -38,6 +38,7 @@ WI.ComputedStyleSection = class ComputedStyleSection extends WI.View
         this._propertyViews = [];
 
         this._showsImplicitProperties = false;
+        this._showsShorthandsInsteadOfLonghands = false;
         this._alwaysShowPropertyNames = new Set;
         this._propertyVisibilityMode = WI.ComputedStyleSection.PropertyVisibilityMode.ShowAll;
         this._hideFilterNonMatchingProperties = false;
@@ -91,6 +92,16 @@ WI.ComputedStyleSection = class ComputedStyleSection extends WI.View
         this.needsLayout();
     }
 
+    set showsShorthandsInsteadOfLonghands(value)
+    {
+        if (value === this._showsShorthandsInsteadOfLonghands)
+            return;
+
+        this._showsShorthandsInsteadOfLonghands = value;
+
+        this.needsLayout();
+    }
+
     set alwaysShowPropertyNames(propertyNames)
     {
         this._alwaysShowPropertyNames = new Set(propertyNames);
@@ -129,17 +140,54 @@ WI.ComputedStyleSection = class ComputedStyleSection extends WI.View
         else
             properties = this._style.properties;
 
-        properties.sort((a, b) => a.name.extendedLocaleCompare(b.name));
+        let propertyNameMap = new Map(properties.map((property) => [property.canonicalName, property]));
 
-        return properties.filter((property) => {
-            if (!property.variable && this._propertyVisibilityMode === WI.ComputedStyleSection.PropertyVisibilityMode.HideNonVariables)
+        function hasNonImplicitLonghand(property) {
+            if (property.canonicalName === "all")
                 return false;
 
-            if (property.variable && this._propertyVisibilityMode === WI.ComputedStyleSection.PropertyVisibilityMode.HideVariables)
+            let longhandPropertyNames = WI.CSSKeywordCompletions.LonghandNamesForShorthandProperty.get(property.canonicalName);
+            if (!longhandPropertyNames)
                 return false;
 
-            return !property.implicit || this._showsImplicitProperties || this._alwaysShowPropertyNames.has(property.canonicalName);
+            for (let longhandPropertyName of longhandPropertyNames) {
+                let property = propertyNameMap.get(longhandPropertyName);
+                if (property && !property.implicit)
+                    return true;
+            }
+
+            return false;
+        }
+
+        let hideVariables = this._propertyVisibilityMode === ComputedStyleSection.PropertyVisibilityMode.HideVariables;
+        let hideNonVariables = this._propertyVisibilityMode === ComputedStyleSection.PropertyVisibilityMode.HideNonVariables;
+
+        properties = properties.filter((property) => {
+            if (this._alwaysShowPropertyNames.has(property.canonicalName))
+                return true;
+
+            if (property.implicit && !this._showsImplicitProperties) {
+                if (!(this._showsShorthandsInsteadOfLonghands && property.isShorthand && hasNonImplicitLonghand(property)))
+                    return false;
+            }
+
+            if (this._showsShorthandsInsteadOfLonghands) {
+                if (property.shorthandPropertyNames.length)
+                    return false;
+            } else if (property.isShorthand)
+                return false;
+
+            if (property.isVariable && hideVariables)
+                return false;
+
+            if (!property.isVariable && hideNonVariables)
+                return false;
+
+            return true;
         });
+
+        properties.sort((a, b) => a.name.extendedLocaleCompare(b.name));
+        return properties;
     }
 
     layout()

@@ -229,6 +229,8 @@ interface IWebPreferencesPrivate6 : IWebPreferencesPrivate5
     HRESULT setSpatialNavigationEnabled([in] BOOL enabled);
     HRESULT menuItemElementEnabled([out, retval] BOOL* enabled);
     HRESULT setMenuItemElementEnabled([in] BOOL enabled);
+    HRESULT keygenElementEnabled([out, retval] BOOL* enabled);
+    HRESULT setKeygenElementEnabled([in] BOOL enabled);
     HRESULT serverTimingEnabled([out, retval] BOOL* enabled);
     HRESULT setServerTimingEnabled([in] BOOL enabled);
 }
@@ -242,4 +244,14 @@ interface IWebPreferencesPrivate7 : IWebPreferencesPrivate6
     HRESULT setResizeObserverEnabled([in] BOOL enabled);
     HRESULT coreMathMLEnabled([out, retval] BOOL* enabled);
     HRESULT setCoreMathMLEnabled([in] BOOL enabled);
+    HRESULT requestIdleCallbackEnabled([out, retval] BOOL* enabled);
+    HRESULT setRequestIdleCallbackEnabled([in] BOOL enabled);
+    HRESULT asyncClipboardAPIEnabled([out, retval] BOOL* enabled);
+    HRESULT setAsyncClipboardAPIEnabled([in] BOOL enabled);
+    HRESULT webAnimationsCompositeOperationsEnabled([out, retval] BOOL*);
+    HRESULT setWebAnimationsCompositeOperationsEnabled([in] BOOL enabled);
+    HRESULT webAnimationsMutableTimelinesEnabled([out, retval] BOOL*);
+    HRESULT setWebAnimationsMutableTimelinesEnabled([in] BOOL enabled);
+    HRESULT setRenderingUpdateThrottlingEnabled([in] BOOL enabled);
+    HRESULT renderingUpdateThrottlingEnabled([out, retval] BOOL* enabled);
 }

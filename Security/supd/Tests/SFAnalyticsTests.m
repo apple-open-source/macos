@@ -23,6 +23,7 @@
 
 #import <XCTest/XCTest.h>
 #import <Security/SFAnalytics.h>
+#import "SFAnalytics+Internal.h"
 #import "SFAnalyticsDefines.h"
 #import "SFAnalyticsSQLiteStore.h"
 #import "NSDate+SFAnalytics.h"
@@ -68,6 +69,7 @@ static NSString* _path;
 static NSInteger _testnum;
 static NSString* build = NULL;
 static NSString* product = NULL;
+static NSString* modelID = nil;
 
 // MARK: Test helper methods
 
@@ -153,6 +155,7 @@ static NSString* product = NULL;
     XCTAssertTrue([rowdata[SFAnalyticsEventClassKey] isKindOfClass:[NSNumber class]] && [rowdata[SFAnalyticsEventClassKey] intValue] == class, @"eventClass is %ld", (long)class);
     XCTAssertTrue([rowdata[@"build"] isEqualToString:build], @"event row includes build");
     XCTAssertTrue([rowdata[@"product"] isEqualToString:product], @"event row includes product");
+    XCTAssertTrue([rowdata[@"modelid"] isEqualToString:modelID], @"event row includes modelid");
     XCTAssertTrue(rowdata[@"internal"], @"event row includes internal");
 }
 
@@ -221,6 +224,8 @@ static NSString* product = NULL;
     } else {
         NSLog(@"could not get build version/product, tests should fail");
     }
+
+    modelID = [SFAnalytics hwModelID];
 
     [TestResourceUsage monitorTestResourceUsage];
 }

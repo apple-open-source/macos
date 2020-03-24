@@ -31,6 +31,7 @@
 @interface SFAnalytics (Internal)
 
 - (void)logMetric:(NSNumber*)metric withName:(NSString*)metricName oncePerReport:(BOOL)once;
++ (NSString*)hwModelID;
 
 @end
 

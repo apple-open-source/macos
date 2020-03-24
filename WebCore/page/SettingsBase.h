@@ -104,6 +104,7 @@ public:
     void pageDestroyed() { m_page = nullptr; }
 
     enum class FontLoadTimingOverride { None, Block, Swap, Failure };
+    enum class ParserScriptingFlagPolicy : uint8_t { OnlyIfScriptIsEnabled, Enabled };
 
     // FIXME: Move these default values to SettingsDefaultValues.h
 
@@ -111,6 +112,7 @@ public:
     static const SettingsBase::ForcedAccessibilityValue defaultForcedColorsAreInvertedAccessibilityValue = ForcedAccessibilityValue::System;
     static const SettingsBase::ForcedAccessibilityValue defaultForcedDisplayIsMonochromeAccessibilityValue = ForcedAccessibilityValue::System;
     static const SettingsBase::ForcedAccessibilityValue defaultForcedPrefersReducedMotionAccessibilityValue = ForcedAccessibilityValue::System;
+    static const SettingsBase::ForcedAccessibilityValue defaultForcedSupportsHighDynamicRangeValue = ForcedAccessibilityValue::System;
 
     WEBCORE_EXPORT static bool defaultTextAutosizingEnabled();
     WEBCORE_EXPORT static float defaultMinimumZoomFontSize();
@@ -185,13 +187,14 @@ protected:
     void imagesEnabledChanged();
     void pluginsEnabledChanged();
     void userStyleSheetLocationChanged();
-    void usesPageCacheChanged();
+    void usesBackForwardCacheChanged();
     void dnsPrefetchingEnabledChanged();
     void storageBlockingPolicyChanged();
     void backgroundShouldExtendBeyondPageChanged();
     void scrollingPerformanceLoggingEnabledChanged();
     void hiddenPageDOMTimerThrottlingStateChanged();
     void hiddenPageCSSAnimationSuspensionEnabledChanged();
+    void renderingUpdateThrottlingEnabledChanged();
     void resourceUsageOverlayVisibleChanged();
     void iceCandidateFilteringEnabledChanged();
 #if ENABLE(TEXT_AUTOSIZING)

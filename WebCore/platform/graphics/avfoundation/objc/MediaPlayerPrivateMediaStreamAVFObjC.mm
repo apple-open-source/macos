@@ -183,11 +183,9 @@ MediaPlayerPrivateMediaStreamAVFObjC::MediaPlayerPrivateMediaStreamAVFObjC(Media
     : m_player(player)
     , m_statusChangeListener(adoptNS([[WebAVSampleBufferStatusChangeListener alloc] initWithParent:this]))
     , m_clock(PAL::Clock::create())
-    , m_videoFullscreenLayerManager(std::make_unique<VideoFullscreenLayerManagerObjC>())
-#if !RELEASE_LOG_DISABLED
     , m_logger(player->mediaPlayerLogger())
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
-#endif
+    , m_videoFullscreenLayerManager(makeUnique<VideoFullscreenLayerManagerObjC>(m_logger, m_logIdentifier))
 {
     INFO_LOG(LOGIDENTIFIER);
 }
@@ -220,11 +218,32 @@ MediaPlayerPrivateMediaStreamAVFObjC::~MediaPlayerPrivateMediaStreamAVFObjC()
 #pragma mark -
 #pragma mark MediaPlayer Factory Methods
 
+class MediaPlayerFactoryMediaStreamAVFObjC final : public MediaPlayerFactory {
+private:
+    MediaPlayerEnums::MediaEngineIdentifier identifier() const final { return MediaPlayerEnums::MediaEngineIdentifier::AVFoundationMediaStream; };
+
+    std::unique_ptr<MediaPlayerPrivateInterface> createMediaEnginePlayer(MediaPlayer* player) const final
+    {
+        return makeUnique<MediaPlayerPrivateMediaStreamAVFObjC>(player);
+    }
+
+    void getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types) const final
+    {
+        return MediaPlayerPrivateMediaStreamAVFObjC::getSupportedTypes(types);
+    }
+
+    MediaPlayer::SupportsType supportsTypeAndCodecs(const MediaEngineSupportParameters& parameters) const final
+    {
+        return MediaPlayerPrivateMediaStreamAVFObjC::supportsType(parameters);
+    }
+};
+
 void MediaPlayerPrivateMediaStreamAVFObjC::registerMediaEngine(MediaEngineRegistrar registrar)
 {
-    if (isAvailable())
-        registrar([](MediaPlayer* player) { return std::make_unique<MediaPlayerPrivateMediaStreamAVFObjC>(player); }, getSupportedTypes,
-            supportsType, 0, 0, 0, 0);
+    if (!isAvailable())
+        return;
+
+    registrar(makeUnique<MediaPlayerFactoryMediaStreamAVFObjC>());
 }
 
 bool MediaPlayerPrivateMediaStreamAVFObjC::isAvailable()
@@ -240,7 +259,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::getSupportedTypes(HashSet<String, ASC
 
 MediaPlayer::SupportsType MediaPlayerPrivateMediaStreamAVFObjC::supportsType(const MediaEngineSupportParameters& parameters)
 {
-    return parameters.isMediaStream ? MediaPlayer::IsSupported : MediaPlayer::IsNotSupported;
+    return parameters.isMediaStream ? MediaPlayer::SupportsType::IsSupported : MediaPlayer::SupportsType::IsNotSupported;
 }
 
 #pragma mark -
@@ -485,7 +504,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::ensureLayers()
     m_backgroundLayer.get().backgroundColor = cachedCGColor(Color::black);
     m_backgroundLayer.get().needsDisplayOnBoundsChange = YES;
 
-    auto size = snappedIntRect(m_player->client().mediaPlayerContentBoxRect()).size();
+    auto size = snappedIntRect(m_player->playerContentBoxRect()).size();
     m_backgroundLayer.get().bounds = CGRectMake(0, 0, size.width(), size.height());
 
     [m_statusChangeListener beginObservingLayers];
@@ -526,7 +545,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::load(const String&)
 {
     // This media engine only supports MediaStream URLs.
     scheduleDeferredTask([this] {
-        setNetworkState(MediaPlayer::FormatError);
+        setNetworkState(MediaPlayer::NetworkState::FormatError);
     });
 }
 
@@ -535,7 +554,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::load(const String&, MediaSourcePrivat
 {
     // This media engine only supports MediaStream URLs.
     scheduleDeferredTask([this] {
-        setNetworkState(MediaPlayer::FormatError);
+        setNetworkState(MediaPlayer::NetworkState::FormatError);
     });
 }
 #endif
@@ -552,7 +571,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::load(MediaStreamPrivate& stream)
 
     scheduleDeferredTask([this] {
         updateTracks();
-        setNetworkState(MediaPlayer::Idle);
+        setNetworkState(MediaPlayer::NetworkState::Idle);
         updateReadyState();
     });
 }
@@ -828,7 +847,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::updateRenderingMode()
     scheduleDeferredTask([this] {
         m_transformIsValid = false;
         if (m_player)
-            m_player->client().mediaPlayerRenderingModeChanged(m_player);
+            m_player->renderingModeChanged();
     });
 
 }
@@ -1058,12 +1077,12 @@ void MediaPlayerPrivateMediaStreamAVFObjC::updateTracks()
 
 std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateMediaStreamAVFObjC::seekable() const
 {
-    return std::make_unique<PlatformTimeRanges>();
+    return makeUnique<PlatformTimeRanges>();
 }
 
 std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateMediaStreamAVFObjC::buffered() const
 {
-    return std::make_unique<PlatformTimeRanges>();
+    return makeUnique<PlatformTimeRanges>();
 }
 
 void MediaPlayerPrivateMediaStreamAVFObjC::paint(GraphicsContext& context, const FloatRect& rect)
@@ -1077,7 +1096,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::updateCurrentFrameImage()
         return;
 
     if (!m_imagePainter.pixelBufferConformer)
-        m_imagePainter.pixelBufferConformer = std::make_unique<PixelBufferConformerCV>((__bridge CFDictionaryRef)@{ (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) });
+        m_imagePainter.pixelBufferConformer = makeUnique<PixelBufferConformerCV>((__bridge CFDictionaryRef)@{ (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) });
 
     ASSERT(m_imagePainter.pixelBufferConformer);
     if (!m_imagePainter.pixelBufferConformer)
@@ -1114,7 +1133,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::paintCurrentFrameInContext(GraphicsCo
 
 void MediaPlayerPrivateMediaStreamAVFObjC::acceleratedRenderingStateChanged()
 {
-    if (m_player->client().mediaPlayerRenderingCanBeAccelerated(m_player))
+    if (m_player->renderingCanBeAccelerated())
         ensureLayers();
     else
         destroyLayers();
@@ -1193,12 +1212,10 @@ void MediaPlayerPrivateMediaStreamAVFObjC::backgroundLayerBoundsChanged()
     });
 }
 
-#if !RELEASE_LOG_DISABLED
 WTFLogChannel& MediaPlayerPrivateMediaStreamAVFObjC::logChannel() const
 {
     return LogMedia;
 }
-#endif
 
 }
 

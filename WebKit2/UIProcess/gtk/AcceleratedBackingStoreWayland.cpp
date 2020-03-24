@@ -41,9 +41,7 @@
 #if USE(OPENGL_ES)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-#include <WebCore/Extensions3DOpenGLES.h>
 #else
-#include <WebCore/Extensions3DOpenGL.h>
 #include <WebCore/OpenGLShims.h>
 #endif
 
@@ -64,37 +62,68 @@ static PFNGLEGLIMAGETARGETTEXTURE2DOESPROC glImageTargetTexture2D;
 namespace WebKit {
 using namespace WebCore;
 
-std::unique_ptr<AcceleratedBackingStoreWayland> AcceleratedBackingStoreWayland::create(WebPageProxy& webPage)
+bool isEGLImageAvailable(bool useIndexedGetString)
+{
+#if USE(OPENGL_ES)
+    UNUSED_PARAM(useIndexedGetString);
+#else
+    if (useIndexedGetString) {
+        GLint numExtensions = 0;
+        ::glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
+        for (GLint i = 0; i < numExtensions; ++i) {
+            String extension = String(reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, i)));
+            if (extension == "GL_OES_EGL_image" || extension == "GL_OES_EGL_image_external")
+                return true;
+        }
+    } else
+#endif
+    {
+        String extensionsString = String(reinterpret_cast<const char*>(::glGetString(GL_EXTENSIONS)));
+        for (auto& extension : extensionsString.split(' ')) {
+            if (extension == "GL_OES_EGL_image" || extension == "GL_OES_EGL_image_external")
+                return true;
+        }
+    }
+
+    return false;
+}
+
+bool AcceleratedBackingStoreWayland::checkRequirements()
 {
 #if USE(WPE_RENDERER)
     if (!glImageTargetTexture2D) {
         if (!wpe_fdo_initialize_for_egl_display(PlatformDisplay::sharedDisplay().eglDisplay()))
-            return nullptr;
+            return false;
 
         std::unique_ptr<WebCore::GLContext> eglContext = GLContext::createOffscreenContext();
         if (!eglContext)
-            return nullptr;
+            return false;
 
         if (!eglContext->makeContextCurrent())
-            return nullptr;
+            return false;
 
 #if USE(OPENGL_ES)
-        std::unique_ptr<Extensions3DOpenGLES> glExtensions = std::make_unique<Extensions3DOpenGLES>(nullptr,  false);
+        if (isEGLImageAvailable(false))
 #else
-        std::unique_ptr<Extensions3DOpenGL> glExtensions = std::make_unique<Extensions3DOpenGL>(nullptr, GLContext::current()->version() >= 320);
+        if (isEGLImageAvailable(GLContext::current()->version() >= 320))
 #endif
-        if (glExtensions->supports("GL_OES_EGL_image") || glExtensions->supports("GL_OES_EGL_image_external"))
             glImageTargetTexture2D = reinterpret_cast<PFNGLEGLIMAGETARGETTEXTURE2DOESPROC>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
     }
 
     if (!glImageTargetTexture2D) {
         WTFLogAlways("AcceleratedBackingStoreWPE requires glEGLImageTargetTexture2D.");
-        return nullptr;
+        return false;
     }
+
+    return true;
 #else
-    if (!WaylandCompositor::singleton().isRunning())
-        return nullptr;
+    return WaylandCompositor::singleton().isRunning();
 #endif
+}
+
+std::unique_ptr<AcceleratedBackingStoreWayland> AcceleratedBackingStoreWayland::create(WebPageProxy& webPage)
+{
+    ASSERT(checkRequirements());
     return std::unique_ptr<AcceleratedBackingStoreWayland>(new AcceleratedBackingStoreWayland(webPage));
 }
 
@@ -142,9 +171,37 @@ AcceleratedBackingStoreWayland::~AcceleratedBackingStoreWayland()
         gdk_gl_context_clear_current();
 }
 
+void AcceleratedBackingStoreWayland::realize()
+{
+#if !USE(WPE_RENDERER)
+    WaylandCompositor::singleton().bindWebPage(m_webPage);
+#endif
+}
+
+void AcceleratedBackingStoreWayland::unrealize()
+{
+    if (!m_glContextInitialized)
+        return;
+
+#if USE(WPE_RENDERER)
+    if (m_viewTexture) {
+        if (makeContextCurrent())
+            glDeleteTextures(1, &m_viewTexture);
+        m_viewTexture = 0;
+    }
+#else
+    WaylandCompositor::singleton().unbindWebPage(m_webPage);
+#endif
+
+    if (m_gdkGLContext && m_gdkGLContext.get() == gdk_gl_context_get_current())
+        gdk_gl_context_clear_current();
+
+    m_glContextInitialized = false;
+}
+
 void AcceleratedBackingStoreWayland::tryEnsureGLContext()
 {
-    if (m_glContextInitialized)
+    if (m_glContextInitialized || !gtk_widget_get_realized(m_webPage.viewWidget()))
         return;
 
     m_glContextInitialized = true;
@@ -202,18 +259,6 @@ void AcceleratedBackingStoreWayland::displayBuffer(struct wpe_fdo_egl_exported_i
         return;
     }
 
-    if (!m_viewTexture) {
-        if (!makeContextCurrent())
-            return;
-
-        glGenTextures(1, &m_viewTexture);
-        glBindTexture(GL_TEXTURE_2D, m_viewTexture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }
-
     if (m_pendingImage)
         wpe_view_backend_exportable_fdo_egl_dispatch_release_exported_image(m_exportable, m_pendingImage);
     m_pendingImage = image;
@@ -229,7 +274,7 @@ bool AcceleratedBackingStoreWayland::paint(cairo_t* cr, const IntRect& clipRect)
 
 #if USE(WPE_RENDERER)
     if (!makeContextCurrent())
-        return false;
+        return true;
 
     if (m_pendingImage) {
         wpe_view_backend_exportable_fdo_dispatch_frame_complete(m_exportable);
@@ -243,6 +288,14 @@ bool AcceleratedBackingStoreWayland::paint(cairo_t* cr, const IntRect& clipRect)
     if (!m_committedImage)
         return true;
 
+    if (!m_viewTexture) {
+        glGenTextures(1, &m_viewTexture);
+        glBindTexture(GL_TEXTURE_2D, m_viewTexture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    }
     glBindTexture(GL_TEXTURE_2D, m_viewTexture);
     glImageTargetTexture2D(GL_TEXTURE_2D, wpe_fdo_egl_exported_image_get_egl_image(m_committedImage));
 

@@ -50,7 +50,7 @@ public:
 
     static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
     static JSC::JSValue getNamedConstructor(JSC::VM&, JSC::JSGlobalObject*);
-    static void heapSnapshot(JSCell*, JSC::HeapSnapshotBuilder&);
+    static void analyzeHeap(JSCell*, JSC::HeapAnalyzer&);
 protected:
     JSTestNamedConstructor(JSC::Structure*, JSDOMGlobalObject&, Ref<TestNamedConstructor>&&);
 
@@ -74,10 +74,10 @@ inline void* wrapperKey(TestNamedConstructor* wrappableObject)
     return wrappableObject;
 }
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestNamedConstructor&);
-inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestNamedConstructor* impl) { return impl ? toJS(state, globalObject, *impl) : JSC::jsNull(); }
-JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<TestNamedConstructor>&&);
-inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<TestNamedConstructor>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
+JSC::JSValue toJS(JSC::JSGlobalObject*, JSDOMGlobalObject*, TestNamedConstructor&);
+inline JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestNamedConstructor* impl) { return impl ? toJS(lexicalGlobalObject, globalObject, *impl) : JSC::jsNull(); }
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject*, Ref<TestNamedConstructor>&&);
+inline JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, RefPtr<TestNamedConstructor>&& impl) { return impl ? toJSNewlyCreated(lexicalGlobalObject, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 template<> struct JSDOMWrapperConverterTraits<TestNamedConstructor> {
     using WrapperClass = JSTestNamedConstructor;

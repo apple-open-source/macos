@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2016 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006-2019 Apple Inc.  All rights reserved.
  * Copyright (C) 2009, 2010, 2011 Appcelerator, Inc. All rights reserved.
  * Copyright (C) 2011 Brent Fulgham. All rights reserved.
  *
@@ -566,7 +566,7 @@ private:
     // GraphicsLayerClient
     void notifyAnimationStarted(const WebCore::GraphicsLayer*, const String&, MonotonicTime) override;
     void notifyFlushRequired(const WebCore::GraphicsLayer*) override;
-    void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, OptionSet<WebCore::GraphicsLayerPaintingPhase>, const WebCore::FloatRect& inClip, WebCore::GraphicsLayerPaintBehavior) override;
+    void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect& inClip, WebCore::GraphicsLayerPaintBehavior) override;
 
 #if USE(CA)
     // CACFLayerTreeHostClient
@@ -680,7 +680,7 @@ protected:
 
     static bool s_allowSiteSpecificHacks;
 
-    WebCore::SuspendableTimer* m_closeWindowTimer { nullptr };
+    WebCore::SuspendableTimerBase* m_closeWindowTimer { nullptr };
     std::unique_ptr<TRACKMOUSEEVENT> m_mouseOutTracker;
 
     HWND m_topLevelParent { nullptr };

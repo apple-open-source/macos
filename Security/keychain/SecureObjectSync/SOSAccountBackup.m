@@ -629,33 +629,3 @@ exit:
 
     return bskb;
 }
-
-bool SOSAccountIsLastBackupPeer(SOSAccount*  account, CFErrorRef *error) {
-    __block bool retval = false;
-    SOSPeerInfoRef pi = account.peerInfo;
-
-    if(![account isInCircle:error]) {
-        return retval;
-    }
-
-    if(!SOSPeerInfoHasBackupKey(pi))
-        return retval;
-
-    SOSCircleRef circle = [account.trust getCircle:error];
-
-    if(SOSCircleCountValidSyncingPeers(circle, SOSAccountGetTrustedPublicCredential(account, error)) == 1){
-        retval = true;
-        return retval;
-    }
-    // We're in a circle with more than 1 ActiveValidPeers - are they in the backups?
-    SOSAccountForEachBackupView(account, ^(const void *value) {
-        CFStringRef viewname = (CFStringRef) value;
-        SOSBackupSliceKeyBagRef keybag = SOSAccountBackupSliceKeyBagForView(account, viewname, error);
-        require_quiet(keybag, inner_errOut);
-        retval |= ((SOSBSKBCountPeers(keybag) == 1) && (SOSBSKBPeerIsInKeyBag(keybag, pi)));
-    inner_errOut:
-        CFReleaseNull(keybag);
-    });
-
-    return retval;
-}

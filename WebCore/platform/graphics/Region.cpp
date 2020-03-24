@@ -37,6 +37,8 @@
 
 namespace WebCore {
 
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(Region);
+
 Region::Region()
 {
 }
@@ -249,14 +251,14 @@ bool Region::Shape::compareShapes(const Shape& aShape, const Shape& bShape)
 }
 
 struct Region::Shape::CompareContainsOperation {
-    const static bool defaultResult = true;
+    static constexpr bool defaultResult = true;
     inline static bool aOutsideB(bool& /* result */) { return false; }
     inline static bool bOutsideA(bool& result) { result = false; return true; }
     inline static bool aOverlapsB(bool& /* result */) { return false; }
 };
 
 struct Region::Shape::CompareIntersectsOperation {
-    const static bool defaultResult = false;
+    static constexpr bool defaultResult = false;
     inline static bool aOutsideB(bool& /* result */) { return false; }
     inline static bool bOutsideA(bool& /* result */) { return false; }
     inline static bool aOverlapsB(bool& result) { result = true; return true; }
@@ -646,7 +648,7 @@ void Region::setShape(Shape&& shape)
     }
 
     if (!m_shape)
-        m_shape = std::make_unique<Shape>(WTFMove(shape));
+        m_shape = makeUnique<Shape>(WTFMove(shape));
     else
         *m_shape = WTFMove(shape);
 }

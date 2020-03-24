@@ -344,6 +344,7 @@
 		D7978426205FC09A00E93B37 /* lf_hfs_endian.h in Headers */ = {isa = PBXBuildFile; fileRef = D7978424205FC09A00E93B37 /* lf_hfs_endian.h */; };
 		D79784412060037400E93B37 /* lf_hfs_raw_read_write.h in Headers */ = {isa = PBXBuildFile; fileRef = D797843F2060037400E93B37 /* lf_hfs_raw_read_write.h */; };
 		D79784422060037400E93B37 /* lf_hfs_raw_read_write.c in Sources */ = {isa = PBXBuildFile; fileRef = D79784402060037400E93B37 /* lf_hfs_raw_read_write.c */; };
+		D7B2DC81233A3F5B00F12230 /* livefiles_hfs.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 900BDED41FF919C2002F7EC0 /* livefiles_hfs.dylib */; };
 		D7BD8F9C20AC388E00E93640 /* lf_hfs_catalog.c in Sources */ = {isa = PBXBuildFile; fileRef = 906EBF82206409B800B21E94 /* lf_hfs_catalog.c */; };
 		EE73740520644328004C2F0E /* lf_hfs_sbunicode.h in Headers */ = {isa = PBXBuildFile; fileRef = EE73740320644328004C2F0E /* lf_hfs_sbunicode.h */; };
 		EE73740620644328004C2F0E /* lf_hfs_sbunicode.c in Sources */ = {isa = PBXBuildFile; fileRef = EE73740420644328004C2F0E /* lf_hfs_sbunicode.c */; };
@@ -1284,7 +1285,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9022D171205EC18500D9A2AE /* livefiles_hfs.dylib in Frameworks */,
+				D7B2DC81233A3F5B00F12230 /* livefiles_hfs.dylib in Frameworks */,
 				9022D170205EC16900D9A2AE /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -15,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
+                    peerUnknownState:(OctagonState*)peerUnknownState
                           errorState:(OctagonState*)errorState
                            retryFlag:(OctagonFlag* _Nullable)retryFlag;
 @end

@@ -30,7 +30,7 @@
 #include "MessageSender.h"
 #include "SandboxExtension.h"
 #include <WebCore/IDBConnectionToServer.h>
-#include <pal/SessionID.h>
+#include <WebCore/ProcessIdentifier.h>
 
 namespace WebKit {
 
@@ -38,13 +38,20 @@ class WebIDBResult;
 
 class WebIDBConnectionToServer final : private WebCore::IDBClient::IDBConnectionToServerDelegate, private IPC::MessageSender, public RefCounted<WebIDBConnectionToServer> {
 public:
-    static Ref<WebIDBConnectionToServer> create(PAL::SessionID);
-
+    static Ref<WebIDBConnectionToServer> create();
     virtual ~WebIDBConnectionToServer();
 
     WebCore::IDBClient::IDBConnectionToServer& coreConnectionToServer();
-    uint64_t identifier() const final { return m_identifier; }
-    uint64_t messageSenderDestinationID() const final { return m_identifier; }
+    WebCore::IDBConnectionIdentifier identifier() const final;
+
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
+    void connectionToServerLost();
+
+private:
+    WebIDBConnectionToServer();
+
+    IPC::Connection* messageSenderConnection() const final;
+    uint64_t messageSenderDestinationID() const final { return 0; }
 
     // IDBConnectionToServerDelegate
     void deleteDatabase(const WebCore::IDBRequestData&) final;
@@ -70,14 +77,10 @@ public:
     void databaseConnectionPendingClose(uint64_t databaseConnectionIdentifier) final;
     void databaseConnectionClosed(uint64_t databaseConnectionIdentifier) final;
     void abortOpenAndUpgradeNeeded(uint64_t databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& transactionIdentifier) final;
-    void didFireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& requestIdentifier) final;
+    void didFireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& requestIdentifier, const WebCore::IndexedDB::ConnectionClosedOnBehalfOfServer) final;
     void openDBRequestCancelled(const WebCore::IDBRequestData&) final;
-    void confirmDidCloseFromServer(uint64_t databaseConnectionIdentifier) final;
 
     void getAllDatabaseNames(const WebCore::SecurityOriginData& topOrigin, const WebCore::SecurityOriginData& openingOrigin, uint64_t callbackID) final;
-
-    void ref() override { RefCounted<WebIDBConnectionToServer>::ref(); }
-    void deref() override { RefCounted<WebIDBConnectionToServer>::deref(); }
 
     // Messages received from Network Process
     void didDeleteDatabase(const WebCore::IDBResultData&);
@@ -104,19 +107,7 @@ public:
     void notifyOpenDBRequestBlocked(const WebCore::IDBResourceIdentifier& requestIdentifier, uint64_t oldVersion, uint64_t newVersion);
     void didGetAllDatabaseNames(uint64_t callbackID, const Vector<String>& databaseNames);
 
-    void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
-
-    void connectionToServerLost();
-
-private:
-    WebIDBConnectionToServer(PAL::SessionID);
-
-    IPC::Connection* messageSenderConnection() const final;
-
-    uint64_t m_identifier { 0 };
-    bool m_isOpenInServer { false };
-    RefPtr<WebCore::IDBClient::IDBConnectionToServer> m_connectionToServer;
-    PAL::SessionID m_sessionID;
+    Ref<WebCore::IDBClient::IDBConnectionToServer> m_connectionToServer;
 };
 
 } // namespace WebKit

@@ -29,7 +29,7 @@
 
 #include "WHLSLExpression.h"
 #include "WHLSLFunctionDeclaration.h"
-#include "WHLSLLexer.h"
+#include <wtf/FastMalloc.h>
 #include <wtf/UniqueRef.h>
 
 namespace WebCore {
@@ -40,25 +40,24 @@ namespace AST {
 
 class NamedType;
 
-class CallExpression : public Expression {
+class CallExpression final : public Expression {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     CallExpression(CodeLocation location, String&& name, Vector<UniqueRef<Expression>>&& arguments)
-        : Expression(location)
+        : Expression(location, Kind::Call)
         , m_name(WTFMove(name))
         , m_arguments(WTFMove(arguments))
     {
     }
 
-    virtual ~CallExpression() = default;
-
     CallExpression(const CallExpression&) = delete;
     CallExpression(CallExpression&&) = default;
-
-    bool isCallExpression() const override { return true; }
 
     Vector<UniqueRef<Expression>>& arguments() { return m_arguments; }
 
     String& name() { return m_name; }
+
+    ~CallExpression() = default;
 
     void setCastData(NamedType& namedType)
     {
@@ -91,6 +90,8 @@ private:
 }
 
 }
+
+DEFINE_DEFAULT_DELETE(CallExpression)
 
 SPECIALIZE_TYPE_TRAITS_WHLSL_EXPRESSION(CallExpression, isCallExpression())
 

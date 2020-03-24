@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,7 @@ class MacroAssemblerX86Common : public AbstractMacroAssembler<Assembler> {
 public:
 #if CPU(X86_64)
     // Use this directly only if you're not generating code with it.
-    static const X86Registers::RegisterID s_scratchRegister = X86Registers::r11;
+    static constexpr X86Registers::RegisterID s_scratchRegister = X86Registers::r11;
 
     // Use this when generating code so that we get enforcement of the disallowing of scratch register
     // usage.
@@ -52,9 +52,9 @@ public:
 #endif
     
 protected:
-    static const int DoubleConditionBitInvert = 0x10;
-    static const int DoubleConditionBitSpecial = 0x20;
-    static const int DoubleConditionBits = DoubleConditionBitInvert | DoubleConditionBitSpecial;
+    static constexpr int DoubleConditionBitInvert = 0x10;
+    static constexpr int DoubleConditionBitSpecial = 0x20;
+    static constexpr int DoubleConditionBits = DoubleConditionBitInvert | DoubleConditionBitSpecial;
 
 public:
     typedef X86Assembler::XMMRegisterID XMMRegisterID;
@@ -106,8 +106,8 @@ public:
         !((X86Assembler::ConditionE | X86Assembler::ConditionNE | X86Assembler::ConditionA | X86Assembler::ConditionAE | X86Assembler::ConditionB | X86Assembler::ConditionBE) & DoubleConditionBits),
         DoubleConditionBits_should_not_interfere_with_X86Assembler_Condition_codes);
 
-    static const RegisterID stackPointerRegister = X86Registers::esp;
-    static const RegisterID framePointerRegister = X86Registers::ebp;
+    static constexpr RegisterID stackPointerRegister = X86Registers::esp;
+    static constexpr RegisterID framePointerRegister = X86Registers::ebp;
     
     static bool canBlind() { return true; }
     static bool shouldBlindForSpecificArch(uint32_t value) { return value >= 0x00ffffff; }
@@ -1103,7 +1103,7 @@ public:
     void absDouble(FPRegisterID src, FPRegisterID dst)
     {
         ASSERT(src != dst);
-        static const double negativeZeroConstant = -0.0;
+        static constexpr double negativeZeroConstant = -0.0;
         loadDouble(TrustedImmPtr(&negativeZeroConstant), dst);
         m_assembler.andnpd_rr(src, dst);
     }
@@ -1111,7 +1111,7 @@ public:
     void negateDouble(FPRegisterID src, FPRegisterID dst)
     {
         ASSERT(src != dst);
-        static const double negativeZeroConstant = -0.0;
+        static constexpr double negativeZeroConstant = -0.0;
         loadDouble(TrustedImmPtr(&negativeZeroConstant), dst);
         m_assembler.xorpd_rr(src, dst);
     }
@@ -2644,6 +2644,36 @@ public:
         return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 
+    Jump branchTestBit32(ResultCondition cond, RegisterID reg, TrustedImm32 bit)
+    {
+        m_assembler.bt_ir(static_cast<unsigned>(bit.m_value) % 32, reg);
+        if (cond == NonZero)
+            return Jump(m_assembler.jb());
+        if (cond == Zero)
+            return Jump(m_assembler.jae());
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    Jump branchTestBit32(ResultCondition cond, Address testValue, TrustedImm32 bit)
+    {
+        m_assembler.bt_im(static_cast<unsigned>(bit.m_value) % 32, testValue.offset, testValue.base);
+        if (cond == NonZero)
+            return Jump(m_assembler.jb());
+        if (cond == Zero)
+            return Jump(m_assembler.jae());
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
+    Jump branchTestBit32(ResultCondition cond, RegisterID reg, RegisterID bit)
+    {
+        m_assembler.bt_ir(bit, reg);
+        if (cond == NonZero)
+            return Jump(m_assembler.jb());
+        if (cond == Zero)
+            return Jump(m_assembler.jae());
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
     void test32(RegisterID reg, TrustedImm32 mask = TrustedImm32(-1))
     {
         if (mask.m_value == -1)
@@ -2715,26 +2745,26 @@ public:
         return Jump(m_assembler.jmp());
     }
 
-    void jump(RegisterID target, PtrTag)
+    void farJump(RegisterID target, PtrTag)
     {
         m_assembler.jmp_r(target);
     }
 
     // Address is a memory location containing the address to jump to
-    void jump(Address address, PtrTag)
+    void farJump(Address address, PtrTag)
     {
         m_assembler.jmp_m(address.offset, address.base);
     }
 
     // Address is a memory location containing the address to jump to
-    void jump(BaseIndex address, PtrTag)
+    void farJump(BaseIndex address, PtrTag)
     {
         m_assembler.jmp_m(address.offset, address.base, address.index, address.scale);
     }
 
-    ALWAYS_INLINE void jump(RegisterID target, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(target, NoPtrTag); }
-    ALWAYS_INLINE void jump(Address address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(address, NoPtrTag); }
-    ALWAYS_INLINE void jump(BaseIndex address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(address, NoPtrTag); }
+    ALWAYS_INLINE void farJump(RegisterID target, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), farJump(target, NoPtrTag); }
+    ALWAYS_INLINE void farJump(Address address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), farJump(address, NoPtrTag); }
+    ALWAYS_INLINE void farJump(BaseIndex address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), farJump(address, NoPtrTag); }
 
     // Arithmetic control flow operations:
     //

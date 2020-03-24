@@ -74,7 +74,7 @@ unsigned WorkerThread::workerThreadCount()
 struct WorkerThreadStartupData {
     WTF_MAKE_NONCOPYABLE(WorkerThreadStartupData); WTF_MAKE_FAST_ALLOCATED;
 public:
-    WorkerThreadStartupData(const URL& scriptURL, const String& name, const String& identifier, const String& userAgent, bool isOnline, const String& sourceCode, WorkerThreadStartMode, const ContentSecurityPolicyResponseHeaders&, bool shouldBypassMainWorldContentSecurityPolicy, const SecurityOrigin& topOrigin, MonotonicTime timeOrigin, PAL::SessionID);
+    WorkerThreadStartupData(const URL& scriptURL, const String& name, const String& identifier, const String& userAgent, bool isOnline, const String& sourceCode, WorkerThreadStartMode, const ContentSecurityPolicyResponseHeaders&, bool shouldBypassMainWorldContentSecurityPolicy, const SecurityOrigin& topOrigin, MonotonicTime timeOrigin);
 
     URL m_scriptURL;
     Ref<SecurityOrigin> m_origin;
@@ -88,10 +88,9 @@ public:
     bool m_isOnline;
     Ref<SecurityOrigin> m_topOrigin;
     MonotonicTime m_timeOrigin;
-    PAL::SessionID m_sessionID;
 };
 
-WorkerThreadStartupData::WorkerThreadStartupData(const URL& scriptURL, const String& name, const String& identifier, const String& userAgent, bool isOnline, const String& sourceCode, WorkerThreadStartMode startMode, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders, bool shouldBypassMainWorldContentSecurityPolicy, const SecurityOrigin& topOrigin, MonotonicTime timeOrigin, PAL::SessionID sessionID)
+WorkerThreadStartupData::WorkerThreadStartupData(const URL& scriptURL, const String& name, const String& identifier, const String& userAgent, bool isOnline, const String& sourceCode, WorkerThreadStartMode startMode, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders, bool shouldBypassMainWorldContentSecurityPolicy, const SecurityOrigin& topOrigin, MonotonicTime timeOrigin)
     : m_scriptURL(scriptURL.isolatedCopy())
     , m_origin(SecurityOrigin::create(m_scriptURL)->isolatedCopy())
     , m_name(name.isolatedCopy())
@@ -104,17 +103,16 @@ WorkerThreadStartupData::WorkerThreadStartupData(const URL& scriptURL, const Str
     , m_isOnline(isOnline)
     , m_topOrigin(topOrigin.isolatedCopy())
     , m_timeOrigin(timeOrigin)
-    , m_sessionID(sessionID.isolatedCopy())
 {
 }
 
-WorkerThread::WorkerThread(const URL& scriptURL, const String& name, const String& identifier, const String& userAgent, bool isOnline, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerDebuggerProxy& workerDebuggerProxy, WorkerReportingProxy& workerReportingProxy, WorkerThreadStartMode startMode, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders, bool shouldBypassMainWorldContentSecurityPolicy, const SecurityOrigin& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider, JSC::RuntimeFlags runtimeFlags, PAL::SessionID sessionID)
+WorkerThread::WorkerThread(const URL& scriptURL, const String& name, const String& identifier, const String& userAgent, bool isOnline, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerDebuggerProxy& workerDebuggerProxy, WorkerReportingProxy& workerReportingProxy, WorkerThreadStartMode startMode, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders, bool shouldBypassMainWorldContentSecurityPolicy, const SecurityOrigin& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider, JSC::RuntimeFlags runtimeFlags)
     : m_identifier(identifier.isolatedCopy())
     , m_workerLoaderProxy(workerLoaderProxy)
     , m_workerDebuggerProxy(workerDebuggerProxy)
     , m_workerReportingProxy(workerReportingProxy)
     , m_runtimeFlags(runtimeFlags)
-    , m_startupData(std::make_unique<WorkerThreadStartupData>(scriptURL, name, identifier, userAgent, isOnline, sourceCode, startMode, contentSecurityPolicyResponseHeaders, shouldBypassMainWorldContentSecurityPolicy, topOrigin, timeOrigin, sessionID))
+    , m_startupData(makeUnique<WorkerThreadStartupData>(scriptURL, name, identifier, userAgent, isOnline, sourceCode, startMode, contentSecurityPolicyResponseHeaders, shouldBypassMainWorldContentSecurityPolicy, topOrigin, timeOrigin))
 #if ENABLE(INDEXED_DATABASE)
     , m_idbConnectionProxy(connectionProxy)
 #endif
@@ -145,9 +143,12 @@ void WorkerThread::start(WTF::Function<void(const String&)>&& evaluateCallback)
 
     m_evaluateCallback = WTFMove(evaluateCallback);
 
-    m_thread = Thread::create(isServiceWorkerThread() ? "WebCore: Service Worker" : "WebCore: Worker", [this] {
+    Ref<Thread> thread = Thread::create(isServiceWorkerThread() ? "WebCore: Service Worker" : "WebCore: Worker", [this] {
         workerThread();
     });
+    // Force the Thread object to be initialized fully before storing it to m_thread (and becoming visible to other threads).
+    WTF::storeStoreFence();
+    m_thread = WTFMove(thread);
 }
 
 void WorkerThread::workerThread()
@@ -170,7 +171,7 @@ void WorkerThread::workerThread()
         // while WorkerThread::stop() is accessing it. Note that WorkerThread::stop() can
         // be called before we've finished creating the WorkerGlobalScope.
         LockHolder lock(m_threadCreationAndWorkerGlobalScopeMutex);
-        m_workerGlobalScope = createWorkerGlobalScope(m_startupData->m_scriptURL, WTFMove(m_startupData->m_origin), m_startupData->m_name, m_startupData->m_identifier, m_startupData->m_userAgent, m_startupData->m_isOnline, m_startupData->m_contentSecurityPolicyResponseHeaders, m_startupData->m_shouldBypassMainWorldContentSecurityPolicy, WTFMove(m_startupData->m_topOrigin), m_startupData->m_timeOrigin, m_startupData->m_sessionID);
+        m_workerGlobalScope = createWorkerGlobalScope(m_startupData->m_scriptURL, WTFMove(m_startupData->m_origin), m_startupData->m_name, m_startupData->m_identifier, m_startupData->m_userAgent, m_startupData->m_isOnline, m_startupData->m_contentSecurityPolicyResponseHeaders, m_startupData->m_shouldBypassMainWorldContentSecurityPolicy, WTFMove(m_startupData->m_topOrigin), m_startupData->m_timeOrigin);
 
         scriptController = m_workerGlobalScope->script();
 
@@ -192,6 +193,8 @@ void WorkerThread::workerThread()
 
     String exceptionMessage;
     scriptController->evaluate(ScriptSourceCode(m_startupData->m_sourceCode, URL(m_startupData->m_scriptURL)), &exceptionMessage);
+
+    finishedEvaluatingScript();
 
     callOnMainThread([evaluateCallback = WTFMove(m_evaluateCallback), message = exceptionMessage.isolatedCopy()] {
         if (evaluateCallback)
@@ -265,6 +268,27 @@ void WorkerThread::runEventLoop()
     m_runLoop.run(m_workerGlobalScope.get());
 }
 
+void WorkerThread::suspend()
+{
+    m_isSuspended = true;
+    runLoop().postTask([&](ScriptExecutionContext&) {
+        if (m_workerGlobalScope)
+            m_workerGlobalScope->suspend();
+
+        m_suspensionSemaphore.wait();
+
+        if (m_workerGlobalScope)
+            m_workerGlobalScope->resume();
+    });
+}
+
+void WorkerThread::resume()
+{
+    ASSERT(m_isSuspended);
+    m_isSuspended = false;
+    m_suspensionSemaphore.signal();
+}
+
 void WorkerThread::stop(WTF::Function<void()>&& stoppedCallback)
 {
     // Mutex protection is necessary to ensure that m_workerGlobalScope isn't changed by
@@ -279,6 +303,10 @@ void WorkerThread::stop(WTF::Function<void()>&& stoppedCallback)
         });
         return;
     }
+
+    // If the thread is suspended, resume it now so that we can dispatch the cleanup tasks below.
+    if (m_isSuspended)
+        resume();
 
     ASSERT(!m_stoppedCallback);
     m_stoppedCallback = WTFMove(stoppedCallback);

@@ -174,26 +174,16 @@ enum PathDrawingStyle {
 
 static void drawShadowLayerBuffer(PlatformContextCairo& platformContext, ImageBuffer& layerImage, const FloatPoint& layerOrigin, const FloatSize& layerSize, const ShadowState& shadowState)
 {
-    RefPtr<Image> image = layerImage.copyImage(DontCopyBackingStore);
-    if (!image)
-        return;
-
-    if (auto surface = image->nativeImageForCurrentFrame()) {
-        drawNativeImage(platformContext, surface.get(), FloatRect(roundedIntPoint(layerOrigin), layerSize), FloatRect(FloatPoint(), layerSize), shadowState.globalCompositeOperator, BlendMode::Normal, ImageOrientation(),
-            InterpolationDefault, shadowState.globalAlpha, ShadowState());
+    if (auto surface = layerImage.nativeImage()) {
+        drawNativeImage(platformContext, surface.get(), FloatRect(roundedIntPoint(layerOrigin), layerSize), FloatRect(FloatPoint(), layerSize), { shadowState.globalCompositeOperator }, shadowState.globalAlpha, ShadowState());
     }
 }
 
 // FIXME: This is mostly same as drawShadowLayerBuffer, so we should merge two.
 static void drawShadowImage(PlatformContextCairo& platformContext, ImageBuffer& layerImage, const FloatRect& destRect, const FloatRect& srcRect, const ShadowState& shadowState)
 {
-    RefPtr<Image> image = layerImage.copyImage(DontCopyBackingStore);
-    if (!image)
-        return;
-
-    if (auto surface = image->nativeImageForCurrentFrame()) {
-        drawNativeImage(platformContext, surface.get(), destRect, srcRect, shadowState.globalCompositeOperator, BlendMode::Normal, ImageOrientation(),
-            InterpolationDefault, shadowState.globalAlpha, ShadowState());
+    if (auto surface = layerImage.nativeImage()) {
+        drawNativeImage(platformContext, surface.get(), destRect, srcRect, { shadowState.globalCompositeOperator }, shadowState.globalAlpha, ShadowState());
     }
 }
 
@@ -201,11 +191,8 @@ static void fillShadowBuffer(PlatformContextCairo& platformContext, ImageBuffer&
 {
     save(platformContext);
 
-    RefPtr<Image> image = layerImage.copyImage(DontCopyBackingStore);
-    if (image) {
-        if (auto surface = image->nativeImageForCurrentFrame())
-            clipToImageBuffer(platformContext, surface.get(), FloatRect(layerOrigin, expandedIntSize(layerSize)));
-    }
+    if (auto surface = layerImage.nativeImage())
+        clipToImageBuffer(platformContext, surface.get(), FloatRect(layerOrigin, expandedIntSize(layerSize)));
 
     FillSource fillSource;
     fillSource.globalAlpha = shadowState.globalAlpha;
@@ -645,7 +632,7 @@ bool ShadowState::isRequired(PlatformContextCairo& platformContext) const
 
 void setLineCap(PlatformContextCairo& platformContext, LineCap lineCap)
 {
-    cairo_line_cap_t cairoCap;
+    cairo_line_cap_t cairoCap { };
     switch (lineCap) {
     case ButtCap:
         cairoCap = CAIRO_LINE_CAP_BUTT;
@@ -670,7 +657,7 @@ void setLineDash(PlatformContextCairo& platformContext, const DashArray& dashes,
 
 void setLineJoin(PlatformContextCairo& platformContext, LineJoin lineJoin)
 {
-    cairo_line_join_t cairoJoin;
+    cairo_line_join_t cairoJoin { };
     switch (lineJoin) {
     case MiterJoin:
         cairoJoin = CAIRO_LINE_JOIN_MITER;
@@ -878,37 +865,37 @@ void drawGlyphs(PlatformContextCairo& platformContext, const FillSource& fillSou
     cairo_restore(cr);
 }
 
-void drawNativeImage(PlatformContextCairo& platformContext, cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator compositeOperator, BlendMode blendMode, ImageOrientation orientation, InterpolationQuality imageInterpolationQuality, float globalAlpha, const ShadowState& shadowState)
+void drawNativeImage(PlatformContextCairo& platformContext, cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options, float globalAlpha, const ShadowState& shadowState)
 {
     platformContext.save();
 
     // Set the compositing operation.
-    if (compositeOperator == CompositeSourceOver && blendMode == BlendMode::Normal && !cairoSurfaceHasAlpha(surface))
-        Cairo::State::setCompositeOperation(platformContext, CompositeCopy, BlendMode::Normal);
+    if (options.compositeOperator() == CompositeOperator::SourceOver && options.blendMode() == BlendMode::Normal && !cairoSurfaceHasAlpha(surface))
+        Cairo::State::setCompositeOperation(platformContext, CompositeOperator::Copy, BlendMode::Normal);
     else
-        Cairo::State::setCompositeOperation(platformContext, compositeOperator, blendMode);
+        Cairo::State::setCompositeOperation(platformContext, options.compositeOperator(), options.blendMode());
 
     FloatRect dst = destRect;
-    if (orientation != DefaultImageOrientation) {
+    if (options.orientation() != ImageOrientation::None) {
         // ImageOrientation expects the origin to be at (0, 0).
         Cairo::translate(platformContext, dst.x(), dst.y());
         dst.setLocation(FloatPoint());
-        Cairo::concatCTM(platformContext, orientation.transformFromDefault(dst.size()));
-        if (orientation.usesWidthAsHeight()) {
+        Cairo::concatCTM(platformContext, options.orientation().transformFromDefault(dst.size()));
+        if (options.orientation().usesWidthAsHeight()) {
             // The destination rectangle will have its width and height already reversed for the orientation of
             // the image, as it was needed for page layout, so we need to reverse it back here.
             dst = FloatRect(dst.x(), dst.y(), dst.height(), dst.width());
         }
     }
 
-    drawSurface(platformContext, surface, dst, srcRect, imageInterpolationQuality, globalAlpha, shadowState);
+    drawSurface(platformContext, surface, dst, srcRect, options.interpolationQuality(), globalAlpha, shadowState);
     platformContext.restore();
 }
 
-void drawPattern(PlatformContextCairo& platformContext, cairo_surface_t* surface, const IntSize& size, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, CompositeOperator compositeOperator, BlendMode blendMode)
+void drawPattern(PlatformContextCairo& platformContext, cairo_surface_t* surface, const IntSize& size, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const ImagePaintingOptions& options)
 {
     // FIXME: Investigate why the size has to be passed in as an IntRect.
-    drawPatternToCairoContext(platformContext.cr(), surface, size, tileRect, patternTransform, phase, toCairoOperator(compositeOperator, blendMode), destRect);
+    drawPatternToCairoContext(platformContext.cr(), surface, size, tileRect, patternTransform, phase, toCairoOperator(options.compositeOperator(), options.blendMode()), destRect);
 }
 
 void drawSurface(PlatformContextCairo& platformContext, cairo_surface_t* surface, const FloatRect& destRect, const FloatRect& originalSrcRect, InterpolationQuality imageInterpolationQuality, float globalAlpha, const ShadowState& shadowState)
@@ -935,6 +922,7 @@ void drawSurface(PlatformContextCairo& platformContext, cairo_surface_t* surface
     if (srcRect.x() || srcRect.y() || srcRect.size() != cairoSurfaceSize(surface)) {
         // Cairo subsurfaces don't support floating point boundaries well, so we expand the rectangle.
         IntRect expandedSrcRect(enclosingIntRect(srcRect));
+        expandedSrcRect.intersect({ { }, cairoSurfaceSize(surface) });
 
         // We use a subsurface here so that we don't end up sampling outside the originalSrcRect rectangle.
         // See https://bugs.webkit.org/show_bug.cgi?id=58309
@@ -948,15 +936,15 @@ void drawSurface(PlatformContextCairo& platformContext, cairo_surface_t* surface
     RefPtr<cairo_pattern_t> pattern = adoptRef(cairo_pattern_create_for_surface(patternSurface.get()));
 
     switch (imageInterpolationQuality) {
-    case InterpolationNone:
-    case InterpolationLow:
+    case InterpolationQuality::DoNotInterpolate:
+    case InterpolationQuality::Low:
         cairo_pattern_set_filter(pattern.get(), CAIRO_FILTER_FAST);
         break;
-    case InterpolationMedium:
-    case InterpolationDefault:
+    case InterpolationQuality::Medium:
+    case InterpolationQuality::Default:
         cairo_pattern_set_filter(pattern.get(), CAIRO_FILTER_GOOD);
         break;
-    case InterpolationHigh:
+    case InterpolationQuality::High:
         cairo_pattern_set_filter(pattern.get(), CAIRO_FILTER_BEST);
         break;
     }

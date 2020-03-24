@@ -45,6 +45,7 @@ extern "C" {
     M(AutomationInteractions) \
     M(ActivityState) \
     M(BackForward) \
+    M(BackForwardCache) \
     M(CacheStorage) \
     M(ContentObservation) \
     M(ContextMenu) \
@@ -61,6 +62,7 @@ extern "C" {
     M(Layout) \
     M(Loading) \
     M(LocalStorageDatabaseTracker) \
+    M(Media) \
     M(MouseHandling) \
     M(Network) \
     M(NetworkCache) \

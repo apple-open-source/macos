@@ -42,18 +42,26 @@ class RenderingUpdateScheduler
 public:
     static std::unique_ptr<RenderingUpdateScheduler> create(Page& page)
     {
-        return std::make_unique<RenderingUpdateScheduler>(page);
+        return makeUnique<RenderingUpdateScheduler>(page);
     }
 
     RenderingUpdateScheduler(Page&);
+    
+    void adjustRenderingUpdateFrequency();
     void scheduleTimedRenderingUpdate();
     void scheduleImmediateRenderingUpdate();
     void scheduleRenderingUpdate();
 
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    void windowScreenDidChange(PlatformDisplayID);
+#endif
+
 private:
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+#if PLATFORM(IOS_FAMILY)
+    void adjustFramesPerSecond();
+#endif
     RefPtr<DisplayRefreshMonitor> createDisplayRefreshMonitor(PlatformDisplayID) const final;
-    void windowScreenDidChange(PlatformDisplayID);
     void displayRefreshFired() final;
 #else
     void displayRefreshFired();
@@ -64,6 +72,9 @@ private:
     void clearScheduled();
 
     Page& m_page;
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR) && PLATFORM(IOS_FAMILY)
+    bool m_isMonitorCreated;
+#endif
     bool m_scheduled { false };
     std::unique_ptr<Timer> m_refreshTimer;
 };

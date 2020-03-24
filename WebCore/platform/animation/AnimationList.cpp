@@ -22,6 +22,8 @@
 #include "config.h"
 #include "AnimationList.h"
 
+#include <wtf/text/TextStream.h>
+
 namespace WebCore {
 
 #define FILL_UNSET_PROPERTY(test, propGet, propSet) \
@@ -30,6 +32,8 @@ if (i) { \
     for (size_t j = 0; i < size(); ++i, ++j) \
         animation(i).propSet(animation(j).propGet()); \
 }
+
+AnimationList::AnimationList() = default;
 
 AnimationList::AnimationList(const AnimationList& other)
 {
@@ -61,6 +65,18 @@ bool AnimationList::operator==(const AnimationList& other) const
             return false;
     }
     return true;
+}
+
+TextStream& operator<<(TextStream& ts, const AnimationList& animationList)
+{
+    ts << "[";
+    for (size_t i = 0; i < animationList.size(); ++i) {
+        if (i > 0)
+            ts << ", ";
+        ts << animationList.animation(i);
+    }
+    ts << "]";
+    return ts;
 }
 
 } // namespace WebCore

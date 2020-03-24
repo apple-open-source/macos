@@ -77,7 +77,7 @@ it{
         CF{"Repubblica Centrafricana"}
         CG{"Congo-Brazzaville"}
         CH{"Svizzera"}
-        CI{"Costa d’Avorio"}
+        CI{"Côte d’Ivoire"}
         CK{"Isole Cook"}
         CL{"Cile"}
         CM{"Camerun"}
@@ -306,7 +306,7 @@ it{
     Countries%variant{
         CD{"Congo (RDC)"}
         CG{"Congo (Repubblica)"}
-        CI{"Côte d’Ivoire"}
+        CI{"Costa d’Avorio"}
         CZ{"Repubblica Ceca"}
         FK{"Isole Falkland (Isole Malvine)"}
         SZ{"Regno di eSwatini"}

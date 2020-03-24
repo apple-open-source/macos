@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2019 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  * Copyright (C) 2010 &yet, LLC. (nate@andyet.net)
@@ -109,15 +109,13 @@ template<unsigned length> inline bool startsWithLettersIgnoringASCIICase(const c
 
 /* Constants */
 
-static const double maxUnixTime = 2145859200.0; // 12/31/2037
-// ECMAScript asks not to support for a date of which total
-// millisecond value is larger than the following value.
-// See 15.9.1.14 of ECMA-262 5th edition.
-static const double maxECMAScriptTime = 8.64E15;
+const char* const weekdayName[7] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+const char* const monthName[12] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+const char* const monthFullName[12] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
 
 // Day of year for the first day of each month, where index 0 is January, and day 0 is January 1.
 // First for non-leap years, then for leap years.
-static const int firstDayOfMonth[2][12] = {
+const int firstDayOfMonth[2][12] = {
     {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334},
     {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335}
 };
@@ -133,46 +131,6 @@ static inline void getLocalTime(const time_t* localTime, struct tm* localTM)
 }
 #endif
 
-bool isLeapYear(int year)
-{
-    if (year % 4 != 0)
-        return false;
-    if (year % 400 == 0)
-        return true;
-    if (year % 100 == 0)
-        return false;
-    return true;
-}
-
-static inline int daysInYear(int year)
-{
-    return 365 + isLeapYear(year);
-}
-
-static inline double daysFrom1970ToYear(int year)
-{
-    // The Gregorian Calendar rules for leap years:
-    // Every fourth year is a leap year.  2004, 2008, and 2012 are leap years.
-    // However, every hundredth year is not a leap year.  1900 and 2100 are not leap years.
-    // Every four hundred years, there's a leap year after all.  2000 and 2400 are leap years.
-
-    static const int leapDaysBefore1971By4Rule = 1970 / 4;
-    static const int excludedLeapDaysBefore1971By100Rule = 1970 / 100;
-    static const int leapDaysBefore1971By400Rule = 1970 / 400;
-
-    const double yearMinusOne = year - 1;
-    const double yearsToAddBy4Rule = floor(yearMinusOne / 4.0) - leapDaysBefore1971By4Rule;
-    const double yearsToExcludeBy100Rule = floor(yearMinusOne / 100.0) - excludedLeapDaysBefore1971By100Rule;
-    const double yearsToAddBy400Rule = floor(yearMinusOne / 400.0) - leapDaysBefore1971By400Rule;
-
-    return 365.0 * (year - 1970.0) + yearsToAddBy4Rule - yearsToExcludeBy100Rule + yearsToAddBy400Rule;
-}
-
-double msToDays(double ms)
-{
-    return floor(ms / msPerDay);
-}
-
 static void appendTwoDigitNumber(StringBuilder& builder, int number)
 {
     ASSERT(number >= 0);
@@ -181,135 +139,12 @@ static void appendTwoDigitNumber(StringBuilder& builder, int number)
     builder.append(static_cast<LChar>('0' + number % 10));
 }
 
-int msToYear(double ms)
-{
-    int approxYear = static_cast<int>(floor(ms / (msPerDay * 365.2425)) + 1970);
-    double msFromApproxYearTo1970 = msPerDay * daysFrom1970ToYear(approxYear);
-    if (msFromApproxYearTo1970 > ms)
-        return approxYear - 1;
-    if (msFromApproxYearTo1970 + msPerDay * daysInYear(approxYear) <= ms)
-        return approxYear + 1;
-    return approxYear;
-}
-
-int dayInYear(double ms, int year)
-{
-    return static_cast<int>(msToDays(ms) - daysFrom1970ToYear(year));
-}
-
 static inline double msToMilliseconds(double ms)
 {
     double result = fmod(ms, msPerDay);
     if (result < 0)
         result += msPerDay;
     return result;
-}
-
-int msToMinutes(double ms)
-{
-    double result = fmod(floor(ms / msPerMinute), minutesPerHour);
-    if (result < 0)
-        result += minutesPerHour;
-    return static_cast<int>(result);
-}
-
-int msToHours(double ms)
-{
-    double result = fmod(floor(ms/msPerHour), hoursPerDay);
-    if (result < 0)
-        result += hoursPerDay;
-    return static_cast<int>(result);
-}
-
-int monthFromDayInYear(int dayInYear, bool leapYear)
-{
-    const int d = dayInYear;
-    int step;
-
-    if (d < (step = 31))
-        return 0;
-    step += (leapYear ? 29 : 28);
-    if (d < step)
-        return 1;
-    if (d < (step += 31))
-        return 2;
-    if (d < (step += 30))
-        return 3;
-    if (d < (step += 31))
-        return 4;
-    if (d < (step += 30))
-        return 5;
-    if (d < (step += 31))
-        return 6;
-    if (d < (step += 31))
-        return 7;
-    if (d < (step += 30))
-        return 8;
-    if (d < (step += 31))
-        return 9;
-    if (d < (step += 30))
-        return 10;
-    return 11;
-}
-
-static inline bool checkMonth(int dayInYear, int& startDayOfThisMonth, int& startDayOfNextMonth, int daysInThisMonth)
-{
-    startDayOfThisMonth = startDayOfNextMonth;
-    startDayOfNextMonth += daysInThisMonth;
-    return (dayInYear <= startDayOfNextMonth);
-}
-
-int dayInMonthFromDayInYear(int dayInYear, bool leapYear)
-{
-    const int d = dayInYear;
-    int step;
-    int next = 30;
-
-    if (d <= next)
-        return d + 1;
-    const int daysInFeb = (leapYear ? 29 : 28);
-    if (checkMonth(d, step, next, daysInFeb))
-        return d - step;
-    if (checkMonth(d, step, next, 31))
-        return d - step;
-    if (checkMonth(d, step, next, 30))
-        return d - step;
-    if (checkMonth(d, step, next, 31))
-        return d - step;
-    if (checkMonth(d, step, next, 30))
-        return d - step;
-    if (checkMonth(d, step, next, 31))
-        return d - step;
-    if (checkMonth(d, step, next, 31))
-        return d - step;
-    if (checkMonth(d, step, next, 30))
-        return d - step;
-    if (checkMonth(d, step, next, 31))
-        return d - step;
-    if (checkMonth(d, step, next, 30))
-        return d - step;
-    step = next;
-    return d - step;
-}
-
-int dayInYear(int year, int month, int day)
-{
-    return firstDayOfMonth[isLeapYear(year)][month] + day - 1;
-}
-
-double dateToDaysFrom1970(int year, int month, int day)
-{
-    year += month / 12;
-
-    month %= 12;
-    if (month < 0) {
-        month += 12;
-        --year;
-    }
-
-    double yearday = floor(daysFrom1970ToYear(year));
-    ASSERT((year >= 1970 && yearday >= 0) || (year < 1970 && yearday < 0));
-    return yearday + dayInYear(year, month, day);
 }
 
 // There is a hard limit at 2038 that we currently do not have a workaround
@@ -434,9 +269,9 @@ static int32_t calculateUTCOffset()
 #if HAVE(TIMEGM)
     time_t utcOffset = timegm(&localt) - mktime(&localt);
 #else
-    // Using a canned date of 01/01/2009 on platforms with weaker date-handling foo.
-    localt.tm_year = 109;
-    time_t utcOffset = 1230768000 - mktime(&localt);
+    // Using a canned date of 01/01/2019 on platforms with weaker date-handling foo.
+    localt.tm_year = 119;
+    time_t utcOffset = 1546300800 - mktime(&localt);
 #endif
 
     return static_cast<int32_t>(utcOffset * 1000);
@@ -1159,25 +994,11 @@ double parseDateFromNullTerminatedCharacters(const char* dateString)
     return ms - (offset * msPerMinute);
 }
 
-double timeClip(double t)
-{
-    if (std::abs(t) > maxECMAScriptTime)
-        return std::numeric_limits<double>::quiet_NaN();
-    return std::trunc(t) + 0.0;
-}
-
 // See http://tools.ietf.org/html/rfc2822#section-3.3 for more information.
 String makeRFC2822DateString(unsigned dayOfWeek, unsigned day, unsigned month, unsigned year, unsigned hours, unsigned minutes, unsigned seconds, int utcOffset)
 {
     StringBuilder stringBuilder;
-    stringBuilder.append(weekdayName[dayOfWeek]);
-    stringBuilder.appendLiteral(", ");
-    stringBuilder.appendNumber(day);
-    stringBuilder.append(' ');
-    stringBuilder.append(monthName[month]);
-    stringBuilder.append(' ');
-    stringBuilder.appendNumber(year);
-    stringBuilder.append(' ');
+    stringBuilder.append(weekdayName[dayOfWeek], ", ", day, ' ', monthName[month], ' ', year, ' ');
 
     appendTwoDigitNumber(stringBuilder, hours);
     stringBuilder.append(':');

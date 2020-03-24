@@ -506,6 +506,14 @@ struct sudo_defs_types sudo_defs_table[] = {
 	N_("Log when a command is denied by sudoers"),
 	NULL,
     }, {
+	"runas_allow_unknown_id", T_FLAG,
+	N_("Allow the use of unknown runas user and/or group ID"),
+	NULL,
+    }, {
+	"runas_check_shell", T_FLAG,
+	N_("Only permit running commands as a user with a valid shell"),
+	NULL,
+    }, {
 	NULL, 0, NULL
     }
 };

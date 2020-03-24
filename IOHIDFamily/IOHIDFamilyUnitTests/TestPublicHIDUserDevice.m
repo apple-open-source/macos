@@ -39,6 +39,7 @@ XCTestExpectation *_servRemovedExp;
 XCTestExpectation *_reportExp;
 XCTestExpectation *_eventExp;
 XCTestExpectation *_cancelExp;
+XCTestExpectation *_ledSetExp;
 
 @implementation TestPublicHIDUserDevice
 
@@ -88,15 +89,17 @@ XCTestExpectation *_cancelExp;
     {
         HIDKeyboardDescriptorOutputReport *outReport = (typeof(outReport))report;
         
+        NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report
+                                                         length:*reportLength
+                                                   freeWhenDone:false];
+        NSLog(@"received getReport call type:%d reportID: %d data: %@",
+                     type, reportID, reportData);
+        
         XCTAssert(type == HIDReportTypeOutput &&
                   *reportLength == sizeof(HIDKeyboardDescriptorOutputReport));
         outReport->LED_KeyboardCapsLock = 1;
         
-        NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report
-                                                  length:*reportLength
-                                            freeWhenDone:false];
-        NSLog(@"received getReport call type:%d reportID: %d data: %@",
-              type, reportID, reportData);
+       
         
         return kIOReturnSuccess;
     });
@@ -108,15 +111,17 @@ XCTestExpectation *_cancelExp;
     {
         HIDKeyboardDescriptorOutputReport *outReport = (typeof(outReport))report;
         
-        XCTAssert(type == HIDReportTypeOutput &&
-                  reportLength == sizeof(HIDKeyboardDescriptorOutputReport) &&
-                  outReport->LED_KeyboardCapsLock == 1);
+        
         
         NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report
                                                   length:reportLength
                                             freeWhenDone:false];
         NSLog(@"received setReport call type:%d reportID: %d data: %@",
-              type, reportID, reportData);
+        type, reportID, reportData);
+        // with changes in 57612353 , backboardd attempt to set 0 value won't be guarded
+        if (type == HIDReportTypeOutput && reportLength == sizeof(HIDKeyboardDescriptorOutputReport) && outReport->LED_KeyboardCapsLock == 1) {
+            [_ledSetExp fulfill];
+        }
         
         return kIOReturnSuccess;
     });
@@ -176,6 +181,7 @@ XCTestExpectation *_cancelExp;
     _cancelExp = [[XCTestExpectation alloc] initWithDescription:@"user device cancelled"];
     _reportExp = [[XCTestExpectation alloc] initWithDescription:@"report exp"];
     _eventExp = [[XCTestExpectation alloc] initWithDescription:@"event exp"];
+    _ledSetExp = [[XCTestExpectation alloc] initWithDescription:@"led set exp"];
     
     [self setupClient];
     [self setupUserDevice];
@@ -245,6 +251,10 @@ XCTestExpectation *_cancelExp;
                      forType:HIDReportTypeOutput
                        error:&err];
     XCTAssert(res, "setReport failed ret: %d err: %@", res, err);
+    
+    result = [XCTWaiter waitForExpectations:@[_ledSetExp] timeout:5];
+    HIDXCTAssertWithParameters(COLLECT_LOGARCHIVE | COLLECT_IOREG,
+                               result == XCTWaiterResultCompleted);
     
     ((HIDKeyboardDescriptorOutputReport *)reportData.mutableBytes)->LED_KeyboardCapsLock = 0;
     NSInteger reportSize = sizeof(HIDKeyboardDescriptorOutputReport);

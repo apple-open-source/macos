@@ -30,14 +30,14 @@
 
 namespace WebCore {
 
-TextureMapperGC3DPlatformLayer::TextureMapperGC3DPlatformLayer(GraphicsContext3D& context, GraphicsContext3D::RenderStyle renderStyle)
+TextureMapperGC3DPlatformLayer::TextureMapperGC3DPlatformLayer(GraphicsContext3D& context, GraphicsContext3D::Destination destination)
     : m_context(context)
 {
-    switch (renderStyle) {
-    case GraphicsContext3D::RenderOffscreen:
+    switch (destination) {
+    case GraphicsContext3D::Destination::Offscreen:
         m_glContext = GLContext::createOffscreenContext(&PlatformDisplay::sharedDisplayForCompositing());
         break;
-    case GraphicsContext3D::RenderDirectlyToHostWindow:
+    case GraphicsContext3D::Destination::DirectlyToHostWindow:
         ASSERT_NOT_REACHED();
         break;
     }
@@ -61,7 +61,7 @@ bool TextureMapperGC3DPlatformLayer::makeContextCurrent()
     return m_glContext->makeContextCurrent();
 }
 
-PlatformGraphicsContext3D TextureMapperGC3DPlatformLayer::platformContext()
+PlatformGraphicsContext3D TextureMapperGC3DPlatformLayer::platformContext() const
 {
     ASSERT(m_glContext);
     return m_glContext->platformContext();
@@ -84,7 +84,7 @@ void TextureMapperGC3DPlatformLayer::swapBuffersIfNeeded()
 
     {
         LockHolder holder(m_platformLayerProxy->lock());
-        m_platformLayerProxy->pushNextBuffer(std::make_unique<TextureMapperPlatformLayerBuffer>(m_context.m_compositorTexture, textureSize, flags, m_context.m_internalColorFormat));
+        m_platformLayerProxy->pushNextBuffer(makeUnique<TextureMapperPlatformLayerBuffer>(m_context.m_compositorTexture, textureSize, flags, m_context.m_internalColorFormat));
     }
 
     m_context.markLayerComposited();
@@ -97,7 +97,8 @@ void TextureMapperGC3DPlatformLayer::paintToTextureMapper(TextureMapper& texture
     m_context.markLayerComposited();
 
 #if USE(TEXTURE_MAPPER_GL)
-    if (m_context.m_attrs.antialias && m_context.m_state.boundFBO == m_context.m_multisampleFBO) {
+    auto attrs = m_context.contextAttributes();
+    if (attrs.antialias && m_context.m_state.boundFBO == m_context.m_multisampleFBO) {
         GLContext* previousActiveContext = GLContext::current();
         if (previousActiveContext != m_glContext.get())
             m_context.makeContextCurrent();
@@ -110,7 +111,7 @@ void TextureMapperGC3DPlatformLayer::paintToTextureMapper(TextureMapper& texture
     }
 
     TextureMapperGL& texmapGL = static_cast<TextureMapperGL&>(textureMapper);
-    TextureMapperGL::Flags flags = TextureMapperGL::ShouldFlipTexture | (m_context.m_attrs.alpha ? TextureMapperGL::ShouldBlend : 0);
+    TextureMapperGL::Flags flags = TextureMapperGL::ShouldFlipTexture | (attrs.alpha ? TextureMapperGL::ShouldBlend : 0);
     IntSize textureSize(m_context.m_currentWidth, m_context.m_currentHeight);
     texmapGL.drawTexture(m_context.m_texture, flags, textureSize, targetRect, matrix, opacity);
 #endif // USE(TEXTURE_MAPPER_GL)

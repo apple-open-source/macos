@@ -40,6 +40,7 @@ class Document;
 class Element;
 
 struct ResizeObserverData {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
     Vector<WeakPtr<ResizeObserver>> observers;
 };
 
@@ -66,7 +67,6 @@ public:
     // ActiveDOMObject.
     bool hasPendingActivity() const override;
     const char* activeDOMObjectName() const override;
-    bool canSuspendForDocumentSuspension() const override;
     void stop() override;
 
 private:

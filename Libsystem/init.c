@@ -169,7 +169,7 @@ libSystem_initializer(int argc,
 		      const struct ProgramVars* vars)
 {
 	static const struct _libkernel_functions libkernel_funcs = {
-		.version = 3,
+		.version = 4,
 		// V1 functions
 #if !TARGET_OS_DRIVERKIT
 		.dlsym = dlsym,
@@ -181,6 +181,8 @@ libSystem_initializer(int argc,
 		// V2 functions (removed)
 		// V3 functions
 		.pthread_clear_qos_tsd = _pthread_clear_qos_tsd,
+		// V4 functions
+		.pthread_current_stack_contains_np = pthread_current_stack_contains_np,
 	};
 
 	static const struct _libpthread_functions libpthread_funcs = {

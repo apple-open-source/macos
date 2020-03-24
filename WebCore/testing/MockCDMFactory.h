@@ -99,7 +99,13 @@ private:
     HashMap<String, Vector<Ref<SharedBuffer>>> m_sessions;
 };
 
+class ProxyCDMMock final : public ProxyCDM {
+public:
+    virtual ~ProxyCDMMock();
+};
+
 class MockCDM : public CDMPrivate, public CanMakeWeakPtr<MockCDM> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     MockCDM(WeakPtr<MockCDMFactory>);
 
@@ -144,6 +150,7 @@ private:
     SuccessValue setStorageDirectory(const String&) final;
     const String& keySystem() const final;
     RefPtr<CDMInstanceSession> createSession() final;
+    RefPtr<ProxyCDM> proxyCDM() const final;
 
     WeakPtr<MockCDM> m_cdm;
     bool m_distinctiveIdentifiersAllowed { true };

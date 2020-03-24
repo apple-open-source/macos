@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008, 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2008, 2016-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -261,7 +261,7 @@ SCNetworkProtocolGetConfiguration(SCNetworkProtocolRef protocol)
 
 	servicePrivate = (SCNetworkServicePrivateRef)protocolPrivate->service;
 	path = copyProtocolConfigurationPath(protocolPrivate);
-	config = __getPrefsConfiguration(servicePrivate->prefs, path);
+	config = __SCNetworkConfigurationGetValue(servicePrivate->prefs, path);
 	CFRelease(path);
 
 	return config;
@@ -330,7 +330,7 @@ SCNetworkProtocolSetConfiguration(SCNetworkProtocolRef protocol, CFDictionaryRef
 	}
 
 	path = copyProtocolConfigurationPath(protocolPrivate);
-	ok = __setPrefsConfiguration(servicePrivate->prefs, path, config, TRUE);
+	ok = __SCNetworkConfigurationSetValue(servicePrivate->prefs, path, config, TRUE);
 	CFRelease(path);
 
 	if (ok) {

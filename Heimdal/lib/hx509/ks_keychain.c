@@ -34,10 +34,13 @@
  */
 
 #include "hx_locl.h"
+extern bool isCertECDSA(CFTypeRef *);
 
 #if defined(HAVE_FRAMEWORK_SECURITY)
 #include <Security/Security.h>
 #include <Security/SecKeyPriv.h>
+#define kSecECCurveSecp256r1 CFSTR("73")
+
 
 
 struct kc_rsa {
@@ -67,6 +70,26 @@ kc_rsa_public_decrypt(int flen,
     return -1;
 }
 
+static int
+kc_ecdsa_public_encrypt(int flen,
+		      const unsigned char *from,
+		      unsigned char *to,
+		      ECDSA *ecdsa,
+		      int padding)
+{
+    return -1;
+}
+
+static int
+kc_ecdsa_public_decrypt(int flen,
+		      const unsigned char *from,
+		      unsigned char *to,
+		      ECDSA *ecdsa,
+		      int padding)
+{
+    return -1;
+}
+
 static SecKeyRef
 createKeyDuplicateWithAuthContext(SecKeyRef origKey, CFTypeRef authContext)
 {
@@ -89,6 +112,54 @@ createKeyDuplicateWithAuthContext(SecKeyRef origKey, CFTypeRef authContext)
     }
 
     return key;
+}
+
+static int
+kc_ecdsa_sign(int type, const unsigned char *from, unsigned int flen,
+            unsigned char *to, unsigned int *tlen, const ECDSA *ecdsa)
+{
+    struct kc_rsa *kc = ECDSA_get_app_data(rk_UNCONST(ecdsa));
+    SecKeyRef privKeyRef = kc->pkey;
+    SecKeyRef key;
+    CFTypeRef authContext = kc->authContext;
+    size_t klen = kc->keysize;
+    CFDataRef sig, in;
+    CFErrorRef error = NULL;
+    int fret = 0;
+    SecKeyAlgorithm stype;
+
+    stype = kSecKeyAlgorithmECDSASignatureDigestX962SHA256;
+
+    key = createKeyDuplicateWithAuthContext(privKeyRef, authContext);
+
+    in = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)from, flen);
+    sig = SecKeyCreateSignature(key, stype, in, &error);
+    size_t slen = sig ? CFDataGetLength(sig) : 0;
+
+    if (sig && slen <= klen) {
+        fret = 1;
+        *tlen = (unsigned int)slen;
+        memcpy(to, CFDataGetBytePtr(sig), slen);
+    } else {
+        fret = -1;
+    }
+
+    if (key) {
+        CFRelease(key);
+    }
+
+    if (in) {
+        CFRelease(in);
+    }
+
+    if (sig) {
+        CFRelease(sig);
+    }
+    if (error) {
+	CFRelease(error);
+    }
+
+    return fret;
 }
 
 static int
@@ -131,20 +202,27 @@ kc_rsa_sign(int type, const unsigned char *from, unsigned int flen,
     } else {
         fret = -1;
     }
-
     if (key) {
         CFRelease(key);
     }
-
     if (in) {
         CFRelease(in);
     }
-
     if (sig) {
         CFRelease(sig);
     }
 
     return fret;
+}
+
+static int
+kc_ecdsa_private_encrypt(int flen,
+                       const unsigned char *from,
+                       unsigned char *to,
+                       ECDSA *ecdsa,
+                       int padding)
+{
+    return 1;
 }
 
 static int
@@ -194,7 +272,14 @@ kc_rsa_private_encrypt(int flen,
     return fret;
 }
 
-static int
+int
+kc_ecdsa_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
+                       ECDSA * ecdsa, int padding)
+{
+    return 1;
+}
+
+int
 kc_rsa_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
                        RSA * rsa, int padding)
 {
@@ -240,8 +325,28 @@ kc_rsa_private_decrypt(int flen, const unsigned char *from, unsigned char *to,
 
 
 static int
+kc_ecdsa_init(ECDSA *ecdsa)
+{
+    return 1;
+}
+
+static int
 kc_rsa_init(RSA *rsa)
 {
+    return 1;
+}
+
+static int
+kc_ecdsa_finish(ECDSA *ecdsa)
+{
+    struct kc_rsa *kc_ecdsa = ECDSA_get_app_data(ecdsa);
+    if (kc_ecdsa) {
+	CFRelease(kc_ecdsa->pkey);
+	if (kc_ecdsa->authContext) {
+	    CFRelease(kc_ecdsa->authContext);
+	}
+	free(kc_ecdsa);
+    }
     return 1;
 }
 
@@ -272,6 +377,19 @@ static const RSA_METHOD kc_rsa_pkcs1_method = {
     0,
     NULL,
     kc_rsa_sign,
+    NULL
+};
+
+const ECDSA_METHOD kc_ecdsa_pkcs1_method = {
+    "hx509 Keychain PKCS#1 ECDSA",
+    kc_ecdsa_public_encrypt,
+    kc_ecdsa_public_decrypt,
+    kc_ecdsa_private_encrypt,
+    kc_ecdsa_private_decrypt,
+    kc_ecdsa_init,
+    kc_ecdsa_finish,
+    0,
+    kc_ecdsa_sign,
     NULL
 };
 
@@ -338,7 +456,64 @@ set_private_key(hx509_context context, hx509_cert cert, SecKeyRef pkey, void *au
      *
      */
 
+    // This calls the function that calls the sign func
     hx509_private_key_assign_rsa(key, rsa);
+    _hx509_cert_set_key(cert, key);
+
+    hx509_private_key_free(&key);
+
+    return 0;
+}
+
+
+static int
+set_private_key_ecdsa(hx509_context context, hx509_cert cert, SecKeyRef pkey, void *authContext)
+{
+    const Certificate *c;
+    struct kc_rsa *kc;
+    hx509_private_key key;
+    ECDSA *ecdsa;
+    int ret;
+
+    hx509_set_error_string(context, 0, ENOMEM, "kc4");
+
+    struct hx509_private_key_ops *ops;
+    // If I don't set ops, the default value of RSA is used.
+    ops = hx509_find_private_alg(ASN1_OID_ID_ECPUBLICKEY);
+    if (ops == NULL) {
+        hx509_clear_error_string(context);
+        return HX509_SIG_ALG_NO_SUPPORTED;
+    }
+
+    ret = hx509_private_key_init(&key, ops, NULL);
+    if (ret) {
+	return ret;
+    }
+    kc = calloc(1, sizeof(*kc));
+    if (kc == NULL)
+	_hx509_abort("out of memory");
+
+    CFRetain(pkey);
+    kc->pkey = pkey;
+    kc->keysize = ECDSA_KEY_SIZE;
+
+    if (authContext) {
+	CFRetain(authContext);
+	kc->authContext = authContext;
+    }
+
+    ecdsa = ECDSA_new();
+    if (ecdsa == NULL)
+	_hx509_abort("out of memory");
+
+    ECDSA_set_method(ecdsa, &kc_ecdsa_pkcs1_method);
+    ret = ECDSA_set_app_data(ecdsa, kc);
+    if (ret != 1)
+	_hx509_abort("ECDSA_set_app_data");
+
+    c = _hx509_get_cert(cert);
+    // This calls the function that calls the sign func
+    hx509_private_key_assign_ecdsa(key, ecdsa);
     _hx509_cert_set_key(cert, key);
 
     hx509_private_key_free(&key);
@@ -884,13 +1059,35 @@ hx509_cert_init_SecFrameworkAuth(hx509_context context, void * identity, hx509_c
 
     setPersistentRef(c, seccert);
 
-    /* if identity assign private key too */
     if (SecIdentityGetTypeID() == typeid) {
-	(void)SecIdentityCopyPrivateKey(identity, &pkey);
+	osret = SecIdentityCopyPrivateKey(identity, &pkey);
     }
 
     if (pkey) {
-	set_private_key(context, c, pkey, authContext);
+	SecKeyRef key;
+	CFDictionaryRef  keyAttrs = NULL;
+	CFStringRef keyType = NULL;
+	bool certIsECDSA = false;
+
+	key = SecCertificateCopyKey(seccert);
+	if (key != NULL) {
+	    keyAttrs = SecKeyCopyAttributes(key);
+	    CFRelease(key);
+	}
+	if (keyAttrs != NULL ) {
+	    keyType = CFDictionaryGetValue(keyAttrs, kSecAttrKeyType);
+	    CFRelease(keyAttrs);
+	}
+	if (keyType != NULL) {
+	    certIsECDSA = CFEqual(keyType, kSecAttrKeyTypeECSECPrimeRandom);
+	    CFRelease(keyType);
+	}
+
+	if (certIsECDSA) {
+            set_private_key_ecdsa(context, c, pkey, authContext);
+        } else {
+            set_private_key(context, c, pkey, authContext);
+        }
 	CFRelease(pkey);
     }
 

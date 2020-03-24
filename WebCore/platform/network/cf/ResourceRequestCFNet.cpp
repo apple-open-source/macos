@@ -157,7 +157,7 @@ static inline ResourceRequestCachePolicy fromPlatformRequestCachePolicy(CFURLReq
     }
 }
 
-#if PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000
+#if PLATFORM(IOS_FAMILY)
 static CFURLRef siteForCookies(ResourceRequest::SameSiteDisposition disposition, CFURLRef url)
 {
     switch (disposition) {
@@ -193,14 +193,19 @@ void ResourceRequest::doUpdatePlatformRequest()
     if (httpPipeliningEnabled())
         CFURLRequestSetShouldPipelineHTTP(cfRequest, true, true);
 
-    if (resourcePrioritiesEnabled())
+    if (resourcePrioritiesEnabled()) {
         CFURLRequestSetRequestPriority(cfRequest, toPlatformRequestPriority(priority()));
+
+        // Used by PLT to ignore very low priority beacon and ping loads.
+        if (priority() == ResourceLoadPriority::VeryLow)
+            _CFURLRequestSetProtocolProperty(cfRequest, CFSTR("WKVeryLowLoadPriority"), kCFBooleanTrue);
+    }
 
     setHeaderFields(cfRequest, httpHeaderFields());
 
     CFURLRequestSetShouldHandleHTTPCookies(cfRequest, allowCookies());
 
-#if PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000
+#if PLATFORM(IOS_FAMILY)
     _CFURLRequestSetProtocolProperty(cfRequest, CFSTR("_kCFHTTPCookiePolicyPropertySiteForCookies"), siteForCookies(m_sameSiteDisposition, url.get()));
 
     int isTopSite = m_isTopSite;
@@ -285,7 +290,7 @@ void ResourceRequest::doUpdateResourceRequest()
     if (resourcePrioritiesEnabled())
         m_priority = toResourceLoadPriority(CFURLRequestGetRequestPriority(m_cfRequest.get()));
 
-#if PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000
+#if PLATFORM(IOS_FAMILY)
     RetainPtr<CFURLRef> siteForCookies = adoptCF(checked_cf_cast<CFURLRef>(_CFURLRequestCopyProtocolPropertyForKey(m_cfRequest.get(), CFSTR("_kCFHTTPCookiePolicyPropertySiteForCookies"))));
     m_sameSiteDisposition = !siteForCookies ? SameSiteDisposition::Unspecified : (areRegistrableDomainsEqual(siteForCookies.get(), m_url) ? SameSiteDisposition::SameSite : SameSiteDisposition::CrossSite);
 
@@ -409,7 +414,7 @@ unsigned initializeMaximumHTTPConnectionCountPerHost()
     if (!ResourceRequest::resourcePrioritiesEnabled())
         return maximumHTTPConnectionCountPerHost;
 
-    _CFNetworkHTTPConnectionCacheSetLimit(kHTTPPriorityNumLevels, toPlatformRequestPriority(ResourceLoadPriority::Highest));
+    _CFNetworkHTTPConnectionCacheSetLimit(kHTTPPriorityNumLevels, resourceLoadPriorityCount);
 #if !PLATFORM(WIN)
     // FIXME: <rdar://problem/9375609> Implement minimum fast lane priority setting on Windows
     _CFNetworkHTTPConnectionCacheSetLimit(kHTTPMinimumFastLanePriority, toPlatformRequestPriority(ResourceLoadPriority::Medium));
@@ -428,7 +433,7 @@ void initializeHTTPConnectionSettingsOnStartup()
     static const unsigned preferredConnectionCount = 6;
     static const unsigned fastLaneConnectionCount = 1;
     _CFNetworkHTTPConnectionCacheSetLimit(kHTTPLoadWidth, preferredConnectionCount);
-    _CFNetworkHTTPConnectionCacheSetLimit(kHTTPPriorityNumLevels, toPlatformRequestPriority(ResourceLoadPriority::Highest));
+    _CFNetworkHTTPConnectionCacheSetLimit(kHTTPPriorityNumLevels, resourceLoadPriorityCount);
     _CFNetworkHTTPConnectionCacheSetLimit(kHTTPMinimumFastLanePriority, toPlatformRequestPriority(ResourceLoadPriority::Medium));
     _CFNetworkHTTPConnectionCacheSetLimit(kHTTPNumFastLanes, fastLaneConnectionCount);
 }

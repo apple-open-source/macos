@@ -27,9 +27,9 @@ messages -> WebPage LegacyReceiver {
 
     SetBackgroundColor(Optional<WebCore::Color> color)
 
-    AddConsoleMessage(uint64_t frameID, enum:uint8_t JSC::MessageSource messageSource, enum:uint8_t JSC::MessageLevel messageLevel, String message, uint64_t requestID)
-    SendCSPViolationReport(uint64_t frameID, URL reportURL, IPC::FormDataReference reportData)
-    EnqueueSecurityPolicyViolationEvent(uint64_t frameID, WebCore::SecurityPolicyViolationEvent::Init eventInit)
+    AddConsoleMessage(WebCore::FrameIdentifier frameID, enum:uint8_t JSC::MessageSource messageSource, enum:uint8_t JSC::MessageLevel messageLevel, String message, uint64_t requestID)
+    SendCSPViolationReport(WebCore::FrameIdentifier frameID, URL reportURL, IPC::FormDataReference reportData)
+    EnqueueSecurityPolicyViolationEvent(WebCore::FrameIdentifier frameID, WebCore::SecurityPolicyViolationEvent::Init eventInit)
 
     TestProcessIncomingSyncMessagesWhenWaitingForSyncReply() -> (bool handled) Synchronous
 
@@ -51,15 +51,15 @@ messages -> WebPage LegacyReceiver {
     SetMaximumUnobscuredSize(WebCore::FloatSize size)
     SetDeviceOrientation(int32_t deviceOrientation)
     SetOverrideViewportArguments(Optional<WebCore::ViewportArguments> arguments)
-    DynamicViewportSizeUpdate(WebCore::FloatSize viewLayoutSize, WebCore::FloatSize maximumUnobscuredSize, WebCore::FloatRect targetExposedContentRect, WebCore::FloatRect targetUnobscuredRect, WebCore::FloatRect targetUnobscuredRectInScrollViewCoordinates, WebCore::RectEdges<float> targetUnobscuredSafeAreaInsets, double scale, int32_t deviceOrientation, uint64_t dynamicViewportSizeUpdateID)
+    DynamicViewportSizeUpdate(WebCore::FloatSize viewLayoutSize, WebCore::FloatSize maximumUnobscuredSize, WebCore::FloatRect targetExposedContentRect, WebCore::FloatRect targetUnobscuredRect, WebCore::FloatRect targetUnobscuredRectInScrollViewCoordinates, WebCore::RectEdges<float> targetUnobscuredSafeAreaInsets, double scale, int32_t deviceOrientation, double minimumEffectiveDeviceWidth, uint64_t dynamicViewportSizeUpdateID)
 
-    HandleTap(WebCore::IntPoint point, OptionSet<WebKit::WebEvent::Modifier> modifiers, uint64_t lastLayerTreeTransactionId)
+    HandleTap(WebCore::IntPoint point, OptionSet<WebKit::WebEvent::Modifier> modifiers, WebKit::TransactionID lastLayerTreeTransactionId)
     PotentialTapAtPosition(uint64_t requestID, WebCore::FloatPoint point, bool shouldRequestMagnificationInformation)
-    CommitPotentialTap(OptionSet<WebKit::WebEvent::Modifier> modifiers, uint64_t lastLayerTreeTransactionId, WebCore::PointerID pointerId)
+    CommitPotentialTap(OptionSet<WebKit::WebEvent::Modifier> modifiers, WebKit::TransactionID lastLayerTreeTransactionId, WebCore::PointerID pointerId)
     CancelPotentialTap()
     TapHighlightAtPosition(uint64_t requestID, WebCore::FloatPoint point)
     DidRecognizeLongPress()
-    HandleDoubleTapForDoubleClickAtPoint(WebCore::IntPoint point, OptionSet<WebKit::WebEvent::Modifier> modifiers, uint64_t lastLayerTreeTransactionId)
+    HandleDoubleTapForDoubleClickAtPoint(WebCore::IntPoint point, OptionSet<WebKit::WebEvent::Modifier> modifiers, WebKit::TransactionID lastLayerTreeTransactionId)
     InspectorNodeSearchMovedToPosition(WebCore::FloatPoint point)
     InspectorNodeSearchEndedAtPosition(WebCore::FloatPoint point)
     BlurFocusedElement()
@@ -74,7 +74,7 @@ messages -> WebPage LegacyReceiver {
     MoveSelectionAtBoundaryWithDirection(uint32_t granularity, uint32_t direction, WebKit::CallbackID callbackID)
     SelectPositionAtPoint(WebCore::IntPoint point, bool isInteractingWithFocusedElement, WebKit::CallbackID callbackID)
     BeginSelectionInDirection(uint32_t direction, WebKit::CallbackID callbackID)
-    UpdateSelectionWithExtentPoint(WebCore::IntPoint point, bool isInteractingWithFocusedElement, WebKit::CallbackID callbackID)
+    UpdateSelectionWithExtentPoint(WebCore::IntPoint point, bool isInteractingWithFocusedElement, enum:bool WebKit::RespectSelectionAnchor respectSelectionAnchor, WebKit::CallbackID callbackID)
     UpdateSelectionWithExtentPointAndBoundary(WebCore::IntPoint point, uint32_t granularity, bool isInteractingWithFocusedElement, WebKit::CallbackID callbackID)
     RequestDictationContext(WebKit::CallbackID callbackID)
     ReplaceDictatedText(String oldText, String newText)
@@ -86,7 +86,7 @@ messages -> WebPage LegacyReceiver {
     RequestEvasionRectsAboveSelection() -> (Vector<WebCore::FloatRect> rects) Async
     GetPositionInformation(struct WebKit::InteractionInformationRequest request) -> (struct WebKit::InteractionInformationAtPosition information) Synchronous
     RequestPositionInformation(struct WebKit::InteractionInformationRequest request)
-    StartInteractionWithElementAtPosition(WebCore::IntPoint point)
+    StartInteractionWithElementContextOrPosition(Optional<WebCore::ElementContext> elementContext, WebCore::IntPoint point)
     StopInteraction()
     PerformActionOnElement(uint32_t action)
     FocusNextFocusedElement(bool isForward, WebKit::CallbackID callbackID)
@@ -162,10 +162,10 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     GoToBackForwardItem(uint64_t navigationID, struct WebCore::BackForwardItemIdentifier backForwardItemID, enum:uint8_t WebCore::FrameLoadType backForwardType, enum:bool WebCore::ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad, Optional<WebKit::WebsitePoliciesData> websitePolicies)
     TryRestoreScrollPosition()
 
-    LoadURLInFrame(URL url, String referrer, uint64_t frameID)
-    LoadDataInFrame(IPC::DataReference data, String MIMEType, String encodingName, URL baseURL, uint64_t frameID)
+    LoadURLInFrame(URL url, String referrer, WebCore::FrameIdentifier frameID)
+    LoadDataInFrame(IPC::DataReference data, String MIMEType, String encodingName, URL baseURL, WebCore::FrameIdentifier frameID)
     LoadRequest(struct WebKit::LoadParameters loadParameters)
-    LoadRequestWaitingForPID(struct WebKit::LoadParameters loadParameters, URL resourceDirectoryURL, WebCore::PageIdentifier pageID)
+    LoadRequestWaitingForProcessLaunch(struct WebKit::LoadParameters loadParameters, URL resourceDirectoryURL, WebKit::WebPageProxyIdentifier pageID, bool checkAssumedReadAccessToResourceURL)
     LoadData(struct WebKit::LoadParameters loadParameters)
     LoadAlternateHTML(struct WebKit::LoadParameters loadParameters)
 
@@ -174,7 +174,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     Reload(uint64_t navigationID, uint32_t reloadOptions, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
     StopLoading()
 
-    StopLoadingFrame(uint64_t frameID)
+    StopLoadingFrame(WebCore::FrameIdentifier frameID)
     
     RestoreSession(Vector<WebKit::BackForwardListItemState> itemStates)
     UpdateBackForwardListForReattach(Vector<WebKit::BackForwardListItemState> itemStates)
@@ -183,8 +183,8 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     DidRemoveBackForwardItem(struct WebCore::BackForwardItemIdentifier backForwardItemID)
 
     UpdateWebsitePolicies(struct WebKit::WebsitePoliciesData websitePolicies)
-    DidReceivePolicyDecision(uint64_t frameID, uint64_t listenerID, WebCore::PolicyCheckIdentifier policyCheckIdentifier, enum:uint8_t WebCore::PolicyAction policyAction, uint64_t navigationID, WebKit::DownloadID downloadID, Optional<WebKit::WebsitePoliciesData> websitePolicies)
-    ContinueWillSubmitForm(uint64_t frameID, uint64_t listenerID)
+    DidReceivePolicyDecision(WebCore::FrameIdentifier frameID, uint64_t listenerID, WebCore::PolicyCheckIdentifier policyCheckIdentifier, enum:uint8_t WebCore::PolicyAction policyAction, uint64_t navigationID, WebKit::DownloadID downloadID, Optional<WebKit::WebsitePoliciesData> websitePolicies)
+    ContinueWillSubmitForm(WebCore::FrameIdentifier frameID, uint64_t listenerID)
 
     ClearSelection()
     RestoreSelectionInFocusedEditableElement()
@@ -197,15 +197,15 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 #if ENABLE(MHTML)
     GetContentsAsMHTMLData(WebKit::CallbackID callbackID)
 #endif
-    GetMainResourceDataOfFrame(uint64_t frameID, WebKit::CallbackID callbackID)
-    GetResourceDataFromFrame(uint64_t frameID, String resourceURL, WebKit::CallbackID callbackID)
+    GetMainResourceDataOfFrame(WebCore::FrameIdentifier frameID, WebKit::CallbackID callbackID)
+    GetResourceDataFromFrame(WebCore::FrameIdentifier frameID, String resourceURL, WebKit::CallbackID callbackID)
     GetRenderTreeExternalRepresentation(WebKit::CallbackID callbackID)
     GetSelectionOrContentsAsString(WebKit::CallbackID callbackID)
     GetSelectionAsWebArchiveData(WebKit::CallbackID callbackID)
-    GetSourceForFrame(uint64_t frameID, WebKit::CallbackID callbackID)
-    GetWebArchiveOfFrame(uint64_t frameID, WebKit::CallbackID callbackID)
-    RunJavaScriptInMainFrameScriptWorld(String script, bool forceUserGesture, Optional<String> worldName, WebKit::CallbackID callbackID)
-    RunJavaScriptInFrame(uint64_t frameID, String script, bool forceUserGesture, WebKit::CallbackID callbackID)
+    GetSourceForFrame(WebCore::FrameIdentifier frameID, WebKit::CallbackID callbackID)
+    GetWebArchiveOfFrame(WebCore::FrameIdentifier frameID, WebKit::CallbackID callbackID)
+    RunJavaScriptInMainFrameScriptWorld(struct WebCore::RunJavaScriptParameters parameters, Optional<String> worldName, WebKit::CallbackID callbackID)
+    RunJavaScriptInFrame(WebCore::FrameIdentifier frameID, String script, bool forceUserGesture, WebKit::CallbackID callbackID)
     ForceRepaint(WebKit::CallbackID callbackID)
 
     SelectAll()
@@ -234,7 +234,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     ResumeActiveDOMObjectsAndAnimations()
 
     Close()
-    TryClose()
+    TryClose() -> (bool shouldClose) Async
 
     SetEditable(bool editable)
     ValidateCommand(String name, WebKit::CallbackID callbackID)
@@ -284,7 +284,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     PostInjectedBundleMessage(String messageName, WebKit::UserData messageBody)
 
     # Find.
-    FindString(String string, uint32_t findOptions, unsigned maxMatchCount)
+    FindString(String string, uint32_t findOptions, unsigned maxMatchCount, Optional<WebKit::CallbackID> callbackID)
     FindStringMatches(String string, uint32_t findOptions, unsigned maxMatchCount)
     GetImageForFindMatch(uint32_t matchIndex)
     SelectFindMatch(uint32_t matchIndex)
@@ -354,14 +354,13 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
 #if ENABLE(GEOLOCATION)
     # Geolocation
-    DidReceiveGeolocationPermissionDecision(uint64_t geolocationID, bool allowed)
+    DidReceiveGeolocationPermissionDecision(uint64_t geolocationID, String authorizationToken)
 #endif
 
 #if ENABLE(MEDIA_STREAM)
     # MediaSteam
-    UserMediaAccessWasGranted(uint64_t userMediaID, WebCore::CaptureDevice audioDevice, WebCore::CaptureDevice videoDevice, String mediaDeviceIdentifierHashSalt) -> () Async
+    UserMediaAccessWasGranted(uint64_t userMediaID, WebCore::CaptureDevice audioDevice, WebCore::CaptureDevice videoDevice, String mediaDeviceIdentifierHashSalt, WebKit::SandboxExtension::Handle sandboxExtensionHandle) -> () Async
     UserMediaAccessWasDenied(uint64_t userMediaID, uint64_t reason, String invalidConstraint)
-    DidCompleteMediaDeviceEnumeration(uint64_t userMediaID, Vector<WebCore::CaptureDevice> devices, String mediaDeviceIdentifierHashSalt, bool hasPersistentAccess)
     CaptureDevicesChanged()
 #endif
 
@@ -381,19 +380,23 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     # Notification
     DidReceiveNotificationPermissionDecision(uint64_t notificationID, bool allowed)
 
+    FreezeLayerTreeDueToSwipeAnimation()
+    UnfreezeLayerTreeDueToSwipeAnimation()
+
     # Printing.
-    BeginPrinting(uint64_t frameID, struct WebKit::PrintInfo printInfo)
+    BeginPrinting(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo)
     EndPrinting()
-    ComputePagesForPrinting(uint64_t frameID, struct WebKit::PrintInfo printInfo, WebKit::CallbackID callbackID)
+    ComputePagesForPrinting(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, WebKit::CallbackID callbackID)
 #if PLATFORM(COCOA)
-    DrawRectToImage(uint64_t frameID, struct WebKit::PrintInfo printInfo, WebCore::IntRect rect, WebCore::IntSize imageSize, WebKit::CallbackID callbackID)
-    DrawPagesToPDF(uint64_t frameID, struct WebKit::PrintInfo printInfo, uint32_t first, uint32_t count, WebKit::CallbackID callbackID)
+    DrawRectToImage(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, WebCore::IntRect rect, WebCore::IntSize imageSize, WebKit::CallbackID callbackID)
+    DrawPagesToPDF(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, uint32_t first, uint32_t count, WebKit::CallbackID callbackID)
 #if PLATFORM(IOS_FAMILY)
-    ComputePagesForPrintingAndDrawToPDF(uint64_t frameID, struct WebKit::PrintInfo printInfo, WebKit::CallbackID callbackID) -> (uint32_t pageCount) Synchronous
+    ComputePagesForPrintingAndDrawToPDF(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, WebKit::CallbackID callbackID) -> (uint32_t pageCount) Synchronous
 #endif
+    DrawToPDF(WebCore::FrameIdentifier frameID, Optional<WebCore::FloatRect> rect, WebKit::CallbackID callbackID)
 #endif
 #if PLATFORM(GTK)
-    DrawPagesForPrinting(uint64_t frameID, struct WebKit::PrintInfo printInfo, WebKit::CallbackID callbackID)
+    DrawPagesForPrinting(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, WebKit::CallbackID callbackID)
 #endif
 
     # Media
@@ -410,12 +413,12 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     SetCanRunBeforeUnloadConfirmPanel(bool canRunBeforeUnloadConfirmPanel)
     SetCanRunModal(bool canRunModal)
 
-#if PLATFORM(GTK)
-    SetComposition(String text, Vector<WebCore::CompositionUnderline> underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementRangeStart, uint64_t replacementRangeEnd)
-    ConfirmComposition(String text, int64_t selectionStart, int64_t selectionLength)
-    CancelComposition()
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    CancelComposition(String text)
+#endif
 
-    CollapseSelectionInFrame(uint64_t frameID)
+#if PLATFORM(GTK)
+    CollapseSelectionInFrame(WebCore::FrameIdentifier frameID)
 
     GetCenterForZoomGesture(WebCore::IntPoint centerInViewCoordinates) -> (WebCore::IntPoint center) Synchronous
 #endif
@@ -445,7 +448,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     GetSelectedRangeAsync(WebKit::CallbackID callbackID)
     CharacterIndexForPointAsync(WebCore::IntPoint point, WebKit::CallbackID callbackID);
     FirstRectForCharacterRangeAsync(struct WebKit::EditingRange range, WebKit::CallbackID callbackID);
-    SetCompositionAsync(String text, Vector<WebCore::CompositionUnderline> underlines, struct WebKit::EditingRange selectionRange, struct WebKit::EditingRange replacementRange)
+    SetCompositionAsync(String text, Vector<WebCore::CompositionUnderline> underlines, Vector<WebCore::CompositionHighlight> highlights, struct WebKit::EditingRange selectionRange, struct WebKit::EditingRange replacementRange)
     ConfirmCompositionAsync()
 #endif
 #if PLATFORM(MAC)
@@ -457,7 +460,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     SetAlwaysShowsHorizontalScroller(bool alwaysShowsHorizontalScroller)
     SetAlwaysShowsVerticalScroller(bool alwaysShowsVerticalScroller)
 
-    SetViewLayoutSize(WebCore::IntSize viewLayoutSize)
+    SetMinimumSizeForAutoLayout(WebCore::IntSize size)
     SetAutoSizingShouldExpandToViewHeight(bool shouldExpand)
 
     SetViewportSizeForCSSViewportUnits(Optional<WebCore::IntSize> viewportSize)
@@ -508,6 +511,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     PlaybackTargetSelected(uint64_t contextId, WebCore::MediaPlaybackTargetContext target)
     PlaybackTargetAvailabilityDidChange(uint64_t contextId, bool available)
     SetShouldPlayToPlaybackTarget(uint64_t contextId, bool shouldPlay)
+    PlaybackTargetPickerWasDismissed(uint64_t contextId);
 #endif
 
 #if ENABLE(POINTER_LOCK)
@@ -516,14 +520,12 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     DidLosePointerLock()
 #endif
 
-    ClearWheelEventTestTrigger()
+    clearWheelEventTestMonitor()
     SetShouldScaleViewToFitDocument(bool shouldScaleViewToFitDocument)
 
 #if ENABLE(VIDEO) && USE(GSTREAMER)
     DidEndRequestInstallMissingMediaPlugins(uint32_t result)
 #endif
-
-    SetResourceCachingDisabled(bool disabled)
 
     SetUserInterfaceLayoutDirection(uint32_t direction)
 
@@ -534,11 +536,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     GamepadActivity(Vector<WebKit::GamepadData> gamepadDatas, bool shouldMakeGamepadsVisible)
 #endif
 
-#if USE(QUICK_LOOK)
-    DidReceivePasswordForQuickLookDocument(String password)
-#endif
-
-    FrameBecameRemote(uint64_t frameID, struct WebCore::GlobalFrameIdentifier remoteFrameIdentifier, struct WebCore::GlobalWindowIdentifier remoteWindowIdentifier)
+    FrameBecameRemote(WebCore::FrameIdentifier frameID, struct WebCore::GlobalFrameIdentifier remoteFrameIdentifier, struct WebCore::GlobalWindowIdentifier remoteWindowIdentifier)
 
     RegisterURLSchemeHandler(uint64_t identifier, String scheme)
 
@@ -569,8 +567,8 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     VoicesDidChange()
 #endif
 
-    TextInputContextsInRect(WebCore::FloatRect rect) -> (Vector<struct WebKit::TextInputContext> contexts) Async
-    FocusTextInputContext(struct WebKit::TextInputContext context) -> (bool success) Async
+    TextInputContextsInRect(WebCore::FloatRect rect) -> (Vector<struct WebCore::ElementContext> contexts) Async
+    FocusTextInputContext(struct WebCore::ElementContext context) -> (bool success) Async
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     WasLoadedWithDataTransferFromPrevalentResource()
@@ -580,4 +578,13 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     SystemPreviewActionTriggered(struct WebCore::SystemPreviewInfo previewInfo, String message)
 #endif
 
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    SendMessageToWebExtension(struct WebKit::UserMessage userMessage)
+    SendMessageToWebExtensionWithReply(struct WebKit::UserMessage userMessage) -> (struct WebKit::UserMessage replyMessage) Async
+#endif
+
+    StartTextManipulations(Vector<WebCore::TextManipulationController::ExclusionRule> exclusionRules) -> () Async
+    CompleteTextManipulation(WebCore::TextManipulationController::ItemIdentifier itemID, Vector<WebCore::TextManipulationController::ManipulationToken> tokens) -> (enum:uint8_t WebCore::TextManipulationController::ManipulationResult result) Async
+    
+    SetOverriddenMediaType(String mediaType)
 }

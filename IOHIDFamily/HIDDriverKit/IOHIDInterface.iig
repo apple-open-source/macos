@@ -49,6 +49,24 @@ typedef struct IOHIDElementValueHeader {
     uint32_t value[0];
 } IOHIDElementValueHeader;
 
+
+/*!
+ *   @class IOHIDInterface
+ *   @abstract Abstract interface to HID device functionality
+ *   @discussion Following object properties can be used to identify/match interface and its characteristics (see  IOHIDDeviceKeys.h )
+ *    kIOHIDReportIntervalKey
+ *    kIOHIDVendorIDKey
+ *    kIOHIDProductIDKey
+ *    kIOHIDTransportKey
+ *    kIOHIDVersionNumberKey
+ *    kIOHIDCountryCodeKey
+ *    kIOHIDLocationIDKey
+ *    kIOHIDManufacturerKey
+ *    kIOHIDProductKey
+ *    kIOHIDSerialNumberKey
+ *    kIOHIDRequestTimeoutKey
+*/
+
 class KERNEL IOHIDInterface : public IOService
 {
 public:
@@ -132,7 +150,7 @@ public:
      * The OSAction object that will handle the asynchronous report callback.
      *
      * @return
-     * Returns kIOReturnSucess on sucess.
+     * Returns kIOReturnSuccess on success.
      */
     virtual kern_return_t Open(IOService *forClient,
                                IOOptionBits options,
@@ -151,7 +169,7 @@ public:
      * Options to pass to the interface.
      *
      * @return
-     * Returns kIOReturnSucess on sucess.
+     * Returns kIOReturnSuccess on success.
      */
     virtual kern_return_t Close(IOService *forClient,
                                 IOOptionBits options);
@@ -177,7 +195,7 @@ public:
      * options to specify the request.
      *
      * @return
-     * Returns kIOReturnSucess on sucess.
+     * Returns kIOReturnSuccess on success.
      */
     virtual kern_return_t SetReport (IOMemoryDescriptor *        report,
                                      IOHIDReportType             reportType,
@@ -205,7 +223,7 @@ public:
      * options to specify the request.
      *
      * @return
-     * Returns kIOReturnSucess on sucess.
+     * Returns kIOReturnSuccess on success.
      */
     virtual kern_return_t GetReport (IOMemoryDescriptor *        report,
                                      IOHIDReportType             reportType,

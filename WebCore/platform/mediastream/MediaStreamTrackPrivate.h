@@ -31,6 +31,8 @@
 
 #include "RealtimeMediaSource.h"
 #include <wtf/LoggerHelper.h>
+#include <wtf/RefCounted.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -41,7 +43,8 @@ class RealtimeMediaSourceCapabilities;
 class WebAudioSourceProvider;
 
 class MediaStreamTrackPrivate final
-    : public ThreadSafeRefCounted<MediaStreamTrackPrivate, WTF::DestructionThread::Main>
+    : public RefCounted<MediaStreamTrackPrivate>
+    , public CanMakeWeakPtr<MediaStreamTrackPrivate, WeakPtrFactoryInitialization::Eager>
     , public RealtimeMediaSource::Observer
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
@@ -72,6 +75,8 @@ public:
     const String& id() const { return m_id; }
     const String& label() const;
 
+    bool isActive() const { return enabled() && !ended() && !muted(); }
+
     bool ended() const { return m_isEnded; }
 
     enum class HintValue { Empty, Speech, Music, Motion, Detail, Text };
@@ -101,6 +106,9 @@ public:
 
     void addObserver(Observer&);
     void removeObserver(Observer&);
+#if !ASSERT_DISABLED
+    bool hasObserver(Observer&) const;
+#endif
 
     const RealtimeMediaSourceSettings& settings() const;
     const RealtimeMediaSourceCapabilities& capabilities() const;
@@ -161,6 +169,14 @@ private:
 };
 
 typedef Vector<RefPtr<MediaStreamTrackPrivate>> MediaStreamTrackPrivateVector;
+
+#if !ASSERT_DISABLED
+inline bool MediaStreamTrackPrivate::hasObserver(Observer& observer) const
+{
+    auto locker = holdLock(m_observersLock);
+    return m_observers.contains(&observer);
+}
+#endif
 
 } // namespace WebCore
 

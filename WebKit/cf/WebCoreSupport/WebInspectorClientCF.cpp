@@ -96,7 +96,7 @@ static void deleteSetting(const String& key)
 
 void WebInspectorClient::sendMessageToFrontend(const String& message)
 {
-    doDispatchMessageOnFrontendPage(m_frontendPage, message);
+    m_frontendClient->dispatchMessageAsync(message);
 }
 
 bool WebInspectorClient::inspectorAttachDisabled()
@@ -159,5 +159,5 @@ std::unique_ptr<WebCore::InspectorFrontendClientLocal::Settings> WebInspectorCli
             deleteSetting(name);
         }
     };
-    return std::make_unique<InspectorFrontendSettingsCF>();
+    return makeUnique<InspectorFrontendSettingsCF>();
 }

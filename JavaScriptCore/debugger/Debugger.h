@@ -34,16 +34,15 @@
 
 namespace JSC {
 
+class CallFrame;
 class CodeBlock;
 class Exception;
-class ExecState;
 class JSGlobalObject;
 class SourceProvider;
 class VM;
 
-typedef ExecState CallFrame;
-
 class JS_EXPORT_PRIVATE Debugger {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     Debugger(VM&);
     virtual ~Debugger();
@@ -99,6 +98,7 @@ public:
         PausedAtEndOfProgram,
         PausedForBreakpoint,
         PausedForDebuggerStatement,
+        PausedAfterBlackboxedScript,
     };
     ReasonForPause reasonForPause() const { return m_reasonForPause; }
     BreakpointID pausingBreakpointID() const { return m_pausingBreakpointID; }
@@ -110,9 +110,9 @@ public:
     void stepOverStatement();
     void stepOutOfFunction();
 
-    bool isBlacklisted(SourceID) const;
-    void addToBlacklist(SourceID);
-    void clearBlacklist();
+    enum class BlackboxType { Deferred, Ignored };
+    void setBlackboxType(SourceID, Optional<BlackboxType>);
+    void clearBlackbox();
 
     bool isPaused() const { return m_isPaused; }
     bool isStepping() const { return m_steppingMode == SteppingModeEnabled; }
@@ -120,9 +120,11 @@ public:
     bool suppressAllPauses() const { return m_suppressAllPauses; }
     void setSuppressAllPauses(bool suppress) { m_suppressAllPauses = suppress; }
 
-    virtual void sourceParsed(ExecState*, SourceProvider*, int errorLineNumber, const WTF::String& errorMessage) = 0;
+    virtual void sourceParsed(JSGlobalObject*, SourceProvider*, int errorLineNumber, const WTF::String& errorMessage) = 0;
+    virtual void willRunMicrotask() { }
+    virtual void didRunMicrotask() { }
 
-    void exception(CallFrame*, JSValue exceptionValue, bool hasCatchHandler);
+    void exception(JSGlobalObject*, CallFrame*, JSValue exceptionValue, bool hasCatchHandler);
     void atStatement(CallFrame*);
     void atExpression(CallFrame*);
     void callEvent(CallFrame*);
@@ -152,7 +154,7 @@ public:
 
 protected:
     virtual void handleBreakpointHit(JSGlobalObject*, const Breakpoint&) { }
-    virtual void handleExceptionInBreakpointCondition(ExecState*, Exception*) const { }
+    virtual void handleExceptionInBreakpointCondition(JSGlobalObject*, Exception*) const { }
     virtual void handlePause(JSGlobalObject*, ReasonForPause) { }
     virtual void notifyDoneProcessingDebuggerEvents() { }
 
@@ -195,9 +197,9 @@ private:
     // bytecode PC key'ed breakpoint, we will not need these anymore and should
     // be able to remove them.
     enum CallFrameUpdateAction { AttemptPause, NoPause };
-    void updateCallFrame(JSC::CallFrame*, CallFrameUpdateAction);
+    void updateCallFrame(JSC::JSGlobalObject*, JSC::CallFrame*, CallFrameUpdateAction);
     void updateCallFrameInternal(JSC::CallFrame*);
-    void pauseIfNeeded(JSC::CallFrame*);
+    void pauseIfNeeded(JSC::JSGlobalObject*);
     void clearNextPauseState();
 
     enum SteppingMode {
@@ -221,7 +223,7 @@ private:
     VM& m_vm;
     HashSet<JSGlobalObject*> m_globalObjects;
     HashMap<SourceID, DebuggerParseData, WTF::IntHash<SourceID>, WTF::UnsignedWithZeroKeyHashTraits<SourceID>> m_parseDataMap;
-    HashSet<SourceID, WTF::IntHash<SourceID>, WTF::UnsignedWithZeroKeyHashTraits<SourceID>> m_blacklistedScripts;
+    HashMap<SourceID, BlackboxType, WTF::IntHash<SourceID>, WTF::UnsignedWithZeroKeyHashTraits<SourceID>> m_blackboxedScripts;
 
     PauseOnExceptionsState m_pauseOnExceptionsState;
     bool m_pauseAtNextOpportunity : 1;
@@ -239,6 +241,7 @@ private:
     CallFrame* m_currentCallFrame { nullptr };
     unsigned m_lastExecutedLine;
     SourceID m_lastExecutedSourceID;
+    bool m_afterBlackboxedScript { false };
 
     BreakpointID m_topBreakpointID;
     BreakpointID m_pausingBreakpointID;

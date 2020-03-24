@@ -84,22 +84,40 @@ exit:
     return iErr;
 }
 
+static void FATMOD_CopyFATCacheToAlter(FileSystemRecord_s *psFSRecord)
+{
+    for ( uint8_t FATCacheCounter = 0; FATCacheCounter < FAT_CACHE_SIZE; FATCacheCounter++ )
+    {
+        psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter].bIsDirty = psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter].bIsDirty;
+        if (psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter].bIsDirty) {
+            memcpy(psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter].pvFatEntryCache, psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter].pvFatEntryCache, FAT_BLOCK_SIZE);
+            psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter].uFatCacheEntryOffset = psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter].uFatCacheEntryOffset;
+            
+            psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter].bIsDirty = false;
+        } else {
+            psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter].uFatCacheEntryOffset = INVALID_CACHE_OFFSET(psFSRecord);
+        }
+    }
+}
+
 int
 FATMOD_FlushAllCacheEntries(FileSystemRecord_s *psFSRecord)
 {
     int iErr = 0;
 
+    pthread_mutex_lock(&psFSRecord->sFATCache.sAlterFatMutex);
     FAT_ACCESS_LOCK(psFSRecord);
-
+    FATMOD_CopyFATCacheToAlter(psFSRecord);
+    FAT_ACCESS_FREE(psFSRecord);
+    
     // Flush all dirty entries that are in the cache
     for ( uint8_t FATCacheCounter = 0; FATCacheCounter < FAT_CACHE_SIZE; FATCacheCounter++ )
     {
         // Even if failed in writing one of the cache parts, continue try to flush all the rest in order to save as much as possible
-        iErr |= FAT_Access_M_FlushCacheEntry( psFSRecord, &psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter] );
+        iErr |= FAT_Access_M_FlushCacheEntry( psFSRecord, &psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter] );
     }
 
-    FAT_ACCESS_FREE(psFSRecord);
-
+    pthread_mutex_unlock(&psFSRecord->sFATCache.sAlterFatMutex);
     return iErr;
 }
 
@@ -174,7 +192,7 @@ FAT_Access_M_FindFirstFreeClusterFromGivenCluster( FileSystemRecord_s *psFSRecor
     }
     
     psFSRecord->sFSInfo.uFirstFreeCluster = uCluster;
-    MSDOS_LOG(LEVEL_DEBUG, "First free cluster: %d\n", psFSRecord->sFSInfo.uFirstFreeCluster);
+//    MSDOS_LOG(LEVEL_DEBUG, "First free cluster: %d\n", psFSRecord->sFSInfo.uFirstFreeCluster);
 
 exit:
     FAT_ACCESS_FREE(psFSRecord);
@@ -658,11 +676,26 @@ FAT_Access_M_FATInit(FileSystemRecord_s *psFSRecord)
     // Set attr to mutex_recursive.. as the lock can be call on the same thread recursively.
     pthread_mutexattr_settype( &sAttr, PTHREAD_MUTEX_RECURSIVE );
     pthread_mutex_init( &psFATCache->sFatMutex, &sAttr );
+    pthread_mutex_init( &psFATCache->sAlterFatMutex, &sAttr );
+    
     pthread_mutexattr_destroy( &sAttr );
     
     for ( uint8_t uIdx = 0; uIdx < FAT_CACHE_SIZE; uIdx++ )
     {
         FatCacheEntry_s* psCacheEntry = &psFATCache->psFATCacheEntries[uIdx];
+
+        psCacheEntry->pvFatEntryCache       = NULL;
+        psCacheEntry->uLRUCounter           = 0;
+        psCacheEntry->uFatCacheEntryOffset  = INVALID_CACHE_OFFSET(psFSRecord);
+        psCacheEntry->bIsDirty              = false;
+        psCacheEntry->pvFatEntryCache       = malloc(FAT_BLOCK_SIZE);
+        if ( psCacheEntry->pvFatEntryCache == NULL )
+        {
+            iErr = ENOMEM;
+            goto exit;
+        }
+        
+        psCacheEntry = &psFATCache->psAlterFATCacheEntries[uIdx];
 
         psCacheEntry->pvFatEntryCache       = NULL;
         psCacheEntry->uLRUCounter           = 0;
@@ -701,108 +734,172 @@ FAT_Access_M_FATFini(FileSystemRecord_s *psFSRecord)
         psCacheEntry->pvFatEntryCache       = NULL;
         psCacheEntry->uLRUCounter           = 0;
         psCacheEntry->uFatCacheEntryOffset  = INVALID_CACHE_OFFSET(psFSRecord);
+        
+        psCacheEntry = &psFATCache->psAlterFATCacheEntries[uIdx];
+        if (psCacheEntry->pvFatEntryCache) free(psCacheEntry->pvFatEntryCache);
+        psCacheEntry->pvFatEntryCache       = NULL;
+        psCacheEntry->uLRUCounter           = 0;
+        psCacheEntry->uFatCacheEntryOffset  = INVALID_CACHE_OFFSET(psFSRecord);
     }
     
-    //Destory FAT mutex
+    //Destroy FAT mutex
     pthread_mutex_destroy( &psFATCache->sFatMutex );
+    pthread_mutex_destroy( &psFATCache->sAlterFatMutex );
 }
 
 /*
  * Allocate contiguous free clusters.
- *
  * 
  * uStart                 - preferred start of cluster chain.
  * uCount                 - number of clusters requested.
- * uFillwith              - put this value into the fat entry for the
- *		            last allocated cluster.
+ * uFillWith              - put this value into the fat entry for the
+ *		                    last allocated cluster.
  * puRetCluster           - put the first allocated cluster's number here.
  * puNumAllocatedClusters - how many clusters were actually allocated.
+ * bMustBeConting         - the allocated range should be contiguous (if
+ *                          we can extend the current EOF, we will,
+ *                          and the rest will be allocated contiguous)
  */
 static errno_t
-FAT_Access_M_ContClusterAllocate(FileSystemRecord_s *psFSRecord, uint32_t uStart, uint32_t uCount, uint32_t uFillwith, uint32_t* puRetCluster, uint32_t* puNumAllocatedClusters)
+FAT_Access_M_ContClusterAllocate(FileSystemRecord_s *psFSRecord, uint32_t uStart, uint32_t uCount, uint32_t uFillWith, uint32_t* puFirstAllocatedCluster, uint32_t* puNumAllocatedClusters,
+                                 bool bMustBeConting)
 {
     errno_t error = 0;
-    uint32_t len;	/* The number of free clusters at "start" */
-    uint32_t cn;	/* A cluster number (loop index) */
-    uint32_t uFreeClusterLen;		/* The number of contiguous free clusters at "cn" */
+    uint32_t uClusterNum;	/* A cluster number (loop index) */
+    uint32_t uFreeClusterLen = 0;		/* The number of contiguous free clusters at "cn" */
     uint32_t uLargestContiguousLenFound;	/* The largest contiguous run of free clusters found so far */
     uint32_t uFirstClusterForLargestContiguous;	/* The starting cluster of largest run found */
+    uint32_t uClustersAllocated =0;
+    uint32_t uFirstAllocated =0;
+    uint32_t uNewEOF = 0;
     
-    MSDOS_LOG(LEVEL_DEBUG, "FAT_Access_M_ClusterAllocate: requested uStart %d uCount %d\n",uStart,uCount);
+    *puNumAllocatedClusters = 0;
+    *puFirstAllocatedCluster = 0;
+    
+    MSDOS_LOG(LEVEL_DEBUG, "FAT_Access_M_ContClusterAllocate: requested uStart %d uCount %d, bMustBeConting %d\n", uStart, uCount, bMustBeConting);
     
     if (uStart) 
     {
-        len = FAT_Access_M_FreeChainLength(psFSRecord, uStart, uCount, &error);
+        /* Try to allocate from the EOF */
+        uint32_t uLen = FAT_Access_M_FreeChainLength(psFSRecord, uStart + 1, uCount, &error);
         if (error)
             goto done;
         
-        if (len >= uCount)
-        {
-            error |= FAT_Access_M_FATChainAlloc(psFSRecord, uStart, uCount, uFillwith, puRetCluster, puNumAllocatedClusters);
-            goto done;
+        if (uLen != 0 ) {
+            /* Use the min between what we found and what we need. */
+            uLen = MIN(uLen, uCount);
+            error = FAT_Access_M_FATChainAlloc(psFSRecord, uStart + 1, uLen, uFillWith, &uFirstAllocated, &uClustersAllocated);
+            if (error)
+                goto done;
+            
+            *puFirstAllocatedCluster = uFirstAllocated;
+            *puNumAllocatedClusters += uClustersAllocated;
+            uNewEOF = uFirstAllocated + uClustersAllocated - 1;
+            /* Update the allocated space */
+            uCount -= uLen;
+            
+            /* if we done allocating, go out */
+            if (uCount == 0)
+                goto done;
         }
     }
     else 
     {
         /* No specific starting point requested, so use the first free cluster */
         uStart = psFSRecord->sFSInfo.uFirstFreeCluster; 
-        len = 0;
     }
 
     uLargestContiguousLenFound = 0;
     uFirstClusterForLargestContiguous = 0;
     
-    // Scan through the FAT for contiguous free clusters.
-    for (cn = uStart; cn <= psFSRecord->sFSInfo.uMaxCluster; cn += uFreeClusterLen+1)
+    /* Scan through the FAT for contiguous free clusters. */
+    for (uClusterNum = uStart; uClusterNum <= psFSRecord->sFSInfo.uMaxCluster; uClusterNum += uFreeClusterLen+1)
     {
-        uFreeClusterLen = FAT_Access_M_FreeChainLength(psFSRecord, cn, uCount, &error);
+        uFreeClusterLen = FAT_Access_M_FreeChainLength(psFSRecord, uClusterNum, uCount, &error);
         if (error)
             goto done;
         
-        if (uFreeClusterLen >= uCount)
+        if (uFreeClusterLen == 0) continue;
+        
+        /*
+         * If we found enough clusters, or if we don't have to allocate the whole range contiguously
+         * we can stop the allocation here
+         */
+        if (uFreeClusterLen >= uCount || !bMustBeConting)
         {
-            /* We found enough free space, so look here next time. */
-            error = FAT_Access_M_FindFirstFreeClusterFromGivenCluster(psFSRecord,cn + uCount);
+            /* Use the min between what we found and what we need. */
+            uFreeClusterLen = MIN(uCount, uFreeClusterLen);
+            
+            /* Set next free cluster for next time */
+            error = FAT_Access_M_FindFirstFreeClusterFromGivenCluster(psFSRecord, uClusterNum + uFreeClusterLen);
             if (error)
             {
                 goto done;
             }
             
-            error = FAT_Access_M_FATChainAlloc(psFSRecord, cn, uCount, uFillwith, puRetCluster, puNumAllocatedClusters);
+            error = FAT_Access_M_FATChainAlloc(psFSRecord, uClusterNum, uFreeClusterLen, uFillWith, &uFirstAllocated, &uClustersAllocated);
+            if (!error) {
+                *puNumAllocatedClusters += uClustersAllocated;
+
+                if (*puFirstAllocatedCluster == 0)
+                    *puFirstAllocatedCluster = uFirstAllocated;
+                /* Check if we need to update the new EOF */
+                if (uNewEOF != 0) {
+                    FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uNewEOF, uFirstAllocated);
+                }
+            }
+            
             goto done;
         }
         
         /* Keep track of longest free extent found */
         if (uFreeClusterLen > uLargestContiguousLenFound)
         {
-            uFirstClusterForLargestContiguous = cn;
+            uFirstClusterForLargestContiguous = uClusterNum;
             uLargestContiguousLenFound = uFreeClusterLen;
         }
     }
 
-    for (cn = CLUST_FIRST; cn < uStart; cn += uFreeClusterLen+1)
+    /* We ended the loop, Let's start over */
+    for (uClusterNum = CLUST_FIRST; uClusterNum < uStart; uClusterNum += uFreeClusterLen+1)
     {
-        uFreeClusterLen = FAT_Access_M_FreeChainLength(psFSRecord, cn, uCount, &error);
+        uFreeClusterLen = FAT_Access_M_FreeChainLength(psFSRecord, uClusterNum, uCount, &error);
         if (error)
             goto done;
         
-        if (uFreeClusterLen >= uCount)
+        if (uFreeClusterLen == 0) continue;
+        
+        if (uFreeClusterLen >= uCount || !bMustBeConting)
         {
-            /* We found enough free space, so look here next time. */
-            error = FAT_Access_M_FindFirstFreeClusterFromGivenCluster(psFSRecord,cn + uCount);
+            /* Use the min between what we found and what we need. */
+            uFreeClusterLen = MIN(uCount, uFreeClusterLen);
+            
+            /* Set next free cluster for next time */
+            error = FAT_Access_M_FindFirstFreeClusterFromGivenCluster(psFSRecord,uClusterNum + uFreeClusterLen);
             if (error)
             {
                 goto done;
             }
             
-            error = FAT_Access_M_FATChainAlloc(psFSRecord, cn, uCount, uFillwith, puRetCluster, puNumAllocatedClusters);
+            error = FAT_Access_M_FATChainAlloc(psFSRecord, uClusterNum, uFreeClusterLen, uFillWith, &uFirstAllocated, &uClustersAllocated);
+            if (!error) {
+                if (*puFirstAllocatedCluster == 0)
+                    *puFirstAllocatedCluster = uFirstAllocated;
+                *puNumAllocatedClusters += uClustersAllocated;
+
+                /* Check if we need to update the new EOF */
+                if (uNewEOF != 0) {
+                    FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uNewEOF, uFirstAllocated);
+                }
+            }
+            
             goto done;
         }
         
         /* Keep track of longest free extent found */
         if (uFreeClusterLen > uLargestContiguousLenFound)
         {
-            uFirstClusterForLargestContiguous = cn;
+            uFirstClusterForLargestContiguous = uClusterNum;
             uLargestContiguousLenFound = uFreeClusterLen;
         }
     }
@@ -818,23 +915,22 @@ FAT_Access_M_ContClusterAllocate(FileSystemRecord_s *psFSRecord, uint32_t uStart
     }
 
     /*
-     * There was no single contiguous chain long enough.  If the caller passed
-     * a specific starting cluster, and there were free clusters there, then
-     * return that chain (under the assumption they're at least contiguous
-     * with the previous bit of the file -- which might result in fewer
-     * total extents).
-     *
-     * Otherwise, just return the largest free chain we found.
+     * Just allocate the largest free chain we found.
      */
-    if (len)
-    {
-        /* Don't update psFSRecord->sFSInfo.uFirstFreeCluster since we didn't allocate from there. */
-        error = FAT_Access_M_FATChainAlloc(psFSRecord, uStart, len, uFillwith, puRetCluster, puNumAllocatedClusters);
-    }
-    else
+    if (uLargestContiguousLenFound)
     {
         psFSRecord->sFSInfo.uFirstFreeCluster = uFirstClusterForLargestContiguous + uLargestContiguousLenFound;
-        error = FAT_Access_M_FATChainAlloc(psFSRecord, uFirstClusterForLargestContiguous, uLargestContiguousLenFound, uFillwith, puRetCluster, puNumAllocatedClusters);
+        error = FAT_Access_M_FATChainAlloc(psFSRecord, uFirstClusterForLargestContiguous, uLargestContiguousLenFound, uFillWith, &uFirstAllocated, &uClustersAllocated);
+        if (!error) {
+            if (*puFirstAllocatedCluster == 0)
+                *puFirstAllocatedCluster = uFirstAllocated;
+            *puNumAllocatedClusters += uClustersAllocated;
+            
+            /* Check if we need to update the new EOF */
+            if (uNewEOF != 0) {
+                FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uNewEOF, uFirstAllocated);
+            }
+        }
     }
 
 done:
@@ -916,7 +1012,7 @@ exit:
      return 0 if succeed, else return the appropiate error#.
  */
 int
-FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustToAlloc, uint32_t uFirstCluster, uint32_t* puFirstAllocatedCluster, uint32_t* puLastAllocatedCluster, uint32_t* puAmountOfAllocatedClusters, bool bPartialAllocationAllowed, bool bFillWithZeros )
+FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustToAlloc, uint32_t uLastKnownCluster, uint32_t* puFirstAllocatedCluster, uint32_t* puLastAllocatedCluster, uint32_t* puAmountOfAllocatedClusters, bool bPartialAllocationAllowed, bool bFillWithZeros, NewAllocatedClusterInfo_s** ppsNewAllocatedClusterInfoToReturn , bool bMustBeContiguousAllocation)
 {
     int iErr                                = 0;
     uint32_t uNumOfNewAllocatedClusters     = 0;
@@ -924,13 +1020,15 @@ FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustTo
     uint32_t uFirstNewCluster               = 0;
     uint32_t uLastAllocatedCluster          = 0;
     uint32_t uCounter                       = 0;
-    uint32_t uStartCluster                  = uFirstCluster;
+    uint32_t uStartCluster                  = uLastKnownCluster;
 
     FAT_ACCESS_LOCK(psFSRecord);
+    NewAllocatedClusterInfo_s* psNewAllocatedClusterInfo = NULL;
+    bool bShouldStopAllocation = false;
     
 	do
     {
-        iErr = FAT_Access_M_ContClusterAllocate( psFSRecord, uStartCluster, uClustToAlloc, FAT_EOF(psFSRecord), &uFirstNewCluster, &uSucNum );
+        iErr = FAT_Access_M_ContClusterAllocate( psFSRecord, uStartCluster, uClustToAlloc, FAT_EOF(psFSRecord), &uFirstNewCluster, &uSucNum, bMustBeContiguousAllocation);
         
         if ( iErr != 0 )
         {
@@ -943,15 +1041,31 @@ FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustTo
                 }
                 else
                 {
-                    FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
-
-                    if ( uFirstCluster != 0 )
-                    {
-                        FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uFirstCluster, FAT_EOF(psFSRecord));
-                    }
+                    goto fail;
                 }
             }
             goto exit;
+        }
+        
+        // if we have to contiguous allocate the clusters,
+        // but we didn't allocate all of the clusters at once
+        // we need to fail
+        // if bPartialAllocationAllowed - ENOSPC, else leave it as is
+        // and return what me mannaged to allocated contiguously
+        if (bMustBeContiguousAllocation && uSucNum < uClustToAlloc) {
+            if (!bPartialAllocationAllowed) {
+                iErr = ENOSPC;
+                
+                // Need to free what we already allocated
+                FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
+                if ( uLastKnownCluster != 0 )
+                {
+                    FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uLastKnownCluster, FAT_EOF(psFSRecord));
+                }
+                goto exit;
+            } else {
+                bShouldStopAllocation = true;
+            }
         }
         
         if ( uCounter == 0 )
@@ -963,33 +1077,93 @@ FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustTo
         {
             FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uStartCluster, uFirstNewCluster);
         }
-        
+
+        if (ppsNewAllocatedClusterInfoToReturn != NULL)
+        {
+            if (psNewAllocatedClusterInfo == NULL)
+            {
+                psNewAllocatedClusterInfo = (NewAllocatedClusterInfo_s*) malloc(sizeof(NewAllocatedClusterInfo_s));
+                if (psNewAllocatedClusterInfo == NULL)
+                {
+                    iErr = ENOMEM;
+                    goto fail;
+                }
+                
+                *ppsNewAllocatedClusterInfoToReturn = psNewAllocatedClusterInfo;
+            } else {
+                psNewAllocatedClusterInfo->psNext = (NewAllocatedClusterInfo_s*) malloc(sizeof(NewAllocatedClusterInfo_s));
+                if (psNewAllocatedClusterInfo->psNext == NULL)
+                {
+                    iErr = ENOMEM;
+                    goto fail;
+                }
+                psNewAllocatedClusterInfo = psNewAllocatedClusterInfo->psNext;
+            }
+            
+            psNewAllocatedClusterInfo->uNewAlloctedStartCluster = uFirstNewCluster;
+            psNewAllocatedClusterInfo->uAmountOfConsecutiveClusters = uSucNum;
+            psNewAllocatedClusterInfo->psNext = NULL;
+        }
+
         uClustToAlloc               -= uSucNum;
         uNumOfNewAllocatedClusters  += uSucNum;
         uLastAllocatedCluster       = uFirstNewCluster + uSucNum - 1;
 
         if ( bFillWithZeros )
         {
-            iErr = ZeroFill_Fill( psFSRecord->iFD, DIROPS_VolumeOffsetForCluster( psFSRecord,uFirstNewCluster ), ( CLUSTER_SIZE(psFSRecord) * uSucNum ) );
-            if ( iErr != 0 )
+            uint32_t uNumOfClustersToZeroFill = uSucNum;
+            uint32_t uStartClusterToZeroFill = uFirstNewCluster;
+            uint32_t NextCluster;
+            while( uNumOfClustersToZeroFill > 0 && CLUSTER_IS_VALID(uStartClusterToZeroFill, psFSRecord))
             {
-                MSDOS_LOG( LEVEL_ERROR, "FAT_Access_M_AllocateClusters: Failed to write zero buffer into the device\n");
-                FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
-                if ( uFirstCluster != 0 )
+                uint32_t uChainLen = FAT_Access_M_ContiguousClustersInChain(psFSRecord, uStartClusterToZeroFill, &NextCluster, &iErr);
+                if ( iErr != 0 )
                 {
-                    FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uFirstCluster, FAT_EOF(psFSRecord));
+                    MSDOS_LOG( LEVEL_ERROR, "FAT_Access_M_AllocateClusters: Failed to write zero buffer into the device\n");
+                    FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
+                    if ( uLastKnownCluster != 0 )
+                    {
+                        FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uLastKnownCluster, FAT_EOF(psFSRecord));
+                    }
+                    goto exit;
                 }
-                goto exit;
+
+                if (uChainLen == 0) break;
+                
+                iErr = ZeroFill_Fill( psFSRecord->iFD, DIROPS_VolumeOffsetForCluster( psFSRecord, uStartClusterToZeroFill ), ( CLUSTER_SIZE(psFSRecord) * uChainLen ) );
+                if ( iErr != 0 )
+                {
+                    MSDOS_LOG( LEVEL_ERROR, "FAT_Access_M_AllocateClusters: Failed to write zero buffer into the device\n");
+                    FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
+                    if ( uLastKnownCluster != 0 )
+                    {
+                        FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uLastKnownCluster, FAT_EOF(psFSRecord));
+                    }
+                    goto exit;
+                }
+
+                uStartClusterToZeroFill = NextCluster;
+                uNumOfClustersToZeroFill -= uChainLen;
             }
         }
         
         uStartCluster = uLastAllocatedCluster;
         ++uCounter;
         
-    } while ( uClustToAlloc > 0);
+    } while ( uClustToAlloc > 0 && !bShouldStopAllocation);
     
     *puLastAllocatedCluster = uLastAllocatedCluster;
     *puAmountOfAllocatedClusters = uNumOfNewAllocatedClusters;
+    
+    goto exit;
+    
+fail:
+    FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
+
+    if ( uLastKnownCluster != 0 )
+    {
+        FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uLastKnownCluster, FAT_EOF(psFSRecord));
+    }
     
 exit:
     FAT_ACCESS_FREE(psFSRecord);
@@ -1128,10 +1302,6 @@ FATMOD_SetDriveDirtyBit( FileSystemRecord_s *psFSRecord, bool bBitToDirty )
 
                 psFATCache->bDriveDirtyBit = bBitToDirty;
             }
-        }
-        else
-        {
-            MSDOS_LOG( LEVEL_DEBUG, "FATMOD_SetDriveDirtyBit: No need to change the bit\n");
         }
     }
 

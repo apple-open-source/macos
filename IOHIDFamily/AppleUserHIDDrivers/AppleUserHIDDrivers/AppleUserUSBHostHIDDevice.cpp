@@ -18,6 +18,8 @@
 #undef  super
 #define super IOUserUSBHostHIDDevice
 
+#define kNativeInstrumentsVID 0x17CC
+
 enum {
     kAppleUserUSBHostHIDDeviceDisable           = 0x1,
     kAppleUserUSBHostHIDDeviceOverrideTopCase   = 0x2
@@ -84,6 +86,15 @@ IMPL(AppleUserUSBHostHIDDevice, Start)
                 break;
             }
         } while (false);
+        
+        // Native Instruments, unsupported by DEXT due to issue <rdar://problem/56282544>
+        {
+            uint64_t vid = OSDictionaryGetUInt64Value(properties, kIOHIDVendorIDKey);
+            if (vid == kNativeInstrumentsVID) {
+                HIDServiceLog("Prevented Native Instruments Device from matching");
+                ret = kIOReturnUnsupported;
+            }
+        }
     }
     require_noerr(ret, exit);
 

@@ -11,6 +11,8 @@
 #include "lf_hfs_vfsutils.h"
 #include "lf_hfs_generic_buf.h"
 #include "lf_hfs_fileops_handler.h"
+#include "lf_hfs_xattr.h"
+#include <System/sys/decmpfs.h>
 
 int VTtoUVFS_tab[16] =
 {
@@ -166,8 +168,72 @@ void vnode_GetAttrInternal (vnode_t vp, UVFSFileAttributes *psOutAttr )
     }
     else
     {
-        psOutAttr->fa_allocsize = VCTOF(vp, cp)->ff_blocks * VTOHFS(vp)->blockSize;
-        psOutAttr->fa_size      = VCTOF(vp, cp)->ff_size;
+        if (psOutAttr->fa_bsd_flags & UF_COMPRESSED)
+        {
+            if (VNODE_IS_RSRC(vp))
+            {
+                psOutAttr->fa_allocsize = VTOF(vp)->ff_blocks * VTOHFS(vp)->blockSize;
+                psOutAttr->fa_size      = VTOF(vp)->ff_size;
+            }
+            else
+            {
+                hfs_unlock(VTOC(vp));
+                void* data = NULL;
+                size_t attr_size;
+                int iErr = hfs_vnop_getxattr(vp, "com.apple.decmpfs", NULL, 0, &attr_size);
+                if (iErr != 0) {
+                    goto fail;
+                }
+                
+                if (attr_size < sizeof(decmpfs_disk_header) || attr_size > MAX_DECMPFS_XATTR_SIZE) {
+                    iErr = EINVAL;
+                    goto fail;
+                }
+                /* allocation includes space for the extra attr_size field of a compressed_header */
+                data = (char *) malloc(attr_size);
+                if (!data) {
+                    iErr = ENOMEM;
+                    goto fail;
+                }
+                
+                /* read the xattr into our buffer, skipping over the attr_size field at the beginning */
+                size_t read_size;
+                iErr =  hfs_vnop_getxattr(vp, "com.apple.decmpfs", data, attr_size, &read_size);
+                if (iErr != 0) {
+                    goto fail;
+                }
+                if (read_size != attr_size) {
+                    iErr = EINVAL;
+                    goto fail;
+                }
+                
+                decmpfs_header Hdr;
+                Hdr.attr_size = (uint32_t) attr_size;
+                Hdr.compression_magic = *((uint32_t*)data);
+                Hdr.compression_type  = *((uint32_t*)(data + sizeof(uint32_t)));
+                Hdr.uncompressed_size = *((uint32_t*)(data + sizeof(uint64_t)));
+
+fail:
+                if (iErr)
+                {
+                    psOutAttr->fa_allocsize = VCTOF(vp, cp)->ff_blocks * VTOHFS(vp)->blockSize;
+                    psOutAttr->fa_size      = VCTOF(vp, cp)->ff_size;
+                }
+                else
+                {
+                    psOutAttr->fa_allocsize = ROUND_UP(Hdr.uncompressed_size,VTOHFS(vp)->blockSize);
+                    psOutAttr->fa_size = Hdr.uncompressed_size;
+                }
+                
+                if (data) free(data);
+                hfs_lock(VTOC(vp), 0, 0);
+            }
+        }
+        else
+        {
+            psOutAttr->fa_allocsize = VCTOF(vp, cp)->ff_blocks * VTOHFS(vp)->blockSize;
+            psOutAttr->fa_size      = VCTOF(vp, cp)->ff_size;
+        }
         psOutAttr->fa_nlink     = (cp->c_flag & C_HARDLINK)? cp->c_linkcount : 1;
     }
 }

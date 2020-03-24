@@ -42,7 +42,9 @@ typedef struct __attribute__((__packed__)) {
     uint32_t        length     : 10;
     uint32_t        packetType : 3;
     uint32_t        hasTS      : 1;
-    uint32_t        reserved1  : 11;
+    uint32_t        isResponse : 1;
+    uint32_t        isError    : 1;
+    uint32_t        reserved1  : 9;
 } HIDDeviceHeader;
 
 check_compile_time (sizeof (HIDDeviceHeader) == 4);

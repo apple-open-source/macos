@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2014-2019 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,7 @@
 namespace JSC {
 
 namespace TypeProfilerInternal {
-static const bool verbose = false;
+static constexpr bool verbose = false;
 }
 
 TypeProfiler::TypeProfiler()
@@ -93,9 +93,7 @@ String TypeProfiler::typeInformationForExpressionAtOffset(TypeProfilerSearchDesc
         json.appendLiteral("null");
     json.append(',');
 
-    json.appendLiteral("\"instructionTypeSet\":");
-    json.append(location->m_instructionTypeSet->toJSONString());
-    json.append(',');
+    json.append("\"instructionTypeSet\":", location->m_instructionTypeSet->toJSONString(), ',');
 
     json.appendLiteral("\"isOverflown\":");
     if (location->m_instructionTypeSet->isOverflown() || (location->m_globalTypeSet && location->m_globalTypeSet->isOverflown()))
@@ -104,7 +102,7 @@ String TypeProfiler::typeInformationForExpressionAtOffset(TypeProfilerSearchDesc
         json.appendLiteral("false");
 
     json.append('}');
-    
+
     return json.toString();
 }
 

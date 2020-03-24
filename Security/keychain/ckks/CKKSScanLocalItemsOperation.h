@@ -33,6 +33,8 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSEgoManifest;
 
 @interface CKKSScanLocalItemsOperation : CKKSResultOperation
+@property CKOperationGroup* ckoperationGroup;
+
 @property (weak) CKKSKeychainView* ckks;
 
 @property size_t recordsFound;

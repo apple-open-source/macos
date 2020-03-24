@@ -35,6 +35,7 @@
 @property NSString* splunkTopicName;
 @property NSURL* splunkBagURL;
 @property NSString *internalTopicName;
+@property NSUInteger uploadSizeLimit;
 
 @property NSArray<SFAnalyticsClient*>* topicClients;
 
@@ -42,6 +43,9 @@
 // Things below are for unit testing
 - (instancetype)initWithDictionary:(NSDictionary *)dictionary name:(NSString *)topicName samplingRates:(NSDictionary *)rates;
 - (BOOL)haveEligibleClients;
+- (NSArray<NSDictionary *> *)createChunkedLoggingJSON:(NSArray<NSDictionary *> *)healthSummaries failures:(NSArray<NSDictionary *> *)failures error:(NSError **)error;
+- (NSArray<NSArray *> *)chunkFailureSet:(size_t)sizeCapacity events:(NSArray<NSDictionary *> *)events error:(NSError **)error;
+- (size_t)serializedEventSize:(NSObject *)event error:(NSError**)error;
 + (NSString*)databasePathForCKKS;
 + (NSString*)databasePathForSOS;
 + (NSString*)databasePathForPCS;

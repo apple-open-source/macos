@@ -174,6 +174,10 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
         let canvas = objects.find((object) => object instanceof WI.Canvas);
         if (canvas) {
             this.canvas = canvas;
+            let treeElement = this._canvasTreeOutline.findTreeElement(canvas);
+            const omitFocus = false;
+            const selectedByUser = false;
+            treeElement.revealAndSelect(omitFocus, selectedByUser);
             return;
         }
 
@@ -233,10 +237,8 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
 
     canShowRepresentedObject(representedObject)
     {
-        if (representedObject instanceof WI.CanvasCollection)
-            return false;
-
-        return super.canShowRepresentedObject(representedObject);
+        return representedObject instanceof WI.Canvas
+            || representedObject instanceof WI.Recording;
     }
 
     // Protected
@@ -318,7 +320,7 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
 
     _handleImportButtonNavigationItemClicked(event)
     {
-        WI.FileUtilities.importJSON((result) => WI.canvasManager.processJSON(result));
+        WI.FileUtilities.importJSON((result) => WI.canvasManager.processJSON(result), {multiple: true});
     }
 
     _treeSelectionDidChange(event)
@@ -494,6 +496,7 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
 
         let hasRecordings = this._recording || (this._canvas && this._canvas.recordingCollection.size);
         this.element.classList.toggle("has-recordings", hasRecordings);
+        this.element.classList.toggle("showing-recording", !!this._recording);
         if (!hasRecordings)
             return;
 

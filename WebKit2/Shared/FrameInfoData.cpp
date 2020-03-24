@@ -38,21 +38,34 @@ void FrameInfoData::encode(IPC::Encoder& encoder) const
     encoder << frameID;
 }
 
-bool FrameInfoData::decode(IPC::Decoder& decoder, FrameInfoData& result)
+Optional<FrameInfoData> FrameInfoData::decode(IPC::Decoder& decoder)
 {
-    if (!decoder.decode(result.isMainFrame))
-        return false;
-    if (!decoder.decode(result.request))
-        return false;
+    Optional<bool> isMainFrame;
+    decoder >> isMainFrame;
+    if (!isMainFrame)
+        return WTF::nullopt;
+
+    Optional<WebCore::ResourceRequest> request;
+    decoder >> request;
+    if (!request)
+        return WTF::nullopt;
+
     Optional<WebCore::SecurityOriginData> securityOrigin;
     decoder >> securityOrigin;
     if (!securityOrigin)
-        return false;
-    result.securityOrigin = WTFMove(*securityOrigin);
-    if (!decoder.decode(result.frameID))
-        return false;
+        return WTF::nullopt;
 
-    return true;
+    Optional<Optional<WebCore::FrameIdentifier>> frameID;
+    decoder >> frameID;
+    if (!frameID)
+        return WTF::nullopt;
+
+    return {{
+        WTFMove(*isMainFrame),
+        WTFMove(*request),
+        WTFMove(*securityOrigin),
+        WTFMove(*frameID)
+    }};
 }
 
 }

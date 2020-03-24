@@ -23,20 +23,25 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.fileExtensionForURL = function(url)
+WI.fileExtensionForFilename = function(filename)
 {
-    let lastPathComponent = parseURL(url).lastPathComponent;
-    if (!lastPathComponent)
+    if (!filename)
         return null;
 
-    let index = lastPathComponent.lastIndexOf(".");
+    let index = filename.lastIndexOf(".");
     if (index === -1)
         return null;
 
-    if (index === lastPathComponent.length - 1)
+    if (index === filename.length - 1)
         return null;
 
-    return lastPathComponent.substr(index + 1);
+    return filename.substr(index + 1);
+};
+
+WI.fileExtensionForURL = function(url)
+{
+    let lastPathComponent = parseURL(url).lastPathComponent;
+    return WI.fileExtensionForFilename(lastPathComponent);
 };
 
 WI.mimeTypeForFileExtension = function(extension)
@@ -170,6 +175,7 @@ WI.fileExtensionForMIMEType = function(mimeType)
         // Document types.
         "text/html": "html",
         "application/xhtml+xml": "xhtml",
+        "application/xml": "xml",
         "text/xml": "xml",
 
         // Script types.
@@ -315,16 +321,20 @@ WI.shouldTreatMIMETypeAsText = function(mimeType)
     if (mimeType.endsWith("+json") || mimeType.endsWith("+xml"))
         return true;
 
-    // Various media text mime types.
     let extension = WI.fileExtensionForMIMEType(mimeType);
-    if (extension === "m3u8" || extension === "m3u")
+    if (extension === "xml")
         return true;
 
     // Various script and JSON mime types.
     if (extension === "js" || extension === "json")
         return true;
+
+    // Various media text mime types.
+    if (extension === "m3u8" || extension === "m3u")
+        return true;
+
     if (mimeType.startsWith("application/"))
-        return mimeType.endsWith("script") || mimeType.endsWith("json");
+        return mimeType.endsWith("script") || mimeType.endsWith("json") || mimeType.endsWith("xml");
 
     return false;
 };

@@ -26,8 +26,10 @@
 #include "config.h"
 #include "StorageNamespaceImpl.h"
 
+#include "NetworkProcessConnection.h"
 #include "StorageAreaImpl.h"
 #include "StorageAreaMap.h"
+#include "StorageManagerSetMessages.h"
 #include "WebPage.h"
 #include "WebPageGroupProxy.h"
 #include "WebProcess.h"
@@ -40,68 +42,98 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<StorageNamespaceImpl> StorageNamespaceImpl::createSessionStorageNamespace(uint64_t identifier, unsigned quotaInBytes)
+static HashMap<StorageNamespaceImpl::Identifier, StorageNamespaceImpl*>& sessionStorageNamespaces()
 {
-    return adoptRef(*new StorageNamespaceImpl(StorageType::Session, identifier, nullptr, quotaInBytes));
+    static NeverDestroyed<HashMap<StorageNamespaceImpl::Identifier, StorageNamespaceImpl*>> map;
+    return map;
 }
 
-Ref<StorageNamespaceImpl> StorageNamespaceImpl::createEphemeralLocalStorageNamespace(uint64_t identifier, unsigned quotaInBytes)
+Ref<StorageNamespaceImpl> StorageNamespaceImpl::createSessionStorageNamespace(Identifier identifier, PageIdentifier pageID, unsigned quotaInBytes)
 {
-    return createLocalStorageNamespace(identifier, quotaInBytes, IsEphemeral::Yes);
+    // The identifier of a session storage namespace is the WebPageProxyIdentifier. It is possible we have several WebPage objects in a single process for the same
+    // WebPageProxyIdentifier and these need to share the same namespace instance so we know where to route the IPC to.
+    if (auto* existingNamespace = sessionStorageNamespaces().get(identifier))
+        return *existingNamespace;
+    return adoptRef(*new StorageNamespaceImpl(StorageType::Session, identifier, pageID, nullptr, quotaInBytes));
 }
 
-Ref<StorageNamespaceImpl> StorageNamespaceImpl::createLocalStorageNamespace(uint64_t identifier, unsigned quotaInBytes, IsEphemeral isEphemeral)
+Ref<StorageNamespaceImpl> StorageNamespaceImpl::createLocalStorageNamespace(Identifier identifier, unsigned quotaInBytes)
 {
-    return adoptRef(*new StorageNamespaceImpl(isEphemeral == IsEphemeral::Yes ? StorageType::EphemeralLocal : StorageType::Local, identifier, nullptr, quotaInBytes));
+    return adoptRef(*new StorageNamespaceImpl(StorageType::Local, identifier, WTF::nullopt, nullptr, quotaInBytes));
 }
 
-Ref<StorageNamespaceImpl> StorageNamespaceImpl::createTransientLocalStorageNamespace(uint64_t identifier, WebCore::SecurityOrigin& topLevelOrigin, uint64_t quotaInBytes)
+Ref<StorageNamespaceImpl> StorageNamespaceImpl::createTransientLocalStorageNamespace(Identifier identifier, WebCore::SecurityOrigin& topLevelOrigin, uint64_t quotaInBytes)
 {
-    return adoptRef(*new StorageNamespaceImpl(StorageType::TransientLocal, identifier, &topLevelOrigin, quotaInBytes));
+    return adoptRef(*new StorageNamespaceImpl(StorageType::TransientLocal, identifier, WTF::nullopt, &topLevelOrigin, quotaInBytes));
 }
 
-StorageNamespaceImpl::StorageNamespaceImpl(WebCore::StorageType storageType, uint64_t storageNamespaceID, WebCore::SecurityOrigin* topLevelOrigin, unsigned quotaInBytes)
+StorageNamespaceImpl::StorageNamespaceImpl(WebCore::StorageType storageType, Identifier storageNamespaceID, const Optional<PageIdentifier>& pageIdentifier, WebCore::SecurityOrigin* topLevelOrigin, unsigned quotaInBytes)
     : m_storageType(storageType)
     , m_storageNamespaceID(storageNamespaceID)
+    , m_sessionPageID(pageIdentifier)
     , m_topLevelOrigin(topLevelOrigin)
     , m_quotaInBytes(quotaInBytes)
 {
+    ASSERT(storageType == StorageType::Session || !m_sessionPageID);
+    
+    if (m_storageType == StorageType::Session) {
+        ASSERT(!sessionStorageNamespaces().contains(m_storageNamespaceID));
+        sessionStorageNamespaces().add(m_storageNamespaceID, this);
+    }
 }
 
 StorageNamespaceImpl::~StorageNamespaceImpl()
 {
+    if (m_storageType == StorageType::Session) {
+        bool wasRemoved = sessionStorageNamespaces().remove(m_storageNamespaceID);
+        ASSERT_UNUSED(wasRemoved, wasRemoved);
+    }
 }
 
-void StorageNamespaceImpl::didDestroyStorageAreaMap(StorageAreaMap& map)
+PAL::SessionID StorageNamespaceImpl::sessionID() const
+{
+    return WebProcess::singleton().sessionID();
+}
+
+void StorageNamespaceImpl::destroyStorageAreaMap(StorageAreaMap& map)
 {
     m_storageAreaMaps.remove(map.securityOrigin().data());
 }
 
-Ref<StorageArea> StorageNamespaceImpl::storageArea(const SecurityOriginData& securityOrigin)
+Ref<StorageArea> StorageNamespaceImpl::storageArea(const SecurityOriginData& securityOriginData)
 {
-    RefPtr<StorageAreaMap> map;
-
-    auto& slot = m_storageAreaMaps.add(securityOrigin, nullptr).iterator->value;
-    if (!slot) {
-        map = StorageAreaMap::create(this, securityOrigin.securityOrigin());
-        slot = map.get();
-    } else
-        map = slot;
-
-    return StorageAreaImpl::create(map.releaseNonNull());
+    auto& map = m_storageAreaMaps.ensure(securityOriginData, [&] {
+        return makeUnique<StorageAreaMap>(*this, securityOriginData.securityOrigin());
+    }).iterator->value;
+    return StorageAreaImpl::create(*map);
 }
 
-Ref<StorageNamespace> StorageNamespaceImpl::copy(Page* newPage)
+Ref<StorageNamespace> StorageNamespaceImpl::copy(Page& newPage)
 {
     ASSERT(m_storageNamespaceID);
+    ASSERT(m_storageType == StorageType::Session);
 
-    if (m_storageType == StorageType::Session)
-        return createSessionStorageNamespace(WebPage::fromCorePage(newPage)->pageID().toUInt64(), m_quotaInBytes);
+    if (auto networkProcessConnection = WebProcess::singleton().existingNetworkProcessConnection())
+        networkProcessConnection->connection().send(Messages::StorageManagerSet::CloneSessionStorageNamespace(sessionID(), m_storageNamespaceID, WebPage::fromCorePage(newPage).sessionStorageNamespaceIdentifier()), 0);
 
-    ASSERT(m_storageType == StorageType::EphemeralLocal);
-    auto newNamespace = adoptRef(*new StorageNamespaceImpl(m_storageType, m_storageNamespaceID, m_topLevelOrigin.get(), m_quotaInBytes));
+    return adoptRef(*new StorageNamespaceImpl(m_storageType, WebPage::fromCorePage(newPage).sessionStorageNamespaceIdentifier(), WebPage::fromCorePage(newPage).identifier(), m_topLevelOrigin.get(), m_quotaInBytes));
+}
 
-    return newNamespace;
+void StorageNamespaceImpl::setSessionIDForTesting(PAL::SessionID)
+{
+    ASSERT_NOT_REACHED();
+}
+
+PageIdentifier StorageNamespaceImpl::sessionStoragePageID() const
+{
+    ASSERT(m_storageType == StorageType::Session);
+    return *m_sessionPageID;
+}
+
+uint64_t StorageNamespaceImpl::pageGroupID() const
+{
+    ASSERT(m_storageType == StorageType::Local || m_storageType == StorageType::TransientLocal);
+    return m_storageNamespaceID.toUInt64();
 }
 
 } // namespace WebKit

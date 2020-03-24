@@ -62,7 +62,7 @@ void compile(State& state, Safepoint::Result& safepointResult)
     VM& vm = graph.m_vm;
 
     if (shouldDumpDisassembly())
-        state.proc->code().setDisassembler(std::make_unique<B3::Air::Disassembler>());
+        state.proc->code().setDisassembler(makeUnique<B3::Air::Disassembler>());
 
     {
         GraphSafepoint safepoint(state.graph, safepointResult);
@@ -78,7 +78,7 @@ void compile(State& state, Safepoint::Result& safepointResult)
         return;
     
     std::unique_ptr<RegisterAtOffsetList> registerOffsets =
-        std::make_unique<RegisterAtOffsetList>(state.proc->calleeSaveRegisterAtOffsetList());
+        makeUnique<RegisterAtOffsetList>(state.proc->calleeSaveRegisterAtOffsetList());
     if (shouldDumpDisassembly())
         dataLog("Unwind info for ", CodeBlockWithJITType(codeBlock, JITType::FTLJIT), ": ", *registerOffsets, "\n");
     codeBlock->setCalleeSaveRegisters(WTFMove(registerOffsets));
@@ -134,15 +134,15 @@ void compile(State& state, Safepoint::Result& safepointResult)
     *state.exceptionHandler = jit.label();
     jit.copyCalleeSavesToEntryFrameCalleeSavesBuffer(vm.topEntryFrame);
     jit.move(MacroAssembler::TrustedImmPtr(&vm), GPRInfo::argumentGPR0);
-    jit.move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR1);
+    jit.prepareCallOperation(vm);
     CCallHelpers::Call call = jit.call(OperationPtrTag);
     jit.jumpToExceptionHandler(vm);
     jit.addLinkTask(
         [=] (LinkBuffer& linkBuffer) {
-            linkBuffer.link(call, FunctionPtr<OperationPtrTag>(lookupExceptionHandler));
+            linkBuffer.link(call, FunctionPtr<OperationPtrTag>(operationLookupExceptionHandler));
         });
 
-    state.finalizer->b3CodeLinkBuffer = std::make_unique<LinkBuffer>(jit, codeBlock, JITCompilationCanFail);
+    state.finalizer->b3CodeLinkBuffer = makeUnique<LinkBuffer>(jit, codeBlock, JITCompilationCanFail);
 
     if (state.finalizer->b3CodeLinkBuffer->didFailToAllocate()) {
         state.allocationFailed = true;
@@ -151,18 +151,18 @@ void compile(State& state, Safepoint::Result& safepointResult)
     
     B3::PCToOriginMap originMap = state.proc->releasePCToOriginMap();
     if (vm.shouldBuilderPCToCodeOriginMapping())
-        codeBlock->setPCToCodeOriginMap(std::make_unique<PCToCodeOriginMap>(PCToCodeOriginMapBuilder(vm, WTFMove(originMap)), *state.finalizer->b3CodeLinkBuffer));
+        codeBlock->setPCToCodeOriginMap(makeUnique<PCToCodeOriginMap>(PCToCodeOriginMapBuilder(vm, WTFMove(originMap)), *state.finalizer->b3CodeLinkBuffer));
 
     CodeLocationLabel<JSEntryPtrTag> label = state.finalizer->b3CodeLinkBuffer->locationOf<JSEntryPtrTag>(state.proc->entrypointLabel(0));
     state.generatedFunction = label;
     state.jitCode->initializeB3Byproducts(state.proc->releaseByproducts());
 
-    for (auto pair : state.graph.m_entrypointIndexToCatchBytecodeOffset) {
-        unsigned catchBytecodeOffset = pair.value;
+    for (auto pair : state.graph.m_entrypointIndexToCatchBytecodeIndex) {
+        BytecodeIndex catchBytecodeIndex = pair.value;
         unsigned entrypointIndex = pair.key;
         Vector<FlushFormat> argumentFormats = state.graph.m_argumentFormats[entrypointIndex];
         state.jitCode->common.appendCatchEntrypoint(
-            catchBytecodeOffset, state.finalizer->b3CodeLinkBuffer->locationOf<ExceptionHandlerPtrTag>(state.proc->entrypointLabel(entrypointIndex)), WTFMove(argumentFormats));
+            catchBytecodeIndex, state.finalizer->b3CodeLinkBuffer->locationOf<ExceptionHandlerPtrTag>(state.proc->entrypointLabel(entrypointIndex)), WTFMove(argumentFormats));
     }
     state.jitCode->common.finalizeCatchEntrypoints();
 

@@ -217,6 +217,24 @@
                         <key>TestName</key>
                         <string>TestIOReportingHIDDevice</string>
                 </dict>
+		<dict>
+                        <key>TestSpecificLogs</key>
+                        <array>
+                                <string>/var/tmp/hidxctest/TestKeyboardEscKeyProperty.m/.+</string>
+                        </array>
+                        <key>TestName</key>
+                        <string>TestKeyboardEscKeyProperty</string>
+                        <key>Command</key>
+                        <array>
+                                <string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+                                <string>-t</string>
+                                <string>TestKeyboardEscKeyProperty</string>
+                                <string>./IOHIDFamilyUnitTests.xctest</string>
+                        </array>
+                        <key>AsRoot</key>
+                        <true/>
+                </dict>
+
 	</array>
 </dict>
 </plist>

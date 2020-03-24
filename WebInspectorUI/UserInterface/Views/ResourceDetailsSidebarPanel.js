@@ -83,6 +83,7 @@ WI.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel extends WI.De
 
         if (this._resource && this._needsToRemoveResourceEventListeners) {
             this._resource.removeEventListener(null, null, this);
+            this._refreshRelatedResourcesSectionThrottler.cancel();
 
             this._needsToRemoveResourceEventListeners = false;
         }
@@ -211,7 +212,7 @@ WI.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel extends WI.De
         this._refreshRequestHeaders();
         this._refreshImageSizeSection();
         this._refreshRequestDataSection();
-        this._refreshRelatedResourcesSection();
+        this._refreshRelatedResourcesSectionThrottler.force();
     }
 
     sizeDidChange()
@@ -347,7 +348,7 @@ WI.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel extends WI.De
         this._requestMethodRow.value = this._resource.requestMethod || emDash;
 
         // COMPATIBILITY(iOS 10.3): Network load metrics were not previously available.
-        if (InspectorBackend.domains.Network.hasEventParameter("loadingFinished", "metrics")) {
+        if (InspectorBackend.hasEvent("Network.loadingFinished", "metrics")) {
             let protocolDisplayName = WI.Resource.displayNameForProtocol(this._resource.protocol);
             this._protocolRow.value = protocolDisplayName || emDash;
             this._protocolRow.tooltip = protocolDisplayName ? this._resource.protocol : "";
@@ -449,7 +450,7 @@ WI.ResourceDetailsSidebarPanel = class ResourceDetailsSidebarPanel extends WI.De
             console.assert(typeof nodeValue.name === "string");
             console.assert(!nodeValue.value || typeof nodeValue.value === "string");
 
-            var node = new WI.DataGridNode({name: nodeValue.name, value: nodeValue.value || ""}, false);
+            var node = new WI.DataGridNode({name: nodeValue.name, value: nodeValue.value || ""});
             dataGrid.appendChild(node);
         }
 

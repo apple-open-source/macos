@@ -28,8 +28,8 @@
 #if USE(LIBWEBRTC)
 
 #include <WebCore/LibWebRTCMacros.h>
-#include <webrtc/rtc_base/nethelpers.h>
-#include <webrtc/p2p/base/packetsocketfactory.h>
+#include <webrtc/rtc_base/net_helpers.h>
+#include <webrtc/p2p/base/packet_socket_factory.h>
 #include <wtf/Vector.h>
 
 namespace IPC {
@@ -40,6 +40,7 @@ namespace WebKit {
 class LibWebRTCSocketFactory;
 
 class LibWebRTCResolver final : public rtc::AsyncResolverInterface {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     LibWebRTCResolver(uint64_t identifier) : m_identifier(identifier) { }
 

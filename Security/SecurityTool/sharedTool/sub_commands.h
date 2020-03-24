@@ -29,5 +29,4 @@
 #include "keychain/SecureObjectSync/Tool/keychain_sync.h"
 #include "keychain/SecureObjectSync/Tool/keychain_sync_test.h"
 #include "keychain/SecureObjectSync/Tool/keychain_log.h"
-#include "keychain/SecureObjectSync/Tool/syncbackup.h"
 #include "keychain/SecureObjectSync/Tool/recovery_key.h"

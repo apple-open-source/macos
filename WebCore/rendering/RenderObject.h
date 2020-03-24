@@ -53,7 +53,6 @@ class HitTestResult;
 class InlineBox;
 class Path;
 class Position;
-class PseudoStyleRequest;
 class RenderBoxModelObject;
 class RenderInline;
 class RenderBlock;
@@ -84,6 +83,10 @@ const int caretWidth = 1;
 enum class ShouldAllowCrossOriginScrolling { No, Yes };
 
 struct ScrollRectToVisibleOptions;
+
+namespace Style {
+class PseudoElementRequest;
+}
 
 // Base class for all rendering tree objects.
 class RenderObject : public CachedImageClient, public CanMakeWeakPtr<RenderObject> {
@@ -723,7 +726,7 @@ public:
      */
     virtual LayoutRect localCaretRect(InlineBox*, unsigned caretOffset, LayoutUnit* extraWidthToEndOfLine = nullptr);
 
-    // When performing a global document tear-down, or when going into the page cache, the renderer of the document is cleared.
+    // When performing a global document tear-down, or when going into the back/forward cache, the renderer of the document is cleared.
     bool renderTreeBeingDestroyed() const;
 
     void destroy();
@@ -1104,6 +1107,8 @@ inline bool RenderObject::needsSimplifiedNormalFlowLayoutOnly() const
     return m_bitfields.needsSimplifiedNormalFlowLayout() && !m_bitfields.needsLayout() && !m_bitfields.normalChildNeedsLayout()
         && !m_bitfields.posChildNeedsLayout() && !m_bitfields.needsPositionedMovementLayout();
 }
+
+inline void Node::setRenderer(RenderObject* renderer) { m_rendererWithStyleFlags.setPointer(renderer); }
 
 #if ENABLE(TREE_DEBUGGING)
 void printRenderTreeForLiveDocuments();

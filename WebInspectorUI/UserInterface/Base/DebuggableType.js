@@ -23,12 +23,25 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// This is a list of the different support target types, which theoretically
-// could all be top level debuggable types.
-
 WI.DebuggableType = {
     JavaScript: "javascript",
-    Web: "web",
-    Worker: "worker",
+    Page: "page",
     ServiceWorker: "service-worker",
+    WebPage: "web-page",
+};
+
+WI.DebuggableType.fromString = function(type) {
+    switch (type) {
+    case "javascript":
+        return WI.DebuggableType.JavaScript;
+    case "page":
+        return WI.DebuggableType.Page;
+    case "service-worker":
+        return WI.DebuggableType.ServiceWorker;
+    case "web-page":
+        return WI.DebuggableType.WebPage;
+    }
+
+    console.assert(false, "Unknown debuggable type", type);
+    return null;
 };

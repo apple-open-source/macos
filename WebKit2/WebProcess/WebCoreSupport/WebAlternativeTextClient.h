@@ -32,10 +32,10 @@ namespace WebKit {
 class WebPage;
 
 class WebAlternativeTextClient : public WebCore::AlternativeTextClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit WebAlternativeTextClient(WebPage*);
     virtual ~WebAlternativeTextClient();
-    void pageDestroyed() override;
 #if USE(AUTOCORRECTION_PANEL)
     void showCorrectionAlternative(WebCore::AlternativeTextType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings) override;
     void dismissAlternative(WebCore::ReasonForDismissingAlternativeText) override;

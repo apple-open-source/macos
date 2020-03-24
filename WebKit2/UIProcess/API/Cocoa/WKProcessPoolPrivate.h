@@ -27,6 +27,7 @@
 #import <WebKit/WKSecurityOrigin.h>
 
 @class WKWebView;
+@class WKWebsiteDataStore;
 @class _WKAutomationSession;
 @class _WKDownload;
 @class _WKProcessPoolConfiguration;
@@ -47,7 +48,7 @@
 @property (nonatomic, readonly) _WKProcessPoolConfiguration *_configuration;
 
 - (void)_setAllowsSpecificHTTPSCertificate:(NSArray *)certificateChain forHost:(NSString *)host;
-- (void)_setCanHandleHTTPSServerTrustEvaluation:(BOOL)value WK_API_AVAILABLE(macos(10.11), ios(9.0));
+- (void)_setCanHandleHTTPSServerTrustEvaluation:(BOOL)value WK_API_DEPRECATED_WITH_REPLACEMENT("_WKWebsiteDataStoreConfiguration.fastServerTrustEvaluationEnabled", macos(10.11, WK_MAC_TBA), ios(9.0, WK_IOS_TBA));
 - (void)_setCookieAcceptPolicy:(NSHTTPCookieAcceptPolicy)policy;
 
 - (id)_objectForBundleParameter:(NSString *)parameter;
@@ -74,24 +75,28 @@
 - (void)_automationCapabilitiesDidChange WK_API_AVAILABLE(macos(10.12), ios(10.0));
 - (void)_setAutomationSession:(_WKAutomationSession *)automationSession WK_API_AVAILABLE(macos(10.12), ios(10.0));
 
+@property (nonatomic, copy, setter=_setJavaScriptConfigurationDirectory:) NSURL *_javaScriptConfigurationDirectory WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
 - (void)_addSupportedPlugin:(NSString *) domain named:(NSString *) name withMimeTypes: (NSSet<NSString *> *) mimeTypes withExtensions: (NSSet<NSString *> *) extensions WK_API_AVAILABLE(macos(10.14), ios(12.0));
 - (void)_clearSupportedPlugins WK_API_AVAILABLE(macos(10.14), ios(12.0));
 
 - (void)_registerURLSchemeAsCanDisplayOnlyIfCanRequest:(NSString *)scheme WK_API_AVAILABLE(macos(10.14), ios(12.0));
 
-- (_WKDownload *)_downloadURLRequest:(NSURLRequest *)request originatingWebView:(WKWebView *)webView WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
-- (_WKDownload *)_resumeDownloadFromData:(NSData *)resumeData path:(NSString *)path originatingWebView:(WKWebView *)webView WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
+- (_WKDownload *)_downloadURLRequest:(NSURLRequest *)request originatingWebView:(WKWebView *)webView WK_API_DEPRECATED_WITH_REPLACEMENT("_downloadURLRequest:websiteDataStore:originatingWebView:", macos(10.14.4, WK_MAC_TBA), ios(12.2, WK_IOS_TBA));
+- (_WKDownload *)_resumeDownloadFromData:(NSData *)resumeData path:(NSString *)path originatingWebView:(WKWebView *)webView WK_API_DEPRECATED_WITH_REPLACEMENT("_resumeDownloadFromData:websiteDataStore:path:originatingWebView:", macos(10.14.4, WK_MAC_TBA), ios(12.2, WK_IOS_TBA));
+
+- (_WKDownload *)_downloadURLRequest:(NSURLRequest *)request websiteDataStore:(WKWebsiteDataStore *)dataStore originatingWebView:(WKWebView *)webView WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (_WKDownload *)_resumeDownloadFromData:(NSData *)resumeData websiteDataStore:(WKWebsiteDataStore *)dataStore  path:(NSString *)path originatingWebView:(WKWebView *)webView WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 // Test only. Should be called only while no web content processes are running.
-- (void)_terminateNetworkProcess WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
-- (void)_sendNetworkProcessWillSuspendImminently WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
-- (void)_sendNetworkProcessDidResume WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
-- (void)_terminateServiceWorkerProcesses WK_API_AVAILABLE(macos(10.14), ios(12.0));
-- (void)_disableServiceWorkerProcessTerminationDelay WK_API_AVAILABLE(macos(10.14), ios(12.0));
+- (void)_terminateNetworkProcess WK_API_AVAILABLE(macos(10.15), ios(13.0));
+- (void)_sendNetworkProcessWillSuspendImminently WK_API_AVAILABLE(macos(10.15), ios(13.0));
+- (void)_sendNetworkProcessDidResume WK_API_AVAILABLE(macos(10.15), ios(13.0));
+- (void)_terminateServiceWorkers WK_API_AVAILABLE(macos(10.14), ios(12.0));
 
 // Test only.
 - (pid_t)_networkProcessIdentifier WK_API_AVAILABLE(macos(10.13), ios(11.0));
-- (pid_t)_prewarmedProcessIdentifier WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (pid_t)_prewarmedProcessIdentifier WK_API_AVAILABLE(macos(10.15), ios(13.0));
 
 // Test only.
 - (size_t)_webProcessCount WK_API_AVAILABLE(macos(10.13), ios(11.0));
@@ -105,7 +110,9 @@
 - (void)_makeNextNetworkProcessLaunchFailForTesting WK_API_AVAILABLE(macos(10.14), ios(12.0));
 - (NSUInteger)_maximumSuspendedPageCount WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 - (NSUInteger)_processCacheCapacity WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
-- (NSUInteger)_processCacheSize WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (NSUInteger)_processCacheSize WK_API_AVAILABLE(macos(10.15), ios(13.0));
+- (void)_clearWebProcessCache WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_setUseSeparateServiceWorkerProcess:(BOOL)forceServiceWorkerProcess WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 // Test only. Returns web processes running web pages (does not include web processes running service workers)
 - (size_t)_webPageContentProcessCount WK_API_AVAILABLE(macos(10.13.4), ios(11.3));
@@ -113,17 +120,20 @@
 // Test only. Should be called before any web content processes are launched.
 + (void)_forceGameControllerFramework WK_API_AVAILABLE(macos(10.13), ios(11.0));
 
-- (void)_preconnectToServer:(NSURL *)serverURL WK_API_AVAILABLE(macos(10.13.4), ios(11.3));
+- (void)_preconnectToServer:(NSURL *)serverURL WK_API_DEPRECATED("If needed, SPI should be added to WKWebsiteDataStore", macos(10.13.4, WK_MAC_TBA), ios(11.3, WK_IOS_TBA));
 
 // Test only.
 - (void)_setAllowsAnySSLCertificateForServiceWorker:(BOOL)allows WK_API_AVAILABLE(macos(10.13.4), ios(11.3));
-- (void)_registerURLSchemeServiceWorkersCanHandle:(NSString *)scheme WK_API_AVAILABLE(macos(10.13.4), ios(11.3));
 - (void)_getActivePagesOriginsInWebProcessForTesting:(pid_t)pid completionHandler:(void(^)(NSArray<NSString *> *))completionHandler WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 - (BOOL)_networkProcessHasEntitlementForTesting:(NSString *)entitlement WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
-- (void)_clearPermanentCredentialsForProtectionSpace:(NSURLProtectionSpace *)protectionSpace completionHandler:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_clearPermanentCredentialsForProtectionSpace:(NSURLProtectionSpace *)protectionSpace WK_API_AVAILABLE(macos(10.15), ios(13.0));
+- (void)_allowAnyTLSCertificateForWebSocketTesting WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @property (nonatomic, getter=_isCookieStoragePartitioningEnabled, setter=_setCookieStoragePartitioningEnabled:) BOOL _cookieStoragePartitioningEnabled WK_API_DEPRECATED("Partitioned cookies are no longer supported", macos(10.12.3, 10.14.4), ios(10.3, 12.2));
 @property (nonatomic, getter=_isStorageAccessAPIEnabled, setter=_setStorageAccessAPIEnabled:) BOOL _storageAccessAPIEnabled WK_API_AVAILABLE(macos(10.13.4), ios(11.3));
-- (void)_synthesizeAppIsBackground:(BOOL)background WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_synthesizeAppIsBackground:(BOOL)background WK_API_AVAILABLE(macos(10.15), ios(13.0));
+
+// Test only.
+- (void)_seedResourceLoadStatisticsForTestingWithFirstParty:(NSURL *)firstPartyURL thirdParty:(NSURL *)thirdPartyURL shouldScheduleNotification:(BOOL)shouldScheduleNotification completionHandler:(void(^)(void))completionHandler  WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @end

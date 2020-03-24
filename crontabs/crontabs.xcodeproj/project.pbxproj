@@ -51,7 +51,6 @@
 		FDB4368A1492DB8000D5E278 /* com.apple.periodic-daily.plist in Install LaunchDaemons */ = {isa = PBXBuildFile; fileRef = FDB436731492DB0B00D5E278 /* com.apple.periodic-daily.plist */; };
 		FDB4368B1492DB8200D5E278 /* com.apple.periodic-monthly.plist in Install LaunchDaemons */ = {isa = PBXBuildFile; fileRef = FDB436741492DB0B00D5E278 /* com.apple.periodic-monthly.plist */; };
 		FDB4368C1492DB8500D5E278 /* com.apple.periodic-weekly.plist in Install LaunchDaemons */ = {isa = PBXBuildFile; fileRef = FDB436751492DB0B00D5E278 /* com.apple.periodic-weekly.plist */; };
-		FDB4368F1492DB9800D5E278 /* com.apple.var-db-dslocal-backup.plist in Install LaunchDaemons */ = {isa = PBXBuildFile; fileRef = FDB436761492DB0B00D5E278 /* com.apple.var-db-dslocal-backup.plist */; };
 		FDB436921492DBCD00D5E278 /* newsyslog.conf in Install etc */ = {isa = PBXBuildFile; fileRef = FDB4367C1492DB0B00D5E278 /* newsyslog.conf */; };
 		FDB436941492DBE400D5E278 /* periodic.conf in Install etc/defaults */ = {isa = PBXBuildFile; fileRef = FDB4367D1492DB0B00D5E278 /* periodic.conf */; };
 		FDB436961492DC1300D5E278 /* periodic.conf.5 in Install man5 */ = {isa = PBXBuildFile; fileRef = FDB4367E1492DB0B00D5E278 /* periodic.conf.5 */; };
@@ -141,7 +140,6 @@
 				FDB4368A1492DB8000D5E278 /* com.apple.periodic-daily.plist in Install LaunchDaemons */,
 				FDB4368B1492DB8200D5E278 /* com.apple.periodic-monthly.plist in Install LaunchDaemons */,
 				FDB4368C1492DB8500D5E278 /* com.apple.periodic-weekly.plist in Install LaunchDaemons */,
-				FDB4368F1492DB9800D5E278 /* com.apple.var-db-dslocal-backup.plist in Install LaunchDaemons */,
 			);
 			name = "Install LaunchDaemons";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -247,7 +245,6 @@
 		FDB436731492DB0B00D5E278 /* com.apple.periodic-daily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.periodic-daily.plist"; sourceTree = "<group>"; };
 		FDB436741492DB0B00D5E278 /* com.apple.periodic-monthly.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.periodic-monthly.plist"; sourceTree = "<group>"; };
 		FDB436751492DB0B00D5E278 /* com.apple.periodic-weekly.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.periodic-weekly.plist"; sourceTree = "<group>"; };
-		FDB436761492DB0B00D5E278 /* com.apple.var-db-dslocal-backup.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.var-db-dslocal-backup.plist"; sourceTree = "<group>"; };
 		FDB436791492DB0B00D5E278 /* 199.rotate-fax */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "199.rotate-fax"; sourceTree = "<group>"; };
 		FDB4367A1492DB0B00D5E278 /* 200.accounting */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 200.accounting; sourceTree = "<group>"; };
 		FDB4367B1492DB0B00D5E278 /* 999.local */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 999.local; sourceTree = "<group>"; };
@@ -358,7 +355,6 @@
 				FDB436731492DB0B00D5E278 /* com.apple.periodic-daily.plist */,
 				FDB436741492DB0B00D5E278 /* com.apple.periodic-monthly.plist */,
 				FDB436751492DB0B00D5E278 /* com.apple.periodic-weekly.plist */,
-				FDB436761492DB0B00D5E278 /* com.apple.var-db-dslocal-backup.plist */,
 			);
 			path = LaunchDaemons;
 			sourceTree = "<group>";

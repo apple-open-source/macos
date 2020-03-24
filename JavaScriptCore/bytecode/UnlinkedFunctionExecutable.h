@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012-2019 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 
 #include "CodeSpecializationKind.h"
 #include "ConstructAbility.h"
+#include "ConstructorKind.h"
 #include "ExecutableInfo.h"
 #include "ExpressionRangeInfo.h"
 #include "Identifier.h"
@@ -60,7 +61,7 @@ public:
     friend class CachedFunctionExecutable;
 
     typedef JSCell Base;
-    static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
 
     template<typename CellType, SubspaceAccess>
     static IsoSubspace* subspaceFor(VM& vm)
@@ -68,11 +69,11 @@ public:
         return &vm.unlinkedFunctionExecutableSpace.space;
     }
 
-    static UnlinkedFunctionExecutable* create(VM* vm, const SourceCode& source, FunctionMetadataNode* node, UnlinkedFunctionKind unlinkedFunctionKind, ConstructAbility constructAbility, JSParserScriptMode scriptMode, Optional<CompactVariableMap::Handle> parentScopeTDZVariables, DerivedContextType derivedContextType, bool isBuiltinDefaultClassConstructor = false)
+    static UnlinkedFunctionExecutable* create(VM& vm, const SourceCode& source, FunctionMetadataNode* node, UnlinkedFunctionKind unlinkedFunctionKind, ConstructAbility constructAbility, JSParserScriptMode scriptMode, Optional<CompactVariableMap::Handle> parentScopeTDZVariables, DerivedContextType derivedContextType, bool isBuiltinDefaultClassConstructor = false)
     {
-        UnlinkedFunctionExecutable* instance = new (NotNull, allocateCell<UnlinkedFunctionExecutable>(vm->heap))
-            UnlinkedFunctionExecutable(vm, vm->unlinkedFunctionExecutableStructure.get(), source, node, unlinkedFunctionKind, constructAbility, scriptMode, WTFMove(parentScopeTDZVariables), derivedContextType, isBuiltinDefaultClassConstructor);
-        instance->finishCreation(*vm);
+        UnlinkedFunctionExecutable* instance = new (NotNull, allocateCell<UnlinkedFunctionExecutable>(vm.heap))
+            UnlinkedFunctionExecutable(vm, vm.unlinkedFunctionExecutableStructure.get(), source, node, unlinkedFunctionKind, constructAbility, scriptMode, WTFMove(parentScopeTDZVariables), derivedContextType, isBuiltinDefaultClassConstructor);
+        instance->finishCreation(vm);
         return instance;
     }
 
@@ -119,7 +120,7 @@ public:
         ParserError&, SourceParseMode);
 
     static UnlinkedFunctionExecutable* fromGlobalCode(
-        const Identifier&, ExecState&, const SourceCode&, JSObject*& exception, 
+        const Identifier&, JSGlobalObject*, const SourceCode&, JSObject*& exception, 
         int overrideLineNumber, Optional<int> functionConstructorParametersEndPosition);
 
     SourceCode linkedSourceCode(const SourceCode&) const;
@@ -141,14 +142,24 @@ public:
     CodeFeatures features() const { return m_features; }
     bool hasCapturedVariables() const { return m_hasCapturedVariables; }
 
-    static const bool needsDestruction = true;
+    static constexpr bool needsDestruction = true;
     static void destroy(JSCell*);
 
     bool isBuiltinFunction() const { return m_isBuiltinFunction; }
-    bool isAnonymousBuiltinFunction() const { return isBuiltinFunction() && name().isPrivateName(); }
     ConstructAbility constructAbility() const { return static_cast<ConstructAbility>(m_constructAbility); }
     JSParserScriptMode scriptMode() const { return static_cast<JSParserScriptMode>(m_scriptMode); }
-    bool isClassConstructorFunction() const { return constructorKind() != ConstructorKind::None; }
+    bool isClassConstructorFunction() const
+    {
+        switch (constructorKind()) {
+        case ConstructorKind::None:
+        case ConstructorKind::Naked:
+            return false;
+        case ConstructorKind::Base:
+        case ConstructorKind::Extends:
+            return true;
+        }
+        return false;
+    }
     bool isClass() const
     {
         if (!m_rareData)
@@ -200,7 +211,7 @@ public:
     };
 
 private:
-    UnlinkedFunctionExecutable(VM*, Structure*, const SourceCode&, FunctionMetadataNode*, UnlinkedFunctionKind, ConstructAbility, JSParserScriptMode, Optional<CompactVariableMap::Handle>,  JSC::DerivedContextType, bool isBuiltinDefaultClassConstructor);
+    UnlinkedFunctionExecutable(VM&, Structure*, const SourceCode&, FunctionMetadataNode*, UnlinkedFunctionKind, ConstructAbility, JSParserScriptMode, Optional<CompactVariableMap::Handle>,  JSC::DerivedContextType, bool isBuiltinDefaultClassConstructor);
     UnlinkedFunctionExecutable(Decoder&, const CachedFunctionExecutable&);
 
     void decodeCachedCodeBlocks(VM&);

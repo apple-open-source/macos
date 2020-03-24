@@ -138,7 +138,7 @@ WI.CPUUsageCombinedView = class CPUUsageCombinedView extends WI.View
             let x = xScale(dataPoint.time);
             let y1 = yScale(dataPoint.mainThreadUsage);
             let y2 = yScale(dataPoint.mainThreadUsage + dataPoint.workerThreadUsage);
-            let y3 = yScale(dataPoint.usage)
+            let y3 = yScale(dataPoint.usage);
             this._chart.addPointSet(x, [y1, y2, y3]);
         }
 
@@ -243,6 +243,3 @@ WI.CPUUsageCombinedView = class CPUUsageCombinedView extends WI.View
         this._detailsMaxElement.textContent = WI.UIString("Highest: %s").format(Number.isFinite(maxSize) ? Number.percentageString(maxSize / 100) : emDash);
     }
 };
-
-WI.CPUUsageCombinedView._cachedMainThreadIndicatorFillColor = null;
-WI.CPUUsageCombinedView._cachedMainThreadIndicatorStrokeColor = null;

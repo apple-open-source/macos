@@ -90,6 +90,7 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OTAuthKitNoAuthenticationController     = 45,
     OTAuthKitMachineIDMissing               = 46,
     OTAuthKitPrimaryAccountHaveNoDSID       = 47,
+    OTErrorFailedToLeaveClique              = 48,
 };
 
 #define OTMasterSecretLength 72
@@ -97,6 +98,7 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
 typedef NS_ENUM(NSInteger, TrustedPeersHelperErrorCode) {
     TrustedPeersHelperErrorNoPreparedIdentity = 1,
     TrustedPeersHelperErrorNoPeersPreapprovePreparedIdentity = 14,
+    TrustedPeersHelperErrorCodeUntrustedRecoveryKeys    = 32,
     TrustedPeersHelperErrorCodeNotEnrolled   = 34,
 };
 

@@ -49,9 +49,9 @@ registerStapledTicketWithSystem(CFDataRef data)
 	secinfo("notarization", "Registering stapled ticket with system");
 
 #if TARGET_OS_OSX
-	CFErrorRef error = NULL;
-	if (!SecAssessmentTicketRegister(data, &error)) {
-		secerror("Error registering stapled ticket: %@", data);
+	CFRef<CFErrorRef> error;
+	if (!SecAssessmentTicketRegister(data, &error.aref())) {
+		secerror("Error registering stapled ticket: %@", error.get());
 	}
 #endif // TARGET_OS_OSX
 }
@@ -208,7 +208,7 @@ registerStapledTicketInPackage(const std::string& path)
 		goto lb_exit;
 	}
 
-	data = CFDataCreateWithBytesNoCopy(NULL, ticketData, trailer.length, NULL);
+	data.take(makeCFDataMalloc(ticketData, trailer.length));
 	if (data.get() == NULL) {
 		secerror("unable to create cfdata for notarization");
 		goto lb_exit;
@@ -220,9 +220,6 @@ registerStapledTicketInPackage(const std::string& path)
 lb_exit:
 	if (fd) {
 		close(fd);
-	}
-	if (ticketData) {
-		free(ticketData);
 	}
 }
 
@@ -277,7 +274,7 @@ registerStapledTicketInBundle(const std::string& path)
 		goto lb_exit;
 	}
 
-	data = CFDataCreateWithBytesNoCopy(NULL, ticketData, ticketLength, NULL);
+	data.take(makeCFDataMalloc(ticketData, ticketLength));
 	if (data.get() == NULL) {
 		secerror("unable to create cfdata for notarization");
 		goto lb_exit;
@@ -289,9 +286,6 @@ registerStapledTicketInBundle(const std::string& path)
 lb_exit:
 	if (fd) {
 		close(fd);
-	}
-	if (ticketData) {
-		free(ticketData);
 	}
 }
 

@@ -1,103 +1,697 @@
-2019-08-06  Alan Coon  <alancoon@apple.com>
+2020-02-14  Russell Epstein  <repstein@apple.com>
 
-        Apply patch. rdar://problem/53992160
+        Cherry-pick r254681. rdar://problem/59474790
 
-    2019-08-06  Per Arne Vollan  <pvollan@apple.com>
-
-            [Win] Fix AppleWin build
-            https://bugs.webkit.org/show_bug.cgi?id=200414
-
-            Reviewed by Brent Fulgham.
-
-            * CMakeLists.txt:
-            * PlatformWin.cmake:
-            * WebKitLegacy.vcxproj/WebKitLegacy.proj:
-
-2019-07-17  Kocsen Chung  <kocsen_chung@apple.com>
-
-        Cherry-pick r247486. rdar://problem/53229738
-
-    Speed up StorageManager::getValues()
-    https://bugs.webkit.org/show_bug.cgi?id=199812
+    [Win] Fix AppleWin build
+    https://bugs.webkit.org/show_bug.cgi?id=206299
     
-    Reviewed by Alex Christensen.
+    Reviewed by Brent Fulgham.
+    
+    .:
+    
+    This patch has been created by don.olmstead@sony.com and pvollan@apple.com. Add target files for WTF and
+    JavaScriptCore. Also, to make sure headers are copied to the forwarding headers directory, add the CMake
+    keywork ALL when adding custom target for copying files.
+    
+    * Source/cmake/TargetJavaScriptCore.cmake: Added.
+    * Source/cmake/TargetWTF.cmake: Added.
+    * Source/cmake/WebKitMacros.cmake:
+    
+    Source/JavaScriptCore:
+    
+    Include required target. Build internal builds with VS2019.
+    
+    * CMakeLists.txt:
+    * JavaScriptCore.vcxproj/JavaScriptCore.proj:
     
     Source/WebCore:
     
-    * storage/StorageMap.cpp:
-    (WebCore::StorageMap::importItems):
-    * storage/StorageMap.h:
+    Include required targets. Build internal builds with VS2019.
     
-    Source/WebKit:
-    
-    Made the following performance improvements:
-    - Made StorageManager a WorkQueueMessageReceiver again (like it was before it
-      got moved from the UIProcess to the Network process). This avoids a lot of
-      thread hopping (IPC thread -> Main thread -> StorageManagerThread -> Main Thread)
-      and a lot of isolatedCopying of the strings.
-    - Move values around when possible to avoid copying.
-    - Add fast path to StorageMap::importItems() for when the StorageMap is
-      empty when importing (15ms -> 2.5ms).
-    
-    * NetworkProcess/NetworkConnectionToWebProcess.cpp:
-    (WebKit::NetworkConnectionToWebProcess::didReceiveMessage):
-    (WebKit::NetworkConnectionToWebProcess::didReceiveSyncMessage):
-    * NetworkProcess/WebStorage/LocalStorageDatabase.cpp:
-    (WebKit::LocalStorageDatabase::importItems):
-    * NetworkProcess/WebStorage/StorageManager.cpp:
-    (WebKit::StorageManager::addAllowedSessionStorageNamespaceConnection):
-    (WebKit::StorageManager::removeAllowedSessionStorageNamespaceConnection):
-    (WebKit::StorageManager::processDidCloseConnection):
-    (WebKit::StorageManager::createLocalStorageMap):
-    (WebKit::StorageManager::createTransientLocalStorageMap):
-    (WebKit::StorageManager::createSessionStorageMap):
-    (WebKit::StorageManager::destroyStorageMap):
-    (WebKit::StorageManager::getValues):
-    (WebKit::StorageManager::setItem):
-    (WebKit::StorageManager::setItems):
-    (WebKit::StorageManager::removeItem):
-    (WebKit::StorageManager::clear):
-    * NetworkProcess/WebStorage/StorageManager.h:
-    
-    * Platform/IPC/Connection.cpp:
-    (IPC::Connection::addWorkQueueMessageReceiver):
-    (IPC::Connection::removeWorkQueueMessageReceiver):
-    (IPC::Connection::processIncomingMessage):
-    (IPC::Connection::dispatchMessage):
-    (IPC::Connection::dispatchMessageToWorkQueueReceiver):
-    * Platform/IPC/Connection.h:
-    * WebProcess/WebStorage/StorageAreaMap.cpp:
-    (WebKit::StorageAreaMap::loadValuesIfNeeded):
-    Messages to WorkQueueMessageReceivers are normally dispatched from the IPC WorkQueue. However, there is a race if
-    a client (here StorageManager) adds itself as a WorkQueueMessageReceiver as a result of receiving an IPC message
-    on the main thread (here NetworkConnectionToWebProcess::WebPageWasAdded).
-    The message might have already been dispatched from the IPC WorkQueue to the main thread by the time the
-    client registers itself as a WorkQueueMessageReceiver. To address this, we check again for messages receivers
-    once the message arrives on the main thread.
+    * CMakeLists.txt:
+    * WebCore.vcxproj/WebCore.proj:
     
     Source/WebKitLegacy:
     
+    Include required targets. Build internal builds with VS2019.
+    
+    * CMakeLists.txt:
+    * WebKitLegacy.vcxproj/WebKitLegacy.proj:
+    
+    Source/WTF:
+    
+    Build internal builds with VS2019.
+    
+    * WTF.vcxproj/WTF.proj:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@254681 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-01-16  Per Arne Vollan  <pvollan@apple.com>
+
+            [Win] Fix AppleWin build
+            https://bugs.webkit.org/show_bug.cgi?id=206299
+
+            Reviewed by Brent Fulgham.
+
+            Include required targets. Build internal builds with VS2019.
+
+            * CMakeLists.txt:
+            * WebKitLegacy.vcxproj/WebKitLegacy.proj:
+
+2020-02-10  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r255615. rdar://problem/59298181
+
+    Crash in WebCore::IDBServer::IDBServer::createIndex
+    https://bugs.webkit.org/show_bug.cgi?id=207137
+    <rdar://problem/59096231>
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebCore:
+    
+    Export IDBIndexInfo::isolatedCopy so it can be used in WebKitLegacy framework code.
+    
+    * Modules/indexeddb/shared/IDBIndexInfo.h:
+    
+    Source/WebKitLegacy:
+    
+    * Storage/InProcessIDBServer.cpp:
+    (InProcessIDBServer::createIndex): Create an isolated copy of IDBIndexInfo before passing it to IDB thread.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@255615 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-02-03  Sihui Liu  <sihui_liu@apple.com>
+
+            Crash in WebCore::IDBServer::IDBServer::createIndex
+            https://bugs.webkit.org/show_bug.cgi?id=207137
+            <rdar://problem/59096231>
+
+            Reviewed by Darin Adler.
+
+            * Storage/InProcessIDBServer.cpp:
+            (InProcessIDBServer::createIndex): Create an isolated copy of IDBIndexInfo before passing it to IDB thread.
+
+2020-01-27  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r255094. rdar://problem/58921473
+
+    Remove check-xcfilelists.sh from WebKitLegacy Xcode build target
+    https://bugs.webkit.org/show_bug.cgi?id=206762
+    <rdar://problem/58825997>
+    
+    Reviewed by Alexey Proskuryakov.
+    
+    When check-xcfilelists.sh got added to the WebKitLegacy Xcode project,
+    it was also accidentally added to the WebKitLegacy build target. This
+    caused it to be treated as a "resource", and so was copied to the
+    output directory in the Resources sub-folder during the build. This
+    copying is not expected, needed, or desired. Remove
+    check-xcfilelists.sh from the target, which also removes it from the
+    Copy Resources build phase, which removes it from the
+    WebKitLegacy.framework/Resources directory.
+    
+    * WebKitLegacy.xcodeproj/project.pbxproj:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@255094 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-01-24  Keith Rollin  <krollin@apple.com>
+
+            Remove check-xcfilelists.sh from WebKitLegacy Xcode build target
+            https://bugs.webkit.org/show_bug.cgi?id=206762
+            <rdar://problem/58825997>
+
+            Reviewed by Alexey Proskuryakov.
+
+            When check-xcfilelists.sh got added to the WebKitLegacy Xcode project,
+            it was also accidentally added to the WebKitLegacy build target. This
+            caused it to be treated as a "resource", and so was copied to the
+            output directory in the Resources sub-folder during the build. This
+            copying is not expected, needed, or desired. Remove
+            check-xcfilelists.sh from the target, which also removes it from the
+            Copy Resources build phase, which removes it from the
+            WebKitLegacy.framework/Resources directory.
+
+            * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2020-01-14  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r254169. rdar://problem/58552876
+
+    REGRESSION (r248734): different threads write m_storageMap of StorageAreaImpl at the same time
+    https://bugs.webkit.org/show_bug.cgi?id=205764
+    <rdar://problem/58179425>
+    
+    Reviewed by Maciej Stachowiak.
+    
+    In StorageAreaImpl, we avoid modifying m_storageMap from different threads at the same time by blocking main
+    thread access to it until the writes(importing items) of storage thread is done.
+    
+    In r248734 we introduced a new case where the main thread could modify m_storageMap for session change, but we
+    didn't add the wait there.
+    
     * Storage/StorageAreaImpl.cpp:
     (WebKit::StorageAreaImpl::importItems):
-    * Storage/StorageAreaImpl.h:
-    * Storage/StorageAreaSync.cpp:
-    (WebKit::StorageAreaSync::performImport):
+    (WebKit::StorageAreaImpl::sessionChanged):
     
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@247486 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@254169 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2019-07-16  Chris Dumez  <cdumez@apple.com>
+    2020-01-07  Sihui Liu  <sihui_liu@apple.com>
 
-            Speed up StorageManager::getValues()
-            https://bugs.webkit.org/show_bug.cgi?id=199812
+            REGRESSION (r248734): different threads write m_storageMap of StorageAreaImpl at the same time
+            https://bugs.webkit.org/show_bug.cgi?id=205764
+            <rdar://problem/58179425>
 
-            Reviewed by Alex Christensen.
+            Reviewed by Maciej Stachowiak.
+
+            In StorageAreaImpl, we avoid modifying m_storageMap from different threads at the same time by blocking main
+            thread access to it until the writes(importing items) of storage thread is done.
+
+            In r248734 we introduced a new case where the main thread could modify m_storageMap for session change, but we
+            didn't add the wait there.
 
             * Storage/StorageAreaImpl.cpp:
             (WebKit::StorageAreaImpl::importItems):
-            * Storage/StorageAreaImpl.h:
-            * Storage/StorageAreaSync.cpp:
-            (WebKit::StorageAreaSync::performImport):
+            (WebKit::StorageAreaImpl::sessionChanged):
+
+2020-01-03  Simon Fraser  <simon.fraser@apple.com>
+
+        Add some shared schemes to the WebKit.xcworkspace
+        https://bugs.webkit.org/show_bug.cgi?id=205698
+
+        Reviewed by Tim Horton.
+
+        Make WebKit.xcworkspace show the following schemes by default:
+            All Source
+            All Tools
+            WTF
+            JavaScriptCore
+            WebCore
+            WebKit
+            WebKitLegacy
+            DumpRenderTree
+            WebKitTestRunner
+            TestWebKitAPI
+            MiniBrowser
+            MobileMiniBrowser.
+            
+        Also remove the MobileMiniBrowserUITests scheme.
+
+        * WebKitLegacy.xcodeproj/xcshareddata/xcschemes/WebKitLegacy.xcscheme: Copied from Tools/MobileMiniBrowser/MobileMiniBrowser.xcodeproj/xcshareddata/xcschemes/MobileMiniBrowserUITests.xcscheme.
+
+2019-12-18  Sihui Liu  <sihui_liu@apple.com>
+
+        IndexedDB: perform IDBServer work only on background thread
+        https://bugs.webkit.org/show_bug.cgi?id=203690
+        <rdar://problem/56908496>
+
+        Reviewed by Alex Christensen.
+
+        Make class InProcessIDBServer ThreadSafeRefCounted. It now has a background thread which IDBServer runs on. 
+        InProcessIDBServer knows to dispatch tasks to database thread and dispatch task replies to main thread.
+
+        * Storage/InProcessIDBServer.cpp:
+        (InProcessIDBServer::create):
+        (InProcessIDBServer::~InProcessIDBServer):
+        (InProcessIDBServer::InProcessIDBServer):
+        (InProcessIDBServer::deleteDatabase):
+        (InProcessIDBServer::didDeleteDatabase):
+        (InProcessIDBServer::openDatabase):
+        (InProcessIDBServer::didOpenDatabase):
+        (InProcessIDBServer::didAbortTransaction):
+        (InProcessIDBServer::didCommitTransaction):
+        (InProcessIDBServer::didCreateObjectStore):
+        (InProcessIDBServer::didDeleteObjectStore):
+        (InProcessIDBServer::didRenameObjectStore):
+        (InProcessIDBServer::didClearObjectStore):
+        (InProcessIDBServer::didCreateIndex):
+        (InProcessIDBServer::didDeleteIndex):
+        (InProcessIDBServer::didRenameIndex):
+        (InProcessIDBServer::didPutOrAdd):
+        (InProcessIDBServer::didGetRecord):
+        (InProcessIDBServer::didGetAllRecords):
+        (InProcessIDBServer::didGetCount):
+        (InProcessIDBServer::didDeleteRecord):
+        (InProcessIDBServer::didOpenCursor):
+        (InProcessIDBServer::didIterateCursor):
+        (InProcessIDBServer::abortTransaction):
+        (InProcessIDBServer::commitTransaction):
+        (InProcessIDBServer::didFinishHandlingVersionChangeTransaction):
+        (InProcessIDBServer::createObjectStore):
+        (InProcessIDBServer::deleteObjectStore):
+        (InProcessIDBServer::renameObjectStore):
+        (InProcessIDBServer::clearObjectStore):
+        (InProcessIDBServer::createIndex):
+        (InProcessIDBServer::deleteIndex):
+        (InProcessIDBServer::renameIndex):
+        (InProcessIDBServer::putOrAdd):
+        (InProcessIDBServer::getRecord):
+        (InProcessIDBServer::getAllRecords):
+        (InProcessIDBServer::getCount):
+        (InProcessIDBServer::deleteRecord):
+        (InProcessIDBServer::openCursor):
+        (InProcessIDBServer::iterateCursor):
+        (InProcessIDBServer::establishTransaction):
+        (InProcessIDBServer::fireVersionChangeEvent):
+        (InProcessIDBServer::didStartTransaction):
+        (InProcessIDBServer::didCloseFromServer):
+        (InProcessIDBServer::notifyOpenDBRequestBlocked):
+        (InProcessIDBServer::databaseConnectionPendingClose):
+        (InProcessIDBServer::databaseConnectionClosed):
+        (InProcessIDBServer::abortOpenAndUpgradeNeeded):
+        (InProcessIDBServer::didFireVersionChangeEvent):
+        (InProcessIDBServer::openDBRequestCancelled):
+        (InProcessIDBServer::getAllDatabaseNames):
+        (InProcessIDBServer::didGetAllDatabaseNames):
+        (InProcessIDBServer::closeAndDeleteDatabasesModifiedSince):
+        (InProcessIDBServer::dispatchTask):
+        (InProcessIDBServer::dispatchTaskReply):
+        (InProcessIDBServer::confirmDidCloseFromServer): Deleted.
+        * Storage/InProcessIDBServer.h:
+        * Storage/WebDatabaseProvider.cpp:
+        (WebDatabaseProvider::deleteAllDatabases):
+
+2019-12-11  Sihui Liu  <sihui_liu@apple.com>
+
+        IndexedDB: Introduce WebIDBServer class
+        https://bugs.webkit.org/show_bug.cgi?id=205095
+
+        Reviewed by Alex Christensen.
+
+        * Storage/InProcessIDBServer.cpp:
+        (InProcessIDBServer::create):
+
+2019-12-11  Sihui Liu  <sihui_liu@apple.com>
+
+        Add type to StorageThread
+        https://bugs.webkit.org/show_bug.cgi?id=205082
+
+        Reviewed by Alex Christensen.
+
+        * Storage/StorageThread.cpp:
+        (WebCore::StorageThread::StorageThread):
+        (WebCore::StorageThread::start):
+        * Storage/StorageThread.h:
+
+2019-12-05  Sihui Liu  <sihui_liu@apple.com>
+
+        Move InProcessIDBServer to WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=204896
+
+        Reviewed by Brady Eidson.
+
+        * CMakeLists.txt:
+        * Storage/InProcessIDBServer.cpp: Renamed from Source/WebCore/Modules/indexeddb/shared/InProcessIDBServer.cpp.
+        (InProcessIDBServer::create):
+        (InProcessIDBServer::quotaManager):
+        (storageQuotaManagerSpaceRequester):
+        (InProcessIDBServer::InProcessIDBServer):
+        (InProcessIDBServer::identifier const):
+        (InProcessIDBServer::connectionToServer const):
+        (InProcessIDBServer::connectionToClient const):
+        (InProcessIDBServer::deleteDatabase):
+        (InProcessIDBServer::didDeleteDatabase):
+        (InProcessIDBServer::openDatabase):
+        (InProcessIDBServer::didOpenDatabase):
+        (InProcessIDBServer::didAbortTransaction):
+        (InProcessIDBServer::didCommitTransaction):
+        (InProcessIDBServer::didCreateObjectStore):
+        (InProcessIDBServer::didDeleteObjectStore):
+        (InProcessIDBServer::didRenameObjectStore):
+        (InProcessIDBServer::didClearObjectStore):
+        (InProcessIDBServer::didCreateIndex):
+        (InProcessIDBServer::didDeleteIndex):
+        (InProcessIDBServer::didRenameIndex):
+        (InProcessIDBServer::didPutOrAdd):
+        (InProcessIDBServer::didGetRecord):
+        (InProcessIDBServer::didGetAllRecords):
+        (InProcessIDBServer::didGetCount):
+        (InProcessIDBServer::didDeleteRecord):
+        (InProcessIDBServer::didOpenCursor):
+        (InProcessIDBServer::didIterateCursor):
+        (InProcessIDBServer::abortTransaction):
+        (InProcessIDBServer::commitTransaction):
+        (InProcessIDBServer::didFinishHandlingVersionChangeTransaction):
+        (InProcessIDBServer::createObjectStore):
+        (InProcessIDBServer::deleteObjectStore):
+        (InProcessIDBServer::renameObjectStore):
+        (InProcessIDBServer::clearObjectStore):
+        (InProcessIDBServer::createIndex):
+        (InProcessIDBServer::deleteIndex):
+        (InProcessIDBServer::renameIndex):
+        (InProcessIDBServer::putOrAdd):
+        (InProcessIDBServer::getRecord):
+        (InProcessIDBServer::getAllRecords):
+        (InProcessIDBServer::getCount):
+        (InProcessIDBServer::deleteRecord):
+        (InProcessIDBServer::openCursor):
+        (InProcessIDBServer::iterateCursor):
+        (InProcessIDBServer::establishTransaction):
+        (InProcessIDBServer::fireVersionChangeEvent):
+        (InProcessIDBServer::didStartTransaction):
+        (InProcessIDBServer::didCloseFromServer):
+        (InProcessIDBServer::notifyOpenDBRequestBlocked):
+        (InProcessIDBServer::databaseConnectionPendingClose):
+        (InProcessIDBServer::databaseConnectionClosed):
+        (InProcessIDBServer::abortOpenAndUpgradeNeeded):
+        (InProcessIDBServer::didFireVersionChangeEvent):
+        (InProcessIDBServer::openDBRequestCancelled):
+        (InProcessIDBServer::confirmDidCloseFromServer):
+        (InProcessIDBServer::getAllDatabaseNames):
+        (InProcessIDBServer::didGetAllDatabaseNames):
+        * Storage/InProcessIDBServer.h: Added.
+        * Storage/WebDatabaseProvider.cpp:
+        (WebDatabaseProvider::idbConnectionToServerForSession):
+        (WebDatabaseProvider::deleteAllDatabases):
+        * Storage/WebDatabaseProvider.h:
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2019-12-04  Chris Dumez  <cdumez@apple.com>
+
+        PageConfiguration::progressTrackerClient should use a smart pointer
+        https://bugs.webkit.org/show_bug.cgi?id=204854
+
+        Reviewed by Alex Christensen.
+
+        * PlatformWin.cmake:
+
+2019-12-02  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        [AppleWin] WebKitQuartzCoreAdditions.dll isn't compiled since r248444
+        https://bugs.webkit.org/show_bug.cgi?id=204695
+
+        Reviewed by Alex Christensen.
+
+        * CMakeLists.txt: Replaced APPLE with USE_CA in the condition of
+        building WebKitQuartzCoreAdditions.
+
+2019-10-31  Alex Christensen  <achristensen@apple.com>
+
+        Enable more features in Mac CMake build
+        https://bugs.webkit.org/show_bug.cgi?id=203699
+
+        Rubber-stamped by Tim Horton.
+
+        * PlatformMac.cmake:
+
+2019-10-31  Alex Christensen  <achristensen@webkit.org>
+
+        CMake build should make WebKit framework able to be used by Safari
+        https://bugs.webkit.org/show_bug.cgi?id=203685
+
+        Rubber-stamped by Tim Horton.
+
+        * PlatformMac.cmake:
+
+2019-10-01  Alex Christensen  <achristensen@webkit.org>
+
+        Progress towards successful CMake build on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=202426
+
+        Rubber-stamped by Tim Horton.
+
+        * PlatformMac.cmake:
+
+2019-10-01  Alex Christensen  <achristensen@webkit.org>
+
+        Unify more WebKitLegacy sources
+        https://bugs.webkit.org/show_bug.cgi?id=202410
+
+        Reviewed by Tim Horton.
+
+        * SourcesCocoa.txt:
+        * UnifiedSources-output.xcfilelist:
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        * scripts/generate-unified-sources.sh:
+
+2019-09-30  Alex Christensen  <achristensen@webkit.org>
+
+        Resurrect Mac CMake build
+        https://bugs.webkit.org/show_bug.cgi?id=202384
+
+        Rubber-stamped by Tim Horton.
+
+        * PlatformMac.cmake:
+
+2019-09-30  Alex Christensen  <achristensen@webkit.org>
+
+        Unify more WebKitLegacy sources
+        https://bugs.webkit.org/show_bug.cgi?id=202390
+
+        Reviewed by Tim Horton.
+
+        These files were causing problems with the CMake build, but only if not unified.
+        So I unified them and sped up the build too, without changing any behavior.
+
+        * SourcesCocoa.txt:
+        * UnifiedSources-output.xcfilelist:
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        * scripts/generate-unified-sources.sh:
+
+2019-09-10  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+        Unreviewed, rolling out r239097.
+
+        This is not a right fix. DumpRenderTree, MiniBrowser and
+        TestWebKitAPI are still reporting the same warning.
+
+        Reverted changeset:
+
+        "[Win][WebKitLegacy][Clang] WebKit.h warning:
+        'IWebEditingDelegate2::shouldInsertNode' hides overloaded
+        virtual function [-Woverloaded-virtual]"
+        https://bugs.webkit.org/show_bug.cgi?id=192581
+        https://trac.webkit.org/changeset/239097
+
+2019-09-03  Chris Dumez  <cdumez@apple.com>
+
+        FrameLoader::FrameProgressTracker::progressCompleted() does not need a pageID
+        https://bugs.webkit.org/show_bug.cgi?id=201431
+
+        Reviewed by Antti Koivisto.
+
+        * WebCoreSupport/WebResourceLoadScheduler.cpp:
+        (WebResourceLoadScheduler::pageLoadCompleted):
+        * WebCoreSupport/WebResourceLoadScheduler.h:
+
+2019-08-30  Brent Fulgham  <bfulgham@apple.com>
+
+        [FTW] Use DirectX SharedResource as basis for SharedBitmap
+        https://bugs.webkit.org/show_bug.cgi?id=201157
+
+        Reviewed by Alex Christensen.
+
+        * PlatformFTW.cmake: Link to DirectX to avoid build failure.
+
+2019-08-19  Sihui Liu  <sihui_liu@apple.com>
+
+        Remove IDB-specific quota
+        https://bugs.webkit.org/show_bug.cgi?id=196545
+        <rdar://problem/54201783>
+
+        Reviewed by Youenn Fablet.
+
+        * Storage/WebDatabaseProvider.cpp:
+        (WebDatabaseProvider::setIDBPerOriginQuota): Deleted.
+        * Storage/WebDatabaseProvider.h:
+
+2019-08-19  Youenn Fablet  <youenn@apple.com>
+
+        Remove SessionID::emptySessionID()
+        https://bugs.webkit.org/show_bug.cgi?id=200811
+
+        Reviewed by Alex Christensen.
+
+        * Storage/WebDatabaseProvider.cpp:
+        (WebDatabaseProvider::idbConnectionToServerForSession):
+        * Storage/WebDatabaseProvider.h:
+
+2019-08-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [WTF] Add makeUnique<T>, which ensures T is fast-allocated, makeUnique / makeUniqueWithoutFastMallocCheck part
+        https://bugs.webkit.org/show_bug.cgi?id=200620
+
+        Reviewed by Geoffrey Garen.
+
+        * Storage/StorageSyncManager.cpp:
+        (WebCore::StorageSyncManager::StorageSyncManager):
+        * Storage/StorageThread.cpp:
+        (WebCore::StorageThread::dispatch):
+        (WebCore::StorageThread::terminate):
+        * Storage/StorageTracker.cpp:
+        (WebKit::StorageTracker::StorageTracker):
+        * WebCoreSupport/NetworkStorageSessionMap.cpp:
+        (NetworkStorageSessionMap::defaultStorageSession):
+        (NetworkStorageSessionMap::switchToNewTestingSession):
+        (NetworkStorageSessionMap::ensureSession):
+
+2019-08-15  Brent Fulgham  <bfulgham@apple.com>
+
+        [FTW] Enable CoreFoundation use if building for Apple target
+        https://bugs.webkit.org/show_bug.cgi?id=200799
+
+        Reviewed by Alex Christensen.
+
+        * PlatformFTW.cmake:
+
+2019-08-15  Sihui Liu  <sihui_liu@apple.com>
+
+        Some improvements on web storage
+        https://bugs.webkit.org/show_bug.cgi?id=200373
+
+        Reviewed by Geoffrey Garen.
+
+        Do some clean-up and add support for session change of web storage in layout tests.
+
+        * Storage/StorageAreaImpl.cpp:
+        (WebKit::StorageAreaImpl::sessionChanged):
+        * Storage/StorageAreaImpl.h:
+        (): Deleted.
+
+        * Storage/StorageAreaSync.h: make sure StorageAreaSync is destructed on the main thread, as it can be 
+        dereferenced in StorageAreaImpl::sessionChanged and its last reference for final sync could be released on the 
+        background thread.
+
+        * Storage/StorageNamespaceImpl.cpp: replace EphemeralLocalStorage with LocalStorage, and store SessionID in 
+        StorageNamespace.
+        (WebKit::StorageNamespaceImpl::createSessionStorageNamespace):
+        (WebKit::StorageNamespaceImpl::getOrCreateLocalStorageNamespace):
+        (WebKit::StorageNamespaceImpl::StorageNamespaceImpl):
+        (WebKit::StorageNamespaceImpl::copy):
+        (WebKit::StorageNamespaceImpl::close):
+        (WebKit::StorageNamespaceImpl::setSessionIDForTesting):
+        (WebKit::StorageNamespaceImpl::createEphemeralLocalStorageNamespace): Deleted.
+        * Storage/StorageNamespaceImpl.h:
+        * Storage/WebStorageNamespaceProvider.cpp:
+        (WebKit::WebStorageNamespaceProvider::createSessionStorageNamespace):
+        (WebKit::WebStorageNamespaceProvider::createLocalStorageNamespace):
+        (WebKit::WebStorageNamespaceProvider::createTransientLocalStorageNamespace):
+        (WebKit::WebStorageNamespaceProvider::createEphemeralLocalStorageNamespace): Deleted.
+        * Storage/WebStorageNamespaceProvider.h:
+
+2019-08-14  Ryan Haddad  <ryanhaddad@apple.com>
+
+        Unreviewed, rolling out r248526.
+
+        Caused two IndexedDB perf tests to fail
+
+        Reverted changeset:
+
+        "Remove IDB-specific quota"
+        https://bugs.webkit.org/show_bug.cgi?id=196545
+        https://trac.webkit.org/changeset/248526
+
+2019-08-12  Youenn Fablet  <youenn@apple.com>
+
+        Remove IDB-specific quota
+        https://bugs.webkit.org/show_bug.cgi?id=196545
+
+        Reviewed by Alex Christensen.
+
+        * Storage/WebDatabaseProvider.cpp:
+        (WebDatabaseProvider::idbConnectionToServerForSession):
+        (WebDatabaseProvider::deleteAllDatabases):
+        (WebDatabaseProvider::setIDBPerOriginQuota): Deleted.
+        * Storage/WebDatabaseProvider.h:
+
+2019-08-10  Tim Horton  <timothy_horton@apple.com>
+
+        Remove some more unused 32-bit code
+        https://bugs.webkit.org/show_bug.cgi?id=200607
+
+        Reviewed by Alexey Proskuryakov.
+
+        * PlatformMac.cmake:
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+
+2019-08-09  Keith Rollin  <krollin@apple.com>
+
+        Fix WebKitLegacy's post-process-header-rule script to support paths with spaces in them
+        https://bugs.webkit.org/show_bug.cgi?id=200595
+        <rdar://problem/54045608>
+
+        Reviewed by Darin Adler.
+
+        A number of scripts were added to WebKit, JavaScriptCore, and
+        WebKitLegacy to support XCBuild's new facility for copying and
+        modifying files in one atomic step. The first two are OK, but
+        WebKitLegacy's script (post-process-header-rule) references a file via
+        a variable named "header", and does so without quoting the variable's
+        value. When the header's path contains spaces -- as can happen when
+        building Safari Technology Preview -- the script breaks. Fix this by
+        adding quoting.
+
+        * scripts/postprocess-header-rule:
+
+2019-08-08  Brent Fulgham  <bfulgham@apple.com>
+
+        [FTW] Get WebKit, WebKit2, and MiniBrowser building and executing
+        https://bugs.webkit.org/show_bug.cgi?id=200539
+        <rdar://problem/54082550>
+
+        Reviewed by Dean Jackson.
+
+        * CMakeLists.txt:
+        * PlatformFTW.cmake: Added.
+
+2019-08-06  Per Arne Vollan  <pvollan@apple.com>
+
+        [Win] Fix AppleWin build
+        https://bugs.webkit.org/show_bug.cgi?id=200455
+
+        Reviewed by Alex Christensen.
+
+        * CMakeLists.txt:
+        * PlatformWin.cmake:
+        * WebKitLegacy.vcxproj/WebKitLegacy.proj:
+
+2019-07-31  Keith Rollin  <krollin@apple.com>
+
+        Update WebKitLegacy for XCBuild
+        https://bugs.webkit.org/show_bug.cgi?id=200310
+        <rdar://problem/53773708>
+
+        Reviewed by Alex Christensen.
+
+        Bug 199771 (svn r247570) updated WebKitLegacy to use the unified-build
+        technique. Now update WebKitLegacy to build under XCBuild after those
+        changes. This work involves adding an "Apply Configuration to
+        XCFileLists" build target, adding a check-xcfilelists.sh script,
+        adding a "Check xcfilelists" build phase that calls that script,
+        adding knowledge of the project to the generate-xcfilelists script,
+        creating new .xcfilelist files, and adding those to the project.
+
+        * UnifiedSources-output.xcfilelist: Added.
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        * scripts/check-xcfilelists.sh: Added.
+
+2019-07-18  Alex Christensen  <achristensen@webkit.org>
+
+        Unify builds in WebKitLegacy/mac/DOM
+        https://bugs.webkit.org/show_bug.cgi?id=199771
+
+        Reviewed by Geoffrey Garen.
+
+        * SourcesCocoa.txt:
+        * WebKitLegacy.xcodeproj/project.pbxproj:
+        * scripts/generate-unified-sources.sh:
+
+2019-07-16  Chris Dumez  <cdumez@apple.com>
+
+        Speed up StorageManager::getValues()
+        https://bugs.webkit.org/show_bug.cgi?id=199812
+
+        Reviewed by Alex Christensen.
+
+        * Storage/StorageAreaImpl.cpp:
+        (WebKit::StorageAreaImpl::importItems):
+        * Storage/StorageAreaImpl.h:
+        * Storage/StorageAreaSync.cpp:
+        (WebKit::StorageAreaSync::performImport):
 
 2019-07-12  Alex Christensen  <achristensen@webkit.org>
 

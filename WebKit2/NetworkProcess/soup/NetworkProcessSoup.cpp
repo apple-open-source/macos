@@ -29,6 +29,7 @@
 
 #include "NetworkCache.h"
 #include "NetworkProcessCreationParameters.h"
+#include "NetworkSessionSoup.h"
 #include "ResourceCachesToClear.h"
 #include "WebCookieManager.h"
 #include "WebKitCachedResolver.h"
@@ -38,6 +39,7 @@
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/SoupNetworkSession.h>
 #include <libsoup/soup.h>
+#include <wtf/CallbackAggregator.h>
 #include <wtf/FileSystem.h>
 #include <wtf/RAMSize.h>
 #include <wtf/glib/GRefPtr.h>
@@ -93,12 +95,30 @@ static CString buildAcceptLanguages(const Vector<String>& languages)
     return builder.toString().utf8();
 }
 
+void NetworkProcess::getHostNamesWithHSTSCache(WebCore::NetworkStorageSession& storageSession, HashSet<String>& hostNames)
+{
+    const auto* session = static_cast<NetworkSessionSoup*>(networkSession(storageSession.sessionID()));
+    session->soupNetworkSession().getHostNamesWithHSTSCache(hostNames);
+}
+
+void NetworkProcess::deleteHSTSCacheForHostNames(WebCore::NetworkStorageSession& storageSession, const Vector<String>& hostNames)
+{
+    const auto* session = static_cast<NetworkSessionSoup*>(networkSession(storageSession.sessionID()));
+    session->soupNetworkSession().deleteHSTSCacheForHostNames(hostNames);
+}
+
+void NetworkProcess::clearHSTSCache(WebCore::NetworkStorageSession& storageSession, WallTime modifiedSince)
+{
+    const auto* session = static_cast<NetworkSessionSoup*>(networkSession(storageSession.sessionID()));
+    session->soupNetworkSession().clearHSTSCache(modifiedSince);
+}
+
 void NetworkProcess::userPreferredLanguagesChanged(const Vector<String>& languages)
 {
     auto acceptLanguages = buildAcceptLanguages(languages);
     SoupNetworkSession::setInitialAcceptLanguages(acceptLanguages);
-    forEachNetworkStorageSession([&acceptLanguages](const auto& session) {
-        session.soupNetworkSession().setAcceptLanguages(acceptLanguages);
+    forEachNetworkSession([&acceptLanguages](const auto& session) {
+        static_cast<const NetworkSessionSoup&>(session).soupNetworkSession().setAcceptLanguages(acceptLanguages);
     });
 }
 
@@ -107,33 +127,27 @@ void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreati
     if (parameters.proxySettings.mode != SoupNetworkProxySettings::Mode::Default)
         setNetworkProxySettings(parameters.proxySettings);
 
-    ASSERT(!parameters.diskCacheDirectory.isEmpty());
-    m_diskCacheDirectory = parameters.diskCacheDirectory;
-
     GRefPtr<GResolver> cachedResolver = adoptGRef(webkitCachedResolverNew(adoptGRef(g_resolver_get_default())));
     g_resolver_set_default(cachedResolver.get());
 
-    SoupNetworkSession::clearOldSoupCache(FileSystem::directoryName(m_diskCacheDirectory));
-
-    OptionSet<NetworkCache::Cache::Option> cacheOptions { NetworkCache::Cache::Option::RegisterNotify };
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-    if (parameters.shouldEnableNetworkCacheSpeculativeRevalidation)
-        cacheOptions.add(NetworkCache::Cache::Option::SpeculativeRevalidation);
-#endif
-
-    m_cache = NetworkCache::Cache::open(*this, m_diskCacheDirectory, cacheOptions);
-
-    supplement<WebCookieManager>()->setHTTPCookieAcceptPolicy(parameters.cookieAcceptPolicy, OptionalCallbackID());
+    m_cacheOptions = { NetworkCache::CacheOption::RegisterNotify };
+    supplement<WebCookieManager>()->setHTTPCookieAcceptPolicy(parameters.cookieAcceptPolicy, []() { });
 
     if (!parameters.languages.isEmpty())
         userPreferredLanguagesChanged(parameters.languages);
 
     setIgnoreTLSErrors(parameters.ignoreTLSErrors);
+
+    if (!parameters.hstsStorageDirectory.isEmpty())
+        SoupNetworkSession::setHSTSPersistentStorage(parameters.hstsStorageDirectory.utf8());
+    forEachNetworkSession([](const auto& session) {
+        static_cast<const NetworkSessionSoup&>(session).soupNetworkSession().setupHSTSEnforcer();
+    });
 }
 
 std::unique_ptr<WebCore::NetworkStorageSession> NetworkProcess::platformCreateDefaultStorageSession() const
 {
-    return std::make_unique<WebCore::NetworkStorageSession>(PAL::SessionID::defaultSessionID(), std::make_unique<SoupNetworkSession>(PAL::SessionID::defaultSessionID()));
+    return makeUnique<WebCore::NetworkStorageSession>(PAL::SessionID::defaultSessionID());
 }
 
 void NetworkProcess::setIgnoreTLSErrors(bool ignoreTLSErrors)
@@ -156,11 +170,11 @@ void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
 
 void NetworkProcess::clearDiskCache(WallTime modifiedSince, CompletionHandler<void()>&& completionHandler)
 {
-    if (!m_cache) {
-        completionHandler();
-        return;
-    }
-    m_cache->clear(modifiedSince, WTFMove(completionHandler));
+    auto aggregator = CallbackAggregator::create(WTFMove(completionHandler));
+    forEachNetworkSession([modifiedSince, &aggregator](NetworkSession& session) {
+        if (auto* cache = session.cache())
+            cache->clear(modifiedSince, [aggregator = aggregator.copyRef()] () { });
+    });
 }
 
 void NetworkProcess::platformTerminate()
@@ -171,8 +185,8 @@ void NetworkProcess::platformTerminate()
 void NetworkProcess::setNetworkProxySettings(const SoupNetworkProxySettings& settings)
 {
     SoupNetworkSession::setProxySettings(settings);
-    forEachNetworkStorageSession([](const auto& session) {
-        session.soupNetworkSession().setupProxy();
+    forEachNetworkSession([](const auto& session) {
+        static_cast<const NetworkSessionSoup&>(session).soupNetworkSession().setupProxy();
     });
 }
 

@@ -76,7 +76,7 @@ CFIndex HIDDisplayGetFactoryDefaultPresetIndex(HIDDisplayPresetInterfaceRef hidD
     }
     
     if (index == -1 && error) {
-        *error = (__bridge CFErrorRef)err;
+        *error = (__bridge_retained CFErrorRef)err;
     }
     
     return index;
@@ -103,7 +103,7 @@ CFIndex HIDDisplayGetActivePresetIndex(HIDDisplayPresetInterfaceRef hidDisplayIn
     }
     
     if (index == -1 && error) {
-        *error = (__bridge CFErrorRef)err;
+        *error = (__bridge_retained CFErrorRef)err;
     }
     
     return index;
@@ -119,7 +119,7 @@ bool HIDDisplaySetActivePresetIndex(HIDDisplayPresetInterfaceRef hidDisplayInter
         os_log_error(HIDDisplayLog(),"Invalid HIDDisplayPresetInterfaceRef");
         
         if (error) {
-            *error = (__bridge CFErrorRef)[[NSError alloc] initWithDomain:NSOSStatusErrorDomain code:kIOReturnInvalid userInfo:nil];
+            *error = (__bridge_retained CFErrorRef)[[NSError alloc] initWithDomain:NSOSStatusErrorDomain code:kIOReturnInvalid userInfo:nil];
         }
         return false;
     }
@@ -136,7 +136,7 @@ bool HIDDisplaySetActivePresetIndex(HIDDisplayPresetInterfaceRef hidDisplayInter
     
     if (ret == false && error) {
         
-        *error = (__bridge CFErrorRef)err;
+        *error = (__bridge_retained CFErrorRef)err;
     }
     
     return ret;
@@ -152,7 +152,8 @@ CFDictionaryRef __nullable HIDDisplayCopyPreset(HIDDisplayPresetInterfaceRef hid
     if (![device isKindOfClass:[HIDDisplayPresetInterface class]]) {
         os_log_error(HIDDisplayLog(),"Invalid HIDDisplayPresetInterfaceRef");
         if (error) {
-            *error = CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, kIOReturnBadArgument , NULL);
+            err = [[NSError alloc] initWithDomain:@"Invalid object" code:kIOReturnBadArgument userInfo:nil];
+            *error = (__bridge_retained CFErrorRef)err;
         }
         return NULL;
     }
@@ -162,7 +163,8 @@ CFDictionaryRef __nullable HIDDisplayCopyPreset(HIDDisplayPresetInterfaceRef hid
     if (presetIndex < 0 || (NSUInteger)presetIndex >= _device.presets.count) {
         os_log_error(HIDDisplayLog(),"Invalid preset index %ld ",presetIndex);
         if (error) {
-            *error = CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, kIOReturnBadArgument , NULL);
+            err = [[NSError alloc] initWithDomain:@"Invalid index" code:kIOReturnBadArgument userInfo:nil];
+            *error = (__bridge_retained CFErrorRef)err;
         }
         return NULL;
     }
@@ -179,7 +181,7 @@ CFDictionaryRef __nullable HIDDisplayCopyPreset(HIDDisplayPresetInterfaceRef hid
         os_log_error(HIDDisplayLog(),"%@ HIDDisplayCopyPreset error %@ for  preset index %ld ",_device, err, presetIndex);
         
         if (error) {
-            *error = (__bridge CFErrorRef)err;
+            *error = (__bridge_retained CFErrorRef)err;
         }
         return NULL;
     }
@@ -199,7 +201,8 @@ bool HIDDisplaySetPreset(HIDDisplayPresetInterfaceRef hidDisplayInterface, CFInd
     if (![device isKindOfClass:[HIDDisplayPresetInterface class]]) {
         os_log_error(HIDDisplayLog(),"Invalid HIDDisplayPresetInterfaceRef");
         if (error) {
-            *error = CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, kIOReturnBadArgument , NULL);
+            err = [[NSError alloc] initWithDomain:@"Invalid object" code:kIOReturnBadArgument userInfo:nil];
+            *error = (__bridge_retained CFErrorRef)err;
         }
         return false;
     }
@@ -209,7 +212,8 @@ bool HIDDisplaySetPreset(HIDDisplayPresetInterfaceRef hidDisplayInterface, CFInd
     if (presetIndex < 0 || (NSUInteger)presetIndex >= _device.presets.count) {
         os_log_error(HIDDisplayLog(),"%@ Invalid preset index %ld ",_device, presetIndex);
         if (error) {
-            *error = CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, kIOReturnBadArgument , NULL);
+            err = [[NSError alloc] initWithDomain:@"Invalid index" code:kIOReturnBadArgument userInfo:nil];
+            *error = (__bridge_retained CFErrorRef)err;
         }
         return false;
     }
@@ -224,7 +228,7 @@ bool HIDDisplaySetPreset(HIDDisplayPresetInterfaceRef hidDisplayInterface, CFInd
     
     
     if (error && ret == false) {
-        *error = (__bridge CFErrorRef)err;
+        *error = (__bridge_retained CFErrorRef)err;
     }
     
     return ret;

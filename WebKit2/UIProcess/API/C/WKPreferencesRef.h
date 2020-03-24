@@ -27,6 +27,7 @@
 #define WKPreferencesRef_h
 
 #include <WebKit/WKBase.h>
+#include <WebKit/WKDeprecated.h>
 
 #ifndef __cplusplus
 #include <stdbool.h>
@@ -55,9 +56,9 @@ enum _WKUserInterfaceDirectionPolicy {
 };
 typedef enum _WKUserInterfaceDirectionPolicy _WKUserInterfaceDirectionPolicy;
 
-WK_EXPORT WKTypeID WKPreferencesGetTypeID();
+WK_EXPORT WKTypeID WKPreferencesGetTypeID(void);
 
-WK_EXPORT WKPreferencesRef WKPreferencesCreate();
+WK_EXPORT WKPreferencesRef WKPreferencesCreate(void);
 WK_EXPORT WKPreferencesRef WKPreferencesCreateWithIdentifier(WKStringRef identifier);
 
 // Defaults to true.
@@ -149,8 +150,8 @@ WK_EXPORT void WKPreferencesSetDefaultTextEncodingName(WKPreferencesRef preferen
 WK_EXPORT WKStringRef WKPreferencesCopyDefaultTextEncodingName(WKPreferencesRef preferencesRef);
 
 // Defaults to false.
-WK_EXPORT void WKPreferencesSetPrivateBrowsingEnabled(WKPreferencesRef preferencesRef, bool enabled);
-WK_EXPORT bool WKPreferencesGetPrivateBrowsingEnabled(WKPreferencesRef preferencesRef);
+WK_EXPORT void WKPreferencesSetPrivateBrowsingEnabled(WKPreferencesRef preferencesRef, bool enabled) WK_C_API_DEPRECATED;
+WK_EXPORT bool WKPreferencesGetPrivateBrowsingEnabled(WKPreferencesRef preferencesRef) WK_C_API_DEPRECATED;
 
 // Defaults to false.
 WK_EXPORT void WKPreferencesSetDeveloperExtrasEnabled(WKPreferencesRef preferencesRef, bool enabled);
@@ -334,8 +335,18 @@ WK_EXPORT void WKPreferencesSetWebSQLDisabled(WKPreferencesRef preferencesRef, b
 
 WK_EXPORT void WKPreferencesSetCaptureAudioInUIProcessEnabled(WKPreferencesRef preferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetCaptureAudioInUIProcessEnabled(WKPreferencesRef preferencesRef);
+WK_EXPORT void WKPreferencesSetCaptureAudioInGPUProcessEnabled(WKPreferencesRef preferencesRef, bool flag);
+WK_EXPORT bool WKPreferencesGetCaptureAudioInGPUProcessEnabled(WKPreferencesRef preferencesRef);
 WK_EXPORT void WKPreferencesSetCaptureVideoInUIProcessEnabled(WKPreferencesRef preferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetCaptureVideoInUIProcessEnabled(WKPreferencesRef preferencesRef);
+
+// Defaults to false.
+WK_EXPORT bool WKPreferencesGetRemotePlaybackEnabled(WKPreferencesRef preferencesRef);
+WK_EXPORT void WKPreferencesSetRemotePlaybackEnabled(WKPreferencesRef preferencesRef, bool enabled);
+
+// Defaults to false.
+WK_EXPORT bool WKPreferencesGetShouldUseServiceWorkerShortTimeout(WKPreferencesRef preferencesRef);
+WK_EXPORT void WKPreferencesSetShouldUseServiceWorkerShortTimeout(WKPreferencesRef preferencesRef, bool enabled);
 
 #ifdef __cplusplus
 }

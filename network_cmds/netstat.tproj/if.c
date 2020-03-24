@@ -2052,7 +2052,7 @@ loop:
 	    interface, sp->ifi_poll_on_req, sp->ifi_poll_on_err);
 	printf("     [ poll off requests: %15u  errors: %27u ]\n",
 	    sp->ifi_poll_off_req, sp->ifi_poll_off_err);
-	printf("     [ polled packets: %18llu  per poll limit: %19lu ]\n",
+	printf("     [ polled packets: %18llu  per poll limit: %19u ]\n",
 	    sp->ifi_poll_packets, sp->ifi_poll_packets_limit);
 	printf("     [ polled bytes: %20llu ]\n", sp->ifi_poll_bytes);
 	printf("     [ poll interval: %14llu nsec ]\n",
@@ -2079,7 +2079,7 @@ loop:
 	    np->ifn_rx_mit_cfg_packets_lowat, np->ifn_rx_mit_cfg_packets_hiwat);
 	printf("     [ cfg bytes lo/hi threshold:   %12u / %12u ]\n",
 	    np->ifn_rx_mit_cfg_bytes_lowat, np->ifn_rx_mit_cfg_bytes_hiwat);
-	printf("     [ cfg interval: %15llu nsec ]\n",
+	printf("     [ cfg interval: %15u nsec ]\n",
 	    np->ifn_rx_mit_cfg_interval);
 	printf("     [ mit interval: %15llu nsec ]\n",
 	    np->ifn_rx_mit_interval);

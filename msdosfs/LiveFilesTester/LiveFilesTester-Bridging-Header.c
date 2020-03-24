@@ -122,11 +122,11 @@ int brdg_get_physical_block_size(int fildes, int *val){
                              Wrapping functions
  ******************************************************************************/
 
-int brdg_fsops_setfsattr(UVFSFSOps* testerFsOps, UVFSFileNode *Node, const char *attr, const UVFSFSAttributeValue *val, size_t len)
+int brdg_fsops_setfsattr(UVFSFSOps* testerFsOps, UVFSFileNode *Node, const char *attr, const UVFSFSAttributeValue *val, size_t len, UVFSFSAttributeValue *out_val, size_t out_len)
 {
     int errnum;
     clock_gettime(CLOCK_REALTIME, &tm1);
-    errnum = (*testerFsOps).fsops_setfsattr(*Node, attr, val, len);
+    errnum = (*testerFsOps).fsops_setfsattr(*Node, attr, val, len, out_val, out_len);
     clock_gettime(CLOCK_REALTIME, &tm2);
     elapsed_time = timespec_diff_in_ns(&tm1, &tm2);
     logf("fsops_setfsattr return (%d) - %s\n", errnum,errnum==0?"SUCCESS":strerror(errnum));

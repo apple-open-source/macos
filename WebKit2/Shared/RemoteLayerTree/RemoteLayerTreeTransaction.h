@@ -31,6 +31,7 @@
 #include "GenericCallback.h"
 #include "PlatformCAAnimationRemote.h"
 #include "RemoteLayerBackingStore.h"
+#include "TransactionID.h"
 #include <WebCore/Color.h>
 #include <WebCore/FilterOperations.h>
 #include <WebCore/FloatPoint3D.h>
@@ -51,6 +52,7 @@ class Encoder;
 namespace WebKit {
 
 class RemoteLayerTreeTransaction {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     enum LayerChange {
         NameChanged                     = 1LLU << 1,
@@ -94,6 +96,7 @@ public:
     };
 
     struct LayerCreationProperties {
+        WTF_MAKE_STRUCT_FAST_ALLOCATED;
         LayerCreationProperties();
 
         void encode(IPC::Encoder&) const;
@@ -109,6 +112,7 @@ public:
     };
 
     struct LayerProperties {
+        WTF_MAKE_STRUCT_FAST_ALLOCATED;
         LayerProperties();
         LayerProperties(const LayerProperties& other);
 
@@ -189,7 +193,7 @@ public:
     void setLayerIDsWithNewlyUnreachableBackingStore(Vector<WebCore::GraphicsLayer::PlatformLayerID>);
 
 #if !defined(NDEBUG) || !LOG_DISABLED
-    WTF::CString description() const;
+    String description() const;
     void dump() const;
 #endif
 
@@ -261,8 +265,8 @@ public:
     bool avoidsUnsafeArea() const { return m_avoidsUnsafeArea; }
     void setAvoidsUnsafeArea(bool avoidsUnsafeArea) { m_avoidsUnsafeArea = avoidsUnsafeArea; }
 
-    uint64_t transactionID() const { return m_transactionID; }
-    void setTransactionID(uint64_t transactionID) { m_transactionID = transactionID; }
+    TransactionID transactionID() const { return m_transactionID; }
+    void setTransactionID(TransactionID transactionID) { m_transactionID = transactionID; }
 
     ActivityStateChangeID activityStateChangeID() const { return m_activityStateChangeID; }
     void setActivityStateChangeID(ActivityStateChangeID activityStateChangeID) { m_activityStateChangeID = activityStateChangeID; }
@@ -306,7 +310,7 @@ private:
     double m_initialScaleFactor { 1 };
     double m_viewportMetaTagWidth { -1 };
     uint64_t m_renderTreeSize { 0 };
-    uint64_t m_transactionID { 0 };
+    TransactionID m_transactionID;
     ActivityStateChangeID m_activityStateChangeID { ActivityStateChangeAsynchronous };
     OptionSet<WebCore::LayoutMilestone> m_newlyReachedPaintingMilestones;
     bool m_scaleWasSetByUIProcess { false };

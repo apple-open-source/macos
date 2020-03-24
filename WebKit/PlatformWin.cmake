@@ -24,16 +24,12 @@ else ()
         PRIVATE CoreText${DEBUG_SUFFIX}
         PRIVATE QuartzCore${DEBUG_SUFFIX}
         PRIVATE libdispatch${DEBUG_SUFFIX}
-        PRIVATE libicuin${DEBUG_SUFFIX}
-        PRIVATE libicuuc${DEBUG_SUFFIX}
         PRIVATE ${LIBXML2_LIBRARIES}
         PRIVATE ${LIBXSLT_LIBRARIES}
         PRIVATE ${SQLITE_LIBRARIES}
         PRIVATE ${ZLIB_LIBRARIES}
     )
 endif ()
-
-list(APPEND WebKitLegacy_LIBRARIES PRIVATE WTF${DEBUG_SUFFIX})
 
 add_custom_command(
     OUTPUT ${WebKitLegacy_DERIVED_SOURCES_DIR}/WebKitVersion.h
@@ -235,6 +231,8 @@ list(APPEND WebKitLegacy_SOURCES_WebCoreSupport
     win/WebCoreSupport/WebPlatformStrategies.h
     win/WebCoreSupport/WebPluginInfoProvider.cpp
     win/WebCoreSupport/WebPluginInfoProvider.h
+    win/WebCoreSupport/WebProgressTrackerClient.cpp
+    win/WebCoreSupport/WebProgressTrackerClient.h
     win/WebCoreSupport/WebVisitedLinkStore.cpp
     win/WebCoreSupport/WebVisitedLinkStore.h
 )
@@ -269,10 +267,6 @@ if (CMAKE_SIZEOF_VOID_P EQUAL 8)
             win/plugins/PaintHooks.asm
         )
     endif ()
-endif ()
-
-if (COMPILER_IS_GCC_OR_CLANG)
-    WEBKIT_ADD_TARGET_CXX_FLAGS(WebKitLegacy -Wno-overloaded-virtual)
 endif ()
 
 list(APPEND WebKitLegacy_SOURCES ${WebKitLegacy_INCLUDES} ${WebKitLegacy_SOURCES_Classes} ${WebKitLegacy_SOURCES_WebCoreSupport})

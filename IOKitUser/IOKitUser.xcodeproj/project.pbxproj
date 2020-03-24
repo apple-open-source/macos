@@ -194,6 +194,8 @@
 		24F5FE6D0DD1260900AE3585 /* IOKitKeysPrivate.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 24F5FE6A0DD125E900AE3585 /* IOKitKeysPrivate.h */; };
 		24F5FE920DD1304B00AE3585 /* OSKext.h in Copy Kext Files */ = {isa = PBXBuildFile; fileRef = 24F5FE570DD1256800AE3585 /* OSKext.h */; };
 		24F5FE930DD1306200AE3585 /* misc_util.h in Copy Kext Files */ = {isa = PBXBuildFile; fileRef = 24F5FE5F0DD1257400AE3585 /* misc_util.h */; };
+		25CEC9FE2388B77300762936 /* DoNothing.c in Sources */ = {isa = PBXBuildFile; fileRef = 25CEC9FD2388B77300762936 /* DoNothing.c */; };
+		25DFEB92239F6BEB002F4F9E /* DoNothing_10undef.c in Sources */ = {isa = PBXBuildFile; fileRef = 25DFEB91239F6BEB002F4F9E /* DoNothing_10undef.c */; };
 		2D371B190905ED1F005F97DC /* IOSystemConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D371B170905ED1F005F97DC /* IOSystemConfiguration.c */; };
 		2D371B1A0905ED1F005F97DC /* IOSystemConfiguration.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D371B180905ED1F005F97DC /* IOSystemConfiguration.h */; };
 		2DCEADBC08DB8E0E00B0CBEA /* iokitmig.c in Sources */ = {isa = PBXBuildFile; fileRef = 2DCEADBB08DB8E0E00B0CBEA /* iokitmig.c */; };
@@ -1277,6 +1279,20 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		25B8C1A8239B8B3400FDC974 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E1AF60F807B40A72007EADEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 25B8C19D239B8B1500FDC974;
+			remoteInfo = "DoNothing-10undef";
+		};
+		25CECA052388B80200762936 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E1AF60F807B40A72007EADEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 25CEC9FA2388B77300762936;
+			remoteInfo = DoNothing;
+		};
 		2DCEADC908DB943F00B0CBEA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = E1AF60F807B40A72007EADEA /* Project object */;
@@ -2954,6 +2970,16 @@
 		24F5FE620DD1258A00AE3585 /* printPList_new.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = printPList_new.c; sourceTree = "<group>"; };
 		24F5FE630DD1258A00AE3585 /* printPList_new.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = printPList_new.h; sourceTree = "<group>"; };
 		24F5FE6A0DD125E900AE3585 /* IOKitKeysPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IOKitKeysPrivate.h; path = System/Library/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/IOKitKeysPrivate.h; sourceTree = SDKROOT; };
+		255E6C5D239AFE5700F5349B /* kext.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = "<group>"; };
+		255E6C5E239B2AEA00F5349B /* OSKext-tests.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "OSKext-tests.c"; sourceTree = "<group>"; };
+		25A83D38237E08C2001FDBD7 /* Makefile */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
+		25A83D39237E0918001FDBD7 /* IOKitLib-tests.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "IOKitLib-tests.c"; sourceTree = "<group>"; };
+		25B8C19E239B8B1500FDC974 /* DoNothing-10undef.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "DoNothing-10undef.kext"; sourceTree = BUILT_PRODUCTS_DIR; };
+		25B8C1A2239B8B1500FDC974 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		25CEC9FB2388B77300762936 /* DoNothing.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DoNothing.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		25CEC9FD2388B77300762936 /* DoNothing.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = DoNothing.c; sourceTree = "<group>"; };
+		25CEC9FF2388B77300762936 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		25DFEB91239F6BEB002F4F9E /* DoNothing_10undef.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = DoNothing_10undef.c; sourceTree = "<group>"; };
 		2D371B170905ED1F005F97DC /* IOSystemConfiguration.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = IOSystemConfiguration.c; sourceTree = "<group>"; };
 		2D371B180905ED1F005F97DC /* IOSystemConfiguration.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOSystemConfiguration.h; sourceTree = "<group>"; };
 		2D76BCDE08DD0900009A41B5 /* DeviceMIG.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = DeviceMIG.sh; sourceTree = "<group>"; tabWidth = 4; };
@@ -3355,6 +3381,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		25B8C19B239B8B1500FDC974 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		25CEC9F82388B77300762936 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2DCEADB008DB8CEF00B0CBEA /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -3496,6 +3536,52 @@
 				0F995A142177EBA300045795 /* IOHIDDeviceObjc.m */,
 			);
 			name = iohidobjc;
+			sourceTree = "<group>";
+		};
+		253F3A7F239EEDF200FD0672 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				253F3A80239EEDF700FD0672 /* kexts */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		253F3A80239EEDF700FD0672 /* kexts */ = {
+			isa = PBXGroup;
+			children = (
+				25CEC9FC2388B77300762936 /* DoNothing */,
+				25B8C19F239B8B1500FDC974 /* DoNothing-10undef */,
+			);
+			path = kexts;
+			sourceTree = "<group>";
+		};
+		25A83D37237E0873001FDBD7 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				253F3A7F239EEDF200FD0672 /* Resources */,
+				25A83D38237E08C2001FDBD7 /* Makefile */,
+				25A83D39237E0918001FDBD7 /* IOKitLib-tests.c */,
+				255E6C5E239B2AEA00F5349B /* OSKext-tests.c */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
+		25B8C19F239B8B1500FDC974 /* DoNothing-10undef */ = {
+			isa = PBXGroup;
+			children = (
+				25DFEB91239F6BEB002F4F9E /* DoNothing_10undef.c */,
+				25B8C1A2239B8B1500FDC974 /* Info.plist */,
+			);
+			path = "DoNothing-10undef";
+			sourceTree = "<group>";
+		};
+		25CEC9FC2388B77300762936 /* DoNothing */ = {
+			isa = PBXGroup;
+			children = (
+				25CEC9FD2388B77300762936 /* DoNothing.c */,
+				25CEC9FF2388B77300762936 /* Info.plist */,
+			);
+			path = DoNothing;
 			sourceTree = "<group>";
 		};
 		3E4B57BB07B4564600F76970 /* Mig .def files */ = {
@@ -4230,6 +4316,8 @@
 		E1AF5FF707B40A70007EADEA /* IOKit */ = {
 			isa = PBXGroup;
 			children = (
+				25A83D37237E0873001FDBD7 /* tests */,
+				255E6C5D239AFE5700F5349B /* kext.xcconfig */,
 				6C912D841FA7841200CDF986 /* IOKitUser.xcconfig */,
 				6C912D8B1FA8148000CDF986 /* IOKitUser-Embedded.xcconfig */,
 				6C912D8C1FA8149900CDF986 /* IOKitUser-Sim.xcconfig */,
@@ -4275,6 +4363,8 @@
 				3FF08619165AC5F400BD1467 /* iokitsimd */,
 				60534D691889E433001A180E /* IOServiceAuthorizeAgent.xpc */,
 				603D2FAA18D9FFEA00A15FF1 /* ioserviceauthorized.xpc */,
+				25CEC9FB2388B77300762936 /* DoNothing.kext */,
+				25B8C19E239B8B1500FDC974 /* DoNothing-10undef.kext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -4646,6 +4736,20 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		25B8C199239B8B1500FDC974 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		25CEC9F62388B77300762936 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2DCEADAE08DB8CEF00B0CBEA /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -4921,6 +5025,25 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
+/* Begin PBXLegacyTarget section */
+		25A83D3A237E0950001FDBD7 /* tests */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 25A83D3B237E0951001FDBD7 /* Build configuration list for PBXLegacyTarget "tests" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = tests;
+			dependencies = (
+				25CECA062388B80200762936 /* PBXTargetDependency */,
+				25B8C1A9239B8B3400FDC974 /* PBXTargetDependency */,
+			);
+			name = tests;
+			passBuildSettingsInEnvironment = 1;
+			productName = tests;
+		};
+/* End PBXLegacyTarget section */
+
 /* Begin PBXNativeTarget section */
 		10830CC90F5DDD9A00937E9E /* libkext */ = {
 			isa = PBXNativeTarget;
@@ -4938,6 +5061,42 @@
 			productName = libkext;
 			productReference = 10830CCA0F5DDD9A00937E9E /* libkext.a */;
 			productType = "com.apple.product-type.library.static";
+		};
+		25B8C19D239B8B1500FDC974 /* DoNothing-10undef */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 25B8C1A7239B8B1500FDC974 /* Build configuration list for PBXNativeTarget "DoNothing-10undef" */;
+			buildPhases = (
+				25B8C199239B8B1500FDC974 /* Headers */,
+				25B8C19A239B8B1500FDC974 /* Sources */,
+				25B8C19B239B8B1500FDC974 /* Frameworks */,
+				25B8C19C239B8B1500FDC974 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "DoNothing-10undef";
+			productName = "DoNothing-10undef";
+			productReference = 25B8C19E239B8B1500FDC974 /* DoNothing-10undef.kext */;
+			productType = "com.apple.product-type.kernel-extension";
+		};
+		25CEC9FA2388B77300762936 /* DoNothing */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 25CECA002388B77300762936 /* Build configuration list for PBXNativeTarget "DoNothing" */;
+			buildPhases = (
+				25CEC9F62388B77300762936 /* Headers */,
+				25CEC9F72388B77300762936 /* Sources */,
+				25CEC9F82388B77300762936 /* Frameworks */,
+				25CEC9F92388B77300762936 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DoNothing;
+			productName = DoNothing;
+			productReference = 25CEC9FB2388B77300762936 /* DoNothing.kext */;
+			productType = "com.apple.product-type.kernel-extension";
 		};
 		2DCEADB108DB8CEF00B0CBEA /* DeviceMIG */ = {
 			isa = PBXNativeTarget;
@@ -5195,6 +5354,20 @@
 			attributes = {
 				LastSwiftUpdateCheck = 0700;
 				LastUpgradeCheck = 0600;
+				TargetAttributes = {
+					25A83D3A237E0950001FDBD7 = {
+						CreatedOnToolsVersion = 11.2;
+						ProvisioningStyle = Automatic;
+					};
+					25B8C19D239B8B1500FDC974 = {
+						CreatedOnToolsVersion = 11.2.1;
+						ProvisioningStyle = Automatic;
+					};
+					25CEC9FA2388B77300762936 = {
+						CreatedOnToolsVersion = 11.2;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 2DF1E08908DB6A940096BDB6 /* Build configuration list for PBXProject "IOKitUser" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -5222,11 +5395,28 @@
 				3FF08618165AC5F400BD1467 /* iokitsimd */,
 				60534D681889E433001A180E /* IOServiceAuthorizeAgent */,
 				603D2FA918D9FFEA00A15FF1 /* ioserviceauthorized */,
+				25A83D3A237E0950001FDBD7 /* tests */,
+				25CEC9FA2388B77300762936 /* DoNothing */,
+				25B8C19D239B8B1500FDC974 /* DoNothing-10undef */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		25B8C19C239B8B1500FDC974 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		25CEC9F92388B77300762936 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		603248F318D38242000454BC /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -5327,7 +5517,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/bash DeviceMIG.sh";
-			shellScript = "";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\n";
 		};
 		3F116D0B1638DFAD001C6A14 /* Create Symlinks for Embedded Product */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5452,6 +5642,22 @@
 				720CE2611CAB4373005127CC /* kextsplit.h in Sources */,
 				720CE25E1CAB4347005127CC /* FileAbstraction.hpp in Sources */,
 				1070273F1195F4B000AEC2CF /* OSKext.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		25B8C19A239B8B1500FDC974 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				25DFEB92239F6BEB002F4F9E /* DoNothing_10undef.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		25CEC9F72388B77300762936 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				25CEC9FE2388B77300762936 /* DoNothing.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5846,6 +6052,16 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		25B8C1A9239B8B3400FDC974 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 25B8C19D239B8B1500FDC974 /* DoNothing-10undef */;
+			targetProxy = 25B8C1A8239B8B3400FDC974 /* PBXContainerItemProxy */;
+		};
+		25CECA062388B80200762936 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 25CEC9FA2388B77300762936 /* DoNothing */;
+			targetProxy = 25CECA052388B80200762936 /* PBXContainerItemProxy */;
+		};
 		2DCEADCA08DB943F00B0CBEA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 2DCEADB108DB8CEF00B0CBEA /* DeviceMIG */;
@@ -5994,6 +6210,784 @@
 				IS_ZIPPERED = YES;
 				PRODUCT_NAME = kext;
 				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = "Development-Embedded";
+		};
+		25A83D3C237E0951001FDBD7 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		25A83D3D237E0951001FDBD7 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		25A83D3E237E0951001FDBD7 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Deployment-Embedded";
+		};
+		25A83D3F237E0951001FDBD7 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Development-Embedded";
+		};
+		25B8C1A3239B8B1500FDC974 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 255E6C5D239AFE5700F5349B /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					$PROJECT_DERIVED_FILE_DIR,
+					"$(SDKROOT)/usr/local/include",
+				);
+				INFOPLIST_FILE = "tests/Resources/kexts/DoNothing-10undef/Info.plist";
+				INSTALL_PATH = /AppleInternal/Tests/IOKitUser/Kexts;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MODULE_NAME = com.apple.test.iokituser.DoNothing_10undef;
+				MODULE_START = DoNothing_10undef_start;
+				MODULE_STOP = DoNothing_10undef_stop;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.test.iokituser.DoNothing-10undef";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
+		25B8C1A4239B8B1500FDC974 /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 255E6C5D239AFE5700F5349B /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					$PROJECT_DERIVED_FILE_DIR,
+					"$(SDKROOT)/usr/local/include",
+				);
+				INFOPLIST_FILE = "tests/Resources/kexts/DoNothing-10undef/Info.plist";
+				INSTALL_PATH = /AppleInternal/Tests/IOKitUser/Kexts;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MODULE_NAME = com.apple.test.iokituser.DoNothing_10undef;
+				MODULE_START = DoNothing_10undef_start;
+				MODULE_STOP = DoNothing_10undef_stop;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.test.iokituser.DoNothing-10undef";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		25B8C1A5239B8B1500FDC974 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 255E6C5D239AFE5700F5349B /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					$PROJECT_DERIVED_FILE_DIR,
+					"$(SDKROOT)/usr/local/include",
+				);
+				INFOPLIST_FILE = "tests/Resources/kexts/DoNothing-10undef/Info.plist";
+				INSTALL_PATH = /AppleInternal/Tests/IOKitUser/Kexts;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MODULE_NAME = com.apple.test.iokituser.DoNothing_10undef;
+				MODULE_START = DoNothing_10undef_start;
+				MODULE_STOP = DoNothing_10undef_stop;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.test.iokituser.DoNothing-10undef";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = "Deployment-Embedded";
+		};
+		25B8C1A6239B8B1500FDC974 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 255E6C5D239AFE5700F5349B /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					$PROJECT_DERIVED_FILE_DIR,
+					"$(SDKROOT)/usr/local/include",
+				);
+				INFOPLIST_FILE = "tests/Resources/kexts/DoNothing-10undef/Info.plist";
+				INSTALL_PATH = /AppleInternal/Tests/IOKitUser/Kexts;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MODULE_NAME = com.apple.test.iokituser.DoNothing_10undef;
+				MODULE_START = DoNothing_10undef_start;
+				MODULE_STOP = DoNothing_10undef_stop;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.test.iokituser.DoNothing-10undef";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = "Development-Embedded";
+		};
+		25CECA012388B77300762936 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 255E6C5D239AFE5700F5349B /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					$PROJECT_DERIVED_FILE_DIR,
+					"$(SDKROOT)/usr/local/include",
+				);
+				INFOPLIST_FILE = tests/Resources/kexts/DoNothing/Info.plist;
+				INSTALL_PATH = /AppleInternal/Tests/IOKitUser/Kexts;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MODULE_NAME = com.apple.test.iokituser.DoNothing;
+				MODULE_START = DoNothing_start;
+				MODULE_STOP = DoNothing_stop;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.test.iokituser.DoNothing;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
+		25CECA022388B77300762936 /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 255E6C5D239AFE5700F5349B /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					$PROJECT_DERIVED_FILE_DIR,
+					"$(SDKROOT)/usr/local/include",
+				);
+				INFOPLIST_FILE = tests/Resources/kexts/DoNothing/Info.plist;
+				INSTALL_PATH = /AppleInternal/Tests/IOKitUser/Kexts;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MODULE_NAME = com.apple.test.iokituser.DoNothing;
+				MODULE_START = DoNothing_start;
+				MODULE_STOP = DoNothing_stop;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.test.iokituser.DoNothing;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		25CECA032388B77300762936 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 255E6C5D239AFE5700F5349B /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					$PROJECT_DERIVED_FILE_DIR,
+					"$(SDKROOT)/usr/local/include",
+				);
+				INFOPLIST_FILE = tests/Resources/kexts/DoNothing/Info.plist;
+				INSTALL_PATH = /AppleInternal/Tests/IOKitUser/Kexts;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MODULE_NAME = com.apple.test.iokituser.DoNothing;
+				MODULE_START = DoNothing_start;
+				MODULE_STOP = DoNothing_stop;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.test.iokituser.DoNothing;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = "Deployment-Embedded";
+		};
+		25CECA042388B77300762936 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 255E6C5D239AFE5700F5349B /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					$PROJECT_DERIVED_FILE_DIR,
+					"$(SDKROOT)/usr/local/include",
+				);
+				INFOPLIST_FILE = tests/Resources/kexts/DoNothing/Info.plist;
+				INSTALL_PATH = /AppleInternal/Tests/IOKitUser/Kexts;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MODULE_NAME = com.apple.test.iokituser.DoNothing;
+				MODULE_START = DoNothing_start;
+				MODULE_STOP = DoNothing_stop;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.test.iokituser.DoNothing;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = kext;
 			};
 			name = "Development-Embedded";
 		};
@@ -7533,6 +8527,39 @@
 				6F737A4B10B3466C00502FA9 /* Development */,
 				10830CCF0F5DDD9F00937E9E /* Deployment-Embedded */,
 				10830CD00F5DDD9F00937E9E /* Development-Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		25A83D3B237E0951001FDBD7 /* Build configuration list for PBXLegacyTarget "tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				25A83D3C237E0951001FDBD7 /* Deployment */,
+				25A83D3D237E0951001FDBD7 /* Development */,
+				25A83D3E237E0951001FDBD7 /* Deployment-Embedded */,
+				25A83D3F237E0951001FDBD7 /* Development-Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		25B8C1A7239B8B1500FDC974 /* Build configuration list for PBXNativeTarget "DoNothing-10undef" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				25B8C1A3239B8B1500FDC974 /* Deployment */,
+				25B8C1A4239B8B1500FDC974 /* Development */,
+				25B8C1A5239B8B1500FDC974 /* Deployment-Embedded */,
+				25B8C1A6239B8B1500FDC974 /* Development-Embedded */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		25CECA002388B77300762936 /* Build configuration list for PBXNativeTarget "DoNothing" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				25CECA012388B77300762936 /* Deployment */,
+				25CECA022388B77300762936 /* Development */,
+				25CECA032388B77300762936 /* Deployment-Embedded */,
+				25CECA042388B77300762936 /* Development-Embedded */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

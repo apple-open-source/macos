@@ -42,8 +42,6 @@ NS_ASSUME_NONNULL_BEGIN
                          recoveryKey:(NSString*)recoveryKey;
 
 @property (weak) OTCuttlefishContext* cuttlefishContext;
-@property (nonatomic) NSString* salt;
-@property (nonatomic) NSString* recoveryKey;
 
 @property (nonatomic) NSData* voucher;
 @property (nonatomic) NSData* voucherSig;

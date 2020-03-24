@@ -79,6 +79,7 @@
         [self.service setDispatchQueue: self.queue];
         self.service.delegate = self;
         [self.service activate];
+        NSLog(@"Virtual keyboard service: %@", self.service);
     });
 }
 

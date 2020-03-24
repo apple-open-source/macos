@@ -39,6 +39,7 @@
 				FD93088410A913E1007DD96A /* Install Magic */,
 			);
 			dependencies = (
+				14D43ECE233D598B00920E40 /* PBXTargetDependency */,
 			);
 			name = magic;
 			productName = "Magic Files";
@@ -90,6 +91,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		14D43ECD233D598B00920E40 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9307F010A8FD99007DD96A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD93080B10A8FEC3007DD96A;
+			remoteInfo = file;
+		};
 		FD52DB9119F09D1000ECE87F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9307F010A8FD99007DD96A /* Project object */;
@@ -353,7 +361,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/man-pages.sh\n. \"$PROJECT_DIR\"/xcodescripts/opensource.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/man-pages.sh\n. \"$PROJECT_DIR\"/xcodescripts/opensource.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		FD93088410A913E1007DD96A /* Install Magic */ = {
@@ -430,6 +438,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		14D43ECE233D598B00920E40 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD93080B10A8FEC3007DD96A /* file */;
+			targetProxy = 14D43ECD233D598B00920E40 /* PBXContainerItemProxy */;
+		};
 		FD52DB9219F09D1000ECE87F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FD93080B10A8FEC3007DD96A /* file */;

@@ -63,7 +63,6 @@
 #import "RuntimeEnabledFeatures.h"
 #import "SharedBuffer.h"
 #import "StringTruncator.h"
-#import "StyleResolver.h"
 #import "ThemeMac.h"
 #import "TimeRanges.h"
 #import "UTIUtilities.h"
@@ -397,7 +396,9 @@ Color RenderThemeMac::platformInactiveSelectionBackgroundColor(OptionSet<StyleCo
     return colorFromNSColor([NSColor unemphasizedSelectedTextBackgroundColor]);
 #else
     UNUSED_PARAM(options);
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return colorFromNSColor([NSColor secondarySelectedControlColor]);
+    ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 }
 
@@ -447,7 +448,9 @@ Color RenderThemeMac::platformActiveListBoxSelectionBackgroundColor(OptionSet<St
     return colorFromNSColor([NSColor selectedContentBackgroundColor]);
 #else
     UNUSED_PARAM(options);
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return colorFromNSColor([NSColor alternateSelectedControlColor]);
+    ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 }
 
@@ -458,7 +461,9 @@ Color RenderThemeMac::platformInactiveListBoxSelectionBackgroundColor(OptionSet<
     return colorFromNSColor([NSColor unemphasizedSelectedContentBackgroundColor]);
 #else
     UNUSED_PARAM(options);
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return colorFromNSColor([NSColor secondarySelectedControlColor]);
+    ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 }
 
@@ -490,13 +495,8 @@ Color RenderThemeMac::platformFocusRingColor(OptionSet<StyleColor::Options> opti
 
 Color RenderThemeMac::platformActiveTextSearchHighlightColor(OptionSet<StyleColor::Options> options) const
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     LocalDefaultSystemAppearance localAppearance(options.contains(StyleColor::Options::UseDarkAppearance));
     return colorFromNSColor([NSColor findHighlightColor]);
-#else
-    UNUSED_PARAM(options);
-    return Color(255, 255, 0); // Yellow.
-#endif
 }
 
 Color RenderThemeMac::platformInactiveTextSearchHighlightColor(OptionSet<StyleColor::Options> options) const
@@ -640,7 +640,9 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
 #if HAVE(OS_DARK_MODE_SUPPORT)
             return systemAppearanceColor(cache.systemControlAccentColor, @selector(controlAccentColor));
 #else
+            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             return systemAppearanceColor(cache.systemControlAccentColor, @selector(alternateSelectedControlColor));
+            ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 
         case CSSValueAppleSystemSelectedContentBackground:
@@ -732,7 +734,9 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
 #if HAVE(OS_DARK_MODE_SUPPORT)
                 return @selector(unemphasizedSelectedContentBackgroundColor);
 #else
+                ALLOW_DEPRECATED_DECLARATIONS_BEGIN
                 return @selector(secondarySelectedControlColor);
+                ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
             case CSSValueAppleSystemSelectedText:
                 return @selector(selectedTextColor);
@@ -746,17 +750,14 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
 #if HAVE(OS_DARK_MODE_SUPPORT)
                 return @selector(unemphasizedSelectedTextBackgroundColor);
 #else
+                ALLOW_DEPRECATED_DECLARATIONS_BEGIN
                 return @selector(secondarySelectedControlColor);
+                ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
             case CSSValueAppleSystemPlaceholderText:
                 return @selector(placeholderTextColor);
             case CSSValueAppleSystemFindHighlightBackground:
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
                 return @selector(findHighlightColor);
-#else
-                // Handled below.
-                return nullptr;
-#endif
             case CSSValueAppleSystemContainerBorder:
 #if HAVE(OS_DARK_MODE_SUPPORT)
                 return @selector(containerBorderColor);
@@ -852,11 +853,6 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColor::O
                 return Color(0xCC3F638B, Color::Semantic);
             return Color(0x9980BCFE, Color::Semantic);
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
-        case CSSValueAppleSystemFindHighlightBackground:
-            return platformActiveTextSearchHighlightColor(options);
-#endif
-
 #if !HAVE(OS_DARK_MODE_SUPPORT)
         case CSSValueAppleSystemContainerBorder:
             return 0xFFC5C5C5;
@@ -897,11 +893,10 @@ bool RenderThemeMac::usesTestModeFocusRingColor() const
     return WebCore::usesTestModeFocusRingColor();
 }
 
-bool RenderThemeMac::isControlStyled(const RenderStyle& style, const BorderData& border,
-                                     const FillLayer& background, const Color& backgroundColor) const
+bool RenderThemeMac::isControlStyled(const RenderStyle& style, const RenderStyle& userAgentStyle) const
 {
     if (style.appearance() == TextFieldPart || style.appearance() == TextAreaPart || style.appearance() == ListboxPart)
-        return style.border() != border;
+        return style.border() != userAgentStyle.border();
 
     // FIXME: This is horrible, but there is not much else that can be done.  Menu lists cannot draw properly when
     // scaled.  They can't really draw properly when transformed either.  We can't detect the transform case at style
@@ -910,7 +905,7 @@ bool RenderThemeMac::isControlStyled(const RenderStyle& style, const BorderData&
     if (style.appearance() == MenulistPart && style.effectiveZoom() != 1.0f)
         return true;
 
-    return RenderTheme::isControlStyled(style, border, background, backgroundColor);
+    return RenderTheme::isControlStyled(style, userAgentStyle);
 }
 
 static FloatRect inflateRect(const FloatRect& rect, const IntSize& size, const int* margins, float zoomLevel)
@@ -1090,7 +1085,7 @@ void RenderThemeMac::setSizeFromFont(RenderStyle& style, const IntSize* sizes) c
         style.setHeight(Length(size.height(), Fixed));
 }
 
-void RenderThemeMac::setFontFromControlSize(StyleResolver&, RenderStyle& style, NSControlSize controlSize) const
+void RenderThemeMac::setFontFromControlSize(RenderStyle& style, NSControlSize controlSize) const
 {
     FontCascadeDescription fontDescription;
     fontDescription.setIsAbsoluteSize(true);
@@ -1157,7 +1152,7 @@ void RenderThemeMac::paintListButtonForInput(const RenderObject& o, GraphicsCont
     context.drawImage(*image, imageRect);
 }
 
-void RenderThemeMac::adjustListButtonStyle(StyleResolver&, RenderStyle& style, const Element*) const
+void RenderThemeMac::adjustListButtonStyle(RenderStyle& style, const Element*) const
 {
     // Add a margin to place the button at end of the input field.
     if (style.isLeftToRightDirection())
@@ -1206,7 +1201,7 @@ bool RenderThemeMac::paintTextField(const RenderObject& o, const PaintInfo& pain
     return false;
 }
 
-void RenderThemeMac::adjustTextFieldStyle(StyleResolver&, RenderStyle&, const Element*) const
+void RenderThemeMac::adjustTextFieldStyle(RenderStyle&, const Element*) const
 {
 }
 
@@ -1217,7 +1212,7 @@ bool RenderThemeMac::paintTextArea(const RenderObject& o, const PaintInfo& paint
     return false;
 }
 
-void RenderThemeMac::adjustTextAreaStyle(StyleResolver&, RenderStyle&, const Element*) const
+void RenderThemeMac::adjustTextAreaStyle(RenderStyle&, const Element*) const
 {
 }
 
@@ -1445,7 +1440,7 @@ Seconds RenderThemeMac::animationDurationForProgressBar(RenderProgress&) const
     return progressAnimationFrameRate * progressAnimationNumFrames;
 }
 
-void RenderThemeMac::adjustProgressBarStyle(StyleResolver&, RenderStyle&, const Element*) const
+void RenderThemeMac::adjustProgressBarStyle(RenderStyle&, const Element*) const
 {
 }
 
@@ -1476,7 +1471,7 @@ bool RenderThemeMac::paintProgressBar(const RenderObject& renderObject, const Pa
     trackInfo.reserved = 0;
     trackInfo.filler1 = 0;
 
-    std::unique_ptr<ImageBuffer> imageBuffer = ImageBuffer::createCompatibleBuffer(inflatedRect.size(), deviceScaleFactor, ColorSpaceSRGB, paintInfo.context());
+    std::unique_ptr<ImageBuffer> imageBuffer = ImageBuffer::createCompatibleBuffer(inflatedRect.size(), deviceScaleFactor, ColorSpace::SRGB, paintInfo.context());
     if (!imageBuffer)
         return true;
 
@@ -1690,7 +1685,7 @@ static const IntSize* menuListButtonSizes()
     return sizes;
 }
 
-void RenderThemeMac::adjustMenuListStyle(StyleResolver& styleResolver, RenderStyle& style, const Element* e) const
+void RenderThemeMac::adjustMenuListStyle(RenderStyle& style, const Element* e) const
 {
     NSControlSize controlSize = controlSizeForFont(style);
 
@@ -1717,7 +1712,7 @@ void RenderThemeMac::adjustMenuListStyle(StyleResolver& styleResolver, RenderSty
     // Our font is locked to the appropriate system font size for the control.  To clarify, we first use the CSS-specified font to figure out
     // a reasonable control size, but once that control size is determined, we throw that font away and use the appropriate
     // system font for the control size instead.
-    setFontFromControlSize(styleResolver, style, controlSize);
+    setFontFromControlSize(style, controlSize);
 
     style.setBoxShadow(nullptr);
 }
@@ -1763,7 +1758,7 @@ PopupMenuStyle::PopupMenuSize RenderThemeMac::popupMenuSize(const RenderStyle& s
     }
 }
 
-void RenderThemeMac::adjustMenuListButtonStyle(StyleResolver&, RenderStyle& style, const Element*) const
+void RenderThemeMac::adjustMenuListButtonStyle(RenderStyle& style, const Element*) const
 {
     float fontScale = style.computedFontPixelSize() / baseFontSize;
 
@@ -1815,7 +1810,7 @@ int RenderThemeMac::minimumMenuListSize(const RenderStyle& style) const
 const int trackWidth = 5;
 const int trackRadius = 2;
 
-void RenderThemeMac::adjustSliderTrackStyle(StyleResolver&, RenderStyle& style, const Element*) const
+void RenderThemeMac::adjustSliderTrackStyle(RenderStyle& style, const Element*) const
 {
     style.setBoxShadow(nullptr);
 }
@@ -1861,9 +1856,9 @@ bool RenderThemeMac::paintSliderTrack(const RenderObject& o, const PaintInfo& pa
     return false;
 }
 
-void RenderThemeMac::adjustSliderThumbStyle(StyleResolver& styleResolver, RenderStyle& style, const Element* element) const
+void RenderThemeMac::adjustSliderThumbStyle(RenderStyle& style, const Element* element) const
 {
-    RenderTheme::adjustSliderThumbStyle(styleResolver, style, element);
+    RenderTheme::adjustSliderThumbStyle(style, element);
     style.setBoxShadow(nullptr);
 }
 
@@ -2000,7 +1995,7 @@ void RenderThemeMac::setSearchFieldSize(RenderStyle& style) const
     setSizeFromFont(style, searchFieldSizes());
 }
 
-void RenderThemeMac::adjustSearchFieldStyle(StyleResolver& styleResolver, RenderStyle& style, const Element*) const
+void RenderThemeMac::adjustSearchFieldStyle(RenderStyle& style, const Element*) const
 {
     // Override border.
     style.resetBorder();
@@ -2026,7 +2021,7 @@ void RenderThemeMac::adjustSearchFieldStyle(StyleResolver& styleResolver, Render
     style.setPaddingBottom(Length(padding, Fixed));
 
     NSControlSize controlSize = controlSizeForFont(style);
-    setFontFromControlSize(styleResolver, style, controlSize);
+    setFontFromControlSize(style, controlSize);
 
     style.setBoxShadow(nullptr);
 }
@@ -2091,7 +2086,7 @@ const IntSize* RenderThemeMac::cancelButtonSizes() const
     return sizes;
 }
 
-void RenderThemeMac::adjustSearchFieldCancelButtonStyle(StyleResolver&, RenderStyle& style, const Element*) const
+void RenderThemeMac::adjustSearchFieldCancelButtonStyle(RenderStyle& style, const Element*) const
 {
     IntSize size = sizeForSystemFont(style, cancelButtonSizes());
     style.setWidth(Length(size.width(), Fixed));
@@ -2107,7 +2102,7 @@ const IntSize* RenderThemeMac::resultsButtonSizes() const
 }
 
 const int emptyResultsOffset = 9;
-void RenderThemeMac::adjustSearchFieldDecorationPartStyle(StyleResolver&, RenderStyle& style, const Element*) const
+void RenderThemeMac::adjustSearchFieldDecorationPartStyle(RenderStyle& style, const Element*) const
 {
     IntSize size = sizeForSystemFont(style, resultsButtonSizes());
     style.setWidth(Length(size.width() - emptyResultsOffset, Fixed));
@@ -2120,7 +2115,7 @@ bool RenderThemeMac::paintSearchFieldDecorationPart(const RenderObject&, const P
     return false;
 }
 
-void RenderThemeMac::adjustSearchFieldResultsDecorationPartStyle(StyleResolver&, RenderStyle& style, const Element*) const
+void RenderThemeMac::adjustSearchFieldResultsDecorationPartStyle(RenderStyle& style, const Element*) const
 {
     IntSize size = sizeForSystemFont(style, resultsButtonSizes());
     style.setWidth(Length(size.width(), Fixed));
@@ -2156,7 +2151,7 @@ bool RenderThemeMac::paintSearchFieldResultsDecorationPart(const RenderBox& box,
     return false;
 }
 
-void RenderThemeMac::adjustSearchFieldResultsButtonStyle(StyleResolver&, RenderStyle& style, const Element*) const
+void RenderThemeMac::adjustSearchFieldResultsButtonStyle(RenderStyle& style, const Element*) const
 {
     IntSize size = sizeForSystemFont(style, resultsButtonSizes());
     style.setWidth(Length(size.width() + resultsArrowWidth, Fixed));
@@ -2293,7 +2288,7 @@ bool RenderThemeMac::paintSnapshottedPluginOverlay(const RenderObject& renderer,
     if (alignedPluginRect.width() <= 0 || alignedPluginRect.height() <= 0)
         return true;
 
-    context.drawImage(*snapshot, alignedPluginRect, CompositeSourceOver);
+    context.drawImage(*snapshot, alignedPluginRect);
     return false;
 }
 
@@ -2820,9 +2815,11 @@ static void paintAttachmentTitleBackground(const RenderAttachment& attachment, G
         backgroundRects.append(layout.lines[i].backgroundRect);
 
     Color backgroundColor;
-    if (attachment.frame().selection().isFocusedAndActive())
+    if (attachment.frame().selection().isFocusedAndActive()) {
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         backgroundColor = colorFromNSColor([NSColor alternateSelectedControlColor]);
-    else
+        ALLOW_DEPRECATED_DECLARATIONS_END
+    } else
         backgroundColor = attachmentTitleInactiveBackgroundColor();
 
     backgroundColor = attachment.style().colorByApplyingColorFilter(backgroundColor);

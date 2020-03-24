@@ -83,8 +83,8 @@ public:
     void didFirstPaint();
 
 #if PLATFORM(IOS_FAMILY)
-    enum class NetworkActivityTokenReleaseReason { LoadCompleted, ScreenLocked };
-    void releaseNetworkActivityToken(NetworkActivityTokenReleaseReason);
+    enum class NetworkActivityReleaseReason { LoadCompleted, ScreenLocked };
+    void releaseNetworkActivity(NetworkActivityReleaseReason);
 #endif
 
 private:
@@ -100,7 +100,7 @@ private:
         void didPerformClientRedirect(WebPageProxy&, const WTF::String&, const WTF::String&) override;
         void didCancelClientRedirect(WebPageProxy&) override;
         void didFailProvisionalNavigationWithError(WebPageProxy&, WebFrameProxy&, API::Navigation*, const WebCore::ResourceError&, API::Object*) override;
-        void didFailProvisionalLoadInSubframeWithError(WebPageProxy&, WebFrameProxy&, const WebCore::SecurityOriginData&, API::Navigation*, const WebCore::ResourceError&, API::Object*) override;
+        void didFailProvisionalLoadInSubframeWithError(WebPageProxy&, WebFrameProxy&, WebCore::SecurityOriginData&&, API::Navigation*, const WebCore::ResourceError&, API::Object*) override;
         void didCommitNavigation(WebPageProxy&, API::Navigation*, API::Object*) override;
         void didFinishDocumentLoad(WebPageProxy&, API::Navigation*, API::Object*) override;
         void didFinishNavigation(WebPageProxy&, API::Navigation*, API::Object*) override;
@@ -112,6 +112,7 @@ private:
         bool shouldBypassContentModeSafeguards() const final;
 
         void didReceiveAuthenticationChallenge(WebPageProxy&, AuthenticationChallengeProxy&) override;
+        void shouldAllowLegacyTLS(WebPageProxy&, AuthenticationChallengeProxy&, CompletionHandler<void(bool)>&&) final;
         bool processDidTerminate(WebPageProxy&, ProcessTerminationReason) override;
         void processDidBecomeResponsive(WebPageProxy&) override;
         void processDidBecomeUnresponsive(WebPageProxy&) override;
@@ -122,13 +123,13 @@ private:
 
 #if USE(QUICK_LOOK)
         void didStartLoadForQuickLookDocumentInMainFrame(const WTF::String& fileName, const WTF::String& uti) override;
-        void didFinishLoadForQuickLookDocumentInMainFrame(const QuickLookDocumentData&) override;
+        void didFinishLoadForQuickLookDocumentInMainFrame(const WebCore::SharedBuffer&) override;
 #endif
 
 #if PLATFORM(MAC)
         void webGLLoadPolicy(WebPageProxy&, const URL&, CompletionHandler<void(WebCore::WebGLLoadPolicy)>&&) const final;
         void resolveWebGLLoadPolicy(WebPageProxy&, const URL&, CompletionHandler<void(WebCore::WebGLLoadPolicy)>&&) const final;
-        bool willGoToBackForwardListItem(WebPageProxy&, WebBackForwardListItem&, bool inPageCache) final;
+        bool willGoToBackForwardListItem(WebPageProxy&, WebBackForwardListItem&, bool inBackForwardCache) final;
         bool didFailToInitializePlugIn(WebPageProxy&, API::Dictionary&) final;
         bool didBlockInsecurePluginVersion(WebPageProxy&, API::Dictionary&) final;
         void decidePolicyForPluginLoad(WebKit::WebPageProxy&, WebKit::PluginModuleLoadPolicy, API::Dictionary&, CompletionHandler<void(WebKit::PluginModuleLoadPolicy, const WTF::String&)>&&) final;
@@ -169,6 +170,8 @@ private:
     void didChangeActiveURL() override;
     void willChangeHasOnlySecureContent() override;
     void didChangeHasOnlySecureContent() override;
+    void willChangeNegotiatedLegacyTLS() override;
+    void didChangeNegotiatedLegacyTLS() override;
     void willChangeEstimatedProgress() override;
     void didChangeEstimatedProgress() override;
     void willChangeCanGoBack() override;
@@ -184,7 +187,7 @@ private:
     void didSwapWebProcesses() override;
 
 #if PLATFORM(IOS_FAMILY)
-    void releaseNetworkActivityTokenAfterLoadCompletion() { releaseNetworkActivityToken(NetworkActivityTokenReleaseReason::LoadCompleted); }
+    void releaseNetworkActivityAfterLoadCompletion() { releaseNetworkActivity(NetworkActivityReleaseReason::LoadCompleted); }
 #endif
 
     WKWebView *m_webView;
@@ -215,6 +218,7 @@ private:
 
         bool webViewRenderingProgressDidChange : 1;
         bool webViewDidReceiveAuthenticationChallengeCompletionHandler : 1;
+        bool webViewAuthenticationChallengeShouldAllowLegacyTLS : 1;
         bool webViewWebContentProcessDidTerminate : 1;
         bool webViewWebContentProcessDidTerminateWithReason : 1;
         bool webViewWebProcessDidCrash : 1;
@@ -240,7 +244,7 @@ private:
         bool webViewBackForwardListItemAddedRemoved : 1;
         bool webViewDidFailToInitializePlugInWithInfo : 1;
         bool webViewDidBlockInsecurePluginVersionWithInfo : 1;
-        bool webViewWillGoToBackForwardListItemInPageCache : 1;
+        bool webViewWillGoToBackForwardListItemInBackForwardCache : 1;
         bool webViewDecidePolicyForPluginLoadWithCurrentPolicyPluginInfoCompletionHandler : 1;
 #endif
 
@@ -258,8 +262,8 @@ private:
     } m_historyDelegateMethods;
 
 #if PLATFORM(IOS_FAMILY)
-    ProcessThrottler::BackgroundActivityToken m_activityToken;
-    RunLoop::Timer<NavigationState> m_releaseActivityTimer;
+    std::unique_ptr<ProcessThrottler::BackgroundActivity> m_networkActivity;
+    RunLoop::Timer<NavigationState> m_releaseNetwrokActivityTimer;
 #endif
 };
 

@@ -27,15 +27,17 @@
 
 #include "ActiveDOMObject.h"
 #include "EventTarget.h"
-#include "JSDOMPromiseDeferred.h"
+#include "VRDisplayEventReason.h"
 #include "VREye.h"
 #include "VRLayerInit.h"
 #include "VRPlatformDisplayClient.h"
+#include <wtf/Optional.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
 enum ExceptionCode;
+class DeferredPromise;
 class RequestAnimationFrameCallback;
 class ScriptedAnimationController;
 class VRDisplayCapabilities;
@@ -92,6 +94,9 @@ public:
     void platformDisplayMounted() override;
     void platformDisplayUnmounted() override;
 
+    // ActiveDOMObject
+    bool hasPendingActivity() const override;
+
 private:
     VRDisplay(ScriptExecutionContext&, WeakPtr<VRPlatformDisplay>&&);
 
@@ -102,14 +107,16 @@ private:
     void derefEventTarget() override { deref(); }
 
     // ActiveDOMObject
-    bool hasPendingActivity() const override;
     const char* activeDOMObjectName() const override;
-    bool canSuspendForDocumentSuspension() const override;
+    void suspend(ReasonForSuspension) override;
+    void resume() override;
     void stop() override;
 
     void stopPresenting();
 
     Document* document() { return downcast<Document>(scriptExecutionContext()); }
+
+    void dispatchVRDisplayEventInEventLoop(const AtomString& eventName, Optional<VRDisplayEventReason>&&);
 
     WeakPtr<VRPlatformDisplay> m_display;
 

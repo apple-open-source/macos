@@ -3,7 +3,7 @@ dnl Use the top-level autogen.sh script to generate configure and config.h.in
 dnl
 dnl SPDX-License-Identifier: ISC
 dnl
-dnl Copyright (c) 1994-1996, 1998-2018 Todd C. Miller <Todd.Miller@sudo.ws>
+dnl Copyright (c) 1994-1996, 1998-2020 Todd C. Miller <Todd.Miller@sudo.ws>
 dnl
 dnl Permission to use, copy, modify, and distribute this software for any
 dnl purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@ dnl ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 dnl OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 dnl
 AC_PREREQ([2.59])
-AC_INIT([sudo], [1.8.29], [https://bugzilla.sudo.ws/], [sudo])
+AC_INIT([sudo], [1.8.31], [https://bugzilla.sudo.ws/], [sudo])
 AC_CONFIG_HEADER([config.h pathnames.h])
 AC_CONFIG_SRCDIR([src/sudo.c])
 dnl
@@ -2184,6 +2184,9 @@ case "$host" in
 		test -z "$with_pam" && AUTH_EXCL_DEF="PAM"
 		: ${with_logincap='maybe'}
 
+		# For reallocarray()
+		AC_DEFINE([_OPENBSD_SOURCE])
+
 		# Examples go in share/examples/sudo
 		if test X"$with_exampledir" = X""; then
 		    exampledir='$(datarootdir)/examples/$(PACKAGE_TARNAME)'
@@ -2561,6 +2564,10 @@ AC_CHECK_FUNCS([getdelim], [], [
     AC_LIBOBJ(getdelim)
     SUDO_APPEND_COMPAT_EXP(sudo_getdelim)
     COMPAT_TEST_PROGS="${COMPAT_TEST_PROGS}${COMPAT_TEST_PROGS+ }getdelim_test"
+])
+AC_CHECK_FUNCS([getusershell], [], [
+    AC_LIBOBJ(getusershell)
+    SUDO_APPEND_COMPAT_EXP(sudo_getusershell)
 ])
 AC_CHECK_FUNCS([reallocarray], [], [
     AC_LIBOBJ(reallocarray)
@@ -4642,6 +4649,11 @@ AH_BOTTOM([/* BSD compatibility on some SVR4 systems. */
 /* Enable BSD extensions on systems that have them.  */
 #ifndef _BSD_SOURCE
 # undef _BSD_SOURCE
+#endif
+
+/* Enable OpenBSD extensions on NetBSD.  */
+#ifndef _OPENBSD_SOURCE
+# undef _OPENBSD_SOURCE
 #endif
 
 /* Enable BSD types on IRIX.  */

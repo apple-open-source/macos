@@ -1008,6 +1008,10 @@ set_flags_from_environment(void)
 		malloc_debug_flags = MALLOC_ABORT_ON_CORRUPTION;
 	}
 #endif
+
+	// Disable large ASLR sliding until 59078838 introduces the checkfix to fix bincompat issues
+	malloc_debug_flags |= DISABLE_LARGE_ASLR;
+
 	/*
 	 * Given that all environment variables start with "Malloc" we optimize by scanning quickly
 	 * first the environment, therefore avoiding repeated calls to getenv().
@@ -1039,19 +1043,32 @@ set_flags_from_environment(void)
 		return;
 	}
 
-	if (getenv("MallocGuardEdges")) {
-		malloc_debug_flags |= MALLOC_ADD_GUARD_PAGES;
-		malloc_report(ASL_LEVEL_INFO, "protecting edges\n");
-		if (getenv("MallocDoNotProtectPrelude")) {
-			malloc_debug_flags |= MALLOC_DONT_PROTECT_PRELUDE;
-			malloc_report(ASL_LEVEL_INFO, "... but not protecting prelude guard page\n");
-		}
-		if (getenv("MallocDoNotProtectPostlude")) {
-			malloc_debug_flags |= MALLOC_DONT_PROTECT_POSTLUDE;
-			malloc_report(ASL_LEVEL_INFO, "... but not protecting postlude guard page\n");
+	flag = getenv("MallocGuardEdges");
+	if (flag) {
+		if (!strcmp(flag, "all")) {
+			// "MallocGuardEdges=all" adds guard page(s) for every region.
+			// Do not do this on 32-bit platforms because there is insufficient
+			// address space. These pages are always protected.
+#if MALLOC_TARGET_64BIT
+			malloc_debug_flags |= MALLOC_GUARD_ALL | MALLOC_ADD_GUARD_PAGE_FLAGS;
+			malloc_debug_flags &= ~(MALLOC_DONT_PROTECT_PRELUDE|MALLOC_DONT_PROTECT_POSTLUDE);
+			malloc_report(ASL_LEVEL_INFO, "adding guard pages to all regions\n");
+#endif // MALLOC_TARGET_64BIT
+		} else {
+			malloc_debug_flags |= MALLOC_ADD_GUARD_PAGE_FLAGS;
+			malloc_debug_flags &= ~MALLOC_GUARD_ALL;
+			malloc_report(ASL_LEVEL_INFO, "adding guard pages for large allocator blocks\n");
+			if (getenv("MallocDoNotProtectPrelude")) {
+				malloc_debug_flags |= MALLOC_DONT_PROTECT_PRELUDE;
+				malloc_report(ASL_LEVEL_INFO, "... but not protecting prelude guard page\n");
+			}
+			if (getenv("MallocDoNotProtectPostlude")) {
+				malloc_debug_flags |= MALLOC_DONT_PROTECT_POSTLUDE;
+				malloc_report(ASL_LEVEL_INFO, "... but not protecting postlude guard page\n");
+			}
 		}
 	}
-	
+
 	if (getenv("MallocScribble")) {
 		malloc_debug_flags |= MALLOC_DO_SCRIBBLE;
 		malloc_report(ASL_LEVEL_INFO, "enabling scribbling to detect mods to free blocks\n");
@@ -1146,6 +1163,18 @@ set_flags_from_environment(void)
 		} else {
 			magazine_large_expanded_cache_threshold = value;
 			malloc_report(ASL_LEVEL_INFO, "Large expanded cache threshold set to %lly\n", magazine_large_expanded_cache_threshold);
+		}
+	}
+
+	flag = getenv("MallocLargeDisableASLR");
+	if (flag) {
+		uint64_t value = (uint64_t)strtoull(flag, NULL, 0);
+		if (value == 0) {
+			malloc_report(ASL_LEVEL_INFO, "Enabling ASLR slide on large allocations\n");
+			malloc_debug_flags &= ~DISABLE_LARGE_ASLR;
+		} else if (value != 0) {
+			malloc_report(ASL_LEVEL_INFO, "Disabling ASLR slide on large allocations\n");
+			malloc_debug_flags |= DISABLE_LARGE_ASLR;
 		}
 	}
 

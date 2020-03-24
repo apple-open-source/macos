@@ -30,6 +30,7 @@
 
 #include "RemoteScrollingTree.h"
 #include "ScrollerPairMac.h"
+#include <WebCore/ScrollingStateOverflowScrollingNode.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -41,7 +42,7 @@ Ref<ScrollingTreeOverflowScrollingNodeRemoteMac> ScrollingTreeOverflowScrollingN
 
 ScrollingTreeOverflowScrollingNodeRemoteMac::ScrollingTreeOverflowScrollingNodeRemoteMac(ScrollingTree& tree, ScrollingNodeID nodeID)
     : ScrollingTreeOverflowScrollingNodeMac(tree, nodeID)
-    , m_scrollerPair(std::make_unique<ScrollerPairMac>(*this))
+    , m_scrollerPair(makeUnique<ScrollerPairMac>(*this))
 {
 }
 
@@ -56,10 +57,10 @@ void ScrollingTreeOverflowScrollingNodeRemoteMac::commitStateBeforeChildren(cons
 
     // FIXME: Push to ScrollingTreeScrollingNodeDelegateMac?
     if (scrollingStateNode.hasChangedProperty(ScrollingStateOverflowScrollingNode::VerticalScrollbarLayer))
-        m_scrollerPair->verticalScroller().setHostLayer(scrollingStateNode.verticalScrollbarLayer());
+        m_scrollerPair->verticalScroller().setHostLayer(static_cast<CALayer*>(scrollingStateNode.verticalScrollbarLayer()));
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateOverflowScrollingNode::HorizontalScrollbarLayer))
-        m_scrollerPair->horizontalScroller().setHostLayer(scrollingStateNode.horizontalScrollbarLayer());
+        m_scrollerPair->horizontalScroller().setHostLayer(static_cast<CALayer*>(scrollingStateNode.horizontalScrollbarLayer()));
 
     m_scrollerPair->updateValues();
 }

@@ -28,6 +28,9 @@
 
 #if ENABLE(WEBGPU)
 
+#include "GPUBindGroup.h"
+#include "GPUBindGroupAllocator.h"
+#include "GPUBindGroupDescriptor.h"
 #include "GPUBindGroupLayout.h"
 #include "GPUBindGroupLayoutDescriptor.h"
 #include "GPUBuffer.h"
@@ -35,6 +38,7 @@
 #include "GPUCommandBuffer.h"
 #include "GPUComputePipeline.h"
 #include "GPUComputePipelineDescriptor.h"
+#include "GPUErrorScopes.h"
 #include "GPUPipelineLayout.h"
 #include "GPUPipelineLayoutDescriptor.h"
 #include "GPURenderPipeline.h"
@@ -46,13 +50,14 @@
 #include "GPUSwapChainDescriptor.h"
 #include "GPUTexture.h"
 #include "GPUTextureDescriptor.h"
+#include <algorithm>
 #include <wtf/Optional.h>
 
 namespace WebCore {
 
-RefPtr<GPUBuffer> GPUDevice::tryCreateBuffer(const GPUBufferDescriptor& descriptor, bool isMappedOnCreation)
+RefPtr<GPUBuffer> GPUDevice::tryCreateBuffer(const GPUBufferDescriptor& descriptor, GPUBufferMappedOption isMapped, GPUErrorScopes& errorScopes)
 {
-    return GPUBuffer::tryCreate(makeRef(*this), descriptor, isMappedOnCreation);
+    return GPUBuffer::tryCreate(*this, descriptor, isMapped, errorScopes);
 }
 
 RefPtr<GPUTexture> GPUDevice::tryCreateTexture(const GPUTextureDescriptor& descriptor) const
@@ -80,14 +85,22 @@ RefPtr<GPUShaderModule> GPUDevice::tryCreateShaderModule(const GPUShaderModuleDe
     return GPUShaderModule::tryCreate(*this, descriptor);
 }
 
-RefPtr<GPURenderPipeline> GPUDevice::tryCreateRenderPipeline(const GPURenderPipelineDescriptor& descriptor) const
+RefPtr<GPURenderPipeline> GPUDevice::tryCreateRenderPipeline(const GPURenderPipelineDescriptor& descriptor, GPUErrorScopes& errorScopes) const
 {
-    return GPURenderPipeline::tryCreate(*this, descriptor);
+    return GPURenderPipeline::tryCreate(*this, descriptor, errorScopes);
 }
 
-RefPtr<GPUComputePipeline> GPUDevice::tryCreateComputePipeline(const GPUComputePipelineDescriptor& descriptor) const
+RefPtr<GPUComputePipeline> GPUDevice::tryCreateComputePipeline(const GPUComputePipelineDescriptor& descriptor, GPUErrorScopes& errorScopes) const
 {
-    return GPUComputePipeline::tryCreate(*this, descriptor);
+    return GPUComputePipeline::tryCreate(*this, descriptor, errorScopes);
+}
+
+RefPtr<GPUBindGroup> GPUDevice::tryCreateBindGroup(const GPUBindGroupDescriptor& descriptor, GPUErrorScopes& errorScopes) const
+{
+    if (!m_bindGroupAllocator)
+        m_bindGroupAllocator = GPUBindGroupAllocator::create(errorScopes);
+
+    return GPUBindGroup::tryCreate(descriptor, *m_bindGroupAllocator);
 }
 
 RefPtr<GPUCommandBuffer> GPUDevice::tryCreateCommandBuffer() const

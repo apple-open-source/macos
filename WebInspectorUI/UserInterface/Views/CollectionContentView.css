@@ -36,3 +36,14 @@
 .content-view.collection > .content-view[hidden] {
     display: none;
 }
+
+.content-view.collection > .placeholder:not(.message-text-view) {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-color-gray-medium);
+}

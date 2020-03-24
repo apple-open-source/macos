@@ -29,10 +29,14 @@
 #include "SharedMemory.h"
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/GraphicsContext.h>
+#include <wtf/DebugHeap.h>
 
 namespace WebKit {
 using namespace WebCore;
-    
+
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ShareableBitmap);
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ShareableBitmap);
+
 ShareableBitmap::Handle::Handle()
 {
 }
@@ -68,6 +72,14 @@ void ShareableBitmap::Configuration::encode(IPC::Encoder& encoder) const
 #if PLATFORM(COCOA)
     encoder << colorSpace;
 #endif
+#if USE(DIRECT2D)
+    SharedMemory::Handle::encodeHandle(encoder, sharedResourceHandle);
+
+    // Hand off ownership of our HANDLE to the receiving process. It will close it for us.
+    // FIXME: If the receiving process crashes before it receives the memory, the memory will be
+    // leaked. See <http://webkit.org/b/47502>.
+    sharedResourceHandle = nullptr;
+#endif
 }
 
 bool ShareableBitmap::Configuration::decode(IPC::Decoder& decoder, Configuration& configuration)
@@ -77,6 +89,13 @@ bool ShareableBitmap::Configuration::decode(IPC::Decoder& decoder, Configuration
 #if PLATFORM(COCOA)
     if (!decoder.decode(configuration.colorSpace))
         return false;
+#endif
+#if USE(DIRECT2D)
+    auto processSpecificHandle = SharedMemory::Handle::decodeHandle(decoder);
+    if (!processSpecificHandle)
+        return false;
+
+    configuration.sharedResourceHandle = processSpecificHandle.value();
 #endif
     return true;
 }
@@ -88,9 +107,9 @@ RefPtr<ShareableBitmap> ShareableBitmap::create(const IntSize& size, Configurati
         return nullptr;
 
     void* data = 0;
-    if (!tryFastMalloc(numBytes.unsafeGet()).getValue(data))
+    data = ShareableBitmapMalloc::tryMalloc(numBytes.unsafeGet());
+    if (!data)
         return nullptr;
-
     return adoptRef(new ShareableBitmap(size, configuration, data));
 }
 
@@ -148,6 +167,7 @@ ShareableBitmap::ShareableBitmap(const IntSize& size, Configuration configuratio
     , m_configuration(configuration)
     , m_data(data)
 {
+    ASSERT(RunLoop::isMain());
 }
 
 ShareableBitmap::ShareableBitmap(const IntSize& size, Configuration configuration, RefPtr<SharedMemory> sharedMemory)
@@ -156,12 +176,22 @@ ShareableBitmap::ShareableBitmap(const IntSize& size, Configuration configuratio
     , m_sharedMemory(sharedMemory)
     , m_data(nullptr)
 {
+    ASSERT(RunLoop::isMain());
+
+#if USE(DIRECT2D)
+    createSharedResource();
+#endif
 }
 
 ShareableBitmap::~ShareableBitmap()
 {
+    ASSERT(RunLoop::isMain());
+
     if (!isBackedBySharedMemory())
-        fastFree(m_data);
+        ShareableBitmapMalloc::free(m_data);
+#if USE(DIRECT2D)
+    disposeSharedResource();
+#endif
 }
 
 void* ShareableBitmap::data() const
@@ -175,7 +205,12 @@ void* ShareableBitmap::data() const
 
 Checked<unsigned, RecordOverflow> ShareableBitmap::numBytesForSize(WebCore::IntSize size, const ShareableBitmap::Configuration& configuration)
 {
+#if USE(DIRECT2D)
+    // We pass references to GPU textures, so no need to allocate frame buffers here. Just send a small bit of data.
+    return sizeof(void*);
+#else
     return calculateBytesPerRow(size, configuration) * size.height();
+#endif
 }
 
 } // namespace WebKit

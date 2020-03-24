@@ -26,19 +26,18 @@
 #pragma once
 
 #include "CookieJar.h"
+#include "FrameIdentifier.h"
 #include "PageIdentifier.h"
 #include "SameSiteInfo.h"
-#include <pal/SessionID.h>
 #include <wtf/URL.h>
 
 namespace WebCore {
 
 struct CookieRequestHeaderFieldProxy {
-    PAL::SessionID sessionID;
     URL firstParty;
     SameSiteInfo sameSiteInfo;
     URL url;
-    Optional<uint64_t> frameID;
+    Optional<FrameIdentifier> frameID;
     Optional<PageIdentifier> pageID;
     IncludeSecureCookies includeSecureCookies { IncludeSecureCookies::No };
 
@@ -49,7 +48,6 @@ struct CookieRequestHeaderFieldProxy {
 template<class Encoder>
 void CookieRequestHeaderFieldProxy::encode(Encoder& encoder) const
 {
-    encoder << sessionID;
     encoder << firstParty;
     encoder << sameSiteInfo;
     encoder << url;
@@ -61,25 +59,33 @@ void CookieRequestHeaderFieldProxy::encode(Encoder& encoder) const
 template<class Decoder>
 Optional<CookieRequestHeaderFieldProxy> CookieRequestHeaderFieldProxy::decode(Decoder& decoder)
 {
-    CookieRequestHeaderFieldProxy result;
-    if (!decoder.decode(result.sessionID))
+    URL firstParty;
+    if (!decoder.decode(firstParty))
         return WTF::nullopt;
-    if (!decoder.decode(result.firstParty))
+
+    SameSiteInfo sameSiteInfo;
+    if (!decoder.decode(sameSiteInfo))
         return WTF::nullopt;
-    if (!decoder.decode(result.sameSiteInfo))
+
+    URL url;
+    if (!decoder.decode(url))
         return WTF::nullopt;
-    if (!decoder.decode(result.url))
+
+    Optional<Optional<FrameIdentifier>> frameID;
+    decoder >> frameID;
+    if (!frameID)
         return WTF::nullopt;
-    if (!decoder.decode(result.frameID))
-        return WTF::nullopt;
+
     Optional<Optional<PageIdentifier>> pageID;
     decoder >> pageID;
     if (!pageID)
         return WTF::nullopt;
-    result.pageID = *pageID;
-    if (!decoder.decode(result.includeSecureCookies))
+
+    IncludeSecureCookies includeSecureCookies;
+    if (!decoder.decode(includeSecureCookies))
         return WTF::nullopt;
-    return result;
+
+    return CookieRequestHeaderFieldProxy { WTFMove(firstParty), WTFMove(sameSiteInfo), WTFMove(url), *frameID, *pageID, includeSecureCookies };
 }
 
 } // namespace WebCore

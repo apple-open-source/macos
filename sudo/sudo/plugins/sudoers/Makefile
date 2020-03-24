@@ -229,7 +229,7 @@ CHECK_STARTTIME_OBJS = check_starttime.o starttime.lo sudoers_debug.lo
 
 CHECK_WRAP_OBJS = check_wrap.o logwrap.lo sudoers_debug.lo
 
-VERSION = 1.8.29
+VERSION = 1.8.31
 PACKAGE_TARNAME = sudo
 
 all: $(PROGS)
@@ -390,8 +390,10 @@ sudoers: $(srcdir)/sudoers.in
 
 pre-install:
 	@if test X"$(cross_compiling)" != X"yes" -a X"$(DESTDIR)" = X""; then \
-	    echo "Checking existing sudoers file for syntax errors."; \
-	    ./visudo -c -f $(sudoersdir)/sudoers; \
+	    if test -r $(sudoersdir)/sudoers; then \
+		echo "Checking existing sudoers file for syntax errors."; \
+		./visudo -c -f $(sudoersdir)/sudoers; \
+	    fi; \
 	fi
 
 install: install-plugin install-binaries install-sudoers install-doc

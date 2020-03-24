@@ -49,10 +49,6 @@
     content: "";
 }
 
-body[dir=rtl] .object-tree > :matches(.title, .object-preview)::before {
-    transform: scaleX(-1);
-}
-
 .object-tree:not(.lossless-preview) > :matches(.title, .object-preview) {
     margin-left: 0;
 }
@@ -135,6 +131,12 @@ body[dir=rtl] .object-tree > :matches(.title, .object-preview)::before {
     margin-left: 15px;
     font-family: -webkit-system-font, sans-serif;
     font-size: 12px;
+}
+
+.tree-outline.object li > button[disabled] + .indeterminate-progress-spinner {
+    display: inline-block;
+    -webkit-margin-start: 2px;
+    vertical-align: -4px;
 }
 
 .object-tree-property :matches(.formatted-string, .formatted-regexp) {

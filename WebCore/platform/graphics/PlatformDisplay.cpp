@@ -52,6 +52,9 @@
 
 #if PLATFORM(GTK) && PLATFORM(X11)
 #include <gdk/gdkx.h>
+#if defined(None)
+#undef None
+#endif
 #endif
 
 #if PLATFORM(GTK) && PLATFORM(WAYLAND)
@@ -150,6 +153,8 @@ PlatformDisplay::~PlatformDisplay()
 #if USE(EGL)
     ASSERT(m_eglDisplay == EGL_NO_DISPLAY);
 #endif
+    if (s_sharedDisplayForCompositing == this)
+        s_sharedDisplayForCompositing = nullptr;
 }
 
 #if USE(EGL) || USE(GLX)

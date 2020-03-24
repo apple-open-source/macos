@@ -114,7 +114,7 @@ bool CDMPrivateMediaSourceAVFObjC::supportsKeySystemAndMimeType(const String& ke
     parameters.isMediaSource = true;
     parameters.type = ContentType(mimeType);
 
-    return MediaPlayerPrivateMediaSourceAVFObjC::supportsType(parameters) != MediaPlayer::IsNotSupported;
+    return MediaPlayerPrivateMediaSourceAVFObjC::supportsType(parameters) != MediaPlayer::SupportsType::IsNotSupported;
 }
 
 bool CDMPrivateMediaSourceAVFObjC::supportsMIMEType(const String& mimeType)
@@ -127,7 +127,7 @@ bool CDMPrivateMediaSourceAVFObjC::supportsMIMEType(const String& mimeType)
     parameters.isMediaSource = true;
     parameters.type = ContentType(mimeType);
 
-    return MediaPlayerPrivateMediaSourceAVFObjC::supportsType(parameters) != MediaPlayer::IsNotSupported;
+    return MediaPlayerPrivateMediaSourceAVFObjC::supportsType(parameters) != MediaPlayer::SupportsType::IsNotSupported;
 }
 
 std::unique_ptr<LegacyCDMSession> CDMPrivateMediaSourceAVFObjC::createSession(LegacyCDMSessionClient* client)
@@ -147,10 +147,10 @@ std::unique_ptr<LegacyCDMSession> CDMPrivateMediaSourceAVFObjC::createSession(Le
 #endif
     
     if (shouldUseAVContentKeySession && CDMSessionAVContentKeySession::isAvailable())
-        session = std::make_unique<CDMSessionAVContentKeySession>(WTFMove(parameters.value().protocols), parameters.value().version, *this, client);
+        session = makeUnique<CDMSessionAVContentKeySession>(WTFMove(parameters.value().protocols), parameters.value().version, *this, client);
     else
 #if HAVE(AVSTREAMSESSION)
-        session = std::make_unique<CDMSessionAVStreamSession>(WTFMove(parameters.value().protocols), *this, client);
+        session = makeUnique<CDMSessionAVStreamSession>(WTFMove(parameters.value().protocols), *this, client);
 #else
         return nullptr;
 #endif

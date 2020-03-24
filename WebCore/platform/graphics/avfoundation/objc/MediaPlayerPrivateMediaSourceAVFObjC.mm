@@ -131,18 +131,16 @@ MediaPlayerPrivateMediaSourceAVFObjC::MediaPlayerPrivateMediaSourceAVFObjC(Media
     : m_player(player)
     , m_synchronizer(adoptNS([PAL::allocAVSampleBufferRenderSynchronizerInstance() init]))
     , m_seekTimer(*this, &MediaPlayerPrivateMediaSourceAVFObjC::seekInternal)
-    , m_networkState(MediaPlayer::Empty)
-    , m_readyState(MediaPlayer::HaveNothing)
+    , m_networkState(MediaPlayer::NetworkState::Empty)
+    , m_readyState(MediaPlayer::ReadyState::HaveNothing)
     , m_rate(1)
     , m_playing(0)
     , m_seeking(false)
     , m_loadingProgressed(false)
-    , m_videoFullscreenLayerManager(std::make_unique<VideoFullscreenLayerManagerObjC>())
-    , m_effectiveRateChangedListener(EffectiveRateChangedListener::create(*this, [m_synchronizer timebase]))
-#if !RELEASE_LOG_DISABLED
     , m_logger(player->mediaPlayerLogger())
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
-#endif
+    , m_videoFullscreenLayerManager(makeUnique<VideoFullscreenLayerManagerObjC>(m_logger, m_logIdentifier))
+    , m_effectiveRateChangedListener(EffectiveRateChangedListener::create(*this, [m_synchronizer timebase]))
 {
     auto logSiteIdentifier = LOGIDENTIFIER;
     ALWAYS_LOG(logSiteIdentifier);
@@ -196,14 +194,34 @@ MediaPlayerPrivateMediaSourceAVFObjC::~MediaPlayerPrivateMediaSourceAVFObjC()
 #pragma mark -
 #pragma mark MediaPlayer Factory Methods
 
+class MediaPlayerFactoryMediaSourceAVFObjC final : public MediaPlayerFactory {
+private:
+    MediaPlayerEnums::MediaEngineIdentifier identifier() const final { return MediaPlayerEnums::MediaEngineIdentifier::AVFoundationMSE; };
+
+    std::unique_ptr<MediaPlayerPrivateInterface> createMediaEnginePlayer(MediaPlayer* player) const final
+    {
+        return makeUnique<MediaPlayerPrivateMediaSourceAVFObjC>(player);        
+    }
+
+    void getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types) const final
+    {
+        return MediaPlayerPrivateMediaSourceAVFObjC::getSupportedTypes(types);
+    }
+
+    MediaPlayer::SupportsType supportsTypeAndCodecs(const MediaEngineSupportParameters& parameters) const final
+    {
+        return MediaPlayerPrivateMediaSourceAVFObjC::supportsType(parameters);
+    }
+};
+
 void MediaPlayerPrivateMediaSourceAVFObjC::registerMediaEngine(MediaEngineRegistrar registrar)
 {
     if (!isAvailable())
         return;
 
-    registrar([](MediaPlayer* player) { return std::make_unique<MediaPlayerPrivateMediaSourceAVFObjC>(player); },
-        getSupportedTypes, supportsType, 0, 0, 0, 0);
     ASSERT(AVAssetMIMETypeCache::singleton().isAvailable());
+
+    registrar(makeUnique<MediaPlayerFactoryMediaSourceAVFObjC>());
 }
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::isAvailable()
@@ -220,54 +238,49 @@ void MediaPlayerPrivateMediaSourceAVFObjC::getSupportedTypes(HashSet<String, ASC
 {
     auto& streamDataParserCache = AVStreamDataParserMIMETypeCache::singleton();
     if (streamDataParserCache.isAvailable()) {
-        types = streamDataParserCache.types();
+        types = streamDataParserCache.supportedTypes();
         return;
     }
 
     auto& assetCache = AVAssetMIMETypeCache::singleton();
     if (assetCache.isAvailable())
-        types = assetCache.types();
+        types = assetCache.supportedTypes();
 }
 
 MediaPlayer::SupportsType MediaPlayerPrivateMediaSourceAVFObjC::supportsType(const MediaEngineSupportParameters& parameters)
 {
     // This engine does not support non-media-source sources.
     if (!parameters.isMediaSource)
-        return MediaPlayer::IsNotSupported;
+        return MediaPlayer::SupportsType::IsNotSupported;
 #if ENABLE(MEDIA_STREAM)
     if (parameters.isMediaStream)
-        return MediaPlayer::IsNotSupported;
+        return MediaPlayer::SupportsType::IsNotSupported;
 #endif
 
-    if (parameters.type.isEmpty())
-        return MediaPlayer::IsNotSupported;
-
-    if (AVStreamDataParserMIMETypeCache::singleton().isAvailable()) {
-        if (!AVStreamDataParserMIMETypeCache::singleton().supportsContentType(parameters.type))
-            return MediaPlayer::IsNotSupported;
-    } else if (AVAssetMIMETypeCache::singleton().isAvailable()) {
-        if (!AVAssetMIMETypeCache::singleton().supportsContentType(parameters.type))
-            return MediaPlayer::IsNotSupported;
-    } else
-        return MediaPlayer::IsNotSupported;
-
-    // The spec says:
-    // "Implementors are encouraged to return "maybe" unless the type can be confidently established as being supported or not."
-    auto codecs = parameters.type.parameter(ContentType::codecsParameter());
-    if (codecs.isEmpty())
-        return MediaPlayer::MayBeSupported;
-
-    String outputCodecs = codecs;
-    if ([PAL::getAVStreamDataParserClass() respondsToSelector:@selector(outputMIMECodecParameterForInputMIMECodecParameter:)])
+    String extendedType = parameters.type.raw();
+    String outputCodecs = parameters.type.parameter(ContentType::codecsParameter());
+    if (!outputCodecs.isEmpty() && [PAL::getAVStreamDataParserClass() respondsToSelector:@selector(outputMIMECodecParameterForInputMIMECodecParameter:)]) {
         outputCodecs = [PAL::getAVStreamDataParserClass() outputMIMECodecParameterForInputMIMECodecParameter:outputCodecs];
+        extendedType = makeString(parameters.type.containerType(), "; codecs=\"", outputCodecs, "\"");
+    }
+
+    auto supported = MediaPlayer::SupportsType::IsNotSupported;
+    auto& streamDataParserCache = AVStreamDataParserMIMETypeCache::singleton();
+    if (streamDataParserCache.isAvailable())
+        supported = streamDataParserCache.canDecodeType(extendedType);
+    else {
+        auto& assetCache = AVAssetMIMETypeCache::singleton();
+        if (assetCache.isAvailable())
+            supported = assetCache.canDecodeType(extendedType);
+    }
+
+    if (supported != MediaPlayer::SupportsType::IsSupported)
+        return supported;
 
     if (!contentTypeMeetsHardwareDecodeRequirements(parameters.type, parameters.contentTypesRequiringHardwareSupport))
-        return MediaPlayer::IsNotSupported;
+        return MediaPlayer::SupportsType::IsNotSupported;
 
-    String type = makeString(parameters.type.containerType(), "; codecs=\"", outputCodecs, "\"");
-    if (AVStreamDataParserMIMETypeCache::singleton().isAvailable())
-        return AVStreamDataParserMIMETypeCache::singleton().canDecodeType(type) ? MediaPlayer::IsSupported : MediaPlayer::MayBeSupported;
-    return AVAssetMIMETypeCache::singleton().canDecodeType(type) ? MediaPlayer::IsSupported : MediaPlayer::MayBeSupported;
+    return MediaPlayer::SupportsType::IsSupported;
 }
 
 #pragma mark -
@@ -276,7 +289,7 @@ MediaPlayer::SupportsType MediaPlayerPrivateMediaSourceAVFObjC::supportsType(con
 void MediaPlayerPrivateMediaSourceAVFObjC::load(const String&)
 {
     // This media engine only supports MediaSource URLs.
-    m_networkState = MediaPlayer::FormatError;
+    m_networkState = MediaPlayer::NetworkState::FormatError;
     m_player->networkStateChanged();
 }
 
@@ -294,7 +307,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::load(const String&, MediaSourcePrivat
 #if ENABLE(MEDIA_STREAM)
 void MediaPlayerPrivateMediaSourceAVFObjC::load(MediaStreamPrivate&)
 {
-    setNetworkState(MediaPlayer::FormatError);
+    setNetworkState(MediaPlayer::NetworkState::FormatError);
 }
 #endif
 
@@ -437,7 +450,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::seekWithTolerance(const MediaTime& ti
     INFO_LOG(LOGIDENTIFIER, "time = ", time, ", negativeThreshold = ", negativeThreshold, ", positiveThreshold = ", positiveThreshold);
 
     m_seeking = true;
-    m_pendingSeek = std::make_unique<PendingSeek>(time, negativeThreshold, positiveThreshold);
+    m_pendingSeek = makeUnique<PendingSeek>(time, negativeThreshold, positiveThreshold);
 
     if (m_seekTimer.isActive())
         m_seekTimer.stop();
@@ -543,7 +556,7 @@ MediaPlayer::ReadyState MediaPlayerPrivateMediaSourceAVFObjC::readyState() const
 
 std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateMediaSourceAVFObjC::seekable() const
 {
-    return std::make_unique<PlatformTimeRanges>(minMediaTimeSeekable(), maxMediaTimeSeekable());
+    return makeUnique<PlatformTimeRanges>(minMediaTimeSeekable(), maxMediaTimeSeekable());
 }
 
 MediaTime MediaPlayerPrivateMediaSourceAVFObjC::maxMediaTimeSeekable() const
@@ -558,7 +571,7 @@ MediaTime MediaPlayerPrivateMediaSourceAVFObjC::minMediaTimeSeekable() const
 
 std::unique_ptr<PlatformTimeRanges> MediaPlayerPrivateMediaSourceAVFObjC::buffered() const
 {
-    return m_mediaSourcePrivate ? m_mediaSourcePrivate->buffered() : std::make_unique<PlatformTimeRanges>();
+    return m_mediaSourcePrivate ? m_mediaSourcePrivate->buffered() : makeUnique<PlatformTimeRanges>();
 }
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::didLoadingProgress() const
@@ -566,11 +579,6 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::didLoadingProgress() const
     bool loadingProgressed = m_loadingProgressed;
     m_loadingProgressed = false;
     return loadingProgressed;
-}
-
-void MediaPlayerPrivateMediaSourceAVFObjC::setSize(const IntSize&)
-{
-    // No-op.
 }
 
 NativeImagePtr MediaPlayerPrivateMediaSourceAVFObjC::nativeImageForCurrentTime()
@@ -602,7 +610,7 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::updateLastImage()
 
     if (!m_rgbConformer) {
         auto attributes = @{ (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) };
-        m_rgbConformer = std::make_unique<PixelBufferConformerCV>((__bridge CFDictionaryRef)attributes);
+        m_rgbConformer = makeUnique<PixelBufferConformerCV>((__bridge CFDictionaryRef)attributes);
     }
 
     m_lastImage = m_rgbConformer->createImageFromPixelBuffer(m_lastPixelBuffer.get());
@@ -649,7 +657,7 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::copyVideoTextureToPlatformTexture(Gra
     size_t height = CVPixelBufferGetHeight(m_lastPixelBuffer.get());
 
     if (!m_videoTextureCopier)
-        m_videoTextureCopier = std::make_unique<VideoTextureCopierCV>(*context);
+        m_videoTextureCopier = makeUnique<VideoTextureCopierCV>(*context);
 
     return m_videoTextureCopier->copyImageToPlatformTexture(m_lastPixelBuffer.get(), width, height, outputTexture, outputTarget, level, internalFormat, format, type, premultiplyAlpha, flipY);
 }
@@ -677,12 +685,12 @@ void MediaPlayerPrivateMediaSourceAVFObjC::acceleratedRenderingStateChanged()
 
 void MediaPlayerPrivateMediaSourceAVFObjC::notifyActiveSourceBuffersChanged()
 {
-    m_player->client().mediaPlayerActiveSourceBuffersChanged(m_player);
+    m_player->activeSourceBuffersChanged();
 }
 
 MediaPlayer::MovieLoadType MediaPlayerPrivateMediaSourceAVFObjC::movieLoadType() const
 {
-    return MediaPlayer::StoredStream;
+    return MediaPlayer::MovieLoadType::StoredStream;
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::prepareForRendering()
@@ -754,7 +762,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::ensureLayer()
     ASSERT(m_sampleBufferDisplayLayer);
     if (!m_sampleBufferDisplayLayer) {
         ERROR_LOG(LOGIDENTIFIER, "Failed to create AVSampleBufferDisplayLayer");
-        setNetworkState(MediaPlayer::DecodeError);
+        setNetworkState(MediaPlayer::NetworkState::DecodeError);
         return;
     }
 
@@ -764,8 +772,8 @@ void MediaPlayerPrivateMediaSourceAVFObjC::ensureLayer()
     [m_synchronizer addRenderer:m_sampleBufferDisplayLayer.get()];
     if (m_mediaSourcePrivate)
         m_mediaSourcePrivate->setVideoLayer(m_sampleBufferDisplayLayer.get());
-    m_videoFullscreenLayerManager->setVideoLayer(m_sampleBufferDisplayLayer.get(), snappedIntRect(m_player->client().mediaPlayerContentBoxRect()).size());
-    m_player->client().mediaPlayerRenderingModeChanged(m_player);
+    m_videoFullscreenLayerManager->setVideoLayer(m_sampleBufferDisplayLayer.get(), snappedIntRect(m_player->playerContentBoxRect()).size());
+    m_player->renderingModeChanged();
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::destroyLayer()
@@ -783,7 +791,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::destroyLayer()
     m_videoFullscreenLayerManager->didDestroyVideoLayer();
     m_sampleBufferDisplayLayer = nullptr;
     setHasAvailableVideoFrame(false);
-    m_player->client().mediaPlayerRenderingModeChanged(m_player);
+    m_player->renderingModeChanged();
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::ensureDecompressionSession()
@@ -797,7 +805,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::ensureDecompressionSession()
     if (m_mediaSourcePrivate)
         m_mediaSourcePrivate->setDecompressionSession(m_decompressionSession.get());
 
-    m_player->client().mediaPlayerRenderingModeChanged(m_player);
+    m_player->renderingModeChanged();
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::destroyDecompressionSession()
@@ -815,7 +823,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::destroyDecompressionSession()
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::shouldBePlaying() const
 {
-    return m_playing && !seeking() && allRenderersHaveAvailableSamples() && m_readyState >= MediaPlayer::HaveFutureData;
+    return m_playing && !seeking() && allRenderersHaveAvailableSamples() && m_readyState >= MediaPlayer::ReadyState::HaveFutureData;
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::setHasAvailableVideoFrame(bool flag)
@@ -1098,7 +1106,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::setReadyState(MediaPlayer::ReadyState
     else
         [m_synchronizer setRate:0];
 
-    if (m_readyState >= MediaPlayerEnums::HaveCurrentData && hasVideo() && !m_hasAvailableVideoFrame) {
+    if (m_readyState >= MediaPlayer::ReadyState::HaveCurrentData && hasVideo() && !m_hasAvailableVideoFrame) {
         m_readyStateIsWaitingForAvailableFrame = true;
         return;
     }
@@ -1128,7 +1136,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     [audioRenderer setAudioTimePitchAlgorithm:(m_player->preservesPitch() ? AVAudioTimePitchAlgorithmSpectral : AVAudioTimePitchAlgorithmVarispeed)];
 
     [m_synchronizer addRenderer:audioRenderer];
-    m_player->client().mediaPlayerRenderingModeChanged(m_player);
+    m_player->renderingModeChanged();
 }
 
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
@@ -1145,7 +1153,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     }];
 
     m_sampleBufferAudioRendererMap.remove(iter);
-    m_player->client().mediaPlayerRenderingModeChanged(m_player);
+    m_player->renderingModeChanged();
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::characteristicsChanged()
@@ -1222,12 +1230,10 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::performTaskAtMediaTime(WTF::Function<
     return true;
 }
 
-#if !RELEASE_LOG_DISABLED
 WTFLogChannel& MediaPlayerPrivateMediaSourceAVFObjC::logChannel() const
 {
     return LogMediaSource;
 }
-#endif
 
 }
 

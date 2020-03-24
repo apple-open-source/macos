@@ -30,8 +30,9 @@
 #include "Connection.h"
 #include "MessageReceiver.h"
 #include "UserMediaCaptureManager.h"
-#include "UserMediaCaptureManagerProxyMessages.h"
+#include <WebCore/OrientationNotifier.h>
 #include <WebCore/RealtimeMediaSource.h>
+#include <wtf/UniqueRef.h>
 
 namespace WebKit {
 
@@ -39,12 +40,24 @@ class SharedMemory;
 class WebProcessProxy;
 
 class UserMediaCaptureManagerProxy : private IPC::MessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit UserMediaCaptureManagerProxy(WebProcessProxy&);
+    class ConnectionProxy {
+    public:
+        virtual ~ConnectionProxy() = default;
+        virtual void addMessageReceiver(IPC::StringReference, IPC::MessageReceiver&) = 0;
+        virtual void removeMessageReceiver(IPC::StringReference) = 0;
+        virtual IPC::Connection& connection() = 0;
+    };
+    explicit UserMediaCaptureManagerProxy(UniqueRef<ConnectionProxy>&&);
     ~UserMediaCaptureManagerProxy();
 
-    WebProcessProxy& process() const { return m_process; }
     void clear();
+
+    void setOrientation(uint64_t);
+
+    void didReceiveMessageFromGPUProcess(IPC::Connection& connection, IPC::Decoder& decoder) { didReceiveMessage(connection, decoder); }
+    void didReceiveSyncMessageFromGPUProcess(IPC::Connection& connection, IPC::Decoder& decoder, std::unique_ptr<IPC::Encoder>& encoder) { didReceiveSyncMessage(connection, decoder, encoder); }
 
 private:
     // IPC::MessageReceiver
@@ -58,11 +71,14 @@ private:
     void capabilities(uint64_t, CompletionHandler<void(WebCore::RealtimeMediaSourceCapabilities&&)>&&);
     void setMuted(uint64_t, bool);
     void applyConstraints(uint64_t, const WebCore::MediaConstraints&);
+    void clone(uint64_t clonedID, uint64_t cloneID);
+    void requestToEnd(uint64_t);
 
     class SourceProxy;
     friend class SourceProxy;
     HashMap<uint64_t, std::unique_ptr<SourceProxy>> m_proxies;
-    WebProcessProxy& m_process;
+    UniqueRef<ConnectionProxy> m_connectionProxy;
+    WebCore::OrientationNotifier m_orientationNotifier { 0 };
 };
 
 }

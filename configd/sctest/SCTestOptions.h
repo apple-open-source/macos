@@ -67,6 +67,7 @@ extern const NSString * const kSCTestUnitTestTestMethodList;
 		{"list_tests", 0, NULL, 0}, \
 		{"test_method", 1, NULL, 0}, \
 		{"test_method_list", 0, NULL, 0}, \
+		{NULL, 0, NULL, 0},
 
 #define kSCTestOptionHelp \
 		"\n============== global options =============\n"\

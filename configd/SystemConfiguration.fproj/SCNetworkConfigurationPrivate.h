@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -87,6 +87,34 @@ typedef CF_ENUM(uint32_t, SCNetworkServicePrimaryRank) {
 	kSCNetworkServicePrimaryRankNever	= 3,
 	kSCNetworkServicePrimaryRankScoped	= 4
 };
+
+#pragma mark -
+#pragma mark SCNetworkConfiguration (SPI)
+
+/*!
+	@group Configuration
+ */
+
+Boolean
+_SCNetworkConfigurationBypassSystemInterfaces		(SCPreferencesRef	prefs)		SPI_AVAILABLE(macos(10.15.4), ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));
+
+void
+_SCNetworkConfigurationSetBypassSystemInterfaces	(SCPreferencesRef	prefs,
+							 Boolean		shouldBypass)	SPI_AVAILABLE(macos(10.15.4), ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));
+
+Boolean
+__SCNetworkConfigurationClean				(SCPreferencesRef	prefs,
+							 SCPreferencesRef	ni_prefs)	SPI_AVAILABLE(macos(10.15.4), ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));
+
+Boolean
+__SCNetworkConfigurationSaveModel			(SCPreferencesRef	prefs,
+							 CFStringRef		model)		SPI_AVAILABLE(macos(10.15.4), ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));
+
+Boolean
+__SCNetworkConfigurationUpgrade				(SCPreferencesRef	*prefs,
+							 SCPreferencesRef	*ni_prefs,
+							 Boolean		commit)		SPI_AVAILABLE(macos(10.15.4), ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));
+
 
 #pragma mark -
 #pragma mark SCNetworkInterface configuration (SPI)
@@ -210,6 +238,10 @@ _SCNetworkInterfaceCopyBTPANInterface			(void)						API_AVAILABLE(macos(10.9)) A
  */
 CFStringRef
 _SCNetworkInterfaceCopySlashDevPath			(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.6), ios(3.0));
+
+SCNetworkServiceRef
+_SCNetworkServiceCreatePreconfigured			(SCPreferencesRef		prefs,
+							 SCNetworkInterfaceRef		interface)	SPI_AVAILABLE(macos(10.15.4), ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));
 
 #define kIncludeNoVirtualInterfaces	0x0
 #define kIncludeVLANInterfaces		0x1

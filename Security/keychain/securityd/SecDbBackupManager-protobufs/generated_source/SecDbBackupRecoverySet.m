@@ -27,7 +27,7 @@
 }
 - (BOOL)hasRecoveryType
 {
-    return _has.recoveryType;
+    return _has.recoveryType != 0;
 }
 - (BOOL)hasBagIdentity
 {

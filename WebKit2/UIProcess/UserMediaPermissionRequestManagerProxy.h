@@ -48,6 +48,7 @@ class UserMediaPermissionRequestManagerProxy
     , private LoggerHelper
 #endif
 {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit UserMediaPermissionRequestManagerProxy(WebPageProxy&);
     ~UserMediaPermissionRequestManagerProxy();
@@ -60,15 +61,15 @@ public:
 
     void invalidatePendingRequests();
 
-    void requestUserMediaPermissionForFrame(uint64_t userMediaID, uint64_t frameID, Ref<WebCore::SecurityOrigin>&&  userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, WebCore::MediaStreamRequest&&);
+    void requestUserMediaPermissionForFrame(uint64_t userMediaID, WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&&  userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, WebCore::MediaStreamRequest&&);
 
-    void resetAccess(uint64_t mainFrameID);
+    void resetAccess(Optional<WebCore::FrameIdentifier> mainFrameID = { });
     void viewIsBecomingVisible();
 
     void grantRequest(UserMediaPermissionRequestProxy&);
     void denyRequest(UserMediaPermissionRequestProxy&, UserMediaPermissionRequestProxy::UserMediaAccessDenialReason, const String& invalidConstraint = { });
 
-    void enumerateMediaDevicesForFrame(uint64_t userMediaID, uint64_t frameID, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin);
+    void enumerateMediaDevicesForFrame(WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, CompletionHandler<void(const Vector<WebCore::CaptureDevice>&, const String&)>&&);
 
     void stopCapture();
     void scheduleNextRejection();
@@ -85,7 +86,8 @@ public:
         Prompt
     };
 
-    void setMockCaptureDevicesEnabledOverride(Optional<bool> enabled) { m_mockDevicesEnabledOverride = enabled; }
+    void setMockCaptureDevicesEnabledOverride(Optional<bool>);
+    bool hasPendingCapture() const { return m_hasPendingCapture; }
 
 private:
 #if !RELEASE_LOG_DISABLED
@@ -95,19 +97,20 @@ private:
     WTFLogChannel& logChannel() const final;
 #endif
 
-    Ref<UserMediaPermissionRequestProxy> createPermissionRequest(uint64_t userMediaID, uint64_t mainFrameID, uint64_t frameID, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, Vector<WebCore::CaptureDevice>&& audioDevices, Vector<WebCore::CaptureDevice>&& videoDevices, WebCore::MediaStreamRequest&&);
+    Ref<UserMediaPermissionRequestProxy> createPermissionRequest(uint64_t userMediaID, WebCore::FrameIdentifier mainFrameID, WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, Vector<WebCore::CaptureDevice>&& audioDevices, Vector<WebCore::CaptureDevice>&& videoDevices, WebCore::MediaStreamRequest&&);
 #if ENABLE(MEDIA_STREAM)
     void finishGrantingRequest(UserMediaPermissionRequestProxy&);
 
-    const UserMediaPermissionRequestProxy* searchForGrantedRequest(uint64_t frameID, const WebCore::SecurityOrigin& userMediaDocumentOrigin, const WebCore::SecurityOrigin& topLevelDocumentOrigin, bool needsAudio, bool needsVideo) const;
-    bool wasRequestDenied(uint64_t mainFrameID, const WebCore::SecurityOrigin& userMediaDocumentOrigin, const WebCore::SecurityOrigin& topLevelDocumentOrigin, bool needsAudio, bool needsVideo, bool needsScreenCapture);
+    const UserMediaPermissionRequestProxy* searchForGrantedRequest(WebCore::FrameIdentifier, const WebCore::SecurityOrigin& userMediaDocumentOrigin, const WebCore::SecurityOrigin& topLevelDocumentOrigin, bool needsAudio, bool needsVideo) const;
+    bool wasRequestDenied(WebCore::FrameIdentifier mainFrameID, const WebCore::SecurityOrigin& userMediaDocumentOrigin, const WebCore::SecurityOrigin& topLevelDocumentOrigin, bool needsAudio, bool needsVideo, bool needsScreenCapture);
 
     using PermissionInfo = UserMediaPermissionCheckProxy::PermissionInfo;
-    void getUserMediaPermissionInfo(uint64_t frameID, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, CompletionHandler<void(PermissionInfo)>&&);
+    void getUserMediaPermissionInfo(WebCore::FrameIdentifier, Ref<WebCore::SecurityOrigin>&& userMediaDocumentOrigin, Ref<WebCore::SecurityOrigin>&& topLevelDocumentOrigin, CompletionHandler<void(PermissionInfo)>&&);
+    void captureDevicesChanged(PermissionInfo);
 
     RequestAction getRequestAction(const UserMediaPermissionRequestProxy&);
 
-    bool wasGrantedVideoOrAudioAccess(uint64_t, const WebCore::SecurityOrigin& userMediaDocumentOrigin, const WebCore::SecurityOrigin& topLevelDocumentOrigin);
+    bool wasGrantedVideoOrAudioAccess(WebCore::FrameIdentifier, const WebCore::SecurityOrigin& userMediaDocumentOrigin, const WebCore::SecurityOrigin& topLevelDocumentOrigin);
 
     Vector<WebCore::CaptureDevice> computeFilteredDeviceList(bool revealIdsAndLabels, const String& deviceIDHashSalt);
 
@@ -134,7 +137,7 @@ private:
     Vector<Ref<UserMediaPermissionRequestProxy>> m_grantedRequests;
 
     struct DeniedRequest {
-        uint64_t mainFrameID;
+        WebCore::FrameIdentifier mainFrameID;
         Ref<WebCore::SecurityOrigin> userMediaDocumentOrigin;
         Ref<WebCore::SecurityOrigin> topLevelDocumentOrigin;
         bool isAudioDenied;
@@ -151,6 +154,9 @@ private:
     const void* m_logIdentifier;
 #endif
     bool m_hasFilteredDeviceList { false };
+#if PLATFORM(IOS)
+    bool m_hasCreatedSandboxExtensionForTCCD { false };
+#endif
     uint64_t m_hasPendingCapture { 0 };
     Optional<bool> m_mockDevicesEnabledOverride;
 };

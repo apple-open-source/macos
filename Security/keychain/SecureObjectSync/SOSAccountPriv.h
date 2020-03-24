@@ -128,7 +128,7 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 -(id) init NS_UNAVAILABLE;
 -(id) initWithGestalt:(CFDictionaryRef)gestalt factory:(SOSDataSourceFactoryRef)factory;
 
-- (void)startStateMachine;
+//- (void)startStateMachine;
 
 void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
                                     CFStringRef ds_name,
@@ -145,7 +145,6 @@ void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
 
 #if OCTAGON
 - (void)triggerBackupForPeers:(NSArray<NSString*>*)backupPeer;
-- (void)triggerRingUpdate;
 #endif
 
 
@@ -205,6 +204,8 @@ bool SOSAccountHandleCircleMessage(SOSAccount* account,
 
 CF_RETURNS_RETAINED
 CFDictionaryRef SOSAccountHandleRetirementMessages(SOSAccount* account, CFDictionaryRef circle_retirement_messages, CFErrorRef *error);
+
+void SOSAccountRecordRetiredPeersInCircle(SOSAccount* account);
 
 bool SOSAccountHandleUpdateCircle(SOSAccount* account,
                                   SOSCircleRef prospective_circle,
@@ -271,10 +272,10 @@ void SOSAccountPurgeIdentity(SOSAccount*);
 bool sosAccountLeaveCircle(SOSAccount* account, SOSCircleRef circle, CFErrorRef* error);
 bool sosAccountLeaveCircleWithAnalytics(SOSAccount* account, SOSCircleRef circle, NSData* parentData, CFErrorRef* error);
 
-bool sosAccountLeaveRing(SOSAccount*  account, SOSRingRef ring, CFErrorRef* error);
 bool SOSAccountForEachRing(SOSAccount* account, SOSRingRef (^action)(CFStringRef name, SOSRingRef ring));
 bool SOSAccountUpdateBackUp(SOSAccount* account, CFStringRef viewname, CFErrorRef *error);
 void SOSAccountEnsureRecoveryRing(SOSAccount* account);
+bool SOSAccountEnsureInBackupRings(SOSAccount* account);
 
 bool SOSAccountEnsurePeerRegistration(SOSAccount* account, CFErrorRef *error);
 
@@ -298,15 +299,11 @@ bool SOSAccountClearValue(SOSAccount* account, CFStringRef key, CFErrorRef *erro
 CFTypeRef SOSAccountGetValue(SOSAccount* account, CFStringRef key, CFErrorRef *error);
 
 bool SOSAccountAddEscrowToPeerInfo(SOSAccount* account, SOSFullPeerInfoRef myPeer, CFErrorRef *error);
-bool SOSAccountAddEscrowRecords(SOSAccount* account, CFStringRef dsid, CFDictionaryRef record, CFErrorRef *error);
 void SOSAccountRemoveRing(SOSAccount* a, CFStringRef ringName);
 SOSRingRef SOSAccountCopyRingNamed(SOSAccount* a, CFStringRef ringName, CFErrorRef *error);
-SOSRingRef SOSAccountRingCreateForName(SOSAccount* a, CFStringRef ringName, CFErrorRef *error);
 bool SOSAccountUpdateRingFromRemote(SOSAccount* account, SOSRingRef newRing, CFErrorRef *error);
 bool SOSAccountUpdateRing(SOSAccount* account, SOSRingRef newRing, CFErrorRef *error);
 bool SOSAccountRemoveBackupPeers(SOSAccount* account, CFArrayRef peerIDs, CFErrorRef *error);
-bool SOSAccountResetRing(SOSAccount* account, CFStringRef ringName, CFErrorRef *error);
-bool SOSAccountCheckPeerAvailability(SOSAccount* account, CFErrorRef *error);
 bool SOSAccountUpdateNamedRing(SOSAccount* account, CFStringRef ringName, CFErrorRef *error,
                                SOSRingRef (^create)(CFStringRef ringName, CFErrorRef *error),
                                SOSRingRef (^copyModified)(SOSRingRef existing, CFErrorRef *error));
@@ -322,12 +319,7 @@ bool SOSAccountUpdateBackupRing(SOSAccount*  account, CFStringRef viewName, CFEr
 // Security tool test/debug functions
 //
 bool SOSAccountPostDebugScope(SOSAccount*  account, CFTypeRef scope, CFErrorRef *error);
-CFDataRef SOSAccountCopyAccountStateFromKeychain(CFErrorRef *error);
-bool SOSAccountDeleteAccountStateFromKeychain(CFErrorRef *error);
-CFDataRef SOSAccountCopyEngineStateFromKeychain(CFErrorRef *error);
-bool SOSAccountDeleteEngineStateFromKeychain(CFErrorRef *error);
 
-bool SOSAccountIsNew(SOSAccount* account, CFErrorRef *error);
 bool SOSAccountCheckForAlwaysOnViews(SOSAccount* account);
 // UUID, no setter just getter and ensuring value.
 void SOSAccountEnsureUUID(SOSAccount* account);
@@ -351,7 +343,6 @@ NSArray<NSDictionary*>* SOSAccountSortTLKS(NSArray<NSDictionary*>* tlks);
 #endif
 
 bool SOSAccountCleanupAllKVSKeys(SOSAccount* account, CFErrorRef* error);
-bool SOSAccountPopulateKVSWithBadKeys(SOSAccount*  account, CFErrorRef* error);
 
 @end
 

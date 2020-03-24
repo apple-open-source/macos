@@ -24,6 +24,7 @@
 #if OCTAGON
 
 #import <Foundation/Foundation.h>
+#import <TrustedPeers/TrustedPeers.h>
 
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
@@ -41,6 +42,7 @@ NS_ASSUME_NONNULL_BEGIN
                        intendedState:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState
                           deviceInfo:(OTDeviceInformation*)deviceInfo
+                      policyOverride:(TPPolicyVersion* _Nullable)policyOverride
                                epoch:(uint64_t)epoch;
 
 @property (nonatomic) uint64_t epoch;
@@ -51,6 +53,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) NSData* permanentInfoSig;
 @property (nullable) NSData* stableInfo;
 @property (nullable) NSData* stableInfoSig;
+
+@property (nullable) TPPolicyVersion* policyOverride;
 
 @end
 

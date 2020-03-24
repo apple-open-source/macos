@@ -31,7 +31,6 @@
 #include <JavaScriptCore/ArrayBuffer.h>
 #include <JavaScriptCore/JSCJSValue.h>
 #include <JavaScriptCore/Strong.h>
-#include <pal/SessionID.h>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
 #include <wtf/Gigacage.h>
@@ -62,11 +61,13 @@ using ArrayBufferContentsArray = Vector<JSC::ArrayBufferContents>;
 using WasmModuleArray = Vector<RefPtr<JSC::Wasm::Module>>;
 #endif
 
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(SerializedScriptValue);
 class SerializedScriptValue : public ThreadSafeRefCounted<SerializedScriptValue> {
+    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(SerializedScriptValue);
 public:
-    WEBCORE_EXPORT static RefPtr<SerializedScriptValue> create(JSC::ExecState&, JSC::JSValue, SerializationErrorMode = SerializationErrorMode::Throwing);
+    WEBCORE_EXPORT static RefPtr<SerializedScriptValue> create(JSC::JSGlobalObject&, JSC::JSValue, SerializationErrorMode = SerializationErrorMode::Throwing);
 
-    WEBCORE_EXPORT static ExceptionOr<Ref<SerializedScriptValue>> create(JSC::ExecState&, JSC::JSValue, Vector<JSC::Strong<JSC::JSObject>>&& transfer, Vector<RefPtr<MessagePort>>&, SerializationContext = SerializationContext::Default);
+    WEBCORE_EXPORT static ExceptionOr<Ref<SerializedScriptValue>> create(JSC::JSGlobalObject&, JSC::JSValue, Vector<JSC::Strong<JSC::JSObject>>&& transfer, Vector<RefPtr<MessagePort>>&, SerializationContext = SerializationContext::Default);
 
     WEBCORE_EXPORT static RefPtr<SerializedScriptValue> create(StringView);
     static Ref<SerializedScriptValue> adopt(Vector<uint8_t>&& buffer)
@@ -76,9 +77,9 @@ public:
 
     static Ref<SerializedScriptValue> nullValue();
 
-    WEBCORE_EXPORT JSC::JSValue deserialize(JSC::ExecState&, JSC::JSGlobalObject*, SerializationErrorMode = SerializationErrorMode::Throwing);
-    WEBCORE_EXPORT JSC::JSValue deserialize(JSC::ExecState&, JSC::JSGlobalObject*, const Vector<RefPtr<MessagePort>>&, SerializationErrorMode = SerializationErrorMode::Throwing);
-    JSC::JSValue deserialize(JSC::ExecState&, JSC::JSGlobalObject*, const Vector<RefPtr<MessagePort>>&, const Vector<String>& blobURLs, const PAL::SessionID&, const Vector<String>& blobFilePaths, SerializationErrorMode = SerializationErrorMode::Throwing);
+    WEBCORE_EXPORT JSC::JSValue deserialize(JSC::JSGlobalObject&, JSC::JSGlobalObject*, SerializationErrorMode = SerializationErrorMode::Throwing);
+    WEBCORE_EXPORT JSC::JSValue deserialize(JSC::JSGlobalObject&, JSC::JSGlobalObject*, const Vector<RefPtr<MessagePort>>&, SerializationErrorMode = SerializationErrorMode::Throwing);
+    JSC::JSValue deserialize(JSC::JSGlobalObject&, JSC::JSGlobalObject*, const Vector<RefPtr<MessagePort>>&, const Vector<String>& blobURLs, const Vector<String>& blobFilePaths, SerializationErrorMode = SerializationErrorMode::Throwing);
 
     static uint32_t wireFormatVersion();
 
@@ -93,7 +94,6 @@ public:
 
 #if ENABLE(INDEXED_DATABASE)
     Vector<String> blobURLsIsolatedCopy() const;
-    const PAL::SessionID& sessionID() const { return m_sessionID; }
     void writeBlobsToDiskForIndexedDB(CompletionHandler<void(IDBValue&&)>&&);
     IDBValue writeBlobsToDiskForIndexedDBSynchronously();
 #endif // ENABLE(INDEXED_DATABASE)
@@ -112,7 +112,7 @@ public:
 private:
     WEBCORE_EXPORT SerializedScriptValue(Vector<unsigned char>&&);
     WEBCORE_EXPORT SerializedScriptValue(Vector<unsigned char>&&, std::unique_ptr<ArrayBufferContentsArray>);
-    SerializedScriptValue(Vector<unsigned char>&&, const Vector<String>& blobURLs, const PAL::SessionID&, std::unique_ptr<ArrayBufferContentsArray>, std::unique_ptr<ArrayBufferContentsArray> sharedBuffers, Vector<std::pair<std::unique_ptr<ImageBuffer>, bool>>&& imageBuffers
+    SerializedScriptValue(Vector<unsigned char>&&, const Vector<String>& blobURLs, std::unique_ptr<ArrayBufferContentsArray>, std::unique_ptr<ArrayBufferContentsArray> sharedBuffers, Vector<std::pair<std::unique_ptr<ImageBuffer>, bool>>&& imageBuffers
 #if ENABLE(WEBASSEMBLY)
         , std::unique_ptr<WasmModuleArray>
 #endif
@@ -126,7 +126,6 @@ private:
     std::unique_ptr<WasmModuleArray> m_wasmModulesArray;
 #endif
     Vector<String> m_blobURLs;
-    PAL::SessionID m_sessionID;
 };
 
 template<class Encoder>
@@ -166,21 +165,18 @@ RefPtr<SerializedScriptValue> SerializedScriptValue::decode(Decoder& decoder)
         return nullptr;
     ASSERT(arrayLength);
 
-    auto arrayBufferContentsArray = std::make_unique<ArrayBufferContentsArray>();
+    auto arrayBufferContentsArray = makeUnique<ArrayBufferContentsArray>();
     while (arrayLength--) {
         unsigned bufferSize;
         if (!decoder.decode(bufferSize))
             return nullptr;
 
         auto buffer = Gigacage::tryMalloc(Gigacage::Primitive, bufferSize);
-        auto destructor = [] (void* ptr) {
-            Gigacage::free(Gigacage::Primitive, ptr);
-        };
         if (!decoder.decodeFixedLengthData(static_cast<uint8_t*>(buffer), bufferSize, 1)) {
-            destructor(buffer);
+            Gigacage::free(Gigacage::Primitive, buffer);
             return nullptr;
         }
-        arrayBufferContentsArray->append({ buffer, bufferSize, WTFMove(destructor) });
+        arrayBufferContentsArray->append({ buffer, bufferSize, ArrayBuffer::primitiveGigacageDestructor() });
     }
 
     return adoptRef(*new SerializedScriptValue(WTFMove(data), WTFMove(arrayBufferContentsArray)));

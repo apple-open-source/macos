@@ -22,6 +22,9 @@
  */
 
 #if OCTAGON
+#import <TrustedPeers/TPPolicy.h>
+#import <TrustedPeers/TPPBPolicyKeyViewMapping.h>
+#import <TrustedPeers/TPDictionaryMatchingRules.h>
 
 #import "keychain/ckks/CKKSAnalytics.h"
 #import "keychain/ckks/CKKSKeychainView.h"
@@ -47,7 +50,6 @@
 #import <IMCore/IMCloudKitHooks.h>
 
 @interface CKKSScanLocalItemsOperation ()
-@property CKOperationGroup* ckoperationGroup;
 @property (assign) NSUInteger processedItems;
 @end
 
@@ -64,6 +66,49 @@
         _recordsAdded = 0;
     }
     return self;
+}
+
+// returns true if the currently loaded TPPolicy in the view manager says that only items with a VewHint
+// matching the viewName belong to this view.
+- (BOOL)policyRecommendsOnlyViewHintItems:(CKKSKeychainView*)ckks
+{
+    // Early-exit for when feature is not on:
+    if(![[CKKSViewManager manager] useCKKSViewsFromPolicy]) {
+        return YES;
+    }
+
+    TPPBPolicyKeyViewMapping* viewRule = nil;
+
+    // If there's more than one rule matching this view, then exit with NO.
+    for(TPPBPolicyKeyViewMapping* mapping in [CKKSViewManager manager].policy.keyViewMapping) {
+        if([mapping.view isEqualToString:ckks.zoneName]) {
+            if(viewRule == nil) {
+                viewRule = mapping;
+            } else {
+                // Too many rules for this view! Don't perform optimization.
+                ckksnotice("ckksscan", ckks, "Too many policy rules for view %@", ckks.zoneName);
+                return NO;
+            }
+        }
+    }
+
+    if(viewRule.hasMatchingRule &&
+       viewRule.matchingRule.andsCount == 0 &&
+       viewRule.matchingRule.orsCount == 0 &&
+       !viewRule.matchingRule.hasNot &&
+       !viewRule.matchingRule.hasExists &&
+       viewRule.matchingRule.hasMatch) {
+        if([@"vwht" isEqualToString:viewRule.matchingRule.match.fieldName] &&
+           [viewRule.matchingRule.match.regex isEqualToString:[NSString stringWithFormat:@"^%@$", ckks.zoneName]]) {
+            return YES;
+        } else {
+            ckksnotice("ckksscan", ckks, "Policy view rule is not a match against viewhint: %@", viewRule);
+        }
+    } else {
+        ckksnotice("ckksscan", ckks, "Policy view rule is of unknown type: %@", viewRule);
+    }
+
+    return NO;
 }
 
 - (void) main {
@@ -103,15 +148,22 @@
                 continue;
             }
 
-            NSDictionary* queryAttributes = @{(__bridge NSString*) kSecClass: (__bridge NSString*) (*class)->name,
-                                              (__bridge NSString*) kSecReturnRef: @(YES),
-                                              (__bridge NSString*) kSecAttrSynchronizable: @(YES),
-                                              (__bridge NSString*) kSecAttrTombstone: @(NO),
-                                              // This works ~as long as~ item views are chosen by view hint only. It's a significant perf win, though.
-                                              // <rdar://problem/32269541> SpinTracer: CKKSScanLocalItemsOperation expensive on M8 machines
-                                              (__bridge NSString*) kSecAttrSyncViewHint: ckks.zoneName,
-                                              };
-            ckksinfo("ckksscan", ckks, "Scanning all synchronizable items for: %@", queryAttributes);
+            // As a performance optimization, if the current policy says that this view only includes items by viewhint,
+            // add that to the query.
+            BOOL limitToViewHint = [self policyRecommendsOnlyViewHintItems:ckks];
+
+            NSMutableDictionary* queryAttributes = [
+                                                    @{(__bridge NSString*) kSecClass: (__bridge NSString*) (*class)->name,
+                                                      (__bridge NSString*) kSecReturnRef: @(YES),
+                                                      (__bridge NSString*) kSecAttrSynchronizable: @(YES),
+                                                      (__bridge NSString*) kSecAttrTombstone: @(NO),
+                                                    } mutableCopy];
+
+            if(limitToViewHint) {
+                queryAttributes[(__bridge NSString*)kSecAttrSyncViewHint] = ckks.zoneName;
+            }
+
+            ckksnotice("ckksscan", ckks, "Scanning all synchronizable %@ items(%@) for: %@", (__bridge NSString*)(*class)->name, self.name, queryAttributes);
 
             Query *q = query_create_with_limit( (__bridge CFDictionaryRef) queryAttributes, NULL, kSecMatchUnlimited, &cferror);
             bool ok = false;

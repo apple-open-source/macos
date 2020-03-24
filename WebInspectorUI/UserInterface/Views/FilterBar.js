@@ -32,9 +32,6 @@ WI.FilterBar = class FilterBar extends WI.Object
         this._element = element || document.createElement("div");
         this._element.classList.add("filter-bar");
 
-        this._filtersNavigationBar = new WI.NavigationBar;
-        this._element.appendChild(this._filtersNavigationBar.element);
-
         this._filterFunctionsMap = new Map;
 
         this._inputField = document.createElement("input");
@@ -45,6 +42,9 @@ WI.FilterBar = class FilterBar extends WI.Object
         this._inputField.addEventListener("search", this._handleFilterChanged.bind(this));
         this._inputField.addEventListener("input", this._handleFilterInputEvent.bind(this));
         this._element.appendChild(this._inputField);
+
+        this._filtersNavigationBar = new WI.NavigationBar;
+        this._element.appendChild(this._filtersNavigationBar.element);
 
         this._lastFilterValue = this.filters;
     }
@@ -96,24 +96,13 @@ WI.FilterBar = class FilterBar extends WI.Object
             this._handleFilterChanged();
     }
 
-    get indicatingProgress()
+    focus()
     {
-        return this._element.classList.contains("indicating-progress");
-    }
-
-    set indicatingProgress(progress)
-    {
-        this._element.classList.toggle("indicating-progress", !!progress);
-    }
-
-    get indicatingActive()
-    {
-        return this._element.classList.contains("active");
-    }
-
-    set indicatingActive(active)
-    {
-        this._element.classList.toggle("active", !!active);
+        // FIXME: Workaround for: <https://webkit.org/b/149504> Caret missing from <input> after clearing text and calling select()
+        if (!this._inputField.value.length)
+            this._inputField.focus();
+        else
+            this._inputField.select();
     }
 
     clear()
@@ -131,12 +120,18 @@ WI.FilterBar = class FilterBar extends WI.Object
         this._inputField.value = null; // Get the placeholder to show again.
     }
 
+    addFilterNavigationItem(navigationItem)
+    {
+        console.assert(navigationItem instanceof WI.NavigationItem);
+        this._filtersNavigationBar.addNavigationItem(navigationItem);
+    }
+
     addFilterBarButton(identifier, filterFunction, activatedByDefault, defaultToolTip, activatedToolTip, image, imageWidth, imageHeight)
     {
         var filterBarButton = new WI.FilterBarButton(identifier, filterFunction, activatedByDefault, defaultToolTip, activatedToolTip, image, imageWidth, imageHeight);
         filterBarButton.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._handleFilterBarButtonClicked, this);
         filterBarButton.addEventListener(WI.FilterBarButton.Event.ActivatedStateToggled, this._handleFilterButtonToggled, this);
-        this._filtersNavigationBar.addNavigationItem(filterBarButton);
+        this.addFilterNavigationItem(filterBarButton);
         if (filterBarButton.activated) {
             this._filterFunctionsMap.set(filterBarButton.identifier, filterBarButton.filterFunction);
             this._handleFilterChanged();
@@ -186,7 +181,8 @@ WI.FilterBar = class FilterBar extends WI.Object
         if (this.hasFilterChanged()) {
             this._lastFilterValue = this.filters;
             this.dispatchEventToListeners(WI.FilterBar.Event.FilterDidChange);
-        }
+        } else if (!this._inputField.value)
+            this._inputField.blur();
     }
 
     _handleFilterInputEvent(event)

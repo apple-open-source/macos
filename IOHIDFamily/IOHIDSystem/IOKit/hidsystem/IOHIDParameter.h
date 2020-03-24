@@ -90,6 +90,10 @@
 #define kIOHIDPointerAccelerationSettingsKey	"HIDPointerAccelerationSettings"
 #define kIOHIDPointerAccelerationTableKey  "HIDPointerAccelerationTable"
 
+// velocity for pointer acceleration
+#define kIOHIDPointerAccelerationMultiplierKey        "HIDPointerAccelerationMultiplier"
+
+
 #define kIOHIDScrollResetKey			"HIDScrollReset"
 #define kIOHIDScrollResolutionKey		"HIDScrollResolution"
 #define kIOHIDScrollReportRateKey       "HIDScrollReportRate"

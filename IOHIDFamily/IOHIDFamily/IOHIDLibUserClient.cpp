@@ -741,9 +741,12 @@ IOReturn IOHIDLibUserClient::registerNotificationPortGated(mach_port_t port, UIn
             
             fValidPort = port;
             
-            if ( !fValidPort )
+            if ( !fValidPort ) {
+                IOFree(fValidMessage, sizeof (struct _notifyMsg));
+                fValidMessage = NULL;
                 break;
-                
+            }
+
             // Initialize the events available message.
             *((struct _notifyMsg *)fValidMessage) = init_msg;
 

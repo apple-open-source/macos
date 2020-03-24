@@ -29,6 +29,8 @@
 #if PLATFORM(IOS_FAMILY)
 
 #import "APIData.h"
+#import "ApplicationStateTracker.h"
+#import "AssertionServicesSPI.h"
 #import "DataReference.h"
 #import "DownloadProxy.h"
 #import "DrawingAreaProxy.h"
@@ -48,12 +50,16 @@
 #import "WKProcessPoolInternal.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewContentProviderRegistry.h"
+#import "WKWebViewIOS.h"
 #import "WKWebViewInternal.h"
+#import "WKWebViewPrivateForTesting.h"
 #import "WebContextMenuProxy.h"
 #import "WebDataListSuggestionsDropdownIOS.h"
 #import "WebEditCommandProxy.h"
+#import "WebPageProxy.h"
 #import "WebProcessProxy.h"
 #import "_WKDownloadInternal.h"
+#import <WebCore/Cursor.h>
 #import <WebCore/DOMPasteAccess.h>
 #import <WebCore/DictionaryLookup.h>
 #import <WebCore/NotImplemented.h>
@@ -65,8 +71,13 @@
 #import <WebCore/ValidationBubble.h>
 #import <pal/spi/cocoa/NSKeyedArchiverSPI.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/cocoa/Entitlements.h>
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, m_webView.get()->_page->process().connection())
+
+@interface UIWindow ()
+- (BOOL)_isHostedInAnotherProcess;
+@end
 
 namespace WebKit {
 using namespace WebCore;
@@ -110,7 +121,7 @@ IntSize PageClientImpl::viewSize()
     if (UIScrollView *scroller = [m_contentView _scroller])
         return IntSize(scroller.bounds.size);
 
-    return IntSize(m_contentView.bounds.size);
+    return IntSize([m_contentView bounds].size);
 }
 
 bool PageClientImpl::isViewWindowActive()
@@ -136,6 +147,34 @@ bool PageClientImpl::isViewVisible()
         return true;
     
     return false;
+}
+
+bool PageClientImpl::isApplicationVisible()
+{
+    switch (applicationType([m_webView window])) {
+    case ApplicationType::Application:
+        return [[UIApplication sharedApplication] applicationState] != UIApplicationStateBackground;
+    case ApplicationType::ViewService:
+    case ApplicationType::Extension:
+        break;
+    }
+
+    UIViewController *serviceViewController = nil;
+    for (UIView *view = m_webView.get().get(); view; view = view.superview) {
+        UIViewController *viewController = [UIViewController viewControllerForView:view];
+        if (viewController._hostProcessIdentifier) {
+            serviceViewController = viewController;
+            break;
+        }
+    }
+    ASSERT(serviceViewController);
+    pid_t applicationPID = serviceViewController._hostProcessIdentifier;
+    ASSERT(applicationPID);
+
+    auto applicationStateMonitor = adoptNS([[BKSApplicationStateMonitor alloc] init]);
+    auto applicationState = [applicationStateMonitor mostElevatedApplicationStateForPID:applicationPID];
+    [applicationStateMonitor invalidate];
+    return applicationState != BKSApplicationStateBackgroundRunning && applicationState != BKSApplicationStateBackgroundTaskSuspended;
 }
 
 bool PageClientImpl::isViewInWindow()
@@ -263,9 +302,14 @@ WebCore::FloatRect PageClientImpl::documentRect() const
     return [m_contentView bounds];
 }
 
-void PageClientImpl::setCursor(const Cursor&)
+void PageClientImpl::setCursor(const Cursor& cursor)
 {
-    notImplemented();
+    // The Web process may have asked to change the cursor when the view was in an active window, but
+    // if it is no longer in a window or the window is not active, then the cursor should not change.
+    if (!isViewWindowActive())
+        return;
+
+    cursor.setAsPlatformCursor();
 }
 
 void PageClientImpl::setCursorHiddenUntilMouseMoves(bool)
@@ -371,14 +415,12 @@ void PageClientImpl::makeFirstResponder()
 
 FloatRect PageClientImpl::convertToDeviceSpace(const FloatRect& rect)
 {
-    notImplemented();
-    return FloatRect();
+    return rect;
 }
 
 FloatRect PageClientImpl::convertToUserSpace(const FloatRect& rect)
 {
-    notImplemented();
-    return FloatRect();
+    return rect;
 }
 
 IntPoint PageClientImpl::screenToRootView(const IntPoint& point)
@@ -418,6 +460,15 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& nativeWebtouc
     [m_contentView _webTouchEvent:nativeWebtouchEvent preventsNativeGestures:eventHandled];
 }
 #endif
+
+#if ENABLE(IOS_TOUCH_EVENTS)
+
+void PageClientImpl::doneDeferringNativeGestures(bool preventNativeGestures)
+{
+    [m_contentView _doneDeferringNativeGestures:preventNativeGestures];
+}
+
+#endif // ENABLE(IOS_TOUCH_EVENTS)
 
 RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy&)
 {
@@ -470,7 +521,7 @@ void PageClientImpl::updateAcceleratedCompositingMode(const LayerTreeContext&)
 void PageClientImpl::didPerformDictionaryLookup(const DictionaryPopupInfo& dictionaryPopupInfo)
 {
 #if ENABLE(REVEAL)
-    DictionaryLookup::showPopup(dictionaryPopupInfo, m_contentView, nullptr);
+    DictionaryLookup::showPopup(dictionaryPopupInfo, m_contentView.getAutoreleased(), nullptr);
 #else
     UNUSED_PARAM(dictionaryPopupInfo);
 #endif // ENABLE(REVEAL)
@@ -796,7 +847,7 @@ WebCore::UserInterfaceLayoutDirection PageClientImpl::userInterfaceLayoutDirecti
 
 Ref<ValidationBubble> PageClientImpl::createValidationBubble(const String& message, const ValidationBubble::Settings& settings)
 {
-    return ValidationBubble::create(m_contentView, message, settings);
+    return ValidationBubble::create(m_contentView.getAutoreleased(), message, settings);
 }
 
 #if ENABLE(INPUT_TYPE_COLOR)
@@ -809,7 +860,7 @@ RefPtr<WebColorPicker> PageClientImpl::createColorPicker(WebPageProxy*, const We
 #if ENABLE(DATALIST_ELEMENT)
 RefPtr<WebDataListSuggestionsDropdown> PageClientImpl::createDataListSuggestionsDropdown(WebPageProxy& page)
 {
-    return WebDataListSuggestionsDropdownIOS::create(page, m_contentView);
+    return WebDataListSuggestionsDropdownIOS::create(page, m_contentView.getAutoreleased());
 }
 #endif
 
@@ -877,7 +928,7 @@ void PageClientImpl::requestDOMPasteAccess(const WebCore::IntRect& elementRect, 
 #if HAVE(PENCILKIT)
 RetainPtr<WKDrawingView> PageClientImpl::createDrawingView(WebCore::GraphicsLayer::EmbeddedViewID embeddedViewID)
 {
-    return adoptNS([[WKDrawingView alloc] initWithEmbeddedViewID:embeddedViewID contentView:m_contentView]);
+    return adoptNS([[WKDrawingView alloc] initWithEmbeddedViewID:embeddedViewID contentView:m_contentView.getAutoreleased()]);
 }
 #endif
 

@@ -87,8 +87,8 @@ public:
     virtual bool layerTreeStateIsFrozen() const { return false; }
     virtual bool layerFlushThrottlingIsActive() const { return false; }
 
-    virtual void setPaintingEnabled(bool) { }
     virtual void updatePreferences(const WebPreferencesStore&) { }
+    virtual void enablePainting() { }
     virtual void mainFrameContentSizeChanged(const WebCore::IntSize&) { }
 
 #if PLATFORM(COCOA)
@@ -98,16 +98,18 @@ public:
     virtual void acceleratedAnimationDidStart(uint64_t /*layerID*/, const String& /*key*/, MonotonicTime /*startTime*/) { }
     virtual void acceleratedAnimationDidEnd(uint64_t /*layerID*/, const String& /*key*/) { }
     virtual void addFence(const WTF::MachSendRight&) { }
-#endif
-#if PLATFORM(IOS_FAMILY)
+
     virtual WebCore::FloatRect exposedContentRect() const = 0;
     virtual void setExposedContentRect(const WebCore::FloatRect&) = 0;
 #endif
+
     virtual void mainFrameScrollabilityChanged(bool) { }
 
-    virtual bool supportsAsyncScrolling() { return false; }
+    virtual bool supportsAsyncScrolling() const { return false; }
+    virtual bool usesDelegatedScrolling() const { return false; }
+    virtual bool usesDelegatedPageScaling() const { return false; }
 
-    virtual bool shouldUseTiledBackingForFrameView(const WebCore::FrameView&) { return false; }
+    virtual bool shouldUseTiledBackingForFrameView(const WebCore::FrameView&) const { return false; }
 
     virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() { return nullptr; }
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) = 0;
@@ -147,6 +149,7 @@ public:
 #endif
 
     virtual void adoptLayersFromDrawingArea(DrawingArea&) { }
+    virtual void adoptDisplayRefreshMonitorsFromDrawingArea(DrawingArea&) { }
 
     void removeMessageReceiverIfNeeded();
 

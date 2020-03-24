@@ -23,21 +23,110 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+// FIXME: HeapManager lacks advanced multi-target support. (Instruments/Profilers per-target)
+
 WI.HeapManager = class HeapManager extends WI.Object
 {
+    constructor()
+    {
+        super();
+
+        this._enabled = false;
+    }
+
+    // Agent
+
+    get domains() { return ["Heap"]; }
+
+    activateExtraDomain(domain)
+    {
+        console.assert(domain === "Heap");
+
+        for (let target of WI.targets)
+            this.initializeTarget(target);
+    }
+
     // Target
 
     initializeTarget(target)
     {
-        if (target.HeapAgent)
+        if (!this._enabled)
+            return;
+
+        if (target.hasDomain("Heap"))
             target.HeapAgent.enable();
     }
 
     // Public
 
+    enable()
+    {
+        if (this._enabled)
+            return;
+
+        this._enabled = true;
+
+        for (let target of WI.targets)
+            this.initializeTarget(target);
+    }
+
+    disable()
+    {
+        if (!this._enabled)
+            return;
+
+        for (let target of WI.targets) {
+            if (target.hasDomain("Heap"))
+                target.HeapAgent.disable();
+        }
+
+        this._enabled = false;
+    }
+
+    snapshot(callback)
+    {
+        console.assert(this._enabled);
+
+        let target = WI.assumingMainTarget();
+        target.HeapAgent.snapshot((error, timestamp, snapshotStringData) => {
+            if (error)
+                console.error(error);
+            callback(error, timestamp, snapshotStringData);
+        });
+    }
+
+    getPreview(node, callback)
+    {
+        console.assert(this._enabled);
+        console.assert(node instanceof WI.HeapSnapshotNodeProxy);
+
+        let target = WI.assumingMainTarget();
+        target.HeapAgent.getPreview(node.id, (error, string, functionDetails, preview) => {
+            if (error)
+                console.error(error);
+            callback(error, string, functionDetails, preview);
+        });
+    }
+
+    getRemoteObject(node, objectGroup, callback)
+    {
+        console.assert(this._enabled);
+        console.assert(node instanceof WI.HeapSnapshotNodeProxy);
+
+        let target = WI.assumingMainTarget();
+        target.HeapAgent.getRemoteObject(node.id, objectGroup, (error, result) => {
+            if (error)
+                console.error(error);
+            callback(error, result);
+        });
+    }
+
+    // HeapObserver
+
     garbageCollected(target, payload)
     {
-        // Called from WI.HeapObserver.
+        if (!this._enabled)
+            return;
 
         // FIXME: <https://webkit.org/b/167323> Web Inspector: Enable Memory profiling in Workers
         if (target !== WI.mainTarget)

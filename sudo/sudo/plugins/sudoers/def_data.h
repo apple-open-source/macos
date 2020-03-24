@@ -232,6 +232,10 @@
 #define def_log_allowed         (sudo_defs_table[I_LOG_ALLOWED].sd_un.flag)
 #define I_LOG_DENIED            116
 #define def_log_denied          (sudo_defs_table[I_LOG_DENIED].sd_un.flag)
+#define I_RUNAS_ALLOW_UNKNOWN_ID 117
+#define def_runas_allow_unknown_id (sudo_defs_table[I_RUNAS_ALLOW_UNKNOWN_ID].sd_un.flag)
+#define I_RUNAS_CHECK_SHELL     118
+#define def_runas_check_shell   (sudo_defs_table[I_RUNAS_CHECK_SHELL].sd_un.flag)
 
 enum def_tuple {
 	never,

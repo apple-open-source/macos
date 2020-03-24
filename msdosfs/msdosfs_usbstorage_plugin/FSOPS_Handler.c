@@ -667,7 +667,7 @@ int FSOPS_FlushCacheAndFreeLck(FileSystemRecord_s* psFSRecord)
 {
     int iErr = FATMOD_FlushAllCacheEntries(psFSRecord);
 
-    //Acquire Read Lock
+    //Free Read Lock
     MultiReadSingleWrite_FreeRead(&psFSRecord->sDirtyBitLck);
 
     return iErr;
@@ -940,6 +940,7 @@ MSDOS_Mount (int iDiskFd, UVFSVolumeId volId, __unused UVFSMountFlags mountFlags
     MultiReadSingleWrite_Init( &psFSRecord->sDirtyBitLck );
     MultiReadSingleWrite_Init( &psFSRecord->sDirHTLRUTableLock );
     psFSRecord->uDirHTGeneration = 1;
+    psFSRecord->uPreAllocatedOpenFiles = 0;
 
     //Init chain cache
     FILERECORD_InitChainCache(psFSRecord);
@@ -1027,11 +1028,11 @@ MSDOS_Sync (UVFSFileNode node)
         goto exit;
     }
 
-    // Clear drive dirty bit.
-    iErr = FATMOD_SetDriveDirtyBit( psFSRecord, false );
-    if ( iErr != 0 )
+    //We will set the device as not dirty, only if we
+    if (psFSRecord->uPreAllocatedOpenFiles == 0)
     {
-        goto exit;
+        // Clear drive dirty bit.
+        iErr = FATMOD_SetDriveDirtyBit( psFSRecord, false );
     }
 
 exit:
@@ -1086,6 +1087,9 @@ MSDOS_GetFSAttr(UVFSFileNode Node, const char *attr, UVFSFSAttributeValue *val, 
 
     NodeRecord_s* psNodeRecord      = (NodeRecord_s*)Node;
 
+    if (attr == NULL || val == NULL)
+        return EINVAL;
+    
     if (strcmp(attr, UVFS_FSATTR_PC_LINK_MAX)==0) 
     {
         *retlen = sizeof(uint64_t);
@@ -1336,9 +1340,24 @@ MSDOS_GetFSAttr(UVFSFileNode Node, const char *attr, UVFSFSAttributeValue *val, 
 }
 
 static int
-MSDOS_SetFSAttr(UVFSFileNode Node, const char *attr, const UVFSFSAttributeValue *val, size_t len)
+MSDOS_SetFSAttr(UVFSFileNode Node, const char *attr, const UVFSFSAttributeValue *val, size_t len, UVFSFSAttributeValue *out_value, size_t out_len)
 {
     VERIFY_NODE_IS_VALID(Node);
+    
+    if (attr == NULL || val == NULL || out_value == NULL) return EINVAL;
+    
+    if (strcmp(attr, LI_FSATTR_PREALLOCATE) == 0)
+    {
+        if (len < sizeof (LIFilePreallocateArgs_t) || out_len < sizeof (LIFilePreallocateArgs_t))
+            return EINVAL;
+        
+        LIFilePreallocateArgs_t* psPreAllocReq = (LIFilePreallocateArgs_t*) ((void *) val->fsa_opaque);
+        LIFilePreallocateArgs_t* psPreAllocRes = (LIFilePreallocateArgs_t*) ((void *) out_value->fsa_opaque);
+        
+        memcpy (psPreAllocRes, psPreAllocReq, sizeof(LIFilePreallocateArgs_t));
+        return FILEOPS_PreAllocateClusters(Node, psPreAllocReq, psPreAllocRes);
+    }
+    
     // Reserved for future use
     return ENOTSUP;
 }

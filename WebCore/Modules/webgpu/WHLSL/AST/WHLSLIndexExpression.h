@@ -27,8 +27,9 @@
 
 #if ENABLE(WEBGPU)
 
-#include "WHLSLLexer.h"
+#include "WHLSLCodeLocation.h"
 #include "WHLSLPropertyAccessExpression.h"
+#include <wtf/FastMalloc.h>
 #include <wtf/UniqueRef.h>
 
 namespace WebCore {
@@ -37,41 +38,33 @@ namespace WHLSL {
 
 namespace AST {
 
-class IndexExpression : public PropertyAccessExpression {
+class IndexExpression final : public PropertyAccessExpression {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     IndexExpression(CodeLocation location, UniqueRef<Expression>&& base, UniqueRef<Expression>&& index)
-        : PropertyAccessExpression(location, WTFMove(base))
+        : PropertyAccessExpression(location, Kind::Index, WTFMove(base))
         , m_index(WTFMove(index))
     {
+#if CPU(ADDRESS32)
+        UNUSED_PARAM(m_padding);
+#endif
     }
 
-    virtual ~IndexExpression() = default;
+    ~IndexExpression() = default;
 
     IndexExpression(const IndexExpression&) = delete;
     IndexExpression(IndexExpression&&) = default;
 
-    bool isIndexExpression() const override { return true; }
-
-    String getterFunctionName() const override
-    {
-        return "operator[]"_str;
-    }
-
-    String setterFunctionName() const override
-    {
-        return "operator[]="_str;
-    }
-
-    String anderFunctionName() const override
-    {
-        return "operator&[]"_str;
-    }
-
     Expression& indexExpression() { return m_index; }
+    UniqueRef<Expression>& indexReference() { return m_index; }
     UniqueRef<Expression> takeIndex() { return WTFMove(m_index); }
 
 private:
     UniqueRef<Expression> m_index;
+#if CPU(ADDRESS32)
+    // This is used to allow for replaceWith into a bigger type.
+    char m_padding[4];
+#endif
 };
 
 } // namespace AST
@@ -79,6 +72,8 @@ private:
 }
 
 }
+
+DEFINE_DEFAULT_DELETE(IndexExpression)
 
 SPECIALIZE_TYPE_TRAITS_WHLSL_EXPRESSION(IndexExpression, isIndexExpression())
 

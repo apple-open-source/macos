@@ -27,9 +27,8 @@
 
 #include "MessageReceiver.h"
 #include "MessageSender.h"
+#include <WebCore/NetworkSendQueue.h>
 #include <WebCore/ThreadableWebSocketChannel.h>
-#include <pal/SessionID.h>
-#include <wtf/Deque.h>
 #include <wtf/Identified.h>
 #include <wtf/WeakPtr.h>
 
@@ -40,8 +39,6 @@ class DataReference;
 }
 
 namespace WebKit {
-
-class PendingMessage;
 
 class WebSocketChannel : public IPC::MessageSender, public IPC::MessageReceiver, public WebCore::ThreadableWebSocketChannel, public RefCounted<WebSocketChannel>, public Identified<WebSocketChannel> {
 public:
@@ -57,6 +54,8 @@ public:
 
 private:
     WebSocketChannel(WebCore::Document&, WebCore::WebSocketChannelClient&);
+
+    static WebCore::NetworkSendQueue createMessageQueue(WebCore::Document&, WebSocketChannel&);
 
     // ThreadableWebSocketChannel
     ConnectStatus connect(const URL&, const String& protocol) final;
@@ -75,7 +74,7 @@ private:
     void derefThreadableWebSocketChannel() final { deref(); }
 
     // Message receivers
-    void didConnect(String&&);
+    void didConnect(String&& subprotocol, String&& extensions);
     void didReceiveText(String&&);
     void didReceiveBinaryData(IPC::DataReference&&);
     void didClose(unsigned short code, String&&);
@@ -93,11 +92,12 @@ private:
     WeakPtr<WebCore::Document> m_document;
     WeakPtr<WebCore::WebSocketChannelClient> m_client;
     String m_subprotocol;
+    String m_extensions;
     size_t m_bufferedAmount { 0 };
     bool m_isClosing { false };
     bool m_isSuspended { false };
     Deque<Function<void()>> m_pendingTasks;
-    Deque<std::unique_ptr<PendingMessage>> m_pendingMessages;
+    WebCore::NetworkSendQueue m_messageQueue;
 };
 
 } // namespace WebKit

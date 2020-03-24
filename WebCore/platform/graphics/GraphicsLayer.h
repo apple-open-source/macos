@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "Animation.h"
 #include "Color.h"
 #include "EventRegion.h"
 #include "FilterOperations.h"
@@ -38,6 +37,7 @@
 #include "PlatformLayer.h"
 #include "Region.h"
 #include "ScrollableArea.h"
+#include "TimingFunction.h"
 #include "TransformOperations.h"
 #include "WindRule.h"
 #include <wtf/Function.h>
@@ -53,6 +53,7 @@ class TextStream;
 
 namespace WebCore {
 
+class Animation;
 class GraphicsContext;
 class GraphicsLayerFactory;
 class Image;
@@ -111,7 +112,7 @@ public:
 
     std::unique_ptr<AnimationValue> clone() const override
     {
-        return std::make_unique<FloatAnimationValue>(*this);
+        return makeUnique<FloatAnimationValue>(*this);
     }
 
     float value() const { return m_value; }
@@ -132,7 +133,7 @@ public:
 
     std::unique_ptr<AnimationValue> clone() const override
     {
-        return std::make_unique<TransformAnimationValue>(*this);
+        return makeUnique<TransformAnimationValue>(*this);
     }
 
     TransformAnimationValue(const TransformAnimationValue& other)
@@ -163,7 +164,7 @@ public:
 
     std::unique_ptr<AnimationValue> clone() const override
     {
-        return std::make_unique<FilterAnimationValue>(*this);
+        return makeUnique<FilterAnimationValue>(*this);
     }
 
     FilterAnimationValue(const FilterAnimationValue& other)

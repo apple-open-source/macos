@@ -1093,7 +1093,7 @@
 		50CDE9F71208FA1700571926 /* kctool_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kctool_main.h; sourceTree = "<group>"; };
 		50CDEA041208FA4700571926 /* kctool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kctool; sourceTree = BUILT_PRODUCTS_DIR; };
 		50FA45AB134CE87E0015848B /* libkext.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libkext.a; path = SDKs/MacOSX10.7.Internal.sdk/usr/local/lib/libkext.a; sourceTree = DEVELOPER_DIR; };
-		50FA45AC134CE87E0015848B /* libkxld.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libkxld.a; path = SDKs/MacOSX10.7.Internal.sdk/usr/local/lib/libkxld.a; sourceTree = DEVELOPER_DIR; };
+		50FA45AC134CE87E0015848B /* libkxld.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libkxld.a; path = usr/lib/system/libkxld.tbd; sourceTree = SDKROOT; };
 		720557981C879B6B00D9808C /* libkext.a */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.objfile"; name = libkext.a; path = usr/local/lib/libkext.a; sourceTree = SDKROOT; };
 		720B422D1B30BC8B00EA00FC /* kextd-entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "kextd-entitlements.plist"; sourceTree = "<group>"; };
 		720F37891A6DC3C400A97B1E /* kextcache-entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "kextcache-entitlements.plist"; sourceTree = "<group>"; };

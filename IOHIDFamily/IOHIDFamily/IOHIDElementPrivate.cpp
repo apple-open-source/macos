@@ -65,6 +65,7 @@
 
 #define GetArrayItemSel(index) \
             (index + _logicalMin)
+
 			
 OSDefineMetaClassAndAbstractStructors(IOHIDElement, OSCollection)
 OSMetaClassDefineReservedUsed(IOHIDElement,  0);
@@ -1824,8 +1825,15 @@ void IOHIDElementPrivate::setValue(UInt32 value)
 { 
     UInt32  previousValue = _elementValue->value[0];
     
-    if (previousValue == value)
+    // If element has not been updated it's generation count
+    // would be 0, we shouldn't block first attempt to
+    // write element value
+    
+    if (previousValue == value && _elementValue->generation > 0) {
         return;
+    }
+    
+    _elementValue->generation++;
     
     _elementValue->value[0] = value;
     IOReturn status = _owner->postElementValues(&_cookie, 1);
@@ -1835,6 +1843,8 @@ void IOHIDElementPrivate::setValue(UInt32 value)
     } else {
         _previousValue = previousValue;
     }
+    
+    _elementValue->generation++;
 }
 
 void IOHIDElementPrivate::setDataValue(OSData * value)
@@ -2109,6 +2119,7 @@ IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type)
     SInt64  logicalRange    = 0;
     SInt64  physicalMin     = (SInt32)getPhysicalMin();
     SInt64  physicalMax     = (SInt32)getPhysicalMax();
+    SInt64  physicalRange   = 0;
     IOFixed returnValue     = 0;
     
     if ( type == kIOHIDValueScaleTypeCalibrated ){
@@ -2147,31 +2158,36 @@ IOFixed IOHIDElementPrivate::getScaledFixedValue(IOHIDValueScaleType type)
         }
         
     }
-    SInt64 physicalRange = physicalMax - physicalMin;
+
+    UInt32 numExp   = 1;
+    UInt32 denomExp = 1;
+
+    if (type == kIOHIDValueScaleTypeExponent) {
+        int resExponent  = _unitExponent & 0x0F;
+
+        if (resExponent < 8) {
+            for (int i = resExponent; i > 0; i--) {
+                numExp *=  10;
+            }
+        } else {
+            for (int i = 0x10 - resExponent; i > 0; i--) {
+                denomExp *= 10;
+            }
+        }
+    }
+
+    physicalRange = physicalMax - physicalMin;
 
     logicalRange  = logicalMax - logicalMin;
     if (!logicalRange) {
         logicalRange = 1;
     }
 
-    
-    SInt64 num = (logicalValue - logicalMin) * physicalRange + physicalMin * logicalRange;
-    SInt64 denom = logicalRange;
+    SInt64 inValue      = logicalValue - logicalMin;
+    SInt64 rangeFactor  = ((physicalRange << 16) / denomExp) * numExp;
+    SInt64 rangeOffset  = ((physicalMin << 16) / denomExp) * numExp;
 
-    if (type == kIOHIDValueScaleTypeExponent) {
-        int resExponent  = _unitExponent & 0x0F;
-        
-        if (resExponent < 8) {
-            for (int i = resExponent; i > 0; i--) {
-                num *=  10;
-            }
-        } else {
-            for (int i = 0x10 - resExponent; i > 0; i--) {
-                denom *= 10;
-            }
-        }
-    }
-    returnValue = (IOFixed)((num << 16) / denom);
+    returnValue = (IOFixed)(((inValue * rangeFactor) / logicalRange) + rangeOffset);
  
     return returnValue;
 }

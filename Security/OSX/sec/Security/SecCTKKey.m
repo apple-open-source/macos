@@ -36,6 +36,7 @@
 #include <utilities/array_size.h>
 #include <ctkclient/ctkclient.h>
 #include <libaks_acl_cf_keys.h>
+#include <coreauthd_spi.h>
 #include "OSX/sec/Security/SecItemShim.h"
 
 #include "SecECKey.h"
@@ -321,7 +322,7 @@ static Boolean SecCTKKeySetParameter(SecKeyRef key, CFStringRef name, CFProperty
     if (CFEqual(name, kSecUseAuthenticationContext)) {
         // Preprocess LAContext to ACMRef value.
         if (value != NULL) {
-            require_quiet(acm_reference = SecItemAttributesCopyPreparedAuthContext(value, error), out);
+            require_quiet(acm_reference = LACopyACMContext(value, error), out);
             value = acm_reference;
         }
         name = kSecUseCredentialReference;

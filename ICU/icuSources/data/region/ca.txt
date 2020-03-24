@@ -77,7 +77,7 @@ ca{
         CF{"República Centreafricana"}
         CG{"Congo - Brazzaville"}
         CH{"Suïssa"}
-        CI{"Costa d’Ivori"}
+        CI{"Côte d’Ivoire"}
         CK{"Illes Cook"}
         CL{"Xile"}
         CM{"Camerun"}
@@ -306,6 +306,7 @@ ca{
     Countries%variant{
         CD{"Congo (República Democràtica del Congo)"}
         CG{"Congo (República del Congo)"}
+        CI{"Costa d’Ivori"}
         CZ{"República Txeca"}
         FK{"Illes Malvines (Illes Falkland)"}
         SZ{"Swazilàndia"}

@@ -47,7 +47,10 @@ public:
     enum class ProcessType : uint8_t {
         WebContent,
         Network,
-        Plugin
+        Plugin,
+#if ENABLE(GPU_PROCESS)
+        GPU
+#endif
     };
 
     void initialize(const AuxiliaryProcessInitializationParameters&);
@@ -121,10 +124,11 @@ protected:
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
-    void registerURLSchemeServiceWorkersCanHandle(const String&) const;
 #if OS(LINUX)
     void didReceiveMemoryPressureEvent(bool isCritical);
 #endif
+
+    static Optional<std::pair<IPC::Connection::Identifier, IPC::Attachment>> createIPCConnectionPair();
 
 private:
     virtual bool shouldOverrideQuarantine() { return true; }

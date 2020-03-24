@@ -19,6 +19,7 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
         state.peerID = "asdf"
         state.icloudAccountState = .ACCOUNT_AVAILABLE
         state.trustState = .TRUSTED
+        state.cdpState = .ENABLED
 
         XCTAssertNoThrow(try state.saveToKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext), "saving to the keychain should work")
 
@@ -28,6 +29,7 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
             XCTAssertEqual(state2.peerID, state.peerID, "peer ID persists through keychain")
             XCTAssertEqual(state2.icloudAccountState, state.icloudAccountState, "account state persists through keychain")
             XCTAssertEqual(state2.trustState, state.trustState, "trust state persists through keychain")
+            XCTAssertEqual(state2.cdpState, state.cdpState, "cdp state persists through keychain")
         } catch {
             XCTFail("error loading from keychain: \(error)")
         }

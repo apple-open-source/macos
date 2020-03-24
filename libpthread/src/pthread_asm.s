@@ -279,7 +279,7 @@ _thread_start:
 	.globl _thread_chkstk_darwin
 _thread_chkstk_darwin:
 	.globl ____chkstk_darwin
-____chkstk_darwin: // %w9 == alloca size
+____chkstk_darwin: // %w9/x9 == alloca size
 	stp     x10, x11, [sp, #-16]
 
 	// validate that the frame pointer is on our stack (no alt stack)
@@ -288,6 +288,7 @@ ____chkstk_darwin: // %w9 == alloca size
 
 	// (%sp - pthread_self()->stackaddr) > 0 ?
 #if defined(__ARM64_ARCH_8_32__)
+	ubfx    x9, x9, #0, #32
 	ldur    w11, [x10, _PTHREAD_STRUCT_DIRECT_STACKADDR_OFFSET]
 #else
 	ldur    x11, [x10, _PTHREAD_STRUCT_DIRECT_STACKADDR_OFFSET]
@@ -305,8 +306,8 @@ ____chkstk_darwin: // %w9 == alloca size
 	cmp     x10, x11
 	b.ls    Lprobe
 
-	// %sp - (uintptr_t)%w9 < pthread_self()->stackbottom ?
-	subs    x10, x10, w9, uxtw
+	// %sp - (uintptr_t)%x9 < pthread_self()->stackbottom ?
+	subs    x10, x10, x9
 	b.lo    Lcrash
 	cmp     x10, x11
 	b.lo    Lcrash
@@ -326,13 +327,13 @@ Lcrash:
 
 Lprobe:
 	mov     x10, sp
-	cmp     w9, #0x1000
+	cmp     x9, #0x1000
 	b.lo    Lend
 Lloop:
 	sub     x10, x10, #0x1000
 	ldr     x11, [x10]
-	sub     w9, w9, #0x1000
-	cmp     w9, #0x1000
+	sub     x9, x9, #0x1000
+	cmp     x9, #0x1000
 	b.hi    Lloop
 Lend:
 	sub     x10, x10, x9

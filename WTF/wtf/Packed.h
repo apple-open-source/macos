@@ -34,6 +34,7 @@ namespace WTF {
 
 template<typename T>
 class Packed {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     static constexpr bool isPackedType = true;
 
@@ -101,6 +102,7 @@ private:
 // we can use 4 bits in Darwin ARM64, we can compact cell pointer into 4 bytes (32 bits).
 template<typename T, size_t alignment = alignof(T)>
 class PackedAlignedPtr {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     static_assert(hasOneBitSet(alignment), "Alignment needs to be power-of-two");
     static constexpr bool isPackedType = true;
@@ -161,6 +163,10 @@ public:
     T* operator->() const { return get(); }
     T& operator*() const { return *get(); }
     bool operator!() const { return !get(); }
+
+    // This conversion operator allows implicit conversion to bool but not to other integer types.
+    typedef T* (PackedAlignedPtr::*UnspecifiedBoolType);
+    operator UnspecifiedBoolType() const { return get() ? &PackedAlignedPtr::m_storage : nullptr; }
     explicit operator bool() const { return get(); }
 
     PackedAlignedPtr& operator=(T* value)
@@ -170,9 +176,9 @@ public:
     }
 
     template<class U>
-    T exchange(U&& newValue)
+    T* exchange(U&& newValue)
     {
-        T oldValue = get();
+        T* oldValue = get();
         set(std::forward<U>(newValue));
         return oldValue;
     }
@@ -187,15 +193,15 @@ public:
     template<typename Other, typename = std::enable_if_t<Other::isPackedType>>
     void swap(Other& other)
     {
-        T t1 = get();
-        T t2 = other.get();
+        T* t1 = get();
+        T* t2 = other.get();
         set(t2);
         other.set(t1);
     }
 
-    void swap(T& t2)
+    void swap(T* t2)
     {
-        T t1 = get();
+        T* t1 = get();
         std::swap(t1, t2);
         set(t1);
     }

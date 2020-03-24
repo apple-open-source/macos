@@ -19,7 +19,7 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.  */
 
-#ifdef __arm64__
+#if defined(__aarch64__) || defined(__arm64__)
 #define LIBFFI_ASM
 #include <fficonfig.h>
 #include <ffi.h>
@@ -82,7 +82,15 @@ CNAME(ffi_call_SYSV):
 	SIGN_LR_WITH_REG(x1)
 
 	/* Use a stack frame allocated by our caller.  */
-	cfi_def_cfa(x1, 32);
+#if __has_feature(ptrauth_calls) && defined(__APPLE__)
+	/* darwin's libunwind assumes that the cfa is the sp and that's the data
+	 * used to sign the lr.  In order to allow unwinding through this
+	 * function it is necessary to point the cfa at the signing register.
+	 */
+	cfi_def_cfa(x1, 0);
+#else
+	cfi_def_cfa(x1, 40);
+#endif
 	stp	x29, x30, [x1]
 	mov	x9, sp
 	str	x9, [x1, #32]
@@ -373,6 +381,29 @@ CNAME(ffi_closure_SYSV):
 	.type	CNAME(ffi_closure_SYSV), #function
 	.size	CNAME(ffi_closure_SYSV), . - CNAME(ffi_closure_SYSV)
 #endif
+
+#if FFI_EXEC_TRAMPOLINE_TABLE
+
+#ifdef __MACH__
+#include <mach/machine/vm_param.h>
+    .align PAGE_MAX_SHIFT
+CNAME(ffi_closure_trampoline_table_page):
+    .rept PAGE_MAX_SIZE / FFI_TRAMPOLINE_SIZE
+    adr x16, -PAGE_MAX_SIZE
+    ldp x17, x16, [x16]
+    br x16
+	nop		/* each entry in the trampoline config page is 2*sizeof(void*) so the trampoline itself cannot be smaller that 16 bytes */
+    .endr
+
+    .globl CNAME(ffi_closure_trampoline_table_page)
+    FFI_HIDDEN(CNAME(ffi_closure_trampoline_table_page))
+    #ifdef __ELF__
+    	.type	CNAME(ffi_closure_trampoline_table_page), #function
+    	.size	CNAME(ffi_closure_trampoline_table_page), . - CNAME(ffi_closure_trampoline_table_page)
+    #endif
+#endif
+
+#endif /* FFI_EXEC_TRAMPOLINE_TABLE */
 
 #ifdef FFI_GO_CLOSURES
 	.align 4

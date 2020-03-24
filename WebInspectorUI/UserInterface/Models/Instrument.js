@@ -54,7 +54,7 @@ WI.Instrument = class Instrument
 
     static startLegacyTimelineAgent(initiatedByBackend)
     {
-        console.assert(window.TimelineAgent, "Attempted to start legacy timeline agent without TimelineAgent.");
+        console.assert(WI.timelineManager._enabled);
 
         if (WI.Instrument._legacyTimelineAgentStarted)
             return;
@@ -64,11 +64,14 @@ WI.Instrument = class Instrument
         if (initiatedByBackend)
             return;
 
-        TimelineAgent.start();
+        let target = WI.assumingMainTarget();
+        target.TimelineAgent.start();
     }
 
     static stopLegacyTimelineAgent(initiatedByBackend)
     {
+        console.assert(WI.timelineManager._enabled);
+
         if (!WI.Instrument._legacyTimelineAgentStarted)
             return;
 
@@ -77,7 +80,8 @@ WI.Instrument = class Instrument
         if (initiatedByBackend)
             return;
 
-        TimelineAgent.stop();
+        let target = WI.assumingMainTarget();
+        target.TimelineAgent.stop();
     }
 
     // Protected

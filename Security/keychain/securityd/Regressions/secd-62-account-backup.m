@@ -165,9 +165,6 @@ static void tests(void)
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Is alice in backup after sync?");
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "IS bob in the backup after sync");
-    
-    ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is not last backup peer");
-    CFReleaseNull(error);
 
     //
     //Bob leaves the circle
@@ -179,11 +176,6 @@ static void tests(void)
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Bob left the circle, Alice is not in the backup");
-    
-    ok(SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is last backup peer");
-    CFReleaseNull(error);
-    ok(!SOSAccountIsLastBackupPeer(bob_account, &error), "Bob is not last backup peer");
-    CFReleaseNull(error);
 
     ok(testAccountPersistence(alice_account), "Test Account->DER->Account Equivalence");
 
@@ -211,15 +203,9 @@ static void tests(void)
 
     ok(!SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob isn't in the backup yet");
 
-    ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is the not the last backup peer - Bob still registers as one");
-    CFReleaseNull(error);
-
     ok(SOSAccountSetBackupPublicKey_wTxn(bob_account, bob_backup_key, &error), "Set backup public key, bob (%@)", error);
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 3, "updates");
-
-    ok(!SOSAccountIsLastBackupPeer(alice_account, &error), "Alice is not last backup peer");
-    CFReleaseNull(error);
 
     //
     //removing backup key for bob account

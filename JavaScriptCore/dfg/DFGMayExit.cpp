@@ -101,10 +101,11 @@ ExitMode mayExitImpl(Graph& graph, Node* node, StateType& state)
     case FencedStoreBarrier:
     case PutByOffset:
     case PutClosureVar:
+    case PutInternalField:
     case RecordRegExpCachedResult:
     case NukeStructureAndSetButterfly:
     case FilterCallLinkStatus:
-    case FilterGetByIdStatus:
+    case FilterGetByStatus:
     case FilterPutByIdStatus:
     case FilterInByIdStatus:
         break;
@@ -128,6 +129,7 @@ ExitMode mayExitImpl(Graph& graph, Node* node, StateType& state)
     case NewSymbol:
     case NewRegexp:
     case ToNumber:
+    case ToNumeric:
     case RegExpExecNonGlobalOrSticky:
     case RegExpMatchFastGlobal:
         result = ExitsForExceptions;

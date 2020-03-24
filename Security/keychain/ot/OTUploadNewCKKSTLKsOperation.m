@@ -51,7 +51,8 @@
     NSMutableSet<CKKSKeychainView*>* viewsToUpload = [NSMutableSet set];
 
     // One (or more) of our sub-CKKSes believes it needs to upload new TLKs.
-    for(CKKSKeychainView* view in [self.deps.viewManager currentViews]) {
+    CKKSViewManager* viewManager = self.deps.viewManager;
+    for(CKKSKeychainView* view in viewManager.currentViews) {
         if([view.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateWaitForTLKUpload] ||
            [view.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateWaitForTLKCreation]) {
             secnotice("octagon-ckks", "CKKS view %@ needs TLK uploads!", view);

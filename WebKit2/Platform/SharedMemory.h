@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
  * Copyright (C) 2017 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,10 @@ class Decoder;
 class Encoder;
 }
 
+namespace WebCore {
+class SharedBuffer;
+}
+
 #if OS(DARWIN)
 namespace WTF {
 class MachSendRight;
@@ -78,6 +82,10 @@ public:
         IPC::Attachment releaseAttachment() const;
         void adoptAttachment(IPC::Attachment&&);
 #endif
+#if OS(WINDOWS)
+        static void encodeHandle(IPC::Encoder&, HANDLE);
+        static Optional<HANDLE> decodeHandle(IPC::Decoder&);
+#endif
     private:
         friend class SharedMemory;
 #if USE(UNIX_DOMAIN_SOCKETS)
@@ -93,6 +101,7 @@ public:
 
     static RefPtr<SharedMemory> allocate(size_t);
     static RefPtr<SharedMemory> create(void*, size_t, Protection);
+    static RefPtr<SharedMemory> copyBuffer(const WebCore::SharedBuffer&);
     static RefPtr<SharedMemory> map(const Handle&, Protection);
 #if USE(UNIX_DOMAIN_SOCKETS)
     static RefPtr<SharedMemory> wrapMap(void*, size_t, int fileDescriptor);

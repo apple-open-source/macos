@@ -27,6 +27,7 @@
 #include "FontCache.h"
 
 #include "Font.h"
+#include "FontCascadeDescription.h"
 #include "FontFamilySpecificationCoreText.h"
 #include "SystemFontDatabaseCoreText.h"
 #include <pal/spi/cocoa/CoreTextSPI.h>
@@ -35,9 +36,10 @@
 
 #include <wtf/HashSet.h>
 #include <wtf/MainThread.h>
+#include <wtf/MemoryPressureHandler.h>
 #include <wtf/NeverDestroyed.h>
 
-#define HAS_CORE_TEXT_WIDTH_ATTRIBUTE ((PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000))
+#define HAS_CORE_TEXT_WIDTH_ATTRIBUTE (PLATFORM(MAC) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000))
 
 namespace WebCore {
 
@@ -528,7 +530,7 @@ struct FontType {
     bool aatShaping { false };
 };
 
-RetainPtr<CTFontRef> preparePlatformFont(CTFontRef originalFont, const FontDescription& fontDescription, const FontFeatureSettings* fontFaceFeatures, const FontVariantSettings* fontFaceVariantSettings, FontSelectionSpecifiedCapabilities fontFaceCapabilities, bool applyWeightWidthSlopeVariations)
+RetainPtr<CTFontRef> preparePlatformFont(CTFontRef originalFont, const FontDescription& fontDescription, const FontFeatureSettings* fontFaceFeatures, FontSelectionSpecifiedCapabilities fontFaceCapabilities, bool applyWeightWidthSlopeVariations)
 {
     if (!originalFont)
         return originalFont;
@@ -567,8 +569,7 @@ RetainPtr<CTFontRef> preparePlatformFont(CTFontRef originalFont, const FontDescr
     bool variantSettingsIsNormal = variantSettings.isAllNormal();
     bool dontNeedToApplyOpticalSizing = fontOpticalSizing == FontOpticalSizing::Enabled && !forceOpticalSizingOn;
     bool fontFaceDoesntSpecifyFeatures = !fontFaceFeatures || fontFaceFeatures->isEmpty();
-    bool fontFaceDoesntSpecifyVariations = !fontFaceVariantSettings || fontFaceVariantSettings->isAllNormal();
-    if (noFontFeatureSettings && noFontVariationSettings && textRenderingModeIsAuto && variantSettingsIsNormal && dontNeedToApplyOpticalSizing && fontFaceDoesntSpecifyFeatures && fontFaceDoesntSpecifyVariations) {
+    if (noFontFeatureSettings && noFontVariationSettings && textRenderingModeIsAuto && variantSettingsIsNormal && dontNeedToApplyOpticalSizing && fontFaceDoesntSpecifyFeatures) {
 #if HAVE(CTFONTCREATEFORCHARACTERSWITHLANGUAGEANDOPTION)
         return originalFont;
 #else
@@ -582,8 +583,7 @@ RetainPtr<CTFontRef> preparePlatformFont(CTFontRef originalFont, const FontDescr
     // Step 1: CoreText handles default features (such as required ligatures).
 
     // Step 2: Consult with font-variant-* inside @font-face
-    if (fontFaceVariantSettings)
-        featuresToBeApplied = computeFeatureSettingsFromVariants(*fontFaceVariantSettings);
+    // This no longer happens any more: https://github.com/w3c/csswg-drafts/issues/2531
 
     // Step 3: Consult with font-feature-settings inside @font-face
     if (fontFaceFeatures) {
@@ -893,7 +893,7 @@ public:
                 return;
             auto attributes = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
             addAttributesForInstalledFonts(attributes.get(), allowUserInstalledFonts);
-            this->fontDescriptor = CTFontDescriptorCreateCopyWithAttributes(fontDescriptor, attributes.get());
+            this->fontDescriptor = adoptCF(CTFontDescriptorCreateCopyWithAttributes(fontDescriptor, attributes.get()));
 #endif
         }
 
@@ -969,11 +969,7 @@ public:
         const auto& folded = FontCascadeDescription::foldedFamilyName(postScriptName);
         return m_postScriptNameToFontDescriptors.ensure(folded, [&] {
             auto postScriptNameString = folded.createCFString();
-#if (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300)
             CFStringRef nameAttribute = kCTFontPostScriptNameAttribute;
-#else
-            CFStringRef nameAttribute = kCTFontNameAttribute;
-#endif
             auto attributes = adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
             CFDictionaryAddValue(attributes.get(), kCTFontEnabledAttribute, kCFBooleanTrue);
             CFDictionaryAddValue(attributes.get(), nameAttribute, postScriptNameString.get());
@@ -1068,7 +1064,7 @@ static VariationCapabilities variationCapabilitiesForFontDescriptor(CTFontDescri
     }
 
     bool optOutFromGXNormalization = false;
-#if ((PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000))
+#if (PLATFORM(MAC) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000))
     optOutFromGXNormalization = CTFontDescriptorIsSystemUIFont(fontDescriptor);
 #endif
 
@@ -1204,8 +1200,7 @@ static FontLookup platformFontLookupWithFamily(const AtomString& family, FontSel
         || equalLettersIgnoringASCIICase(family, ".sf ns mono")
         || equalLettersIgnoringASCIICase(family, ".sf ui mono")
         || equalLettersIgnoringASCIICase(family, ".applesystemuifontrounded")) {
-        // If you want to use these fonts, set the shouldAllowDesignSystemUIFonts Setting and use
-        // -apple-system-ui-serif, -apple-system-ui-monospaced, and -apple-system-ui-rounded.
+        // If you want to use these fonts, use ui-serif, ui-monospace, and ui-rounded.
         return { nullptr };
     }
 
@@ -1268,34 +1263,32 @@ static void invalidateFontCache()
 
 static RetainPtr<CTFontRef> fontWithFamilySpecialCase(const AtomString& family, const FontDescription& fontDescription, float size, AllowUserInstalledFonts allowUserInstalledFonts)
 {
+    Optional<SystemFontKind> systemDesign;
+
 #if HAVE(DESIGN_SYSTEM_UI_FONTS)
-    if (!fontDescription.shouldAllowDesignSystemUIFonts())
-        return nullptr;
+    if (equalLettersIgnoringASCIICase(family, "ui-serif"))
+        systemDesign = SystemFontKind::UISerif;
+    else if (equalLettersIgnoringASCIICase(family, "ui-monospace"))
+        systemDesign = SystemFontKind::UIMonospace;
+    else if (equalLettersIgnoringASCIICase(family, "ui-rounded"))
+        systemDesign = SystemFontKind::UIRounded;
+#endif
 
-    Optional<SystemFontDatabaseCoreText::ClientUse> designSystemUI;
-    if (equalLettersIgnoringASCIICase(family, "-apple-system-ui-serif"))
-        designSystemUI = SystemFontDatabaseCoreText::ClientUse::ForSystemUISerif;
-    else if (equalLettersIgnoringASCIICase(family, "-apple-system-ui-monospaced"))
-        designSystemUI = SystemFontDatabaseCoreText::ClientUse::ForSystemUIMonospaced;
-    else if (equalLettersIgnoringASCIICase(family, "-apple-system-ui-rounded"))
-        designSystemUI = SystemFontDatabaseCoreText::ClientUse::ForSystemUIRounded;
+    if (equalLettersIgnoringASCIICase(family, "ui-sans-serif")) {
+        ASSERT(!systemDesign);
+        systemDesign = SystemFontKind::SystemUI;
+    }
 
-    if (designSystemUI) {
-        auto cascadeList = SystemFontDatabaseCoreText::singleton().cascadeList(fontDescription, family, *designSystemUI, allowUserInstalledFonts);
+    if (systemDesign) {
+        auto cascadeList = SystemFontDatabaseCoreText::singleton().cascadeList(fontDescription, family, *systemDesign, allowUserInstalledFonts);
         if (!cascadeList.isEmpty())
             return createFontForInstalledFonts(cascadeList[0].get(), size, allowUserInstalledFonts);
     }
-#else
-    UNUSED_PARAM(family);
-    UNUSED_PARAM(fontDescription);
-    UNUSED_PARAM(size);
-    UNUSED_PARAM(allowUserInstalledFonts);
-#endif
 
     return nullptr;
 }
 
-static RetainPtr<CTFontRef> fontWithFamily(const AtomString& family, const FontDescription& fontDescription, const FontFeatureSettings* fontFaceFeatures, const FontVariantSettings* fontFaceVariantSettings, FontSelectionSpecifiedCapabilities fontFaceCapabilities, float size)
+static RetainPtr<CTFontRef> fontWithFamily(const AtomString& family, const FontDescription& fontDescription, const FontFeatureSettings* fontFaceFeatures, FontSelectionSpecifiedCapabilities fontFaceCapabilities, float size)
 {
     if (family.isEmpty())
         return nullptr;
@@ -1307,7 +1300,7 @@ static RetainPtr<CTFontRef> fontWithFamily(const AtomString& family, const FontD
         if (!fontLookup.result)
             fontLookup = platformFontLookupWithFamily(family, fontDescription.fontSelectionRequest(), size, fontDescription.shouldAllowUserInstalledFonts());
     }
-    return preparePlatformFont(fontLookup.result.get(), fontDescription, fontFaceFeatures, fontFaceVariantSettings, fontFaceCapabilities, !fontLookup.createdFromPostScriptName);
+    return preparePlatformFont(fontLookup.result.get(), fontDescription, fontFaceFeatures, fontFaceCapabilities, !fontLookup.createdFromPostScriptName);
 }
 
 #if PLATFORM(MAC)
@@ -1342,11 +1335,11 @@ static void autoActivateFont(const String& name, CGFloat size)
 }
 #endif
 
-std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontFeatureSettings* fontFaceFeatures, const FontVariantSettings* fontFaceVariantSettings, FontSelectionSpecifiedCapabilities fontFaceCapabilities)
+std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontFeatureSettings* fontFaceFeatures, FontSelectionSpecifiedCapabilities fontFaceCapabilities)
 {
     float size = fontDescription.computedPixelSize();
 
-    auto font = fontWithFamily(family, fontDescription, fontFaceFeatures, fontFaceVariantSettings, fontFaceCapabilities, size);
+    auto font = fontWithFamily(family, fontDescription, fontFaceFeatures, fontFaceCapabilities, size);
 
 #if PLATFORM(MAC)
     if (!font) {
@@ -1357,7 +1350,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
         // Ignore the result because we want to use our own algorithm to actually find the font.
         autoActivateFont(family.string(), size);
 
-        font = fontWithFamily(family, fontDescription, fontFaceFeatures, fontFaceVariantSettings, fontFaceCapabilities, size);
+        font = fontWithFamily(family, fontDescription, fontFaceFeatures, fontFaceCapabilities, size);
     }
 #endif
 
@@ -1369,7 +1362,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
 
     auto [syntheticBold, syntheticOblique] = computeNecessarySynthesis(font.get(), fontDescription).boldObliquePair();
 
-    return std::make_unique<FontPlatformData>(font.get(), size, syntheticBold, syntheticOblique, fontDescription.orientation(), fontDescription.widthVariant(), fontDescription.textRenderingMode());
+    return makeUnique<FontPlatformData>(font.get(), size, syntheticBold, syntheticOblique, fontDescription.orientation(), fontDescription.widthVariant(), fontDescription.textRenderingMode());
 }
 
 typedef HashSet<RetainPtr<CTFontRef>, WTF::RetainPtrObjectHash<CTFontRef>, WTF::RetainPtrObjectHashTraits<CTFontRef>> FallbackDedupSet;
@@ -1486,7 +1479,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& descr
         m_fontNamesRequiringSystemFallbackForPrewarming.add(fullName);
 
     auto result = lookupFallbackFont(platformData.font(), description.weight(), description.locale(), description.shouldAllowUserInstalledFonts(), characters, length);
-    result = preparePlatformFont(result.get(), description, nullptr, nullptr, { });
+    result = preparePlatformFont(result.get(), description, nullptr, { });
 
     if (!result)
         return lastResortFallbackFont(description);
@@ -1646,7 +1639,7 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
         return *result;
 
     // LastResort is guaranteed to be non-null.
-#if (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300)
+#if (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000) || PLATFORM(MAC)
     auto fontDescriptor = adoptCF(CTFontDescriptorCreateLastResort());
     auto font = adoptCF(CTFontCreateWithFontDescriptor(fontDescriptor.get(), fontDescription.computedPixelSize(), nullptr));
 #else
@@ -1693,6 +1686,29 @@ void FontCache::prewarm(const PrewarmInformation& prewarmInformation)
             }
         }
     });
+}
+
+void FontCache::prewarmGlobally()
+{
+    if (MemoryPressureHandler::singleton().isUnderMemoryPressure())
+        return;
+
+    Vector<String> families = std::initializer_list<String> {
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+        ".SF NS Text"_s,
+        ".SF NS Display"_s,
+#endif
+        "Arial"_s,
+        "Helvetica"_s,
+        "Helvetica Neue"_s,
+        "Lucida Grande"_s,
+        "Times"_s,
+        "Times New Roman"_s,
+    };
+
+    FontCache::PrewarmInformation prewarmInfo;
+    prewarmInfo.seenFamilies = WTFMove(families);
+    FontCache::singleton().prewarm(prewarmInfo);
 }
 
 }

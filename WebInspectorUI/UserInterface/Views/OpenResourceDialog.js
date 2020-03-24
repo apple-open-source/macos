@@ -111,6 +111,9 @@ WI.OpenResourceDialog = class OpenResourceDialog extends WI.Dialog
 
             treeElement.mainTitle = createHighlightedTitleFragment(resource.displayName, result.matchingTextRanges);
 
+            if (resource instanceof WI.LocalResource && resource.isLocalResourceOverride)
+                treeElement.subtitle = WI.UIString("Local Override");
+
             let path = resource.urlComponents.path;
             let lastPathComponent = resource.urlComponents.lastPathComponent;
             if (path && lastPathComponent) {
@@ -152,6 +155,16 @@ WI.OpenResourceDialog = class OpenResourceDialog extends WI.Dialog
         for (let target of WI.targets) {
             if (target !== WI.mainTarget)
                 this._addResourcesForTarget(target);
+        }
+
+        this._addLocalResourceOverrides();
+
+        if (WI.NetworkManager.supportsBootstrapScript()) {
+            let bootstrapScript = WI.networkManager.bootstrapScript;
+            if (bootstrapScript) {
+                const suppressFilterUpdate = true;
+                this._addResource(bootstrapScript, suppressFilterUpdate);
+            }
         }
 
         this._updateFilter();
@@ -301,7 +314,7 @@ WI.OpenResourceDialog = class OpenResourceDialog extends WI.Dialog
             for (let resource of currentFrame.resourceCollection)
                 this._addResource(resource, suppressFilterUpdate);
 
-            frames.push(...currentFrame.childFrameCollection);
+            frames.pushAll(currentFrame.childFrameCollection);
         }
     }
 
@@ -327,10 +340,29 @@ WI.OpenResourceDialog = class OpenResourceDialog extends WI.Dialog
                 continue;
             if (script.dynamicallyAddedScriptElement)
                 continue;
-            if (isWebKitInternalScript(script.sourceURL) || isWebInspectorConsoleEvaluationScript(script.sourceURL))
+            if (!WI.settings.debugShowConsoleEvaluations.value && isWebInspectorConsoleEvaluationScript(script.sourceURL))
+                continue;
+            if (!WI.settings.engineeringShowInternalScripts.value && isWebKitInternalScript(script.sourceURL))
                 continue;
             this._addResource(script, suppressFilterUpdate);
         }
+
+        for (let script of target.extraScriptCollection) {
+            if (script.resource)
+                continue;
+            this._addResource(script, suppressFilterUpdate);
+        }
+    }
+
+    _addLocalResourceOverrides()
+    {
+        if (!WI.NetworkManager.supportsLocalResourceOverrides())
+            return;
+
+        const suppressFilterUpdate = true;
+
+        for (let localResourceOverride of WI.networkManager.localResourceOverrides)
+            this._addResource(localResourceOverride.localResource, suppressFilterUpdate);
     }
 
     _mainResourceDidChange(event)

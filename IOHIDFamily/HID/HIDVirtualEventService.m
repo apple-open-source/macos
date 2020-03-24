@@ -44,7 +44,7 @@
 
 - (NSString *)description
 {
-    return [self.serviceClient description];
+    return [NSString stringWithFormat:@"<HIDVirtualEventService serviceID:0x%llx>", self.serviceID];
 }
 
 - (void)setCancelHandler:(HIDBlock)handler

@@ -14,7 +14,8 @@ GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
 LINKER_DISPLAYS_MANGLED_NAMES = YES;
 PREBINDING = NO;
 // WARNING_CFLAGS = -Wextra -Wcast-qual -Wextra-tokens -Winit-self -Wmissing-noreturn -Wpacked -Wredundant-decls -Wundef;
-WARNING_CFLAGS = -Wall -pedantic -W -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wformat -Wchar-subscripts -Wuninitialized -Wparentheses -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline;
+WARNING_CFLAGS = -Wall -pedantic -W -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wformat -Wchar-subscripts -Wparentheses -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline $(SECURITY_WARNING_CFLAGS);
+SECURITY_WARNING_CFLAGS = -Werror=array-bounds -Werror=array-bounds-pointer-arithmetic -Werror=builtin-memcpy-chk-size -Werror=conditional-uninitialized -Werror=empty-body -Werror=format-security -Werror=implicit-int-conversion -Werror=memset-transposed-args -Werror=return-stack-address -Werror=shadow -Werror=sizeof-array-argument -Werror=sizeof-array-decay -Werror=sizeof-pointer-memaccess -Werror=uninitialized -Werror=unused-result -Werror=vla;
 STRIP_INSTALLED_PRODUCT = YES;
 HEADER_SEARCH_PATHS = /usr/include/libxml2 "Pregenerated Files/include";
 

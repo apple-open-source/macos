@@ -49,11 +49,10 @@ SecPolicyRef SecPVCGetPolicy(SecPVCRef pv);
 /* Set the string result as the reason for the sub policy check key
    failing.  The policy check function should continue processing if
    this function returns true. */
-bool SecPVCSetResult(SecPVCRef pv, CFStringRef key, CFIndex ix,
-	CFTypeRef result);
-bool SecPVCSetResultForced(SecPVCRef pvc,
-	CFStringRef key, CFIndex ix, CFTypeRef result, bool force);
-bool SecPVCIsOkResult(SecPVCRef pvc);
+bool SecPVCSetResult(SecPVCRef pv, CFStringRef key, CFIndex ix, CFTypeRef result);
+bool SecPVCSetResultForced(SecPVCRef pvc, CFStringRef key, CFIndex ix, CFTypeRef result, bool force);
+bool SecPVCSetResultForcedWithTrustResult(SecPVCRef pvc, CFStringRef key, CFIndex ix, CFTypeRef result, bool force,
+                                          SecTrustResultType overrideDefaultTR);
 
 /* Is the current result considered successful. */
 bool SecPVCIsOkResult(SecPVCRef pvc);

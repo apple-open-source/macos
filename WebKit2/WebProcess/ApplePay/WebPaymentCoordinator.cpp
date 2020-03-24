@@ -43,7 +43,7 @@ namespace WebKit {
 WebPaymentCoordinator::WebPaymentCoordinator(WebPage& webPage)
     : m_webPage(webPage)
 {
-    WebProcess::singleton().addMessageReceiver(Messages::WebPaymentCoordinator::messageReceiverName(), m_webPage.pageID(), *this);
+    WebProcess::singleton().addMessageReceiver(Messages::WebPaymentCoordinator::messageReceiverName(), m_webPage.identifier(), *this);
 }
 
 WebPaymentCoordinator::~WebPaymentCoordinator()
@@ -81,7 +81,7 @@ bool WebPaymentCoordinator::canMakePayments()
 
 void WebPaymentCoordinator::canMakePaymentsWithActiveCard(const String& merchantIdentifier, const String& domainName, CompletionHandler<void(bool)>&& completionHandler)
 {
-    sendWithAsyncReply(Messages::WebPaymentCoordinatorProxy::CanMakePaymentsWithActiveCard(merchantIdentifier, domainName, m_webPage.sessionID()), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::WebPaymentCoordinatorProxy::CanMakePaymentsWithActiveCard(merchantIdentifier, domainName), WTFMove(completionHandler));
 }
 
 void WebPaymentCoordinator::openPaymentSetup(const String& merchantIdentifier, const String& domainName, CompletionHandler<void(bool)>&& completionHandler)
@@ -96,7 +96,7 @@ bool WebPaymentCoordinator::showPaymentUI(const URL& originatingURL, const Vecto
         linkIconURLStrings.append(linkIconURL.string());
 
     bool result;
-    if (!sendSync(Messages::WebPaymentCoordinatorProxy::ShowPaymentUI(m_webPage.pageID(), m_webPage.sessionID(), originatingURL.string(), linkIconURLStrings, paymentRequest), Messages::WebPaymentCoordinatorProxy::ShowPaymentUI::Reply(result)))
+    if (!sendSync(Messages::WebPaymentCoordinatorProxy::ShowPaymentUI(m_webPage.identifier(), originatingURL.string(), linkIconURLStrings, paymentRequest), Messages::WebPaymentCoordinatorProxy::ShowPaymentUI::Reply(result)))
         return false;
 
     return result;
@@ -157,6 +157,11 @@ bool WebPaymentCoordinator::supportsUnrestrictedApplePay() const
 #endif
 }
 
+String WebPaymentCoordinator::userAgentScriptsBlockedErrorMessage() const
+{
+    return "Unable to run user agent scripts because this document has previously accessed Apple Pay. Documents can be prevented from accessing Apple Pay by adding a WKUserScript to the WKWebView's WKUserContentController."_s;
+}
+
 IPC::Connection* WebPaymentCoordinator::messageSenderConnection() const
 {
 #if ENABLE(APPLE_PAY_REMOTE_UI)
@@ -168,7 +173,7 @@ IPC::Connection* WebPaymentCoordinator::messageSenderConnection() const
 
 uint64_t WebPaymentCoordinator::messageSenderDestinationID() const
 {
-    return m_webPage.pageID().toUInt64();
+    return m_webPage.identifier().toUInt64();
 }
 
 void WebPaymentCoordinator::validateMerchant(const String& validationURLString)

@@ -266,6 +266,7 @@ Vector<GdkAtom> PasteboardHelper::dropAtomsForContext(GtkWidget* widget, GdkDrag
 static SelectionData* settingClipboardSelection;
 
 struct ClipboardSetData {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
     ClipboardSetData(SelectionData& selection, WTF::Function<void()>&& selectionClearedCallback)
         : selectionData(selection)
         , selectionClearedCallback(WTFMove(selectionClearedCallback))
@@ -300,7 +301,7 @@ void PasteboardHelper::writeClipboardContents(GtkClipboard* clipboard, const Sel
 
     if (numberOfTargets > 0 && table) {
         SetForScope<SelectionData*> change(settingClipboardSelection, const_cast<SelectionData*>(&selection));
-        auto data = std::make_unique<ClipboardSetData>(*settingClipboardSelection, WTFMove(primarySelectionCleared));
+        auto data = makeUnique<ClipboardSetData>(*settingClipboardSelection, WTFMove(primarySelectionCleared));
         if (gtk_clipboard_set_with_data(clipboard, table, numberOfTargets, getClipboardContentsCallback, clearClipboardContentsCallback, data.get())) {
             gtk_clipboard_set_can_store(clipboard, nullptr, 0);
             // When gtk_clipboard_set_with_data() succeeds clearClipboardContentsCallback takes the ownership of data, so we leak it here.

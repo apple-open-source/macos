@@ -31,6 +31,7 @@ void OctagonInitialize(void)
 {
     OTManager* manager = [OTManager manager];
     [manager initializeOctagon];
+    [manager setupAnalytics];
 }
 
 // If you want octagon to be initialized in your daemon/tests, you must set this to be true
@@ -48,11 +49,7 @@ void OctagonSetShouldPerformInitialization(bool value)
 void SecOctagon24hrNotification(void) {
 #if OCTAGON
     @autoreleasepool {
-        [[OTManager manager] xpc24HrNotification:OTCKContainerName context:OTDefaultContext skipRateLimitingCheck:NO reply: ^(NSError * error) {
-            if(error){
-                secerror("error attempting to check octagon health: %@", error);
-            }
-        }];
+        [[OTManager manager] xpc24HrNotification];
     }
 #endif
 }

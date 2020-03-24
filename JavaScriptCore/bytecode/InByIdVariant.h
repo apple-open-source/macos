@@ -39,6 +39,7 @@ class InByIdStatus;
 struct DumpContext;
 
 class InByIdVariant {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     InByIdVariant(const StructureSet& = StructureSet(), PropertyOffset = invalidOffset, const ObjectPropertyConditionSet& = ObjectPropertyConditionSet());
 
@@ -61,6 +62,11 @@ public:
 
     void dump(PrintStream&) const;
     void dumpInContext(PrintStream&, DumpContext*) const;
+
+    bool overlaps(const InByIdVariant& other)
+    {
+        return structureSet().overlaps(other.structureSet());
+    }
 
 private:
     friend class InByIdStatus;

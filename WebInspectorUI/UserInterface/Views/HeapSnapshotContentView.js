@@ -42,6 +42,7 @@ WI.HeapSnapshotContentView = class HeapSnapshotContentView extends WI.ContentVie
         this._dataGrid = new WI.DataGrid(columns);
         this._dataGrid.sortColumnIdentifier = "retainedSize";
         this._dataGrid.sortOrder = WI.DataGrid.SortOrder.Descending;
+        this._dataGrid.filterDelegate = this;
         this._dataGrid.createSettings(identifier);
         this._dataGrid.addEventListener(WI.DataGrid.Event.SortChanged, this._sortDataGrid, this);
 
@@ -54,6 +55,28 @@ WI.HeapSnapshotContentView = class HeapSnapshotContentView extends WI.ContentVie
 
         this.addSubview(this._dataGrid);
         this._dataGrid.updateLayout();
+    }
+
+    // Public
+
+    updateFilter(filters)
+    {
+        this._dataGrid.filterText = filters ? filters.text : "";
+    }
+
+    // DataGrid filter delegate
+
+    dataGridMatchNodeAgainstCustomFilters(node)
+    {
+        console.assert(node);
+        if (node instanceof WI.HeapSnapshotInstanceFetchMoreDataGridNode)
+            return false;
+        return true;
+    }
+
+    dataGridMatchShouldPopulateWhenFilteringNode(node)
+    {
+        return true;
     }
 
     // Protected
@@ -102,10 +125,9 @@ WI.HeapSnapshotContentView = class HeapSnapshotContentView extends WI.ContentVie
             Number.zeroPad(date.getMinutes(), 2),
             Number.zeroPad(date.getSeconds(), 2),
         ];
-        let filename = WI.UIString("Heap Snapshot %s-%s-%s at %s.%s.%s").format(...values);
         WI.FileUtilities.save({
-            url: WI.FileUtilities.inspectorURLForFilename(filename + ".json"),
             content: this.representedObject.snapshotStringData,
+            suggestedName: WI.UIString("Heap Snapshot %s-%s-%s at %s.%s.%s").format(...values) + ".json",
             forceSaveAs: true,
         });
     }

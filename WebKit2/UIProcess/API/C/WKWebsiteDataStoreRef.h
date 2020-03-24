@@ -27,15 +27,21 @@
 #define WKWebsiteDataStoreRef_h
 
 #include <WebKit/WKBase.h>
+#include <WebKit/WKDeprecated.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+typedef uint32_t WKCacheModel;
+
 WK_EXPORT WKTypeID WKWebsiteDataStoreGetTypeID();
 
 WK_EXPORT WKWebsiteDataStoreRef WKWebsiteDataStoreGetDefaultDataStore();
 WK_EXPORT WKWebsiteDataStoreRef WKWebsiteDataStoreCreateNonPersistentDataStore();
+WK_EXPORT WKWebsiteDataStoreRef WKWebsiteDataStoreCreateWithConfiguration(WKWebsiteDataStoreConfigurationRef configuration);
+
+WK_EXPORT WKHTTPCookieStoreRef WKWebsiteDataStoreGetHTTPCookieStore(WKWebsiteDataStoreRef dataStoreRef);
 
 WK_EXPORT bool WKWebsiteDataStoreGetResourceLoadStatisticsEnabled(WKWebsiteDataStoreRef dataStoreRef);
 WK_EXPORT void WKWebsiteDataStoreSetResourceLoadStatisticsEnabled(WKWebsiteDataStoreRef dataStoreRef, bool enable);
@@ -45,6 +51,8 @@ WK_EXPORT void WKWebsiteDataStoreSetResourceLoadStatisticsDebugModeWithCompletio
 WK_EXPORT void WKWebsiteDataStoreSetResourceLoadStatisticsPrevalentResourceForDebugMode(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, void* context, WKWebsiteDataStoreStatisticsDebugModeFunction completionHandler);    
 typedef void (*WKWebsiteDataStoreStatisticsLastSeenFunction)(void* functionContext);
 WK_EXPORT void WKWebsiteDataStoreSetStatisticsLastSeen(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, double seconds, void* context, WKWebsiteDataStoreStatisticsLastSeenFunction completionHandler);
+typedef void (*WKWebsiteDataStoreStatisticsMergeStatisticFunction)(void* functionContext);
+WK_EXPORT void WKWebsiteDataStoreSetStatisticsMergeStatistic(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, WKStringRef topFrameDomain1, WKStringRef topFrameDomain2, double lastSeen, bool hadUserInteraction, double mostRecentUserInteraction, bool isGrandfathered, bool isPrevalent, bool isVeryPrevalent, unsigned dataRecordsRemoved, void* context, WKWebsiteDataStoreStatisticsMergeStatisticFunction completionHandler);
 typedef void (*WKWebsiteDataStoreStatisticsPrevalentResourceFunction)(void* functionContext);
 WK_EXPORT void WKWebsiteDataStoreSetStatisticsPrevalentResource(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, bool value, void* context, WKWebsiteDataStoreStatisticsPrevalentResourceFunction completionHandler);
 typedef void (*WKWebsiteDataStoreStatisticsVeryPrevalentResourceFunction)(void* functionContext);
@@ -64,9 +72,13 @@ typedef void (*WKWebsiteDataStoreStatisticsHasHadUserInteractionFunction)(void* 
 WK_EXPORT void WKWebsiteDataStoreSetStatisticsHasHadUserInteraction(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, bool value, void* context, WKWebsiteDataStoreStatisticsHasHadUserInteractionFunction completionHandler);
 typedef void (*WKWebsiteDataStoreIsStatisticsHasHadUserInteractionFunction)(bool hasHadUserInteraction, void* functionContext);
 WK_EXPORT void WKWebsiteDataStoreIsStatisticsHasHadUserInteraction(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, void* context, WKWebsiteDataStoreIsStatisticsHasHadUserInteractionFunction callback);
+typedef void (*WKWebsiteDataStoreIsStatisticsOnlyInDatabaseOnceFunction)(bool onlyInDatabaseOnce, void* functionContext);
+WK_EXPORT void WKWebsiteDataStoreIsStatisticsOnlyInDatabaseOnce(WKWebsiteDataStoreRef dataStoreRef, WKStringRef subHost, WKStringRef topHost, void* context, WKWebsiteDataStoreIsStatisticsOnlyInDatabaseOnceFunction callback);
 WK_EXPORT void WKWebsiteDataStoreSetStatisticsGrandfathered(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, bool value);
 typedef void (*WKWebsiteDataStoreIsStatisticsGrandfatheredFunction)(bool isGrandfathered, void* functionContext);
 WK_EXPORT void WKWebsiteDataStoreIsStatisticsGrandfathered(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, void* context, WKWebsiteDataStoreIsStatisticsGrandfatheredFunction callback);
+typedef void (*WKWebsiteDataStoreSetUseITPDatabaseFunction)(void* functionContext);
+WK_EXPORT void WKWebsiteDataStoreSetUseITPDatabase(WKWebsiteDataStoreRef dataStoreRef, bool value, void* context, WKWebsiteDataStoreSetUseITPDatabaseFunction callback);
 WK_EXPORT void WKWebsiteDataStoreSetStatisticsSubframeUnderTopFrameOrigin(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, WKStringRef topFrameHost);
 WK_EXPORT void WKWebsiteDataStoreSetStatisticsSubresourceUnderTopFrameOrigin(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, WKStringRef topFrameHost);
 WK_EXPORT void WKWebsiteDataStoreSetStatisticsSubresourceUniqueRedirectTo(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, WKStringRef hostRedirectedTo);
@@ -103,10 +115,14 @@ typedef void (*WKWebsiteDataStoreStatisticsHasLocalStorageFunction)(bool hasLoca
 WK_EXPORT void WKWebsiteDataStoreStatisticsHasLocalStorage(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, void* context, WKWebsiteDataStoreStatisticsHasLocalStorageFunction callback);
 typedef void (*WKWebsiteDataStoreSetStatisticsCacheMaxAgeCapFunction)(void* functionContext);
 WK_EXPORT void WKWebsiteDataStoreSetStatisticsCacheMaxAgeCap(WKWebsiteDataStoreRef dataStoreRef, double seconds, void* context, WKWebsiteDataStoreSetStatisticsCacheMaxAgeCapFunction);
+typedef void (*WKWebsiteDataStoreStatisticsHasIsolatedSessionFunction)(bool hasIsolatedSession, void* functionContext);
+WK_EXPORT void WKWebsiteDataStoreStatisticsHasIsolatedSession(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, void* context, WKWebsiteDataStoreStatisticsHasIsolatedSessionFunction callback);
 typedef void (*WKWebsiteDataStoreSetResourceLoadStatisticsShouldDowngradeReferrerForTestingFunction)(void* functionContext);
 WK_EXPORT void WKWebsiteDataStoreSetResourceLoadStatisticsShouldDowngradeReferrerForTesting(WKWebsiteDataStoreRef dataStoreRef, bool enabled, void* context, WKWebsiteDataStoreSetResourceLoadStatisticsShouldDowngradeReferrerForTestingFunction completionHandler);
 typedef void (*WKWebsiteDataStoreSetResourceLoadStatisticsShouldBlockThirdPartyCookiesForTestingFunction)(void* functionContext);
-WK_EXPORT void WKWebsiteDataStoreSetResourceLoadStatisticsShouldBlockThirdPartyCookiesForTesting(WKWebsiteDataStoreRef dataStoreRef, bool enabled, void* context, WKWebsiteDataStoreSetResourceLoadStatisticsShouldBlockThirdPartyCookiesForTestingFunction completionHandler);
+WK_EXPORT void WKWebsiteDataStoreSetResourceLoadStatisticsShouldBlockThirdPartyCookiesForTesting(WKWebsiteDataStoreRef dataStoreRef, bool enabled, bool onlyOnSitesWithoutUserInteraction, void* context, WKWebsiteDataStoreSetResourceLoadStatisticsShouldBlockThirdPartyCookiesForTestingFunction completionHandler);
+typedef void (*WKWebsiteDataStoreSetResourceLoadStatisticsFirstPartyWebsiteDataRemovalModeForTestingFunction)(void* functionContext);
+WK_EXPORT void WKWebsiteDataStoreSetResourceLoadStatisticsFirstPartyWebsiteDataRemovalModeForTesting(WKWebsiteDataStoreRef dataStoreRef, bool enabled, void* context, WKWebsiteDataStoreSetResourceLoadStatisticsFirstPartyWebsiteDataRemovalModeForTestingFunction completionHandler);
 typedef void (*WKWebsiteDataStoreStatisticsResetToConsistentStateFunction)(void* functionContext);
 WK_EXPORT void WKWebsiteDataStoreStatisticsResetToConsistentState(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreStatisticsResetToConsistentStateFunction completionHandler);
 
@@ -123,18 +139,26 @@ WK_EXPORT void WKWebsiteDataStoreRemoveAllIndexedDatabases(WKWebsiteDataStoreRef
 typedef void (*WKWebsiteDataStoreGetFetchCacheOriginsFunction)(WKArrayRef, void*);
 WK_EXPORT void WKWebsiteDataStoreGetFetchCacheOrigins(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreGetFetchCacheOriginsFunction function);
 
+typedef void (*WKWebsiteDataStoreRemoveLocalStorageCallback)(void* functionContext);
+WK_EXPORT void WKWebsiteDataStoreRemoveLocalStorage(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreRemoveLocalStorageCallback callback);
+
 typedef void (*WKWebsiteDataStoreGetFetchCacheSizeForOriginFunction)(uint64_t, void*);
 WK_EXPORT void WKWebsiteDataStoreGetFetchCacheSizeForOrigin(WKWebsiteDataStoreRef dataStoreRef, WKStringRef origin, void* context, WKWebsiteDataStoreGetFetchCacheSizeForOriginFunction function);
 
 WK_EXPORT WKStringRef WKWebsiteDataStoreCopyServiceWorkerRegistrationDirectory(WKWebsiteDataStoreRef dataStoreRef);
 WK_EXPORT void WKWebsiteDataStoreSetServiceWorkerRegistrationDirectory(WKWebsiteDataStoreRef dataStoreRef, WKStringRef serviceWorkerRegistrationDirectory);
 
-WK_EXPORT void WKWebsiteDataStoreSetPerOriginStorageQuota(WKWebsiteDataStoreRef dataStoreRef, uint64_t quota);
+WK_EXPORT void WKWebsiteDataStoreSetPerOriginStorageQuota(WKWebsiteDataStoreRef dataStoreRef, uint64_t quota) WK_C_API_DEPRECATED_WITH_REPLACEMENT(WKWebsiteDataStoreConfigurationSetPerOriginStorageQuota);
 
 WK_EXPORT void WKWebsiteDataStoreClearAllDeviceOrientationPermissions(WKWebsiteDataStoreRef dataStoreRef);
 
 typedef void (*WKWebsiteDataStoreClearAdClickAttributionsThroughWebsiteDataRemovalFunction)(void* functionContext);
 WK_EXPORT void WKWebsiteDataStoreClearAdClickAttributionsThroughWebsiteDataRemoval(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreClearAdClickAttributionsThroughWebsiteDataRemovalFunction callback);
+
+WK_EXPORT void WKWebsiteDataStoreSetCacheModelSynchronouslyForTesting(WKWebsiteDataStoreRef dataStoreRef, WKCacheModel cacheModel);
+
+typedef void (*WKWebsiteDataStoreResetQuotaCallback)(void* functionContext);
+WK_EXPORT void WKWebsiteDataStoreResetQuota(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreResetQuotaCallback callback);
 
 #ifdef __cplusplus
 }

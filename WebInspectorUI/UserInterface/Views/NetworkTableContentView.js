@@ -61,14 +61,14 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
 
         let uniqueTypes = [
             ["Document", (type) => type === WI.Resource.Type.Document],
-            ["Stylesheet", (type) => type === WI.Resource.Type.Stylesheet],
+            ["StyleSheet", (type) => type === WI.Resource.Type.StyleSheet],
             ["Image", (type) => type === WI.Resource.Type.Image],
             ["Font", (type) => type === WI.Resource.Type.Font],
             ["Script", (type) => type === WI.Resource.Type.Script],
             ["XHR", (type) => type === WI.Resource.Type.XHR || type === WI.Resource.Type.Fetch],
             ["Other", (type) => {
                 return type !== WI.Resource.Type.Document
-                    && type !== WI.Resource.Type.Stylesheet
+                    && type !== WI.Resource.Type.StyleSheet
                     && type !== WI.Resource.Type.Image
                     && type !== WI.Resource.Type.Font
                     && type !== WI.Resource.Type.Script
@@ -143,7 +143,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
         this._buttonsNavigationItemGroup.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
 
         // COMPATIBILITY (iOS 10.3): Network.setDisableResourceCaching did not exist.
-        if (window.NetworkAgent && NetworkAgent.setResourceCachingDisabled) {
+        if (InspectorBackend.hasCommand("Network.setResourceCachingDisabled")) {
             let toolTipForDisableResourceCache = WI.UIString("Ignore the resource cache when loading resources");
             let activatedToolTipForDisableResourceCache = WI.UIString("Use the resource cache when loading resources");
             this._disableResourceCacheNavigationItem = new WI.ActivateButtonNavigationItem("disable-resource-cache", toolTipForDisableResourceCache, activatedToolTipForDisableResourceCache, "Images/IgnoreCaches.svg", 16, 16);
@@ -199,16 +199,16 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
         switch (type) {
         case WI.Resource.Type.Document:
             return WI.UIString("Document");
-        case WI.Resource.Type.Stylesheet:
-            return "CSS";
+        case WI.Resource.Type.StyleSheet:
+            return WI.unlocalizedString("CSS");
         case WI.Resource.Type.Image:
             return WI.UIString("Image");
         case WI.Resource.Type.Font:
             return WI.UIString("Font");
         case WI.Resource.Type.Script:
-            return "JS";
+            return WI.unlocalizedString("JS");
         case WI.Resource.Type.XHR:
-            return "XHR";
+            return WI.unlocalizedString("XHR");
         case WI.Resource.Type.Fetch:
             return WI.repeatedUIString.fetch();
         case WI.Resource.Type.Ping:
@@ -342,6 +342,16 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
         this._showingRepresentedObjectCookie = null;
     }
 
+    get canFocusFilterBar()
+    {
+        return !this._detailView;
+    }
+
+    focusFilterBar()
+    {
+        this._urlFilterNavigationItem.filterBar.focus();
+    }
+
     // NetworkDetailView delegate
 
     networkDetailViewClose(networkDetailView)
@@ -360,7 +370,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
 
     tableRepresentedObjectForIndex(table, index)
     {
-        console.assert(index >=0 && index < this._activeCollection.filteredEntries.length);
+        console.assert(index >= 0 && index < this._activeCollection.filteredEntries.length);
         return this._activeCollection.filteredEntries[index];
     }
 
@@ -638,7 +648,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
 
         createIconElement();
 
-        cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName);
+        cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName, ...WI.Resource.classNamesForResource(resource));
 
         if (WI.settings.groupMediaRequestsByDOMNode.value && resource.initiatorNode) {
             let nodeEntry = this._domNodeEntries.get(resource.initiatorNode);
@@ -657,7 +667,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
         }
 
         cell.title = resource.url;
-        cell.classList.add(WI.Resource.classNameForResource(resource));
+        cell.classList.add(...WI.Resource.classNamesForResource(resource));
     }
 
     _populateDomainCell(cell, entry)
@@ -752,6 +762,11 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
         if (responseSource === WI.Resource.ResponseSource.ServiceWorker) {
             cell.classList.add("cache-type");
             cell.textContent = WI.UIString("(service worker)");
+            return;
+        }
+        if (responseSource === WI.Resource.ResponseSource.InspectorOverride) {
+            cell.classList.add("cache-type");
+            cell.textContent = WI.UIString("(inspector override)");
             return;
         }
 
@@ -1030,6 +1045,8 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
                     transferSizeA = -10;
                 else if (sourceA === WI.Resource.ResponseSource.ServiceWorker)
                     transferSizeA = -5;
+                else if (sourceA === WI.Resource.ResponseSource.InspectorOverride)
+                    transferSizeA = -3;
 
                 let sourceB = b.resource.responseSource;
                 if (sourceB === WI.Resource.ResponseSource.MemoryCache)
@@ -1038,6 +1055,8 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
                     transferSizeB = -10;
                 else if (sourceB === WI.Resource.ResponseSource.ServiceWorker)
                     transferSizeB = -5;
+                else if (sourceB === WI.Resource.ResponseSource.InspectorOverride)
+                    transferSizeB = -3;
 
                 return transferSizeA - transferSizeB;
             };
@@ -1519,11 +1538,6 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
         this._table.scrollContainer.style.width = this._nameColumn.width + "px";
     }
 
-    _updateURLFilterActiveIndicator()
-    {
-        this._urlFilterNavigationItem.filterBar.indicatingActive = this._hasURLFilter();
-    }
-
     _updateEmptyFilterResultsMessage()
     {
         if (this._hasActiveFilter() && !this._activeCollection.filteredEntries.length)
@@ -1957,7 +1971,6 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
             });
         }
 
-        this._updateURLFilterActiveIndicator();
         this._updateEmptyFilterResultsMessage();
     }
 
@@ -2138,8 +2151,8 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
             let mainFrame = WI.networkManager.mainFrame;
             let archiveName = mainFrame.mainResource.urlComponents.host || mainFrame.mainResource.displayName || "Archive";
             WI.FileUtilities.save({
-                url: WI.FileUtilities.inspectorURLForFilename(archiveName + ".har"),
                 content: JSON.stringify(har, null, 2),
+                suggestedName: archiveName + ".har",
                 forceSaveAs: true,
             });
         });
@@ -2147,7 +2160,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
 
     _importHAR()
     {
-        WI.FileUtilities.importJSON((result) => this.processHAR(result));
+        WI.FileUtilities.importJSON((result) => this.processHAR(result), {multiple: true});
     }
 
     _waterfallPopoverContent()

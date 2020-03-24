@@ -95,9 +95,9 @@ NSXPCInterface* TrustedPeersHelperSetupProtocol(NSXPCInterface* interface)
                                                                      tlkShares:
                                                                      reply:) argumentIndex:4 ofReply:NO];
 
-        [interface setClasses:[NSSet setWithObject:[TPPolicy class]] forSelector:@selector(fetchPolicyWithContainer:
+        [interface setClasses:[NSSet setWithObject:[TPPolicy class]] forSelector:@selector(fetchCurrentPolicyWithContainer:
                                                                                            context:
-                                                                                           reply:) argumentIndex:0 ofReply:YES];
+                                                                                           reply:) argumentIndex:1 ofReply:YES];
 
         [interface setClasses:trustedPeersHelperPeerState forSelector:@selector(updateWithContainer:
                                                                                 context:

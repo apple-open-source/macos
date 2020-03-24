@@ -32,6 +32,7 @@
 #include "AudioContext.h"
 #include "AudioNodeInput.h"
 #include "AudioNodeOutput.h"
+#include "HRTFDatabaseLoader.h"
 #include "HRTFPanner.h"
 #include "ScriptExecutionContext.h"
 #include <wtf/IsoMallocInlines.h>
@@ -58,8 +59,8 @@ PannerNode::PannerNode(AudioContext& context, float sampleRate)
     // Load the HRTF database asynchronously so we don't block the Javascript thread while creating the HRTF database.
     m_hrtfDatabaseLoader = HRTFDatabaseLoader::createAndLoadAsynchronouslyIfNecessary(context.sampleRate());
 
-    addInput(std::make_unique<AudioNodeInput>(this));
-    addOutput(std::make_unique<AudioNodeOutput>(this, 2));
+    addInput(makeUnique<AudioNodeInput>(this));
+    addOutput(makeUnique<AudioNodeOutput>(this, 2));
 
     // Node-specific default mixing rules.
     m_channelCount = 2;

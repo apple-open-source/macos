@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2018-11-6</string>
+	<string>2019-11-19</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
@@ -20,11 +20,11 @@
 	<key>OpenSourceProject</key>
 	<string>OpenSSH</string>
 	<key>OpenSourceSHA256</key>
-	<string>6b4b3ba2253d84ed3771c8050728d597c91cfce898713beb7b64a305b6f11aad</string>
+	<string>02f5dbef3835d0753556f973cd57b4c19b6b1f6cd24c03445e23ac77ca1b93ff</string>
 	<key>OpenSourceURL</key>
 	<string>https://ftp5.usa.openbsd.org/pub/OpenBSD/OpenSSH/portable</string>
 	<key>OpenSourceVersion</key>
-	<string>7.9p1</string>
+	<string>8.1p1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.openssh.org/</string>
 </dict>

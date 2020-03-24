@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -70,7 +70,7 @@ static DOMNodeHandleCache& domNodeHandleCache()
 
 RefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::getOrCreate(JSContextRef, JSObjectRef object)
 {
-    Node* node = JSNode::toWrapped(*toJS(object)->vm(), toJS(object));
+    Node* node = JSNode::toWrapped(toJS(object)->vm(), toJS(object));
     return getOrCreate(node);
 }
 
@@ -160,6 +160,9 @@ static RefPtr<WebImage> imageForRect(FrameView* frameView, const IntRect& painti
         return nullptr;
 
     auto graphicsContext = snapshot->bitmap().createGraphicsContext();
+    if (!graphicsContext)
+        return nullptr;
+
     graphicsContext->clearRect(IntRect(IntPoint(), bitmapSize));
     graphicsContext->applyDeviceScaleFactor(deviceScaleFactor);
     graphicsContext->scale(bitmapScaleFactor);
@@ -247,12 +250,28 @@ bool InjectedBundleNodeHandle::isHTMLInputElementAutoFilled() const
     return downcast<HTMLInputElement>(m_node.get()).isAutoFilled();
 }
 
+bool InjectedBundleNodeHandle::isHTMLInputElementAutoFilledAndViewable() const
+{
+    if (!is<HTMLInputElement>(m_node))
+        return false;
+
+    return downcast<HTMLInputElement>(m_node.get()).isAutoFilledAndViewable();
+}
+
 void InjectedBundleNodeHandle::setHTMLInputElementAutoFilled(bool filled)
 {
     if (!is<HTMLInputElement>(m_node))
         return;
 
     downcast<HTMLInputElement>(m_node.get()).setAutoFilled(filled);
+}
+
+void InjectedBundleNodeHandle::setHTMLInputElementAutoFilledAndViewable(bool autoFilledAndViewable)
+{
+    if (!is<HTMLInputElement>(m_node))
+        return;
+
+    downcast<HTMLInputElement>(m_node.get()).setAutoFilledAndViewable(autoFilledAndViewable);
 }
 
 bool InjectedBundleNodeHandle::isHTMLInputElementAutoFillButtonEnabled() const

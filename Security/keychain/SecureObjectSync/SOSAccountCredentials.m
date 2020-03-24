@@ -204,21 +204,6 @@ CFDataRef SOSAccountGetCachedPassword(SOSAccount* account, CFErrorRef* error)
 static NSString *SOSUserCredentialAccount = @"SOSUserCredential";
 static NSString *SOSUserCredentialAccessGroup = @"com.apple.security.sos-usercredential";
 
-__unused static void SOSAccountDeleteStashedAccountKey(SOSAccount* account)
-{
-    NSString *dsid = (__bridge NSString *)SOSAccountGetValue(account, kSOSDSIDKey, NULL);
-    if (dsid == NULL)
-        return;
-
-    NSDictionary * attributes = @{
-        (__bridge id)kSecClass : (__bridge id)kSecClassInternetPassword,
-        (__bridge id)kSecAttrAccount : SOSUserCredentialAccount,
-        (__bridge id)kSecAttrServer : dsid,
-        (__bridge id)kSecAttrAccessGroup : SOSUserCredentialAccessGroup,
-    };
-    (void)SecItemDelete((__bridge CFDictionaryRef)attributes);
-}
-
 void SOSAccountStashAccountKey(SOSAccount* account)
 {
     OSStatus status;

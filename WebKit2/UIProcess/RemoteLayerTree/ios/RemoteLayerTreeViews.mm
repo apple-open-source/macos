@@ -32,6 +32,7 @@
 #import "RemoteLayerTreeHost.h"
 #import "RemoteLayerTreeNode.h"
 #import "UIKitSPI.h"
+#import "WKDeferringGestureRecognizer.h"
 #import "WKDrawingView.h"
 #import <WebCore/Region.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
@@ -151,6 +152,16 @@ UIScrollView *findActingScrollParent(UIScrollView *scrollView, const RemoteLayer
     return nil;
 }
 
+static Class scrollViewScrollIndicatorClass()
+{
+    static dispatch_once_t onceToken;
+    static Class scrollIndicatorClass;
+    dispatch_once(&onceToken, ^{
+        scrollIndicatorClass = NSClassFromString(@"_UIScrollViewScrollIndicator");
+    });
+    return scrollIndicatorClass;
+}
+
 }
 
 @interface UIView (WKHitTesting)
@@ -176,6 +187,13 @@ UIScrollView *findActingScrollParent(UIScrollView *scrollView, const RemoteLayer
         if ([view isKindOfClass:[WKChildScrollView class]]) {
             if (WebKit::isScrolledBy((WKChildScrollView *)view, viewsAtPoint.last())) {
                 LOG_WITH_STREAM(UIHitTesting, stream << " " << (void*)view << " is child scroll view and scrolled by " << (void*)viewsAtPoint.last());
+                return view;
+            }
+        }
+
+        if ([view isKindOfClass:WebKit::scrollViewScrollIndicatorClass()] && [view.superview isKindOfClass:WKChildScrollView.class]) {
+            if (WebKit::isScrolledBy((WKChildScrollView *)view.superview, viewsAtPoint.last())) {
+                LOG_WITH_STREAM(UIHitTesting, stream << " " << (void*)view << " is the scroll indicator of child scroll view, which is scrolled by " << (void*)viewsAtPoint.last());
                 return view;
             }
         }
@@ -314,6 +332,22 @@ UIScrollView *findActingScrollParent(UIScrollView *scrollView, const RemoteLayer
 #endif
 
     return self;
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRequireFailureOfGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
+{
+    if ([otherGestureRecognizer isKindOfClass:WKDeferringGestureRecognizer.class])
+        return [(WKDeferringGestureRecognizer *)otherGestureRecognizer shouldDeferGestureRecognizer:gestureRecognizer];
+
+    return NO;
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldBeRequiredToFailByGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
+{
+    if ([gestureRecognizer isKindOfClass:WKDeferringGestureRecognizer.class])
+        return [(WKDeferringGestureRecognizer *)gestureRecognizer shouldDeferGestureRecognizer:otherGestureRecognizer];
+
+    return NO;
 }
 
 @end

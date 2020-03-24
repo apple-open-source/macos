@@ -334,6 +334,9 @@
 /* Define to 1 if you have the `getuserattr' function. */
 #undef HAVE_GETUSERATTR
 
+/* Define to 1 if you have the `getusershell' function. */
+#undef HAVE_GETUSERSHELL
+
 /* Define to 1 if you have the `getutid' function. */
 #undef HAVE_GETUTID
 
@@ -1263,6 +1266,11 @@
 /* Enable BSD extensions on systems that have them.  */
 #ifndef _BSD_SOURCE
 # undef _BSD_SOURCE
+#endif
+
+/* Enable OpenBSD extensions on NetBSD.  */
+#ifndef _OPENBSD_SOURCE
+# undef _OPENBSD_SOURCE
 #endif
 
 /* Enable BSD types on IRIX.  */

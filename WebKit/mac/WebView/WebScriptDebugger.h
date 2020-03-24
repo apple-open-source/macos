@@ -36,8 +36,8 @@
 #include <wtf/RetainPtr.h>
 
 namespace JSC {
+    class CallFrame;
     class DebuggerCallFrame;
-    class ExecState;
     class JSGlobalObject;
     class JSObject;
     class ArgList;
@@ -52,7 +52,7 @@ public:
     JSC::JSGlobalObject* globalObject() const { return m_globalObject.get(); }
 
 private:
-    void sourceParsed(JSC::ExecState*, JSC::SourceProvider*, int errorLine, const WTF::String& errorMsg) override;
+    void sourceParsed(JSC::JSGlobalObject*, JSC::SourceProvider*, int errorLine, const WTF::String& errorMsg) override;
     void handlePause(JSC::JSGlobalObject*, JSC::Debugger::ReasonForPause) override;
 
     bool m_callingDelegate;

@@ -21,7 +21,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 messages -> WebInspectorUI {
-    EstablishConnection(WebCore::PageIdentifier inspectedPageIdentifier, bool underTest, unsigned inspectionLevel)
+    EstablishConnection(WebKit::WebPageProxyIdentifier inspectedPageIdentifier, struct WebKit::DebuggableInfoData debuggableInfo, bool underTest, unsigned inspectionLevel)
     UpdateConnection()
 
     AttachedBottom()
@@ -31,9 +31,12 @@ messages -> WebInspectorUI {
     SetDockingUnavailable(bool unavailable)
     SetIsVisible(bool visible)
 
+#if ENABLE(INSPECTOR_TELEMETRY)
+    SetDiagnosticLoggingAvailable(bool available)
+#endif
+
     ShowConsole()
     ShowResources()
-    ShowTimelines()
 
     ShowMainResourceForFrame(String frameIdentifier)
 

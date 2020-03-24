@@ -15,32 +15,7 @@
  */
 
 #include <spawn.h>
-
-extern char **environ;
-
-
-#ifndef _SECURITY_VERSION_GREATER_THAN_57610_
-typedef CF_OPTIONS(uint32_t, SecKeyUsage) {
-    kSecKeyUsageAll              = 0x7FFFFFFF
-};
-#endif /* !_SECURITY_VERSION_GREATER_THAN_57610_ */
-extern const void * kSecCSRChallengePassword;
-extern const void * kSecSubjectAltName;
-extern const void * kSecCertificateKeyUsage;
-extern const void * kSecCSRBasicContraintsPathLen;
-extern const void * kSecCertificateExtensions;
-extern const void * kSecCertificateExtensionsEncoded;
-extern const void * kSecOidCommonName;
-extern const void * kSecOidCountryName;
-extern const void * kSecOidStateProvinceName;
-extern const void * kSecOidLocalityName;
-extern const void * kSecOidOrganization;
-extern const void * kSecOidOrganizationalUnit;
-extern bool SecCertificateIsValid(SecCertificateRef certificate, CFAbsoluteTime verifyTime);
-extern CFAbsoluteTime SecCertificateNotValidAfter(SecCertificateRef certificate);
-extern SecCertificateRef SecGenerateSelfSignedCertificate(CFArrayRef subject, CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey);
-extern SecIdentityRef SecIdentityCreate(CFAllocatorRef allocator, SecCertificateRef certificate, SecKeyRef privateKey);
-
+#include "tls-darwin.h"
 
 /*
  * Constants, very secure stuff...
@@ -2027,7 +2002,8 @@ static const char *			/* O - Keychain path */
 http_cdsa_default_path(char   *buffer,	/* I - Path buffer */
                        size_t bufsize)	/* I - Size of buffer */
 {
-  const char *home = getenv("HOME");	/* HOME environment variable */
+  _cups_globals_t	*cg = _cupsGlobals();
+					/* Pointer to library globals */
 
 
  /*
@@ -2036,8 +2012,8 @@ http_cdsa_default_path(char   *buffer,	/* I - Path buffer */
   * 10.11.4 (!), so we need to create our own keychain just for CUPS.
   */
 
-  if (getuid() && home)
-    snprintf(buffer, bufsize, "%s/.cups/ssl.keychain", home);
+  if (cg->home)
+    snprintf(buffer, bufsize, "%s/.cups/ssl.keychain", cg->home);
   else
     strlcpy(buffer, "/etc/cups/ssl.keychain", bufsize);
 

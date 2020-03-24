@@ -65,14 +65,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property id<OTSOSAdapter> sosPeerAdapter;
 
-@property (nullable) TPPolicy* policy;
+@property (readonly, nullable) TPPolicy* policy;
 
-@property NSMutableDictionary<NSString*, CKKSKeychainView*>* views;
+@property (readonly) NSMutableDictionary<NSString*, CKKSKeychainView*>* views;
 
-- (instancetype)initWithContainerName:(NSString*)containerName
-                               usePCS:(bool)usePCS
-                           sosAdapter:(id<OTSOSAdapter> _Nullable)sosAdapter
-            cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
+- (instancetype)initWithContainer:(CKContainer*)container
+                       sosAdapter:(id<OTSOSAdapter> _Nullable)sosAdapter
+              accountStateTracker:(CKKSAccountStateTracker*)accountTracker
+                 lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
+        cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
 
 - (CKKSKeychainView*)findView:(NSString*)viewName;
 - (CKKSKeychainView*)findOrCreateView:(NSString*)viewName;
@@ -85,7 +86,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)setupAnalytics;
 
-- (NSString*)viewNameForItem:(SecDbItemRef)item;
+- (NSString* _Nullable)viewNameForItem:(SecDbItemRef)item;
 
 - (void)handleKeychainEventDbConnection:(SecDbConnectionRef)dbconn
                                  source:(SecDbTransactionSource)txionSource
@@ -112,29 +113,30 @@ NS_ASSUME_NONNULL_BEGIN
 // Cancels pending operations owned by this view manager
 - (void)cancelPendingOperations;
 
-// Use these to acquire (and set) the singleton
 + (instancetype)manager;
-+ (instancetype _Nullable)resetManager:(bool)reset setTo:(CKKSViewManager* _Nullable)obj;
 
 // Called by XPC every 24 hours
 - (void)xpc24HrNotification;
 
-/* White-box testing only */
-- (CKKSKeychainView*)restartZone:(NSString*)viewName;
-
-// Returns the viewList for a CKKSViewManager
+// Returns the current set of views
 - (NSSet<NSString*>*)viewList;
 
 - (NSSet<NSString*>*)defaultViewList;
 
-- (void)setViewList:(NSSet<NSString*>* _Nullable)newViewList;
+// Call this to set the syncing views+policy that this manager will use.
+// If beginCloudKitOperationOfAllViews has previously been called, then any new views created
+// as a result of this call will begin CK operation.
+- (void)setSyncingViews:(NSSet<NSString*>* _Nullable)viewNames sortingPolicy:(TPPolicy* _Nullable)policy;
 
 - (void)clearAllViews;
 
 // Create all views, but don't begin CK/network operations
+// Remove as part of <rdar://problem/57768740> CKKS: ensure we collect keychain changes made before policy is loaded from disk
 - (void)createViews;
 
 // Call this to begin CK operation of all views
+// This bit will be 'sticky', in that any new views created with also begin cloudkit operation immediately.
+// (clearAllViews will reset this bit.)
 - (void)beginCloudKitOperationOfAllViews;
 
 // Notify sbd to re-backup.
@@ -145,11 +147,29 @@ NS_ASSUME_NONNULL_BEGIN
 // first time after launch, only waits the the initial call
 - (BOOL)waitForTrustReady;
 
-// For testing
-- (void)setOverrideCKKSViewsFromPolicy:(BOOL)value;
-- (BOOL)useCKKSViewsFromPolicy;
-- (void)haltAll;
+// Helper function to make CK containers
++ (CKContainer*)makeCKContainer:(NSString*)containerName
+                         usePCS:(bool)usePCS;
 
+// Checks featureflags to return whether we should use policy-based views, or use the hardcoded list
+- (BOOL)useCKKSViewsFromPolicy;
+
+// Interfaces to examine sync callbacks
+- (SecBoolNSErrorCallback _Nullable)claimCallbackForUUID:(NSString*)uuid;
+- (NSSet<NSString*>*)pendingCallbackUUIDs;
++ (void)callSyncCallbackWithErrorNoAccount:(SecBoolNSErrorCallback)syncCallback;
+@end
+
+@interface CKKSViewManager (Testing)
+- (void)setOverrideCKKSViewsFromPolicy:(BOOL)value;
+- (void)resetSyncingPolicy;
+
+- (void)haltAll;
+- (CKKSKeychainView*)restartZone:(NSString*)viewName;
+- (void)haltZone:(NSString*)viewName;
+
+// If set, any set passed to setSyncingViews will be intersected with this set
+- (void)setSyncingViewsAllowList:(NSSet<NSString*>* _Nullable)viewNames;
 @end
 NS_ASSUME_NONNULL_END
 

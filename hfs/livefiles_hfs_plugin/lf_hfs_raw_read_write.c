@@ -12,6 +12,7 @@
 #include "lf_hfs_file_mgr_internal.h"
 #include "lf_hfs_file_extent_mapping.h"
 #include "lf_hfs_vfsutils.h"
+#include <UserFS/UserVFS.h>
 
 #define MAX_READ_WRITE_LENGTH (0x7ffff000)
 
@@ -62,7 +63,8 @@ errno_t raw_readwrite_read_mount( vnode_t psMountVnode, uint64_t uBlockN, uint64
     if ( iReadBytes != (ssize_t)uBufLen )
     {
         iErr = ( (iReadBytes < 0) ? errno : EIO );
-        LFHFS_LOG( LEVEL_ERROR, "raw_readwrite_read_mount failed [%d]\n", iErr );
+        HFSLogLevel_e eLogLevel = (VNODE_TO_UNMOUNT_HINT(psMountVnode)==UVFSUnmountHintForce)?LEVEL_DEBUG:LEVEL_ERROR;
+        LFHFS_LOG( eLogLevel, "raw_readwrite_read_mount failed [%d]\n", iErr );
     }
 
     if (puActuallyRead)
@@ -85,7 +87,8 @@ errno_t raw_readwrite_write_mount( vnode_t psMountVnode, uint64_t uBlockN, uint6
     uActuallyWritten = pwrite(iFD, pvBuf, (size_t)uBufLen, uWantedOffset);
     if ( uActuallyWritten != (ssize_t)uBufLen ) {
         iErr = ( (uActuallyWritten < 0) ? errno : EIO );
-        LFHFS_LOG( LEVEL_ERROR, "raw_readwrite_write_mount failed [%d]\n", iErr );
+        HFSLogLevel_e eLogLevel = (VNODE_TO_UNMOUNT_HINT(psMountVnode)==UVFSUnmountHintForce)?LEVEL_DEBUG:LEVEL_ERROR;
+        LFHFS_LOG( eLogLevel, "raw_readwrite_write_mount failed [%d]\n", iErr );
     }
 
     if (piActuallyWritten)

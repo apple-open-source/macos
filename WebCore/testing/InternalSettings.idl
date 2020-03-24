@@ -81,6 +81,7 @@ enum FontLoadTimingOverride { "Block", "Swap", "Failure" };
     [MayThrowException] void setBackgroundShouldExtendBeyondPage(boolean hasExtendedBackground);
     [MayThrowException] void setScrollingTreeIncludesFrames(boolean enabled);
     [MayThrowException] void setAllowUnclampedScrollPosition(boolean allowUnclamped);
+    [MayThrowException] void setAnimatedImageDebugCanvasDrawingEnabled(boolean enable);
 
     [MayThrowException] void setMinimumTimerInterval(unrestricted double intervalInSeconds);
     [MayThrowException] void setAllowsInlineMediaPlayback(boolean allows);
@@ -111,6 +112,7 @@ enum FontLoadTimingOverride { "Block", "Swap", "Failure" };
     attribute ForcedAccessibilityValue forcedColorsAreInvertedAccessibilityValue;
     attribute ForcedAccessibilityValue forcedDisplayIsMonochromeAccessibilityValue;
     attribute ForcedAccessibilityValue forcedPrefersReducedMotionAccessibilityValue;
+    attribute ForcedAccessibilityValue forcedSupportsHighDynamicRangeValue;
 
     [MayThrowException] void setShouldManageAudioSessionCategory(boolean should);
     [MayThrowException] void setCustomPasteboardDataEnabled(boolean enabled);

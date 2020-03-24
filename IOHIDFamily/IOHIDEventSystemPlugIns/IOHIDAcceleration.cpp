@@ -82,7 +82,7 @@ bool IOHIDScrollAccelerator::accelerate (double *values, size_t length __unused,
   double avargeDeltaTime;
   double avargeScroll;
   double velocity;
-  
+
   double rateMultiplier = _rate / FRAME_RATE;
   avargeDeltaTime = (sumDeltaT/eventCount) * rateMultiplier;
   if (avargeDeltaTime > SCROLL_EVENT_THRESHOLD_MS) {
@@ -94,7 +94,6 @@ bool IOHIDScrollAccelerator::accelerate (double *values, size_t length __unused,
   avargeScroll = (double)sumScroll/eventCount;
   
   velocity =  (SCROLL_MULTIPLIER_A * avargeDeltaTime * avargeDeltaTime - SCROLL_MULTIPLIER_B * avargeDeltaTime + SCROLL_MULTIPLIER_C) * avargeScroll * rateMultiplier ;
-  
   
   if (velocity < FIXED_TO_DOUBLE(0x1)) {
     velocity = FIXED_TO_DOUBLE(0x1);
@@ -156,7 +155,12 @@ bool IOHIDPointerAccelerator::accelerate (double *values, size_t length __unused
   
   _lastTimeStamp = timestamp;
 
-  double  velocity = rateMultiplier * floor(sqrt(pow(dx,2) + pow(dy,2)));
+  double  velocity = floor(sqrt(pow(dx,2) + pow(dy,2)));
+  velocity *=  _fixedMultiplier == 1 ? rateMultiplier : _fixedMultiplier;
+  if (velocity < FIXED_TO_DOUBLE(0x1)) {
+    velocity = FIXED_TO_DOUBLE(0x1);
+  }
+
   mult = _algorithm->multiplier(velocity) / velocity;
 
 //  HIDLogDebug("IOHIDPointerAccelerator: mult %x\n", mult);

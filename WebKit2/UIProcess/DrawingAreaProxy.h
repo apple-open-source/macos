@@ -52,6 +52,7 @@ class WebPageProxy;
 class WebProcessProxy;
 
 class DrawingAreaProxy : public IPC::MessageReceiver, protected IPC::MessageSender {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(DrawingAreaProxy);
 
 public:
@@ -74,7 +75,7 @@ public:
     static constexpr Seconds didUpdateBackingStoreStateTimeout() { return Seconds::fromMilliseconds(500); }
 
     virtual void colorSpaceDidChange() { }
-    virtual void viewLayoutSizeDidChange() { }
+    virtual void minimumSizeForAutoLayoutDidChange() { }
 
     virtual void adjustTransientZoom(double, WebCore::FloatPoint) { }
     virtual void commitTransientZoom(double, WebCore::FloatPoint) { }
@@ -132,7 +133,7 @@ private:
 
     IPC::Connection* messageSenderConnection() const final;
     uint64_t messageSenderDestinationID() const final { return m_identifier.toUInt64(); }
-    bool sendMessage(std::unique_ptr<IPC::Encoder>, OptionSet<IPC::SendOption>) final;
+    bool sendMessage(std::unique_ptr<IPC::Encoder>, OptionSet<IPC::SendOption>, Optional<std::pair<CompletionHandler<void(IPC::Decoder*)>, uint64_t>>&&) final;
 
     // Message handlers.
     // FIXME: These should be pure virtual.

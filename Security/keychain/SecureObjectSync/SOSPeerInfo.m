@@ -456,36 +456,6 @@ SOSPeerInfoRef SOSPeerInfoCopyWithBackupKeyUpdate(CFAllocatorRef allocator, SOSP
     });
 }
 
-static CFDictionaryRef SOSPeerInfoUpdateAndCopyRecord(SOSPeerInfoRef peer, CFStringRef dsid, CFDictionaryRef escrowRecord){
-   
-    CFMutableDictionaryRef existingEscrowRecords = SOSPeerInfoCopyEscrowRecord(peer);
-    
-    if(escrowRecord == NULL && existingEscrowRecords != NULL)
-    {
-        CFDictionaryRemoveValue(existingEscrowRecords, dsid);
-        return existingEscrowRecords;
-    }
-    
-    if(existingEscrowRecords == NULL)
-        existingEscrowRecords = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
-    
-    CFDictionarySetValue(existingEscrowRecords, dsid, escrowRecord);
-    
-    return existingEscrowRecords;
-}
-
-
-SOSPeerInfoRef SOSPeerInfoCopyWithEscrowRecordUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFStringRef dsid, CFDictionaryRef escrowRecord, SecKeyRef signingKey, CFErrorRef *error) {
-    return SOSPeerInfoCopyWithModification(allocator, toCopy, signingKey, error,
-                                           ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *error) {
-                                               
-            CFDictionaryRef updatedEscrowRecords = SOSPeerInfoUpdateAndCopyRecord(peerToModify, dsid, escrowRecord);
-            SOSPeerInfoV2DictionarySetValue(peerToModify, sEscrowRecord, updatedEscrowRecords);
-            CFReleaseNull(updatedEscrowRecords);
-            return true;
-    });
-}
-
 SOSPeerInfoRef SOSPeerInfoCopyWithReplacedEscrowRecords(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDictionaryRef escrowRecords, SecKeyRef signingKey, CFErrorRef *error) {
     return SOSPeerInfoCopyWithModification(allocator, toCopy, signingKey, error,
                                            ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *error) {
@@ -498,10 +468,6 @@ SOSPeerInfoRef SOSPeerInfoCopyWithReplacedEscrowRecords(CFAllocatorRef allocator
 
 CFDataRef SOSPeerInfoCopyBackupKey(SOSPeerInfoRef peer) {
     return SOSPeerInfoV2DictionaryCopyData(peer, sBackupKeyKey);
-}
-
-CFMutableDictionaryRef SOSPeerInfoCopyEscrowRecord(SOSPeerInfoRef peer){
-    return SOSPeerInfoV2DictionaryCopyDictionary(peer, sEscrowRecord);
 }
 
 bool SOSPeerInfoHasBackupKey(SOSPeerInfoRef peer) {

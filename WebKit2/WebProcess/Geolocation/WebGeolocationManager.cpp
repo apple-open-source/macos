@@ -33,7 +33,7 @@
 #include <WebCore/Geolocation.h>
 #include <WebCore/GeolocationController.h>
 #include <WebCore/GeolocationError.h>
-#include <WebCore/GeolocationPosition.h>
+#include <WebCore/GeolocationPositionData.h>
 #include <WebCore/Page.h>
 
 namespace WebKit {
@@ -50,14 +50,14 @@ WebGeolocationManager::WebGeolocationManager(WebProcess& process)
     m_process.addMessageReceiver(Messages::WebGeolocationManager::messageReceiverName(), *this);
 }
 
-void WebGeolocationManager::registerWebPage(WebPage& page)
+void WebGeolocationManager::registerWebPage(WebPage& page, const String& authorizationToken)
 {
     bool wasUpdating = isUpdating();
 
     m_pageSet.add(&page);
 
     if (!wasUpdating)
-        m_process.parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::StartUpdating(), 0);
+        m_process.parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::StartUpdating(page.webPageProxyIdentifier(), authorizationToken), 0);
 }
 
 void WebGeolocationManager::unregisterWebPage(WebPage& page)
@@ -90,7 +90,7 @@ void WebGeolocationManager::setEnableHighAccuracyForPage(WebPage& page, bool ena
         m_process.parentProcessConnection()->send(Messages::WebGeolocationManagerProxy::SetEnableHighAccuracy(highAccuracyShouldBeEnabled), 0);
 }
 
-void WebGeolocationManager::didChangePosition(const GeolocationPosition& position)
+void WebGeolocationManager::didChangePosition(const GeolocationPositionData& position)
 {
 #if ENABLE(GEOLOCATION)
     for (auto& page : copyToVector(m_pageSet)) {

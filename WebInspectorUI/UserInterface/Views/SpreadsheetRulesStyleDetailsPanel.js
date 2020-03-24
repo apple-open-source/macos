@@ -48,6 +48,11 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
 
     // Public
 
+    get supportsNewRule()
+    {
+        return this.nodeStyles && !this.nodeStyles.node.isInUserAgentShadowTree();
+    }
+
     refresh(significantChange)
     {
         // We only need to do a rebuild on significant changes. Other changes are handled
@@ -93,17 +98,11 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
 
     newRuleButtonClicked()
     {
-        if (this.nodeStyles.node.isInUserAgentShadowTree())
-            return;
-
         this._addNewRule();
     }
 
     newRuleButtonContextMenu(event)
     {
-        if (this.nodeStyles.node.isInUserAgentShadowTree())
-            return;
-
         let styleSheets = WI.cssManager.styleSheets.filter(styleSheet => styleSheet.hasInfo() && !styleSheet.isInlineStyleTag() && !styleSheet.isInlineStyleAttributeStyleSheet());
         if (!styleSheets.length)
             return;
@@ -205,6 +204,12 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
         }
     }
 
+    spreadsheetCSSStyleDeclarationSectionAddNewRule(section, selector, text)
+    {
+        this._newRuleSelector = selector;
+        this.nodeStyles.addRule(this._newRuleSelector, text);
+    }
+
     // Protected
 
     layout()
@@ -294,31 +299,45 @@ WI.SpreadsheetRulesStyleDetailsPanel = class SpreadsheetRulesStyleDetailsPanel e
                 addSection(preservedSection);
         };
 
-        for (let style of this.nodeStyles.uniqueOrderedStyles)
+        let addedPseudoStyles = false;
+        let addPseudoStyles = () => {
+            if (addedPseudoStyles)
+                return;
+
+            // Add all pseudo styles before any inherited rules.
+            let beforePseudoId = null;
+            let afterPseudoId = null;
+            if (InspectorBackend.Enum.CSS.PseudoId) {
+                beforePseudoId = WI.CSSManager.PseudoSelectorNames.Before;
+                afterPseudoId = WI.CSSManager.PseudoSelectorNames.After;
+            } else {
+                // Compatibility (iOS 12.2): CSS.PseudoId did not exist.
+                beforePseudoId = 4;
+                afterPseudoId = 5;
+            }
+
+            for (let [pseudoId, pseudoElementInfo] of this.nodeStyles.pseudoElements) {
+                let pseudoElement = null;
+                if (pseudoId === beforePseudoId)
+                    pseudoElement = this.nodeStyles.node.beforePseudoElement();
+                else if (pseudoId === afterPseudoId)
+                    pseudoElement = this.nodeStyles.node.afterPseudoElement();
+                addHeader(WI.UIString("Pseudo-Element"), pseudoElement || pseudoId);
+
+                for (let style of WI.DOMNodeStyles.uniqueOrderedStyles(pseudoElementInfo.orderedStyles))
+                    createSection(style);
+            }
+
+            addedPseudoStyles = true;
+        };
+
+        for (let style of this.nodeStyles.uniqueOrderedStyles) {
+            if (style.inherited)
+                addPseudoStyles();
             createSection(style);
-
-        let beforePseudoId = null;
-        let afterPseudoId = null;
-        if (InspectorBackend.domains.CSS.PseudoId) {
-            beforePseudoId = InspectorBackend.domains.CSS.PseudoId.Before;
-            afterPseudoId = InspectorBackend.domains.CSS.PseudoId.After;
-        } else {
-            // Compatibility (iOS 12.2): CSS.PseudoId did not exist.
-            beforePseudoId = 4;
-            afterPseudoId = 5;
         }
 
-        for (let [pseudoId, pseudoElementInfo] of this.nodeStyles.pseudoElements) {
-            let pseudoElement = null;
-            if (pseudoId === beforePseudoId)
-                pseudoElement = this.nodeStyles.node.beforePseudoElement();
-            else if (pseudoId === afterPseudoId)
-                pseudoElement = this.nodeStyles.node.afterPseudoElement();
-            addHeader(WI.UIString("Pseudo-Element"), pseudoElement || pseudoId);
-
-            for (let style of WI.DOMNodeStyles.uniqueOrderedStyles(pseudoElementInfo.orderedStyles))
-                createSection(style);
-        }
+        addPseudoStyles();
 
         this._newRuleSelector = null;
 

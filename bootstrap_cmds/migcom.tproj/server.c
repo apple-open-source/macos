@@ -1994,6 +1994,8 @@ WritePackArgValueNormal(FILE *file, argument_t *arg)
       fprintf(file, "#ifdef USING_MIG_STRNCPY_ZEROFILL\n");
       fprintf(file, "\t}\n");
       fprintf(file, "#endif /* USING_MIG_STRNCPY_ZEROFILL */\n");
+
+      fprintf(file, "\tOutP->%sOffset = 0;\n", arg->argMsgField);
     }
     else if (it->itNoOptArray)
       fprintf(file, "\t(void)memcpy((char *) OutP->%s, (const char *) %s, %d);\n", arg->argMsgField, arg->argVarName, it->itTypeSize);
@@ -2019,6 +2021,11 @@ WritePackArgValueNormal(FILE *file, argument_t *arg)
     WriteCopyType(file, it, TRUE, "OutP->%s", "/* %s */ %s(%s)", arg->argMsgField, it->itOutTrans, arg->argVarName);
   else
     WriteCopyType(file, it, TRUE, "OutP->%s", "/* %s */ %s", arg->argMsgField, arg->argVarName);
+
+  if (arg->argPadName != NULL && it->itPadSize != 0) {
+    fprintf(file, "\t    for (int i = 0; i < %d; i++)\n", it->itPadSize);
+    fprintf(file, "\t\t    OutP->%s[i] = 0;\n", arg->argPadName);
+  }
 }
 
 static void

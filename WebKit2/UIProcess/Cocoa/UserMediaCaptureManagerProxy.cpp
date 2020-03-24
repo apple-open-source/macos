@@ -30,6 +30,7 @@
 
 #include "SharedRingBufferStorage.h"
 #include "UserMediaCaptureManagerMessages.h"
+#include "UserMediaCaptureManagerProxyMessages.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebProcessProxy.h"
 #include <WebCore/CARingBuffer.h>
@@ -39,12 +40,13 @@
 #include <WebCore/WebAudioBufferList.h>
 #include <wtf/UniqueRef.h>
 
-#define MESSAGE_CHECK_CONTEXTID(id) MESSAGE_CHECK_BASE(m_proxies.isValidKey(id), m_process.connection())
+#define MESSAGE_CHECK_CONTEXTID(identifier) MESSAGE_CHECK_BASE(m_proxies.isValidKey(identifier), &m_connectionProxy->connection())
 
 namespace WebKit {
 using namespace WebCore;
 
 class UserMediaCaptureManagerProxy::SourceProxy : public RealtimeMediaSource::Observer, public SharedRingBufferStorage::Client {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     SourceProxy(uint64_t id, Ref<IPC::Connection>&& connection, Ref<RealtimeMediaSource>&& source)
         : m_id(id)
@@ -66,6 +68,25 @@ public:
     CAAudioStreamDescription& description() { return m_description; }
     int64_t numberOfFrames() { return m_numberOfFrames; }
 
+    void start()
+    {
+        m_isEnded = false;
+        m_source->start();
+    }
+
+    void stop()
+    {
+        m_isEnded = true;
+        m_source->stop();
+    }
+
+    void requestToEnd()
+    {
+        m_isEnded = true;
+        m_source->requestToEnd(*this);
+    }
+
+private:
     void sourceStopped() final {
         if (m_source->captureDidFail()) {
             m_connection->send(Messages::UserMediaCaptureManager::CaptureFailed(m_id), 0);
@@ -119,24 +140,30 @@ public:
         m_connection->send(Messages::UserMediaCaptureManager::StorageChanged(m_id, handle, m_description, m_numberOfFrames), 0);
     }
 
-protected:
+    bool preventSourceFromStopping()
+    {
+        // Do not allow the source to stop if we are still using it.
+        return !m_isEnded;
+    }
+
     uint64_t m_id;
     Ref<IPC::Connection> m_connection;
     Ref<RealtimeMediaSource> m_source;
     CARingBuffer m_ringBuffer;
     CAAudioStreamDescription m_description { };
     int64_t m_numberOfFrames { 0 };
+    bool m_isEnded { false };
 };
 
-UserMediaCaptureManagerProxy::UserMediaCaptureManagerProxy(WebProcessProxy& process)
-    : m_process(process)
+UserMediaCaptureManagerProxy::UserMediaCaptureManagerProxy(UniqueRef<ConnectionProxy>&& connectionProxy)
+    : m_connectionProxy(WTFMove(connectionProxy))
 {
-    m_process.addMessageReceiver(Messages::UserMediaCaptureManagerProxy::messageReceiverName(), *this);
+    m_connectionProxy->addMessageReceiver(Messages::UserMediaCaptureManagerProxy::messageReceiverName(), *this);
 }
 
 UserMediaCaptureManagerProxy::~UserMediaCaptureManagerProxy()
 {
-    m_process.removeMessageReceiver(Messages::UserMediaCaptureManagerProxy::messageReceiverName());
+    m_connectionProxy->removeMessageReceiver(Messages::UserMediaCaptureManagerProxy::messageReceiverName());
 }
 
 void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstraints(uint64_t id, const CaptureDevice& device, String&& hashSalt, const MediaConstraints& constraints, CompletionHandler<void(bool succeeded, String invalidConstraints, WebCore::RealtimeMediaSourceSettings&&)>&& completionHandler)
@@ -150,6 +177,8 @@ void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstrai
         break;
     case WebCore::CaptureDevice::DeviceType::Camera:
         sourceOrError = RealtimeMediaSourceCenter::singleton().videoCaptureFactory().createVideoCaptureSource(device, WTFMove(hashSalt), &constraints);
+        if (sourceOrError)
+            sourceOrError.captureSource->monitorOrientation(m_orientationNotifier);
         break;
     case WebCore::CaptureDevice::DeviceType::Screen:
     case WebCore::CaptureDevice::DeviceType::Window:
@@ -165,10 +194,9 @@ void UserMediaCaptureManagerProxy::createMediaSourceForCaptureDeviceWithConstrai
     WebCore::RealtimeMediaSourceSettings settings;
     if (sourceOrError) {
         auto source = sourceOrError.source();
-        source->setIsRemote(true);
         settings = source->settings();
         ASSERT(!m_proxies.contains(id));
-        m_proxies.add(id, std::make_unique<SourceProxy>(id, *m_process.connection(), WTFMove(source)));
+        m_proxies.add(id, makeUnique<SourceProxy>(id, m_connectionProxy->connection(), WTFMove(source)));
     } else
         invalidConstraints = WTFMove(sourceOrError.errorMessage);
     completionHandler(succeeded, invalidConstraints, WTFMove(settings));
@@ -178,14 +206,14 @@ void UserMediaCaptureManagerProxy::startProducingData(uint64_t id)
 {
     MESSAGE_CHECK_CONTEXTID(id);
     if (auto* proxy = m_proxies.get(id))
-        proxy->source().start();
+        proxy->start();
 }
 
 void UserMediaCaptureManagerProxy::stopProducingData(uint64_t id)
 {
     MESSAGE_CHECK_CONTEXTID(id);
     if (auto* proxy = m_proxies.get(id))
-        proxy->source().stop();
+        proxy->stop();
 }
 
 void UserMediaCaptureManagerProxy::end(uint64_t id)
@@ -220,14 +248,33 @@ void UserMediaCaptureManagerProxy::applyConstraints(uint64_t id, const WebCore::
     auto& source = proxy->source();
     auto result = source.applyConstraints(constraints);
     if (!result)
-        m_process.send(Messages::UserMediaCaptureManager::ApplyConstraintsSucceeded(id, source.settings()), 0);
+        m_connectionProxy->connection().send(Messages::UserMediaCaptureManager::ApplyConstraintsSucceeded(id, source.settings()), 0);
     else
-        m_process.send(Messages::UserMediaCaptureManager::ApplyConstraintsFailed(id, result->badConstraint, result->message), 0);
+        m_connectionProxy->connection().send(Messages::UserMediaCaptureManager::ApplyConstraintsFailed(id, result->badConstraint, result->message), 0);
+}
+
+void UserMediaCaptureManagerProxy::clone(uint64_t clonedID, uint64_t newSourceID)
+{
+    ASSERT(m_proxies.contains(clonedID));
+    ASSERT(!m_proxies.contains(newSourceID));
+    if (auto* proxy = m_proxies.get(clonedID))
+        m_proxies.add(newSourceID, makeUnique<SourceProxy>(newSourceID, m_connectionProxy->connection(), proxy->source().clone()));
+}
+
+void UserMediaCaptureManagerProxy::requestToEnd(uint64_t sourceID)
+{
+    if (auto* proxy = m_proxies.get(sourceID))
+        proxy->requestToEnd();
 }
 
 void UserMediaCaptureManagerProxy::clear()
 {
     m_proxies.clear();
+}
+
+void UserMediaCaptureManagerProxy::setOrientation(uint64_t orientation)
+{
+    m_orientationNotifier.orientationChanged(orientation);
 }
 
 }

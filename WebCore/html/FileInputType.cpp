@@ -332,7 +332,7 @@ void FileInputType::requestIcon(const Vector<String>& paths)
         m_fileIconLoader->invalidate();
 
     FileIconLoaderClient& client = *this;
-    m_fileIconLoader = std::make_unique<FileIconLoader>(client);
+    m_fileIconLoader = makeUnique<FileIconLoader>(client);
 
     chrome->loadIconForFiles(paths, *m_fileIconLoader);
 }
@@ -399,6 +399,7 @@ void FileInputType::setFiles(RefPtr<FileList>&& files, RequestIcon shouldRequest
     if (pathsChanged) {
         // This call may cause destruction of this instance.
         // input instance is safe since it is ref-counted.
+        protectedInputElement->dispatchInputEvent();
         protectedInputElement->dispatchChangeEvent();
     }
     protectedInputElement->setChangedSinceLastFormControlChangeEvent(false);

@@ -18,7 +18,6 @@ es_419{
         AC{"Isla Ascensión"}
         BA{"Bosnia-Herzegovina"}
         CG{"República del Congo"}
-        CI{"Costa de Marfil"}
         EZ{"Eurozona"}
         GG{"Guernesey"}
         HK{"Hong-Kong"}

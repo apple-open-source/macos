@@ -105,6 +105,7 @@ static const OSSymbol *_HardwareSerialSym       = OSSymbol::withCString("Battery
 static const OSSymbol *_kChargingCurrent        = OSSymbol::withCString("ChargingCurrent");
 static const OSSymbol *_kChargingVoltage        = OSSymbol::withCString("ChargingVoltage");
 static const OSSymbol *_kChargerData            = OSSymbol::withCString("ChargerData");
+static const OSSymbol *_kChargerVacVoltageLimit = OSSymbol::withCString("VacVoltageLimit");
 static const OSSymbol *_kNotChargingReason      = OSSymbol::withCString("NotChargingReason");
 static const OSSymbol *_kChargerId              = OSSymbol::withCString("ChargerID");
 static const OSSymbol *_RawCurrentCapacity      = OSSymbol::withCString("AppleRawCurrentCapacity");

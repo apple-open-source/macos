@@ -28,10 +28,10 @@
 #if ENABLE(WEBGPU)
 
 #include "WHLSLExpression.h"
-#include "WHLSLLexer.h"
 #include "WHLSLStatement.h"
 #include "WHLSLVariableDeclarationsStatement.h"
 #include <memory>
+#include <wtf/FastMalloc.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Variant.h>
 #include <wtf/Vector.h>
@@ -42,10 +42,11 @@ namespace WHLSL {
 
 namespace AST {
 
-class ForLoop : public Statement {
+class ForLoop final : public Statement {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    ForLoop(CodeLocation location, Variant<UniqueRef<Statement>, UniqueRef<Expression>>&& initialization, std::unique_ptr<Expression>&& condition, std::unique_ptr<Expression>&& increment, UniqueRef<Statement>&& body)
-        : Statement(location)
+    ForLoop(CodeLocation location, UniqueRef<Statement>&& initialization, std::unique_ptr<Expression>&& condition, std::unique_ptr<Expression>&& increment, UniqueRef<Statement>&& body)
+        : Statement(location, Kind::ForLoop)
         , m_initialization(WTFMove(initialization))
         , m_condition(WTFMove(condition))
         , m_increment(WTFMove(increment))
@@ -53,22 +54,18 @@ public:
     {
     }
 
-    virtual ~ForLoop()
-    {
-    }
+    ~ForLoop() = default;
 
     ForLoop(const ForLoop&) = delete;
     ForLoop(ForLoop&&) = default;
 
-    bool isForLoop() const override { return true; }
-
-    Variant<UniqueRef<Statement>, UniqueRef<Expression>>& initialization() { return m_initialization; }
+    UniqueRef<Statement>& initialization() { return m_initialization; }
     Expression* condition() { return m_condition.get(); }
     Expression* increment() { return m_increment.get(); }
     Statement& body() { return m_body; }
 
 private:
-    Variant<UniqueRef<Statement>, UniqueRef<Expression>> m_initialization;
+    UniqueRef<Statement> m_initialization;
     std::unique_ptr<Expression> m_condition;
     std::unique_ptr<Expression> m_increment;
     UniqueRef<Statement> m_body;
@@ -79,6 +76,8 @@ private:
 }
 
 }
+
+DEFINE_DEFAULT_DELETE(ForLoop)
 
 SPECIALIZE_TYPE_TRAITS_WHLSL_STATEMENT(ForLoop, isForLoop())
 

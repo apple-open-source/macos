@@ -70,7 +70,7 @@
                                     status == kIOReturnSuccess,
                                     "IOHIDUserDeviceHandleReport:0x%x",
                                     status);
-        report.GD_TouchPadFingerX = index;
+        report.GD_TouchPadFingerX = index+10;
     }
 
     report.DIG_TouchPadFingerTouch   = 0x0;

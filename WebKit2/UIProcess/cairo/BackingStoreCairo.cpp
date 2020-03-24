@@ -54,12 +54,12 @@ std::unique_ptr<BackingStoreBackendCairo> BackingStore::createBackend()
         GdkVisual* visual = gtk_widget_get_visual(m_webPageProxy.viewWidget());
         GdkScreen* screen = gdk_visual_get_screen(visual);
         ASSERT(downcast<PlatformDisplayX11>(sharedDisplay).native() == GDK_SCREEN_XDISPLAY(screen));
-        return std::make_unique<BackingStoreBackendCairoX11>(GDK_WINDOW_XID(gdk_screen_get_root_window(screen)),
+        return makeUnique<BackingStoreBackendCairoX11>(GDK_WINDOW_XID(gdk_screen_get_root_window(screen)),
             GDK_VISUAL_XVISUAL(visual), gdk_visual_get_depth(visual), m_size, m_deviceScaleFactor);
     }
 #endif
 
-    return std::make_unique<BackingStoreBackendCairoImpl>(m_size, m_deviceScaleFactor);
+    return makeUnique<BackingStoreBackendCairoImpl>(m_size, m_deviceScaleFactor);
 }
 
 void BackingStore::paint(cairo_t* context, const IntRect& rect)
@@ -87,8 +87,8 @@ void BackingStore::incorporateUpdate(ShareableBitmap* bitmap, const UpdateInfo& 
     GraphicsContext graphicsContext(GraphicsContextImplCairo::createFactory(cairoContext.get()));
 
     // When m_webPageProxy.drawsBackground() is false, bitmap contains transparent parts as a background of the webpage.
-    // For such case, bitmap must be drawn using CompositeCopy to overwrite the existing surface.
-    graphicsContext.setCompositeOperation(WebCore::CompositeCopy);
+    // For such case, bitmap must be drawn using CompositeOperator::Copy to overwrite the existing surface.
+    graphicsContext.setCompositeOperation(WebCore::CompositeOperator::Copy);
 
     for (const auto& updateRect : updateInfo.updateRects) {
         IntRect srcRect = updateRect;

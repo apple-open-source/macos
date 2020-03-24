@@ -41,11 +41,14 @@ class WebPageProxy;
 class AcceleratedBackingStore {
     WTF_MAKE_NONCOPYABLE(AcceleratedBackingStore); WTF_MAKE_FAST_ALLOCATED;
 public:
+    static bool checkRequirements();
     static std::unique_ptr<AcceleratedBackingStore> create(WebPageProxy&);
     virtual ~AcceleratedBackingStore() = default;
 
     virtual void update(const LayerTreeContext&) { }
     virtual bool paint(cairo_t*, const WebCore::IntRect&) = 0;
+    virtual void realize() { };
+    virtual void unrealize() { };
     virtual bool makeContextCurrent() { return false; }
     virtual int renderHostFileDescriptor() { return -1; }
 

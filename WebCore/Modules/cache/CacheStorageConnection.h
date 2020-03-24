@@ -57,6 +57,9 @@ public:
     virtual void engineRepresentation(CompletionHandler<void(const String&)>&& callback) { callback(String { }); }
     virtual void updateQuotaBasedOnSpaceUsage(const ClientOrigin&) { }
 
+private:
+    uint64_t computeRealBodySize(const DOMCacheEngine::ResponseBody&);
+
 protected:
     HashMap<uint64_t, uint64_t> m_opaqueResponseToSizeWithPaddingMap;
 };

@@ -39,6 +39,9 @@ WebGLCompressedTextureASTC::WebGLCompressedTextureASTC(WebGLRenderingContextBase
     , m_isHDRSupported(context.graphicsContext3D()->getExtensions().supports("GL_KHR_texture_compression_astc_hdr"_s))
     , m_isLDRSupported(context.graphicsContext3D()->getExtensions().supports("GL_KHR_texture_compression_astc_ldr"_s))
 {
+    context.graphicsContext3D()->getExtensions().ensureEnabled("GL_KHR_texture_compression_astc_hdr"_s);
+    context.graphicsContext3D()->getExtensions().ensureEnabled("GL_KHR_texture_compression_astc_ldr"_s);
+
     context.addCompressedTextureFormat(Extensions3D::COMPRESSED_RGBA_ASTC_4x4_KHR);
     context.addCompressedTextureFormat(Extensions3D::COMPRESSED_RGBA_ASTC_5x4_KHR);
     context.addCompressedTextureFormat(Extensions3D::COMPRESSED_RGBA_ASTC_5x5_KHR);
@@ -91,9 +94,8 @@ Vector<String> WebGLCompressedTextureASTC::getSupportedProfiles()
 
 bool WebGLCompressedTextureASTC::supported(const WebGLRenderingContextBase& context)
 {
-    return RuntimeEnabledFeatures::sharedFeatures().webGLCompressedTextureASTCSupportEnabled()
-        && (context.graphicsContext3D()->getExtensions().supports("GL_KHR_texture_compression_astc_hdr"_s)
-        || context.graphicsContext3D()->getExtensions().supports("GL_KHR_texture_compression_astc_ldr"_s));
+    return context.graphicsContext3D()->getExtensions().supports("GL_KHR_texture_compression_astc_hdr"_s)
+        || context.graphicsContext3D()->getExtensions().supports("GL_KHR_texture_compression_astc_ldr"_s);
 }
 
 } // namespace WebCore

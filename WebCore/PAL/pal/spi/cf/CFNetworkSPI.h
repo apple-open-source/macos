@@ -55,20 +55,13 @@ extern const CFStringRef _kCFWindowsSSLPeerCert;
 
 WTF_EXTERN_C_END
 
-#endif
+#else // PLATFORM(WIN)
+#include <CFNetwork/CFSocketStreamPriv.h>
+#endif // PLATFORM(WIN)
 
 // FIXME: Remove the defined(__OBJC__)-guard once we fix <rdar://problem/19033610>.
 #if defined(__OBJC__) && PLATFORM(COCOA)
 #import <CFNetwork/CFNSURLConnection.h>
-#endif
-
-// This only needs to be declared on macOS 10.12 Sierra because
-// it will never appear in those SDK headers.  See also
-// HAVE(CFNETWORK_OVERRIDE_SESSION_COOKIE_ACCEPT_POLICY).
-#if defined(__OBJC__) && PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED == 101200
-@interface NSHTTPCookieStorage ()
-@property (nonatomic, readwrite) BOOL _overrideSessionCookieAcceptPolicy;
-@end
 #endif
 
 #else // !PLATFORM(WIN) && !USE(APPLE_INTERNAL_SDK)
@@ -114,6 +107,10 @@ typedef void (^CFCachedURLResponseCallBackBlock)(CFCachedURLResponseRef);
 #endif
 
 #if defined(__OBJC__)
+
+@interface NSURLSessionTask ()
+@property (readonly, retain) NSURLSessionTaskMetrics* _incompleteTaskMetrics;
+@end
 
 @interface NSURLCache ()
 - (CFURLCacheRef)_CFURLCache;
@@ -183,7 +180,7 @@ typedef void (^CFCachedURLResponseCallBackBlock)(CFCachedURLResponseRef);
 - (NSDate *)_lastModifiedDate;
 @end
 
-#if PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MAX_ALLOWED >= 60000
+#if PLATFORM(WATCHOS)
 typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
     NSURLSessionCompanionProxyPreferenceDefault = 0,
     NSURLSessionCompanionProxyPreferencePreferCompanion,
@@ -197,14 +194,11 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 @property (nullable, copy) NSString *_sourceApplicationBundleIdentifier;
 @property (nullable, copy) NSString *_sourceApplicationSecondaryIdentifier;
 @property BOOL _shouldSkipPreferredClientCertificateLookup NS_AVAILABLE(10_10, 8_0);
-@property BOOL _allowsTLSFallback;
 #if PLATFORM(IOS_FAMILY)
 @property (nullable, copy) NSString *_CTDataConnectionServiceType;
 #endif
-#if HAVE(CFNETWORK_WITH_AUTO_ADDED_HTTP_HEADER_SUPPRESSION_SUPPORT)
 @property (nullable, copy) NSSet *_suppressedAutoAddedHTTPHeaders;
-#endif
-#if PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MAX_ALLOWED >= 60000
+#if PLATFORM(WATCHOS)
 @property NSURLSessionCompanionProxyPreference _companionProxyPreference;
 #endif
 #if HAVE(APP_SSO)
@@ -223,12 +217,11 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 @property (nullable, readwrite, retain) NSURL *_siteForCookies;
 @property (readwrite) BOOL _isTopLevelNavigation;
 #endif
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
+#if PLATFORM(MAC) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
 @property (nonatomic, assign) BOOL _preconnect;
 #endif
 @end
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000)
 @interface NSURLSessionTaskTransactionMetrics ()
 @property (copy, readonly) NSString* _remoteAddressAndPort;
 @property (copy, readonly) NSUUID* _connectionIdentifier;
@@ -237,7 +230,6 @@ typedef NS_ENUM(NSInteger, NSURLSessionCompanionProxyPreference) {
 @property (assign, readonly) int64_t _responseBodyBytesReceived;
 @property (assign, readonly) int64_t _responseBodyBytesDecoded;
 @end
-#endif
 
 #if HAVE(CFNETWORK_NEGOTIATED_SSL_PROTOCOL_CIPHER)
 @interface NSURLSessionTaskTransactionMetrics ()
@@ -293,6 +285,7 @@ extern const CFStringRef kCFURLRequestAllowAllPOSTCaching;
 extern const CFStringRef _kCFURLCachePartitionKey;
 extern const CFStringRef _kCFURLConnectionPropertyShouldSniff;
 extern const CFStringRef _kCFURLStorageSessionIsPrivate;
+extern const CFStringRef kCFStreamSocketSecurityLevelTLSv1_2;
 
 #if HAVE(CFNETWORK_WITH_CONTENT_ENCODING_SNIFFING_OVERRIDE)
 extern const CFStringRef kCFURLRequestContentDecoderSkipURLCheck;
@@ -414,6 +407,7 @@ WTF_EXTERN_C_END
 
 @interface NSURLSessionTask ()
 - (void)_setExplicitCookieStorage:(CFHTTPCookieStorageRef)storage;
+@property (readonly) SSLProtocol _TLSNegotiatedProtocolVersion;
 @end
 
 #endif // defined(__OBJC__)

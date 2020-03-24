@@ -30,79 +30,81 @@
 #include <WebCore/Document.h>
 #include <WebCore/Frame.h>
 #include <WebCore/Page.h>
-#include <WebCore/SchemeRegistry.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/Settings.h>
+#include <WebCore/StorageType.h>
 
 namespace WebKit {
 using namespace WebCore;
 
-static uint64_t generateStorageAreaID()
+Ref<StorageAreaImpl> StorageAreaImpl::create(StorageAreaMap& storageAreaMap)
 {
-    static uint64_t storageAreaID;
-    return ++storageAreaID;
+    return adoptRef(*new StorageAreaImpl(storageAreaMap));
 }
 
-Ref<StorageAreaImpl> StorageAreaImpl::create(Ref<StorageAreaMap>&& storageAreaMap)
+StorageAreaImpl::StorageAreaImpl(StorageAreaMap& storageAreaMap)
+    : m_identifier(Identifier::generate())
+    , m_storageAreaMap(makeWeakPtr(storageAreaMap))
 {
-    return adoptRef(*new StorageAreaImpl(WTFMove(storageAreaMap)));
-}
-
-StorageAreaImpl::StorageAreaImpl(Ref<StorageAreaMap>&& storageAreaMap)
-    : m_storageAreaID(generateStorageAreaID())
-    , m_storageAreaMap(WTFMove(storageAreaMap))
-{
+    storageAreaMap.incrementUseCount();
 }
 
 StorageAreaImpl::~StorageAreaImpl()
 {
+    if (m_storageAreaMap)
+        m_storageAreaMap->decrementUseCount();
 }
 
 unsigned StorageAreaImpl::length()
 {
-    return m_storageAreaMap->length();
+    return m_storageAreaMap ? m_storageAreaMap->length() : 0;
 }
 
 String StorageAreaImpl::key(unsigned index)
 {
-    return m_storageAreaMap->key(index);
+    return m_storageAreaMap ? m_storageAreaMap->key(index) : nullString();
 }
 
 String StorageAreaImpl::item(const String& key)
 {
-    return m_storageAreaMap->item(key);
-}
-
-bool StorageAreaImpl::prewarm()
-{
-    return m_storageAreaMap->prewarm();
+    return m_storageAreaMap ? m_storageAreaMap->item(key) : nullString();
 }
 
 void StorageAreaImpl::setItem(Frame* sourceFrame, const String& key, const String& value, bool& quotaException)
 {
     ASSERT(!value.isNull());
 
-    m_storageAreaMap->setItem(sourceFrame, this, key, value, quotaException);
+    if (m_storageAreaMap)
+        m_storageAreaMap->setItem(sourceFrame, this, key, value, quotaException);
 }
 
 void StorageAreaImpl::removeItem(Frame* sourceFrame, const String& key)
 {
-    m_storageAreaMap->removeItem(sourceFrame, this, key);
+    if (m_storageAreaMap)
+        m_storageAreaMap->removeItem(sourceFrame, this, key);
 }
 
 void StorageAreaImpl::clear(Frame* sourceFrame)
 {
-    m_storageAreaMap->clear(sourceFrame, this);
+    if (m_storageAreaMap)
+        m_storageAreaMap->clear(sourceFrame, this);
 }
 
 bool StorageAreaImpl::contains(const String& key)
 {
-    return m_storageAreaMap->contains(key);
+    if (m_storageAreaMap)
+        return m_storageAreaMap->contains(key);
+
+    return false;
 }
 
 StorageType StorageAreaImpl::storageType() const
 {
-    return m_storageAreaMap->storageType();
+    if (m_storageAreaMap)
+        return m_storageAreaMap->type();
+
+    // We probably need an Invalid type.
+    return StorageType::Local;
 }
 
 size_t StorageAreaImpl::memoryBytesUsedByCache()
@@ -112,23 +114,18 @@ size_t StorageAreaImpl::memoryBytesUsedByCache()
 
 void StorageAreaImpl::incrementAccessCount()
 {
-    // Storage access is handled in the UI process, so there's nothing to do here.
+    // Storage access is handled in the network process, so there's nothing to do here.
 }
 
 void StorageAreaImpl::decrementAccessCount()
 {
-    // Storage access is handled in the UI process, so there's nothing to do here.
+    // Storage access is handled in the network process, so there's nothing to do here.
 }
 
 void StorageAreaImpl::closeDatabaseIfIdle()
 {
     // FIXME: Implement this.
     ASSERT_NOT_REACHED();
-}
-
-const SecurityOriginData& StorageAreaImpl::securityOrigin() const
-{
-    return m_storageAreaMap->securityOrigin().data();
 }
 
 } // namespace WebKit

@@ -28,10 +28,11 @@
 
 #if ENABLE(WEBGL)
 
+#include "InspectorInstrumentation.h"
+#include "ScriptExecutionContext.h"
 #include "WebGLContextGroup.h"
 #include "WebGLRenderingContextBase.h"
 #include "WebGLShader.h"
-#include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/NeverDestroyed.h>
 
@@ -60,7 +61,10 @@ Ref<WebGLProgram> WebGLProgram::create(WebGLRenderingContextBase& ctx)
 
 WebGLProgram::WebGLProgram(WebGLRenderingContextBase& ctx)
     : WebGLSharedObject(ctx)
+    , ContextDestructionObserver(ctx.scriptExecutionContext())
 {
+    ASSERT(scriptExecutionContext());
+
     {
         LockHolder lock(instancesMutex());
         instances(lock).add(this, &ctx);
@@ -71,6 +75,8 @@ WebGLProgram::WebGLProgram(WebGLRenderingContextBase& ctx)
 
 WebGLProgram::~WebGLProgram()
 {
+    InspectorInstrumentation::willDestroyWebGLProgram(*this);
+
     deleteObject(0);
 
     {
@@ -78,6 +84,13 @@ WebGLProgram::~WebGLProgram()
         ASSERT(instances(lock).contains(this));
         instances(lock).remove(this);
     }
+}
+
+void WebGLProgram::contextDestroyed()
+{
+    InspectorInstrumentation::willDestroyWebGLProgram(*this);
+
+    ContextDestructionObserver::contextDestroyed();
 }
 
 void WebGLProgram::deleteObjectImpl(GraphicsContext3D* context3d, Platform3DObject obj)
@@ -195,7 +208,7 @@ void WebGLProgram::cacheActiveAttribLocations(GraphicsContext3D* context3d)
     context3d->getProgramiv(object(), GraphicsContext3D::ACTIVE_ATTRIBUTES, &numAttribs);
     m_activeAttribLocations.resize(static_cast<size_t>(numAttribs));
     for (int i = 0; i < numAttribs; ++i) {
-        ActiveInfo info;
+        GraphicsContext3D::ActiveInfo info;
         context3d->getActiveAttribImpl(object(), i, info);
         m_activeAttribLocations[i] = context3d->getAttribLocation(object(), info.name);
     }

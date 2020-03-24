@@ -34,6 +34,7 @@
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "SharedBuffer.h"
+#include "SynchronousLoaderClient.h"
 
 namespace WebCore {
 
@@ -76,6 +77,7 @@ bool CurlDownload::cancel()
 
 Ref<CurlRequest> CurlDownload::createCurlRequest(ResourceRequest& request)
 {
+    // FIXME: Use a correct sessionID.
     auto curlRequest = CurlRequest::create(request, *this);
     return curlRequest;
 }

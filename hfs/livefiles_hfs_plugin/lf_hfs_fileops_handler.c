@@ -654,3 +654,105 @@ int LFHFS_ListXAttr ( UVFSFileNode psNode, void *pvOutBuf, size_t iBufSize, size
 
     return iErr;
 }
+
+int
+LFHFS_StreamLookup ( UVFSFileNode psFileNode, UVFSStreamNode *ppsOutNode )
+{
+    LFHFS_LOG(LEVEL_DEBUG, "LFHFS_StreamLookup\n");
+    VERIFY_NODE_IS_VALID(psFileNode);
+    
+    vnode_t psVnode = (vnode_t)psFileNode;
+    vnode_t psRscVnode = NULL;
+    
+    if (IS_DIR(psVnode)) {
+        return EISDIR;
+    }
+    
+    int iError = hfs_vgetrsrc(psVnode, &psRscVnode);
+    
+    if (!iError)
+        hfs_unlock (VTOC(psRscVnode));
+    
+    *ppsOutNode = (UVFSStreamNode) psRscVnode;
+    
+    return iError;
+}
+
+int
+LFHFS_StreamReclaim (UVFSStreamNode psStreamNode )
+{
+    LFHFS_LOG(LEVEL_DEBUG, "LFHFS_StreamReclaim\n");
+    
+    int iError = 0;
+    vnode_t psVnode = (vnode_t) psStreamNode;
+
+    if ( psVnode != NULL )
+    {
+        VERIFY_NODE_IS_VALID_FOR_RECLAIM(psVnode);
+        
+        iError = hfs_vnop_reclaim(psVnode);
+        psVnode = NULL;
+    }
+    
+    return iError;
+}
+
+int
+LFHFS_StreamRead (UVFSStreamNode psStreamNode, uint64_t uOffset, size_t iLength, void *pvBuf, size_t *iActuallyRead )
+{
+    LFHFS_LOG(LEVEL_DEBUG, "LFHFS_StreamRead  (psNode %p, uOffset %llu, iLength %lu)\n", psStreamNode, uOffset, iLength);
+    VERIFY_NODE_IS_VALID(psStreamNode);
+    
+    struct vnode *vp = (vnode_t)psStreamNode;
+    struct cnode *cp;
+    struct filefork *fp;
+    uint64_t filesize;
+    int retval = 0;
+    int took_truncate_lock = 0;
+    *iActuallyRead = 0;
+    
+    /* Preflight checks */
+    if (!vnode_isreg(vp)) {
+        /* can only read regular files */
+        return ( vnode_isdir(vp) ? EISDIR : EPERM );
+    }
+    
+    cp = VTOC(vp);
+    fp = VTOF(vp);
+    
+    /* Protect against a size change. */
+    hfs_lock_truncate(cp, HFS_SHARED_LOCK, HFS_LOCK_DEFAULT);
+    took_truncate_lock = 1;
+    
+    filesize = fp->ff_size;
+    /*
+     * Check the file size. Note that per POSIX spec, we return 0 at
+     * file EOF, so attempting a read at an offset that is too big
+     * should just return 0 on HFS+. Since the return value was initialized
+     * to 0 above, we just jump to exit.  HFS Standard has its own behavior.
+     */
+    if (uOffset > filesize)
+    {
+        LFHFS_LOG( LEVEL_ERROR, "LFHFS_Read: wanted offset is greater then file size\n" );
+        goto exit;
+    }
+    
+    // If we asked to read above the file size, adjust the read size;
+    if ( uOffset + iLength > filesize )
+    {
+        iLength = filesize - uOffset;
+    }
+    
+    uint64_t uReadStartCluster;
+    retval = raw_readwrite_read( vp, uOffset, pvBuf, iLength, iActuallyRead, &uReadStartCluster );
+    
+    cp->c_touch_acctime = TRUE;
+    
+exit:
+    if (took_truncate_lock)
+    {
+        hfs_unlock_truncate(cp, HFS_LOCK_DEFAULT);
+    }
+    return retval;
+}
+

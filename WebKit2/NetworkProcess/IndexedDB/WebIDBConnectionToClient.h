@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,40 +28,34 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "MessageSender.h"
-#include "NetworkConnectionToWebProcess.h"
 #include <WebCore/IDBConnectionToClient.h>
 #include <WebCore/IndexedDB.h>
-#include <pal/SessionID.h>
+#include <WebCore/ProcessIdentifier.h>
 
 namespace WebCore {
-class IDBCursorInfo;
-class IDBIndexInfo;
-class IDBKeyData;
-class IDBObjectStoreInfo;
-class IDBRequestData;
-class IDBTransactionInfo;
-class IDBValue;
-class SerializedScriptValue;
-struct IDBGetAllRecordsData;
-struct IDBGetRecordData;
-struct IDBIterateCursorData;
-struct IDBKeyRangeData;
-struct SecurityOriginData;
+namespace IDBServer {
+class IDBServer;
+}
 }
 
 namespace WebKit {
 
 class NetworkProcess;
+class WebIDBServer;
 
-class WebIDBConnectionToClient final : public WebCore::IDBServer::IDBConnectionToClientDelegate, public IPC::MessageSender, public RefCounted<WebIDBConnectionToClient> {
+class WebIDBConnectionToClient final : public WebCore::IDBServer::IDBConnectionToClientDelegate, public IPC::MessageSender {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<WebIDBConnectionToClient> create(NetworkProcess&, IPC::Connection&, uint64_t serverConnectionIdentifier, PAL::SessionID);
+    WebIDBConnectionToClient(IPC::Connection&, WebCore::IDBConnectionIdentifier);
 
     virtual ~WebIDBConnectionToClient();
 
     WebCore::IDBServer::IDBConnectionToClient& connectionToClient();
-    uint64_t identifier() const final { return m_identifier; }
-    uint64_t messageSenderDestinationID() const final { return m_identifier; }
+    WebCore::IDBConnectionIdentifier identifier() const final { return m_identifier; }
+
+private:
+    IPC::Connection* messageSenderConnection() const final;
+    uint64_t messageSenderDestinationID() const final { return 0; }
 
     // IDBConnectionToClientDelegate
     void didDeleteDatabase(const WebCore::IDBResultData&) final;
@@ -90,57 +84,11 @@ public:
 
     void didGetAllDatabaseNames(uint64_t callbackID, const Vector<String>& databaseNames) final;
 
-    void ref() override { RefCounted<WebIDBConnectionToClient>::ref(); }
-    void deref() override { RefCounted<WebIDBConnectionToClient>::deref(); }
-
-    // Messages received from WebProcess
-    void deleteDatabase(const WebCore::IDBRequestData&);
-    void openDatabase(const WebCore::IDBRequestData&);
-    void abortTransaction(const WebCore::IDBResourceIdentifier&);
-    void commitTransaction(const WebCore::IDBResourceIdentifier&);
-    void didFinishHandlingVersionChangeTransaction(uint64_t databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier&);
-    void createObjectStore(const WebCore::IDBRequestData&, const WebCore::IDBObjectStoreInfo&);
-    void deleteObjectStore(const WebCore::IDBRequestData&, const String& objectStoreName);
-    void renameObjectStore(const WebCore::IDBRequestData&, uint64_t objectStoreIdentifier, const String& newName);
-    void clearObjectStore(const WebCore::IDBRequestData&, uint64_t objectStoreIdentifier);
-    void createIndex(const WebCore::IDBRequestData&, const WebCore::IDBIndexInfo&);
-    void deleteIndex(const WebCore::IDBRequestData&, uint64_t objectStoreIdentifier, const String& indexName);
-    void renameIndex(const WebCore::IDBRequestData&, uint64_t objectStoreIdentifier, uint64_t indexIdentifier, const String& newName);
-    void putOrAdd(const WebCore::IDBRequestData&, const WebCore::IDBKeyData&, const WebCore::IDBValue&, WebCore::IndexedDB::ObjectStoreOverwriteMode);
-    void getRecord(const WebCore::IDBRequestData&, const WebCore::IDBGetRecordData&);
-    void getAllRecords(const WebCore::IDBRequestData&, const WebCore::IDBGetAllRecordsData&);
-    void getCount(const WebCore::IDBRequestData&, const WebCore::IDBKeyRangeData&);
-    void deleteRecord(const WebCore::IDBRequestData&, const WebCore::IDBKeyRangeData&);
-    void openCursor(const WebCore::IDBRequestData&, const WebCore::IDBCursorInfo&);
-    void iterateCursor(const WebCore::IDBRequestData&, const WebCore::IDBIterateCursorData&);
-
-    void establishTransaction(uint64_t databaseConnectionIdentifier, const WebCore::IDBTransactionInfo&);
-    void databaseConnectionPendingClose(uint64_t databaseConnectionIdentifier);
-    void databaseConnectionClosed(uint64_t databaseConnectionIdentifier);
-    void abortOpenAndUpgradeNeeded(uint64_t databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& transactionIdentifier);
-    void didFireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& requestIdentifier);
-    void openDBRequestCancelled(const WebCore::IDBRequestData&);
-    void confirmDidCloseFromServer(uint64_t databaseConnectionIdentifier);
-
-    void getAllDatabaseNames(uint64_t serverConnectionIdentifier, const WebCore::SecurityOriginData& topOrigin, const WebCore::SecurityOriginData& openingOrigin, uint64_t callbackID);
-
-    void disconnectedFromWebProcess();
-
-    void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
-
-private:
-    WebIDBConnectionToClient(NetworkProcess&, IPC::Connection&, uint64_t serverConnectionIdentifier, PAL::SessionID);
-
-    IPC::Connection* messageSenderConnection() const final;
-
     template<class MessageType> void handleGetResult(const WebCore::IDBResultData&);
 
     Ref<IPC::Connection> m_connection;
-    Ref<NetworkProcess> m_networkProcess;
-
-    uint64_t m_identifier;
-    PAL::SessionID m_sessionID;
-    RefPtr<WebCore::IDBServer::IDBConnectionToClient> m_connectionToClient;
+    WebCore::IDBConnectionIdentifier m_identifier;
+    Ref<WebCore::IDBServer::IDBConnectionToClient> m_connectionToClient;
 };
 
 } // namespace WebKit

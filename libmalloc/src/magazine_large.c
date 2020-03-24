@@ -230,14 +230,15 @@ large_entries_rehash_after_entry_no_lock(szone_t *szone, large_entry_t *entry)
 // FIXME: num should probably be a size_t, since you can theoretically allocate
 // more than 2^32-1 large_threshold objects in 64 bit.
 static MALLOC_INLINE large_entry_t *
-large_entries_alloc_no_lock(unsigned num)
+large_entries_alloc_no_lock(szone_t *szone, unsigned num)
 {
 	size_t size = num * sizeof(large_entry_t);
 
 	// Note that we allocate memory (via a system call) under a spin lock
 	// That is certainly evil, however it's very rare in the lifetime of a process
 	// The alternative would slow down the normal case
-	return mvm_allocate_pages(round_page_quanta(size), 0, 0, VM_MEMORY_MALLOC_LARGE);
+	unsigned flags = MALLOC_APPLY_LARGE_ASLR(szone->debug_flags & (DISABLE_ASLR | DISABLE_LARGE_ASLR));
+	return mvm_allocate_pages(round_page_quanta(size), 0, flags, VM_MEMORY_MALLOC_LARGE);
 }
 
 void
@@ -258,7 +259,7 @@ large_entries_grow_no_lock(szone_t *szone, vm_range_t *range_to_deallocate)
 	// always an odd number for good hashing
 	unsigned new_num_entries =
 	(old_num_entries) ? old_num_entries * 2 + 1 : (unsigned)((vm_page_quanta_size / sizeof(large_entry_t)) - 1);
-	large_entry_t *new_entries = large_entries_alloc_no_lock(new_num_entries);
+	large_entry_t *new_entries = large_entries_alloc_no_lock(szone, new_num_entries);
 	unsigned index = old_num_entries;
 	large_entry_t oldRange;
 
@@ -300,7 +301,7 @@ large_entry_free_no_lock(szone_t *szone, large_entry_t *entry)
 	range.address = entry->address;
 	range.size = entry->size;
 
-	if (szone->debug_flags & MALLOC_ADD_GUARD_PAGES) {
+	if (szone->debug_flags & MALLOC_ADD_GUARD_PAGE_FLAGS) {
 		mvm_protect((void *)range.address, range.size, PROT_READ | PROT_WRITE, szone->debug_flags);
 		range.address -= vm_page_quanta_size;
 		range.size += 2 * vm_page_quanta_size;
@@ -517,7 +518,9 @@ large_malloc(szone_t *szone, size_t num_kernel_pages, unsigned char alignment, b
 	range_to_deallocate.address = 0;
 #endif /* CONFIG_LARGE_CACHE */
 
-	addr = mvm_allocate_pages(size, alignment, szone->debug_flags, VM_MEMORY_MALLOC_LARGE);
+	// NOTE: we do not use MALLOC_FIX_GUARD_PAGE_FLAGS(szone->debug_flags) here
+	// because we want to always add either no guard page or both guard pages.
+	addr = mvm_allocate_pages(size, alignment, MALLOC_APPLY_LARGE_ASLR(szone->debug_flags), VM_MEMORY_MALLOC_LARGE);
 	if (addr == NULL) {
 		return NULL;
 	}
@@ -769,7 +772,7 @@ large_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new
 		large_entry->address = (vm_address_t)ptr;
 		large_entry->size = new_good_size;
 		szone->num_bytes_in_large_objects -= shrinkage;
-		boolean_t guarded = szone->debug_flags & MALLOC_ADD_GUARD_PAGES;
+		boolean_t guarded = szone->debug_flags & MALLOC_ADD_GUARD_PAGE_FLAGS;
 		SZONE_UNLOCK(szone); // we release the lock asap
 
 		if (guarded) {

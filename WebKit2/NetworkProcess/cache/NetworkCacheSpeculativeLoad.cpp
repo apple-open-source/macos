@@ -53,14 +53,14 @@ SpeculativeLoad::SpeculativeLoad(Cache& cache, const GlobalFrameID& globalFrameI
     ASSERT(!m_cacheEntry || m_cacheEntry->needsValidation());
 
     NetworkLoadParameters parameters;
-    parameters.webPageID = globalFrameID.first;
-    parameters.webFrameID = globalFrameID.second;
-    parameters.sessionID = PAL::SessionID::defaultSessionID();
+    parameters.webPageProxyID = globalFrameID.webPageProxyID;
+    parameters.webPageID = globalFrameID.webPageID;
+    parameters.webFrameID = globalFrameID.frameID;
     parameters.storedCredentialsPolicy = StoredCredentialsPolicy::Use;
     parameters.contentSniffingPolicy = ContentSniffingPolicy::DoNotSniffContent;
     parameters.contentEncodingSniffingPolicy = ContentEncodingSniffingPolicy::Sniff;
     parameters.request = m_originalRequest;
-    m_networkLoad = std::make_unique<NetworkLoad>(*this, nullptr, WTFMove(parameters), *cache.networkProcess().networkSession(PAL::SessionID::defaultSessionID()));
+    m_networkLoad = makeUnique<NetworkLoad>(*this, nullptr, WTFMove(parameters), *cache.networkProcess().networkSession(cache.sessionID()));
 }
 
 SpeculativeLoad::~SpeculativeLoad()
@@ -74,7 +74,7 @@ void SpeculativeLoad::willSendRedirectedRequest(ResourceRequest&& request, Resou
 
     Optional<Seconds> maxAgeCap;
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
-    if (auto* networkStorageSession = m_cache->networkProcess().storageSession(PAL::SessionID::defaultSessionID()))
+    if (auto* networkStorageSession = m_cache->networkProcess().storageSession(m_cache->sessionID()))
         maxAgeCap = networkStorageSession->maxAgeCacheCap(request);
 #endif
     m_cacheEntry = m_cache->storeRedirect(request, redirectResponse, redirectRequest, maxAgeCap);
@@ -153,6 +153,43 @@ void SpeculativeLoad::didComplete()
         m_cacheEntry->setNeedsValidation(false);
 
     m_completionHandler(WTFMove(m_cacheEntry));
+}
+
+#if !LOG_DISABLED
+
+static void dumpHTTPHeadersDiff(const HTTPHeaderMap& headersA, const HTTPHeaderMap& headersB)
+{
+    auto aEnd = headersA.end();
+    for (auto it = headersA.begin(); it != aEnd; ++it) {
+        String valueB = headersB.get(it->key);
+        if (valueB.isNull())
+            LOG(NetworkCacheSpeculativePreloading, "* '%s' HTTP header is only in first request (value: %s)", it->key.utf8().data(), it->value.utf8().data());
+        else if (it->value != valueB)
+            LOG(NetworkCacheSpeculativePreloading, "* '%s' HTTP header differs in both requests: %s != %s", it->key.utf8().data(), it->value.utf8().data(), valueB.utf8().data());
+    }
+    auto bEnd = headersB.end();
+    for (auto it = headersB.begin(); it != bEnd; ++it) {
+        if (!headersA.contains(it->key))
+            LOG(NetworkCacheSpeculativePreloading, "* '%s' HTTP header is only in second request (value: %s)", it->key.utf8().data(), it->value.utf8().data());
+    }
+}
+
+#endif
+
+bool requestsHeadersMatch(const ResourceRequest& speculativeValidationRequest, const ResourceRequest& actualRequest)
+{
+    ASSERT(!actualRequest.isConditional());
+    ResourceRequest speculativeRequest = speculativeValidationRequest;
+    speculativeRequest.makeUnconditional();
+
+    if (speculativeRequest.httpHeaderFields() != actualRequest.httpHeaderFields()) {
+        LOG(NetworkCacheSpeculativePreloading, "Cannot reuse speculatively validated entry because HTTP headers used for validation do not match");
+#if !LOG_DISABLED
+        dumpHTTPHeadersDiff(speculativeRequest.httpHeaderFields(), actualRequest.httpHeaderFields());
+#endif
+        return false;
+    }
+    return true;
 }
 
 } // namespace NetworkCache

@@ -92,12 +92,10 @@ extension OctagonPairingTests {
         }
         self.wait(for: [rpcEpochCallbackOccurs], timeout: 10)
 
-        let initiator1Context = self.manager.context(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
-
         let clientStateMachine = self.manager.clientStateMachine(forContainerName: OTCKContainerName, contextID: self.contextForAcceptor, clientName: self.initiatorName)
-        initiator1Context.startOctagonStateMachine()
+        self.cuttlefishContext.startOctagonStateMachine()
 
-        self.assertEnters(context: initiator1Context, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         var peerID: String = ""
         var permanentInfo = Data(count: 0)
@@ -140,15 +138,15 @@ extension OctagonPairingTests {
         self.wait(for: [firstMessageAcceptorCallback], timeout: 10)
 
         let rpcJoinCallback = self.expectation(description: "joining callback")
-        self.manager.rpcJoin(with: self.initiatorPiggybackingConfig, vouchData: voucher, vouchSig: voucherSig, preapprovedKeys: nil) { error in
+        self.manager.rpcJoin(with: self.initiatorPiggybackingConfig, vouchData: voucher, vouchSig: voucherSig) { error in
             XCTAssertNil(error, "error should be nil")
             rpcJoinCallback.fulfill()
         }
         self.wait(for: [rpcJoinCallback], timeout: 10)
 
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
-
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
         self.assertEnters(context: self.cuttlefishContextForAcceptor, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContextForAcceptor)
@@ -156,14 +154,13 @@ extension OctagonPairingTests {
         clientStateMachine.notifyContainerChange()
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -172,14 +169,13 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             acceptorDumpCallback.fulfill()
@@ -187,9 +183,11 @@ extension OctagonPairingTests {
         self.wait(for: [acceptorDumpCallback], timeout: 10)
 
         self.verifyDatabaseMocks()
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
     }
 
-    func testVersion2ofPiggybacking() {
+    func testVersion2ofPiggybacking() throws {
         KCSetJoiningOctagonPiggybackingEnabled(true)
         OctagonSetIsEnabled(true)
         self.startCKAccountStatusMock()
@@ -264,7 +262,7 @@ extension OctagonPairingTests {
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
-        requestCircleSession.setJoiningConfigurationObject(self.initiatorPiggybackingConfig)
+        requestCircleSession.setContextIDOnJoiningConfiguration(self.initiatorPiggybackingConfig.contextID)
         requestCircleSession.setControlObject(self.otControl)
 
         var identityMessage: Data?
@@ -275,6 +273,10 @@ extension OctagonPairingTests {
         } catch {
             XCTAssertNil(error, "error retrieving identityMessage message")
         }
+
+        // Double-check that there's an Octagon message in the packet
+        let initiatorIdentityMessage = try self.unpackPiggybackingInitialMessage(identityMessage: identityMessage!, session: acceptSession!.accessSession())
+        XCTAssertTrue(initiatorIdentityMessage.hasPrepare, "Pairing message should contain prepared information")
 
         var voucherMessage: Data?
         do {
@@ -312,14 +314,13 @@ extension OctagonPairingTests {
         self.verifyDatabaseMocks()
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -328,14 +329,13 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             acceptorDumpCallback.fulfill()
@@ -545,7 +545,7 @@ extension OctagonPairingTests {
         self.wait(for: [firstMessageWithNewJoiningConfigCallback], timeout: 10)
     }
 
-    func testVersion2ofPiggybackingWithSOS() {
+    func testVersion2ofPiggybackingWithSOS() throws {
         KCSetJoiningOctagonPiggybackingEnabled(true)
         OctagonSetPlatformSupportsSOS(true)
         self.startCKAccountStatusMock()
@@ -626,7 +626,7 @@ extension OctagonPairingTests {
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
-        requestCircleSession.setJoiningConfigurationObject(self.initiatorPiggybackingConfig)
+        requestCircleSession.setContextIDOnJoiningConfiguration(self.initiatorPiggybackingConfig.contextID)
         requestCircleSession.setControlObject(self.otControl)
 
         var identityMessage: Data?
@@ -641,6 +641,10 @@ extension OctagonPairingTests {
             XCTAssertNil(error, "error retrieving identityMessage message")
         }
 
+        // Double-check that there's an Octagon message in the packet
+        let initiatorIdentityMessage = try self.unpackPiggybackingInitialMessage(identityMessage: identityMessage!, session: acceptSession!.accessSession())
+        XCTAssertTrue(initiatorIdentityMessage.hasPrepare, "Pairing message should contain prepared information")
+
         var voucherMessage: Data?
         do {
             voucherMessage = try acceptSession!.processMessage(identityMessage!)
@@ -650,7 +654,6 @@ extension OctagonPairingTests {
             XCTAssertNotNil(voucherMessage, "No voucherMessage message")
         } catch {
             XCTAssertNil(error, "error retrieving voucherMessage message")
-
         }
 
         var nothing: Data?
@@ -680,14 +683,13 @@ extension OctagonPairingTests {
         self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContextForAcceptor, sender: self.cuttlefishContext)
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -696,14 +698,13 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             acceptorDumpCallback.fulfill()
@@ -791,7 +792,7 @@ extension OctagonPairingTests {
                                                                  error: nil)
         XCTAssertNotNil(requestCircleSession, "No request secret session")
 
-        requestCircleSession.setJoiningConfigurationObject(self.initiatorPiggybackingConfig)
+        requestCircleSession.setContextIDOnJoiningConfiguration(self.initiatorPiggybackingConfig.contextID)
         requestCircleSession.setControlObject(self.otControl)
 
         var identityMessage: Data?

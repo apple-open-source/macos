@@ -67,6 +67,11 @@ static void setCGStrokeColor(CGContextRef context, const Color& color)
     CGContextSetStrokeColorWithColor(context, cachedCGColor(color));
 }
 
+inline CGAffineTransform getUserToBaseCTM(CGContextRef context)
+{
+    return CGAffineTransformConcat(CGContextGetCTM(context), CGAffineTransformInvert(CGContextGetBaseCTM(context)));
+}
+
 CGColorSpaceRef sRGBColorSpaceRef()
 {
     static CGColorSpaceRef sRGBColorSpace;
@@ -125,7 +130,7 @@ CGColorSpaceRef displayP3ColorSpaceRef()
     static CGColorSpaceRef displayP3ColorSpace;
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [] {
-#if PLATFORM(IOS_FAMILY) || PLATFORM(MAC)
+#if PLATFORM(COCOA)
         displayP3ColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceDisplayP3);
 #else
         displayP3ColorSpace = sRGBColorSpaceRef();
@@ -138,17 +143,17 @@ static InterpolationQuality convertInterpolationQuality(CGInterpolationQuality q
 {
     switch (quality) {
     case kCGInterpolationDefault:
-        return InterpolationDefault;
+        return InterpolationQuality::Default;
     case kCGInterpolationNone:
-        return InterpolationNone;
+        return InterpolationQuality::DoNotInterpolate;
     case kCGInterpolationLow:
-        return InterpolationLow;
+        return InterpolationQuality::Low;
     case kCGInterpolationMedium:
-        return InterpolationMedium;
+        return InterpolationQuality::Medium;
     case kCGInterpolationHigh:
-        return InterpolationHigh;
+        return InterpolationQuality::High;
     }
-    return InterpolationDefault;
+    return InterpolationQuality::Default;
 }
 
 static CGBlendMode selectCGBlendMode(CompositeOperator compositeOperator, BlendMode blendMode)
@@ -156,33 +161,33 @@ static CGBlendMode selectCGBlendMode(CompositeOperator compositeOperator, BlendM
     switch (blendMode) {
     case BlendMode::Normal:
         switch (compositeOperator) {
-        case CompositeClear:
+        case CompositeOperator::Clear:
             return kCGBlendModeClear;
-        case CompositeCopy:
+        case CompositeOperator::Copy:
             return kCGBlendModeCopy;
-        case CompositeSourceOver:
+        case CompositeOperator::SourceOver:
             return kCGBlendModeNormal;
-        case CompositeSourceIn:
+        case CompositeOperator::SourceIn:
             return kCGBlendModeSourceIn;
-        case CompositeSourceOut:
+        case CompositeOperator::SourceOut:
             return kCGBlendModeSourceOut;
-        case CompositeSourceAtop:
+        case CompositeOperator::SourceAtop:
             return kCGBlendModeSourceAtop;
-        case CompositeDestinationOver:
+        case CompositeOperator::DestinationOver:
             return kCGBlendModeDestinationOver;
-        case CompositeDestinationIn:
+        case CompositeOperator::DestinationIn:
             return kCGBlendModeDestinationIn;
-        case CompositeDestinationOut:
+        case CompositeOperator::DestinationOut:
             return kCGBlendModeDestinationOut;
-        case CompositeDestinationAtop:
+        case CompositeOperator::DestinationAtop:
             return kCGBlendModeDestinationAtop;
-        case CompositeXOR:
+        case CompositeOperator::XOR:
             return kCGBlendModeXOR;
-        case CompositePlusDarker:
+        case CompositeOperator::PlusDarker:
             return kCGBlendModePlusDarker;
-        case CompositePlusLighter:
+        case CompositeOperator::PlusLighter:
             return kCGBlendModePlusLighter;
-        case CompositeDifference:
+        case CompositeOperator::Difference:
             return kCGBlendModeDifference;
         }
         break;
@@ -273,13 +278,13 @@ void GraphicsContext::restorePlatformState()
     m_data->m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
-void GraphicsContext::drawNativeImage(const RetainPtr<CGImageRef>& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator op, BlendMode blendMode, ImageOrientation orientation)
+void GraphicsContext::drawNativeImage(const RetainPtr<CGImageRef>& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
     if (paintingDisabled())
         return;
 
     if (m_impl) {
-        m_impl->drawNativeImage(image, imageSize, destRect, srcRect, op, blendMode, orientation);
+        m_impl->drawNativeImage(image, imageSize, destRect, srcRect, options);
         return;
     }
 
@@ -288,7 +293,7 @@ void GraphicsContext::drawNativeImage(const RetainPtr<CGImageRef>& image, const 
 #endif
     RetainPtr<CGImageRef> subImage(image);
 
-    float currHeight = orientation.usesWidthAsHeight() ? CGImageGetWidth(subImage.get()) : CGImageGetHeight(subImage.get());
+    float currHeight = options.orientation().usesWidthAsHeight() ? CGImageGetWidth(subImage.get()) : CGImageGetHeight(subImage.get());
     if (currHeight <= srcRect.y())
         return;
 
@@ -325,6 +330,13 @@ void GraphicsContext::drawNativeImage(const RetainPtr<CGImageRef>& image, const 
             subimageRect.setHeight(ceilf(subimageRect.height() + topPadding));
             adjustedDestRect.setHeight(subimageRect.height() / yScale);
 
+            // subimageRect is in logical coordinates. getSubimage() deals with none-oriented
+            // image. We need to convert subimageRect to physical image coordinates.
+            if (options.orientation() != ImageOrientation::None) {
+                if (auto transform = options.orientation().transformFromDefault(imageSize).inverse())
+                    subimageRect = transform.value().mapRect(subimageRect);
+            }
+
 #if CACHE_SUBIMAGES
             subImage = SubimageCacheWithTimer::getSubimage(subImage.get(), subimageRect);
 #else
@@ -358,15 +370,15 @@ void GraphicsContext::drawNativeImage(const RetainPtr<CGImageRef>& image, const 
     adjustedDestRect = roundToDevicePixels(adjustedDestRect);
 #endif
 
-    setPlatformCompositeOperation(op, blendMode);
+    setPlatformCompositeOperation(options.compositeOperator(), options.blendMode());
 
     // ImageOrientation expects the origin to be at (0, 0)
     CGContextTranslateCTM(context, adjustedDestRect.x(), adjustedDestRect.y());
     adjustedDestRect.setLocation(FloatPoint());
 
-    if (orientation != DefaultImageOrientation) {
-        CGContextConcatCTM(context, orientation.transformFromDefault(adjustedDestRect.size()));
-        if (orientation.usesWidthAsHeight()) {
+    if (options.orientation() != ImageOrientation::None) {
+        CGContextConcatCTM(context, options.orientation().transformFromDefault(adjustedDestRect.size()));
+        if (options.orientation().usesWidthAsHeight()) {
             // The destination rect will have it's width and height already reversed for the orientation of
             // the image, as it was needed for page layout, so we need to reverse it back here.
             adjustedDestRect = FloatRect(adjustedDestRect.x(), adjustedDestRect.y(), adjustedDestRect.height(), adjustedDestRect.width());
@@ -408,13 +420,13 @@ static void patternReleaseCallback(void* info)
     });
 }
 
-void GraphicsContext::drawPattern(Image& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, CompositeOperator op, BlendMode blendMode)
+void GraphicsContext::drawPattern(Image& image, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
     if (paintingDisabled() || !patternTransform.isInvertible())
         return;
 
     if (m_impl) {
-        m_impl->drawPattern(image, destRect, tileRect, patternTransform, phase, spacing, op, blendMode);
+        m_impl->drawPattern(image, destRect, tileRect, patternTransform, phase, spacing, options);
         return;
     }
 
@@ -422,7 +434,7 @@ void GraphicsContext::drawPattern(Image& image, const FloatRect& destRect, const
     CGContextStateSaver stateSaver(context);
     CGContextClipToRect(context, destRect);
 
-    setPlatformCompositeOperation(op, blendMode);
+    setPlatformCompositeOperation(options.compositeOperator(), options.blendMode());
 
     CGContextTranslateCTM(context, destRect.x(), destRect.y() + destRect.height());
     CGContextScaleCTM(context, 1, -1);
@@ -435,15 +447,16 @@ void GraphicsContext::drawPattern(Image& image, const FloatRect& destRect, const
     float adjustedX = phase.x() - destRect.x() + tileRect.x() * narrowPrecisionToFloat(patternTransform.a()); // We translated the context so that destRect.x() is the origin, so subtract it out.
     float adjustedY = destRect.height() - (phase.y() - destRect.y() + tileRect.y() * narrowPrecisionToFloat(patternTransform.d()) + scaledTileHeight);
 
-    auto tileImage = image.nativeImageForCurrentFrame();
+    NativeImagePtr tileImage;
+    if (options.orientation() == ImageOrientation::FromImage)
+        tileImage = image.nativeImageForCurrentFrameRespectingOrientation();
+    else
+        tileImage = image.nativeImageForCurrentFrame();
+
     float h = CGImageGetHeight(tileImage.get());
 
     RetainPtr<CGImageRef> subImage;
-#if PLATFORM(IOS_FAMILY)
-    FloatSize imageSize = image.originalSize();
-#else
     FloatSize imageSize = image.size();
-#endif
     if (tileRect.size() == imageSize)
         subImage = tileImage;
     else {
@@ -1639,7 +1652,6 @@ void GraphicsContext::drawLinesForText(const FloatPoint& point, float thickness,
 
 void GraphicsContext::setURLForRect(const URL& link, const FloatRect& destRect)
 {
-#if !PLATFORM(IOS_FAMILY)
     if (paintingDisabled())
         return;
 
@@ -1659,10 +1671,6 @@ void GraphicsContext::setURLForRect(const URL& link, const FloatRect& destRect)
     rect.intersect(CGContextGetClipBoundingBox(context));
 
     CGPDFContextSetURLForRect(context, urlRef.get(), CGRectApplyAffineTransform(rect, CGContextGetCTM(context)));
-#else
-    UNUSED_PARAM(link);
-    UNUSED_PARAM(destRect);
-#endif
 }
 
 void GraphicsContext::setPlatformImageInterpolationQuality(InterpolationQuality mode)
@@ -1671,19 +1679,19 @@ void GraphicsContext::setPlatformImageInterpolationQuality(InterpolationQuality 
 
     CGInterpolationQuality quality = kCGInterpolationDefault;
     switch (mode) {
-    case InterpolationDefault:
+    case InterpolationQuality::Default:
         quality = kCGInterpolationDefault;
         break;
-    case InterpolationNone:
+    case InterpolationQuality::DoNotInterpolate:
         quality = kCGInterpolationNone;
         break;
-    case InterpolationLow:
+    case InterpolationQuality::Low:
         quality = kCGInterpolationLow;
         break;
-    case InterpolationMedium:
+    case InterpolationQuality::Medium:
         quality = kCGInterpolationMedium;
         break;
-    case InterpolationHigh:
+    case InterpolationQuality::High:
         quality = kCGInterpolationHigh;
         break;
     }

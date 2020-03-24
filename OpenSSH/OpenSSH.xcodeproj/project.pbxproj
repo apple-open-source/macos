@@ -238,7 +238,6 @@
 		1C6B2D430FEC4F58004F1935 /* port-uw.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2CF50FEC4F58004F1935 /* port-uw.h */; };
 		1C6B2D440FEC4F58004F1935 /* readpassphrase.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2CF60FEC4F58004F1935 /* readpassphrase.c */; };
 		1C6B2D450FEC4F58004F1935 /* readpassphrase.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2CF70FEC4F58004F1935 /* readpassphrase.h */; };
-		1C6B2D460FEC4F58004F1935 /* realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2CF80FEC4F58004F1935 /* realpath.c */; };
 		1C6B2D470FEC4F58004F1935 /* rresvport.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2CF90FEC4F58004F1935 /* rresvport.c */; };
 		1C6B2D480FEC4F58004F1935 /* setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2CFA0FEC4F58004F1935 /* setenv.c */; };
 		1C6B2D490FEC4F58004F1935 /* setproctitle.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2CFB0FEC4F58004F1935 /* setproctitle.c */; };
@@ -280,8 +279,6 @@
 		1C6B2DEB0FEC5780004F1935 /* cipher.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2DCA0FEC5780004F1935 /* cipher.h */; };
 		1C6B2DEC0FEC5780004F1935 /* compat.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DCB0FEC5780004F1935 /* compat.c */; };
 		1C6B2DED0FEC5780004F1935 /* compat.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2DCC0FEC5780004F1935 /* compat.h */; };
-		1C6B2DF00FEC5780004F1935 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DCF0FEC5780004F1935 /* crc32.c */; };
-		1C6B2DF10FEC5780004F1935 /* crc32.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C6B2DD00FEC5780004F1935 /* crc32.h */; };
 		1C6B2DF40FEC5780004F1935 /* fatal.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DD30FEC5780004F1935 /* fatal.c */; };
 		1C6B2DF50FEC5780004F1935 /* hostfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DD40FEC5780004F1935 /* hostfile.c */; };
 		1C6B2DF60FEC5780004F1935 /* match.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DD50FEC5780004F1935 /* match.c */; };
@@ -294,7 +291,6 @@
 		1C6B2E280FEC58C4004F1935 /* entropy.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2E1F0FEC58C4004F1935 /* entropy.c */; };
 		1C6B2E350FEC5933004F1935 /* kex.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2E2C0FEC5933004F1935 /* kex.c */; };
 		1C6B2E370FEC5933004F1935 /* kexdh.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2E2E0FEC5933004F1935 /* kexdh.c */; };
-		1C6B2E380FEC5933004F1935 /* kexdhc.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2E2F0FEC5933004F1935 /* kexdhc.c */; };
 		1C6B2E390FEC5933004F1935 /* kexgex.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2E300FEC5933004F1935 /* kexgex.c */; };
 		1C6B2E3A0FEC5933004F1935 /* kexgexc.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2E310FEC5933004F1935 /* kexgexc.c */; };
 		1C6B2E880FEC5AD3004F1935 /* libssh.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2DAC0FEC5695004F1935 /* libssh.a */; };
@@ -345,7 +341,6 @@
 		1C6B2F9A0FEFF7F1004F1935 /* cipher.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DC90FEC5780004F1935 /* cipher.c */; };
 		1C6B2F9E0FEFF846004F1935 /* cipher-ctr.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DC80FEC5780004F1935 /* cipher-ctr.c */; };
 		1C6B2FA00FEFF8A0004F1935 /* compat.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DCB0FEC5780004F1935 /* compat.c */; };
-		1C6B2FA20FEFF8A0004F1935 /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DCF0FEC5780004F1935 /* crc32.c */; };
 		1C6B2FA40FEFF8A0004F1935 /* fatal.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DD30FEC5780004F1935 /* fatal.c */; };
 		1C6B2FA50FEFF8A0004F1935 /* hostfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2DD40FEC5780004F1935 /* hostfile.c */; };
 		1C6B2FA70FEFF8DB004F1935 /* log.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2D750FEC554A004F1935 /* log.c */; };
@@ -361,7 +356,6 @@
 		1C6B2FCC0FEFF9FF004F1935 /* mac.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FC20FEFF9FF004F1935 /* mac.c */; };
 		1C6B2FCE0FEFF9FF004F1935 /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FC40FEFF9FF004F1935 /* misc.c */; };
 		1C6B2FCF0FEFF9FF004F1935 /* uidswap.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FC50FEFF9FF004F1935 /* uidswap.c */; };
-		1C6B2FD10FEFF9FF004F1935 /* uuencode.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FC70FEFF9FF004F1935 /* uuencode.c */; };
 		1C6B2FDB0FEFFAB7004F1935 /* monitor_fdpass.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FD50FEFFAB7004F1935 /* monitor_fdpass.c */; };
 		1C6B2FDD0FEFFAB7004F1935 /* rijndael.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FD70FEFFAB7004F1935 /* rijndael.c */; };
 		1C6B2FDF0FEFFAB7004F1935 /* ssh-dss.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2FD90FEFFAB7004F1935 /* ssh-dss.c */; };
@@ -404,7 +398,6 @@
 		1C76A8480FF0289C00D35824 /* auth2-pubkey.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C76A83C0FF0289C00D35824 /* auth2-pubkey.c */; };
 		1C76A8490FF0289C00D35824 /* groupaccess.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C76A83D0FF0289C00D35824 /* groupaccess.c */; };
 		1C76A8530FF028CA00D35824 /* auth-krb5.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C76A84A0FF028CA00D35824 /* auth-krb5.c */; };
-		1C76A8540FF028CA00D35824 /* kexdhs.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C76A84B0FF028CA00D35824 /* kexdhs.c */; };
 		1C76A8550FF028CA00D35824 /* kexgexs.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C76A84C0FF028CA00D35824 /* kexgexs.c */; };
 		1C76A8570FF028CA00D35824 /* monitor_wrap.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C76A84F0FF028CA00D35824 /* monitor_wrap.c */; };
 		1C76A8580FF028CA00D35824 /* monitor.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C76A8510FF028CA00D35824 /* monitor.c */; };
@@ -427,12 +420,9 @@
 		1CC368470FF02CD6009818B0 /* sftp-server.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F370FEC5E93004F1935 /* sftp-server.c */; };
 		1CC3684A0FF02D09009818B0 /* progressmeter.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F1D0FEC5CFE004F1935 /* progressmeter.c */; };
 		1CC3686F0FF02FE3009818B0 /* sftp-common.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F350FEC5E93004F1935 /* sftp-common.c */; };
-		727891131D9F1D9100767C80 /* utf8.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891111D9F1D6D00767C80 /* utf8.c */; };
 		727891151D9F1EA200767C80 /* platform-tracing.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891141D9F1E9800767C80 /* platform-tracing.c */; };
 		727891161D9F1EDB00767C80 /* platform-tracing.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891141D9F1E9800767C80 /* platform-tracing.c */; };
-		727891171D9F1EEC00767C80 /* utf8.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891111D9F1D6D00767C80 /* utf8.c */; };
 		727891181D9F1F0300767C80 /* platform-tracing.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891141D9F1E9800767C80 /* platform-tracing.c */; };
-		727891191D9F1F1D00767C80 /* utf8.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891111D9F1D6D00767C80 /* utf8.c */; };
 		730F2F4618370038006E4D51 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 730F2F4518370038006E4D51 /* CoreFoundation.framework */; };
 		730F2F501837009F006E4D51 /* ServiceManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 730F2F4F1837009F006E4D51 /* ServiceManagement.framework */; };
 		730F2F5318370249006E4D51 /* remote-login-status.c in Sources */ = {isa = PBXBuildFile; fileRef = 730F2F3E1836FEF5006E4D51 /* remote-login-status.c */; };
@@ -471,8 +461,6 @@
 		73452E471A9A70D100633C3B /* hmac.c in Sources */ = {isa = PBXBuildFile; fileRef = 73452E3C1A9A70D100633C3B /* hmac.c */; };
 		73452E481A9A70D100633C3B /* hmac.h in Headers */ = {isa = PBXBuildFile; fileRef = 73452E3D1A9A70D100633C3B /* hmac.h */; };
 		73452E491A9A70D100633C3B /* kexc25519.c in Sources */ = {isa = PBXBuildFile; fileRef = 73452E3E1A9A70D100633C3B /* kexc25519.c */; };
-		73452E4A1A9A70D100633C3B /* kexc25519c.c in Sources */ = {isa = PBXBuildFile; fileRef = 73452E3F1A9A70D100633C3B /* kexc25519c.c */; };
-		73452E4C1A9A70EF00633C3B /* kexc25519s.c in Sources */ = {isa = PBXBuildFile; fileRef = 73452E4B1A9A70EF00633C3B /* kexc25519s.c */; };
 		73452E561A9A715C00633C3B /* poly1305.c in Sources */ = {isa = PBXBuildFile; fileRef = 73452E4E1A9A715C00633C3B /* poly1305.c */; };
 		73452E571A9A715C00633C3B /* poly1305.h in Headers */ = {isa = PBXBuildFile; fileRef = 73452E4F1A9A715C00633C3B /* poly1305.h */; };
 		73452E581A9A715C00633C3B /* sc25519.c in Sources */ = {isa = PBXBuildFile; fileRef = 73452E501A9A715C00633C3B /* sc25519.c */; };
@@ -489,7 +477,6 @@
 		73937A9C177B845A006F7E42 /* libopenbsd-compat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2CBB0FEC4E73004F1935 /* libopenbsd-compat.a */; };
 		73937A9D177B845A006F7E42 /* libssh.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2DAC0FEC5695004F1935 /* libssh.a */; };
 		739A2F871B5D85FA0073A9BC /* bitmap.c in Sources */ = {isa = PBXBuildFile; fileRef = 739A2F831B5D85A90073A9BC /* bitmap.c */; };
-		739A2F881B5D86450073A9BC /* opacket.c in Sources */ = {isa = PBXBuildFile; fileRef = 739A2F851B5D85C40073A9BC /* opacket.c */; };
 		739A2F8B1B5D86680073A9BC /* ssh_api.c in Sources */ = {isa = PBXBuildFile; fileRef = 739A2F891B5D86600073A9BC /* ssh_api.c */; };
 		739A2F951B5D872F0073A9BC /* md5.c in Sources */ = {isa = PBXBuildFile; fileRef = 739A2F8D1B5D872F0073A9BC /* md5.c */; };
 		739A2F961B5D872F0073A9BC /* md5.h in Headers */ = {isa = PBXBuildFile; fileRef = 739A2F8E1B5D872F0073A9BC /* md5.h */; };
@@ -511,12 +498,8 @@
 		739A2FBF1B5DD2170073A9BC /* netcat.c in Sources */ = {isa = PBXBuildFile; fileRef = 739A2FBE1B5DD2170073A9BC /* netcat.c */; };
 		739A2FC41B5ECFDC0073A9BC /* libssh.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2DAC0FEC5695004F1935 /* libssh.a */; };
 		73A3E1C41B5F17CE0002909F /* ssh-keyscan.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C6B2F320FEC5E3D004F1935 /* ssh-keyscan.c */; };
-		73A3E1C61B5F188F0002909F /* kexc25519s.c in Sources */ = {isa = PBXBuildFile; fileRef = 73452E4B1A9A70EF00633C3B /* kexc25519s.c */; };
-		73A3E1C71B5F18C80002909F /* kexdhs.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C76A84B0FF028CA00D35824 /* kexdhs.c */; };
-		73A3E1C81B5F18E30002909F /* kexecdhs.c in Sources */ = {isa = PBXBuildFile; fileRef = EEA0F6D314733143009DF2FB /* kexecdhs.c */; };
 		73A3E1CA1B5F190B0002909F /* kexgexs.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C76A84C0FF028CA00D35824 /* kexgexs.c */; };
 		73E11A561A9A84A9005C72BC /* kexecdh.c in Sources */ = {isa = PBXBuildFile; fileRef = 7365E6251437BB71004DC1EC /* kexecdh.c */; };
-		73E11A571A9A84DA005C72BC /* kexecdhc.c in Sources */ = {isa = PBXBuildFile; fileRef = EEA0F6D5147331A8009DF2FB /* kexecdhc.c */; };
 		73E11A581A9A8559005C72BC /* ssh-ecdsa.c in Sources */ = {isa = PBXBuildFile; fileRef = 7365E64F1437BB71004DC1EC /* ssh-ecdsa.c */; };
 		73F2462D1773937E006986BE /* bsd-setres_id.c in Sources */ = {isa = PBXBuildFile; fileRef = 73F246251773937E006986BE /* bsd-setres_id.c */; };
 		73F2462E1773937E006986BE /* bsd-setres_id.h in Headers */ = {isa = PBXBuildFile; fileRef = 73F246261773937E006986BE /* bsd-setres_id.h */; };
@@ -538,7 +521,6 @@
 		EB17A9E516A8059100B18CD6 /* libssh.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2DAC0FEC5695004F1935 /* libssh.a */; };
 		EB17A9E616A806F700B18CD6 /* timingsafe_bcmp.c in Sources */ = {isa = PBXBuildFile; fileRef = EEA0F6BC14731B33009DF2FB /* timingsafe_bcmp.c */; };
 		EEA0F6D214732F9F009DF2FB /* sandbox-darwin.c in Sources */ = {isa = PBXBuildFile; fileRef = EEA0F6D114732F9F009DF2FB /* sandbox-darwin.c */; };
-		EEA0F6D414733143009DF2FB /* kexecdhs.c in Sources */ = {isa = PBXBuildFile; fileRef = EEA0F6D314733143009DF2FB /* kexecdhs.c */; };
 		EEA0F6D91473908F009DF2FB /* sandbox-null.c in Sources */ = {isa = PBXBuildFile; fileRef = EEA0F6D81473908F009DF2FB /* sandbox-null.c */; };
 		EEA0F6DB14741D7D009DF2FB /* host-expand.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = EEA0F6DA14741D7D009DF2FB /* host-expand.sh */; };
 		EEA0F6DD14741DB2009DF2FB /* kextype.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = EEA0F6DC14741DB2009DF2FB /* kextype.sh */; };
@@ -547,7 +529,6 @@
 		FE222BE61CB86B430054CBE3 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FEF086501CB6DC40008C4B6D /* Security.framework */; };
 		FE23D9021C747152002E7923 /* umac128.c in Sources */ = {isa = PBXBuildFile; fileRef = FE23D9011C747142002E7923 /* umac128.c */; };
 		FE445FB51EC91BFF00DCAFFF /* ssh-keygen.c in Sources */ = {isa = PBXBuildFile; fileRef = FE71DD071CA5EA9400B2C19F /* ssh-keygen.c */; };
-		FE445FB61EC91C5500DCAFFF /* utf8.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891111D9F1D6D00767C80 /* utf8.c */; };
 		FE54EE041CB3746C00A61CCB /* cipher-3des1.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54EE031CB3745D00A61CCB /* cipher-3des1.c */; };
 		FE54EE061CB3749100A61CCB /* cipher-bf1.c in Sources */ = {isa = PBXBuildFile; fileRef = FE54EE051CB3748C00A61CCB /* cipher-bf1.c */; };
 		FE71DD101CA5F19300B2C19F /* libresolv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C76A5A80FF004A500D35824 /* libresolv.dylib */; };
@@ -620,6 +601,10 @@
 		FE7710661F9C13EB0092A263 /* platform-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = FE77105B1F9C13870092A263 /* platform-misc.c */; };
 		FE7710671F9C13EC0092A263 /* platform-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = FE77105B1F9C13870092A263 /* platform-misc.c */; };
 		FE7710691F9C16680092A263 /* authinfo.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FE7710681F9C164A0092A263 /* authinfo.sh */; };
+		FE7E63E223849B8A00FEA2DD /* sshsig.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FE7E63E123849B8A00FEA2DD /* sshsig.sh */; };
+		FE7E63E52384B8EE00FEA2DD /* sshsig.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7E63E32384B8ED00FEA2DD /* sshsig.c */; };
+		FE7E63E92384B97F00FEA2DD /* sftp-realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7E63E82384B97F00FEA2DD /* sftp-realpath.c */; };
+		FE7E63EA2384B97F00FEA2DD /* sftp-realpath.c in Sources */ = {isa = PBXBuildFile; fileRef = FE7E63E82384B97F00FEA2DD /* sftp-realpath.c */; };
 		FE996A391C7D0B58006637D5 /* runtests.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FE996A381C7D0AF2006637D5 /* runtests.sh */; };
 		FEAAFCC71E25893F00BB4AA2 /* allow-deny-users.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FEAAFCC51E2588C800BB4AA2 /* allow-deny-users.sh */; };
 		FEAAFCC81E25894B00BB4AA2 /* keygen-moduli.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = FEAAFCC61E2588C800BB4AA2 /* keygen-moduli.sh */; };
@@ -634,6 +619,10 @@
 		FEC3D3F01C9BE97C00B698D9 /* libopenbsd-compat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C6B2CBB0FEC4E73004F1935 /* libopenbsd-compat.a */; };
 		FEC3D3F81C9BE9E900B698D9 /* check-perm.c in Sources */ = {isa = PBXBuildFile; fileRef = FEC3D3F71C9BE9CE00B698D9 /* check-perm.c */; };
 		FECAC7F52192BE7E0007479F /* libressl-api-compat.c in Sources */ = {isa = PBXBuildFile; fileRef = FECAC7F32192BDC30007479F /* libressl-api-compat.c */; };
+		FECDEB9422A49F6900D0A691 /* kexgen.c in Sources */ = {isa = PBXBuildFile; fileRef = FECDEB9122A49F5800D0A691 /* kexgen.c */; };
+		FECDEB9522A49F6900D0A691 /* sntrup4591761.c in Sources */ = {isa = PBXBuildFile; fileRef = FECDEB9222A49F5C00D0A691 /* sntrup4591761.c */; };
+		FECDEB9622A49F6900D0A691 /* kexsntrup4591761x25519.c in Sources */ = {isa = PBXBuildFile; fileRef = FECDEB9322A49F6600D0A691 /* kexsntrup4591761x25519.c */; };
+		FECDEB9722A49FE700D0A691 /* utf8.c in Sources */ = {isa = PBXBuildFile; fileRef = 727891111D9F1D6D00767C80 /* utf8.c */; };
 		FEEF84B120B2536200CB7E8E /* bsd-signal.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF84AA20B252DC00CB7E8E /* bsd-signal.c */; };
 		FEEF84B220B2536E00CB7E8E /* port-net.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF84A920B252DB00CB7E8E /* port-net.c */; };
 		FEEF84B320B2606700CB7E8E /* ssh-xmss.c in Sources */ = {isa = PBXBuildFile; fileRef = FEEF849E20B2521500CB7E8E /* ssh-xmss.c */; };
@@ -1118,6 +1107,7 @@
 				FEEF84BE20B2619600CB7E8E /* scp-uri.sh in CopyFiles */,
 				739A2FA71B5D9ABC0073A9BC /* keygen-knownhosts.sh in CopyFiles */,
 				1C18266B10FFE3F400C8B173 /* scp-ssh-wrapper.sh in CopyFiles */,
+				FE7E63E223849B8A00FEA2DD /* sshsig.sh in CopyFiles */,
 				1C18266C10FFE3F400C8B173 /* scp.sh in CopyFiles */,
 				1C18266D10FFE3F400C8B173 /* sftp-badcmds.sh in CopyFiles */,
 				739A2FAB1B5D9ABC0073A9BC /* t11.ok in CopyFiles */,
@@ -1339,7 +1329,6 @@
 		1C6B2CF50FEC4F58004F1935 /* port-uw.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "port-uw.h"; path = "openssh/openbsd-compat/port-uw.h"; sourceTree = "<group>"; };
 		1C6B2CF60FEC4F58004F1935 /* readpassphrase.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = readpassphrase.c; path = "openssh/openbsd-compat/readpassphrase.c"; sourceTree = "<group>"; };
 		1C6B2CF70FEC4F58004F1935 /* readpassphrase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = readpassphrase.h; path = "openssh/openbsd-compat/readpassphrase.h"; sourceTree = "<group>"; };
-		1C6B2CF80FEC4F58004F1935 /* realpath.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = realpath.c; path = "openssh/openbsd-compat/realpath.c"; sourceTree = "<group>"; };
 		1C6B2CF90FEC4F58004F1935 /* rresvport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = rresvport.c; path = "openssh/openbsd-compat/rresvport.c"; sourceTree = "<group>"; };
 		1C6B2CFA0FEC4F58004F1935 /* setenv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = setenv.c; path = "openssh/openbsd-compat/setenv.c"; sourceTree = "<group>"; };
 		1C6B2CFB0FEC4F58004F1935 /* setproctitle.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = setproctitle.c; path = "openssh/openbsd-compat/setproctitle.c"; sourceTree = "<group>"; };
@@ -1383,8 +1372,6 @@
 		1C6B2DCA0FEC5780004F1935 /* cipher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = cipher.h; path = openssh/cipher.h; sourceTree = "<group>"; };
 		1C6B2DCB0FEC5780004F1935 /* compat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = compat.c; path = openssh/compat.c; sourceTree = "<group>"; };
 		1C6B2DCC0FEC5780004F1935 /* compat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = compat.h; path = openssh/compat.h; sourceTree = "<group>"; };
-		1C6B2DCF0FEC5780004F1935 /* crc32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = crc32.c; path = openssh/crc32.c; sourceTree = "<group>"; };
-		1C6B2DD00FEC5780004F1935 /* crc32.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = crc32.h; path = openssh/crc32.h; sourceTree = "<group>"; };
 		1C6B2DD30FEC5780004F1935 /* fatal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = fatal.c; path = openssh/fatal.c; sourceTree = "<group>"; };
 		1C6B2DD40FEC5780004F1935 /* hostfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hostfile.c; path = openssh/hostfile.c; sourceTree = "<group>"; };
 		1C6B2DD50FEC5780004F1935 /* match.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = match.c; path = openssh/match.c; sourceTree = "<group>"; };
@@ -1457,8 +1444,6 @@
 		1C6B2FC40FEFF9FF004F1935 /* misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = misc.c; path = openssh/misc.c; sourceTree = "<group>"; };
 		1C6B2FC50FEFF9FF004F1935 /* uidswap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = uidswap.c; path = openssh/uidswap.c; sourceTree = "<group>"; };
 		1C6B2FC60FEFF9FF004F1935 /* uidswap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = uidswap.h; path = openssh/uidswap.h; sourceTree = "<group>"; };
-		1C6B2FC70FEFF9FF004F1935 /* uuencode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = uuencode.c; path = openssh/uuencode.c; sourceTree = "<group>"; };
-		1C6B2FC80FEFF9FF004F1935 /* uuencode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = uuencode.h; path = openssh/uuencode.h; sourceTree = "<group>"; };
 		1C6B2FD50FEFFAB7004F1935 /* monitor_fdpass.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = monitor_fdpass.c; path = openssh/monitor_fdpass.c; sourceTree = "<group>"; };
 		1C6B2FD60FEFFAB7004F1935 /* monitor_fdpass.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = monitor_fdpass.h; path = openssh/monitor_fdpass.h; sourceTree = "<group>"; };
 		1C6B2FD70FEFFAB7004F1935 /* rijndael.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = rijndael.c; path = openssh/rijndael.c; sourceTree = "<group>"; };
@@ -1801,6 +1786,10 @@
 		FE77105A1F9C0D170092A263 /* ssh.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ssh.h; path = "openssh-legacy/ssh.h"; sourceTree = "<group>"; };
 		FE77105B1F9C13870092A263 /* platform-misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "platform-misc.c"; path = "openssh/platform-misc.c"; sourceTree = "<group>"; };
 		FE7710681F9C164A0092A263 /* authinfo.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = authinfo.sh; path = openssh/regress/authinfo.sh; sourceTree = "<group>"; };
+		FE7E63E123849B8A00FEA2DD /* sshsig.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sshsig.sh; path = openssh/regress/sshsig.sh; sourceTree = "<group>"; };
+		FE7E63E32384B8ED00FEA2DD /* sshsig.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sshsig.c; path = openssh/sshsig.c; sourceTree = "<group>"; };
+		FE7E63E42384B8EE00FEA2DD /* sshsig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sshsig.h; path = openssh/sshsig.h; sourceTree = "<group>"; };
+		FE7E63E82384B97F00FEA2DD /* sftp-realpath.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "sftp-realpath.c"; path = "openssh/sftp-realpath.c"; sourceTree = "<group>"; };
 		FE9821451E9D8FEC008AA856 /* BATS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = BATS.plist; sourceTree = "<group>"; };
 		FE996A381C7D0AF2006637D5 /* runtests.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = runtests.sh; sourceTree = "<group>"; };
 		FE996A4E1C7D8880006637D5 /* ssh-copy-id */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "ssh-copy-id"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1848,6 +1837,9 @@
 		FEC3D4151C9BEAAC00B698D9 /* sshd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = sshd.8; path = openssh/sshd.8; sourceTree = "<group>"; };
 		FECAC7F32192BDC30007479F /* libressl-api-compat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "libressl-api-compat.c"; path = "openssh/openbsd-compat/libressl-api-compat.c"; sourceTree = "<group>"; };
 		FECD1CCE212B890F00CC0BBB /* ssh-keygen.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = "ssh-keygen.entitlements"; sourceTree = "<group>"; };
+		FECDEB9122A49F5800D0A691 /* kexgen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = kexgen.c; path = openssh/kexgen.c; sourceTree = "<group>"; };
+		FECDEB9222A49F5C00D0A691 /* sntrup4591761.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sntrup4591761.c; path = openssh/sntrup4591761.c; sourceTree = "<group>"; };
+		FECDEB9322A49F6600D0A691 /* kexsntrup4591761x25519.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = kexsntrup4591761x25519.c; path = openssh/kexsntrup4591761x25519.c; sourceTree = "<group>"; };
 		FEEF849B20B2521400CB7E8E /* sshkey-xmss.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "sshkey-xmss.c"; path = "openssh/sshkey-xmss.c"; sourceTree = "<group>"; };
 		FEEF849C20B2521400CB7E8E /* xmss_fast.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmss_fast.c; path = openssh/xmss_fast.c; sourceTree = "<group>"; };
 		FEEF849D20B2521500CB7E8E /* xmss_hash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmss_hash.c; path = openssh/xmss_hash.c; sourceTree = "<group>"; };
@@ -2200,7 +2192,6 @@
 				1C919EDD1162C42B002924A5 /* pwcache.c */,
 				1C6B2CF60FEC4F58004F1935 /* readpassphrase.c */,
 				739A2F8F1B5D872F0073A9BC /* reallocarray.c */,
-				1C6B2CF80FEC4F58004F1935 /* realpath.c */,
 				FE77103A1F9AC6920092A263 /* recallocarray.c */,
 				739A2F901B5D872F0073A9BC /* rmd160.c */,
 				739A2F911B5D872F0073A9BC /* rmd160.h */,
@@ -2254,21 +2245,6 @@
 		1C7D817F10FFC4CD00F0889F /* regress */ = {
 			isa = PBXGroup;
 			children = (
-				1C1825FA10FFE3F400C8B173 /* Makefile */,
-				FEC3D3F71C9BE9CE00B698D9 /* check-perm.c */,
-				73F2463917739422006986BE /* modpipe.c */,
-				739A2FBE1B5DD2170073A9BC /* netcat.c */,
-				73452E5D1A9A71DC00633C3B /* setuid-allowed.c */,
-				FEAAFCC91E25D31700BB4AA2 /* moduli.in */,
-				1C18262A10FFE3F400C8B173 /* t4.ok */,
-				1C18262B10FFE3F400C8B173 /* t5.ok */,
-				739A2FA31B5D9ABC0073A9BC /* t11.ok */,
-				1C1825EB10FFE3F400C8B173 /* dsa_ssh2.prv */,
-				1C18260810FFE3F400C8B173 /* rsa_openssh.prv */,
-				1C18260A10FFE3F400C8B173 /* rsa_ssh2.prv */,
-				1C1825EC10FFE3F400C8B173 /* dsa_ssh2.pub */,
-				1C18260910FFE3F400C8B173 /* rsa_openssh.pub */,
-				1C18260210FFE3F400C8B173 /* README.regress */,
 				1C1825DC10FFE3F400C8B173 /* addrmatch.sh */,
 				1C1825DD10FFE3F400C8B173 /* agent-getpeereid.sh */,
 				1C7924981162CB9500C4DB0B /* agent-pkcs11.sh */,
@@ -2287,12 +2263,15 @@
 				1C1825E610FFE3F400C8B173 /* cfgmatch.sh */,
 				FEB9B17B215E8F0700487B1E /* cfgmatchlisten.sh */,
 				739A2F9C1B5D9ABC0073A9BC /* cfgparse.sh */,
+				FEC3D3F71C9BE9CE00B698D9 /* check-perm.c */,
 				1C1825E710FFE3F400C8B173 /* cipher-speed.sh */,
 				1C1825E810FFE3F400C8B173 /* conch-ciphers.sh */,
 				1C1825E910FFE3F400C8B173 /* connect-privsep.sh */,
 				FEEF84BC20B2618B00CB7E8E /* connect-uri.sh */,
 				1C1825EA10FFE3F400C8B173 /* connect.sh */,
 				737269201AA00C970042DD0E /* dhgex.sh */,
+				1C1825EB10FFE3F400C8B173 /* dsa_ssh2.prv */,
+				1C1825EC10FFE3F400C8B173 /* dsa_ssh2.pub */,
 				1C1825ED10FFE3F400C8B173 /* dynamic-forward.sh */,
 				1C1825EE10FFE3F400C8B173 /* envpass.sh */,
 				1C1825EF10FFE3F400C8B173 /* exit-status.sh */,
@@ -2322,6 +2301,7 @@
 				FEAAFCC91E25D31700BB4AA2 /* moduli.in */,
 				1C1825FB10FFE3F400C8B173 /* multiplex.sh */,
 				739A2FA11B5D9ABC0073A9BC /* multipubkey.sh */,
+				739A2FBE1B5DD2170073A9BC /* netcat.c */,
 				1C79249C1162CB9500C4DB0B /* portnum.sh */,
 				739A2FA21B5D9ABC0073A9BC /* principals-command.sh */,
 				1C1825FC10FFE3F400C8B173 /* proto-mismatch.sh */,
@@ -2330,12 +2310,17 @@
 				1C1825FF10FFE3F400C8B173 /* putty-ciphers.sh */,
 				1C18260010FFE3F400C8B173 /* putty-kex.sh */,
 				1C18260110FFE3F400C8B173 /* putty-transfer.sh */,
+				1C18260210FFE3F400C8B173 /* README.regress */,
 				1C18260310FFE3F400C8B173 /* reconfigure.sh */,
 				1C18260410FFE3F400C8B173 /* reexec.sh */,
 				1C18260510FFE3F400C8B173 /* rekey.sh */,
+				1C18260810FFE3F400C8B173 /* rsa_openssh.prv */,
+				1C18260910FFE3F400C8B173 /* rsa_openssh.pub */,
+				1C18260A10FFE3F400C8B173 /* rsa_ssh2.prv */,
 				1C18261310FFE3F400C8B173 /* scp-ssh-wrapper.sh */,
 				FEEF84BA20B2618900CB7E8E /* scp-uri.sh */,
 				1C18261410FFE3F400C8B173 /* scp.sh */,
+				73452E5D1A9A71DC00633C3B /* setuid-allowed.c */,
 				1C18261510FFE3F400C8B173 /* sftp-badcmds.sh */,
 				1C18261610FFE3F400C8B173 /* sftp-batch.sh */,
 				73452E5E1A9A71DD00633C3B /* sftp-chroot.sh */,
@@ -2351,8 +2336,12 @@
 				1C18262010FFE3F400C8B173 /* ssh2putty.sh */,
 				FEB68C2D1DB1E58B004914A7 /* sshcfgparse.sh */,
 				1C18262610FFE3F400C8B173 /* sshd-log-wrapper.sh */,
+				FE7E63E123849B8A00FEA2DD /* sshsig.sh */,
 				1C18262710FFE3F400C8B173 /* stderr-after-eof.sh */,
 				1C18262810FFE3F400C8B173 /* stderr-data.sh */,
+				1C18262A10FFE3F400C8B173 /* t4.ok */,
+				1C18262B10FFE3F400C8B173 /* t5.ok */,
+				739A2FA31B5D9ABC0073A9BC /* t11.ok */,
 				1C18263010FFE3F400C8B173 /* test-exec.sh */,
 				1C18263110FFE3F400C8B173 /* transfer.sh */,
 				1C18263210FFE3F400C8B173 /* try-ciphers.sh */,
@@ -2607,8 +2596,6 @@
 				1C6B2DCC0FEC5780004F1935 /* compat.h */,
 				FE445FB21EC9169700DCAFFF /* Config Files */,
 				1CCA49A40FF1A9B40004CEAC /* config.h */,
-				1C6B2DCF0FEC5780004F1935 /* crc32.c */,
-				1C6B2DD00FEC5780004F1935 /* crc32.h */,
 				73452E2C1A9A6FFF00633C3B /* crypto_api.h */,
 				1C982D8910925D4A00C0E559 /* defines.h */,
 				1C6B2E190FEC58C4004F1935 /* dh.c */,
@@ -2653,9 +2640,11 @@
 				7365E6251437BB71004DC1EC /* kexecdh.c */,
 				EEA0F6D5147331A8009DF2FB /* kexecdhc.c */,
 				EEA0F6D314733143009DF2FB /* kexecdhs.c */,
+				FECDEB9122A49F5800D0A691 /* kexgen.c */,
 				1C6B2E300FEC5933004F1935 /* kexgex.c */,
 				1C6B2E310FEC5933004F1935 /* kexgexc.c */,
 				1C76A84C0FF028CA00D35824 /* kexgexs.c */,
+				FECDEB9322A49F6600D0A691 /* kexsntrup4591761x25519.c */,
 				1C6B2F250FEC5D46004F1935 /* keychain.h */,
 				1C6B2F240FEC5D46004F1935 /* keychain.m */,
 				73F246231773930F006986BE /* krl.c */,
@@ -2730,6 +2719,7 @@
 				1C6B2F350FEC5E93004F1935 /* sftp-common.c */,
 				1C76A8740FF0294300D35824 /* sftp-common.h */,
 				1C6B2F430FEC5F5D004F1935 /* sftp-glob.c */,
+				FE7E63E82384B97F00FEA2DD /* sftp-realpath.c */,
 				1C6B2F360FEC5E93004F1935 /* sftp-server-main.c */,
 				1C6B2F370FEC5E93004F1935 /* sftp-server.c */,
 				1C6B2F380FEC5E93004F1935 /* sftp.c */,
@@ -2737,6 +2727,7 @@
 				1C6B2CFD0FEC4F58004F1935 /* sha2.h */,
 				1C6B2CFF0FEC4F58004F1935 /* sigact.h */,
 				73452E521A9A715C00633C3B /* smult_curve25519_ref.c */,
+				FECDEB9222A49F5C00D0A691 /* sntrup4591761.c */,
 				739A2F891B5D86600073A9BC /* ssh_api.c */,
 				739A2F8A1B5D86600073A9BC /* ssh_api.h */,
 				1C6B2F220FEC5D2F004F1935 /* ssh-add.c */,
@@ -2777,6 +2768,8 @@
 				1C76A8270FF0284A00D35824 /* sshlogin.h */,
 				1C76A8280FF0284A00D35824 /* sshpty.c */,
 				1C76A8290FF0284A00D35824 /* sshpty.h */,
+				FE7E63E32384B8ED00FEA2DD /* sshsig.c */,
+				FE7E63E42384B8EE00FEA2DD /* sshsig.h */,
 				1C6B2F110FEC5C48004F1935 /* sshtty.c */,
 				1C6B2D070FEC4F58004F1935 /* sys-queue.h */,
 				1C6B2D080FEC4F58004F1935 /* sys-tree.h */,
@@ -2789,8 +2782,6 @@
 				FE23D9011C747142002E7923 /* umac128.c */,
 				727891111D9F1D6D00767C80 /* utf8.c */,
 				727891121D9F1D7B00767C80 /* utf8.h */,
-				1C6B2FC70FEFF9FF004F1935 /* uuencode.c */,
-				1C6B2FC80FEFF9FF004F1935 /* uuencode.h */,
 				73452E541A9A715C00633C3B /* verify.c */,
 				1C982D8E10925D4A00C0E559 /* version.h */,
 				1C6B2FB70FEFF95B004F1935 /* xmalloc.c */,
@@ -2896,7 +2887,6 @@
 				1C6B2DE30FEC5780004F1935 /* canohost.h in Headers */,
 				1C6B2DEB0FEC5780004F1935 /* cipher.h in Headers */,
 				1C6B2DED0FEC5780004F1935 /* compat.h in Headers */,
-				1C6B2DF10FEC5780004F1935 /* crc32.h in Headers */,
 				1C6B2DF70FEC5780004F1935 /* match.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3339,7 +3329,7 @@
 			isa = PBXProject;
 			attributes = {
 				DefaultBuildSystemTypeForWorkspace = Latest;
-				LastUpgradeCheck = 0910;
+				LastUpgradeCheck = 1120;
 				ORGANIZATIONNAME = "Apple Inc.";
 				TargetAttributes = {
 					735140321A9FE29400A40ED8 = {
@@ -3359,14 +3349,14 @@
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "OpenSSH" */;
 			compatibilityVersion = "Xcode 8.0";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
-				English,
-				Japanese,
-				French,
-				German,
 				en,
+				Base,
+				fr,
+				ja,
+				de,
 			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* openssh */;
 			projectDirPath = "";
@@ -3855,7 +3845,6 @@
 				1C6B2D3E0FEC4F58004F1935 /* port-solaris.c in Sources */,
 				1C6B2D420FEC4F58004F1935 /* port-uw.c in Sources */,
 				1C6B2D440FEC4F58004F1935 /* readpassphrase.c in Sources */,
-				1C6B2D460FEC4F58004F1935 /* realpath.c in Sources */,
 				1C6B2D470FEC4F58004F1935 /* rresvport.c in Sources */,
 				1C6B2D480FEC4F58004F1935 /* setenv.c in Sources */,
 				1C6B2D490FEC4F58004F1935 /* setproctitle.c in Sources */,
@@ -3885,7 +3874,6 @@
 				73F246331773937E006986BE /* strtoull.c in Sources */,
 				1C6B2DEA0FEC5780004F1935 /* cipher.c in Sources */,
 				1C6B2DEC0FEC5780004F1935 /* compat.c in Sources */,
-				1C6B2DF00FEC5780004F1935 /* crc32.c in Sources */,
 				1C6B2DF40FEC5780004F1935 /* fatal.c in Sources */,
 				73452E0D1A9A67E200633C3B /* arc4random.c in Sources */,
 				1C6B2DF50FEC5780004F1935 /* hostfile.c in Sources */,
@@ -3901,16 +3889,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				1C6B2E370FEC5933004F1935 /* kexdh.c in Sources */,
-				73452E4A1A9A70D100633C3B /* kexc25519c.c in Sources */,
-				73A3E1C61B5F188F0002909F /* kexc25519s.c in Sources */,
 				1C6B2E220FEC58C4004F1935 /* dh.c in Sources */,
 				1C6B2FCE0FEFF9FF004F1935 /* misc.c in Sources */,
 				1C6B2FCF0FEFF9FF004F1935 /* uidswap.c in Sources */,
-				1C6B2FD10FEFF9FF004F1935 /* uuencode.c in Sources */,
 				73E11A561A9A84A9005C72BC /* kexecdh.c in Sources */,
 				1C6B2FCC0FEFF9FF004F1935 /* mac.c in Sources */,
 				73E11A581A9A8559005C72BC /* ssh-ecdsa.c in Sources */,
 				FEEF84B920B2606700CB7E8E /* xmss_wots.c in Sources */,
+				FECDEB9522A49F6900D0A691 /* sntrup4591761.c in Sources */,
 				73452E331A9A6FFF00633C3B /* digest-openssl.c in Sources */,
 				1C6B2E350FEC5933004F1935 /* kex.c in Sources */,
 				73452E221A9A6DDA00633C3B /* sshbuf.c in Sources */,
@@ -3919,10 +3905,8 @@
 				73452E201A9A6DDA00633C3B /* sshbuf-getput-crypto.c in Sources */,
 				1C6B2FA80FEFF8DB004F1935 /* match.c in Sources */,
 				FEEF84B820B2606700CB7E8E /* xmss_hash.c in Sources */,
-				73E11A571A9A84DA005C72BC /* kexecdhc.c in Sources */,
 				1C6B2FAA0FEFF8DB004F1935 /* moduli.c in Sources */,
 				1C6B2FA00FEFF8A0004F1935 /* compat.c in Sources */,
-				1C6B2FA20FEFF8A0004F1935 /* crc32.c in Sources */,
 				FEEF84B720B2606700CB7E8E /* xmss_hash_address.c in Sources */,
 				73452E421A9A70D100633C3B /* fe25519.c in Sources */,
 				73452E5A1A9A715C00633C3B /* smult_curve25519_ref.c in Sources */,
@@ -3931,6 +3915,8 @@
 				1C6B2F9E0FEFF846004F1935 /* cipher-ctr.c in Sources */,
 				FEEF84B620B2606700CB7E8E /* xmss_fast.c in Sources */,
 				73452E261A9A6DDA00633C3B /* sshkey.c in Sources */,
+				FECDEB9622A49F6900D0A691 /* kexsntrup4591761x25519.c in Sources */,
+				FECDEB9722A49FE700D0A691 /* utf8.c in Sources */,
 				1C6B2E210FEC58C4004F1935 /* cleanup.c in Sources */,
 				FEEF84B420B2606700CB7E8E /* sshkey-xmss.c in Sources */,
 				73452E441A9A70D100633C3B /* ge25519.c in Sources */,
@@ -3948,7 +3934,6 @@
 				1C6B2E260FEC58C4004F1935 /* dns.c in Sources */,
 				73452E491A9A70D100633C3B /* kexc25519.c in Sources */,
 				1C6B2E280FEC58C4004F1935 /* entropy.c in Sources */,
-				1C6B2E380FEC5933004F1935 /* kexdhc.c in Sources */,
 				FE23D9021C747152002E7923 /* umac128.c in Sources */,
 				1C6B2E390FEC5933004F1935 /* kexgex.c in Sources */,
 				73452E301A9A6FFF00633C3B /* cipher-chachapoly.c in Sources */,
@@ -3966,6 +3951,7 @@
 				1C6B2FBC0FEFF95B004F1935 /* ttymodes.c in Sources */,
 				1C6B2FBE0FEFF95B004F1935 /* xmalloc.c in Sources */,
 				1C6B2FC90FEFF9FF004F1935 /* atomicio.c in Sources */,
+				FECDEB9422A49F6900D0A691 /* kexgen.c in Sources */,
 				1C6B2FDB0FEFFAB7004F1935 /* monitor_fdpass.c in Sources */,
 				1C6B2FDD0FEFFAB7004F1935 /* rijndael.c in Sources */,
 				1C6B2FDF0FEFFAB7004F1935 /* ssh-dss.c in Sources */,
@@ -3977,11 +3963,8 @@
 				73F2463F1773974F006986BE /* krl.c in Sources */,
 				1C6B2FF10FEFFB7A004F1935 /* umac.c in Sources */,
 				EB17A9CC16A8041600B18CD6 /* ssh-pkcs11.c in Sources */,
-				739A2F881B5D86450073A9BC /* opacket.c in Sources */,
 				739A2F871B5D85FA0073A9BC /* bitmap.c in Sources */,
 				739A2F8B1B5D86680073A9BC /* ssh_api.c in Sources */,
-				73A3E1C71B5F18C80002909F /* kexdhs.c in Sources */,
-				73A3E1C81B5F18E30002909F /* kexecdhs.c in Sources */,
 				73A3E1CA1B5F190B0002909F /* kexgexs.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3999,7 +3982,6 @@
 				1C6B2F160FEC5C48004F1935 /* sshconnect.c in Sources */,
 				FE7710661F9C13EB0092A263 /* platform-misc.c in Sources */,
 				1C6B2F180FEC5C48004F1935 /* sshconnect2.c in Sources */,
-				727891131D9F1D9100767C80 /* utf8.c in Sources */,
 				1C6B2F190FEC5C48004F1935 /* sshtty.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4012,10 +3994,10 @@
 				1CC3684A0FF02D09009818B0 /* progressmeter.c in Sources */,
 				1CC368470FF02CD6009818B0 /* sftp-server.c in Sources */,
 				1C76A8160FF027CC00D35824 /* auth-passwd.c in Sources */,
-				73452E4C1A9A70EF00633C3B /* kexc25519s.c in Sources */,
 				1C76A8180FF027CC00D35824 /* auth-rhosts.c in Sources */,
 				1C76A81A0FF027CC00D35824 /* sshd.c in Sources */,
 				1C76A82A0FF0284A00D35824 /* auth-options.c in Sources */,
+				FE7E63EA2384B97F00FEA2DD /* sftp-realpath.c in Sources */,
 				1C76A82B0FF0284A00D35824 /* auth.c in Sources */,
 				1C76A82D0FF0284A00D35824 /* auth2.c in Sources */,
 				1C76A82E0FF0284A00D35824 /* servconf.c in Sources */,
@@ -4035,7 +4017,6 @@
 				1C76A8490FF0289C00D35824 /* groupaccess.c in Sources */,
 				1C76A8530FF028CA00D35824 /* auth-krb5.c in Sources */,
 				FE7710641F9C13E10092A263 /* platform-misc.c in Sources */,
-				1C76A8540FF028CA00D35824 /* kexdhs.c in Sources */,
 				1C76A8550FF028CA00D35824 /* kexgexs.c in Sources */,
 				1C76A8570FF028CA00D35824 /* monitor_wrap.c in Sources */,
 				1C76A8580FF028CA00D35824 /* monitor.c in Sources */,
@@ -4052,7 +4033,6 @@
 				727891161D9F1EDB00767C80 /* platform-tracing.c in Sources */,
 				1C76A8770FF0294300D35824 /* platform.c in Sources */,
 				EEA0F6D214732F9F009DF2FB /* sandbox-darwin.c in Sources */,
-				EEA0F6D414733143009DF2FB /* kexecdhs.c in Sources */,
 				EEA0F6D91473908F009DF2FB /* sandbox-null.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4071,8 +4051,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FE445FB61EC91C5500DCAFFF /* utf8.c in Sources */,
 				1C6B2F2F0FEC5E18004F1935 /* ssh-keygen.c in Sources */,
+				FE7E63E52384B8EE00FEA2DD /* sshsig.c in Sources */,
 				FE7710601F9C13B70092A263 /* platform-misc.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4112,7 +4092,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				727891171D9F1EEC00767C80 /* utf8.c in Sources */,
 				1C6B2F200FEC5CFE004F1935 /* progressmeter.c in Sources */,
 				FE77105C1F9C138F0092A263 /* platform-misc.c in Sources */,
 				1C6B2F210FEC5CFE004F1935 /* scp.c in Sources */,
@@ -4128,6 +4107,7 @@
 				FE7710631F9C13D90092A263 /* platform-misc.c in Sources */,
 				FEF8CC801C9CB5DB0060409E /* platform-pledge.c in Sources */,
 				1C6B2F3A0FEC5E93004F1935 /* sftp-server-main.c in Sources */,
+				FE7E63E92384B97F00FEA2DD /* sftp-realpath.c in Sources */,
 				1C6B2F3B0FEC5E93004F1935 /* sftp-server.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4136,7 +4116,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				727891191D9F1F1D00767C80 /* utf8.c in Sources */,
 				1C6B2F3F0FEC5EF6004F1935 /* sftp-common.c in Sources */,
 				FE7710621F9C13CB0092A263 /* platform-misc.c in Sources */,
 				1C6B2F400FEC5F1F004F1935 /* progressmeter.c in Sources */,
@@ -4573,6 +4552,7 @@
 		1C6B2CBD0FEC4E74004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				OTHER_LDFLAGS = "";
@@ -4585,6 +4565,7 @@
 		1C6B2DAD0FEC5696004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				OTHER_LDFLAGS = "";
@@ -4596,7 +4577,9 @@
 		1C6B2E440FEC5A0E004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = Entitlements/ssh.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/bin;
 				"OTHER_LDFLAGS[sdk=macosx*][arch=*]" = (
 					"$(OTHER_LDFLAGS)",
@@ -4613,7 +4596,9 @@
 		1C6B2E8B0FEC5AD3004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = Entitlements/sshd.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = sshd;
@@ -4623,7 +4608,9 @@
 		1C6B2E980FEC5AEB004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = Entitlements/ssh.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = "ssh-add";
@@ -4633,7 +4620,9 @@
 		1C6B2EA50FEC5B07004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = "Entitlements/ssh-keygen.entitlements";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = "ssh-keygen";
@@ -4643,6 +4632,8 @@
 		1C6B2EB20FEC5B19004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = "ssh-keyscan";
@@ -4652,6 +4643,8 @@
 		1C6B2EBF0FEC5B2E004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_MODE_FLAG = 0711;
 				INSTALL_PATH = /usr/libexec/;
@@ -4662,6 +4655,8 @@
 		1C6B2ECC0FEC5B54004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = "ssh-agent";
@@ -4671,6 +4666,8 @@
 		1C6B2ED90FEC5B70004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = scp;
@@ -4680,6 +4677,8 @@
 		1C6B2EF50FEC5B9B004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/libexec/;
 				PRODUCT_NAME = "sftp-server";
@@ -4689,6 +4688,8 @@
 		1C6B2F020FEC5BAF004F1935 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = sftp;
@@ -4698,6 +4699,7 @@
 		1C76A71E0FF0155400D35824 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Install open source licenses";
 			};
 			name = Release;
@@ -4705,6 +4707,7 @@
 		1C76A7300FF015BD00D35824 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Install config";
 			};
 			name = Release;
@@ -4712,6 +4715,7 @@
 		1C76A73D0FF0163B00D35824 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Install i18n";
 			};
 			name = Release;
@@ -4719,6 +4723,7 @@
 		1C76A7BB0FF023CA00D35824 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Install All";
 			};
 			name = Release;
@@ -4726,6 +4731,7 @@
 		1C76A7BD0FF023E200D35824 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Build and Install";
 			};
 			name = Release;
@@ -4733,6 +4739,7 @@
 		1C77BFA4112C99860070F7EE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = testbots;
 			};
 			name = Release;
@@ -4740,6 +4747,7 @@
 		1C7D817A10FFC2BE00F0889F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "test-system";
 			};
 			name = Release;
@@ -4753,11 +4761,13 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
@@ -4820,6 +4830,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -4850,6 +4861,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -4879,11 +4891,13 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
@@ -4940,6 +4954,7 @@
 		731CAE151280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Build and Install";
 			};
 			name = Debug;
@@ -4947,6 +4962,7 @@
 		731CAE171280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Install All";
 			};
 			name = Debug;
@@ -4954,6 +4970,7 @@
 		731CAE181280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				OTHER_LDFLAGS = "";
@@ -4966,6 +4983,7 @@
 		731CAE191280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				OTHER_LDFLAGS = "";
@@ -4977,7 +4995,9 @@
 		731CAE1A1280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = Entitlements/ssh.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALL_PATH = /usr/bin;
 				"OTHER_LDFLAGS[sdk=macosx*][arch=*]" = (
 					"$(OTHER_LDFLAGS)",
@@ -4994,6 +5014,8 @@
 		731CAE1B1280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/libexec/;
 				PRODUCT_NAME = "sftp-server";
@@ -5003,7 +5025,9 @@
 		731CAE1C1280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = Entitlements/sshd.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = sshd;
@@ -5013,7 +5037,9 @@
 		731CAE1D1280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = Entitlements/ssh.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = "ssh-add";
@@ -5023,7 +5049,9 @@
 		731CAE1E1280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = "Entitlements/ssh-keygen.entitlements";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = "ssh-keygen";
@@ -5033,6 +5061,8 @@
 		731CAE1F1280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = "ssh-keyscan";
@@ -5042,6 +5072,8 @@
 		731CAE201280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_MODE_FLAG = 0711;
 				INSTALL_PATH = /usr/libexec/;
@@ -5052,6 +5084,8 @@
 		731CAE211280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = "ssh-agent";
@@ -5061,6 +5095,8 @@
 		731CAE221280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = scp;
@@ -5070,6 +5106,8 @@
 		731CAE231280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /usr/bin/;
 				PRODUCT_NAME = sftp;
@@ -5079,6 +5117,7 @@
 		731CAE251280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Install open source licenses";
 			};
 			name = Debug;
@@ -5086,6 +5125,7 @@
 		731CAE291280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Install config";
 			};
 			name = Debug;
@@ -5093,6 +5133,7 @@
 		731CAE2B1280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Install i18n";
 			};
 			name = Debug;
@@ -5100,6 +5141,7 @@
 		731CAE2D1280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "test-system";
 			};
 			name = Debug;
@@ -5107,6 +5149,7 @@
 		731CAE2F1280C8140030B3F2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = testbots;
 			};
 			name = Debug;
@@ -5127,6 +5170,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -5162,6 +5206,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -5188,6 +5233,7 @@
 		735961E917CE830500CFE215 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -5195,6 +5241,7 @@
 		735961EA17CE830500CFE215 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -5215,6 +5262,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -5251,6 +5299,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -5291,6 +5340,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -5327,6 +5377,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -5356,12 +5407,14 @@
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = "Entitlements/ssh-pkcs11-helper.entitlements";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -5380,12 +5433,14 @@
 			buildSettings = {
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_ENTITLEMENTS = "Entitlements/ssh-pkcs11-helper.entitlements";
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -5419,6 +5474,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -5462,6 +5518,7 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
@@ -5496,6 +5553,8 @@
 		FE71DD151CA5F19300B2C19F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -5517,6 +5576,8 @@
 		FE71DD161CA5F19300B2C19F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -5552,6 +5613,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -5588,6 +5650,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -5627,6 +5690,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -5663,6 +5727,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -5703,6 +5768,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -5739,6 +5805,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;

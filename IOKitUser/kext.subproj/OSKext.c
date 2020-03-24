@@ -813,6 +813,9 @@ static Boolean __OSKextAddLinkDependencies(
     Boolean           needAllFlag,
     Boolean           bleedthroughFlag);
 
+static CFMutableArrayRef __CFDictionaryCopyKeys(
+    CFDictionaryRef aDict);
+
 static Boolean __OSKextReadSymbolReferences(
     OSKextRef              aKext,
     CFMutableDictionaryRef symbols);
@@ -8838,6 +8841,68 @@ Boolean __OSKextReadSymbolReferences(
 finish:
 
     SAFE_RELEASE(executable);
+    return result;
+}
+
+static CFMutableArrayRef __CFDictionaryCopyKeys(
+    CFDictionaryRef aDict)
+{
+    CFMutableArrayRef   result      = NULL;
+    CFIndex             keyCount    = 0;
+    void                **keys      = NULL; // must free
+
+    result = CFArrayCreateMutable(CFGetAllocator(aDict), 0, &kCFTypeArrayCallBacks);
+    if (!result) {
+        OSKextLogMemError();
+        goto finish;
+    }
+
+    keyCount = CFDictionaryGetCount(aDict);
+    if (keyCount == 0) {
+        goto finish;
+    }
+
+    keys = malloc(sizeof(*keys) * keyCount);
+    if (!keys) {
+        OSKextLogMemError();
+        SAFE_RELEASE_NULL(result);
+        goto finish;
+    }
+    bzero(keys, sizeof(*keys) * keyCount);
+
+    CFDictionaryGetKeysAndValues(aDict, (const void **)keys, NULL);
+    CFArrayReplaceValues(result, CFRangeMake(0, 0), (const void **)keys, keyCount);
+
+finish:
+    SAFE_FREE(keys);
+
+    return result;
+}
+
+/*********************************************************************
+*********************************************************************/
+CFMutableArrayRef OSKextCopySymbolReferences(
+    OSKextRef aKext)
+{
+    CFMutableArrayRef      result          = NULL;
+    CFMutableDictionaryRef undefSymbols    = NULL;  // must release
+
+    undefSymbols = CFDictionaryCreateMutable(CFGetAllocator(aKext),
+         0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (!undefSymbols) {
+        OSKextLogMemError();
+        goto finish;
+    }
+
+    if (!__OSKextReadSymbolReferences(aKext, undefSymbols)) {
+        goto finish;
+    }
+
+    result = __CFDictionaryCopyKeys(undefSymbols);
+
+finish:
+    SAFE_RELEASE(undefSymbols);
+
     return result;
 }
 

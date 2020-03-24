@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,6 +56,10 @@ static const char* serviceName(const ProcessLauncher::LaunchOptions& launchOptio
         return launchOptions.nonValidInjectedCodeAllowed ? "com.apple.WebKit.WebContent.Development" : "com.apple.WebKit.WebContent";
     case ProcessLauncher::ProcessType::Network:
         return "com.apple.WebKit.Networking";
+#if ENABLE(GPU_PROCESS)
+    case ProcessLauncher::ProcessType::GPU:
+        return "com.apple.WebKit.GPU";
+#endif
 #if ENABLE(NETSCAPE_PLUGIN_API)
     case ProcessLauncher::ProcessType::Plugin32:
         ASSERT_NOT_REACHED();
@@ -73,7 +77,11 @@ static bool shouldLeakBoost(const ProcessLauncher::LaunchOptions& launchOptions)
     UNUSED_PARAM(launchOptions);
     return true;
 #else
-    // On Mac, leak a boost onto the NetworkProcess.
+    // On Mac, leak a boost onto the NetworkProcess and GPUProcess.
+#if ENABLE(GPU_PROCESS)
+    if (launchOptions.processType == ProcessLauncher::ProcessType::GPU)
+        return true;
+#endif
     return launchOptions.processType == ProcessLauncher::ProcessType::Network;
 #endif
 }
@@ -175,8 +183,12 @@ void ProcessLauncher::launchProcess()
     // FIXME: Switch to xpc_connection_set_bootstrap once it's available everywhere we need.
     auto bootstrapMessage = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
     
-    if (m_client && !m_client->isJITEnabled())
-        xpc_dictionary_set_bool(bootstrapMessage.get(), "disable-jit", true);
+    if (m_client) {
+        if (m_client->shouldConfigureJSCForTesting())
+            xpc_dictionary_set_bool(bootstrapMessage.get(), "configure-jsc-for-testing", true);
+        if (!m_client->isJITEnabled())
+            xpc_dictionary_set_bool(bootstrapMessage.get(), "disable-jit", true);
+    }
 
     xpc_dictionary_set_string(bootstrapMessage.get(), "message-name", "bootstrap");
 
@@ -185,6 +197,7 @@ void ProcessLauncher::launchProcess()
     xpc_dictionary_set_string(bootstrapMessage.get(), "client-identifier", !clientIdentifier.isEmpty() ? clientIdentifier.utf8().data() : *_NSGetProgname());
     xpc_dictionary_set_string(bootstrapMessage.get(), "process-identifier", String::number(m_launchOptions.processIdentifier.toUInt64()).utf8().data());
     xpc_dictionary_set_string(bootstrapMessage.get(), "ui-process-name", [[[NSProcessInfo processInfo] processName] UTF8String]);
+    xpc_dictionary_set_string(bootstrapMessage.get(), "service-name", name);
 
     bool isWebKitDevelopmentBuild = ![[[[NSBundle bundleWithIdentifier:@"com.apple.WebKit"] bundlePath] stringByDeletingLastPathComponent] hasPrefix:systemDirectoryPath()];
     if (isWebKitDevelopmentBuild) {

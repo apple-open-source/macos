@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,10 +33,10 @@ namespace JSC {
 
 class MacroAssemblerX86 : public MacroAssemblerX86Common {
 public:
-    static const unsigned numGPRs = 8;
-    static const unsigned numFPRs = 8;
+    static constexpr unsigned numGPRs = 8;
+    static constexpr unsigned numFPRs = 8;
     
-    static const Scale ScalePtr = TimesFour;
+    static constexpr Scale ScalePtr = TimesFour;
 
     using MacroAssemblerX86Common::add32;
     using MacroAssemblerX86Common::and32;
@@ -51,6 +51,7 @@ public:
     using MacroAssemblerX86Common::branch32;
     using MacroAssemblerX86Common::call;
     using MacroAssemblerX86Common::jump;
+    using MacroAssemblerX86Common::farJump;
     using MacroAssemblerX86Common::addDouble;
     using MacroAssemblerX86Common::loadDouble;
     using MacroAssemblerX86Common::storeDouble;
@@ -97,6 +98,11 @@ public:
     void or32(RegisterID reg, AbsoluteAddress address)
     {
         m_assembler.orl_rm(reg, address.m_ptr);
+    }
+
+    void or16(TrustedImm32 imm, AbsoluteAddress address)
+    {
+        m_assembler.orw_im(imm.m_value, address.m_ptr);
     }
     
     void sub32(TrustedImm32 imm, AbsoluteAddress address)
@@ -219,23 +225,12 @@ public:
     ALWAYS_INLINE Call call(RegisterID callTag) { return UNUSED_PARAM(callTag), call(NoPtrTag); }
 
     // Address is a memory location containing the address to jump to
-    void jump(AbsoluteAddress address, PtrTag)
+    void farJump(AbsoluteAddress address, PtrTag)
     {
         m_assembler.jmp_m(address.m_ptr);
     }
 
-    ALWAYS_INLINE void jump(AbsoluteAddress address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(address, NoPtrTag); }
-
-    Call tailRecursiveCall()
-    {
-        return Call::fromTailJump(jump());
-    }
-
-    Call makeTailRecursiveCall(Jump oldJump)
-    {
-        return Call::fromTailJump(oldJump);
-    }
-
+    ALWAYS_INLINE void farJump(AbsoluteAddress address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), farJump(address, NoPtrTag); }
 
     DataLabelPtr moveWithPatch(TrustedImmPtr initialValue, RegisterID dest)
     {

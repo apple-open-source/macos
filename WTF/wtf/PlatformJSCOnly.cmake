@@ -75,6 +75,9 @@ elseif (APPLE)
         ${WTF_DERIVED_SOURCES_DIR}/mach_excServer.c
         ${WTF_DERIVED_SOURCES_DIR}/mach_excUser.c
     )
+    list(APPEND WTF_PUBLIC_HEADERS
+        spi/darwin/ProcessMemoryFootprint.h
+    )
 elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
     list(APPEND WTF_SOURCES
         linux/CurrentProcessMemoryStatus.cpp
@@ -82,6 +85,7 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
         linux/MemoryPressureHandlerLinux.cpp
     )
     list(APPEND WTF_PUBLIC_HEADERS
+        linux/ProcessMemoryFootprint.h
         linux/CurrentProcessMemoryStatus.h
     )
 else ()

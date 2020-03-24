@@ -1176,6 +1176,8 @@ WritePackArgValueNormal(FILE *file, argument_t *arg)
       fprintf(file, "#ifdef USING_MIG_STRNCPY_ZEROFILL\n");
       fprintf(file, "\t}\n");
       fprintf(file, "#endif /* USING_MIG_STRNCPY_ZEROFILL */\n");
+
+      fprintf(file, "\tInP->%sOffset = 0;\n", arg->argMsgField);
     }
     else if (it->itNoOptArray)
       fprintf(file, "\t(void)memcpy((char *) InP->%s, (const char *) %s%s, %d);\n", arg->argMsgField, ref, arg->argVarName, it->itTypeSize);
@@ -1212,6 +1214,11 @@ WritePackArgValueNormal(FILE *file, argument_t *arg)
   }
   else
     WriteCopyType(file, it, TRUE, "InP->%s", "/* %s */ %s%s", arg->argMsgField, ref, arg->argVarName);
+
+  if (arg->argPadName != NULL && it->itPadSize != 0) {
+    fprintf(file, "\t    for (int i = 0; i < %d; i++)\n", it->itPadSize);
+    fprintf(file, "\t\t    InP->%s[i] = 0;\n", arg->argPadName);
+  }
   fprintf(file, "\n");
 }
 

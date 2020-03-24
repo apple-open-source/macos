@@ -268,7 +268,7 @@ bool WebPage::executeKeypressCommandsInternal(const Vector<WebCore::KeypressComm
             } else {
                 bool commandWasHandledByUIProcess = false;
                 WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::ExecuteSavedCommandBySelector(commands[i].commandName),
-                    Messages::WebPageProxy::ExecuteSavedCommandBySelector::Reply(commandWasHandledByUIProcess), m_pageID);
+                    Messages::WebPageProxy::ExecuteSavedCommandBySelector::Reply(commandWasHandledByUIProcess), m_identifier);
                 eventWasHandled |= commandWasHandledByUIProcess;
             }
         }
@@ -670,7 +670,7 @@ void WebPage::updateHeaderAndFooterLayersForDeviceScaleChange(float scaleFactor)
         m_footerBanner->didChangeDeviceScaleFactor(scaleFactor);
 }
 
-void WebPage::computePagesForPrintingPDFDocument(uint64_t frameID, const PrintInfo& printInfo, Vector<IntRect>& resultPageRects)
+void WebPage::computePagesForPrintingPDFDocument(WebCore::FrameIdentifier frameID, const PrintInfo& printInfo, Vector<IntRect>& resultPageRects)
 {
     ASSERT(resultPageRects.isEmpty());
     WebFrame* frame = WebProcess::singleton().webFrame(frameID);
@@ -861,7 +861,7 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
     if (element)
         immediateActionHitTestPreventsDefault = element->dispatchMouseForceWillBegin();
 
-    WebHitTestResultData immediateActionResult(hitTestResult);
+    WebHitTestResultData immediateActionResult(hitTestResult, { });
 
     RefPtr<Range> selectionRange = corePage()->focusController().focusedOrMainFrame().selection().selection().firstRange();
 
@@ -1045,6 +1045,11 @@ void WebPage::playbackTargetAvailabilityDidChange(uint64_t contextId, bool chang
 void WebPage::setShouldPlayToPlaybackTarget(uint64_t contextId, bool shouldPlay)
 {
     m_page->setShouldPlayToPlaybackTarget(contextId, shouldPlay);
+}
+
+void WebPage::playbackTargetPickerWasDismissed(uint64_t contextId)
+{
+    m_page->playbackTargetPickerWasDismissed(contextId);
 }
 #endif
 

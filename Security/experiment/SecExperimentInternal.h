@@ -50,7 +50,7 @@ extern const NSString *SecExperimentConfigurationKeyConfigurationData;
  * @abstract
  *      Create an ARC-able `sec_experiment_t` instance wrapping an internal `SecExperiment` object.
  *
- * @param experiment_name
+ * @param experiment
  *      Name of the experiment.
  *
  * @return a `sec_experiment_t` instance.

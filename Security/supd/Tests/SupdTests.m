@@ -294,7 +294,7 @@ static NSInteger _reporterWrites;
 {
     dispatch_semaphore_t sema = dispatch_semaphore_create(0);
     __block NSDictionary* data;
-    [_supd getLoggingJSON:YES topic:topic reply:^(NSData *json, NSError *error) {
+    [_supd createLoggingJSON:YES topic:topic reply:^(NSData *json, NSError *error) {
         XCTAssertNil(error);
         XCTAssertNotNil(json);
         if (!error) {
@@ -448,7 +448,8 @@ static NSInteger _reporterWrites;
     [_sosAnalytics logHardFailureForEventNamed:@"unittestevent" withAttributes:utAttrs];
     [_sosAnalytics logSoftFailureForEventNamed:@"unittestevent" withAttributes:utAttrs];
 
-    NSDictionary* data = [self getJSONDataFromSupd];
+    NSDictionary *data =  [self getJSONDataFromSupd];
+
     [self inspectDataBlobStructure:data];
 
     // TODO: inspect health summaries
@@ -763,6 +764,106 @@ static NSInteger _reporterWrites;
     XCTAssertEqual(foundErrorEvents, 1);
 }
 
+- (void)testUploadSizeLimits
+{
+    SFAnalyticsTopic *trustTopic = [self TrustTopic];
+    XCTAssertEqual(1000000, trustTopic.uploadSizeLimit);
+
+    SFAnalyticsTopic *keySyncTopic = [self keySyncTopic];
+    XCTAssertEqual(1000000, keySyncTopic.uploadSizeLimit);
+}
+
+- (NSArray<NSDictionary *> *)createRandomEventList:(size_t)count
+{
+    NSMutableArray<NSDictionary *> *eventSet = [[NSMutableArray<NSDictionary *> alloc] init];
+
+    const size_t dataSize = 100;
+    uint8_t backingBuffer[dataSize] = {};
+    for (size_t i = 0; i < count; i++) {
+        NSData *data = [[NSData alloc] initWithBytes:backingBuffer length:dataSize];
+        NSDictionary *entry = @{@"key" : [data base64EncodedStringWithOptions:0]};
+        [eventSet addObject:entry];
+    }
+
+    return eventSet;
+}
+
+- (void)testCreateLoggingJSON
+{
+    NSArray<NSDictionary *> *summaries = [self createRandomEventList:5];
+    NSArray<NSDictionary *> *failures = [self createRandomEventList:100];
+    NSMutableArray<NSDictionary *> *visitedEvents = [[NSMutableArray<NSDictionary *> alloc] init];
+
+    SFAnalyticsTopic *topic = [self TrustTopic];
+    const size_t sizeLimit = 10000; // total size of the encoded data
+    topic.uploadSizeLimit = sizeLimit;
+
+    NSError *error = nil;
+    NSArray<NSDictionary *> *eventSet = [topic createChunkedLoggingJSON:summaries failures:failures error:&error];
+    XCTAssertNil(error);
+
+    for (NSDictionary *event in eventSet) {
+        XCTAssertNotNil([event objectForKey:@"events"]);
+        XCTAssertNotNil([event objectForKey:SFAnalyticsPostTime]);
+        NSArray *events = [event objectForKey:@"events"];
+        for (NSDictionary *summary in summaries) {
+            BOOL foundSummary = NO;
+            for (NSDictionary *innerEvent in events) {
+                if ([summary isEqualToDictionary:innerEvent]) {
+                    foundSummary = YES;
+                    break;
+                }
+            }
+            XCTAssertTrue(foundSummary);
+        }
+
+        // Record the events we've seen so far
+        for (NSDictionary *innerEvent in events) {
+            [visitedEvents addObject:innerEvent];
+        }
+    }
+
+    // Check that each summary and failure is in the visitedEvents
+    for (NSDictionary *summary in summaries) {
+        BOOL foundSummary = NO;
+        for (NSDictionary *innerEvent in visitedEvents) {
+            if ([summary isEqualToDictionary:innerEvent]) {
+                foundSummary = YES;
+                break;
+            }
+        }
+        XCTAssertTrue(foundSummary);
+    }
+    for (NSDictionary *failure in failures) {
+        BOOL foundFailure = NO;
+        for (NSDictionary *innerEvent in visitedEvents) {
+            if ([failure isEqualToDictionary:innerEvent]) {
+                foundFailure = YES;
+                break;
+            }
+        }
+        XCTAssertTrue(foundFailure);
+    }
+}
+
+- (void)testEventSetChunking
+{
+    NSArray<NSDictionary *> *eventSet = [self createRandomEventList:100];
+    SFAnalyticsTopic *topic = [self TrustTopic];
+
+    const size_t sizeLimit = 10000; // total size of the encoded data
+    size_t encodedEventSize = [topic serializedEventSize:eventSet[0] error:nil];
+    topic.uploadSizeLimit = sizeLimit; // fix the upload limit
+
+    // Chunk up the set, assuming that each chunk already has one event in it.
+    // In practice, this is the health summary.
+    NSError *error = nil;
+    NSArray<NSArray *> *chunkedEvents = [topic chunkFailureSet:(sizeLimit - encodedEventSize) events:eventSet error:nil];
+    XCTAssertNil(error);
+
+    // There should be two resulting chunks, since the set of chunks overflows.
+    XCTAssertEqual(2, [chunkedEvents count]);
+}
 
 // TODO
 - (void)testGetSysdiagnoseDump

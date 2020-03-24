@@ -29,14 +29,10 @@
     [CEReactions, Reflect] attribute DOMString lang;
     [CEReactions] attribute boolean translate;
     [CEReactions] attribute DOMString dir;
-    readonly attribute DOMStringMap dataset; // FIXME: Should be [SameObject].
 
     // User interaction.
     [CEReactions, Reflect] attribute boolean hidden;
     void click();
-    [CEReactions] attribute long tabIndex;
-    void focus();
-    void blur();
     [CEReactions, Reflect] attribute DOMString accessKey;
     // readonly attribute DOMString accessKeyLabel; // FIXME: Not supported.
     [CEReactions] attribute boolean draggable;
@@ -69,7 +65,9 @@
     [CEReactions, Reflect] attribute DOMString webkitdropzone;
 
     attribute DOMString inputMode;
+    [EnabledBySetting=EnterKeyHint] attribute DOMString enterKeyHint;
 };
 
 HTMLElement implements ElementCSSInlineStyle;
 HTMLElement implements GlobalEventHandlers;
+HTMLElement implements HTMLOrForeignElement;

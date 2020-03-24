@@ -143,6 +143,7 @@
 		52558DE00B27827A00CD7E39 /* TokenIDHelper.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = TokenIDHelper.h; path = src/TokenIDHelper.h; sourceTree = "<group>"; };
 		52558EF90B28D66F00CD7E39 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		52558EFC0B28D6FD00CD7E39 /* SecurityFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityFoundation.framework; path = /System/Library/Frameworks/SecurityFoundation.framework; sourceTree = "<absolute>"; };
+		6C6A19CA23D8E41700EC5DD5 /* systemkeychain.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = systemkeychain.entitlements; sourceTree = "<group>"; };
 		BE6C629F15DDD03F0027BB12 /* SystemAdministration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemAdministration.framework; path = ../PrivateFrameworks/SystemAdministration.framework; sourceTree = "<group>"; };
 		C21CFC770A250F95006CD5B1 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Security.framework; sourceTree = "<group>"; };
 		C21CFCF00A25104A006CD5B1 /* security_codesigning.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_codesigning.framework; sourceTree = "<group>"; };
@@ -327,6 +328,7 @@
 				C2DAEF1F0CA1BF6E00420945 /* com.apple.systemkeychain.plist */,
 				C2DAEF200CA1BF6E00420945 /* security-checksystem */,
 				EB7E5B251EBCDE7300565CA3 /* security-checksystem.8 */,
+				6C6A19CA23D8E41700EC5DD5 /* systemkeychain.entitlements */,
 			);
 			name = systemkeychain;
 			path = src;
@@ -612,6 +614,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25C5614753D14004F59F8 /* debug.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/src/systemkeychain.entitlements";
 				INSTALL_PATH = /usr/sbin;
 			};
 			name = Debug;
@@ -620,6 +623,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A25C5814753D14004F59F8 /* release.xcconfig */;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/src/systemkeychain.entitlements";
 				INSTALL_PATH = /usr/sbin;
 			};
 			name = Release;

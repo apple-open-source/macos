@@ -31,12 +31,10 @@
 #include <wtf/Optional.h>
 #include <wtf/Vector.h>
 
-#if PLATFORM(PLAYSTATION)
-#include <poll.h>
-#endif
-
 #if OS(WINDOWS)
 #include <winsock2.h>
+#else
+#include <poll.h>
 #endif
 
 namespace Inspector {
@@ -57,8 +55,6 @@ constexpr PlatformSocketType INVALID_SOCKET_VALUE = -1;
 
 #endif
 
-class MessageParser;
-
 namespace Socket {
 
 enum class Domain {
@@ -73,10 +69,10 @@ Optional<PlatformSocketType> listen(const char* address, uint16_t port);
 Optional<PlatformSocketType> accept(PlatformSocketType);
 Optional<std::array<PlatformSocketType, 2>> createPair();
 
-void setup(PlatformSocketType);
+bool setup(PlatformSocketType);
 bool isValid(PlatformSocketType);
 bool isListening(PlatformSocketType);
-uint16_t getPort(PlatformSocketType);
+Optional<uint16_t> getPort(PlatformSocketType);
 
 Optional<size_t> read(PlatformSocketType, void* buffer, int bufferSize);
 Optional<size_t> write(PlatformSocketType, const void* data, int size);
@@ -89,13 +85,6 @@ bool isReadable(const PollingDescriptor&);
 bool isWritable(const PollingDescriptor&);
 void markWaitingWritable(PollingDescriptor&);
 void clearWaitingWritable(PollingDescriptor&);
-
-struct Connection {
-    std::unique_ptr<MessageParser> parser;
-    Vector<uint8_t> sendBuffer;
-    PlatformSocketType socket { INVALID_SOCKET_VALUE };
-    PollingDescriptor poll;
-};
 
 constexpr size_t BufferSize = 65536;
 

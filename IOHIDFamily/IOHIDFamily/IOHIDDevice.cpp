@@ -50,6 +50,7 @@
 #include <sys/queue.h>
 #include <machine/limits.h>
 #include <os/overflow.h>
+#include <stdatomic.h>
 
 #if TARGET_OS_OSX
 #include "IOHIKeyboard.h"
@@ -60,7 +61,6 @@
 
 //@todo we need this to be configrable
 #define kHIDClientTimeoutUS     1000000ULL
-
 
 #define HIDDeviceLogFault(fmt, ...)   HIDLogFault("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
 #define HIDDeviceLogError(fmt, ...)   HIDLogError("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
@@ -279,7 +279,7 @@ bool IOHIDDevice::init( OSDictionary * dict )
         return false;
 
 	bzero(_reserved, sizeof(ExpansionData));
-
+    
     // Create an OSSet to store client objects. Initial capacity
     // (which can grow) is set at 2 clients.
 
@@ -800,7 +800,7 @@ bool IOHIDDevice::handleOpen(IOService      *client,
     HIDDeviceLogDebug("open by %s 0x%llx (0x%x)", client->getName(), client->getRegistryEntryID(), (unsigned int)options);
 
     do {
-        if ( _seizedClient )
+        if ( _seizedClient)
             break;
 
         // Was this object already registered as our client?
@@ -817,7 +817,9 @@ bool IOHIDDevice::handleOpen(IOService      *client,
         if ( _clientSet->setObject(client) == false )
             break;
 
-        if (options & kIOServiceSeize)
+        //  opportunistic workaround for <rdar://problem/59381437> CrashTracer: Regression : hidd at com.apple.iokit.IOHIDLib: 0xd705
+        //  @todo remove once correct interface for seize and tranzaction implemented
+        if ((options & kIOServiceSeize) && (conformsTo (kHIDPage_Sensor, kHIDUsage_Snsr_Light_AmbientLight) == false))
         {
             messageClients( kIOMessageServiceIsRequestingClose, (void*)(intptr_t)options);
 
@@ -972,18 +974,36 @@ IOReturn IOHIDDevice::message( UInt32 type, IOService * provider, void * argumen
         IOHIDSystemActivityTickle(NX_HARDWARE_TICKLE, this); // not a real event. tickle is not maskable.
         return kIOReturnSuccess;
     }
-    if (kIOHIDMessageOpenedByEventSystem == type && providerIsInterface) {
-        bool msgArg = (argument == kOSBooleanTrue);
-        setProperty(kIOHIDDeviceOpenedByEventSystemKey, msgArg ? kOSBooleanTrue : kOSBooleanFalse);
-        messageClients(type, (void *)(uintptr_t)msgArg);
-        return kIOReturnSuccess;
-    } else if (kIOHIDMessageRelayServiceInterfaceActive == type && providerIsInterface) {
+    if (kIOHIDMessageRelayServiceInterfaceActive == type && providerIsInterface) {
         bool msgArg = (argument == kOSBooleanTrue);
         setProperty(kIOHIDRelayServiceInterfaceActiveKey, msgArg ? kOSBooleanTrue : kOSBooleanFalse);
         messageClients(type, (void *)(uintptr_t)msgArg);
         return kIOReturnSuccess;
     }
     return super::message(type, provider, argument);
+}
+
+//---------------------------------------------------------------------------
+// Handle properties.
+
+static const OSSymbol * msgProps[] = {kIOHIDDeviceMessagePropertyUpdateKeys};
+
+bool IOHIDDevice::setProperty( const OSSymbol * key, OSObject * object)
+{
+    bool ret;
+
+    // Update the property table before notifying clients of property changes.
+    ret = super::setProperty(key, object);
+    require(ret, exit);
+
+    for (const OSSymbol * prop : msgProps) {
+        if (key->isEqualTo(prop)) {
+            messageClients(kIOMessageServicePropertyChange);
+        }
+    }
+
+exit:
+    return ret;
 }
 
 //---------------------------------------------------------------------------
@@ -2065,12 +2085,13 @@ OSMetaClassDefineReservedUnused(IOHIDDevice, 40);
 #pragma clang diagnostic ignored "-Wunused-parameter"
 
 #include <IOKit/IOUserServer.h>
-//#include "HIDDriverKit/Implementation/IOKitUser/IOHIDDevice.h"
 
 kern_return_t
-IMPL(IOHIDDevice, KernelStart)
+IMPL(IOHIDDevice, _Start)
 {
-    bool ret = IOHIDDevice::start(provider);
+    setProperty(kIOHIDDKStartKey, kOSBooleanTrue);
+    
+    bool ret = start(provider);
     
     return ret ? kIOReturnSuccess : kIOReturnError;
 }
@@ -2108,7 +2129,7 @@ IMPL(IOHIDDevice, _HandleReport)
 }
 
 void
-IMPL(IOHIDDevice, KernelCompleteReport)
+IMPL(IOHIDDevice, _CompleteReport)
 {
     this->completeReport(action, status, actualByteCount);
 }

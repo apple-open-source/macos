@@ -33,10 +33,11 @@
 //     response: { mimeType, headers, statusCode, statusText, failureReasonText, content, base64Encoded }
 //     metrics: { responseSource, protocol, priority, remoteAddress, connectionIdentifier, sizes }
 //     timing: { startTime, domainLookupStart, domainLookupEnd, connectStart, connectEnd, secureConnectionStart, requestStart, responseStart, responseEnd }
+//     isLocalResourceOverride: <boolean>
 
 WI.LocalResource = class LocalResource extends WI.Resource
 {
-    constructor({request, response, metrics, timing})
+    constructor({request, response, metrics, timing, isLocalResourceOverride})
     {
         console.assert(request);
         console.assert(typeof request.url === "string");
@@ -73,14 +74,19 @@ WI.LocalResource = class LocalResource extends WI.Resource
         this._responseBodyTransferSize = !isNaN(metrics.responseBodyBytesReceived) ? metrics.responseBodyBytesReceived : NaN;
         this._responseBodySize = !isNaN(metrics.responseBodyDecodedSize) ? metrics.responseBodyDecodedSize : NaN;
 
-        // Access to the content.
-        this._localContent = response.content;
-        this._localContentIsBase64Encoded = response.base64Encoded;
+        // LocalResource specific.
+        this._isLocalResourceOverride = isLocalResourceOverride || false;
 
         // Finalize WI.Resource.
         this._finished = true;
         this._failed = false; // FIXME: How should we denote a failure? Assume from status code / failure reason?
         this._cached = false; // FIXME: How should we denote cached? Assume from response source?
+
+        // Finalize WI.SourceCode.
+        let content = response.content;
+        let base64Encoded = response.base64Encoded;
+        this._originalRevision = new WI.SourceCodeRevision(this, content, base64Encoded, this._mimeType);
+        this._currentRevision = this._originalRevision;
     }
 
     // Static
@@ -197,26 +203,36 @@ WI.LocalResource = class LocalResource extends WI.Resource
         });
     }
 
-    // Public
+    // Import / Export
 
-    hasContent()
+    static fromJSON(json)
     {
-        return !!this._localContent;
+        return new WI.LocalResource(json);
     }
 
-    setContent(content, base64Encoded)
+    toJSON(key)
     {
-        console.assert(!this._localContent);
+        return {
+            request: {
+                url: this.url,
+            },
+            response: {
+                headers: this.responseHeaders,
+                mimeType: this.mimeType,
+                statusCode: this.statusCode,
+                statusText: this.statusText,
+                content: this.currentRevision.content,
+                base64Encoded: this.currentRevision.base64Encoded,
+            },
+            isLocalResourceOverride: this._isLocalResourceOverride,
+        };
+    }
 
-        // The backend may send base64 encoded data for text resources.
-        // If that is the case decode them here and treat as text.
-        if (base64Encoded && WI.shouldTreatMIMETypeAsText(this._mimeType)) {
-            content = atob(content);
-            base64Encoded = false;
-        }
+    // Public
 
-        this._localContent = content;
-        this._localContentIsBase64Encoded = base64Encoded;
+    get isLocalResourceOverride()
+    {
+        return this._isLocalResourceOverride;
     }
 
     // Protected
@@ -224,8 +240,17 @@ WI.LocalResource = class LocalResource extends WI.Resource
     requestContentFromBackend()
     {
         return Promise.resolve({
-            content: this._localContent,
-            base64Encoded: this._localContentIsBase64Encoded,
+            content: this._originalRevision.content,
+            base64Encoded: this._originalRevision.base64Encoded,
         });
+    }
+
+    handleCurrentRevisionContentChange()
+    {
+        if (this._mimeType !== this.currentRevision.mimeType) {
+            let oldMIMEType = this._mimeType;
+            this._mimeType = this.currentRevision.mimeType;
+            this.dispatchEventToListeners(WI.Resource.Event.MIMETypeDidChange, {oldMIMEType});
+        }
     }
 };

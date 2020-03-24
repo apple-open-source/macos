@@ -69,7 +69,7 @@ CFBundleRef _ApplicationCopyBundle( pid_t processID )
     return bundle;
 }
 
-CFStringRef _ApplicationCopyIdentifier( pid_t processID )
+CFStringRef _ApplicationCopyIdentifier( pid_t processID, const audit_token_t *auditToken )
 {
     __block CFStringRef identifier = 0;
 
@@ -87,31 +87,41 @@ CFStringRef _ApplicationCopyIdentifier( pid_t processID )
 
             if ( number )
             {
-                SecCodeRef code = 0;
+                CFDataRef auditTokenData;
 
-                CFDictionarySetValue( attributes, kSecGuestAttributePid, number );
+                auditTokenData = CFDataCreate(NULL, (const UInt8 *) auditToken, sizeof(*auditToken));
 
-                SecCodeCopyGuestWithAttributes( 0, attributes, kSecCSDefaultFlags, &code );
-
-                if ( code )
+                if ( auditTokenData )
                 {
-                    CFDictionaryRef information = 0;
+                    SecCodeRef code = 0;
 
-                    SecCodeCopySigningInformation( code, kSecCSDefaultFlags, &information );
+                    CFDictionarySetValue( attributes, kSecGuestAttributePid, number );
+                    CFDictionarySetValue( attributes, kSecGuestAttributeAudit, auditTokenData );
 
-                    if ( information )
+                    SecCodeCopyGuestWithAttributes( 0, attributes, kSecCSDefaultFlags, &code );
+
+                    if ( code )
                     {
-                        identifier = CFDictionaryGetValue( information, kSecCodeInfoIdentifier );
+                        CFDictionaryRef information = 0;
 
-                        if ( identifier )
+                        SecCodeCopySigningInformation( code, kSecCSDefaultFlags, &information );
+
+                        if ( information )
                         {
-                            CFRetain( identifier );
+                            identifier = CFDictionaryGetValue( information, kSecCodeInfoIdentifier );
+
+                            if ( identifier )
+                            {
+                                CFRetain( identifier );
+                            }
+
+                            CFRelease( information );
                         }
 
-                        CFRelease( information );
+                        CFRelease( code );
                     }
 
-                    CFRelease( code );
+                    CFRelease(auditTokenData);
                 }
 
                 CFRelease( number );

@@ -48,17 +48,17 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(Blob);
 
 class BlobURLRegistry final : public URLRegistry {
 public:
-    void registerURL(SecurityOrigin*, const URL&, URLRegistrable&) override;
-    void unregisterURL(const URL&) override;
+    void registerURL(ScriptExecutionContext&, const URL&, URLRegistrable&) final;
+    void unregisterURL(const URL&) final;
 
     static URLRegistry& registry();
 };
 
 
-void BlobURLRegistry::registerURL(SecurityOrigin* origin, const URL& publicURL, URLRegistrable& blob)
+void BlobURLRegistry::registerURL(ScriptExecutionContext& context, const URL& publicURL, URLRegistrable& blob)
 {
     ASSERT(&blob.registry() == this);
-    ThreadableBlobRegistry::registerBlobURL(origin, publicURL, static_cast<Blob&>(blob).url());
+    ThreadableBlobRegistry::registerBlobURL(context.securityOrigin(), publicURL, static_cast<Blob&>(blob).url());
 }
 
 void BlobURLRegistry::unregisterURL(const URL& url)
@@ -72,7 +72,9 @@ URLRegistry& BlobURLRegistry::registry()
     return instance;
 }
 
-Blob::Blob(UninitializedContructor)
+Blob::Blob(UninitializedContructor, URL&& url, String&& type)
+    : m_internalURL(WTFMove(url))
+    , m_type(WTFMove(type))
 {
 }
 
@@ -86,7 +88,6 @@ Blob::Blob()
 Blob::Blob(Vector<BlobPartVariant>&& blobPartVariants, const BlobPropertyBag& propertyBag)
     : m_internalURL(BlobURL::createInternalURL())
     , m_type(normalizedContentType(propertyBag.type))
-    , m_size(-1)
 {
     BlobBuilder builder(propertyBag.endings);
     for (auto& blobPartVariant : blobPartVariants) {
@@ -131,7 +132,7 @@ Blob::Blob(ReferencingExistingBlobConstructor, const Blob& blob)
     ThreadableBlobRegistry::registerBlobURL(m_internalURL, { BlobPart(blob.url()) } , m_type);
 }
 
-Blob::Blob(DeserializationContructor, const URL& srcURL, const String& type, long long size, const String& fileBackedPath)
+Blob::Blob(DeserializationContructor, const URL& srcURL, const String& type, Optional<unsigned long long> size, const String& fileBackedPath)
     : m_type(normalizedContentType(type))
     , m_size(size)
 {
@@ -144,7 +145,7 @@ Blob::Blob(DeserializationContructor, const URL& srcURL, const String& type, lon
 
 Blob::Blob(const URL& srcURL, long long start, long long end, const String& type)
     : m_type(normalizedContentType(type))
-    , m_size(-1) // size is not necessarily equal to end - start.
+    // m_size is not necessarily equal to end - start so we do not initialize it here.
 {
     m_internalURL = BlobURL::createInternalURL();
     ThreadableBlobRegistry::registerBlobURLForSlice(m_internalURL, srcURL, start, end);
@@ -157,14 +158,14 @@ Blob::~Blob()
 
 unsigned long long Blob::size() const
 {
-    if (m_size < 0) {
+    if (!m_size) {
         // FIXME: JavaScript cannot represent sizes as large as unsigned long long, we need to
         // come up with an exception to throw if file size is not representable.
         unsigned long long actualSize = ThreadableBlobRegistry::blobSize(m_internalURL);
-        m_size = WTF::isInBounds<long long>(actualSize) ? static_cast<long long>(actualSize) : 0;
+        m_size = WTF::isInBounds<long long>(actualSize) ? actualSize : 0;
     }
 
-    return static_cast<unsigned long long>(m_size);
+    return *m_size;
 }
 
 bool Blob::isValidContentType(const String& contentType)

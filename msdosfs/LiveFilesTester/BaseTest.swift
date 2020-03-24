@@ -21,6 +21,8 @@ class fsAttributesRef  {
     
     let attr = UnsafeMutableRawPointer.allocate(byteCount: K.SIZE.KBi, alignment: 1).bindMemory(to: UVFSFSAttributeValue.self, capacity: 1)
     var attrBufSize = K.SIZE.KBi //Indicate the allocation size of the above attr buffer, please note !!! changing the buffer size require changing also in here.
+    let out_attr = UnsafeMutableRawPointer.allocate(byteCount: K.SIZE.KBi, alignment: 1).bindMemory(to: UVFSFSAttributeValue.self, capacity: 1)
+    var out_attrBufSize = K.SIZE.KBi //Indicate the allocation size of the above attr buffer, please note !!! changing the buffer size require changing also in here.
     var fsa_number  : UInt64    { return attr.pointee.fsa_number    }
     var fsa_bool    : Bool      { return attr.pointee.fsa_bool      }
     var sectorSize  : UInt32?

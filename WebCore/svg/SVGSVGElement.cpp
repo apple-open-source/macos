@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2019 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2010 Rob Buis <buis@kde.org>
  * Copyright (C) 2007-2019 Apple Inc. All rights reserved.
  * Copyright (C) 2014 Adobe Systems Incorporated. All rights reserved.
@@ -24,6 +24,7 @@
 #include "SVGSVGElement.h"
 
 #include "CSSHelper.h"
+#include "DOMMatrix2DInit.h"
 #include "DOMWrapperWorld.h"
 #include "ElementIterator.h"
 #include "EventNames.h"
@@ -53,7 +54,6 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(SVGSVGElement);
 
 inline SVGSVGElement::SVGSVGElement(const QualifiedName& tagName, Document& document)
     : SVGGraphicsElement(tagName, document)
-    , SVGExternalResourcesRequired(this)
     , SVGFitToViewBox(this)
     , m_timeContainer(SMILTimeContainer::create(*this))
 {
@@ -92,58 +92,6 @@ void SVGSVGElement::didMoveToNewDocument(Document& oldDocument, Document& newDoc
     oldDocument.unregisterForDocumentSuspensionCallbacks(*this);
     document().registerForDocumentSuspensionCallbacks(*this);
     SVGGraphicsElement::didMoveToNewDocument(oldDocument, newDocument);
-}
-
-const AtomString& SVGSVGElement::contentScriptType() const
-{
-    static NeverDestroyed<AtomString> defaultScriptType { "text/ecmascript" };
-    const AtomString& type = attributeWithoutSynchronization(SVGNames::contentScriptTypeAttr);
-    return type.isNull() ? defaultScriptType.get() : type;
-}
-
-void SVGSVGElement::setContentScriptType(const AtomString& type)
-{
-    setAttributeWithoutSynchronization(SVGNames::contentScriptTypeAttr, type);
-}
-
-const AtomString& SVGSVGElement::contentStyleType() const
-{
-    static NeverDestroyed<AtomString> defaultStyleType { "text/css" };
-    const AtomString& type = attributeWithoutSynchronization(SVGNames::contentStyleTypeAttr);
-    return type.isNull() ? defaultStyleType.get() : type;
-}
-
-void SVGSVGElement::setContentStyleType(const AtomString& type)
-{
-    setAttributeWithoutSynchronization(SVGNames::contentStyleTypeAttr, type);
-}
-
-Ref<SVGRect> SVGSVGElement::viewport() const
-{
-    // FIXME: Not implemented.
-    return SVGRect::create();
-}
-
-float SVGSVGElement::pixelUnitToMillimeterX() const
-{
-    // There are 25.4 millimeters in an inch.
-    return 25.4f / cssPixelsPerInch;
-}
-
-float SVGSVGElement::pixelUnitToMillimeterY() const
-{
-    // There are 25.4 millimeters in an inch.
-    return 25.4f / cssPixelsPerInch;
-}
-
-float SVGSVGElement::screenPixelToMillimeterX() const
-{
-    return pixelUnitToMillimeterX();
-}
-
-float SVGSVGElement::screenPixelToMillimeterY() const
-{
-    return pixelUnitToMillimeterY();
 }
 
 SVGViewSpec& SVGSVGElement::currentView()
@@ -255,7 +203,6 @@ void SVGSVGElement::parseAttribute(const QualifiedName& name, const AtomString& 
     reportAttributeParsingError(parseError, name, value);
 
     SVGGraphicsElement::parseAttribute(name, value);
-    SVGExternalResourcesRequired::parseAttribute(name, value);
     SVGFitToViewBox::parseAttribute(name, value);
     SVGZoomAndPan::parseAttribute(name, value);
 }
@@ -280,24 +227,6 @@ void SVGSVGElement::svgAttributeChanged(const QualifiedName& attrName)
     }
 
     SVGGraphicsElement::svgAttributeChanged(attrName);
-    SVGExternalResourcesRequired::svgAttributeChanged(attrName);
-}
-
-unsigned SVGSVGElement::suspendRedraw(unsigned)
-{
-    return 0;
-}
-
-void SVGSVGElement::unsuspendRedraw(unsigned)
-{
-}
-
-void SVGSVGElement::unsuspendRedrawAll()
-{
-}
-
-void SVGSVGElement::forceRedraw()
-{
 }
 
 Ref<NodeList> SVGSVGElement::collectIntersectionOrEnclosureList(SVGRect& rect, SVGElement* referenceElement, bool (*checkFunction)(SVGElement&, SVGRect&))
@@ -332,20 +261,16 @@ Ref<NodeList> SVGSVGElement::getEnclosureList(SVGRect& rect, SVGElement* referen
     return collectIntersectionOrEnclosureList(rect, referenceElement, checkEnclosureWithoutUpdatingLayout);
 }
 
-bool SVGSVGElement::checkIntersection(RefPtr<SVGElement>&& element, SVGRect& rect)
+bool SVGSVGElement::checkIntersection(Ref<SVGElement>&& element, SVGRect& rect)
 {
-    if (!element)
-        return false;
     element->document().updateLayoutIgnorePendingStylesheets();
-    return checkIntersectionWithoutUpdatingLayout(*element, rect);
+    return checkIntersectionWithoutUpdatingLayout(element, rect);
 }
 
-bool SVGSVGElement::checkEnclosure(RefPtr<SVGElement>&& element, SVGRect& rect)
+bool SVGSVGElement::checkEnclosure(Ref<SVGElement>&& element, SVGRect& rect)
 {
-    if (!element)
-        return false;
     element->document().updateLayoutIgnorePendingStylesheets();
-    return checkEnclosureWithoutUpdatingLayout(*element, rect);
+    return checkEnclosureWithoutUpdatingLayout(element, rect);
 }
 
 void SVGSVGElement::deselectAll()
@@ -389,9 +314,22 @@ Ref<SVGTransform> SVGSVGElement::createSVGTransform()
     return SVGTransform::create(SVGTransformValue::SVG_TRANSFORM_MATRIX);
 }
 
-Ref<SVGTransform> SVGSVGElement::createSVGTransformFromMatrix(SVGMatrix& matrix)
+Ref<SVGTransform> SVGSVGElement::createSVGTransformFromMatrix(DOMMatrix2DInit&& matrixInit)
 {
-    return SVGTransform::create(matrix.value());
+    AffineTransform transform;
+    if (matrixInit.a.hasValue())
+        transform.setA(matrixInit.a.value());
+    if (matrixInit.b.hasValue())
+        transform.setB(matrixInit.b.value());
+    if (matrixInit.c.hasValue())
+        transform.setC(matrixInit.c.value());
+    if (matrixInit.d.hasValue())
+        transform.setD(matrixInit.d.value());
+    if (matrixInit.e.hasValue())
+        transform.setE(matrixInit.e.value());
+    if (matrixInit.f.hasValue())
+        transform.setF(matrixInit.f.value());
+    return SVGTransform::create(transform);
 }
 
 AffineTransform SVGSVGElement::localCoordinateSpaceTransform(SVGLocatable::CTMScope mode) const
@@ -666,6 +604,19 @@ bool SVGSVGElement::scrollToFragment(const String& fragmentIdentifier)
     // attributes on the closest ancestor "svg" element.
     if (auto* viewElement = findViewAnchor(fragmentIdentifier)) {
         if (auto* rootElement = findRootAnchor(viewElement)) {
+            if (rootElement->m_currentViewElement) {
+                ASSERT(rootElement->m_currentViewElement->targetElement() == rootElement);
+
+                // If the viewElement has changed, remove the link from the SVGViewElement to the previously selected SVGSVGElement.
+                if (rootElement->m_currentViewElement != viewElement)
+                    rootElement->m_currentViewElement->resetTargetElement();
+            }
+
+            if (rootElement->m_currentViewElement != viewElement) {
+                rootElement->m_currentViewElement = viewElement;
+                rootElement->m_currentViewElement->setTargetElement(*rootElement);
+            }
+
             rootElement->inheritViewAttributes(*viewElement);
             if (auto* renderer = rootElement->renderer())
                 RenderSVGResource::markForLayoutAndParentResourceInvalidation(*renderer);

@@ -57,10 +57,8 @@ public:
     bool shouldMakeTouchEventNonCancelableForTarget(EventTarget*) const;
 #endif
     bool shouldDisablePointerEventsQuirk() const;
-    bool shouldIgnoreContentChange(const Element&) const;
     bool needsInputModeNoneImplicitly(const HTMLElement&) const;
     bool needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommand() const;
-    bool shouldLightenJapaneseBoldSansSerif() const;
     bool shouldDisableContentChangeObserverTouchEventAdjustment() const;
 
     WEBCORE_EXPORT bool shouldDispatchSyntheticMouseEventsWhenModifyingSelection() const;
@@ -70,6 +68,7 @@ public:
     WEBCORE_EXPORT bool shouldAvoidResizingWhenInputViewBoundsChange() const;
     WEBCORE_EXPORT bool shouldAvoidScrollingWhenFocusedContentIsVisible() const;
     WEBCORE_EXPORT bool shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation() const;
+    WEBCORE_EXPORT bool shouldIgnoreAriaForFastPathContentObservationCheck() const;
 
     WEBCORE_EXPORT bool needsYouTubeMouseOutQuirk() const;
     
@@ -82,6 +81,12 @@ public:
 
     bool needsPreloadAutoQuirk() const;
     bool needsFullWidthHeightFullscreenStyleQuirk() const;
+
+    bool shouldBypassBackForwardCache() const;
+
+#if ENABLE(MEDIA_STREAM)
+    bool shouldEnableLegacyGetUserMedia() const;
+#endif
 
 private:
     bool needsQuirks() const;

@@ -49,6 +49,8 @@ NSString* const CKKSAnalyticsLastInCircle = @"lastInCircle";
 
 NSString* const OctagonAnalyticsStateMachineState = @"OASMState";
 NSString* const OctagonAnalyticIcloudAccountState = @"OAiC";
+NSString* const OctagonAnalyticCDPBitStatus = @"OACDPStatus";
+
 NSString* const OctagonAnalyticsTrustState = @"OATrust";
 NSString* const OctagonAnalyticsAttemptedJoin = @"OAAttemptedJoin";
 NSString* const OctagonAnalyticsLastHealthCheck = @"OAHealthCheck";
@@ -61,6 +63,12 @@ NSString* const OctagonAnalyticsCoreFollowupFailureCount = @"OACFUTFailureCount"
 NSString* const OctagonAnalyticsCoreFollowupLastFailureTime = @"OACFULastFailureTime";
 NSString* const OctagonAnalyticsPrerecordPending = @"OAPrerecordPending";
 NSString* const OctagonAnalyticsCDPStateRun = @"OACDPStateRun";
+
+NSString* const OctagonAnalyticsBottledUniqueTLKsRecovered = @"OABottledUniqueTLKsRecoveredCount";
+NSString* const OctagonAnalyticsBottledTotalTLKShares = @"OABottledTotalTLKSharesCount";
+NSString* const OctagonAnalyticsBottledTotalTLKSharesRecovered = @"OABottledTotalTLKSharesRecoveredCount";
+NSString* const OctagonAnalyticsBottledUniqueTLKsWithSharesCount = @"OABottledUniqueTLKsWithSharesCount";
+NSString* const OctagonAnalyticsBottledTLKUniqueViewCount = @"OABottledTLKUniqueViewCount";
 
 NSString* const OctagonAnalyticsHaveMachineID = @"OAMIDPresent";
 NSString* const OctagonAnalyticsMIDOnMemoizedList = @"OAMIDOnList";
@@ -128,6 +136,7 @@ CKKSAnalyticsFailableEvent* const OctagonEventJoinWithVoucher = (CKKSAnalyticsFa
 CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithBottle = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightVouchWithBottle";
 CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithBottle = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithBottle";
 
+CKKSAnalyticsFailableEvent* const OctagonEventPreflightVouchWithRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventPreflightVouchWithRecoveryKey";;
 CKKSAnalyticsFailableEvent* const OctagonEventVoucherWithRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventVoucherWithRecoveryKey";
 
 CKKSAnalyticsFailableEvent* const OctagonEventSetRecoveryKey = (CKKSAnalyticsFailableEvent*)@"OctagonEventSetRecoveryKey";

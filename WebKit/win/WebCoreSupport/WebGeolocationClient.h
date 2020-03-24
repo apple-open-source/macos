@@ -30,20 +30,21 @@
 
 namespace WebCore {
 class Geolocation;
-class GeolocationPosition;
+class GeolocationPositionData;
 }
 
 class WebView;
 
 class WebGeolocationClient : public WebCore::GeolocationClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WebGeolocationClient(WebView*);
 
     void geolocationDestroyed() final;
-    void startUpdating() final;
+    void startUpdating(const String& authorizationToken) final;
     void stopUpdating() final;
     void setEnableHighAccuracy(bool) final { }
-    Optional<WebCore::GeolocationPosition> lastPosition() final;
+    Optional<WebCore::GeolocationPositionData> lastPosition() final;
 
     void requestPermission(WebCore::Geolocation&) final;
     void cancelPermissionRequest(WebCore::Geolocation&) final { }

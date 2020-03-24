@@ -28,10 +28,10 @@
 #if ENABLE(WEBGPU)
 
 #include "WHLSLExpression.h"
-#include "WHLSLLexer.h"
 #include "WHLSLVariableDeclaration.h"
 #include "WHLSLVariableReference.h"
 #include <memory>
+#include <wtf/FastMalloc.h>
 #include <wtf/UniqueRef.h>
 
 namespace WebCore {
@@ -49,14 +49,27 @@ namespace AST {
  *  6. Evaluate m_resultExpression
  *  7. Return the result
  */
-class ReadModifyWriteExpression : public Expression {
+class ReadModifyWriteExpression final : public Expression {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static UniqueRef<ReadModifyWriteExpression> create(CodeLocation location, UniqueRef<Expression> lValue)
+    ReadModifyWriteExpression(CodeLocation location, UniqueRef<Expression> leftValue)
+        : Expression(location, Kind::ReadModifyWrite)
+        , m_leftValue(WTFMove(leftValue))
+        , m_oldValue(makeUniqueRef<VariableDeclaration>(location, Qualifiers(), nullptr, String(), nullptr, nullptr))
+        , m_newValue(makeUniqueRef<VariableDeclaration>(location, Qualifiers(), nullptr, String(), nullptr, nullptr))
     {
-        return makeUniqueRef<ReadModifyWriteExpression>(location, WTFMove(lValue));
     }
 
-    virtual ~ReadModifyWriteExpression() = default;
+    ReadModifyWriteExpression(CodeLocation location, UniqueRef<Expression> leftValue, UniqueRef<VariableDeclaration> oldValue, UniqueRef<VariableDeclaration> newValue)
+        : Expression(location, Kind::ReadModifyWrite)
+        , m_leftValue(WTFMove(leftValue))
+        , m_oldValue(WTFMove(oldValue))
+        , m_newValue(WTFMove(newValue))
+    {
+    }
+
+
+    ~ReadModifyWriteExpression() = default;
 
     ReadModifyWriteExpression(const ReadModifyWriteExpression&) = delete;
     ReadModifyWriteExpression(ReadModifyWriteExpression&&) = default;
@@ -81,9 +94,8 @@ public:
         return makeUniqueRef<VariableReference>(VariableReference::wrap(m_newValue));
     }
 
-    bool isReadModifyWriteExpression() const override { return true; }
-
     Expression& leftValue() { return m_leftValue; }
+    UniqueRef<Expression>& leftValueReference() { return m_leftValue; }
     VariableDeclaration& oldValue() { return m_oldValue; }
     VariableDeclaration& newValue() { return m_newValue; }
     Expression& newValueExpression()
@@ -113,16 +125,6 @@ public:
     }
 
 private:
-    template<class U, class... Args> friend UniqueRef<U> WTF::makeUniqueRef(Args&&...);
-
-    ReadModifyWriteExpression(CodeLocation location, UniqueRef<Expression> leftValue)
-        : Expression(location)
-        , m_leftValue(WTFMove(leftValue))
-        , m_oldValue(makeUniqueRef<VariableDeclaration>(location, Qualifiers(), WTF::nullopt, String(), nullptr, nullptr))
-        , m_newValue(makeUniqueRef<VariableDeclaration>(location, Qualifiers(), WTF::nullopt, String(), nullptr, nullptr))
-    {
-    }
-
     UniqueRef<Expression> m_leftValue;
     UniqueRef<VariableDeclaration> m_oldValue;
     UniqueRef<VariableDeclaration> m_newValue;
@@ -135,6 +137,8 @@ private:
 }
 
 }
+
+DEFINE_DEFAULT_DELETE(ReadModifyWriteExpression)
 
 SPECIALIZE_TYPE_TRAITS_WHLSL_EXPRESSION(ReadModifyWriteExpression, isReadModifyWriteExpression())
 

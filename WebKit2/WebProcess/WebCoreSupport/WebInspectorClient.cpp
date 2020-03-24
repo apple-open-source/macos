@@ -29,6 +29,7 @@
 #include "DrawingArea.h"
 #include "WebInspector.h"
 #include "WebPage.h"
+#include <WebCore/Animation.h>
 #include <WebCore/Frame.h>
 #include <WebCore/InspectorController.h>
 #include <WebCore/Page.h>
@@ -151,7 +152,7 @@ void WebInspectorClient::showPaintRect(const FloatRect& rect)
     }
 
     if (!m_paintIndicatorLayerClient)
-        m_paintIndicatorLayerClient = std::make_unique<RepaintIndicatorLayerClient>(*this);
+        m_paintIndicatorLayerClient = makeUnique<RepaintIndicatorLayerClient>(*this);
 
     auto paintLayer = GraphicsLayer::create(m_page->drawingArea()->graphicsLayerFactory(), *m_paintIndicatorLayerClient);
     
@@ -162,9 +163,9 @@ void WebInspectorClient::showPaintRect(const FloatRect& rect)
     paintLayer->setBackgroundColor(Color(1.0f, 0.0f, 0.0f, 0.2f));
 
     KeyframeValueList fadeKeyframes(AnimatedPropertyOpacity);
-    fadeKeyframes.insert(std::make_unique<FloatAnimationValue>(0, 1));
+    fadeKeyframes.insert(makeUnique<FloatAnimationValue>(0, 1));
 
-    fadeKeyframes.insert(std::make_unique<FloatAnimationValue>(0.25, 0));
+    fadeKeyframes.insert(makeUnique<FloatAnimationValue>(0.25, 0));
     
     auto opacityAnimation = Animation::create();
     opacityAnimation->setDuration(0.25);
@@ -209,6 +210,12 @@ void WebInspectorClient::elementSelectionChanged(bool active)
 {
     if (m_page->inspector())
         m_page->inspector()->elementSelectionChanged(active);
+}
+
+void WebInspectorClient::timelineRecordingChanged(bool active)
+{
+    if (m_page->inspector())
+        m_page->inspector()->timelineRecordingChanged(active);
 }
 
 void WebInspectorClient::setMockCaptureDevicesEnabledOverride(Optional<bool> enabled)

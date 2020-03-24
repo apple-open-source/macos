@@ -104,9 +104,11 @@ WI.ScriptClusterTimelineView = class ScriptClusterTimelineView extends WI.Cluste
             return [];
 
         let components = [this._pathComponentForContentView(currentContentView)];
+
         let subComponents = currentContentView.selectionPathComponents;
         if (subComponents)
-            return components.concat(subComponents);
+            components.pushAll(subComponents);
+
         return components;
     }
 
@@ -138,7 +140,7 @@ WI.ScriptClusterTimelineView = class ScriptClusterTimelineView extends WI.Cluste
     _canShowProfileView()
     {
         // COMPATIBILITY (iOS 9): Legacy backends did not include CallingContextTree ScriptProfiler data.
-        return window.ScriptProfilerAgent;
+        return InspectorBackend.hasDomain("ScriptProfiler");
     }
 
     _pathComponentForContentView(contentView)

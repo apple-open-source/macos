@@ -41,14 +41,14 @@ class PageConsoleAgent final : public WebConsoleAgent {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     PageConsoleAgent(PageAgentContext&);
-    virtual ~PageConsoleAgent() = default;
+    ~PageConsoleAgent() override;
 
-    void getLoggingChannels(ErrorString&, RefPtr<JSON::ArrayOf<Inspector::Protocol::Console::Channel>>&) final;
-    void setLoggingChannelLevel(ErrorString&, const String& channel, const String& level) final;
+    // ConsoleBackendDispatcherHandler
+    void clearMessages(ErrorString&) override;
+    void getLoggingChannels(ErrorString&, RefPtr<JSON::ArrayOf<Inspector::Protocol::Console::Channel>>&) override;
+    void setLoggingChannelLevel(ErrorString&, const String& channel, const String& level) override;
 
 private:
-    void clearMessages(ErrorString&) override;
-
     InstrumentingAgents& m_instrumentingAgents;
     Page& m_inspectedPage;
 };

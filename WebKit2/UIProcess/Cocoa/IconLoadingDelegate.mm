@@ -44,7 +44,7 @@ IconLoadingDelegate::~IconLoadingDelegate()
 
 std::unique_ptr<API::IconLoadingClient> IconLoadingDelegate::createIconLoadingClient()
 {
-    return std::make_unique<IconLoadingClient>(*this);
+    return makeUnique<IconLoadingClient>(*this);
 }
 
 RetainPtr<id <_WKIconLoadingDelegate> > IconLoadingDelegate::delegate()
@@ -88,7 +88,7 @@ void IconLoadingDelegate::IconLoadingClient::getLoadDecisionForIcon(const WebCor
     [delegate webView:m_iconLoadingDelegate.m_webView shouldLoadIconWithParameters:parameters.get() completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)] (IconLoadCompletionHandler loadCompletionHandler) mutable {
         ASSERT(RunLoop::isMain());
         if (loadCompletionHandler) {
-            completionHandler([loadCompletionHandler = Block_copy(loadCompletionHandler)](API::Data* data, WebKit::CallbackBase::Error error) {
+            completionHandler([loadCompletionHandler = makeBlockPtr(loadCompletionHandler)](API::Data* data, WebKit::CallbackBase::Error error) {
                 if (error != CallbackBase::Error::None || !data)
                     loadCompletionHandler(nil);
                 else

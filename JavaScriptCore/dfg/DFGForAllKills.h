@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,8 +73,8 @@ void forAllKilledOperands(Graph& graph, Node* nodeBefore, Node* nodeAfter, const
         int stackOffset = beforeInlineCallFrame ? beforeInlineCallFrame->stackOffset : 0;
         CodeBlock* codeBlock = graph.baselineCodeBlockFor(beforeInlineCallFrame);
         FullBytecodeLiveness& fullLiveness = graph.livenessFor(codeBlock);
-        const FastBitVector& liveBefore = fullLiveness.getLiveness(before.bytecodeIndex());
-        const FastBitVector& liveAfter = fullLiveness.getLiveness(after.bytecodeIndex());
+        const FastBitVector& liveBefore = fullLiveness.getLiveness(before.bytecodeIndex(), LivenessCalculationPoint::BeforeUse);
+        const FastBitVector& liveAfter = fullLiveness.getLiveness(after.bytecodeIndex(), LivenessCalculationPoint::BeforeUse);
         
         (liveBefore & ~liveAfter).forEachSetBit(
             [&] (size_t relativeLocal) {
@@ -102,8 +102,8 @@ void forAllKilledNodesAtNodeIndex(
     Graph& graph, AvailabilityMap& availabilityMap, BasicBlock* block, unsigned nodeIndex,
     const Functor& functor)
 {
-    static const unsigned seenInClosureFlag = 1;
-    static const unsigned calledFunctorFlag = 2;
+    static constexpr unsigned seenInClosureFlag = 1;
+    static constexpr unsigned calledFunctorFlag = 2;
     HashMap<Node*, unsigned> flags;
     
     Node* node = block->at(nodeIndex);

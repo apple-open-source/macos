@@ -27,6 +27,7 @@
 #include "SettingsBase.h"
 
 #include "AudioSession.h"
+#include "BackForwardCache.h"
 #include "BackForwardController.h"
 #include "CachedResourceLoader.h"
 #include "CookieStorage.h"
@@ -40,7 +41,6 @@
 #include "FrameView.h"
 #include "HistoryItem.h"
 #include "Page.h"
-#include "PageCache.h"
 #include "RenderWidget.h"
 #include "RuntimeApplicationChecks.h"
 #include "Settings.h"
@@ -68,7 +68,7 @@ static const Seconds layoutScheduleThreshold = 250_ms;
 
 SettingsBase::SettingsBase(Page* page)
     : m_page(nullptr)
-    , m_fontGenericFamilies(std::make_unique<FontGenericFamilies>())
+    , m_fontGenericFamilies(makeUnique<FontGenericFamilies>())
     , m_layoutInterval(layoutScheduleThreshold)
     , m_minimumDOMTimerInterval(DOMTimer::defaultMinimumInterval())
     , m_setImageLoadingSettingsTimer(*this, &SettingsBase::imageLoadingSettingsTimerFired)
@@ -362,13 +362,13 @@ void SettingsBase::userStyleSheetLocationChanged()
         m_page->userStyleSheetLocationChanged();
 }
 
-void SettingsBase::usesPageCacheChanged()
+void SettingsBase::usesBackForwardCacheChanged()
 {
     if (!m_page)
         return;
 
-    if (!m_page->settings().usesPageCache())
-        PageCache::singleton().pruneToSizeNow(0, PruningReason::None);
+    if (!m_page->settings().usesBackForwardCache())
+        BackForwardCache::singleton().pruneToSizeNow(0, PruningReason::None);
 }
 
 void SettingsBase::dnsPrefetchingEnabledChanged()
@@ -405,6 +405,12 @@ void SettingsBase::hiddenPageCSSAnimationSuspensionEnabledChanged()
 {
     if (m_page)
         m_page->hiddenPageCSSAnimationSuspensionStateChanged();
+}
+
+void SettingsBase::renderingUpdateThrottlingEnabledChanged()
+{
+    if (m_page)
+        m_page->renderingUpdateThrottlingEnabledChanged();
 }
 
 void SettingsBase::resourceUsageOverlayVisibleChanged()

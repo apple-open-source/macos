@@ -973,6 +973,8 @@ process_mandir(char *dir_name)
 	}
 	while ((entry = readdir(dir)) != NULL) {
 		char section_dir[MAXPATHLEN];
+		if (select_sections(entry) == 0)
+			continue;
 		snprintf(section_dir, sizeof section_dir, "%s/%s", dir_name, entry->d_name);
 		process_section(section_dir);
 #ifndef __APPLE__

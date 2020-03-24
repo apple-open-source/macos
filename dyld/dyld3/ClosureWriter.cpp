@@ -632,6 +632,12 @@ void LaunchClosureWriter::setBootUUID(const char* uuid)
     append(TypedBytes::Type::bootUUID, temp, paddedSize);
 }
 
+void LaunchClosureWriter::setHasProgramVars(uint32_t offset)
+{
+    getFlags().hasProgVars = true;
+    append(TypedBytes::Type::progVars, &offset, sizeof(uint32_t));
+}
+
 void LaunchClosureWriter::setObjCSelectorInfo(const Array<uint8_t>& hashTable, const Array<Image::ObjCSelectorImage>& hashTableImages) {
     uint32_t count = (uint32_t)hashTableImages.count();
     uint32_t totalSize = (uint32_t)(sizeof(count) + (sizeof(Image::ObjCSelectorImage) * count) + hashTable.count());

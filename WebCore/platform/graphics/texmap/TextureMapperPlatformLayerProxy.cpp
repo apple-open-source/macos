@@ -71,8 +71,8 @@ void TextureMapperPlatformLayerProxy::activateOnCompositingThread(Compositor* co
     if (m_targetLayer && m_currentBuffer)
         m_targetLayer->setContentsLayer(m_currentBuffer.get());
 
-    m_releaseUnusedBuffersTimer = std::make_unique<RunLoop::Timer<TextureMapperPlatformLayerProxy>>(RunLoop::current(), this, &TextureMapperPlatformLayerProxy::releaseUnusedBuffersTimerFired);
-    m_compositorThreadUpdateTimer = std::make_unique<RunLoop::Timer<TextureMapperPlatformLayerProxy>>(RunLoop::current(), this, &TextureMapperPlatformLayerProxy::compositorThreadUpdateTimerFired);
+    m_releaseUnusedBuffersTimer = makeUnique<RunLoop::Timer<TextureMapperPlatformLayerProxy>>(RunLoop::current(), this, &TextureMapperPlatformLayerProxy::releaseUnusedBuffersTimerFired);
+    m_compositorThreadUpdateTimer = makeUnique<RunLoop::Timer<TextureMapperPlatformLayerProxy>>(RunLoop::current(), this, &TextureMapperPlatformLayerProxy::compositorThreadUpdateTimerFired);
 
 #if USE(GLIB_EVENT_LOOP)
     m_compositorThreadUpdateTimer->setPriority(RunLoopSourcePriority::CompositingThreadUpdateTimer);
@@ -113,6 +113,12 @@ bool TextureMapperPlatformLayerProxy::isActive()
 void TextureMapperPlatformLayerProxy::pushNextBuffer(std::unique_ptr<TextureMapperPlatformLayerBuffer> newBuffer)
 {
     ASSERT(m_lock.isHeld());
+#if USE(ANGLE)
+    // When the newBuffer overwrites m_pendingBuffer that is not swapped yet,
+    // the layer related to m_pendingBuffer is flickering since its texture is destroyed.
+    if (m_pendingBuffer && m_pendingBuffer->hasManagedTexture())
+        return;
+#endif
     m_pendingBuffer = WTFMove(newBuffer);
     m_wasBufferDropped = false;
 

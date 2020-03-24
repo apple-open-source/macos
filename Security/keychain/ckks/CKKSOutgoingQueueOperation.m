@@ -26,6 +26,7 @@
 #import <CloudKit/CloudKit.h>
 #import <CloudKit/CloudKit_Private.h>
 
+#import "keychain/ckks/CKKSViewManager.h"
 #import "CKKSKeychainView.h"
 #import "CKKSCurrentKeyPointer.h"
 #import "CKKSOutgoingQueueOperation.h"
@@ -90,7 +91,7 @@
 
         NSError* error = nil;
 
-        NSSet<NSString*>* priorityUUIDs = [ckks _onqueuePriorityOutgoingQueueUUIDs];
+        NSSet<NSString*>* priorityUUIDs = [[CKKSViewManager manager] pendingCallbackUUIDs];
 
         NSMutableArray<CKKSOutgoingQueueEntry*>* priorityEntries = [NSMutableArray array];
         NSMutableSet<NSString*>* priorityEntryUUIDs = [NSMutableSet set];

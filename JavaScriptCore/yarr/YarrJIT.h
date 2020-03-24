@@ -32,11 +32,7 @@
 #include "Yarr.h"
 #include "YarrPattern.h"
 
-#if CPU(X86) && !COMPILER(MSVC)
-#define YARR_CALL __attribute__ ((regparm (3)))
-#else
 #define YARR_CALL
-#endif
 
 namespace JSC {
 
@@ -57,6 +53,9 @@ enum class JITFailureReason : uint8_t {
 };
 
 class YarrCodeBlock {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(YarrCodeBlock);
+
     // Technically freeParenContext and parenContextSize are only used if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS) is set. Fortunately, all the calling conventions we support have caller save argument registers.
     using YarrJITCode8 = EncodedMatchResult (*)(const LChar* input, unsigned start, unsigned length, int* output, void* freeParenContext, unsigned parenContextSize) YARR_CALL;
     using YarrJITCode16 = EncodedMatchResult (*)(const UChar* input, unsigned start, unsigned length, int* output, void* freeParenContext, unsigned parenContextSize) YARR_CALL;

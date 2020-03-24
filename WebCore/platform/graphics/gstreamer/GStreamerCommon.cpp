@@ -23,6 +23,7 @@
 
 #if USE(GSTREAMER)
 
+#include "GLVideoSinkGStreamer.h"
 #include "GstAllocatorFastMalloc.h"
 #include "IntSize.h"
 #include "SharedBuffer.h"
@@ -253,6 +254,23 @@ bool initializeGStreamer(Optional<Vector<String>>&& options)
         if (isGStreamerInitialized)
             gst_mpegts_initialize();
 #endif
+
+        // If the FDK-AAC decoder is available, promote it and downrank the
+        // libav AAC decoders, due to their broken LC support, as reported in:
+        // https://ffmpeg.org/pipermail/ffmpeg-devel/2019-July/247063.html
+        GRefPtr<GstElement> aacDecoder = gst_element_factory_make("fdkaacdec", nullptr);
+        if (aacDecoder) {
+            GstElementFactory* factory = gst_element_get_factory(aacDecoder.get());
+            gst_plugin_feature_set_rank(GST_PLUGIN_FEATURE_CAST(factory), GST_RANK_PRIMARY);
+
+            const char* const elementNames[] = {"avdec_aac", "avdec_aac_fixed", "avdec_aac_latm"};
+            for (unsigned i = 0; i < G_N_ELEMENTS(elementNames); i++) {
+                GRefPtr<GstElement> avAACDecoder = gst_element_factory_make(elementNames[i], nullptr);
+                if (avAACDecoder)
+                    gst_plugin_feature_set_rank(GST_PLUGIN_FEATURE_CAST(gst_element_get_factory(avAACDecoder.get())), GST_RANK_MARGINAL);
+            }
+        }
+
 #endif
     });
     return isGStreamerInitialized;
@@ -279,6 +297,9 @@ bool initializeGStreamerAndRegisterWebKitElements()
 
 #if ENABLE(VIDEO)
         gst_element_register(0, "webkitwebsrc", GST_RANK_PRIMARY + 100, WEBKIT_TYPE_WEB_SRC);
+#if USE(GSTREAMER_GL)
+        gst_element_register(0, "webkitglvideosink", GST_RANK_PRIMARY, WEBKIT_TYPE_GL_VIDEO_SINK);
+#endif
 #endif
     });
     return true;
@@ -360,6 +381,14 @@ Ref<SharedBuffer> GstMappedBuffer::createSharedBuffer()
     RELEASE_ASSERT(isSharable());
 
     return SharedBuffer::create(*this);
+}
+
+bool isGStreamerPluginAvailable(const char* name)
+{
+    GRefPtr<GstPlugin> plugin = adoptGRef(gst_registry_find_plugin(gst_registry_get(), name));
+    if (!plugin)
+        GST_WARNING("Plugin %s not found. Please check your GStreamer installation", name);
+    return plugin;
 }
 
 }

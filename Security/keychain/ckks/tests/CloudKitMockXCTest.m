@@ -31,10 +31,14 @@
 #import <CloudKit/CloudKit_Private.h>
 #import <CloudKit/CKContainer_Private.h>
 #import <OCMock/OCMock.h>
+#import <TrustedPeers/TrustedPeers.h>
+#import <TrustedPeers/TPPBPolicyKeyViewMapping.h>
+#import <TrustedPeers/TPDictionaryMatchingRules.h>
 
 #include "keychain/securityd/Regressions/SecdTestKeychainUtilities.h"
 #include <utilities/SecFileLocations.h>
 #include "keychain/securityd/SecItemServer.h"
+#include "keychain/securityd/SecItemDataSource.h"
 
 #if NO_SERVER
 #include "keychain/securityd/spi.h"
@@ -53,6 +57,9 @@
 #include "keychain/ckks/CKKSGroupOperation.h"
 #include "keychain/ckks/CKKSLockStateTracker.h"
 #include "keychain/ckks/CKKSReachabilityTracker.h"
+
+#include "keychain/ot/OT.h"
+#include "keychain/ot/OTManager.h"
 
 #import "tests/secdmockaks/mockaks.h"
 #import "utilities/SecTapToRadar.h"
@@ -120,7 +127,7 @@
     self.operationQueue = [[NSOperationQueue alloc] init];
     self.operationQueue.maxConcurrentOperationCount = 1;
 
-    self.zones = [[NSMutableDictionary alloc] init];
+    self.zones = self.zones ?: [[NSMutableDictionary alloc] init];
 
     self.apsEnvironment = @"fake APS push string";
 
@@ -340,19 +347,23 @@
                                                                 nsdistributednotificationCenterClass:[FakeNSDistributedNotificationCenter class]
                                                                                                                                      notifierClass:[FakeCKKSNotifier class]];
 
-    self.mockCKKSViewManager = OCMPartialMock(
-        [[CKKSViewManager alloc] initWithContainerName:SecCKKSContainerName
-                                                usePCS:SecCKKSContainerUsePCS
-                                            sosAdapter:self.mockSOSAdapter
-                             cloudKitClassDependencies:cloudKitClassDependencies]);
 
+    self.injectedOTManager = [self setUpOTManager:cloudKitClassDependencies];
+    [OTManager resetManager:false to:self.injectedOTManager];
+
+    self.mockCKKSViewManager = OCMPartialMock(self.injectedOTManager.viewManager);
+    self.injectedManager = self.mockCKKSViewManager;
+
+    [self.mockCKKSViewManager setOverrideCKKSViewsFromPolicy:!self.setCKKSViewsFromPolicyToNo];
     OCMStub([self.mockCKKSViewManager defaultViewList]).andCall(self, @selector(managedViewList));
     OCMStub([self.mockCKKSViewManager syncBackupAndNotifyAboutSync]);
     OCMStub([self.mockCKKSViewManager waitForTrustReady]).andReturn(YES);
 
-    self.injectedManager = self.mockCKKSViewManager;
-
-    [CKKSViewManager resetManager:false setTo:self.injectedManager];
+    if(!self.disableConfigureCKKSViewManagerWithViews) {
+        // Normally, the Octagon state machine calls this. But, since we won't be running that, help it out.
+        [self.injectedManager setSyncingViews:[self managedViewList]
+                                sortingPolicy:[self viewSortingPolicyForManagedViewList]];
+    }
 
     // Lie and say network is available
     [self.reachabilityTracker setNetworkReachability:true];
@@ -366,6 +377,14 @@
 
     // Actually load the database.
     kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+}
+
+- (OTManager*)setUpOTManager:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies
+{
+    return [[OTManager alloc] initWithSOSAdapter:self.mockSOSAdapter
+                                lockStateTracker:[[CKKSLockStateTracker alloc] init]
+                            cloudKitClassDependencies:cloudKitClassDependencies];
+
 }
 
 - (SOSAccountStatus*)circleStatus {
@@ -423,12 +442,12 @@
     XCTAssertTrue(self.silentZoneDeletesAllowed, "Should be allowing zone deletes");
 }
 
--(CKKSAccountStateTracker*)accountStateTracker {
-    return self.injectedManager.accountTracker;
+- (CKKSAccountStateTracker*)accountStateTracker {
+    return self.injectedOTManager.accountStateTracker;
 }
 
 -(CKKSLockStateTracker*)lockStateTracker {
-    return self.injectedManager.lockStateTracker;
+    return self.injectedOTManager.lockStateTracker;
 }
 
 -(CKKSReachabilityTracker*)reachabilityTracker {
@@ -437,6 +456,29 @@
 
 -(NSSet*)managedViewList {
     return (NSSet*) CFBridgingRelease(SOSViewCopyViewSet(kViewSetCKKS));
+}
+
+- (TPPolicy*)viewSortingPolicyForManagedViewList
+{
+    NSMutableArray<TPPBPolicyKeyViewMapping*>* rules = [NSMutableArray array];
+
+    for(NSString* viewName in self.managedViewList) {
+        TPPBPolicyKeyViewMapping* mapping = [[TPPBPolicyKeyViewMapping alloc] init];
+        mapping.view = viewName;
+        mapping.matchingRule = [TPDictionaryMatchingRule fieldMatch:@"vwht"
+                                                         fieldRegex:[NSString stringWithFormat:@"^%@$", viewName]];
+
+        [rules addObject:mapping];
+    }
+
+    TPPolicy* policy = [TPPolicy policyWithModelToCategory:@[]
+                                          categoriesByView:@{}
+                                     introducersByCategory:@{}
+                                            keyViewMapping:rules
+                                         unknownRedactions:NO
+                                                   version:[[TPPolicyVersion alloc] initWithVersion:1 hash:@"fake-policy-for-views"]];
+
+    return policy;
 }
 
 -(void)expectCKFetch {
@@ -1085,10 +1127,17 @@
     [super tearDown];
 
     [self.injectedManager cancelPendingOperations];
-    [CKKSViewManager resetManager:true setTo:nil];
+    [self.injectedManager clearAllViews];
     self.injectedManager = nil;
+
     [self.mockCKKSViewManager stopMocking];
     self.mockCKKSViewManager = nil;
+
+    self.injectedOTManager.viewManager = nil;
+
+    [self.injectedOTManager clearAllContexts];
+    self.injectedOTManager = nil;
+    [OTManager resetManager:true to:nil];
 
     [self.mockAccountStateTracker stopMocking];
     self.mockAccountStateTracker = nil;
@@ -1129,6 +1178,26 @@
 
     _mockSOSAdapter = nil;
     _mockOctagonAdapter = nil;
+
+    // Bring the database down and delete it
+
+    NSURL* keychainDir = (NSURL*)CFBridgingRelease(SecCopyHomeURL());
+
+    SecItemDataSourceFactoryReleaseAll();
+    SecKeychainDbForceClose();
+    SecKeychainDbReset(NULL);
+
+    // Only perform the desctructive step if the url matches what we expect!
+    if([keychainDir.path hasPrefix:[NSString stringWithFormat:@"/tmp/%@", testName]]) {
+        secnotice("ckkstest", "Removing test-specific keychain directory at %@", keychainDir);
+
+        NSError* removeError = nil;
+        [[NSFileManager defaultManager] removeItemAtURL:keychainDir error:&removeError];
+
+        XCTAssertNil(removeError, "Should have been able to remove temporary files");
+     } else {
+         XCTFail("Unsure what happened to the keychain directory URL: %@", keychainDir);
+    }
 
     SecCKKSTestResetFlags();
 }

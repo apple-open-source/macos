@@ -33,9 +33,11 @@
 #import "WKProcessPool.h"
 #import "WKRetainPtr.h"
 #import "WKUserContentController.h"
+#import "WKWebpagePreferencesInternal.h"
 #import "WKWebView.h"
 #import "WKWebViewContentProviderRegistry.h"
 #import "WebKit2Initialize.h"
+#import "WebPreferencesDefaultValues.h"
 #import "WebURLSchemeHandlerCocoa.h"
 #import "_WKApplicationManifestInternal.h"
 #import "_WKVisitedLinkStore.h"
@@ -701,6 +703,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 #if PLATFORM(IOS_FAMILY)
+- (BOOL)_clientNavigationsRunAtForegroundPriority
+{
+    return _pageConfiguration->clientNavigationsRunAtForegroundPriority();
+}
+
+- (void)_setClientNavigationsRunAtForegroundPriority:(BOOL)clientNavigationsRunAtForegroundPriority
+{
+    _pageConfiguration->setClientNavigationsRunAtForegroundPriority(clientNavigationsRunAtForegroundPriority);
+}
+
 - (BOOL)_alwaysRunsAtForegroundPriority
 {
     return _pageConfiguration->alwaysRunsAtForegroundPriority();
@@ -874,6 +886,29 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_setShouldDeferAsynchronousScriptsUntilAfterDocumentLoad:(BOOL)shouldDeferAsynchronousScriptsUntilAfterDocumentLoad
 {
     _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad = shouldDeferAsynchronousScriptsUntilAfterDocumentLoad;
+}
+
+- (WKWebsiteDataStore *)_websiteDataStoreIfExists
+{
+    return _websiteDataStore.peek();
+}
+
+- (NSArray<NSString *> *)_corsDisablingPatterns
+{
+    auto& vector = _pageConfiguration->corsDisablingPatterns();
+    NSMutableArray *array = [NSMutableArray arrayWithCapacity:vector.size()];
+    for (auto& pattern : vector)
+        [array addObject:pattern];
+    return array;
+}
+
+- (void)_setCORSDisablingPatterns:(NSArray<NSString *> *)patterns
+{
+    Vector<String> vector;
+    vector.reserveInitialCapacity(patterns.count);
+    for (NSString *pattern in patterns)
+        vector.uncheckedAppend(pattern);
+    _pageConfiguration->setCORSDisablingPatterns(WTFMove(vector));
 }
 
 - (BOOL)_drawsBackground

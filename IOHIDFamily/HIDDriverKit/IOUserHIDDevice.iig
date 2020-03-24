@@ -70,7 +70,7 @@ protected:
      * @abstract Create and return a new dicitonary that describe the device HID device
      * @discussion A subclass must override this pure virtual function, and
      * return a dictionary of key value pairs that describe device.
-     * Supported keys:
+     * Supported keys (see  IOHIDDeviceKeys.h ):
      *  kIOHIDReportIntervalKey
      *  kIOHIDVendorIDKey
      *  kIOHIDProductIDKey

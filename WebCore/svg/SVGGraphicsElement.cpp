@@ -80,11 +80,16 @@ AffineTransform SVGGraphicsElement::animatedLocalTransform() const
         
         FloatRect boundingBox;
         switch (style->transformBox()) {
+        case TransformBox::BorderBox:
+            // For SVG elements without an associated CSS layout box, the used value for border-box is stroke-box.
+        case TransformBox::StrokeBox:
+            boundingBox = renderer()->strokeBoundingBox();
+            break;
+        case TransformBox::ContentBox:
+            // For SVG elements without an associated CSS layout box, the used value for content-box is fill-box.
         case TransformBox::FillBox:
             boundingBox = renderer()->objectBoundingBox();
             break;
-        case TransformBox::BorderBox:
-            // For SVG elements without an associated CSS layout box, the used value for border-box is view-box.
         case TransformBox::ViewBox: {
             FloatSize viewportSize;
             SVGLengthContext(this).determineViewport(viewportSize);
@@ -119,7 +124,7 @@ AffineTransform SVGGraphicsElement::animatedLocalTransform() const
 AffineTransform* SVGGraphicsElement::supplementalTransform()
 {
     if (!m_supplementalTransform)
-        m_supplementalTransform = std::make_unique<AffineTransform>();
+        m_supplementalTransform = makeUnique<AffineTransform>();
     return m_supplementalTransform.get();
 }
 

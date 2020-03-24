@@ -53,13 +53,10 @@ struct PromisedAttachmentInfo;
     class DragController {
         WTF_MAKE_NONCOPYABLE(DragController); WTF_MAKE_FAST_ALLOCATED;
     public:
-        DragController(Page&, DragClient&);
+        DragController(Page&, std::unique_ptr<DragClient>&&);
         ~DragController();
 
-        static std::unique_ptr<DragController> create(Page&, DragClient&);
         static DragOperation platformGenericDragOperation();
-
-        DragClient& client() const { return m_client; }
 
         WEBCORE_EXPORT DragOperation dragEntered(const DragData&);
         WEBCORE_EXPORT void dragExited(const DragData&);
@@ -135,6 +132,8 @@ struct PromisedAttachmentInfo;
 #endif
         }
 
+        DragClient& client() const { return *m_client; }
+
         bool tryToUpdateDroppedImagePlaceholders(const DragData&);
         void removeAllDroppedImagePlaceholders();
 
@@ -147,18 +146,18 @@ struct PromisedAttachmentInfo;
         PromisedAttachmentInfo promisedAttachmentInfo(Frame&, Element&);
 #endif
         Page& m_page;
-        DragClient& m_client;
+        std::unique_ptr<DragClient> m_client;
 
         RefPtr<Document> m_documentUnderMouse; // The document the mouse was last dragged over.
         RefPtr<Document> m_dragInitiator; // The Document (if any) that initiated the drag.
         RefPtr<HTMLInputElement> m_fileInputElementUnderMouse;
-        unsigned m_numberOfItemsToBeAccepted;
+        unsigned m_numberOfItemsToBeAccepted { 0 };
         DragHandlingMethod m_dragHandlingMethod { DragHandlingMethod::None };
 
-        DragDestinationAction m_dragDestinationAction;
-        DragSourceAction m_dragSourceAction;
-        bool m_didInitiateDrag;
-        DragOperation m_sourceDragOperation; // Set in startDrag when a drag starts from a mouse down within WebKit
+        DragDestinationAction m_dragDestinationAction { DragDestinationActionNone };
+        DragSourceAction m_dragSourceAction { DragSourceActionNone };
+        bool m_didInitiateDrag { false };
+        DragOperation m_sourceDragOperation { DragOperationNone }; // Set in startDrag when a drag starts from a mouse down within WebKit
         IntPoint m_dragOffset;
         URL m_draggingImageURL;
         bool m_isPerformingDrop { false };

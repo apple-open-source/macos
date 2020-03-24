@@ -28,6 +28,7 @@
 #include "APIObject.h"
 #include "DownloadID.h"
 #include "ShareableBitmap.h"
+#include "TransactionID.h"
 #include "WKBase.h"
 #include "WebFrameLoaderClient.h"
 #include <JavaScriptCore/ConsoleTypes.h>
@@ -41,10 +42,6 @@
 
 namespace API {
 class Array;
-}
-
-namespace PAL {
-class SessionID;
 }
 
 namespace WebCore {
@@ -80,7 +77,7 @@ public:
     WebCore::Frame* coreFrame() const { return m_coreFrame; }
 
     FrameInfoData info() const;
-    uint64_t frameID() const { return m_frameID; }
+    WebCore::FrameIdentifier frameID() const { return m_frameID; }
 
     enum class ForNavigationAction { No, Yes };
     uint64_t setUpPolicyListener(WebCore::PolicyCheckIdentifier, WebCore::FramePolicyFunction&&, ForNavigationAction);
@@ -91,7 +88,7 @@ public:
     void continueWillSubmitForm(uint64_t);
 
     void startDownload(const WebCore::ResourceRequest&, const String& suggestedName = { });
-    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, PAL::SessionID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
+    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     void addConsoleMessage(MessageSource, MessageLevel, const String&, uint64_t requestID = 0);
 
@@ -167,8 +164,8 @@ public:
     RefPtr<ShareableBitmap> createSelectionSnapshot() const;
 
 #if PLATFORM(IOS_FAMILY)
-    uint64_t firstLayerTreeTransactionIDAfterDidCommitLoad() const { return m_firstLayerTreeTransactionIDAfterDidCommitLoad; }
-    void setFirstLayerTreeTransactionIDAfterDidCommitLoad(uint64_t transactionID) { m_firstLayerTreeTransactionIDAfterDidCommitLoad = transactionID; }
+    TransactionID firstLayerTreeTransactionIDAfterDidCommitLoad() const { return m_firstLayerTreeTransactionIDAfterDidCommitLoad; }
+    void setFirstLayerTreeTransactionIDAfterDidCommitLoad(TransactionID transactionID) { m_firstLayerTreeTransactionIDAfterDidCommitLoad = transactionID; }
 #endif
 
     WebFrameLoaderClient* frameLoaderClient() const { return m_frameLoaderClient.get(); }
@@ -189,10 +186,10 @@ private:
     std::unique_ptr<WebFrameLoaderClient> m_frameLoaderClient;
     LoadListener* m_loadListener { nullptr };
     
-    uint64_t m_frameID { 0 };
+    WebCore::FrameIdentifier m_frameID;
 
 #if PLATFORM(IOS_FAMILY)
-    uint64_t m_firstLayerTreeTransactionIDAfterDidCommitLoad { 0 };
+    TransactionID m_firstLayerTreeTransactionIDAfterDidCommitLoad;
 #endif
 };
 

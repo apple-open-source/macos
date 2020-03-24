@@ -184,14 +184,12 @@ command_sos_control(__unused int argc, __unused char * const * argv)
         bool gbinfo = false;
         bool gbtriggered = false;
         bool circleHash = false;
-        bool triggerRingUpdate = false;
 
         static struct option long_options[] =
         {
             /* These options set a flag. */
             {"assertStashAccountKey",   no_argument, NULL, 'a'},
             {"trigger-backup",   optional_argument, NULL, 'B'},
-            {"trigger-ring-update",   no_argument, NULL, 'R'},
             {"trigger-sync",   optional_argument, NULL, 's'},
             {"circle-hash", optional_argument, NULL, 'H'},
             {"ghostbustByMID",   optional_argument, NULL, 'M'},
@@ -203,7 +201,7 @@ command_sos_control(__unused int argc, __unused char * const * argv)
             {0, 0, 0, 0}
         };
 
-        while ((ch = getopt_long(argc, argv, "as:AB:GHIMRST", long_options, &option_index)) != -1) {
+        while ((ch = getopt_long(argc, argv, "as:AB:GHMSIT", long_options, &option_index)) != -1) {
             switch  (ch) {
                 case 'a': {
                     assertStashAccountKey = true;
@@ -241,9 +239,6 @@ command_sos_control(__unused int argc, __unused char * const * argv)
                     gboptions |= SOSGhostBustByMID;
                     break;
                 }
-                case 'R':
-                    triggerRingUpdate = true;
-                    break;
                 case 'S': {
                     gboptions |= SOSGhostBustBySerialNumber;
                     break;
@@ -305,7 +300,7 @@ command_sos_control(__unused int argc, __unused char * const * argv)
         } else if (triggerSync) {
             [[control.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *error) {
                 printControlFailureMessage(error);
-            }] rpcTriggerSync:syncingPeers complete:^(bool res, NSError *error) {
+            }] triggerSync:syncingPeers complete:^(bool res, NSError *error) {
                 if (res) {
                     printf("starting to sync was successful\n");
                 } else {
@@ -315,21 +310,11 @@ command_sos_control(__unused int argc, __unused char * const * argv)
         } else if (triggerBackup) {
             [[control.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *error) {
                 printControlFailureMessage(error);
-            }] rpcTriggerBackup:backupPeers complete:^(NSError *error) {
+            }] triggerBackup:backupPeers complete:^(NSError *error) {
                 if (error == NULL) {
                     printf("trigger backup was successful\n");
                 } else {
-                    printf("%s", [[NSString stringWithFormat:@"Failed to start backup: %@\n", error] UTF8String]);
-                }
-            }];
-        } else if (triggerRingUpdate) {
-            [[control.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *error) {
-                printControlFailureMessage(error);
-            }] rpcTriggerRingUpdate:^(NSError *error) {
-                if (error == NULL) {
-                    printf("trigger ring update was successful\n");
-                } else {
-                    printf("%s", [[NSString stringWithFormat:@"Failed to start ring update: %@\n", error] UTF8String]);
+                    printf("%s", [[NSString stringWithFormat:@"Failed to start sync: %@\n", error] UTF8String]);
                 }
             }];
 

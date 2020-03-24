@@ -971,32 +971,7 @@ exit:
     return;
 }
 
-#if   TARGET_OS_OSX // TARGET_OS_IOS || TARGET_OS_WATCH
-static void sendEnergySettingsToIOPMPowerSource(CFDictionaryRef useSettings)
-{
-    CFNumberRef num;
-    io_registry_entry_t power_source = getIOPMPowerSource();
-
-    if (power_source == MACH_PORT_NULL || !isA_CFDictionary(useSettings)) {
-        return;
-    }
-
-    if (!IOPMFeatureIsAvailable(CFSTR(kIOPMVact), NULL)) {
-        return;
-    }
-
-    num = CFDictionaryGetValue(useSettings, CFSTR(kIOPMVact));
-    if (isA_CFNumber(num)) {
-        uint8_t val;
-        CFNumberGetValue(num, kCFNumberIntType, &val);
-        val = !!val;
-
-        _smcWriteKey('BDVT', &val, sizeof(val));
-    }
-}
-#else
 static void sendEnergySettingsToIOPMPowerSource(CFDictionaryRef useSettings) { }
-#endif // TARGET_OS_IOS || TARGET_OS_WATCH
 
 __private_extern__ IOReturn ActivatePMSettings(
     CFDictionaryRef                 useSettings,
@@ -1312,6 +1287,7 @@ exit:
 }
 
 
+
 static IOReturn PMActivateSystemPowerSettings( void )
 {
     io_registry_entry_t         rootdomain = MACH_PORT_NULL;
@@ -1345,6 +1321,7 @@ static IOReturn PMActivateSystemPowerSettings( void )
         CFNumberGetValue(numRef, kCFNumberIntType, &value);
         setDwlInterval(value);
     }
+
 
 exit:
     if(settings) CFRelease( settings );

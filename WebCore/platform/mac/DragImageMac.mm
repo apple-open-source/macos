@@ -48,7 +48,7 @@
 #import <wtf/SoftLinking.h>
 #import <wtf/URL.h>
 
-#if !HAVE(URL_FORMATTING) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+#if !HAVE(URL_FORMATTING)
 SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(LinkPresentation)
 #endif
 
@@ -92,42 +92,38 @@ RetainPtr<NSImage> dissolveDragImageToFraction(RetainPtr<NSImage> image, float d
     return dissolvedImage;
 }
         
-RetainPtr<NSImage> createDragImageFromImage(Image* image, ImageOrientationDescription description)
+RetainPtr<NSImage> createDragImageFromImage(Image* image, ImageOrientation orientation)
 {
-    FloatSize size = image->size();
-
     if (is<BitmapImage>(*image)) {
-        ImageOrientation orientation;
         BitmapImage& bitmapImage = downcast<BitmapImage>(*image);
-        IntSize sizeRespectingOrientation = bitmapImage.sizeRespectingOrientation();
 
-        if (description.respectImageOrientation() == RespectImageOrientation)
+        if (orientation == ImageOrientation::FromImage)
             orientation = bitmapImage.orientationForCurrentFrame();
 
-        if (orientation != DefaultImageOrientation) {
+        if (orientation != ImageOrientation::None) {
             // Construct a correctly-rotated copy of the image to use as the drag image.
-            FloatRect destRect(FloatPoint(), sizeRespectingOrientation);
-
-            RetainPtr<NSImage> rotatedDragImage = adoptNS([[NSImage alloc] initWithSize:(NSSize)(sizeRespectingOrientation)]);
+            FloatSize imageSize = image->size(orientation);
+            RetainPtr<NSImage> rotatedDragImage = adoptNS([[NSImage alloc] initWithSize:(NSSize)(imageSize)]);
             [rotatedDragImage lockFocus];
 
             // ImageOrientation uses top-left coordinates, need to flip to bottom-left, apply...
-            CGAffineTransform transform = CGAffineTransformMakeTranslation(0, destRect.height());
+            CGAffineTransform transform = CGAffineTransformMakeTranslation(0, imageSize.height());
             transform = CGAffineTransformScale(transform, 1, -1);
-            transform = CGAffineTransformConcat(orientation.transformFromDefault(sizeRespectingOrientation), transform);
+            transform = CGAffineTransformConcat(orientation.transformFromDefault(imageSize), transform);
 
             if (orientation.usesWidthAsHeight())
-                destRect = FloatRect(destRect.x(), destRect.y(), destRect.height(), destRect.width());
+                imageSize = imageSize.transposedSize();
 
             // ...and flip back.
-            transform = CGAffineTransformTranslate(transform, 0, destRect.height());
+            transform = CGAffineTransformTranslate(transform, 0, imageSize.height());
             transform = CGAffineTransformScale(transform, 1, -1);
 
             RetainPtr<NSAffineTransform> cocoaTransform = adoptNS([[NSAffineTransform alloc] init]);
             [cocoaTransform setTransformStruct:*(NSAffineTransformStruct*)&transform];
             [cocoaTransform concat];
 
-            [image->snapshotNSImage() drawInRect:destRect fromRect:NSMakeRect(0, 0, size.width(), size.height()) operation:NSCompositingOperationSourceOver fraction:1.0];
+            FloatRect imageRect(FloatPoint(), imageSize);
+            [image->snapshotNSImage() drawInRect:imageRect fromRect:imageRect operation:NSCompositingOperationSourceOver fraction:1.0];
 
             [rotatedDragImage unlockFocus];
 
@@ -135,8 +131,9 @@ RetainPtr<NSImage> createDragImageFromImage(Image* image, ImageOrientationDescri
         }
     }
 
+    FloatSize imageSize = image->size();
     auto dragImage = image->snapshotNSImage();
-    [dragImage setSize:(NSSize)size];
+    [dragImage setSize:(NSSize)imageSize];
     return dragImage;
 }
     
@@ -161,13 +158,8 @@ const CGFloat linkImageCornerRadius = 5;
 const CGFloat linkImageMaximumWidth = 400;
 const CGFloat linkImageFontSize = 11;
 const CFIndex linkImageTitleMaximumLineCount = 2;
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
 const int linkImageShadowRadius = 0;
 const int linkImageShadowOffsetY = 0;
-#else
-const int linkImageShadowRadius = 9;
-const int linkImageShadowOffsetY = -3;
-#endif
 const int linkImageDragCornerOutsetX = 6 - linkImageShadowRadius;
 const int linkImageDragCornerOutsetY = 10 - linkImageShadowRadius + linkImageShadowOffsetY;
 
@@ -204,7 +196,7 @@ LinkImageLayout::LinkImageLayout(URL& url, const String& titleString)
     NSString *domain = absoluteURLString;
 #if HAVE(URL_FORMATTING)
     domain = [cocoaURL _lp_simplifiedDisplayString];
-#elif __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
+#else
     if (LinkPresentationLibrary())
         domain = [cocoaURL _lp_simplifiedDisplayString];
 #endif
@@ -303,9 +295,6 @@ DragImageRef createDragImageForLink(Element& element, URL& url, const String& ti
     LocalDefaultSystemAppearance localAppearance(element.document().useDarkAppearance(element.computedStyle()));
 
     auto imageSize = layout.boundingRect.size();
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
-    imageSize.expand(2 * linkImageShadowRadius, 2 * linkImageShadowRadius - linkImageShadowOffsetY);
-#endif
     RetainPtr<NSImage> dragImage = adoptNS([[NSImage alloc] initWithSize:imageSize]);
     [dragImage _web_lockFocusWithDeviceScaleFactor:deviceScaleFactor];
 
@@ -313,14 +302,7 @@ DragImageRef createDragImageForLink(Element& element, URL& url, const String& ti
     GraphicsContext context((CGContextRef)[NSGraphicsContext currentContext].graphicsPort);
     ALLOW_DEPRECATED_DECLARATIONS_END
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
-    context.translate(linkImageShadowRadius, linkImageShadowRadius - linkImageShadowOffsetY);
-    context.setShadow({ 0, linkImageShadowOffsetY }, linkImageShadowRadius, { 0.f, 0.f, 0.f, .25 });
-#endif
     context.fillRoundedRect(FloatRoundedRect(layout.boundingRect, FloatRoundedRect::Radii(linkImageCornerRadius)), colorFromNSColor([NSColor controlBackgroundColor]));
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
-    context.clearShadow();
-#endif
 
     for (const auto& label : layout.labels) {
         GraphicsContextStateSaver saver(context);

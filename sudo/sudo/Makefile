@@ -54,7 +54,7 @@ SUBDIRS = lib/util  plugins/group_file plugins/sudoers \
 
 SAMPLES = plugins/sample
 
-VERSION = 1.8.29
+VERSION = 1.8.31
 PACKAGE_TARNAME = sudo
 
 LIBTOOL_DEPS = ./ltmain.sh

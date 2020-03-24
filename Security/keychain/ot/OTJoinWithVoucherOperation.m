@@ -55,7 +55,6 @@
                           errorState:(OctagonState*)errorState
                          voucherData:(NSData*)voucherData
                           voucherSig:(NSData*)voucherSig
-                     preapprovedKeys:(NSArray<NSData *>*)preapprovedKeys
 {
     if((self = [super init])) {
         _deps = dependencies;
@@ -66,7 +65,6 @@
 
         _voucherData = voucherData;
         _voucherSig = voucherSig;
-        _preapprovedKeys = preapprovedKeys;
     }
     return self;
 }
@@ -98,14 +96,33 @@
 {
     WEAKIFY(self);
 
+    NSArray<NSData*>* publicSigningSPKIs = nil;
+    if(self.deps.sosAdapter.sosEnabled) {
+        NSError* sosPreapprovalError = nil;
+        publicSigningSPKIs = [OTSOSAdapterHelpers peerPublicSigningKeySPKIsForCircle:self.deps.sosAdapter error:&sosPreapprovalError];
+
+        if(publicSigningSPKIs) {
+            secnotice("octagon-sos", "SOS preapproved keys are %@", publicSigningSPKIs);
+        } else {
+            secnotice("octagon-sos", "Unable to fetch SOS preapproved keys: %@", sosPreapprovalError);
+        }
+
+    } else {
+        secnotice("octagon-sos", "SOS not enabled; no preapproved keys");
+    }
+
     [self.deps.cuttlefishXPCWrapper joinWithContainer:self.deps.containerName
                                               context:self.deps.contextID
                                           voucherData:self.voucherData
                                            voucherSig:self.voucherSig
                                              ckksKeys:viewKeySets
                                             tlkShares:pendingTLKShares
-                                      preapprovedKeys:self.preapprovedKeys
-                                                reply:^(NSString * _Nullable peerID, NSArray<CKRecord*>* keyHierarchyRecords, NSError * _Nullable error) {
+                                      preapprovedKeys:publicSigningSPKIs
+                                                reply:^(NSString * _Nullable peerID,
+                                                        NSArray<CKRecord*>* keyHierarchyRecords,
+                                                        NSSet<NSString*>* _Nullable syncingViews,
+                                                        TPPolicy* _Nullable syncingPolicy,
+                                                        NSError * _Nullable error) {
             STRONGIFY(self);
             if(error){
                 secerror("octagon: Error joining with voucher: %@", error);
@@ -127,12 +144,16 @@
 
                 [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventJoinWithVoucher];
 
+                [self.deps.viewManager setSyncingViews:syncingViews sortingPolicy:syncingPolicy];
+
                 NSError* localError = nil;
                 BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
-                        metadata.trustState = OTAccountMetadataClassC_TrustState_TRUSTED;
-                        metadata.peerID = peerID;
-                        return metadata;
-                    } error:&localError];
+                    metadata.trustState = OTAccountMetadataClassC_TrustState_TRUSTED;
+                    metadata.peerID = peerID;
+                    metadata.syncingViews = [syncingViews mutableCopy];
+                    [metadata setTPPolicy:syncingPolicy];
+                    return metadata;
+                } error:&localError];
                 if(!persisted || localError) {
                     secnotice("octagon", "Couldn't persist results: %@", localError);
                     self.error = localError;

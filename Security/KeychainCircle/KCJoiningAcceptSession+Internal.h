@@ -31,6 +31,9 @@
 #import "KCJoiningSession.h"
 
 @interface KCJoiningAcceptSession (Internal)
+
+- (KCAESGCMDuplexSession*)accessSession;
+
 -(void)setControlObject:(OTControl*)control;
 - (void)setConfiguration:(OTJoiningConfiguration *)config;
 @end

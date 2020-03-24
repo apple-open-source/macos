@@ -34,7 +34,7 @@ _parse_boot_arg_value(char *argsbuff, const char *which, char *where, size_t max
 
 	char *token = NULL;
 	char *argsstr = argsbuff;
-	static const char seps[] = { ' ', '\t', };
+	static const char seps[] = { ' ', '\t', 0 };
 	while ((token = strsep(&argsstr, seps)) != NULL) {
 		bool is_boolean = false;
 

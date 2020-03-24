@@ -182,7 +182,24 @@ const CFStringRef kTestSystemRootKey = CFSTR("TestSystemRoot");
     NSURL *url = [[NSBundle bundleForClass:[self class]] URLForResource:name withExtension:@".cer"
                                                            subdirectory:dir];
     NSData *certData = [NSData dataWithContentsOfURL:url];
-    SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, (CFDataRef)certData);
+    if (!certData) {
+        return nil;
+    }
+    SecCertificateRef cert = SecCertificateCreateWithData(kCFAllocatorDefault, (__bridge CFDataRef)certData);
+    return (__bridge id)cert;
+}
+
+- (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromPEMResource:(NSString *)name
+                                                            subdirectory:(NSString *)dir
+{
+    NSURL *url = [[NSBundle bundleForClass:[self class]] URLForResource:name withExtension:@".pem"
+                                                           subdirectory:dir];
+    NSData *certData = [NSData dataWithContentsOfURL:url];
+    if (!certData) {
+        return nil;
+    }
+
+    SecCertificateRef cert = SecCertificateCreateWithPEM(kCFAllocatorDefault, (__bridge CFDataRef)certData);
     return (__bridge id)cert;
 }
 

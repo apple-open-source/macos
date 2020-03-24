@@ -29,6 +29,8 @@
 #include "NetworkCacheData.h"
 #include "WebsiteData.h"
 #include <WebCore/ClientOrigin.h>
+#include <WebCore/StorageQuotaManager.h>
+#include <pal/SessionID.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>
@@ -36,10 +38,6 @@
 
 namespace IPC {
 class Connection;
-}
-
-namespace WebCore {
-class SessionID;
 }
 
 namespace WTF {
@@ -82,11 +80,16 @@ public:
 
     static void initializeQuotaUser(NetworkProcess&, PAL::SessionID, const WebCore::ClientOrigin&, CompletionHandler<void()>&&);
 
+    static uint64_t diskUsage(const String& rootPath, const WebCore::ClientOrigin&);
+    void requestSpace(const WebCore::ClientOrigin&, uint64_t spaceRequested, CompletionHandler<void(WebCore::StorageQuotaManager::Decision)>&&);
+
     bool shouldPersist() const { return !!m_ioQueue;}
 
     void writeFile(const String& filename, NetworkCache::Data&&, WebCore::DOMCacheEngine::CompletionCallback&&);
     void readFile(const String& filename, CompletionHandler<void(const NetworkCache::Data&, int error)>&&);
     void removeFile(const String& filename);
+    void writeSizeFile(const String&, uint64_t size, CompletionHandler<void()>&&);
+    static Optional<uint64_t> readSizeFile(const String&);
 
     const String& rootPath() const { return m_rootPath; }
     const NetworkCache::Salt& salt() const { return m_salt.value(); }
@@ -133,6 +136,8 @@ private:
     using CacheCallback = Function<void(CacheOrError&&)>;
     void readCache(uint64_t cacheIdentifier, CacheCallback&&);
 
+    CompletionHandler<void()> createClearTask(CompletionHandler<void()>&&);
+
     Cache* cache(uint64_t cacheIdentifier);
 
     PAL::SessionID m_sessionID;
@@ -147,6 +152,8 @@ private:
     HashMap<uint64_t, WebCore::DOMCacheEngine::CompletionCallback> m_pendingWriteCallbacks;
     HashMap<uint64_t, CompletionHandler<void(const NetworkCache::Data&, int error)>> m_pendingReadCallbacks;
     uint64_t m_pendingCallbacksCounter { 0 };
+    Vector<WebCore::DOMCacheEngine::CompletionCallback> m_pendingClearCallbacks;
+    uint64_t m_clearTaskCounter { 0 };
 };
 
 } // namespace CacheStorage

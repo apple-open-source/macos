@@ -186,6 +186,7 @@ static int win32_setattrs(char_u *name, int attrs);
 static int win32_set_archive(char_u *name);
 
 static int conpty_working = 0;
+static int conpty_type = 0;
 static int conpty_stable = 0;
 static void vtp_flag_init();
 
@@ -364,7 +365,7 @@ read_console_input(
 peek_console_input(
     HANDLE	    hInput,
     INPUT_RECORD    *lpBuffer,
-    DWORD	    nLength,
+    DWORD	    nLength UNUSED,
     LPDWORD	    lpEvents)
 {
     return read_console_input(hInput, lpBuffer, -1, lpEvents);
@@ -1005,7 +1006,7 @@ decode_key_event(
     WCHAR		*pch,
     WCHAR		*pch2,
     int			*pmodifiers,
-    BOOL		fDoPost)
+    BOOL		fDoPost UNUSED)
 {
     int i;
     const int nModifs = pker->dwControlKeyState & (SHIFT | ALT | CTRL);
@@ -1126,17 +1127,15 @@ decode_key_event(
 #endif /* FEAT_GUI_MSWIN */
 
 
-#ifdef FEAT_MOUSE
-
 /*
  * For the GUI the mouse handling is in gui_w32.c.
  */
-# if defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)
+#if defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)
     void
 mch_setmouse(int on UNUSED)
 {
 }
-# else
+#else
 static int g_fMouseAvail = FALSE;   /* mouse present */
 static int g_fMouseActive = FALSE;  /* mouse enabled */
 static int g_nMouseClick = -1;	    /* mouse status */
@@ -1151,10 +1150,10 @@ mch_setmouse(int on)
 {
     DWORD cmodein;
 
-#  ifdef VIMDLL
+# ifdef VIMDLL
     if (gui.in_use)
 	return;
-#  endif
+# endif
     if (!g_fMouseAvail)
 	return;
 
@@ -1170,7 +1169,7 @@ mch_setmouse(int on)
 }
 
 
-#if defined(FEAT_BEVAL_TERM) || defined(PROTO)
+# if defined(FEAT_BEVAL_TERM) || defined(PROTO)
 /*
  * Called when 'balloonevalterm' changed.
  */
@@ -1179,7 +1178,7 @@ mch_bevalterm_changed(void)
 {
     mch_setmouse(g_fMouseActive);
 }
-#endif
+# endif
 
 /*
  * Decode a MOUSE_EVENT.  If it's a valid event, return MOUSE_LEFT,
@@ -1217,9 +1216,9 @@ decode_mouse_event(
     static int s_xOldMouse = -1;
     static int s_yOldMouse = -1;
     static linenr_T s_old_topline = 0;
-#ifdef FEAT_DIFF
+# ifdef FEAT_DIFF
     static int s_old_topfill = 0;
-#endif
+# endif
     static int s_cClicks = 1;
     static BOOL s_fReleased = TRUE;
     static DWORD s_dwLastClickTime = 0;
@@ -1274,12 +1273,12 @@ decode_mouse_event(
 	/* If the last thing returned was MOUSE_RELEASE, ignore this */
 	if (s_fReleased)
 	{
-#ifdef FEAT_BEVAL_TERM
+# ifdef FEAT_BEVAL_TERM
 	    /* do return mouse move events when we want them */
 	    if (p_bevalterm)
 		nButton = MOUSE_DRAG;
 	    else
-#endif
+# endif
 		return FALSE;
 	}
 
@@ -1385,9 +1384,9 @@ decode_mouse_event(
 		    || s_yOldMouse != g_yMouse
 		    || s_nOldButton != nButton
 		    || s_old_topline != curwin->w_topline
-#ifdef FEAT_DIFF
+# ifdef FEAT_DIFF
 		    || s_old_topfill != curwin->w_topfill
-#endif
+# endif
 		    || (int)(dwCurrentTime - s_dwLastClickTime) > p_mouset)
 	    {
 		s_cClicks = 1;
@@ -1438,16 +1437,15 @@ decode_mouse_event(
     s_xOldMouse = g_xMouse;
     s_yOldMouse = g_yMouse;
     s_old_topline = curwin->w_topline;
-#ifdef FEAT_DIFF
+# ifdef FEAT_DIFF
     s_old_topfill = curwin->w_topfill;
-#endif
+# endif
     s_nOldMouseClick = g_nMouseClick;
 
     return TRUE;
 }
 
-# endif /* FEAT_GUI_MSWIN */
-#endif /* FEAT_MOUSE */
+#endif // FEAT_GUI_MSWIN
 
 
 #ifdef MCH_CURSOR_SHAPE
@@ -1546,10 +1544,7 @@ WaitForChar(long msec, int ignore_input)
 #endif
 	}
 
-	if (0
-#ifdef FEAT_MOUSE
-		|| g_nMouseClick != -1
-#endif
+	if (g_nMouseClick != -1
 #ifdef FEAT_CLIENTSERVER
 		|| (!ignore_input && input_available())
 #endif
@@ -1682,11 +1677,9 @@ WaitForChar(long msec, int ignore_input)
 		    shell_resized();
 		}
 	    }
-#ifdef FEAT_MOUSE
 	    else if (ir.EventType == MOUSE_EVENT
 		    && decode_mouse_event(&ir.Event.MouseEvent))
 		return TRUE;
-#endif
 	}
 	else if (msec == 0)
 	    break;
@@ -1759,10 +1752,8 @@ tgetch(int *pmodifiers, WCHAR *pch2)
 	(void)WaitForChar(-1L, FALSE);
 	if (input_available())
 	    return 0;
-# ifdef FEAT_MOUSE
 	if (g_nMouseClick != -1)
 	    return 0;
-# endif
 #endif
 	if (read_console_input(g_hConIn, &ir, 1, &cRecords) == 0)
 	{
@@ -1782,13 +1773,11 @@ tgetch(int *pmodifiers, WCHAR *pch2)
 	    handle_focus_event(ir);
 	else if (ir.EventType == WINDOW_BUFFER_SIZE_EVENT)
 	    shell_resized();
-#ifdef FEAT_MOUSE
 	else if (ir.EventType == MOUSE_EVENT)
 	{
 	    if (decode_mouse_event(&ir.Event.MouseEvent))
 		return 0;
 	}
-#endif
     }
 }
 #endif /* !FEAT_GUI_MSWIN */
@@ -1878,14 +1867,13 @@ mch_inchar(
 	    typeaheadlen = 0;
 	    break;
 	}
-#ifdef FEAT_MOUSE
 	if (g_nMouseClick != -1)
 	{
-# ifdef MCH_WRITE_DUMP
+#ifdef MCH_WRITE_DUMP
 	    if (fdDump)
 		fprintf(fdDump, "{%02x @ %d, %d}",
 			g_nMouseClick, g_xMouse, g_yMouse);
-# endif
+#endif
 	    typeahead[typeaheadlen++] = ESC + 128;
 	    typeahead[typeaheadlen++] = 'M';
 	    typeahead[typeaheadlen++] = g_nMouseClick;
@@ -1894,7 +1882,6 @@ mch_inchar(
 	    g_nMouseClick = -1;
 	}
 	else
-#endif
 	{
 	    WCHAR	ch2 = NUL;
 	    int		modifiers = 0;
@@ -1917,9 +1904,7 @@ mch_inchar(
 		got_int = TRUE;
 	    }
 
-#ifdef FEAT_MOUSE
 	    if (g_nMouseClick == -1)
-#endif
 	    {
 		int	n = 1;
 
@@ -2075,8 +2060,7 @@ executable_exists(char *name, char_u **path, int use_path)
 	return FALSE;
 
     wcurpath = _wgetenv(L"PATH");
-    wnewpath = (WCHAR*)alloc((unsigned)(wcslen(wcurpath) + 3)
-	    * sizeof(WCHAR));
+    wnewpath = ALLOC_MULT(WCHAR, wcslen(wcurpath) + 3);
     if (wnewpath == NULL)
 	return FALSE;
     wcscpy(wnewpath, L".;");
@@ -2339,7 +2323,7 @@ SaveConsoleBuffer(
 	cb->BufferSize.Y = cb->Info.dwSize.Y;
 	NumCells = cb->BufferSize.X * cb->BufferSize.Y;
 	vim_free(cb->Buffer);
-	cb->Buffer = (PCHAR_INFO)alloc(NumCells * sizeof(CHAR_INFO));
+	cb->Buffer = ALLOC_MULT(CHAR_INFO, NumCells);
 	if (cb->Buffer == NULL)
 	    return FALSE;
     }
@@ -2363,7 +2347,7 @@ SaveConsoleBuffer(
     {
 	cb->NumRegions = numregions;
 	vim_free(cb->Regions);
-	cb->Regions = (PSMALL_RECT)alloc(cb->NumRegions * sizeof(SMALL_RECT));
+	cb->Regions = ALLOC_MULT(SMALL_RECT, cb->NumRegions);
 	if (cb->Regions == NULL)
 	{
 	    VIM_CLEAR(cb->Buffer);
@@ -2675,9 +2659,7 @@ mch_init_c(void)
 
     g_fWindInitCalled = TRUE;
 
-#ifdef FEAT_MOUSE
     g_fMouseAvail = GetSystemMetrics(SM_MOUSEPRESENT);
-#endif
 
 #ifdef FEAT_CLIPBOARD
     win_clip_init();
@@ -2762,7 +2744,7 @@ mch_init(void)
 mch_exit(int r)
 {
 #ifdef VIMDLL
-    if (gui.starting || gui.in_use)
+    if (gui.in_use || gui.starting)
 	mch_exit_g(r);
     else
 	mch_exit_c(r);
@@ -3395,7 +3377,7 @@ mch_get_acl(char_u *fname)
     struct my_acl   *p = NULL;
     DWORD   err;
 
-    p = (struct my_acl *)alloc_clear((unsigned)sizeof(struct my_acl));
+    p = ALLOC_CLEAR_ONE(struct my_acl);
     if (p != NULL)
     {
 	WCHAR	*wn;
@@ -3609,10 +3591,8 @@ mch_settmode(int tmode)
     {
 	cmodein &= ~(ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT |
 		     ENABLE_ECHO_INPUT);
-#ifdef FEAT_MOUSE
 	if (g_fMouseActive)
 	    cmodein |= ENABLE_MOUSE_INPUT;
-#endif
 	cmodeout &= ~(
 #ifdef FEAT_TERMGUICOLORS
 	    /* Do not turn off the ENABLE_PROCESSED_OUTPUT flag when using
@@ -3739,6 +3719,7 @@ ResizeConBufAndWindow(
     CONSOLE_SCREEN_BUFFER_INFO csbi;	/* hold current console buffer info */
     SMALL_RECT	    srWindowRect;	/* hold the new console size */
     COORD	    coordScreen;
+    COORD	    cursor;
     static int	    resized = FALSE;
 
 #ifdef MCH_WRITE_DUMP
@@ -3793,6 +3774,11 @@ ResizeConBufAndWindow(
     }
     else
     {
+	// Workaround for a Windows 10 bug
+	cursor.X = srWindowRect.Left;
+	cursor.Y = srWindowRect.Top;
+	SetConsoleCursorPosition(hConsole, cursor);
+
 	ResizeConBuf(hConsole, coordScreen);
 	ResizeWindow(hConsole, srWindowRect);
 	resized = TRUE;
@@ -4480,12 +4466,29 @@ mch_system_g(char *cmd, int options)
 
 #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
     static int
-mch_system_c(char *cmd, int options)
+mch_system_c(char *cmd, int options UNUSED)
 {
     int		ret;
     WCHAR	*wcmd;
+    char_u	*buf;
+    size_t	len;
 
-    wcmd = enc_to_utf16((char_u *)cmd, NULL);
+    // If the command starts and ends with double quotes, enclose the command
+    // in parentheses.
+    len = STRLEN(cmd);
+    if (len >= 2 && cmd[0] == '"' && cmd[len - 1] == '"')
+    {
+	len += 3;
+	buf = alloc(len);
+	if (buf == NULL)
+	    return -1;
+	vim_snprintf((char *)buf, len, "(%s)", cmd);
+	wcmd = enc_to_utf16(buf, NULL);
+	free(buf);
+    }
+    else
+	wcmd = enc_to_utf16((char_u *)cmd, NULL);
+
     if (wcmd == NULL)
 	return -1;
 
@@ -4500,7 +4503,7 @@ mch_system_c(char *cmd, int options)
 mch_system(char *cmd, int options)
 {
 #ifdef VIMDLL
-    if (gui.in_use)
+    if (gui.in_use || gui.starting)
 	return mch_system_g(cmd, options);
     else
 	return mch_system_c(cmd, options);
@@ -4534,7 +4537,7 @@ mch_call_shell_terminal(
 	cmdlen = STRLEN(p_sh) + 1;
     else
 	cmdlen = STRLEN(p_sh) + STRLEN(p_shcf) + STRLEN(cmd) + 10;
-    newcmd = lalloc(cmdlen, TRUE);
+    newcmd = alloc(cmdlen);
     if (newcmd == NULL)
 	return 255;
     if (cmd == NULL)
@@ -4641,20 +4644,32 @@ mch_call_shell(
     }
 #endif
 #if defined(FEAT_GUI) && defined(FEAT_TERMINAL)
-    /* TODO: make the terminal window work with input or output redirected. */
+    // TODO: make the terminal window work with input or output redirected.
     if (
 # ifdef VIMDLL
-	gui.in_use &&
+	    gui.in_use &&
 # endif
-	vim_strchr(p_go, GO_TERMINAL) != NULL
+	    vim_strchr(p_go, GO_TERMINAL) != NULL
 	 && (options & (SHELL_FILTER|SHELL_DOOUT|SHELL_WRITE|SHELL_READ)) == 0)
     {
-	/* Use a terminal window to run the command in. */
-	x = mch_call_shell_terminal(cmd, options);
+	char_u	*cmdbase = cmd;
+
+	if (cmdbase != NULL)
+	    // Skip a leading quote and (.
+	    while (*cmdbase == '"' || *cmdbase == '(')
+		++cmdbase;
+
+	// Check the command does not begin with "start "
+	if (cmdbase == NULL
+		|| STRNICMP(cmdbase, "start", 5) != 0 || !VIM_ISWHITE(cmdbase[5]))
+	{
+	    // Use a terminal window to run the command in.
+	    x = mch_call_shell_terminal(cmd, options);
 # ifdef FEAT_TITLE
-	resettitle();
+	    resettitle();
 # endif
-	return x;
+	    return x;
+	}
     }
 #endif
 
@@ -4773,7 +4788,7 @@ mch_call_shell(
 		{
 		    /* make "cmd.exe /c arguments" */
 		    cmdlen = STRLEN(cmd_shell) + STRLEN(subcmd) + 5;
-		    newcmd = lalloc(cmdlen, TRUE);
+		    newcmd = alloc(cmdlen);
 		    if (newcmd != NULL)
 			vim_snprintf((char *)newcmd, cmdlen, "%s /c %s",
 						       cmd_shell, subcmd);
@@ -4821,20 +4836,20 @@ mch_call_shell(
 	{
 	    cmdlen =
 #ifdef FEAT_GUI_MSWIN
-		(gui.in_use ?
+		((gui.in_use || gui.starting) ?
 		    (!s_dont_use_vimrun && p_stmp ?
 			STRLEN(vimrun_path) : STRLEN(p_sh) + STRLEN(p_shcf))
 		    : 0) +
 #endif
 		STRLEN(p_sh) + STRLEN(p_shcf) + STRLEN(cmd) + 10;
 
-	    newcmd = lalloc(cmdlen, TRUE);
+	    newcmd = alloc(cmdlen);
 	    if (newcmd != NULL)
 	    {
 #if defined(FEAT_GUI_MSWIN)
 		if (
 # ifdef VIMDLL
-		    gui.in_use &&
+		    (gui.in_use || gui.starting) &&
 # endif
 		    need_vimrun_warning)
 		{
@@ -4853,30 +4868,28 @@ mch_call_shell(
 		}
 		if (
 # ifdef VIMDLL
-		    gui.in_use &&
+		    (gui.in_use || gui.starting) &&
 # endif
 		    !s_dont_use_vimrun && p_stmp)
-		    /* Use vimrun to execute the command.  It opens a console
-		     * window, which can be closed without killing Vim. */
+		    // Use vimrun to execute the command.  It opens a console
+		    // window, which can be closed without killing Vim.
 		    vim_snprintf((char *)newcmd, cmdlen, "%s%s%s %s %s",
 			    vimrun_path,
 			    (msg_silent != 0 || (options & SHELL_DOOUT))
 								 ? "-s " : "",
 			    p_sh, p_shcf, cmd);
-		else
+		else if (
 # ifdef VIMDLL
-		if (gui.in_use)
+			(gui.in_use || gui.starting) &&
 # endif
+			s_dont_use_vimrun && STRCMP(p_shcf, "/c") == 0)
+		    // workaround for the case that "vimrun" does not exist
 		    vim_snprintf((char *)newcmd, cmdlen, "%s %s %s %s %s",
 					   p_sh, p_shcf, p_sh, p_shcf, cmd);
-# ifdef VIMDLL
 		else
-# endif
 #endif
-#if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
 		    vim_snprintf((char *)newcmd, cmdlen, "%s %s %s",
 							   p_sh, p_shcf, cmd);
-#endif
 		x = mch_system((char *)newcmd, options);
 		vim_free(newcmd);
 	    }
@@ -4889,7 +4902,7 @@ mch_call_shell(
     /* Print the return value, unless "vimrun" was used. */
     if (x != 0 && !(options & SHELL_SILENT) && !emsg_silent
 #if defined(FEAT_GUI_MSWIN)
-	    && (gui.in_use ?
+	    && ((gui.in_use || gui.starting) ?
 		((options & SHELL_DOOUT) || s_dont_use_vimrun || !p_stmp) : 1)
 #endif
 	    )
@@ -5468,12 +5481,10 @@ termcap_mode_start(void)
 #endif
 
     GetConsoleMode(g_hConIn, &cmodein);
-#ifdef FEAT_MOUSE
     if (g_fMouseActive)
 	cmodein |= ENABLE_MOUSE_INPUT;
     else
 	cmodein &= ~ENABLE_MOUSE_INPUT;
-#endif
     cmodein |= ENABLE_WINDOW_INPUT;
     SetConsoleMode(g_hConIn, cmodein);
 
@@ -5815,7 +5826,7 @@ delete_lines(unsigned cLines)
 
 
 /*
- * Set the cursor position
+ * Set the cursor position to (x,y) (1-based).
  */
     static void
 gotoxy(
@@ -5825,14 +5836,25 @@ gotoxy(
     if (x < 1 || x > (unsigned)Columns || y < 1 || y > (unsigned)Rows)
 	return;
 
-    /* external cursor coords are 1-based; internal are 0-based */
-    g_coord.X = x - 1;
-    g_coord.Y = y - 1;
-
     if (!USE_VTP)
+    {
+	// external cursor coords are 1-based; internal are 0-based
+	g_coord.X = x - 1;
+	g_coord.Y = y - 1;
 	SetConsoleCursorPosition(g_hConOut, g_coord);
+    }
     else
+    {
+	// Move the cursor to the left edge of the screen to prevent screen
+	// destruction.  Insider build bug.  Always enabled because it's cheap
+	// and avoids mistakes with recognizing the build.
+	vtp_printf("\033[%d;%dH", g_coord.Y + 1, 1);
+
 	vtp_printf("\033[%d;%dH", y, x);
+
+	g_coord.X = x - 1;
+	g_coord.Y = y - 1;
+    }
 }
 
 
@@ -5955,7 +5977,7 @@ visual_bell(void)
     WORD    attrFlash = ~g_attrCurrent & 0xff;
 
     DWORD   dwDummy;
-    LPWORD  oldattrs = (LPWORD)alloc(Rows * Columns * sizeof(WORD));
+    LPWORD  oldattrs = ALLOC_MULT(WORD, Rows * Columns);
 
     if (oldattrs == NULL)
 	return;
@@ -6006,7 +6028,7 @@ write_chars(
     if (unicodebuf == NULL || length > unibuflen)
     {
 	vim_free(unicodebuf);
-	unicodebuf = (WCHAR *)lalloc(length * sizeof(WCHAR), FALSE);
+	unicodebuf = LALLOC_MULT(WCHAR, length);
 	unibuflen = length;
     }
     MultiByteToWideChar(cp, 0, (LPCSTR)pchBuf, cbToWrite,
@@ -6440,7 +6462,7 @@ mch_remove(char_u *name)
  * Check for an "interrupt signal": CTRL-break or CTRL-C.
  */
     void
-mch_breakcheck(int force)
+mch_breakcheck(int force UNUSED)
 {
 #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
 # ifdef VIMDLL
@@ -7120,7 +7142,7 @@ fix_arg_enc(void)
 	return;
 
     /* Remember the buffer numbers for the arguments. */
-    fnum_list = (int *)alloc((int)sizeof(int) * GARGCOUNT);
+    fnum_list = ALLOC_MULT(int, GARGCOUNT);
     if (fnum_list == NULL)
 	return;		/* out of memory */
     for (i = 0; i < GARGCOUNT; ++i)
@@ -7202,12 +7224,12 @@ fix_arg_enc(void)
 }
 
     int
-mch_setenv(char *var, char *value, int x)
+mch_setenv(char *var, char *value, int x UNUSED)
 {
     char_u	*envbuf;
     WCHAR	*p;
 
-    envbuf = alloc((unsigned)(STRLEN(var) + STRLEN(value) + 2));
+    envbuf = alloc(STRLEN(var) + STRLEN(value) + 2);
     if (envbuf == NULL)
 	return -1;
 
@@ -7236,9 +7258,25 @@ mch_setenv(char *var, char *value, int x)
 
 /*
  * Support for pseudo-console (ConPTY) was added in windows 10
- * version 1809 (October 2018 update).  However, that version is unstable.
+ * version 1809 (October 2018 update).
  */
 #define CONPTY_FIRST_SUPPORT_BUILD  MAKE_VER(10, 0, 17763)
+
+/*
+ * ConPTY differences between versions, need different logic.
+ * version 1903 (May 2019 update).
+ */
+#define CONPTY_1903_BUILD	    MAKE_VER(10, 0, 18362)
+
+/*
+ * Confirm until this version.  Also the logic changes.
+ * insider preview.
+ */
+#define CONPTY_INSIDER_BUILD	    MAKE_VER(10, 0, 18995)
+
+/*
+ * Not stable now.
+ */
 #define CONPTY_STABLE_BUILD	    MAKE_VER(10, 0, 32767)  // T.B.D.
 
     static void
@@ -7268,6 +7306,12 @@ vtp_flag_init(void)
     if (ver >= CONPTY_STABLE_BUILD)
 	conpty_stable = 1;
 
+    if (ver <= CONPTY_INSIDER_BUILD)
+	conpty_type = 3;
+    if (ver <= CONPTY_1903_BUILD)
+	conpty_type = 2;
+    if (ver < CONPTY_FIRST_SUPPORT_BUILD)
+	conpty_type = 1;
 }
 
 #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL) || defined(PROTO)
@@ -7487,6 +7531,12 @@ has_vtp_working(void)
 has_conpty_working(void)
 {
     return conpty_working;
+}
+
+    int
+get_conpty_type(void)
+{
+    return conpty_type;
 }
 
     int

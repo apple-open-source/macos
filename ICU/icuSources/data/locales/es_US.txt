@@ -5,6 +5,9 @@ es_US{
     MoreInformation{"[...]"}
     NumberElements{
         latn{
+            patterns{
+                percentFormat{"#,##0%"}
+            }
             patternsLong{
                 decimalFormat{
                     1000000000{

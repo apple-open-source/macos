@@ -1,4 +1,4 @@
-/* $OpenBSD: match.c,v 1.38 2018/07/04 13:49:31 djm Exp $ */
+/* $OpenBSD: match.c,v 1.40 2019/10/04 04:13:39 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -170,6 +170,19 @@ match_pattern_list(const char *string, const char *pattern, int dolower)
 	return got_positive;
 }
 
+/* Match a list representing users or groups. */
+int
+match_usergroup_pattern_list(const char *string, const char *pattern)
+{
+#ifdef HAVE_CYGWIN
+	/* Windows usernames may be Unicode and are not case sensitive */
+	return cygwin_ug_match_pattern_list(string, pattern);
+#else
+	/* Case insensitive match */
+	return match_pattern_list(string, pattern, 0);
+#endif
+}
+
 /*
  * Tries to match the host name (which must be in all lowercase) against the
  * comma-separated sequence of subpatterns (each possibly preceded by ! to
@@ -233,7 +246,7 @@ match_user(const char *user, const char *host, const char *ipaddr,
 		return 0;
 	}
 
-	if ((p = strchr(pattern,'@')) == NULL)
+	if ((p = strchr(pattern, '@')) == NULL)
 		return match_pattern(user, pattern);
 
 	pat = xstrdup(pattern);

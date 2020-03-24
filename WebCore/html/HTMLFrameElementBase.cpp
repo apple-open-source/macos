@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann (hausmann@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2019 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -48,42 +48,42 @@ using namespace HTMLNames;
 
 HTMLFrameElementBase::HTMLFrameElementBase(const QualifiedName& tagName, Document& document)
     : HTMLFrameOwnerElement(tagName, document)
-    , m_scrolling(ScrollbarAuto)
-    , m_marginWidth(-1)
-    , m_marginHeight(-1)
 {
     setHasCustomStyleResolveCallbacks();
 }
 
-bool HTMLFrameElementBase::isURLAllowed() const
+bool HTMLFrameElementBase::canLoadScriptURL(const URL& scriptURL) const
 {
-    if (m_URL.isEmpty())
-        return true;
-
-    return isURLAllowed(document().completeURL(m_URL));
+    return canLoadURL(scriptURL);
 }
 
-bool HTMLFrameElementBase::isURLAllowed(const URL& completeURL) const
+bool HTMLFrameElementBase::canLoad() const
 {
-    if (completeURL.isEmpty())
-        return true;
+    // FIXME: Why is it valuable to return true when m_URL is empty?
+    // FIXME: After openURL replaces an empty URL with the blank URL, this may no longer necessarily return true.
+    return m_URL.isEmpty() || canLoadURL(m_URL);
+}
 
+bool HTMLFrameElementBase::canLoadURL(const String& relativeURL) const
+{
+    return canLoadURL(document().completeURL(relativeURL));
+}
+
+// Note that unlike HTMLPlugInImageElement::canLoadURL this uses ScriptController::canAccessFromCurrentOrigin.
+bool HTMLFrameElementBase::canLoadURL(const URL& completeURL) const
+{
     if (WTF::protocolIsJavaScript(completeURL)) {
-        RefPtr<Document> contentDoc = this->contentDocument();
-        if (contentDoc && !ScriptController::canAccessFromCurrentOrigin(contentDoc->frame(), document()))
+        RefPtr<Document> contentDocument = this->contentDocument();
+        if (contentDocument && !ScriptController::canAccessFromCurrentOrigin(contentDocument->frame(), document()))
             return false;
     }
 
-    RefPtr<Frame> parentFrame = document().frame();
-    if (parentFrame)
-        return parentFrame->isURLAllowed(completeURL);
-
-    return true;
+    return !isProhibitedSelfReference(completeURL);
 }
 
 void HTMLFrameElementBase::openURL(LockHistory lockHistory, LockBackForwardList lockBackForwardList)
 {
-    if (!isURLAllowed())
+    if (!canLoad())
         return;
 
     if (m_URL.isEmpty())
@@ -92,6 +92,8 @@ void HTMLFrameElementBase::openURL(LockHistory lockHistory, LockBackForwardList 
     RefPtr<Frame> parentFrame = document().frame();
     if (!parentFrame)
         return;
+
+    document().willLoadFrameElement(parentFrame->document()->completeURL(m_URL));
 
     String frameName = getNameAttribute();
     if (frameName.isNull() && UNLIKELY(document().settings().needsFrameNameFallbackToIdQuirk()))
@@ -106,20 +108,7 @@ void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const AtomS
         setLocation("about:srcdoc");
     else if (name == srcAttr && !hasAttributeWithoutSynchronization(srcdocAttr))
         setLocation(stripLeadingAndTrailingHTMLSpaces(value));
-    else if (name == marginwidthAttr) {
-        m_marginWidth = value.toInt();
-        // FIXME: If we are already attached, this has no effect.
-    } else if (name == marginheightAttr) {
-        m_marginHeight = value.toInt();
-        // FIXME: If we are already attached, this has no effect.
-    } else if (name == scrollingAttr) {
-        // Auto and yes both simply mean "allow scrolling." No means "don't allow scrolling."
-        if (equalLettersIgnoringASCIICase(value, "auto") || equalLettersIgnoringASCIICase(value, "yes"))
-            m_scrolling = ScrollbarAuto;
-        else if (equalLettersIgnoringASCIICase(value, "no"))
-            m_scrolling = ScrollbarAlwaysOff;
-        // FIXME: If we are already attached, this has no effect.
-    } else
+    else
         HTMLFrameOwnerElement::parseAttribute(name, value);
 }
 
@@ -174,7 +163,7 @@ void HTMLFrameElementBase::setLocation(const String& str)
         openURL(LockHistory::No, LockBackForwardList::No);
 }
 
-void HTMLFrameElementBase::setLocation(JSC::ExecState& state, const String& newLocation)
+void HTMLFrameElementBase::setLocation(JSC::JSGlobalObject& state, const String& newLocation)
 {
     if (WTF::protocolIsJavaScript(stripLeadingAndTrailingHTMLSpaces(newLocation))) {
         if (!BindingSecurity::shouldAllowAccessToNode(state, contentDocument()))
@@ -224,6 +213,12 @@ int HTMLFrameElementBase::height()
     if (!renderBox())
         return 0;
     return renderBox()->height();
+}
+
+ScrollbarMode HTMLFrameElementBase::scrollingMode() const
+{
+    return equalLettersIgnoringASCIICase(attributeWithoutSynchronization(scrollingAttr), "no")
+        ? ScrollbarAlwaysOff : ScrollbarAuto;
 }
 
 } // namespace WebCore

@@ -26,7 +26,6 @@
 #import "config.h"
 #import "WebProcessPool.h"
 
-#import "AccessibilitySupportSPI.h"
 #import "CookieStorageUtilsCF.h"
 #import "LegacyCustomProtocolManagerClient.h"
 #import "Logging.h"
@@ -36,17 +35,21 @@
 #import "PluginProcessManager.h"
 #import "SandboxUtilities.h"
 #import "TextChecker.h"
+#import "UserInterfaceIdiom.h"
 #import "VersionChecks.h"
 #import "WKBrowsingContextControllerInternal.h"
+#import "WebBackForwardCache.h"
 #import "WebMemoryPressureHandler.h"
 #import "WebPageGroup.h"
 #import "WebPreferencesKeys.h"
+#import "WebProcessCache.h"
 #import "WebProcessCreationParameters.h"
 #import "WebProcessMessages.h"
 #import "WindowServerConnection.h"
 #import <WebCore/Color.h>
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/NotImplemented.h>
+#import <WebCore/PictureInPictureSupport.h>
 #import <WebCore/PlatformPasteboard.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SharedBuffer.h>
@@ -58,12 +61,32 @@
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/cocoa/Entitlements.h>
+#import <wtf/spi/darwin/SandboxSPI.h>
 #import <wtf/spi/darwin/dyldSPI.h>
 
 #if PLATFORM(MAC)
 #import <QuartzCore/CARemoteLayerServer.h>
 #else
+#import "AccessibilitySupportSPI.h"
 #import "UIKitSPI.h"
+#import <pal/ios/ManagedConfigurationSoftLink.h>
+#import <pal/spi/ios/ManagedConfigurationSPI.h>
+#endif
+
+#if PLATFORM(IOS)
+#import <pal/spi/cocoa/WebFilterEvaluatorSPI.h>
+#import <pal/spi/ios/MobileGestaltSPI.h>
+#import <sys/utsname.h>
+
+SOFT_LINK_PRIVATE_FRAMEWORK(WebContentAnalysis);
+SOFT_LINK_CLASS(WebContentAnalysis, WebFilterEvaluator);
+#endif
+
+#if PLATFORM(COCOA)
+#import <pal/spi/cocoa/NEFilterSourceSPI.h>
+
+SOFT_LINK_FRAMEWORK_OPTIONAL(NetworkExtension);
+SOFT_LINK_CLASS_OPTIONAL(NetworkExtension, NEFilterSource);
 #endif
 
 NSString *WebServiceWorkerRegistrationDirectoryDefaultsKey = @"WebServiceWorkerRegistrationDirectory";
@@ -81,10 +104,12 @@ static NSString * const WebKitSuppressMemoryPressureHandlerDefaultsKey = @"WebKi
 static NSString * const WebKitLogCookieInformationDefaultsKey = @"WebKitLogCookieInformation";
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
 SOFT_LINK_PRIVATE_FRAMEWORK(BackBoardServices)
 SOFT_LINK(BackBoardServices, BKSDisplayBrightnessGetCurrent, float, (), ());
 #endif
+
+#define WEBPROCESSPOOL_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - WebProcessPool::" fmt, this, ##__VA_ARGS__)
 
 namespace WebKit {
 using namespace WebCore;
@@ -138,11 +163,11 @@ void WebProcessPool::platformInitialize()
     if (![[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitSuppressMemoryPressureHandler"])
         installMemoryPressureHandler();
 
-    setLegacyCustomProtocolManagerClient(std::make_unique<LegacyCustomProtocolManagerClient>());
+    setLegacyCustomProtocolManagerClient(makeUnique<LegacyCustomProtocolManagerClient>());
 }
 
 #if PLATFORM(IOS_FAMILY)
-String WebProcessPool::cookieStorageDirectory() const
+String WebProcessPool::cookieStorageDirectory()
 {
     String path = pathForProcessContainer();
     if (path.isEmpty())
@@ -159,11 +184,36 @@ void WebProcessPool::platformResolvePathsForSandboxExtensions()
     m_resolvedPaths.uiProcessBundleResourcePath = resolvePathForSandboxExtension([[NSBundle mainBundle] resourcePath]);
 
 #if PLATFORM(IOS_FAMILY)
-    m_resolvedPaths.cookieStorageDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(cookieStorageDirectory());
-    m_resolvedPaths.containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(webContentCachesDirectory());
-    m_resolvedPaths.containerTemporaryDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(containerTemporaryDirectory());
+    m_resolvedPaths.cookieStorageDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebProcessPool::cookieStorageDirectory());
+    m_resolvedPaths.containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebProcessPool::webContentCachesDirectory());
+    m_resolvedPaths.containerTemporaryDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebProcessPool::containerTemporaryDirectory());
 #endif
 }
+
+#if PLATFORM(IOS)
+static bool deviceHasAGXCompilerService()
+{
+    static bool deviceHasAGXCompilerService = false;
+    static std::once_flag flag;
+    std::call_once(
+        flag,
+        [] () {
+            struct utsname systemInfo;
+            if (uname(&systemInfo))
+                return;
+            const char* machine = systemInfo.machine;
+            if (!strcmp(machine, "iPad5,1") || !strcmp(machine, "iPad5,2") || !strcmp(machine, "iPad5,3") || !strcmp(machine, "iPad5,4"))
+                deviceHasAGXCompilerService = true;
+        });
+    return deviceHasAGXCompilerService;
+}
+
+static bool isInternalInstall()
+{
+    static bool isInternal = MGGetBoolAnswer(kMGQAppleInternalInstallCapability);
+    return isInternal;
+}
+#endif
 
 void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process, WebProcessCreationParameters& parameters)
 {
@@ -262,6 +312,42 @@ void WebProcessPool::platformInitializeWebProcess(const WebProcessProxy& process
     parameters.screenProperties = WTFMove(screenProperties);
     parameters.useOverlayScrollbars = ([NSScroller preferredScrollerStyle] == NSScrollerStyleOverlay);
 #endif
+    
+#if PLATFORM(IOS)
+    if (deviceHasAGXCompilerService()) {
+        SandboxExtension::Handle compilerServiceExtensionHandle;
+        SandboxExtension::createHandleForMachLookup("com.apple.AGXCompilerService", WTF::nullopt, compilerServiceExtensionHandle);
+        parameters.compilerServiceExtensionHandle = WTFMove(compilerServiceExtensionHandle);
+    }
+    
+    if (isInternalInstall()) {
+        SandboxExtension::Handle diagnosticsExtensionHandle;
+        SandboxExtension::createHandleForMachLookup("com.apple.diagnosticd", WTF::nullopt, diagnosticsExtensionHandle, SandboxExtension::Flags::NoReport);
+        parameters.diagnosticsExtensionHandle = WTFMove(diagnosticsExtensionHandle);
+    }
+#endif
+    
+#if PLATFORM(COCOA)
+    if ([getNEFilterSourceClass() filterRequired]) {
+        SandboxExtension::Handle handle;
+        SandboxExtension::createHandleForMachLookup("com.apple.nehelper", WTF::nullopt, handle);
+        parameters.neHelperExtensionHandle = WTFMove(handle);
+        SandboxExtension::createHandleForMachLookup("com.apple.nesessionmanager.content-filter", WTF::nullopt, handle);
+        parameters.neSessionManagerExtensionHandle = WTFMove(handle);
+    }
+#endif
+    
+#if PLATFORM(IOS)
+    if ([getWebFilterEvaluatorClass() isManagedSession]) {
+        SandboxExtension::Handle handle;
+        SandboxExtension::createHandleForMachLookup("com.apple.uikit.viewservice.com.apple.WebContentFilter.remoteUI", WTF::nullopt, handle);
+        parameters.contentFilterExtensionHandle = WTFMove(handle);
+    }
+#endif
+    
+#if PLATFORM(IOS_FAMILY)
+    parameters.currentUserInterfaceIdiomIsPad = currentUserInterfaceIdiomIsPad();
+#endif
 }
 
 void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationParameters& parameters)
@@ -286,13 +372,9 @@ void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationPara
 
     parameters.networkATSContext = adoptCF(_CFNetworkCopyATSContext());
 
-#if PLATFORM(IOS_FAMILY)
-    parameters.ctDataConnectionServiceType = m_configuration->ctDataConnectionServiceType();
-#endif
-
     parameters.shouldSuppressMemoryPressureHandler = [defaults boolForKey:WebKitSuppressMemoryPressureHandlerDefaultsKey];
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     ASSERT(parameters.uiProcessCookieStorageIdentifier.isEmpty());
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanAccessRawCookies));
     parameters.uiProcessCookieStorageIdentifier = identifyingDataFromCookieStorage([[NSHTTPCookieStorage sharedHTTPCookieStorage] _cookieStorage]);
@@ -302,7 +384,6 @@ void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationPara
     parameters.suppressesConnectionTerminationOnSystemChange = m_configuration->suppressesConnectionTerminationOnSystemChange();
 
     parameters.shouldEnableITPDatabase = [defaults boolForKey:[NSString stringWithFormat:@"InternalDebug%@", WebPreferencesKey::isITPDatabaseEnabledKey().createCFString().get()]];
-    parameters.downloadMonitorSpeedMultiplier = m_configuration->downloadMonitorSpeedMultiplier();
 
     parameters.enableAdClickAttributionDebugMode = [defaults boolForKey:[NSString stringWithFormat:@"Experimental%@", WebPreferencesKey::adClickAttributionDebugModeEnabledKey().createCFString().get()]];
 }
@@ -313,12 +394,12 @@ void WebProcessPool::platformInvalidateContext()
 }
 
 #if PLATFORM(IOS_FAMILY)
-String WebProcessPool::parentBundleDirectory() const
+String WebProcessPool::parentBundleDirectory()
 {
     return [[[NSBundle mainBundle] bundlePath] stringByStandardizingPath];
 }
 
-String WebProcessPool::networkingCachesDirectory() const
+String WebProcessPool::networkingCachesDirectory()
 {
     String path = pathForProcessContainer();
     if (path.isEmpty())
@@ -337,7 +418,7 @@ String WebProcessPool::networkingCachesDirectory() const
     return path;
 }
 
-String WebProcessPool::webContentCachesDirectory() const
+String WebProcessPool::webContentCachesDirectory()
 {
     String path = pathForProcessContainer();
     if (path.isEmpty())
@@ -356,7 +437,7 @@ String WebProcessPool::webContentCachesDirectory() const
     return path;
 }
 
-String WebProcessPool::containerTemporaryDirectory() const
+String WebProcessPool::containerTemporaryDirectory()
 {
     String path = NSTemporaryDirectory();
     return stringByResolvingSymlinksInPath(path);
@@ -388,7 +469,7 @@ bool WebProcessPool::networkProcessHasEntitlementForTesting(const String& entitl
     return WTF::hasEntitlement(ensureNetworkProcess().connection()->xpcConnection(), entitlement.utf8().data());
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
 float WebProcessPool::displayBrightness()
 {
     return BKSDisplayBrightnessGetCurrent();
@@ -447,12 +528,14 @@ void WebProcessPool::registerNotificationObservers()
     m_deactivationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidResignActiveNotification object:NSApp queue:[NSOperationQueue currentQueue] usingBlock:^(NSNotification *notification) {
         setApplicationIsActive(false);
     }];
-#elif PLATFORM(IOS)
+#elif !PLATFORM(MACCATALYST)
     CFNotificationCenterAddObserver(CFNotificationCenterGetDarwinNotifyCenter(), this, backlightLevelDidChangeCallback, static_cast<CFStringRef>(UIBacklightLevelChangedNotification), nullptr, CFNotificationSuspensionBehaviorCoalesce);
+#if PLATFORM(IOS)
     m_accessibilityEnabledObserver = [[NSNotificationCenter defaultCenter] addObserverForName:(__bridge id)kAXSApplicationAccessibilityEnabledNotification object:nil queue:[NSOperationQueue currentQueue] usingBlock:^(NSNotification *) {
         for (size_t i = 0; i < m_processes.size(); ++i)
             m_processes[i]->unblockAccessibilityServerIfNeeded();
     }];
+#endif // PLATFORM(IOS)
 #endif // !PLATFORM(IOS_FAMILY)
 }
 
@@ -488,11 +571,11 @@ static CFURLStorageSessionRef privateBrowsingSession()
     return session;
 }
 
-bool WebProcessPool::isURLKnownHSTSHost(const String& urlString, bool privateBrowsingEnabled) const
+bool WebProcessPool::isURLKnownHSTSHost(const String& urlString) const
 {
     RetainPtr<CFURLRef> url = URL(URL(), urlString).createCFURL();
 
-    return _CFNetworkIsKnownHSTSHostWithSession(url.get(), privateBrowsingEnabled ? privateBrowsingSession() : nullptr);
+    return _CFNetworkIsKnownHSTSHostWithSession(url.get(), nullptr);
 }
 
 void WebProcessPool::resetHSTSHosts()
@@ -517,7 +600,7 @@ void WebProcessPool::startDisplayLink(IPC::Connection& connection, unsigned obse
             return;
         }
     }
-    auto displayLink = std::make_unique<DisplayLink>(displayID);
+    auto displayLink = makeUnique<DisplayLink>(displayID);
     displayLink->addObserver(connection, observerID);
     m_displayLinks.append(WTFMove(displayLink));
 }
@@ -545,10 +628,15 @@ void WebProcessPool::setCookieStoragePartitioningEnabled(bool enabled)
     m_cookieStoragePartitioningEnabled = enabled;
 }
 
-void WebProcessPool::setStorageAccessAPIEnabled(bool enabled)
+void WebProcessPool::clearPermanentCredentialsForProtectionSpace(WebCore::ProtectionSpace&& protectionSpace)
 {
-    m_storageAccessAPIEnabled = enabled;
-    sendToNetworkingProcess(Messages::NetworkProcess::SetStorageAccessAPIEnabled(enabled));
+    auto sharedStorage = [NSURLCredentialStorage sharedCredentialStorage];
+    auto credentials = [sharedStorage credentialsForProtectionSpace:protectionSpace.nsSpace()];
+    for (NSString* user in credentials) {
+        auto credential = credentials[user];
+        if (credential.persistence == NSURLCredentialPersistencePermanent)
+            [sharedStorage removeCredential:credentials[user] forProtectionSpace:protectionSpace.nsSpace()];
+    }
 }
 
 int networkProcessLatencyQOS()
@@ -578,11 +666,16 @@ int webProcessThroughputQOS()
 #if PLATFORM(IOS_FAMILY)
 void WebProcessPool::applicationIsAboutToSuspend()
 {
-    RELEASE_LOG(ProcessSuspension, "Application is about to suspend so we simulate memory pressure to terminate non-critical processes");
-    // Simulate memory pressure handling so free as much memory as possible before suspending.
-    // In particular, this will terminate prewarmed and PageCache processes.
+    WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "applicationIsAboutToSuspend: Terminating non-critical processes");
+
+    m_backForwardCache->pruneToSize(1);
+    m_webProcessCache->clear();
+}
+
+void WebProcessPool::notifyProcessPoolsApplicationIsAboutToSuspend()
+{
     for (auto* processPool : allProcessPools())
-        processPool->handleMemoryPressureWarning(Critical::Yes);
+        processPool->applicationIsAboutToSuspend();
 }
 #endif
 
@@ -598,10 +691,10 @@ void WebProcessPool::initializeClassesForParameterCoding()
     auto mutableSet = adoptNS([standardClasses mutableCopy]);
 
     for (const auto& customClass : customClasses) {
-        const auto* className = customClass.utf8().data();
-        Class objectClass = objc_lookUpClass(className);
+        auto className = customClass.utf8();
+        Class objectClass = objc_lookUpClass(className.data());
         if (!objectClass) {
-            WTFLogAlways("InjectedBundle::extendClassesForParameterCoder - Class %s is not a valid Objective C class.\n", className);
+            WTFLogAlways("InjectedBundle::extendClassesForParameterCoder - Class %s is not a valid Objective C class.\n", className.data());
             break;
         }
 

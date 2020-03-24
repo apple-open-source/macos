@@ -11,7 +11,10 @@
 #import "RemoteHIDPrivate.h"
 #import <IOKit/IOKitLib.h>
 #import <IOKit/IOCFUnserialize.h>
-#include <os/state_private.h>
+#import <IOKit/IOMessage.h>
+#import <os/state_private.h>
+
+#import "IOHIDPrivateKeys.h"
 
 @interface HIDRemoteDevice ()
 
@@ -20,6 +23,9 @@
 @property        BOOL                   waitForReport;
 @property        uint32_t               handleReportCount;
 @property        uint32_t               handleReportError;
+@property        io_object_t            intNotify;
+@property        IONotificationPortRef  intPort;
+@property __weak HIDRemoteDeviceServer *server;
 
 @end
 
@@ -57,13 +63,25 @@
                                       (void *) self, self.deviceID, serviceID, self.handleReportCount, self.handleReportError, [super description]];
 }
 
+- (void)cancel
+{
+    if (self.intPort) {
+        IONotificationPortSetDispatchQueue (self.intPort, NULL);
+        IONotificationPortDestroy(self.intPort);
+    }
+    if (self.intNotify) {
+        IOObjectRelease(self.intNotify);
+    }
+
+    [super cancel];
+}
+
 @end
 
 #define REMOTE_DEVICE_LOG_SIZE 50
 
 @interface HIDRemoteDeviceServer ()
 {
-
     NSMutableArray<NSString *>* _prevDeviceLog;
     os_state_handle_t           _stateHandler;
 }
@@ -83,6 +101,12 @@
     self->_devices = [[NSMutableDictionary alloc] init];
     _prevDeviceLog = [NSMutableArray new];
     return self;
+}
+
+- (NSString *)description
+{
+    return [NSString stringWithFormat:@"<HIDRemoteDeviceServer state:%@ %@>",
+            [self copyState], [super description]];
 }
 
 
@@ -120,7 +144,6 @@
     
     os_log_debug (RemoteHIDLog (), "DisconnectEP devices:%@", self.devices);
 }
-
 
 -(BOOL) createRemoteDevice:(__nonnull id) endpoint  deviceID:(uint64_t) deviceID property:( NSMutableDictionary * __nonnull) property
 {
@@ -182,6 +205,8 @@
         
         return status;
     }];
+
+    device.server = self;
 
     [device setDispatchQueue:self.queue];
     
@@ -279,7 +304,7 @@
         return NO;
     }
 
-    if (header->hasTS ) {
+    if (header->hasTS) {
         status = [self remoteDeviceTimestampedReportHandler:endpoint device:device packet:(HIDDeviceTimestampedReport *)header];
     }
     else {

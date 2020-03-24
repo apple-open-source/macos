@@ -38,7 +38,7 @@
 #include <wtf/WeakPtr.h>
 
 namespace JSC {
-class ExecState;
+class CallFrame;
 }
 
 namespace WebCore {
@@ -54,7 +54,9 @@ class Font;
 class FontFace;
 enum class ExternalResourceDownloadPolicy;
 
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSFontFace);
 class CSSFontFace final : public RefCounted<CSSFontFace> {
+    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(CSSFontFace);
 public:
     static Ref<CSSFontFace> create(CSSFontSelector* fontSelector, StyleRuleFontFace* cssConnection = nullptr, FontFace* wrapper = nullptr, bool isLocalFallback = false)
     {
@@ -69,12 +71,6 @@ public:
     void setWeight(CSSValue&);
     void setStretch(CSSValue&);
     bool setUnicodeRange(CSSValue&);
-    bool setVariantLigatures(CSSValue&);
-    bool setVariantPosition(CSSValue&);
-    bool setVariantCaps(CSSValue&);
-    bool setVariantNumeric(CSSValue&);
-    bool setVariantAlternates(CSSValue&);
-    bool setVariantEastAsian(CSSValue&);
     void setFeatureSettings(CSSValue&);
     void setLoadingBehavior(CSSValue&);
 
@@ -87,9 +83,7 @@ public:
     FontSelectionCapabilities fontSelectionCapabilities() const { return m_fontSelectionCapabilities.computeFontSelectionCapabilities(); }
     const Vector<UnicodeRange>& ranges() const { return m_ranges; }
     const FontFeatureSettings& featureSettings() const { return m_featureSettings; }
-    const FontVariantSettings& variantSettings() const { return m_variantSettings; }
     FontLoadingBehavior loadingBehavior() const { return m_loadingBehavior; }
-    void setVariantSettings(const FontVariantSettings& variantSettings) { m_variantSettings = variantSettings; }
     void setWeight(FontSelectionRange weight) { m_fontSelectionCapabilities.weight = weight; }
     void setStretch(FontSelectionRange stretch) { m_fontSelectionCapabilities.width = stretch; }
     void setStyle(FontSelectionRange italic) { m_fontSelectionCapabilities.slope = italic; }
@@ -162,7 +156,6 @@ public:
     bool purgeable() const;
 
     AllowUserInstalledFonts allowUserInstalledFonts() const;
-    bool shouldAllowDesignSystemUIFonts() const;
 
     void updateStyleIfNeeded();
 
@@ -186,7 +179,6 @@ private:
     Vector<UnicodeRange> m_ranges;
 
     FontFeatureSettings m_featureSettings;
-    FontVariantSettings m_variantSettings;
     FontLoadingBehavior m_loadingBehavior { FontLoadingBehavior::Auto };
 
     Vector<std::unique_ptr<CSSFontFaceSource>, 0, CrashOnOverflow, 0> m_sources;

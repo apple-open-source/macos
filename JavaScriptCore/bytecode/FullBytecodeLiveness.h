@@ -25,31 +25,40 @@
 
 #pragma once
 
+#include "BytecodeLivenessAnalysis.h"
 #include <wtf/FastBitVector.h>
 
 namespace JSC {
 
 class BytecodeLivenessAnalysis;
 
-typedef HashMap<unsigned, FastBitVector, WTF::IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>> BytecodeToBitmapMap;
-
 class FullBytecodeLiveness {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    const FastBitVector& getLiveness(unsigned bytecodeIndex) const
+    const FastBitVector& getLiveness(BytecodeIndex bytecodeIndex, LivenessCalculationPoint point) const
     {
-        return m_map[bytecodeIndex];
+        // FIXME: What should this do when we have checkpoints?
+        switch (point) {
+        case LivenessCalculationPoint::BeforeUse:
+            return m_beforeUseVector[bytecodeIndex.offset()];
+        case LivenessCalculationPoint::AfterUse:
+            return m_afterUseVector[bytecodeIndex.offset()];
+        }
+        RELEASE_ASSERT_NOT_REACHED();
     }
     
-    bool operandIsLive(int operand, unsigned bytecodeIndex) const
+    bool operandIsLive(int operand, BytecodeIndex bytecodeIndex, LivenessCalculationPoint point) const
     {
-        return operandIsAlwaysLive(operand) || operandThatIsNotAlwaysLiveIsLive(getLiveness(bytecodeIndex), operand);
+        return operandIsAlwaysLive(operand) || operandThatIsNotAlwaysLiveIsLive(getLiveness(bytecodeIndex, point), operand);
     }
     
 private:
     friend class BytecodeLivenessAnalysis;
     
-    Vector<FastBitVector, 0, UnsafeVectorOverflow> m_map;
+    // FIXME: Use FastBitVector's view mechansim to make them compact.
+    // https://bugs.webkit.org/show_bug.cgi?id=204427<Paste>
+    Vector<FastBitVector, 0, UnsafeVectorOverflow> m_beforeUseVector;
+    Vector<FastBitVector, 0, UnsafeVectorOverflow> m_afterUseVector;
 };
 
 } // namespace JSC

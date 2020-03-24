@@ -31,6 +31,7 @@
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/Timer.h>
+#include <pal/SessionID.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashMap.h>
 #include <wtf/WeakPtr.h>
@@ -39,6 +40,7 @@
 namespace WebKit {
 
 class AdClickAttributionManager : public CanMakeWeakPtr<AdClickAttributionManager> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
 
     using RegistrableDomain = WebCore::RegistrableDomain;

@@ -77,7 +77,7 @@ hr{
         CF{"Srednjoafrička Republika"}
         CG{"Kongo - Brazzaville"}
         CH{"Švicarska"}
-        CI{"Obala Bjelokosti"}
+        CI{"Côte d’Ivoire"}
         CK{"Cookovi Otoci"}
         CL{"Čile"}
         CM{"Kamerun"}
@@ -306,7 +306,7 @@ hr{
     Countries%variant{
         CD{"Kongo (DRK)"}
         CG{"Kongo (RK)"}
-        CI{"Bjelokosna Obala"}
+        CI{"Obala Bjelokosti"}
         CZ{"Češka Republika"}
         FK{"Falklandski otoci (Malvini)"}
         TL{"Istočni Timor"}

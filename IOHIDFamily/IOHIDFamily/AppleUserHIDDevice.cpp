@@ -33,6 +33,7 @@
 #include <IOKit/IOCommand.h>
 #include "IOHIDFamilyPrivate.h"
 #include <IOKit/IOKitKeys.h>
+#include <stdatomic.h>
 
 #define kIOHIDDeviceDextEntitlement "com.apple.developer.driverkit.family.hid.device"
 
@@ -84,8 +85,10 @@ OSDefineMetaClassAndStructors(AppleUserHIDDevice, IOHIDDevice)
 
 
 enum {
-    kAppleUserHIDDeviceStateStarted = 1,
-    kAppleUserHIDDeviceStateStopped = 2
+    kAppleUserHIDDeviceStateStarted     = 1,
+    kAppleUserHIDDeviceStateStopped     = 2,
+    kAppleUserHIDDeviceStateKRStart     = 4,
+    kAppleUserHIDDeviceStateDKStart     = 8
 };
 
 struct IOHIDReportCompletion {
@@ -99,20 +102,33 @@ struct IOHIDReportCompletion {
 //----------------------------------------------------------------------------------------------------
 bool AppleUserHIDDevice::init (OSDictionary * dict)
 {
-    if (!super::init(dict)) {
-        return false;
-    }
+    bool ret = false;
+
+    require (super::init(dict), exit);
     
     ivar = IONew(AppleUserHIDDevice::AppleUserHIDDevice_IVars, 1);
-    if (!ivar) {
-        return false;
-    }
-    
+    require (ivar, exit);
+
     bzero(ivar, sizeof(AppleUserHIDDevice::AppleUserHIDDevice_IVars));
     
-    IORegistryEntry::setProperty(kIOServiceDEXTEntitlementsKey, kIOHIDDeviceDextEntitlement);
+    _syncActions = OSSet::withCapacity(2);
+    require_action (_syncActions, exit, HIDDeviceLogError("syncActions\n"));
+
+    _asyncActions = OSSet::withCapacity(1);
+    require_action (_asyncActions, exit, HIDDeviceLogError("asyncActions\n"));
+
+    _asyncActionsLock = IOLockAlloc();
+    require_action (_asyncActionsLock, exit, HIDDeviceLogError("asyncActionsLock\n"));
+
+    super::setProperty(kIOServiceDEXTEntitlementsKey, kIOHIDDeviceDextEntitlement);
     
-    return true;
+    super::setProperty(kIOHIDRegisterServiceKey, kOSBooleanFalse);
+    
+    ret = true;
+    
+exit:
+
+    return ret;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -132,44 +148,37 @@ IOService * AppleUserHIDDevice::probe(IOService *provider, SInt32 *score)
 //----------------------------------------------------------------------------------------------------
 bool AppleUserHIDDevice::start(IOService * provider)
 {
-    IOReturn ret;
+    IOReturn ret    = kIOReturnSuccess;
     bool     status = false;
-    OSNumber * value;
-    OSSerializer *debugSerializer = NULL;
+   
+    bool dkStart = getProperty(kIOHIDDKStartKey) == kOSBooleanTrue;
     
-    super::setProperty(kIOHIDRegisterServiceKey, kOSBooleanFalse);
-    
-    _syncActions = OSSet::withCapacity(2);
-    require_action (_syncActions, exit, HIDDeviceLogError("syncActions\n"));
+    HIDDeviceLog("start (state:0x%x)", _state);
 
-    _asyncActions = OSSet::withCapacity(1);
-    require_action (_asyncActions, exit, HIDDeviceLogError("asyncActions\n"));
-
-    _asyncActionsLock = IOLockAlloc();
-    require_action (_asyncActionsLock, exit, HIDDeviceLogError("asyncActionsLock\n"));
-
-    ret = Start(provider);
-    require_noerr_action(ret, exit, HIDDeviceLogError("IOHIDDevice::Start:0x%x\n", ret));
-    
-    status = true;
-    
-    _state |= kAppleUserHIDDeviceStateStarted;
-    
-    _requestTimeout = kIOUserHIDDeviceTimeoutUS;
-    value = OSDynamicCast(OSNumber, getProperty(kIOHIDRequestTimeoutKey));
-    if (value) {
-        _requestTimeout = value->unsigned32BitValue();
+    bool krStart = ((atomic_fetch_or((_Atomic UInt32 *)&_state, kAppleUserHIDDeviceStateKRStart) &  kAppleUserHIDDeviceStateKRStart) == 0);
+   
+    if (dkStart &&
+        (atomic_fetch_or((_Atomic UInt32 *)&_state, kAppleUserHIDDeviceStateDKStart) &  kAppleUserHIDDeviceStateDKStart)) {
+        //attemt to call kernel multiple times
+        HIDDeviceLogError("Attempt to do kernel start for device multiple times");
+        return kIOReturnError;
+    }
+   
+    if (!dkStart) {
+        ret = Start(provider);
+        require_noerr_action(ret, exit, HIDDeviceLogError("IOHIDDevice::Start:0x%x\n", ret));
+    } else if (krStart) {
+        status = super::start(provider);
+        require_action(status, exit, HIDDeviceLogError("super::start:0x%x\n", ret));
+    } else {
+        return super::start(provider);
     }
     
-    debugSerializer = OSSerializer::forTarget(this,
-                                              OSMemberFunctionCast(OSSerializerCallback,
-                                                                   this,
-                                                                   &AppleUserHIDDevice::serializeDebugState));
-    require(debugSerializer, exit);
-    IOService::setProperty("DebugState", debugSerializer);
-    
+    atomic_fetch_or((_Atomic UInt32 *)&_state, kAppleUserHIDDeviceStateStarted);
+
+    status = true;
+
 exit:
-    OSSafeReleaseNULL(debugSerializer);
     
     if (!status) {
         stop(provider);
@@ -212,8 +221,10 @@ void AppleUserHIDDevice::free()
 //----------------------------------------------------------------------------------------------------
 bool AppleUserHIDDevice::handleStart( IOService * provider )
 {
-    bool status = false;
-    
+    bool           status           = false;
+    OSSerializer * debugSerializer  = NULL;
+    OSNumber     * value            = NULL;
+
     status = super::handleStart(provider);
     require_action(status, exit, HIDDeviceLogError("handleStart"));
     
@@ -224,13 +235,28 @@ bool AppleUserHIDDevice::handleStart( IOService * provider )
     _commandGate = IOCommandGate::commandGate(this);
     require_action(_commandGate && _workLoop->addEventSource(_commandGate) == kIOReturnSuccess, exit, HIDDeviceLogError("_commandGate"));
 
+    _requestTimeout = kIOUserHIDDeviceTimeoutUS;
+    value = OSDynamicCast(OSNumber, getProperty(kIOHIDRequestTimeoutKey));
+    if (value) {
+        _requestTimeout = value->unsigned32BitValue();
+    }
+    
+    debugSerializer = OSSerializer::forTarget(this,
+                                              OSMemberFunctionCast(OSSerializerCallback,
+                                                                   this,
+                                                                   &AppleUserHIDDevice::serializeDebugState));
+    require(debugSerializer, exit);
+    super::setProperty("DebugState", debugSerializer);
+
     status = true;
 
 exit:
+    
+    OSSafeReleaseNULL(debugSerializer);
 
     return status;
 }
-//
+
 //----------------------------------------------------------------------------------------------------
 // AppleUserHIDDevice::handleStop
 //----------------------------------------------------------------------------------------------------
@@ -614,10 +640,10 @@ IOReturn AppleUserHIDDevice::processReport(HIDReportCommandType    command,
     IOReturn                ret = kIOReturnSuccess;
     OSAction                * action = NULL;
     IOHIDReportCompletion   * reportCompletion;
-    ret = CreateActionKernelCompleteReport(
+    ret = CreateAction_CompleteReport(
                            sizeof (IOHIDReportCompletion),
                            &action);
-    require_noerr_action(ret, exit, HIDDeviceLogError("CreateActionKernelCompleteReport:%x", ret));
+    require_noerr_action(ret, exit, HIDDeviceLogError("CreateAction_CompleteReport:%x", ret));
     
     reportCompletion = (IOHIDReportCompletion *) action->GetReference();
     reportCompletion->report        = report;
@@ -727,6 +753,9 @@ exit:
 void AppleUserHIDDevice::completeReport(OSAction * action, IOReturn status, uint32_t actualByteCount)
 {
     bool async = false;
+
+    require_action (_state & kAppleUserHIDDeviceStateStarted, exit, HIDDeviceLogError("HID Device not ready (state:0x%x)", _state));
+
     IOHIDReportCompletion *reportCompletion;
     reportCompletion = (IOHIDReportCompletion *)action->GetReference();
     
@@ -754,6 +783,10 @@ void AppleUserHIDDevice::completeReport(OSAction * action, IOReturn status, uint
             });
         }
     }
+
+exit:
+
+    return;
 }
 
 //------------------------------------------------------------------------------
@@ -764,9 +797,18 @@ IOReturn AppleUserHIDDevice::handleReportWithTime(AbsoluteTime timeStamp,
                                                   IOHIDReportType reportType,
                                                   IOOptionBits options)
 {
+    IOReturn ret = kIOReturnNotReady;
+    
+    require_action (_state & kAppleUserHIDDeviceStateStarted, exit, HIDDeviceLogError("HID Device not ready (state:0x%x)", _state));
+    
     _inputReportCount++;
     _inputReportTime = mach_continuous_time();
-    return super::handleReportWithTime(timeStamp, report, reportType, options);
+
+    ret = super::handleReportWithTime(timeStamp, report, reportType, options);
+
+exit:
+
+    return ret;
 }
 
 #define SET_DICT_NUM(dict, key, val) do { \

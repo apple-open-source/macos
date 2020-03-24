@@ -113,8 +113,6 @@ public:
     bool hasMarginBeforeQuirk(const RenderBox& child) const;
     bool hasMarginAfterQuirk(const RenderBox& child) const;
 
-    bool generatesLineBoxesForInlineChild(RenderObject*);
-
     void markPositionedObjectsForLayout();
     void markForPaginationRelayoutIfNeeded() override;
     
@@ -317,7 +315,9 @@ public:
 
     Optional<LayoutUnit> availableLogicalHeightForPercentageComputation() const;
     bool hasDefiniteLogicalHeight() const;
-    
+
+    virtual bool shouldResetChildLogicalHeightBeforeLayout(const RenderBox&) const { return false; }
+
 protected:
     RenderFragmentedFlow* locateEnclosingFragmentedFlow() const override;
     void willBeDestroyed() override;
@@ -492,6 +492,8 @@ private:
     RenderFragmentedFlow* updateCachedEnclosingFragmentedFlow(RenderFragmentedFlow*) const;
 
     void removePositionedObjectsIfNeeded(const RenderStyle& oldStyle, const RenderStyle& newStyle);
+
+    void absoluteQuadsIgnoringContinuation(const FloatRect&, Vector<FloatQuad>&, bool* wasFixed) const override;
 
 private:
     bool hasRareData() const;

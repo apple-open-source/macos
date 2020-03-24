@@ -97,6 +97,11 @@ TestHarness = class TestHarness extends WI.Object
             this.addResult(message);
     }
 
+    newline()
+    {
+        this.log("");
+    }
+
     json(object, filter)
     {
         this.log(JSON.stringify(object, filter || null, 2));
@@ -124,6 +129,46 @@ TestHarness = class TestHarness extends WI.Object
     expectFalse(actual, message)
     {
         this._expect(TestHarness.ExpectationType.False, !actual, message, actual);
+    }
+
+    expectEmpty(actual, message)
+    {
+        if (Array.isArray(actual) || typeof actual === "string") {
+            this._expect(TestHarness.ExpectationType.Empty, !actual.length, message, actual);
+            return;
+        }
+
+        if (actual instanceof Set || actual instanceof Map) {
+            this._expect(TestHarness.ExpectationType.Empty, !actual.size, message, actual);
+            return;
+        }
+
+        if (typeof actual === "object") {
+            this._expect(TestHarness.ExpectationType.Empty, isEmptyObject(actual), message, actual);
+            return;
+        }
+
+        this.fail("expectEmpty should not be called with a non-object:\n    Actual: " + this._expectationValueAsString(actual));
+    }
+
+    expectNotEmpty(actual, message)
+    {
+        if (Array.isArray(actual) || typeof actual === "string") {
+            this._expect(TestHarness.ExpectationType.NotEmpty, !!actual.length, message, actual);
+            return;
+        }
+
+        if (actual instanceof Set || actual instanceof Map) {
+            this._expect(TestHarness.ExpectationType.NotEmpty, !!actual.size, message, actual);
+            return;
+        }
+
+        if (typeof actual === "object") {
+            this._expect(TestHarness.ExpectationType.NotEmpty, !isEmptyObject(actual), message, actual);
+            return;
+        }
+
+        this.fail("expectNotEmpty should not be called with a non-object:\n    Actual: " + this._expectationValueAsString(actual));
     }
 
     expectNull(actual, message)
@@ -196,6 +241,14 @@ TestHarness = class TestHarness extends WI.Object
         this.log("FAIL: " + stringifiedMessage);
     }
 
+    passOrFail(condition, message)
+    {
+        if (condition)
+            this.pass(message);
+        else
+            this.fail(message);
+    }
+
     // Use this to expect an exception. To further examine the exception,
     // chain onto the result with .then() and add your own test assertions.
     // The returned promise is rejected if an exception was not thrown.
@@ -206,8 +259,18 @@ TestHarness = class TestHarness extends WI.Object
 
         let expectAndDumpError = (e) => {
             this.expectNotNull(e, "Should produce an exception.");
-            if (e)
+            if (!e)
+                return;
+
+            if (e instanceof Error || !(e instanceof Object))
                 this.log(e.toString());
+            else {
+                try {
+                    this.json(e);
+                } catch {
+                    this.log(e.constructor.name);
+                }
+            }
         }
 
         let error = null;
@@ -358,6 +421,10 @@ TestHarness = class TestHarness extends WI.Object
             return "expectThat(%s)";
         case TestHarness.ExpectationType.False:
             return "expectFalse(%s)";
+        case TestHarness.ExpectationType.Empty:
+            return "expectEmpty(%s)";
+        case TestHarness.ExpectationType.NotEmpty:
+            return "expectNotEmpty(%s)";
         case TestHarness.ExpectationType.Null:
             return "expectNull(%s)";
         case TestHarness.ExpectationType.NotNull:
@@ -393,6 +460,10 @@ TestHarness = class TestHarness extends WI.Object
             return "truthy";
         case TestHarness.ExpectationType.False:
             return "falsey";
+        case TestHarness.ExpectationType.Empty:
+            return "empty";
+        case TestHarness.ExpectationType.NotEmpty:
+            return "not empty";
         case TestHarness.ExpectationType.NotNull:
             return "not null";
         case TestHarness.ExpectationType.NotEqual:
@@ -417,6 +488,8 @@ TestHarness = class TestHarness extends WI.Object
 TestHarness.ExpectationType = {
     True: Symbol("expect-true"),
     False: Symbol("expect-false"),
+    Empty: Symbol("expect-empty"),
+    NotEmpty: Symbol("expect-not-empty"),
     Null: Symbol("expect-null"),
     NotNull: Symbol("expect-not-null"),
     Equal: Symbol("expect-equal"),

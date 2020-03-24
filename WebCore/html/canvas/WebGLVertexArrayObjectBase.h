@@ -25,6 +25,9 @@
 
 #pragma once
 
+#if ENABLE(WEBGL)
+
+#include "GraphicsContext3D.h"
 #include "WebGLBuffer.h"
 #include "WebGLContextObject.h"
 
@@ -38,7 +41,7 @@ public:
     struct VertexAttribState {
         bool isBound() const { return bufferBinding && bufferBinding->object(); }
         bool validateBinding() const { return !enabled || isBound(); }
-        
+
         bool enabled { false };
         RefPtr<WebGLBuffer> bufferBinding;
         GC3Dsizei bytesPerElement { 0 };
@@ -60,7 +63,7 @@ public:
     void setElementArrayBuffer(WebGLBuffer*);
 
     VertexAttribState& getVertexAttribState(int index) { return m_vertexAttribState[index]; }
-    void setVertexAttribState(GC3Duint, GC3Dsizei, GC3Dint, GC3Denum, GC3Dboolean, GC3Dsizei, GC3Dintptr, WebGLBuffer&);
+    void setVertexAttribState(GC3Duint, GC3Dsizei, GC3Dint, GC3Denum, GC3Dboolean, GC3Dsizei, GC3Dintptr, WebGLBuffer*);
     void unbindBuffer(WebGLBuffer&);
 
     void setVertexAttribDivisor(GC3Duint index, GC3Duint divisor);
@@ -76,3 +79,5 @@ protected:
 };
 
 } // namespace WebCore
+
+#endif

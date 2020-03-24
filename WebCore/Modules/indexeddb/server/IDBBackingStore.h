@@ -56,12 +56,6 @@ enum class IndexRecordType;
 
 namespace IDBServer {
 
-class IDBBackingStoreTemporaryFileHandler {
-public:
-    virtual ~IDBBackingStoreTemporaryFileHandler() = default;
-    virtual void accessToTemporaryFileComplete(const String& path) = 0;
-};
-
 class IDBBackingStore {
 public:
     virtual ~IDBBackingStore() { RELEASE_ASSERT(!isMainThread()); }
@@ -99,8 +93,7 @@ public:
     virtual bool supportsSimultaneousTransactions() = 0;
     virtual bool isEphemeral() = 0;
 
-    virtual uint64_t databasesSizeForOrigin() const = 0;
-    virtual void setQuota(uint64_t) = 0;
+    virtual void close() = 0;
 
     virtual bool hasTransaction(const IDBResourceIdentifier&) const = 0;
 protected:

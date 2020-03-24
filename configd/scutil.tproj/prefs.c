@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2008, 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008, 2011-2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -144,10 +144,11 @@ __private_extern__ Boolean	_prefs_changed	= FALSE;
 
 __private_extern__
 Boolean
-_prefs_open(CFStringRef name, CFStringRef prefsID)
+_prefs_open(CFStringRef name, const char *path)
 {
 	char			*env		= NULL;
 	CFMutableDictionaryRef	options		= NULL;
+	CFStringRef		prefsID		= NULL;
 	Boolean			useHelper	= FALSE;
 	Boolean			useOptions	= FALSE;
 
@@ -191,6 +192,11 @@ _prefs_open(CFStringRef name, CFStringRef prefsID)
 		CFRelease(str);
 	}
 
+	if (path != NULL) {
+		prefsPath = strdup(path);
+		prefsID = CFStringCreateWithCString(NULL, path, kCFStringEncodingUTF8);
+	}
+
 	if (!useHelper && !useOptions) {
 		// if no helper/options needed
 		prefs = SCPreferencesCreate(NULL, name, prefsID);
@@ -202,7 +208,10 @@ _prefs_open(CFStringRef name, CFStringRef prefsID)
 		CFRelease(options);
 	}
 
+	if (prefsID != NULL) CFRelease(prefsID);
 	if (prefs == NULL) {
+		if (prefsPath != NULL) free(prefsPath);
+		prefsPath = NULL;
 		return FALSE;
 	}
 
@@ -230,14 +239,39 @@ _prefs_save()
 		exit (1);
 	}
 
-	_prefs_changed = FALSE;
-
 	if (!SCPreferencesApplyChanges(prefs)) {
 		SCPrint(TRUE,
 			stdout,
 			CFSTR("SCPreferencesApplyChanges() failed: %s\n"),
 			SCErrorString(SCError()));
 		exit (1);
+	}
+
+	_prefs_changed = FALSE;
+
+	if (ni_prefs != NULL) {
+		if (!SCPreferencesCommitChanges(ni_prefs)) {
+			switch (SCError()) {
+				case kSCStatusAccessError :
+					SCPrint(TRUE, stderr, CFSTR("Permission denied.\n"));
+					break;
+				default :
+					SCPrint(TRUE,
+						stdout,
+						CFSTR("SCPreferencesCommitChanges( <NetworkInterfaces.plist> ) failed: %s\n"),
+						SCErrorString(SCError()));
+					break;
+			}
+			exit (1);
+		}
+
+		if (!SCPreferencesApplyChanges(ni_prefs)) {
+			SCPrint(TRUE,
+				stdout,
+				CFSTR("SCPreferencesApplyChanges( <NetworkInterfaces.plist> ) failed: %s\n"),
+				SCErrorString(SCError()));
+			exit (1);
+		}
 	}
 
 	return;
@@ -248,10 +282,20 @@ __private_extern__
 void
 _prefs_close()
 {
+	if (prefsPath != NULL) {
+		free(prefsPath);
+		prefsPath = NULL;
+	}
+
 	if (prefs != NULL) {
 		CFRelease(prefs);
 		prefs = NULL;
 		_prefs_changed = FALSE;
+	}
+
+	if (ni_prefs != NULL) {
+		CFRelease(ni_prefs);
+		ni_prefs = NULL;
 	}
 
 	if (authorization != NULL) {
@@ -644,7 +688,6 @@ void
 do_prefs_open(int argc, char **argv)
 {
 	Boolean		ok;
-	CFStringRef	prefsID	= NULL;
 
 	if (prefs != NULL) {
 		if (_prefs_commitRequired(argc, argv, "close")) {
@@ -654,12 +697,7 @@ do_prefs_open(int argc, char **argv)
 		do_prefs_close(0, NULL);
 	}
 
-	if (argc > 0) {
-		prefsID = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
-	}
-
-	ok = _prefs_open(CFSTR("scutil --prefs"), prefsID);
-	if (prefsID != NULL) CFRelease(prefsID);
+	ok = _prefs_open(CFSTR("scutil --prefs"), (argc > 0) ? argv[0] : NULL);
 	if (!ok) {
 		SCPrint(TRUE,
 			stdout,
@@ -768,6 +806,10 @@ do_prefs_synchronize(int argc, char **argv)
 #pragma unused(argc)
 #pragma unused(argv)
 	SCPreferencesSynchronize(prefs);
+	if (ni_prefs != NULL) {
+		SCPreferencesSynchronize(ni_prefs);
+	}
+
 	return;
 }
 

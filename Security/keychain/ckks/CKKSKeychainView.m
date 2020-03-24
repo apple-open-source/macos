@@ -115,8 +115,6 @@
 @property CKKSResultOperation* processIncomingQueueAfterNextUnlockOperation;
 @property CKKSResultOperation* resultsOfNextIncomingQueueOperationOperation;
 
-@property NSMutableDictionary<NSString*, SecBoolNSErrorCallback>* pendingSyncCallbacks;
-
 // An extra queue for semaphore-waiting-based NSOperations
 @property NSOperationQueue* waitingQueue;
 
@@ -161,6 +159,7 @@
 
         _incomingQueueOperations = [NSHashTable weakObjectsHashTable];
         _outgoingQueueOperations = [NSHashTable weakObjectsHashTable];
+        _scanLocalItemsOperations = [NSHashTable weakObjectsHashTable];
         _cloudkitDeleteZoneOperations = [NSHashTable weakObjectsHashTable];
         _localResetOperations = [NSHashTable weakObjectsHashTable];
         _keysetProviderOperations = [NSHashTable weakObjectsHashTable];
@@ -212,8 +211,6 @@
                                                                                                        options:0];
                                                                               }];
 
-
-        _pendingSyncCallbacks = [[NSMutableDictionary alloc] init];
 
         _lockStateTracker = lockStateTracker;
         _savedTLKNotifier = savedTLKNotifier;
@@ -966,7 +963,11 @@
 
 #if DEBUG
     // During testing, keep the developer honest: this function should always have the self identities, unless the account has lost trust
-    if(self.trustStatus == CKKSAccountStatusAvailable && ![state isEqualToString:SecCKKSZoneKeyStateLoggedOut]) {
+    // But, beginTrustedOperation is currently racy: if it acquires the queue and sets the trust bit between fetching the trust states and getting on the queue,
+    // this will fire. So, release SecCKKSZoneKeyStateInitialized from this check.
+    if(self.trustStatus == CKKSAccountStatusAvailable
+       && ![state isEqualToString:SecCKKSZoneKeyStateLoggedOut]
+       && ![state isEqualToString:SecCKKSZoneKeyStateInitialized]) {
         bool hasSelfIdentities = false;
         NSAssert(self.currentTrustStates.count > 0, @"Should have at least one trust state");
         for(CKKSPeerProviderState* state in self.currentTrustStates) {
@@ -2022,10 +2023,11 @@
 }
 
 - (void) handleKeychainEventDbConnection: (SecDbConnectionRef) dbconn
+                                  source:(SecDbTransactionSource)txionSource
                                    added: (SecDbItemRef) added
                                  deleted: (SecDbItemRef) deleted
                              rateLimiter: (CKKSRateLimiter*) rateLimiter
-                            syncCallback: (SecBoolNSErrorCallback) syncCallback {
+{
     if(!SecCKKSIsEnabled()) {
         ckksnotice("ckks", self, "Skipping handleKeychainEventDbConnection due to disabled CKKS");
         return;
@@ -2080,6 +2082,10 @@
         return;
     }
 
+    if(txionSource == kSecDbSOSTransaction) {
+        ckksnotice("ckks", self, "Received an incoming %@ from SOS", isAdd ? @"addition" : (isModify ? @"modification" : @"deletion"));
+    }
+
     // Our caller gave us a database connection. We must get on the local queue to ensure atomicity
     // Note that we're at the mercy of the surrounding db transaction, so don't try to rollback here
     [self dispatchSyncWithConnection: dbconn block: ^bool {
@@ -2091,21 +2097,15 @@
             self.droppedItems = true;
             ckksnotice("ckks", self, "Dropping sync item modification due to CK account state; will scan to find changes later");
 
-            if(syncCallback) {
-                // We're positively not logged into CloudKit, and therefore don't expect this item to be synced anytime particularly soon.
-                [self callSyncCallbackWithErrorNoAccount: syncCallback];
-            }
-            return true;
-        }
+            // We're positively not logged into CloudKit, and therefore don't expect this item to be synced anytime particularly soon.
+            NSString* uuid = (__bridge NSString*)SecDbItemGetValue(added ? added : deleted, &v10itemuuid, NULL);
 
-        // Always record the callback, even if we can't encrypt the item right now. Maybe we'll get to it soon!
-        if(syncCallback) {
-            CFErrorRef cferror = NULL;
-            NSString* uuid = (__bridge_transfer NSString*) CFRetain(SecDbItemGetValue(added, &v10itemuuid, &cferror));
-            if(!cferror && uuid) {
-                self.pendingSyncCallbacks[uuid] = syncCallback;
+            SecBoolNSErrorCallback syncCallback = [[CKKSViewManager manager] claimCallbackForUUID:uuid];
+            if(syncCallback) {
+                [CKKSViewManager callSyncCallbackWithErrorNoAccount: syncCallback];
             }
-            CFReleaseNull(cferror);
+
+            return true;
         }
 
         CKKSOutgoingQueueEntry* oqe = nil;
@@ -2486,11 +2486,6 @@
     }
 }
 
-- (NSSet<NSString*>*)_onqueuePriorityOutgoingQueueUUIDs
-{
-    return [self.pendingSyncCallbacks.allKeys copy];
-}
-
 - (CKKSOutgoingQueueOperation*)processOutgoingQueue:(CKOperationGroup*)ckoperationGroup {
     return [self processOutgoingQueueAfter:nil ckoperationGroup:ckoperationGroup];
 }
@@ -2532,6 +2527,8 @@
     [op addNullableDependency:self.outgoingQueueOperationScheduler.operationDependency];
 
     [self.outgoingQueueOperationScheduler triggerAt:requiredDelay];
+
+    [op linearDependencies:self.outgoingQueueOperations];
 
     [self scheduleOperation: op];
     ckksnotice("ckksoutgoing", self, "Scheduled %@", op);
@@ -2605,8 +2602,25 @@
     return [self scanLocalItems:operationName ckoperationGroup:nil after:nil];
 }
 
-- (CKKSScanLocalItemsOperation*)scanLocalItems:(NSString*)operationName ckoperationGroup:(CKOperationGroup*)operationGroup after:(NSOperation*)after {
-    CKKSScanLocalItemsOperation* scanOperation = [[CKKSScanLocalItemsOperation alloc] initWithCKKSKeychainView:self ckoperationGroup:operationGroup];
+- (CKKSScanLocalItemsOperation*)scanLocalItems:(NSString*)operationName
+                              ckoperationGroup:(CKOperationGroup*)operationGroup
+                                         after:(NSOperation*)after
+{
+    CKKSScanLocalItemsOperation* scanOperation = (CKKSScanLocalItemsOperation*)[self findFirstPendingOperation:self.scanLocalItemsOperations];
+
+    if(scanOperation) {
+        [scanOperation addNullableDependency:after];
+
+        // check (again) for race condition; if the op has started we need to add another (for the dependency)
+        if([scanOperation isPending]) {
+            scanOperation.ckoperationGroup = operationGroup;
+
+            scanOperation.name = [NSString stringWithFormat:@"%@::%@", scanOperation.name, operationName];
+            return scanOperation;
+        }
+    }
+
+    scanOperation = [[CKKSScanLocalItemsOperation alloc] initWithCKKSKeychainView:self ckoperationGroup:operationGroup];
     scanOperation.name = operationName;
 
     [scanOperation addNullableDependency:self.lastFixupOperation];
@@ -2614,7 +2628,9 @@
     [scanOperation addNullableDependency:self.keyStateReadyDependency];
     [scanOperation addNullableDependency:after];
 
-    [self scheduleOperation: scanOperation];
+    [scanOperation linearDependencies:self.scanLocalItemsOperations];
+
+    [self scheduleOperation:scanOperation];
     return scanOperation;
 }
 
@@ -3333,10 +3349,9 @@
 
     if([state isEqualToString: SecCKKSStateDeleted]) {
         // Hurray, this must be a success
-        SecBoolNSErrorCallback callback = self.pendingSyncCallbacks[oqe.uuid];
-        if(callback) {
-            callback(true, nil);
-            self.pendingSyncCallbacks[oqe.uuid] = nil;
+        SecBoolNSErrorCallback syncCallback = [[CKKSViewManager manager] claimCallbackForUUID:oqe.uuid];
+        if(syncCallback) {
+            syncCallback(true, nil);
         }
 
         [oqe deleteFromDatabase: &localerror];
@@ -3387,10 +3402,9 @@
 - (bool)_onqueueErrorOutgoingQueueEntry: (CKKSOutgoingQueueEntry*) oqe itemError: (NSError*) itemError error: (NSError* __autoreleasing*) error {
     dispatch_assert_queue(self.queue);
 
-    SecBoolNSErrorCallback callback = self.pendingSyncCallbacks[oqe.uuid];
+    SecBoolNSErrorCallback callback = [[CKKSViewManager manager] claimCallbackForUUID:oqe.uuid];
     if(callback) {
         callback(false, itemError);
-        self.pendingSyncCallbacks[oqe.uuid] = nil;
     }
     NSError* localerror = nil;
 
@@ -3736,27 +3750,11 @@
             [self.loggedOut fulfill];
             [self.accountStateKnown fulfill];
 
-            // Tell all pending sync clients that we don't expect to ever sync
-            for(NSString* callbackUUID in self.pendingSyncCallbacks.allKeys) {
-                [self callSyncCallbackWithErrorNoAccount:self.pendingSyncCallbacks[callbackUUID]];
-                self.pendingSyncCallbacks[callbackUUID] = nil;
-            }
-
             return true;
         }];
     }];
 
     [self scheduleAccountStatusOperation: logout];
-}
-
-- (void)callSyncCallbackWithErrorNoAccount:(SecBoolNSErrorCallback)syncCallback {
-    CKKSAccountStatus accountStatus = self.accountStatus;
-    dispatch_async(self.queue, ^{
-        syncCallback(false, [NSError errorWithDomain:@"securityd"
-                                                code:errSecNotLoggedIn
-                                            userInfo:@{NSLocalizedDescriptionKey:
-                                                           [NSString stringWithFormat: @"No iCloud account available(%d); item is not expected to sync", (int)accountStatus]}]);
-    });
 }
 
 #pragma mark - Trust operations
@@ -3889,6 +3887,25 @@
                 resync:(BOOL)resync
 {
     [self.launch addEvent:@"changes-fetched"];
+
+    if(changedRecords.count == 0 && deletedRecords.count == 0 && !moreComing && !resync) {
+        // Early-exit, so we don't pick up the account keys or kick off an IncomingQueue operation for no changes
+        [self dispatchSync:^bool {
+            ckkserror("ckksfetch", self, "No record changes in this fetch");
+
+            NSError* error = nil;
+            CKKSZoneStateEntry* state = [CKKSZoneStateEntry state:self.zoneName];
+            state.lastFetchTime = [NSDate date]; // The last fetch happened right now!
+            state.changeToken = newChangeToken;
+            state.moreRecordsInCloudKit = moreComing;
+            [state saveToDatabase:&error];
+            if(error) {
+                ckkserror("ckksfetch", self, "Couldn't save new server change token: %@", error);
+            }
+            return true;
+        }];
+        return;
+    }
 
     [self dispatchSyncWithAccountKeys:^bool{
         for (CKRecord* record in changedRecords) {
@@ -4108,6 +4125,13 @@
         [self.incomingQueueOperations removeAllObjects];
     }
 
+    @synchronized(self.scanLocalItemsOperations) {
+        for(NSOperation* op in self.scanLocalItemsOperations) {
+            [op cancel];
+        }
+        [self.scanLocalItemsOperations removeAllObjects];
+    }
+
     [super cancelAllOperations];
 }
 
@@ -4118,6 +4142,7 @@
     [self.keyStateNonTransientDependency cancel];
     [self.zoneChangeFetcher cancel];
     [self.notifyViewChangedScheduler cancel];
+    [self.pokeKeyStateMachineScheduler cancel];
 
     [self cancelPendingOperations];
 

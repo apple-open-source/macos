@@ -59,13 +59,22 @@ WI.RemoteObject = class RemoteObject
                 this._description = "class " + className;
             }
         } else {
-            // Primitive or null.
+            // Primitive, BigInt, or null.
             console.assert(type !== "object" || value === null);
             console.assert(!preview);
 
             this._description = description || (value + "");
             this._hasChildren = false;
             this._value = value;
+
+            if (type === "bigint") {
+                console.assert(value === undefined);
+                console.assert(description.endsWith("n"));
+                if (window.BigInt)
+                    this._value = BigInt(description.substring(0, description.length - 1));
+                else
+                    this._value = `${description} [BigInt Not Enabled in Web Inspector]`;
+            }
         }
     }
 
@@ -79,6 +88,13 @@ WI.RemoteObject = class RemoteObject
     static fromPrimitiveValue(value)
     {
         return new WI.RemoteObject(undefined, undefined, typeof value, undefined, value, undefined, undefined, undefined, undefined);
+    }
+
+    static createBigIntFromDescriptionString(description)
+    {
+        console.assert(description.endsWith("n"));
+
+        return new WI.RemoteObject(undefined, undefined, "bigint", undefined, undefined, description, undefined, undefined, undefined);
     }
 
     static fromPayload(payload, target)
@@ -127,7 +143,13 @@ WI.RemoteObject = class RemoteObject
 
     static resolveNode(node, objectGroup)
     {
-        return DOMAgent.resolveNode(node.id, objectGroup)
+        console.assert(node instanceof WI.DOMNode, node);
+
+        if (node.destroyed)
+            return Promise.reject("ERROR: node is destroyed");
+
+        let target = WI.assumingMainTarget();
+        return target.DOMAgent.resolveNode(node.id, objectGroup)
             .then(({object}) => WI.RemoteObject.fromPayload(object, WI.mainTarget));
     }
 
@@ -135,7 +157,8 @@ WI.RemoteObject = class RemoteObject
     {
         console.assert(typeof callback === "function");
 
-        NetworkAgent.resolveWebSocket(webSocketResource.requestIdentifier, objectGroup, (error, object) => {
+        let target = WI.assumingMainTarget();
+        target.NetworkAgent.resolveWebSocket(webSocketResource.requestIdentifier, objectGroup, (error, object) => {
             if (error || !object)
                 callback(null);
             else
@@ -147,12 +170,41 @@ WI.RemoteObject = class RemoteObject
     {
         console.assert(typeof callback === "function");
 
-        CanvasAgent.resolveCanvasContext(canvas.identifier, objectGroup, (error, object) => {
+        function wrapCallback(error, object) {
             if (error || !object)
                 callback(null);
             else
                 callback(WI.RemoteObject.fromPayload(object, WI.mainTarget));
-        });
+        }
+
+        let target = WI.assumingMainTarget();
+
+        // COMPATIBILITY (iOS 13): Canvas.resolveCanvasContext was renamed to Canvas.resolveContext.
+        if (!target.hasCommand("Canvas.resolveContext")) {
+            target.CanvasAgent.resolveCanvasContext(canvas.identifier, objectGroup, wrapCallback);
+            return;
+        }
+
+        target.CanvasAgent.resolveContext(canvas.identifier, objectGroup, wrapCallback);
+    }
+
+    static resolveAnimation(animation, objectGroup, callback)
+    {
+        console.assert(typeof callback === "function");
+
+        function wrapCallback(error, object) {
+            if (error || !object)
+                callback(null);
+            else
+                callback(WI.RemoteObject.fromPayload(object, WI.mainTarget));
+        }
+
+        let target = WI.assumingMainTarget();
+
+        // COMPATIBILITY (iOS 13.1): Animation.resolveAnimation did not exist yet.
+        console.assert(target.hasCommand("Animation.resolveAnimation"));
+
+        target.AnimationAgent.resolveAnimation(animation.animationId, objectGroup, wrapCallback);
     }
 
     // Public
@@ -245,7 +297,7 @@ WI.RemoteObject = class RemoteObject
             return;
         }
 
-        if (!this._target.RuntimeAgent.getPreview) {
+        if (!this._target.hasCommand("Runtime.getPreview")) {
             this._failedToLoadPreview = true;
             callback(null);
             return;
@@ -270,20 +322,20 @@ WI.RemoteObject = class RemoteObject
             return;
         }
 
-        this._target.RuntimeAgent.getProperties(this._objectId, options.ownProperties, options.generatePreview, this._getPropertyDescriptorsResolver.bind(this, callback));
+        this._getProperties(this._getPropertyDescriptorsResolver.bind(this, callback), options);
     }
 
-    getDisplayablePropertyDescriptors(callback)
+    getDisplayablePropertyDescriptors(callback, options = {})
     {
         if (!this._objectId || this._isSymbol() || this._isFakeObject()) {
             callback([]);
             return;
         }
 
-        // COMPATIBILITY (iOS 8): RuntimeAgent.getDisplayableProperties did not exist.
+        // COMPATIBILITY (iOS 8): Runtime.getDisplayableProperties did not exist.
         // Here we do our best to reimplement it by getting all properties and reducing them down.
-        if (!this._target.RuntimeAgent.getDisplayableProperties) {
-            this._target.RuntimeAgent.getProperties(this._objectId, function(error, allProperties) {
+        if (!this._target.hasCommand("Runtime.getDisplayableProperties")) {
+            this._getProperties(options, (error, allProperties) => {
                 var ownOrGetterPropertiesList = [];
                 if (allProperties) {
                     for (var property of allProperties) {
@@ -300,59 +352,12 @@ WI.RemoteObject = class RemoteObject
                         }
                     }
                 }
-
                 this._getPropertyDescriptorsResolver(callback, error, ownOrGetterPropertiesList);
-            }.bind(this));
+            });
             return;
         }
 
-        this._target.RuntimeAgent.getDisplayableProperties(this._objectId, true, this._getPropertyDescriptorsResolver.bind(this, callback));
-    }
-
-    // FIXME: Phase out these deprecated functions. They return DeprecatedRemoteObjectProperty instead of PropertyDescriptors.
-    deprecatedGetOwnProperties(callback)
-    {
-        this._deprecatedGetProperties(true, callback);
-    }
-
-    deprecatedGetAllProperties(callback)
-    {
-        this._deprecatedGetProperties(false, callback);
-    }
-
-    deprecatedGetDisplayableProperties(callback)
-    {
-        if (!this._objectId || this._isSymbol() || this._isFakeObject()) {
-            callback([]);
-            return;
-        }
-
-        // COMPATIBILITY (iOS 8): RuntimeAgent.getProperties did not support ownerAndGetterProperties.
-        // Here we do our best to reimplement it by getting all properties and reducing them down.
-        if (!this._target.RuntimeAgent.getDisplayableProperties) {
-            this._target.RuntimeAgent.getProperties(this._objectId, function(error, allProperties) {
-                var ownOrGetterPropertiesList = [];
-                if (allProperties) {
-                    for (var property of allProperties) {
-                        if (property.isOwn || property.get || property.name === "__proto__") {
-                            // Own property or getter property in prototype chain.
-                            ownOrGetterPropertiesList.push(property);
-                        } else if (property.value && property.name !== property.name.toUpperCase()) {
-                            var type = property.value.type;
-                            if (type && type !== "function" && property.name !== "constructor") {
-                                // Possible native binding getter property converted to a value. Also, no CONSTANT name style and not "constructor".
-                                ownOrGetterPropertiesList.push(property);
-                            }
-                        }
-                    }
-                }
-
-                this._deprecatedGetPropertiesResolver(callback, error, ownOrGetterPropertiesList);
-            }.bind(this));
-            return;
-        }
-
-        this._target.RuntimeAgent.getDisplayableProperties(this._objectId, this._deprecatedGetPropertiesResolver.bind(this, callback));
+        this._getDisplayableProperties(this._getPropertyDescriptorsResolver.bind(this, callback), options);
     }
 
     setPropertyValue(name, value, callback)
@@ -363,7 +368,7 @@ WI.RemoteObject = class RemoteObject
         }
 
         // FIXME: It doesn't look like setPropertyValue is used yet. This will need to be tested when it is again (editable ObjectTrees).
-        this._target.RuntimeAgent.evaluate.invoke({expression: appendWebInspectorSourceURL(value), doNotPauseOnExceptionsAndMuteConsole: true}, evaluatedCallback.bind(this), this._target.RuntimeAgent);
+        this._target.RuntimeAgent.evaluate.invoke({expression: appendWebInspectorSourceURL(value), doNotPauseOnExceptionsAndMuteConsole: true}, evaluatedCallback.bind(this));
 
         function evaluatedCallback(error, result, wasThrown)
         {
@@ -426,24 +431,20 @@ WI.RemoteObject = class RemoteObject
         return this._subtype === "weakmap" || this._subtype === "weakset";
     }
 
-    getCollectionEntries(start, numberToFetch, callback)
+    getCollectionEntries(callback, {fetchStart, fetchCount} = {})
     {
-        start = typeof start === "number" ? start : 0;
-        numberToFetch = typeof numberToFetch === "number" ? numberToFetch : 100;
-
-        console.assert(start >= 0);
-        console.assert(numberToFetch >= 0);
         console.assert(this.isCollectionType());
+        console.assert(typeof fetchStart === "undefined" || (typeof fetchStart === "number" && fetchStart >= 0), fetchStart);
+        console.assert(typeof fetchCount === "undefined" || (typeof fetchCount === "number" && fetchCount > 0), fetchCount);
 
         // WeakMaps and WeakSets are not ordered. We should never send a non-zero start.
-        console.assert((this._subtype === "weakmap" && start === 0) || this._subtype !== "weakmap");
-        console.assert((this._subtype === "weakset" && start === 0) || this._subtype !== "weakset");
+        console.assert(!this.isWeakCollection() || typeof fetchStart === "undefined" || fetchStart === 0, fetchStart);
 
         let objectGroup = this.isWeakCollection() ? this._weakCollectionObjectGroup() : "";
 
-        this._target.RuntimeAgent.getCollectionEntries(this._objectId, objectGroup, start, numberToFetch, (error, entries) => {
-            entries = entries.map((x) => WI.CollectionEntry.fromPayload(x, this._target));
-            callback(entries);
+        // COMPATIBILITY (iOS 13): `startIndex` and `numberToFetch` were renamed to `fetchStart` and `fetchCount` (but kept in the same position).
+        this._target.RuntimeAgent.getCollectionEntries(this._objectId, objectGroup, fetchStart, fetchCount, (error, entries) => {
+            callback(entries.map((x) => WI.CollectionEntry.fromPayload(x, this._target)));
         });
     }
 
@@ -462,7 +463,7 @@ WI.RemoteObject = class RemoteObject
             callback(0);
     }
 
-    async fetchProperties(propertyNames, resultObject={})
+    async fetchProperties(propertyNames, resultObject = {})
     {
         let seenPropertyNames = new Set;
         let requestedValues = [];
@@ -567,7 +568,7 @@ WI.RemoteObject = class RemoteObject
                 return;
             }
 
-            var fakeDescriptor = {name: propertyName, value: result, writable: true, configurable: true, enumerable: false};
+            var fakeDescriptor = {name: propertyName, value: result, writable: true, configurable: true};
             var fakePropertyDescriptor = new WI.PropertyDescriptor(fakeDescriptor, null, true, false, false, false);
             callback(fakePropertyDescriptor);
         }
@@ -617,7 +618,7 @@ WI.RemoteObject = class RemoteObject
             var location = response.location;
             var sourceCode = WI.debuggerManager.scriptForIdentifier(location.scriptId, this._target);
 
-            if (!sourceCode || (!WI.isDebugUIEnabled() && isWebKitInternalScript(sourceCode.sourceURL))) {
+            if (!sourceCode || (!WI.settings.engineeringShowInternalScripts.value && isWebKitInternalScript(sourceCode.sourceURL))) {
                 result.resolve(WI.RemoteObject.SourceCodeLocationPromise.NoSourceFound);
                 return;
             }
@@ -651,6 +652,30 @@ WI.RemoteObject = class RemoteObject
         return JSON.stringify(this._objectId) + "-" + this._subtype;
     }
 
+    _getProperties(callback, {ownProperties, fetchStart, fetchCount, generatePreview} = {})
+    {
+        // COMPATIBILITY (iOS 13): `result` was renamed to `properties` (but kept in the same position).
+        this._target.RuntimeAgent.getProperties.invoke({
+            objectId: this._objectId,
+            ownProperties,
+            fetchStart,
+            fetchCount,
+            generatePreview,
+        }, callback);
+    }
+
+    _getDisplayableProperties(callback, {fetchStart, fetchCount, generatePreview} = {})
+    {
+        console.assert(this._target.hasCommand("Runtime.getDisplayableProperties"));
+
+        this._target.RuntimeAgent.getDisplayableProperties.invoke({
+            objectId: this._objectId,
+            fetchStart,
+            fetchCount,
+            generatePreview,
+        }, callback);
+    }
+
     _getPropertyDescriptorsResolver(callback, error, properties, internalProperties)
     {
         if (error) {
@@ -658,60 +683,14 @@ WI.RemoteObject = class RemoteObject
             return;
         }
 
-        let descriptors = properties.map((payload) => {
-            return WI.PropertyDescriptor.fromPayload(payload, false, this._target);
-        });
+        let descriptors = properties.map((payload) => WI.PropertyDescriptor.fromPayload(payload, false, this._target));
 
         if (internalProperties) {
-            descriptors = descriptors.concat(internalProperties.map((payload) => {
-                return WI.PropertyDescriptor.fromPayload(payload, true, this._target);
-            }));
+            for (let payload of internalProperties)
+                descriptors.push(WI.PropertyDescriptor.fromPayload(payload, true, this._target));
         }
 
         callback(descriptors);
-    }
-
-    // FIXME: Phase out these deprecated functions. They return DeprecatedRemoteObjectProperty instead of PropertyDescriptors.
-    _deprecatedGetProperties(ownProperties, callback)
-    {
-        if (!this._objectId || this._isSymbol() || this._isFakeObject()) {
-            callback([]);
-            return;
-        }
-
-        this._target.RuntimeAgent.getProperties(this._objectId, ownProperties, this._deprecatedGetPropertiesResolver.bind(this, callback));
-    }
-
-    _deprecatedGetPropertiesResolver(callback, error, properties, internalProperties)
-    {
-        if (error) {
-            callback(null);
-            return;
-        }
-
-        if (internalProperties) {
-            properties = properties.concat(internalProperties.map(function(descriptor) {
-                descriptor.writable = false;
-                descriptor.configurable = false;
-                descriptor.enumerable = false;
-                descriptor.isOwn = true;
-                return descriptor;
-            }));
-        }
-
-        var result = [];
-        for (var i = 0; properties && i < properties.length; ++i) {
-            var property = properties[i];
-            if (property.get || property.set) {
-                if (property.get)
-                    result.push(new WI.DeprecatedRemoteObjectProperty("get " + property.name, WI.RemoteObject.fromPayload(property.get, this._target), property));
-                if (property.set)
-                    result.push(new WI.DeprecatedRemoteObjectProperty("set " + property.name, WI.RemoteObject.fromPayload(property.set, this._target), property));
-            } else
-                result.push(new WI.DeprecatedRemoteObjectProperty(property.name, WI.RemoteObject.fromPayload(property.value, this._target), property));
-        }
-
-        callback(result);
     }
 };
 
@@ -720,25 +699,4 @@ WI.RemoteObject.FakeRemoteObjectId = "fake-remote-object";
 WI.RemoteObject.SourceCodeLocationPromise = {
     NoSourceFound: "remote-object-source-code-location-promise-no-source-found",
     MissingObjectId: "remote-object-source-code-location-promise-missing-object-id"
-};
-
-// FIXME: Phase out this deprecated class.
-WI.DeprecatedRemoteObjectProperty = class DeprecatedRemoteObjectProperty
-{
-    constructor(name, value, descriptor)
-    {
-        this.name = name;
-        this.value = value;
-        this.enumerable = descriptor ? !!descriptor.enumerable : true;
-        this.writable = descriptor ? !!descriptor.writable : true;
-        if (descriptor && descriptor.wasThrown)
-            this.wasThrown = true;
-    }
-
-    // Static
-
-    fromPrimitiveValue(name, value)
-    {
-        return new WI.DeprecatedRemoteObjectProperty(name, WI.RemoteObject.fromPrimitiveValue(value));
-    }
 };

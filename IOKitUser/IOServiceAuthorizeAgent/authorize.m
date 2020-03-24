@@ -30,7 +30,7 @@
 #include <CoreFoundation/CFBundlePriv.h>
 #include <IOKit/IOKitLibPrivate.h>
 
-static IOReturn __Authorize( CFDictionaryRef deviceID, pid_t processID )
+static IOReturn __Authorize( CFDictionaryRef deviceID, CFBundleRef bundle )
 {
     CFStringRef device;
     IOReturn status;
@@ -39,127 +39,115 @@ static IOReturn __Authorize( CFDictionaryRef deviceID, pid_t processID )
 
     if ( device )
     {
-        CFBundleRef bundle;
 
-        bundle = _ApplicationCopyBundle( processID );
+        CFStringRef application;
 
-        if ( bundle )
+        application = CFBundleGetValueForInfoDictionaryKey( bundle, _kCFBundleDisplayNameKey );
+
+        if ( application == 0 )
         {
-            CFStringRef application;
+            application = CFBundleGetValueForInfoDictionaryKey( bundle, kCFBundleNameKey );
+        }
 
-            application = CFBundleGetValueForInfoDictionaryKey( bundle, _kCFBundleDisplayNameKey );
+        if ( application )
+        {
+            CFMutableDictionaryRef dictionary;
 
-            if ( application == 0 )
+            dictionary = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+
+            if ( dictionary )
             {
-                application = CFBundleGetValueForInfoDictionaryKey( bundle, kCFBundleNameKey );
-            }
+                CFStringRef string;
+                CFStringRef header;
 
-            if ( application )
-            {
-                CFMutableDictionaryRef dictionary;
+                string = CFCopyLocalizedString( CFSTR( "%@ wants to access \"%@\"." ), 0 );
+                header = CFStringCreateWithFormat( kCFAllocatorDefault, 0, string, application, device );
+                CFRelease( string );
 
-                dictionary = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-
-                if ( dictionary )
+                if ( header )
                 {
-                    CFStringRef string;
-                    CFStringRef header;
+                    CFURLRef path;
 
-                    string = CFCopyLocalizedString( CFSTR( "%@ wants to access \"%@\"." ), 0 );
-                    header = CFStringCreateWithFormat( kCFAllocatorDefault, 0, string, application, device );
-                    CFRelease( string );
+                    path = CFBundleCopyBundleURL( CFBundleGetMainBundle( ) );
 
-                    if ( header )
+                    if ( path )
                     {
-                        CFURLRef path;
+                        CFUserNotificationRef notification;
 
-                        path = CFBundleCopyBundleURL( CFBundleGetMainBundle( ) );
+                        CFDictionarySetValue( dictionary, kCFUserNotificationAlertHeaderKey, header );
+                        CFDictionarySetValue( dictionary, kCFUserNotificationAlertMessageKey, CFSTR( "Do you want to allow access to this device?" ) );
+                        CFDictionarySetValue( dictionary, kCFUserNotificationAlternateButtonTitleKey, CFSTR( "Always Allow" ) );
+                        CFDictionarySetValue( dictionary, kCFUserNotificationDefaultButtonTitleKey, CFSTR( "Allow" ) );
+                        CFDictionarySetValue( dictionary, kCFUserNotificationLocalizationURLKey, path );
+                        CFDictionarySetValue( dictionary, kCFUserNotificationOtherButtonTitleKey, CFSTR( "Deny" ) );
 
-                        if ( path )
+                        notification = CFUserNotificationCreate( kCFAllocatorDefault, 0, kCFUserNotificationCautionAlertLevel, 0, dictionary );
+
+                        if ( notification )
                         {
-                            CFUserNotificationRef notification;
+                            int err;
+                            CFOptionFlags response;
 
-                            CFDictionarySetValue( dictionary, kCFUserNotificationAlertHeaderKey, header );
-                            CFDictionarySetValue( dictionary, kCFUserNotificationAlertMessageKey, CFSTR( "Do you want to allow access to this device?" ) );
-                            CFDictionarySetValue( dictionary, kCFUserNotificationAlternateButtonTitleKey, CFSTR( "Always Allow" ) );
-                            CFDictionarySetValue( dictionary, kCFUserNotificationDefaultButtonTitleKey, CFSTR( "Allow" ) );
-                            CFDictionarySetValue( dictionary, kCFUserNotificationLocalizationURLKey, path );
-                            CFDictionarySetValue( dictionary, kCFUserNotificationOtherButtonTitleKey, CFSTR( "Deny" ) );
+                            err = CFUserNotificationReceiveResponse( notification, 0, &response );
 
-                            notification = CFUserNotificationCreate( kCFAllocatorDefault, 0, kCFUserNotificationCautionAlertLevel, 0, dictionary );
-
-                            if ( notification )
+                            if ( err == 0 )
                             {
-                                int err;
-                                CFOptionFlags response;
-
-                                err = CFUserNotificationReceiveResponse( notification, 0, &response );
-
-                                if ( err == 0 )
+                                switch ( ( response & 0x3 ) )
                                 {
-                                    switch ( ( response & 0x3 ) )
+                                    case kCFUserNotificationAlternateResponse:
                                     {
-                                        case kCFUserNotificationAlternateResponse:
-                                        {
-                                            status = kIOReturnNotFound;
+                                        status = kIOReturnNotFound;
 
-                                            break;
-                                        }
+                                        break;
+                                    }
 
-                                        case kCFUserNotificationDefaultResponse:
-                                        {
-                                            status = kIOReturnSuccess;
+                                    case kCFUserNotificationDefaultResponse:
+                                    {
+                                        status = kIOReturnSuccess;
 
-                                            break;
-                                        }
+                                        break;
+                                    }
 
-                                        default:
-                                        {
-                                            status = kIOReturnNotPermitted;
+                                    default:
+                                    {
+                                        status = kIOReturnNotPermitted;
 
-                                            break;
-                                        }
+                                        break;
                                     }
                                 }
-                                else
-                                {
-                                    status = kIOReturnNoResources;
-                                }
-
-                                CFRelease( notification );
                             }
                             else
                             {
                                 status = kIOReturnNoResources;
                             }
 
-                            CFRelease( path );
+                            CFRelease( notification );
                         }
                         else
                         {
-                            status = kIOReturnNoMemory;
+                            status = kIOReturnNoResources;
                         }
 
-                        CFRelease( header );
+                        CFRelease( path );
                     }
                     else
                     {
                         status = kIOReturnNoMemory;
                     }
 
-                    CFRelease( dictionary );
+                    CFRelease( header );
                 }
                 else
                 {
                     status = kIOReturnNoMemory;
                 }
+
+                CFRelease( dictionary );
             }
             else
             {
-                status = kIOReturnAborted;
+                status = kIOReturnNoMemory;
             }
-
-            CFRelease( bundle );
         }
         else
         {
@@ -176,7 +164,7 @@ static IOReturn __Authorize( CFDictionaryRef deviceID, pid_t processID )
     return status;
 }
 
-IOReturn _Authorize( io_service_t service, uint64_t options, pid_t processID, uint64_t authorizationID )
+IOReturn _Authorize( io_service_t service, uint64_t options, pid_t processID, uint64_t authorizationID, const audit_token_t *auditToken )
 {
     CFDictionaryRef deviceID;
     IOReturn status;
@@ -185,70 +173,84 @@ IOReturn _Authorize( io_service_t service, uint64_t options, pid_t processID, ui
 
     if ( deviceID )
     {
-        CFStringRef applicationID;
 
-        applicationID = _ApplicationCopyIdentifier( processID );
+        CFBundleRef bundle;
 
-        if ( applicationID )
+        bundle = _ApplicationCopyBundle( processID );
+
+        if (bundle)
         {
-            CFArrayRef deviceIDs;
+            CFStringRef applicationID;
 
-            status = kIOReturnNotFound;
+            applicationID = _ApplicationCopyIdentifier( processID, auditToken );
 
-            deviceIDs = _PreferencesCopyValue( applicationID );
-
-            if ( deviceIDs )
+            if ( applicationID )
             {
-                CFIndex count;
-                CFIndex index;
+                CFArrayRef deviceIDs;
 
-                count = CFArrayGetCount( deviceIDs );
+                status = kIOReturnNotFound;
 
-                for ( index = 0; index < count; index++ )
+                deviceIDs = _PreferencesCopyValue( applicationID );
+
+                if ( deviceIDs )
                 {
-                    CFDictionaryRef compare;
+                    CFIndex count;
+                    CFIndex index;
 
-                    compare = ( void * ) CFArrayGetValueAtIndex( deviceIDs, index );
+                    count = CFArrayGetCount( deviceIDs );
 
-                    if ( _DeviceIsEqual( deviceID, compare ) )
+                    for ( index = 0; index < count; index++ )
                     {
-                        status = kIOReturnSuccess;
+                        CFDictionaryRef compare;
 
-                        break;
+                        compare = ( void * ) CFArrayGetValueAtIndex( deviceIDs, index );
+
+                        if ( _DeviceIsEqual( deviceID, compare ) )
+                        {
+                            status = kIOReturnSuccess;
+
+                            break;
+                        }
                     }
                 }
-            }
 
-            if ( status )
-            {
-                if ( ( options & kIOServiceInteractionAllowed ) )
+                if ( status )
                 {
-                    status = __Authorize( deviceID, processID );
-
-                    if ( status == kIOReturnNotFound )
+                    if ( ( options & kIOServiceInteractionAllowed ) )
                     {
-                        _PreferencesAppendArrayValue( applicationID, deviceID );
+                        status = __Authorize( deviceID, bundle );
 
-                        status = kIOReturnSuccess;
+                        if ( status == kIOReturnNotFound )
+                        {
+                            _PreferencesAppendArrayValue( applicationID, deviceID );
+
+                            status = kIOReturnSuccess;
+                        }
+                    }
+                    else
+                    {
+                        status = kIOReturnNotPermitted;
                     }
                 }
-                else
+
+                if ( status == kIOReturnSuccess )
                 {
-                    status = kIOReturnNotPermitted;
+                    status = _IOServiceSetAuthorizationID( service, authorizationID );
                 }
-            }
 
-            if ( status == kIOReturnSuccess )
+                if ( deviceIDs )
+                {
+                    CFRelease( deviceIDs );
+                }
+
+                CFRelease( applicationID );
+            }
+            else
             {
-                status = _IOServiceSetAuthorizationID( service, authorizationID );
+                status = kIOReturnAborted;
             }
 
-            if ( deviceIDs )
-            {
-                CFRelease( deviceIDs );
-            }
-
-            CFRelease( applicationID );
+            CFRelease( bundle );
         }
         else
         {

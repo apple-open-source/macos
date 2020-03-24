@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="14092" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="15504" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="14092"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="15504"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
@@ -13,18 +13,18 @@
         </customObject>
         <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
-        <window allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" showsToolbarButton="NO" visibleAtLaunch="NO" frameAutosaveName="MBCAboutWindowFrame" animationBehavior="default" id="5" userLabel="About" customClass="NSPanel">
+        <window allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" visibleAtLaunch="NO" frameAutosaveName="MBCAboutWindowFrame" animationBehavior="default" id="5" userLabel="About" customClass="NSPanel">
             <windowStyleMask key="styleMask" titled="YES" closable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="538" y="186" width="522" height="405"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="1680" height="1028"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
             <value key="minSize" type="size" width="520" height="400"/>
             <view key="contentView" id="8">
                 <rect key="frame" x="0.0" y="0.0" width="522" height="405"/>
                 <autoresizingMask key="autoresizingMask"/>
                 <subviews>
                     <imageView translatesAutoresizingMaskIntoConstraints="NO" id="12">
-                        <rect key="frame" x="228" y="341" width="64" height="64"/>
+                        <rect key="frame" x="229" y="341" width="64" height="64"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="64" id="200028"/>
                             <constraint firstAttribute="height" constant="64" id="200029"/>
@@ -32,7 +32,7 @@
                         <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="Chess_128x128" id="100012"/>
                     </imageView>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" preferredMaxLayoutWidth="282" translatesAutoresizingMaskIntoConstraints="NO" id="6">
-                        <rect key="frame" x="117" y="314" width="286" height="19"/>
+                        <rect key="frame" x="118" y="314" width="286" height="19"/>
                         <constraints>
                             <constraint firstAttribute="width" constant="282" id="200024"/>
                             <constraint firstAttribute="height" constant="19" id="200025"/>
@@ -60,7 +60,7 @@
                                         <fragment content=" ">
                                             <attributes>
                                                 <color key="NSColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
-                                                <font key="NSFont" metaFont="smallSystem"/>
+                                                <font key="NSFont" metaFont="menu" size="11"/>
                                                 <paragraphStyle key="NSParagraphStyle" alignment="natural" lineBreakMode="wordWrapping" baseWritingDirection="natural" tighteningFactorForTruncation="0.0"/>
                                             </attributes>
                                         </fragment>
@@ -100,8 +100,8 @@ the source code for this application.</string>
                             <constraint firstAttribute="width" constant="150" id="200053"/>
                         </constraints>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="100013">
-                            <font key="font" metaFont="label"/>
-                            <string key="title">© 2003-2016
+                            <font key="font" metaFont="smallToolbarLabel"/>
+                            <string key="title">© 2003–2016
 © 2000
 © 2002</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -115,7 +115,7 @@ the source code for this application.</string>
                             <constraint firstAttribute="width" constant="161" id="200051"/>
                         </constraints>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="100007">
-                            <font key="font" metaFont="label"/>
+                            <font key="font" metaFont="smallToolbarLabel"/>
                             <string key="title">Version %@
 
 </string>
@@ -136,7 +136,7 @@ the source code for this application.</string>
                             <constraint firstAttribute="width" constant="150" id="200023"/>
                         </constraints>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="200012">
-                            <font key="font" metaFont="label"/>
+                            <font key="font" metaFont="smallToolbarLabel"/>
                             <string key="title">Apple Inc.
 Gian-Carlo Pascutto
 R. Ancell &amp; M. Duelli</string>
@@ -144,14 +144,14 @@ R. Ancell &amp; M. Duelli</string>
                             <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                         </textFieldCell>
                     </textField>
-                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" misplaced="YES" preferredMaxLayoutWidth="161" translatesAutoresizingMaskIntoConstraints="NO" id="200014">
+                    <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" preferredMaxLayoutWidth="161" translatesAutoresizingMaskIntoConstraints="NO" id="200014">
                         <rect key="frame" x="327" y="0.0" width="165" height="16"/>
                         <constraints>
                             <constraint firstAttribute="height" constant="16" id="200026"/>
                             <constraint firstAttribute="width" constant="161" id="200027"/>
                         </constraints>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="center" id="200015">
-                            <font key="font" metaFont="label"/>
+                            <font key="font" metaFont="smallToolbarLabel"/>
                             <string key="title">Version %@
 
 </string>
@@ -189,6 +189,7 @@ R. Ancell &amp; M. Duelli</string>
                     <constraint firstItem="200014" firstAttribute="centerX" secondItem="9" secondAttribute="centerX" id="200054"/>
                 </constraints>
             </view>
+            <point key="canvasLocation" x="139" y="147"/>
         </window>
         <userDefaultsController id="200016"/>
     </objects>

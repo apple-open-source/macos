@@ -111,7 +111,8 @@ String Extensions3DANGLE::getTranslatedShaderSourceANGLE(Platform3DObject shader
     gl::GetTranslatedShaderSourceANGLE(shader, sourceLength, &returnedLength, name.data());
     if (!returnedLength)
         return emptyString();
-    ASSERT(returnedLength == sourceLength);
+    // returnedLength does not include the null terminator.
+    ASSERT(returnedLength == sourceLength - 1);
     return String(name.data(), returnedLength);
 }
 
@@ -242,7 +243,6 @@ void Extensions3DANGLE::vertexAttribDivisor(GC3Duint index, GC3Duint divisor)
 
 String Extensions3DANGLE::getExtensions()
 {
-    ASSERT(!m_useIndexedGetString);
     return String(reinterpret_cast<const char*>(gl::GetString(GL_EXTENSIONS)));
 }
 

@@ -34,8 +34,8 @@
 #endif
 
 #if USE(DIRECT2D)
-#include "Font.h"
-#include <dwrite.h>
+#include "DirectWriteUtilities.h"
+#include <dwrite_3.h>
 #endif
 
 namespace WebCore {
@@ -46,15 +46,21 @@ FontCustomPlatformData::~FontCustomPlatformData()
         RemoveFontMemResourceEx(m_fontReference);
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription& fontDescription, bool bold, bool italic, const FontFeatureSettings&, const FontVariantSettings&, FontSelectionSpecifiedCapabilities)
+FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription& fontDescription, bool bold, bool italic, const FontFeatureSettings&, FontSelectionSpecifiedCapabilities)
 {
     int size = fontDescription.computedPixelSize();
     FontRenderingMode renderingMode = fontDescription.renderingMode();
 
     ASSERT(m_fontReference);
 
+    auto faceName = m_name.charactersWithNullTermination();
+    if (faceName.size() > LF_FACESIZE) {
+        faceName.resize(LF_FACESIZE);
+        faceName.last() = 0;
+    }
+
     LOGFONT logFont { };
-    memcpy(logFont.lfFaceName, m_name.charactersWithNullTermination().data(), sizeof(logFont.lfFaceName[0]) * std::min<size_t>(static_cast<size_t>(LF_FACESIZE), 1 + m_name.length()));
+    memcpy(logFont.lfFaceName, faceName.data(), sizeof(logFont.lfFaceName[0]) * std::min<size_t>(static_cast<size_t>(LF_FACESIZE), 1 + m_name.length()));
 
     logFont.lfHeight = -size;
     if (renderingMode == FontRenderingMode::Normal)
@@ -65,7 +71,7 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription&
     logFont.lfUnderline = false;
     logFont.lfStrikeOut = false;
     logFont.lfCharSet = DEFAULT_CHARSET;
-#if USE(CG) || USE(CAIRO)
+#if USE(CG) || USE(CAIRO) || USE(DIRECT2D)
     logFont.lfOutPrecision = OUT_TT_ONLY_PRECIS;
 #else
     logFont.lfOutPrecision = OUT_TT_PRECIS;
@@ -76,21 +82,12 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription&
     logFont.lfWeight = bold ? 700 : 400;
 
     auto hfont = adoptGDIObject(::CreateFontIndirect(&logFont));
-
 #if USE(CG)
     RetainPtr<CGFontRef> cgFont = adoptCF(CGFontCreateWithPlatformFont(&logFont));
     return FontPlatformData(WTFMove(hfont), cgFont.get(), size, bold, italic, renderingMode == FontRenderingMode::Alternate);
 #else
-    COMPtr<IDWriteFont> dwFont;
-    HRESULT hr = Font::systemDWriteGdiInterop()->CreateFontFromLOGFONT(&logFont, &dwFont);
-    if (!SUCCEEDED(hr)) {
-        LOGFONT customFont;
-        hr = ::GetObject(hfont.get(), sizeof(LOGFONT), &customFont);
-        if (SUCCEEDED(hr))
-            hr = FontPlatformData::createFallbackFont(customFont, &dwFont);
-    }
-    RELEASE_ASSERT(SUCCEEDED(hr));
-    return FontPlatformData(WTFMove(hfont), dwFont.get(), size, bold, italic, renderingMode == FontRenderingMode::Alternate);
+    auto font = DirectWrite::createWithPlatformFont(logFont);
+    return FontPlatformData(WTFMove(hfont), WTFMove(font), size, bold, italic, renderingMode == FontRenderingMode::Alternate);
 #endif
 }
 
@@ -113,7 +110,7 @@ std::unique_ptr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffe
     fontReference = renameAndActivateFont(buffer, fontName);
     if (!fontReference)
         return nullptr;
-    return std::make_unique<FontCustomPlatformData>(fontReference, fontName);
+    return makeUnique<FontCustomPlatformData>(fontReference, fontName);
 }
 
 bool FontCustomPlatformData::supportsFormat(const String& format)

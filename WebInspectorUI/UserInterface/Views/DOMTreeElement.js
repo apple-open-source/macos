@@ -244,7 +244,13 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
     {
         let node = this.representedObject;
 
-        if (node.isShadowRoot() || node.isInUserAgentShadowTree())
+        if (node.destroyed)
+            return false;
+
+        if (node.isShadowRoot())
+            return false;
+
+        if (node.isInUserAgentShadowTree() && !WI.DOMManager.supportsEditingUserAgentShadowTrees())
             return false;
 
         if (node.isPseudoElement())
@@ -338,12 +344,18 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
             return;
 
         function inspectedPage_node_injectStyleAndToggleClass(hiddenClassName, force) {
-            let styleElement = document.getElementById(hiddenClassName);
+            let root = this.getRootNode() || document;
+
+            let styleElement = root.getElementById(hiddenClassName);
             if (!styleElement) {
                 styleElement = document.createElement("style");
                 styleElement.id = hiddenClassName;
                 styleElement.textContent = `.${hiddenClassName} { visibility: hidden !important; }`;
-                document.head.appendChild(styleElement);
+
+                if (root instanceof HTMLDocument)
+                    root.head.appendChild(styleElement);
+                else // Inside Shadow DOM.
+                    root.insertBefore(styleElement, root.firstChild);
             }
 
             this.classList.toggle(hiddenClassName, force);
@@ -723,7 +735,10 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         if (this.treeOutline.selectedDOMNode() !== this.representedObject)
             return false;
 
-        if (this.representedObject.isShadowRoot() || this.representedObject.isInUserAgentShadowTree())
+        if (this.representedObject.isShadowRoot())
+            return false;
+
+        if (this.representedObject.isInUserAgentShadowTree() && !WI.DOMManager.supportsEditingUserAgentShadowTrees())
             return false;
 
         if (this.representedObject.isPseudoElement())
@@ -765,7 +780,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         contextMenu.appendSeparator();
 
         let isEditableNode = this.representedObject.nodeType() === Node.ELEMENT_NODE && this.editable;
-        let isNonShadowEditable = !this.representedObject.isInUserAgentShadowTree() && isEditableNode;
+        let isNonShadowEditable = isEditableNode && (!this.representedObject.isInUserAgentShadowTree() || WI.DOMManager.supportsEditingUserAgentShadowTrees());
         let alreadyEditingHTML = this._htmlEditElement && WI.isBeingEdited(this._htmlEditElement);
 
         if (isEditableNode) {
@@ -818,13 +833,16 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
             }, WI.isBeingEdited(textNode));
         }
 
-        if (!this.representedObject.isPseudoElement()) {
+        if (!this.representedObject.destroyed && !this.representedObject.isPseudoElement()) {
             subMenus.copy.appendItem(WI.UIString("HTML"), () => {
-                this._copyHTML();
+                this.representedObject.getOuterHTML()
+                .then((outerHTML) => {
+                    InspectorFrontendHost.copyText(outerHTML);
+                });
             });
         }
 
-        if (attributeName && isNonShadowEditable) {
+        if (attributeName) {
             subMenus.copy.appendItem(WI.UIString("Attribute"), () => {
                 let text = attributeName;
                 let attributeValue = this.representedObject.getAttribute(attributeName);
@@ -855,16 +873,18 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         for (let subMenu of Object.values(subMenus))
             contextMenu.pushItem(subMenu);
 
-        if (this.selected && this.treeOutline && this.treeOutline.selectedTreeElements.length > 1) {
-            let forceHidden = !this.treeOutline.selectedTreeElements.every((treeElement) => treeElement.isNodeHidden);
-            let label = forceHidden ? WI.UIString("Hide Elements") : WI.UIString("Show Elements");
-            contextMenu.appendItem(label, () => {
-                this.treeOutline.toggleSelectedElementsVisibility(forceHidden);
-            });
-        } else {
-            contextMenu.appendItem(WI.UIString("Toggle Visibility"), () => {
-                this.toggleElementVisibility();
-            });
+        if (this.treeOutline.editable) {
+            if (this.selected && this.treeOutline && this.treeOutline.selectedTreeElements.length > 1) {
+                let forceHidden = !this.treeOutline.selectedTreeElements.every((treeElement) => treeElement.isNodeHidden);
+                let label = forceHidden ? WI.UIString("Hide Elements") : WI.UIString("Show Elements");
+                contextMenu.appendItem(label, () => {
+                    this.treeOutline.toggleSelectedElementsVisibility(forceHidden);
+                });
+            } else if (isEditableNode) {
+                contextMenu.appendItem(WI.UIString("Toggle Visibility"), () => {
+                    this.toggleElementVisibility();
+                });
+            }
         }
     }
 
@@ -1400,7 +1420,9 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
             let goToArrowElement = parentElement.appendChild(WI.createGoToArrowButton());
             goToArrowElement.title = WI.UIString("Reveal in Elements Tab");
             goToArrowElement.addEventListener("click", (event) => {
-                WI.domManager.inspectElement(this.representedObject.id);
+                WI.domManager.inspectElement(this.representedObject.id, {
+                    initiatorHint: WI.TabBrowser.TabNavigationInitiator.LinkClick,
+                });
             });
         }
     }
@@ -1628,7 +1650,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
             visibleChildren.push(beforePseudoElement);
 
         if (node.childNodeCount && node.children)
-            visibleChildren = visibleChildren.concat(node.children);
+            visibleChildren.pushAll(node.children);
 
         var afterPseudoElement = node.afterPseudoElement();
         if (afterPseudoElement)
@@ -1776,11 +1798,6 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
                 hideExistingElements: true,
             });
         });
-    }
-
-    _copyHTML()
-    {
-        this.representedObject.copyNode();
     }
 
     _highlightSearchResults()
@@ -1937,7 +1954,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
             return;
 
         let shouldEnable = breakpoints.some((breakpoint) => breakpoint.disabled);
-        breakpoints.forEach((breakpoint) => breakpoint.disabled = !shouldEnable);
+        breakpoints.forEach((breakpoint) => { breakpoint.disabled = !shouldEnable });
     }
 
     _statusImageContextmenu(event)

@@ -117,6 +117,7 @@ enum {
     LayerTreeFlagsIncludeBackingStoreAttached   = 1 << 8,
     LayerTreeFlagsIncludeRootLayerProperties    = 1 << 9,
     LayerTreeFlagsIncludeEventRegion            = 1 << 10,
+    LayerTreeFlagsIncludeDeepColor              = 1 << 11,
 };
 typedef unsigned LayerTreeFlags;
 
@@ -288,7 +289,6 @@ public:
     void resumeActiveDOMObjectsAndAnimations();
     bool activeDOMObjectsAndAnimationsSuspended() const { return m_activeDOMObjectsAndAnimationsSuspendedCount > 0; }
 
-    bool isURLAllowed(const URL&) const;
     WEBCORE_EXPORT bool isAlwaysOnLoggingAllowed() const;
 
     void didPrewarmLocalStorage();

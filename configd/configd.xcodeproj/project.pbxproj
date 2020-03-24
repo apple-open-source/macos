@@ -289,6 +289,9 @@
 		152439E8180399D800D91708 /* CoreWLAN.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 152439E7180399D800D91708 /* CoreWLAN.framework */; };
 		152439E91805CC6C00D91708 /* ev_extra.h in Headers */ = {isa = PBXBuildFile; fileRef = 152439E318038E5B00D91708 /* ev_extra.h */; };
 		152439EA1805CC8400D91708 /* ev_extra.m in Sources */ = {isa = PBXBuildFile; fileRef = 152439E418038E5B00D91708 /* ev_extra.m */; };
+		15260A452272529F00AE1F72 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1547072E0D1F70C80075C28D /* SystemConfiguration.framework */; };
+		15260A462272533D00AE1F72 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1547072E0D1F70C80075C28D /* SystemConfiguration.framework */; };
+		15260A472272535F00AE1F72 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1559C4440D349A4E0098FD59 /* SystemConfiguration.framework */; };
 		152691DB1129EEA6006BD2D5 /* BridgeConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FD7B3B101E439200C56621 /* BridgeConfiguration.c */; };
 		152691DC1129EEAD006BD2D5 /* BridgeConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FD7B3B101E439200C56621 /* BridgeConfiguration.c */; };
 		152691DE1129EEC2006BD2D5 /* VLANConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15CB69B605C0722B0099E85F /* VLANConfiguration.c */; };
@@ -696,6 +699,9 @@
 		159A752C107FEAA400A57EAB /* VPNPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = 159A7517107FEAA400A57EAB /* VPNPrivate.c */; };
 		159A752E107FEAA400A57EAB /* VPNConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 159A7519107FEAA400A57EAB /* VPNConfiguration.c */; };
 		159C32B60F583724008A72EE /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1520A3DE0846B2DC0010B584 /* Security.framework */; };
+		159C80B0219378710004C3A6 /* SCNetworkConfigurationPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = 15D427212166F6F50082AA78 /* SCNetworkConfigurationPrivate.c */; };
+		159C80B1219378760004C3A6 /* SCNetworkConfigurationPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = 15D427212166F6F50082AA78 /* SCNetworkConfigurationPrivate.c */; };
+		159C80B2219378790004C3A6 /* SCNetworkConfigurationPrivate.c in Sources */ = {isa = PBXBuildFile; fileRef = 15D427212166F6F50082AA78 /* SCNetworkConfigurationPrivate.c */; };
 		159D540D07528DAE004F8947 /* ev_dlil.c in Sources */ = {isa = PBXBuildFile; fileRef = 159D53B107528B36004F8947 /* ev_dlil.c */; };
 		159D540E07528DAE004F8947 /* ev_dlil.h in Headers */ = {isa = PBXBuildFile; fileRef = 159D53B207528B36004F8947 /* ev_dlil.h */; };
 		159D540F07528DB0004F8947 /* ev_ipv4.c in Sources */ = {isa = PBXBuildFile; fileRef = 159D53B307528B36004F8947 /* ev_ipv4.c */; };
@@ -856,6 +862,9 @@
 		15C330D1134B95AA0028E36B /* SCNetworkReachabilityInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 15C330D0134B95AA0028E36B /* SCNetworkReachabilityInternal.h */; };
 		15C330D2134B95AA0028E36B /* SCNetworkReachabilityInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 15C330D0134B95AA0028E36B /* SCNetworkReachabilityInternal.h */; };
 		15C330D3134B95AA0028E36B /* SCNetworkReachabilityInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 15C330D0134B95AA0028E36B /* SCNetworkReachabilityInternal.h */; };
+		15C7B7C7224D9A9A0040A8D0 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15C7B7C6224D9A9A0040A8D0 /* CoreFoundation.framework */; };
+		15C7B7C9224D9AA70040A8D0 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15C7B7C8224D9AA70040A8D0 /* Foundation.framework */; };
+		15C7B7CB224D9AAE0040A8D0 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15C7B7CA224D9AAE0040A8D0 /* SystemConfiguration.framework */; };
 		15CB8F701EE4DCFC00726685 /* network_state_information_logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 1528922C1EDE41ED00FCFE71 /* network_state_information_logging.h */; };
 		15CB8F711EE4DCFF00726685 /* network_state_information_logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 1528922C1EDE41ED00FCFE71 /* network_state_information_logging.h */; };
 		15CB8F721EE4DD0400726685 /* network_state_information_logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 1528922C1EDE41ED00FCFE71 /* network_state_information_logging.h */; };
@@ -1009,7 +1018,6 @@
 		15E56C5B21939B7B00088C51 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15E56C5A21939B7B00088C51 /* Foundation.framework */; };
 		15E56C5C21939B8E00088C51 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15E56C5A21939B7B00088C51 /* Foundation.framework */; };
 		15E91DB721893E83001155DC /* test-objC.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E66B1AE6EAF600DB4C69 /* test-objC.m */; };
-		15E91DB921893E83001155DC /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1547072E0D1F70C80075C28D /* SystemConfiguration.framework */; };
 		15E91DD021893EE1001155DC /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E6601AE6EA3A00DB4C69 /* main.swift */; };
 		15EF899F21894452003B2C5C /* SCNetworkInterfaceProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = F90E43542012AD3900EF27C4 /* SCNetworkInterfaceProvider.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		15EF89A021894533003B2C5C /* SNHelperPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = B0C967F717441F0E00889853 /* SNHelperPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1028,6 +1036,10 @@
 		15F742EA1EC638D100DA2E7A /* liblog_SystemConfiguration.m in Sources */ = {isa = PBXBuildFile; fileRef = 151D060D1EC14C6700E02E48 /* liblog_SystemConfiguration.m */; };
 		15F742EC1EC638D100DA2E7A /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 725CB7541BF439C6000C05A8 /* Foundation.framework */; };
 		15F742ED1EC638D100DA2E7A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72573D331D66800C004975AD /* SystemConfiguration.framework */; };
+		15FA163A23C6341100573B3C /* SCTestInterfaceNamer.m in Sources */ = {isa = PBXBuildFile; fileRef = 15FA163923C6341100573B3C /* SCTestInterfaceNamer.m */; };
+		15FA163D23C67A9800573B3C /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FA163C23C67A9800573B3C /* IOKit.framework */; };
+		15FA163F23C67AAF00573B3C /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FA163E23C67AAF00573B3C /* Network.framework */; };
+		15FA164123C67AF100573B3C /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FA163E23C67AAF00573B3C /* Network.framework */; };
 		15FB1F8A1E27EA8700B4F809 /* InterfaceNamerControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */; };
 		15FB1F8B1E27EA8900B4F809 /* InterfaceNamerControlPrefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */; };
 		15FBB54C17D6834C0035D752 /* libCrashReporterClient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FBB54B17D6834C0035D752 /* libCrashReporterClient.a */; };
@@ -1056,7 +1068,6 @@
 		72573D3E1D669AA6004975AD /* SCTestPreferences.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D3D1D669AA6004975AD /* SCTestPreferences.m */; };
 		72573D401D67B2BE004975AD /* SCTestUnitTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D3F1D67B2BE004975AD /* SCTestUnitTest.m */; };
 		72573D421D6B798A004975AD /* SCTestConfigAgents.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D411D6B7989004975AD /* SCTestConfigAgents.m */; };
-		72573D441D6BA051004975AD /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015951BE16B6C009F4F60 /* Network.framework */; };
 		725CB7551BF439C6000C05A8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 725CB7541BF439C6000C05A8 /* Foundation.framework */; };
 		725CB7561BF439D2000C05A8 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 725CB7541BF439C6000C05A8 /* Foundation.framework */; };
 		725CB7581BF514F2000C05A8 /* configAgentDefines.h in Headers */ = {isa = PBXBuildFile; fileRef = 725CB7571BF51476000C05A8 /* configAgentDefines.h */; };
@@ -1074,7 +1085,6 @@
 		7271EA241D76600B0055B1AA /* SCTestConfigAgents.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D411D6B7989004975AD /* SCTestConfigAgents.m */; };
 		7271EA251D76600B0055B1AA /* SCTestPreferences.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D3D1D669AA6004975AD /* SCTestPreferences.m */; };
 		7271EA261D76600B0055B1AA /* SCTest.m in Sources */ = {isa = PBXBuildFile; fileRef = 72573D2D1D6673B6004975AD /* SCTest.m */; };
-		7271EA291D76600B0055B1AA /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015951BE16B6C009F4F60 /* Network.framework */; };
 		7271EA2A1D76600B0055B1AA /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72573D331D66800C004975AD /* SystemConfiguration.framework */; };
 		7271EA2B1D76600B0055B1AA /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015961BE16B6C009F4F60 /* NetworkExtension.framework */; };
 		7271EA2D1D76600B0055B1AA /* npt_configd.plist in npt_configd.plist */ = {isa = PBXBuildFile; fileRef = 72C12CAA1D6E9ED4000EE61C /* npt_configd.plist */; };
@@ -2002,12 +2012,12 @@
 		151D060D1EC14C6700E02E48 /* liblog_SystemConfiguration.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = liblog_SystemConfiguration.m; path = logging/liblog_SystemConfiguration.m; sourceTree = SOURCE_ROOT; };
 		151F5D9A0CCE98E50093AC3B /* SCMonitor.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SCMonitor.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
 		151F63EC09328A3C0096DCC9 /* genSCPreferences */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = genSCPreferences; sourceTree = BUILT_PRODUCTS_DIR; };
-		1520A3DE0846B2DC0010B584 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		1520A3DE0846B2DC0010B584 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		1521FC5C060F296A003B28F5 /* dnsinfo_create.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dnsinfo_create.c; path = dnsinfo/dnsinfo_create.c; sourceTree = SOURCE_ROOT; };
 		1522FCE50FA7FD7000B24128 /* dnsinfo_flatfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dnsinfo_flatfile.c; path = dnsinfo/dnsinfo_flatfile.c; sourceTree = "<group>"; };
 		152439E318038E5B00D91708 /* ev_extra.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ev_extra.h; sourceTree = "<group>"; };
 		152439E418038E5B00D91708 /* ev_extra.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ev_extra.m; sourceTree = "<group>"; };
-		152439E7180399D800D91708 /* CoreWLAN.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreWLAN.framework; path = /System/Library/Frameworks/CoreWLAN.framework; sourceTree = "<absolute>"; };
+		152439E7180399D800D91708 /* CoreWLAN.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreWLAN.framework; path = System/Library/Frameworks/CoreWLAN.framework; sourceTree = SDKROOT; };
 		152439EB180716ED00D91708 /* MobileWiFi.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileWiFi.framework; path = System/Library/PrivateFrameworks/MobileWiFi.framework; sourceTree = SDKROOT; };
 		1524FE1920619BAF0010091E /* Info-Embedded.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "Info-Embedded.plist"; path = "Plugins/QoSMarking/Info-Embedded.plist"; sourceTree = "<group>"; };
 		1528922C1EDE41ED00FCFE71 /* network_state_information_logging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = network_state_information_logging.h; path = nwi/network_state_information_logging.h; sourceTree = "<group>"; };
@@ -2029,7 +2039,7 @@
 		15436251218AA22800283462 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = SCMonitor/en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		15436253218AA26100283462 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		15436255218AA27400283462 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/NetworkInterface.strings; sourceTree = "<group>"; };
-		1543636A0752D03C00A8EC6C /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		1543636A0752D03C00A8EC6C /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		1547001D08455B98006787CE /* SCHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SCHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		1547072E0D1F70C80075C28D /* SystemConfiguration.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SystemConfiguration.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		154CF3F307E1EA4D00D8302E /* SCPreferencesGetSpecificPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCPreferencesGetSpecificPrivate.h; sourceTree = "<group>"; };
@@ -2137,8 +2147,13 @@
 		15B73F0C05FD1B670096477F /* dnsinfo_private.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dnsinfo_private.h; path = dnsinfo/dnsinfo_private.h; sourceTree = "<group>"; };
 		15B73F0D05FD1B670096477F /* dnsinfo_server.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dnsinfo_server.c; path = dnsinfo/dnsinfo_server.c; sourceTree = "<group>"; };
 		15B73F0E05FD1B670096477F /* dnsinfo_server.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dnsinfo_server.h; path = dnsinfo/dnsinfo_server.h; sourceTree = "<group>"; };
+		15B9C0AF2232202200C8FF86 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
+		15B9C0B42232224A00C8FF86 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		15BAA32207F0699A00D9EC95 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
 		15C330D0134B95AA0028E36B /* SCNetworkReachabilityInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkReachabilityInternal.h; sourceTree = "<group>"; };
+		15C7B7C6224D9A9A0040A8D0 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		15C7B7C8224D9AA70040A8D0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		15C7B7CA224D9AAE0040A8D0 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = System/Library/Frameworks/SystemConfiguration.framework; sourceTree = SDKROOT; };
 		15CB691305C0722B0099E85F /* SystemConfiguration.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SystemConfiguration.h; sourceTree = "<group>"; };
 		15CB691505C0722B0099E85F /* SCPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SCPrivate.h; sourceTree = "<group>"; };
 		15CB691705C0722B0099E85F /* SCDPlugin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SCDPlugin.h; sourceTree = "<group>"; };
@@ -2254,13 +2269,14 @@
 		15CB6A6005C0722B0099E85F /* tests.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = tests.c; sourceTree = "<group>"; };
 		15CB6A6205C0722B0099E85F /* prefs.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = prefs.c; sourceTree = "<group>"; };
 		15CB6A6A05C0722B0099E85F /* scutil.8 */ = {isa = PBXFileReference; explicitFileType = text.man; path = scutil.8; sourceTree = "<group>"; };
-		15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		15CFC229068B222F00123568 /* get-mobility-info */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = "get-mobility-info"; sourceTree = SOURCE_ROOT; };
 		15D3082716F3E4DA00014F82 /* libSimulatorSupport_sim.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSimulatorSupport_sim.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		15D3082D16F3E4E100014F82 /* SimulatorSupport.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SimulatorSupport.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		15D3083616F3EB7200014F82 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Plugins/SimulatorSupport/Info.plist; sourceTree = "<group>"; };
 		15D3083816F3EB8600014F82 /* simulator_support.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = simulator_support.c; path = Plugins/SimulatorSupport/simulator_support.c; sourceTree = "<group>"; };
 		15D3083A16F4E6D900014F82 /* com.apple.configd_sim.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.configd_sim.plist; sourceTree = "<group>"; };
+		15D427212166F6F50082AA78 /* SCNetworkConfigurationPrivate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SCNetworkConfigurationPrivate.c; sourceTree = "<group>"; };
 		15D8B2291450D8450090CECF /* SCD.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCD.h; sourceTree = "<group>"; };
 		15D92B9A1FFC5FA500DF2632 /* libnetwork.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libnetwork.tbd; path = usr/lib/libnetwork.tbd; sourceTree = SDKROOT; };
 		15D92B9D1FFC61F400DF2632 /* libnetwork.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libnetwork.tbd; path = usr/lib/libnetwork.tbd; sourceTree = SDKROOT; };
@@ -2279,7 +2295,7 @@
 		15DC346E0711D49400A3311C /* net_set.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = net_set.h; sourceTree = "<group>"; };
 		15E1B05916EBAE3C00E5F06F /* libIPMonitor_sim.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libIPMonitor_sim.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		15E1B06116EBAE7800E5F06F /* IPMonitor.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IPMonitor.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		15E56C5A21939B7B00088C51 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS13.0.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		15E56C5A21939B7B00088C51 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		15E91DBE21893E83001155DC /* SCTest-ObjC-Embedded */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "SCTest-ObjC-Embedded"; sourceTree = BUILT_PRODUCTS_DIR; };
 		15E91DD621893EE1001155DC /* SCTest-Swift-Embedded */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "SCTest-Swift-Embedded"; sourceTree = BUILT_PRODUCTS_DIR; };
 		15EF89B121894636003B2C5C /* SCTest-ObjC-EmbeddedSimulator */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "SCTest-ObjC-EmbeddedSimulator"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2288,6 +2304,9 @@
 		15F742F11EC638D100DA2E7A /* liblog_SystemConfiguration.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = liblog_SystemConfiguration.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		15FA0F73203A379600C7702F /* EventFactory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = EventFactory.framework; sourceTree = "<group>"; };
 		15FA0F74203A390E00C7702F /* EventFactory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = EventFactory.framework; path = System/Library/PrivateFrameworks/EventFactory.framework; sourceTree = SDKROOT; };
+		15FA163923C6341100573B3C /* SCTestInterfaceNamer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCTestInterfaceNamer.m; sourceTree = "<group>"; };
+		15FA163C23C67A9800573B3C /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		15FA163E23C67AAF00573B3C /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		15FB1F881E27E9A000B4F809 /* InterfaceNamerControlPrefs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = InterfaceNamerControlPrefs.c; sourceTree = "<group>"; };
 		15FB1F891E27E9A000B4F809 /* InterfaceNamerControlPrefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InterfaceNamerControlPrefs.h; sourceTree = "<group>"; };
 		15FBB54B17D6834C0035D752 /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = /usr/local/lib/libCrashReporterClient.a; sourceTree = "<absolute>"; };
@@ -2464,6 +2483,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		15703B2A22320A940018D2EE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15C7B7C7224D9A9A0040A8D0 /* CoreFoundation.framework in Frameworks */,
+				15C7B7C9224D9AA70040A8D0 /* Foundation.framework in Frameworks */,
+				15C7B7CB224D9AAE0040A8D0 /* SystemConfiguration.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1572C5230CFB55B400E2776E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -2614,7 +2643,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				15E91DB921893E83001155DC /* SystemConfiguration.framework in Frameworks */,
+				15260A452272529F00AE1F72 /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2623,6 +2652,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				15E56C5B21939B7B00088C51 /* Foundation.framework in Frameworks */,
+				15260A462272533D00AE1F72 /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2665,9 +2695,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72573D441D6BA051004975AD /* Network.framework in Frameworks */,
-				72573D351D6680AA004975AD /* SystemConfiguration.framework in Frameworks */,
+				15FA163D23C67A9800573B3C /* IOKit.framework in Frameworks */,
+				15FA163F23C67AAF00573B3C /* Network.framework in Frameworks */,
 				728E0E971D70348D00E0613A /* NetworkExtension.framework in Frameworks */,
+				72573D351D6680AA004975AD /* SystemConfiguration.framework in Frameworks */,
 				15D92B9F1FFC640200DF2632 /* libnetwork.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2676,9 +2707,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7271EA291D76600B0055B1AA /* Network.framework in Frameworks */,
-				7271EA2A1D76600B0055B1AA /* SystemConfiguration.framework in Frameworks */,
+				15FA164123C67AF100573B3C /* Network.framework in Frameworks */,
 				7271EA2B1D76600B0055B1AA /* NetworkExtension.framework in Frameworks */,
+				7271EA2A1D76600B0055B1AA /* SystemConfiguration.framework in Frameworks */,
 				15D92BA11FFC641500DF2632 /* libnetwork.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2688,6 +2719,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				15E56C5921939B6400088C51 /* Foundation.framework in Frameworks */,
+				15260A472272535F00AE1F72 /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3175,8 +3207,8 @@
 			isa = PBXGroup;
 			children = (
 				15AD7A380670A85900BFE03C /* SCNetworkConfiguration.h */,
-				155A1E6B081079CC00F70D98 /* SCNetworkConfigurationPrivate.h */,
 				15AD7A3A0670A85900BFE03C /* SCNetworkConfigurationInternal.h */,
+				155A1E6B081079CC00F70D98 /* SCNetworkConfigurationPrivate.h */,
 			);
 			name = Headers;
 			sourceTree = "<group>";
@@ -3185,6 +3217,7 @@
 			isa = PBXGroup;
 			children = (
 				15AD7A390670A85900BFE03C /* SCNetworkConfigurationInternal.c */,
+				15D427212166F6F50082AA78 /* SCNetworkConfigurationPrivate.c */,
 				15AD7A3B0670A85900BFE03C /* SCNetworkInterface.c */,
 				15AD7A3C0670A85900BFE03C /* SCNetworkProtocol.c */,
 				15AD7A3D0670A85900BFE03C /* SCNetworkService.c */,
@@ -3617,6 +3650,7 @@
 				72573D3D1D669AA6004975AD /* SCTestPreferences.m */,
 				72573D411D6B7989004975AD /* SCTestConfigAgents.m */,
 				728E0E951D70229A00E0613A /* SCTestReachability.m */,
+				15FA163923C6341100573B3C /* SCTestInterfaceNamer.m */,
 				72573D3F1D67B2BE004975AD /* SCTestUnitTest.m */,
 				72573D431D6B9E72004975AD /* sctest-entitlements.plist */,
 				72C12CAA1D6E9ED4000EE61C /* npt_configd.plist */,
@@ -3670,6 +3704,13 @@
 		90507AAE1CE2F55B0067D16B /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				15FA163E23C67AAF00573B3C /* Network.framework */,
+				15FA163C23C67A9800573B3C /* IOKit.framework */,
+				15C7B7CA224D9AAE0040A8D0 /* SystemConfiguration.framework */,
+				15C7B7C8224D9AA70040A8D0 /* Foundation.framework */,
+				15C7B7C6224D9A9A0040A8D0 /* CoreFoundation.framework */,
+				15B9C0B42232224A00C8FF86 /* Foundation.framework */,
+				15B9C0AF2232202200C8FF86 /* SystemConfiguration.framework */,
 				15E56C5A21939B7B00088C51 /* Foundation.framework */,
 				F9D7305020E41DD500521181 /* WirelessDiagnostics.framework */,
 				F9D7304E20E41D9C00521181 /* ProtocolBuffer.framework */,
@@ -6404,6 +6445,7 @@
 				B0C9689D174426D100889853 /* SNHelper.c in Sources */,
 				1572C4FC0CFB55B400E2776E /* SCPUnlock.c in Sources */,
 				1572C4FD0CFB55B400E2776E /* SCPList.c in Sources */,
+				159C80B1219378760004C3A6 /* SCNetworkConfigurationPrivate.c in Sources */,
 				1572C4FE0CFB55B400E2776E /* SCPGet.c in Sources */,
 				1572C4FF0CFB55B400E2776E /* SCPAdd.c in Sources */,
 				1572C5000CFB55B400E2776E /* SCPSet.c in Sources */,
@@ -6782,6 +6824,7 @@
 				15A5A2390D5B94190087BDA0 /* SCPOpen.c in Sources */,
 				15A5A23A0D5B94190087BDA0 /* SCPLock.c in Sources */,
 				15A5A23B0D5B94190087BDA0 /* SCPUnlock.c in Sources */,
+				159C80B2219378790004C3A6 /* SCNetworkConfigurationPrivate.c in Sources */,
 				15A5A23C0D5B94190087BDA0 /* SCPList.c in Sources */,
 				15A5A23D0D5B94190087BDA0 /* SCPGet.c in Sources */,
 				15A5A23E0D5B94190087BDA0 /* SCPAdd.c in Sources */,
@@ -6868,6 +6911,7 @@
 				15DAD67C07591A1A0084A6ED /* SCDNotifierAdd.c in Sources */,
 				15DAD67D07591A1A0084A6ED /* SCDNotifierRemove.c in Sources */,
 				F9B7AE641862119300C78D18 /* IPMonitorControl.c in Sources */,
+				159C80B0219378710004C3A6 /* SCNetworkConfigurationPrivate.c in Sources */,
 				15DAD67E07591A1A0084A6ED /* SCDNotifierGetChanges.c in Sources */,
 				15DAD67F07591A1A0084A6ED /* SCDNotifierWait.c in Sources */,
 				15DAD68007591A1A0084A6ED /* SCDNotifierInformViaCallback.c in Sources */,
@@ -6999,6 +7043,7 @@
 				728E0E961D70229A00E0613A /* SCTestReachability.m in Sources */,
 				72573D291D667372004975AD /* main.m in Sources */,
 				72573D421D6B798A004975AD /* SCTestConfigAgents.m in Sources */,
+				15FA163A23C6341100573B3C /* SCTestInterfaceNamer.m in Sources */,
 				72573D3E1D669AA6004975AD /* SCTestPreferences.m in Sources */,
 				72573D2E1D6673B6004975AD /* SCTest.m in Sources */,
 			);

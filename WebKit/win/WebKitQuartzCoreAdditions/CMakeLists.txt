@@ -44,23 +44,16 @@ WEBKIT_ADD_PRECOMPILED_HEADER("WebKitQuartzCoreAdditionsPrefix.h" "WebKitQuartzC
 
 include_directories(
     .
-    "${WTF_FRAMEWORK_HEADERS_DIR}"
     "${DERIVED_SOURCES_DIR}/ForwardingHeaders"
     "${DERIVED_SOURCES_DIR}/WebKitQuartzCoreAdditions"
     "${CMAKE_BINARY_DIR}/../include/private"
 )
 
-if (${MSVC_CXX_ARCHITECTURE_ID} STREQUAL "X86")
-    link_directories($(WINDOWSSDKDIR)Lib/$(WINDOWSSDKLIBVERSION)/um/x86)
-else ()
-    link_directories($(WINDOWSSDKDIR)Lib/$(WINDOWSSDKLIBVERSION)/um/x64)
-endif ()
-
 add_library(WebKitQuartzCoreAdditions SHARED ${WebKitQuartzCoreAdditions_SOURCES})
 set_target_properties(WebKitQuartzCoreAdditions PROPERTIES OUTPUT_NAME WebKitQuartzCoreAdditions${DEBUG_SUFFIX})
 target_link_libraries(WebKitQuartzCoreAdditions
     D3d9
-    WTF${DEBUG_SUFFIX}
+    WebKit::WTF
     CoreFoundation${DEBUG_SUFFIX}
     CoreGraphics${DEBUG_SUFFIX}
     QuartzCore${DEBUG_SUFFIX}

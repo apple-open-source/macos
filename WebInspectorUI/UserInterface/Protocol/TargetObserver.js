@@ -23,13 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TargetObserver = class TargetObserver
+WI.TargetObserver = class TargetObserver extends InspectorBackend.Dispatcher
 {
     // Events defined by the "Target" domain.
 
     targetCreated(targetInfo)
     {
-        WI.targetManager.targetCreated(targetInfo);
+        WI.targetManager.targetCreated(this._target, targetInfo);
+    }
+
+    didCommitProvisionalTarget(oldTargetId, newTargetId)
+    {
+        WI.targetManager.didCommitProvisionalTarget(this._target, oldTargetId, newTargetId);
     }
 
     targetDestroyed(targetId)

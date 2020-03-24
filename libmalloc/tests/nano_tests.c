@@ -319,7 +319,8 @@ T_DECL(realloc_nano_shrink, "realloc to smaller size",
 #define ALLOCS_PER_ARENA ((NANOV2_ARENA_SIZE)/256)
 
 T_DECL(overspill_arena, "force overspill of an arena",
-	   T_META_ENVVAR("MallocNanoZone=V2"))
+	   T_META_ENVVAR("MallocNanoZone=V2"),
+	   T_META_ENVVAR("MallocGuardEdges=all"))
 {
 #if CONFIG_NANOZONE
 	void **ptrs = calloc(ALLOCS_PER_ARENA, sizeof(void *));
@@ -341,6 +342,10 @@ T_DECL(overspill_arena, "force overspill of an arena",
 		if (current_ptr.fields.nano_arena != first_ptr.fields.nano_arena) {
 			break;
 		}
+
+		// Write to the pointer to ensure the containing block is not
+		// a guard block.
+		*(int *)ptrs[index] = 0;
 	}
 
 	// Free everything, which is a check that the book-keeping works across

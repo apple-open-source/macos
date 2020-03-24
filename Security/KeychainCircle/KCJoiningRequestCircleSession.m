@@ -52,9 +52,13 @@ typedef enum {
 - (void)setControlObject:(OTControl *)control{
     self.otControl = control;
 }
-- (void)setJoiningConfigurationObject:(OTJoiningConfiguration *)joiningConfiguration
+- (void)setContextIDOnJoiningConfiguration:(NSString*)contextID
 {
-    self.joiningConfiguration = joiningConfiguration;
+    self.joiningConfiguration.contextID = contextID;
+}
+- (KCAESGCMDuplexSession*)accessSession
+{
+    return self.session;
 }
 
 #endif
@@ -205,7 +209,10 @@ typedef enum {
         OTSponsorToApplicantRound2M2 *voucher = pairingMessage.voucher;
 
         //handle voucher message then join octagon
-        [self.otControl rpcJoinWithConfiguration:self.joiningConfiguration vouchData:voucher.voucher vouchSig:voucher.voucherSignature preapprovedKeys:voucher.preapprovedKeys reply:^(NSError * _Nullable err) {
+        [self.otControl rpcJoinWithConfiguration:self.joiningConfiguration
+                                       vouchData:voucher.voucher
+                                        vouchSig:voucher.voucherSignature
+                                           reply:^(NSError * _Nullable err) {
             if(err){
                 secerror("octagon: error joining octagon: %@", err);
                 localError = err;

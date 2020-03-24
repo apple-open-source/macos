@@ -27,15 +27,17 @@
 
 #if ENABLE(SERVICE_WORKER)
 
-#include "WebSWServerConnection.h"
 #include <WebCore/FetchIdentifier.h>
+#include <WebCore/ResourceRequest.h>
+#include <WebCore/ServiceWorkerClientIdentifier.h>
 #include <WebCore/ServiceWorkerTypes.h>
 #include <WebCore/Timer.h>
 #include <pal/SessionID.h>
-#include <wtf/RefCounted.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 class ResourceError;
+class ResourceRequest;
 class ResourceResponse;
 }
 
@@ -48,86 +50,60 @@ class FormDataReference;
 
 namespace WebKit {
 
+class NetworkResourceLoader;
+class WebSWServerConnection;
 class WebSWServerToContextConnection;
 
-class ServiceWorkerFetchTask : public RefCounted<ServiceWorkerFetchTask> {
+class ServiceWorkerFetchTask : public CanMakeWeakPtr<ServiceWorkerFetchTask> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    template<typename... Args> static Ref<ServiceWorkerFetchTask> create(Args&&... args)
-    {
-        return adoptRef(*new ServiceWorkerFetchTask(std::forward<Args>(args)...));
-    }
+    ServiceWorkerFetchTask(WebSWServerConnection&, NetworkResourceLoader&, WebCore::ResourceRequest&&, WebCore::SWServerConnectionIdentifier, WebCore::ServiceWorkerIdentifier, WebCore::ServiceWorkerRegistrationIdentifier, bool shouldSoftUpdate);
+    ~ServiceWorkerFetchTask();
 
-    void didNotHandle();
-    void fail(const WebCore::ResourceError& error) { didFail(error); }
+    void start(WebSWServerToContextConnection&);
+    void cancelFromClient();
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
-    struct Identifier {
-        WebCore::SWServerConnectionIdentifier connectionIdentifier;
-        WebCore::FetchIdentifier fetchIdentifier;
-        
-        unsigned hash() const
-        {
-            unsigned hashes[2];
-            hashes[0] = WTF::intHash(connectionIdentifier.toUInt64());
-            hashes[1] = WTF::intHash(fetchIdentifier.toUInt64());
-            return StringHasher::hashMemory(hashes, sizeof(hashes));
-        }
-    };
+    void continueDidReceiveFetchResponse();
+    void continueFetchTaskWith(WebCore::ResourceRequest&&);
 
-    const Identifier& identifier() const { return m_identifier; }
-    const WebCore::ServiceWorkerIdentifier& serviceWorkerIdentifier() const { return m_serviceWorkerIdentifier; }
-    bool wasHandled() const { return m_wasHandled; }
+    WebCore::FetchIdentifier fetchIdentifier() const { return m_fetchIdentifier; }
+    WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier() const { return m_serviceWorkerIdentifier; }
 
-    WebSWServerConnection* swServerConnection() { return m_connection.get(); }
+    WebCore::ResourceRequest takeRequest() { return WTFMove(m_currentRequest); }
+
+    void cannotHandle();
+    void contextClosed();
 
 private:
-    ServiceWorkerFetchTask(PAL::SessionID, WebSWServerConnection&, WebSWServerToContextConnection&, WebCore::FetchIdentifier, WebCore::ServiceWorkerIdentifier, Seconds timeout);
-
-    void didReceiveRedirectResponse(const WebCore::ResourceResponse&);
-    void didReceiveResponse(const WebCore::ResourceResponse&, bool needsContinueDidReceiveResponseMessage);
+    void didReceiveRedirectResponse(WebCore::ResourceResponse&&);
+    void didReceiveResponse(WebCore::ResourceResponse&&, bool needsContinueDidReceiveResponseMessage);
     void didReceiveData(const IPC::DataReference&, int64_t encodedDataLength);
     void didReceiveFormData(const IPC::FormDataReference&);
     void didFinish();
     void didFail(const WebCore::ResourceError&);
-    void timeoutTimerFired();
+    void didNotHandle();
 
-    PAL::SessionID m_sessionID;
-    WeakPtr<WebSWServerConnection> m_connection;
-    WebSWServerToContextConnection& m_contextConnection;
-    Identifier m_identifier;
+    void startFetch();
+
+    void timeoutTimerFired();
+    void softUpdateIfNeeded();
+
+    template<typename Message> bool sendToServiceWorker(Message&&);
+    template<typename Message> bool sendToClient(Message&&);
+
+    WeakPtr<WebSWServerConnection> m_swServerConnection;
+    NetworkResourceLoader& m_loader;
+    WeakPtr<WebSWServerToContextConnection> m_serviceWorkerConnection;
+    WebCore::FetchIdentifier m_fetchIdentifier;
+    WebCore::SWServerConnectionIdentifier m_serverConnectionIdentifier;
     WebCore::ServiceWorkerIdentifier m_serviceWorkerIdentifier;
-    Seconds m_timeout;
+    WebCore::ResourceRequest m_currentRequest;
     WebCore::Timer m_timeoutTimer;
     bool m_wasHandled { false };
-    bool m_didReachTerminalState { false };
-};
-
-inline bool operator==(const ServiceWorkerFetchTask::Identifier& a, const ServiceWorkerFetchTask::Identifier& b)
-{
-    return a.connectionIdentifier == b.connectionIdentifier &&  a.fetchIdentifier == b.fetchIdentifier;
-}
-
-} // namespace WebKit
-
-
-namespace WTF {
-
-struct ServiceWorkerFetchTaskIdentifierHash {
-    static unsigned hash(const WebKit::ServiceWorkerFetchTask::Identifier& key) { return key.hash(); }
-    static bool equal(const WebKit::ServiceWorkerFetchTask::Identifier& a, const WebKit::ServiceWorkerFetchTask::Identifier& b) { return a == b; }
-    static const bool safeToCompareToEmptyOrDeleted = true;
-};
-
-template<> struct HashTraits<WebKit::ServiceWorkerFetchTask::Identifier> : GenericHashTraits<WebKit::ServiceWorkerFetchTask::Identifier> {
-    static WebKit::ServiceWorkerFetchTask::Identifier emptyValue() { return { }; }
-    
-    static void constructDeletedValue(WebKit::ServiceWorkerFetchTask::Identifier& slot) { slot.connectionIdentifier = makeObjectIdentifier<WebCore::SWServerConnectionIdentifierType>(std::numeric_limits<uint64_t>::max()); }
-    
-    static bool isDeletedValue(const WebKit::ServiceWorkerFetchTask::Identifier& slot) { return slot.connectionIdentifier.toUInt64() == std::numeric_limits<uint64_t>::max(); }
-};
-
-template<> struct DefaultHash<WebKit::ServiceWorkerFetchTask::Identifier> {
-    using Hash = ServiceWorkerFetchTaskIdentifierHash;
+    bool m_isDone { false };
+    WebCore::ServiceWorkerRegistrationIdentifier m_serviceWorkerRegistrationIdentifier;
+    bool m_shouldSoftUpdate { false };
 };
 
 }

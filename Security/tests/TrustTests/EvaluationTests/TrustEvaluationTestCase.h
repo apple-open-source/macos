@@ -42,6 +42,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)runCertificateTestForDirectory:(SecPolicyRef)policy subDirectory:(NSString *)resourceSubDirectory verifyDate:(NSDate*)date;
 
 - (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromResource:(NSString * )name subdirectory:(NSString *)dir;
+- (id _Nullable) CF_RETURNS_RETAINED SecCertificateCreateFromPEMResource:(NSString *)name subdirectory:(NSString *)dir;
 @end
 
 /* Use this interface to get a SecCertificateRef that has the same CFTypeID

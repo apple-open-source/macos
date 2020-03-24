@@ -321,6 +321,10 @@ enum FeatureToAnimate {
     if (!self)
         return nil;
 #else
+    self = [super init];
+    if (!self)
+        return nil;
+
     const NSTimeInterval timeInterval = 0.01;
     _timer = adoptNS([[NSTimer alloc] initWithFireDate:[NSDate dateWithTimeIntervalSinceNow:0] interval:timeInterval target:self selector:@selector(setCurrentProgress:) userInfo:nil repeats:YES]);
     _duration = duration;
@@ -697,7 +701,7 @@ namespace WebCore {
 
 std::unique_ptr<ScrollAnimator> ScrollAnimator::create(ScrollableArea& scrollableArea)
 {
-    return std::make_unique<ScrollAnimatorMac>(scrollableArea);
+    return makeUnique<ScrollAnimatorMac>(scrollableArea);
 }
 
 ScrollAnimatorMac::ScrollAnimatorMac(ScrollableArea& scrollableArea)
@@ -978,8 +982,8 @@ void ScrollAnimatorMac::didBeginScrollGesture() const
     [m_scrollerImpPair beginScrollGesture];
 
 #if ENABLE(CSS_SCROLL_SNAP) || ENABLE(RUBBER_BANDING)
-    if (m_wheelEventTestTrigger)
-        m_wheelEventTestTrigger->deferTestsForReason(reinterpret_cast<WheelEventTestTrigger::ScrollableAreaIdentifier>(this), WheelEventTestTrigger::ContentScrollInProgress);
+    if (m_wheelEventTestMonitor)
+        m_wheelEventTestMonitor->deferForReason(reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(this), WheelEventTestMonitor::ContentScrollInProgress);
 #endif
 }
 
@@ -991,8 +995,8 @@ void ScrollAnimatorMac::didEndScrollGesture() const
     [m_scrollerImpPair endScrollGesture];
 
 #if ENABLE(CSS_SCROLL_SNAP) || ENABLE(RUBBER_BANDING)
-    if (m_wheelEventTestTrigger)
-        m_wheelEventTestTrigger->removeTestDeferralForReason(reinterpret_cast<WheelEventTestTrigger::ScrollableAreaIdentifier>(this), WheelEventTestTrigger::ContentScrollInProgress);
+    if (m_wheelEventTestMonitor)
+        m_wheelEventTestMonitor->removeDeferralForReason(reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(this), WheelEventTestMonitor::ContentScrollInProgress);
 #endif
 }
 
@@ -1137,7 +1141,7 @@ bool ScrollAnimatorMac::shouldScrollbarParticipateInHitTesting(Scrollbar* scroll
 
 void ScrollAnimatorMac::notifyContentAreaScrolled(const FloatSize& delta)
 {
-    // This function is called when a page is going into the page cache, but the page
+    // This function is called when a page is going into the back/forward cache, but the page
     // isn't really scrolling in that case. We should only pass the message on to the
     // ScrollerImpPair when we're really scrolling on an active page.
     if ([m_scrollerImpPair overlayScrollerStateIsLocked])
@@ -1175,7 +1179,7 @@ void ScrollAnimatorMac::handleWheelEventPhase(PlatformWheelEventPhase phase)
 
 #if ENABLE(RUBBER_BANDING)
 
-bool ScrollAnimatorMac::shouldForwardWheelEventsToParent(const PlatformWheelEvent& wheelEvent)
+bool ScrollAnimatorMac::shouldForwardWheelEventsToParent(const PlatformWheelEvent& wheelEvent) const
 {
     if (std::abs(wheelEvent.deltaY()) >= std::abs(wheelEvent.deltaX()))
         return !allowsVerticalStretching(wheelEvent);
@@ -1209,7 +1213,7 @@ bool ScrollAnimatorMac::handleWheelEvent(const PlatformWheelEvent& wheelEvent)
     return didHandleEvent;
 }
 
-bool ScrollAnimatorMac::pinnedInDirection(const FloatSize& direction)
+bool ScrollAnimatorMac::pinnedInDirection(const FloatSize& direction) const
 {
     FloatSize limitDelta;
     if (fabsf(direction.height()) >= fabsf(direction.width())) {
@@ -1242,7 +1246,7 @@ static bool newGestureIsStarting(const PlatformWheelEvent& wheelEvent)
     return wheelEvent.phase() == PlatformWheelEventPhaseMayBegin || wheelEvent.phase() == PlatformWheelEventPhaseBegan;
 }
 
-bool ScrollAnimatorMac::isAlreadyPinnedInDirectionOfGesture(const PlatformWheelEvent& wheelEvent, ScrollEventAxis axis)
+bool ScrollAnimatorMac::isAlreadyPinnedInDirectionOfGesture(const PlatformWheelEvent& wheelEvent, ScrollEventAxis axis) const
 {
     switch (axis) {
     case ScrollEventAxis::Vertical:
@@ -1268,7 +1272,7 @@ static bool gestureShouldBeginSnap(const PlatformWheelEvent& wheelEvent, const V
 }
 #endif
 
-bool ScrollAnimatorMac::allowsVerticalStretching(const PlatformWheelEvent& wheelEvent)
+bool ScrollAnimatorMac::allowsVerticalStretching(const PlatformWheelEvent& wheelEvent) const
 {
     switch (m_scrollableArea.verticalScrollElasticity()) {
     case ScrollElasticityAutomatic: {
@@ -1292,7 +1296,7 @@ bool ScrollAnimatorMac::allowsVerticalStretching(const PlatformWheelEvent& wheel
     return false;
 }
 
-bool ScrollAnimatorMac::allowsHorizontalStretching(const PlatformWheelEvent& wheelEvent)
+bool ScrollAnimatorMac::allowsHorizontalStretching(const PlatformWheelEvent& wheelEvent) const
 {
     switch (m_scrollableArea.horizontalScrollElasticity()) {
     case ScrollElasticityAutomatic: {
@@ -1316,12 +1320,12 @@ bool ScrollAnimatorMac::allowsHorizontalStretching(const PlatformWheelEvent& whe
     return false;
 }
 
-IntSize ScrollAnimatorMac::stretchAmount()
+IntSize ScrollAnimatorMac::stretchAmount() const
 {
     return m_scrollableArea.overhangAmount();
 }
 
-bool ScrollAnimatorMac::canScrollHorizontally()
+bool ScrollAnimatorMac::canScrollHorizontally() const
 {
     Scrollbar* scrollbar = m_scrollableArea.horizontalScrollbar();
     if (!scrollbar)
@@ -1329,7 +1333,7 @@ bool ScrollAnimatorMac::canScrollHorizontally()
     return scrollbar->enabled();
 }
 
-bool ScrollAnimatorMac::canScrollVertically()
+bool ScrollAnimatorMac::canScrollVertically() const
 {
     Scrollbar* scrollbar = m_scrollableArea.verticalScrollbar();
     if (!scrollbar)
@@ -1337,7 +1341,7 @@ bool ScrollAnimatorMac::canScrollVertically()
     return scrollbar->enabled();
 }
 
-bool ScrollAnimatorMac::shouldRubberBandInDirection(ScrollDirection)
+bool ScrollAnimatorMac::shouldRubberBandInDirection(ScrollDirection) const
 {
     return false;
 }
@@ -1414,7 +1418,7 @@ void ScrollAnimatorMac::updateScrollerStyle()
         horizontalScrollbar->setFrameRect(IntRect(0, 0, thickness, thickness));
     }
 
-    // If m_needsScrollerStyleUpdate is true, then the page is restoring from the page cache, and 
+    // If m_needsScrollerStyleUpdate is true, then the page is restoring from the back/forward cache, and
     // a relayout will happen on its own. Otherwise, we must initiate a re-layout ourselves.
     scrollableArea().scrollbarStyleChanged(newStyle == NSScrollerStyleOverlay ? ScrollbarStyle::Overlay : ScrollbarStyle::AlwaysVisible, !m_needsScrollerStyleUpdate);
 
@@ -1451,8 +1455,8 @@ void ScrollAnimatorMac::sendContentAreaScrolledSoon(const FloatSize& delta)
     if (!m_sendContentAreaScrolledTimer.isActive())
         m_sendContentAreaScrolledTimer.startOneShot(0_s);
 
-    if (m_wheelEventTestTrigger)
-        m_wheelEventTestTrigger->deferTestsForReason(reinterpret_cast<WheelEventTestTrigger::ScrollableAreaIdentifier>(this), WheelEventTestTrigger::ContentScrollInProgress);
+    if (m_wheelEventTestMonitor)
+        m_wheelEventTestMonitor->deferForReason(reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(this), WheelEventTestMonitor::ContentScrollInProgress);
 }
 
 void ScrollAnimatorMac::sendContentAreaScrolled(const FloatSize& delta)
@@ -1465,8 +1469,8 @@ void ScrollAnimatorMac::sendContentAreaScrolledTimerFired()
     sendContentAreaScrolled(m_contentAreaScrolledTimerScrollDelta);
     m_contentAreaScrolledTimerScrollDelta = FloatSize();
 
-    if (m_wheelEventTestTrigger)
-        m_wheelEventTestTrigger->removeTestDeferralForReason(reinterpret_cast<WheelEventTestTrigger::ScrollableAreaIdentifier>(this), WheelEventTestTrigger::ContentScrollInProgress);
+    if (m_wheelEventTestMonitor)
+        m_wheelEventTestMonitor->removeDeferralForReason(reinterpret_cast<WheelEventTestMonitor::ScrollableAreaIdentifier>(this), WheelEventTestMonitor::ContentScrollInProgress);
 }
 
 void ScrollAnimatorMac::setVisibleScrollerThumbRect(const IntRect& scrollerThumb)

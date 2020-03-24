@@ -105,6 +105,8 @@ static char *prev_user;
 static char *runas_user;
 static char *runas_group;
 static struct sudo_nss_list *snl;
+static bool unknown_runas_uid;
+static bool unknown_runas_gid;
 
 #ifdef __linux__
 static struct rlimit nproclimit;
@@ -127,12 +129,12 @@ unlimit_nproc(void)
     debug_decl(unlimit_nproc, SUDOERS_DEBUG_UTIL)
 
     if (getrlimit(RLIMIT_NPROC, &nproclimit) != 0)
-	    sudo_warn("getrlimit");
+	    sudo_warn("getrlimit(RLIMIT_NPROC)");
     rl.rlim_cur = rl.rlim_max = RLIM_INFINITY;
     if (setrlimit(RLIMIT_NPROC, &rl) != 0) {
 	rl.rlim_cur = rl.rlim_max = nproclimit.rlim_max;
 	if (setrlimit(RLIMIT_NPROC, &rl) != 0)
-	    sudo_warn("setrlimit");
+	    sudo_warn("setrlimit(RLIMIT_NPROC)");
     }
     debug_return;
 #endif /* __linux__ */
@@ -148,7 +150,7 @@ restore_nproc(void)
     debug_decl(restore_nproc, SUDOERS_DEBUG_UTIL)
 
     if (setrlimit(RLIMIT_NPROC, &nproclimit) != 0)
-	sudo_warn("setrlimit");
+	sudo_warn("setrlimit(RLIMIT_NPROC)");
 
     debug_return;
 #endif /* __linux__ */
@@ -198,7 +200,7 @@ sudoers_policy_init(void *info, char * const envp[])
      */
     sudoers_setlocale(SUDOERS_LOCALE_SUDOERS, &oldlocale);
     sudo_warn_set_locale_func(sudoers_warn_setlocale);
-    init_parser(sudoers_file, false);
+    init_parser(sudoers_file, false, false);
     TAILQ_FOREACH_SAFE(nss, snl, entries, nss_next) {
 	if (nss->open(nss) == -1 || (nss->parse_tree = nss->parse(nss)) == NULL) {
 	    TAILQ_REMOVE(snl, nss, entries);
@@ -253,7 +255,7 @@ sudoers_policy_main(int argc, char * const argv[], int pwflag, char *env_add[],
 	/* Not an audit event. */
 	sudo_warnx(U_("sudoers specifies that root is not allowed to sudo"));
 	goto bad;
-    }    
+    }
 
     if (!set_perms(PERM_INITIAL))
 	goto bad;
@@ -336,6 +338,22 @@ sudoers_policy_main(int argc, char * const argv[], int pwflag, char *env_add[],
 	}
     }
 
+    /* Defer uid/gid checks until after defaults have been updated. */
+    if (unknown_runas_uid && !def_runas_allow_unknown_id) {
+	audit_failure(NewArgc, NewArgv, N_("unknown user: %s"),
+	    runas_pw->pw_name);
+	sudo_warnx(U_("unknown user: %s"), runas_pw->pw_name);
+	goto done;
+    }
+    if (runas_gr != NULL) {
+	if (unknown_runas_gid && !def_runas_allow_unknown_id) {
+	    audit_failure(NewArgc, NewArgv, N_("unknown group: %s"),
+		runas_gr->gr_name);
+	    sudo_warnx(U_("unknown group: %s"), runas_gr->gr_name);
+	    goto done;
+	}
+    }
+
     /*
      * Look up the timestamp dir owner if one is specified.
      */
@@ -373,6 +391,13 @@ sudoers_policy_main(int argc, char * const argv[], int pwflag, char *env_add[],
     if (def_requiretty && !tty_present()) {
 	audit_failure(NewArgc, NewArgv, N_("no tty"));
 	sudo_warnx(U_("sorry, you must have a tty to run sudo"));
+	goto bad;
+    }
+
+    /* Check runas user's shell. */
+    if (!check_user_shell(runas_pw)) {
+	log_warningx(SLOG_RAW_MSG, N_("invalid shell for user %s: %s"),
+	    runas_pw->pw_name, runas_pw->pw_shell);
 	goto bad;
     }
 
@@ -516,7 +541,7 @@ sudoers_policy_main(int argc, char * const argv[], int pwflag, char *env_add[],
     }
     if (def_group_plugin)
 	group_plugin_unload();
-    init_parser(NULL, false);
+    init_parser(NULL, false, false);
 
     if (ISSET(sudo_mode, (MODE_VALIDATE|MODE_CHECK|MODE_LIST))) {
 	/* ret already set appropriately */
@@ -865,6 +890,14 @@ set_cmnd(void)
     else
 	user_base = user_cmnd;
 
+    /* Convert "sudo sudoedit" -> "sudoedit" */
+    if (ISSET(sudo_mode, MODE_RUN) && strcmp(user_base, "sudoedit") == 0) {
+	CLR(sudo_mode, MODE_RUN);
+	SET(sudo_mode, MODE_EDIT);
+	sudo_warnx(U_("sudoedit doesn't need to be run via sudo"));
+	user_base = user_cmnd = "sudoedit";
+    }
+
     TAILQ_FOREACH(nss, snl, entries) {
 	if (!update_defaults(nss->parse_tree, NULL, SETDEF_CMND, false)) {
 	    log_warningx(SLOG_SEND_MAIL|SLOG_NO_STDERR,
@@ -1149,12 +1182,15 @@ set_runaspw(const char *user, bool quiet)
     struct passwd *pw = NULL;
     debug_decl(set_runaspw, SUDOERS_DEBUG_PLUGIN)
 
+    unknown_runas_uid = false;
     if (*user == '#') {
 	const char *errstr;
 	uid_t uid = sudo_strtoid(user + 1, &errstr);
 	if (errstr == NULL) {
-	    if ((pw = sudo_getpwuid(uid)) == NULL)
+	    if ((pw = sudo_getpwuid(uid)) == NULL) {
+		unknown_runas_uid = true;
 		pw = sudo_fakepwnam(user, user_gid);
+	    }
 	}
     }
     if (pw == NULL) {
@@ -1180,12 +1216,15 @@ set_runasgr(const char *group, bool quiet)
     struct group *gr = NULL;
     debug_decl(set_runasgr, SUDOERS_DEBUG_PLUGIN)
 
+    unknown_runas_gid = false;
     if (*group == '#') {
 	const char *errstr;
 	gid_t gid = sudo_strtoid(group + 1, &errstr);
 	if (errstr == NULL) {
-	    if ((gr = sudo_getgrgid(gid)) == NULL)
+	    if ((gr = sudo_getgrgid(gid)) == NULL) {
+		unknown_runas_gid = true;
 		gr = sudo_fakegrnam(group);
+	    }
 	}
     }
     if (gr == NULL) {

@@ -303,8 +303,6 @@ format,                                                                         
     // Overwrite any existing pending flag!
     self.pendingFlags[pendingFlag.flag] = pendingFlag;
 
-    self.currentFlags.flagConditions[pendingFlag.flag] = [[CKKSCondition alloc]init];
-    
     // Do we need to recheck any conditions? Anything which is currently the state of the world needs checking
     OctagonPendingConditions recheck = pendingFlag.conditions & self.currentConditions;
     if(recheck != 0x0) {

@@ -891,6 +891,25 @@ CFAbsoluteTime SecCertificatePathVCGetEarliestNextUpdate(SecCertificatePathVCRef
     return enu;
 }
 
+bool SecCertificatePathVCRevocationCheckedAllCerts(SecCertificatePathVCRef path) {
+    CFIndex certIX, certCount = path->count;
+    if (certCount <= 1 || !path->rvcs) {
+        /* If there is only one certificate, it's the root, so revocation checking is irrelevant. */
+        return false;
+    }
+
+    for (certIX = 0; certIX < path->rvcCount - 1; ++certIX) {
+        SecRVCRef rvc = &((SecRVCRef)path->rvcs)[certIX];
+        if (!SecRVCRevocationChecked(rvc)) {
+            secdebug("rvc", "revocation has not been checked for all certs (not checked for cert %ld)", certIX);
+            return false;
+        }
+    }
+
+    secdebug("rvc", "revocation has been checked for all certs");
+    return true;
+}
+
 void SecCertificatePathVCSetRevocationReasonForCertificateAtIndex(SecCertificatePathVCRef certificatePath,
                                                                   CFIndex ix, CFNumberRef revocationReason) {
     if (ix > certificatePath->count - 1) { return; }

@@ -143,10 +143,8 @@ void Visitor::visit(AST::StructureElement& structureElement)
         checkErrorAndVisit(*structureElement.semantic());
 }
 
-void Visitor::visit(AST::EnumerationMember& enumerationMember)
+void Visitor::visit(AST::EnumerationMember&)
 {
-    if (enumerationMember.value())
-        checkErrorAndVisit(*enumerationMember.value());
 }
 
 void Visitor::visit(AST::FunctionDeclaration& functionDeclaration)
@@ -163,7 +161,7 @@ void Visitor::visit(AST::TypeArgument& typeArgument)
 {
     WTF::visit(WTF::makeVisitor([&](AST::ConstantExpression& constantExpression) {
         checkErrorAndVisit(constantExpression);
-    }, [&](UniqueRef<AST::TypeReference>& typeReference) {
+    }, [&](Ref<AST::TypeReference>& typeReference) {
         checkErrorAndVisit(typeReference);
     }), typeArgument);
 }
@@ -194,8 +192,6 @@ void Visitor::visit(AST::ConstantExpression& constantExpression)
         checkErrorAndVisit(unsignedIntegerLiteral);
     }, [&](AST::FloatLiteral& floatLiteral) {
         checkErrorAndVisit(floatLiteral);
-    }, [&](AST::NullLiteral& nullLiteral) {
-        checkErrorAndVisit(nullLiteral);
     }, [&](AST::BooleanLiteral& booleanLiteral) {
         checkErrorAndVisit(booleanLiteral);
     }, [&](AST::EnumerationMemberLiteral& enumerationMemberLiteral) {
@@ -240,11 +236,6 @@ void Visitor::visit(AST::FloatLiteral& floatLiteral)
     checkErrorAndVisit(floatLiteral.type());
 }
 
-void Visitor::visit(AST::NullLiteral& nullLiteral)
-{
-    checkErrorAndVisit(nullLiteral.type());
-}
-
 void Visitor::visit(AST::BooleanLiteral&)
 {
 }
@@ -268,12 +259,6 @@ void Visitor::visit(AST::FloatLiteralType& floatLiteralType)
     if (floatLiteralType.maybeResolvedType())
         checkErrorAndVisit(floatLiteralType.resolvedType());
     checkErrorAndVisit(floatLiteralType.preferredType());
-}
-
-void Visitor::visit(AST::NullLiteralType& nullLiteralType)
-{
-    if (nullLiteralType.maybeResolvedType())
-        checkErrorAndVisit(nullLiteralType.resolvedType());
 }
 
 void Visitor::visit(AST::EnumerationMemberLiteral&)
@@ -305,36 +290,50 @@ void Visitor::visit(AST::StatementList& statementList)
 
 void Visitor::visit(AST::Statement& statement)
 {
-    if (is<AST::Block>(statement))
+    switch (statement.kind()) {
+    case AST::Statement::Kind::Block:
         checkErrorAndVisit(downcast<AST::Block>(statement));
-    else if (is<AST::Break>(statement))
+        break;
+    case AST::Statement::Kind::Break:
         checkErrorAndVisit(downcast<AST::Break>(statement));
-    else if (is<AST::Continue>(statement))
+        break;
+    case AST::Statement::Kind::Continue:
         checkErrorAndVisit(downcast<AST::Continue>(statement));
-    else if (is<AST::DoWhileLoop>(statement))
+        break;
+    case AST::Statement::Kind::DoWhileLoop:
         checkErrorAndVisit(downcast<AST::DoWhileLoop>(statement));
-    else if (is<AST::EffectfulExpressionStatement>(statement))
+        break;
+    case AST::Statement::Kind::EffectfulExpression:
         checkErrorAndVisit(downcast<AST::EffectfulExpressionStatement>(statement));
-    else if (is<AST::Fallthrough>(statement))
+        break;
+    case AST::Statement::Kind::Fallthrough:
         checkErrorAndVisit(downcast<AST::Fallthrough>(statement));
-    else if (is<AST::ForLoop>(statement))
+        break;
+    case AST::Statement::Kind::ForLoop:
         checkErrorAndVisit(downcast<AST::ForLoop>(statement));
-    else if (is<AST::IfStatement>(statement))
+        break;
+    case AST::Statement::Kind::If:
         checkErrorAndVisit(downcast<AST::IfStatement>(statement));
-    else if (is<AST::Return>(statement))
+        break;
+    case AST::Statement::Kind::Return:
         checkErrorAndVisit(downcast<AST::Return>(statement));
-    else if (is<AST::StatementList>(statement))
+        break;
+    case AST::Statement::Kind::StatementList:
         checkErrorAndVisit(downcast<AST::StatementList>(statement));
-    else if (is<AST::SwitchCase>(statement))
+        break;
+    case AST::Statement::Kind::SwitchCase:
         checkErrorAndVisit(downcast<AST::SwitchCase>(statement));
-    else if (is<AST::SwitchStatement>(statement))
+        break;
+    case AST::Statement::Kind::Switch:
         checkErrorAndVisit(downcast<AST::SwitchStatement>(statement));
-    else if (is<AST::Trap>(statement))
-        checkErrorAndVisit(downcast<AST::Trap>(statement));
-    else if (is<AST::VariableDeclarationsStatement>(statement))
+        break;
+    case AST::Statement::Kind::VariableDeclarations:
         checkErrorAndVisit(downcast<AST::VariableDeclarationsStatement>(statement));
-    else
+        break;
+    case AST::Statement::Kind::WhileLoop:
         checkErrorAndVisit(downcast<AST::WhileLoop>(statement));
+        break;
+    }
 }
 
 void Visitor::visit(AST::Break&)
@@ -353,46 +352,65 @@ void Visitor::visit(AST::DoWhileLoop& doWhileLoop)
 
 void Visitor::visit(AST::Expression& expression)
 {
-    if (is<AST::AssignmentExpression>(expression))
+    switch (expression.kind()) {
+    case AST::Expression::Kind::Assignment:
         checkErrorAndVisit(downcast<AST::AssignmentExpression>(expression));
-    else if (is<AST::BooleanLiteral>(expression))
+        break;
+    case AST::Expression::Kind::BooleanLiteral:
         checkErrorAndVisit(downcast<AST::BooleanLiteral>(expression));
-    else if (is<AST::CallExpression>(expression))
+        break;
+    case AST::Expression::Kind::Call:
         checkErrorAndVisit(downcast<AST::CallExpression>(expression));
-    else if (is<AST::CommaExpression>(expression))
+        break;
+    case AST::Expression::Kind::Comma:
         checkErrorAndVisit(downcast<AST::CommaExpression>(expression));
-    else if (is<AST::DereferenceExpression>(expression))
+        break;
+    case AST::Expression::Kind::Dereference:
         checkErrorAndVisit(downcast<AST::DereferenceExpression>(expression));
-    else if (is<AST::FloatLiteral>(expression))
+        break;
+    case AST::Expression::Kind::FloatLiteral:
         checkErrorAndVisit(downcast<AST::FloatLiteral>(expression));
-    else if (is<AST::IntegerLiteral>(expression))
+        break;
+    case AST::Expression::Kind::IntegerLiteral:
         checkErrorAndVisit(downcast<AST::IntegerLiteral>(expression));
-    else if (is<AST::LogicalExpression>(expression))
+        break;
+    case AST::Expression::Kind::Logical:
         checkErrorAndVisit(downcast<AST::LogicalExpression>(expression));
-    else if (is<AST::LogicalNotExpression>(expression))
+        break;
+    case AST::Expression::Kind::LogicalNot:
         checkErrorAndVisit(downcast<AST::LogicalNotExpression>(expression));
-    else if (is<AST::MakeArrayReferenceExpression>(expression))
+        break;
+    case AST::Expression::Kind::MakeArrayReference:
         checkErrorAndVisit(downcast<AST::MakeArrayReferenceExpression>(expression));
-    else if (is<AST::MakePointerExpression>(expression))
+        break;
+    case AST::Expression::Kind::MakePointer:
         checkErrorAndVisit(downcast<AST::MakePointerExpression>(expression));
-    else if (is<AST::NullLiteral>(expression))
-        checkErrorAndVisit(downcast<AST::NullLiteral>(expression));
-    else if (is<AST::DotExpression>(expression))
+        break;
+    case AST::Expression::Kind::Dot:
         checkErrorAndVisit(downcast<AST::DotExpression>(expression));
-    else if (is<AST::GlobalVariableReference>(expression))
+        break;
+    case AST::Expression::Kind::GlobalVariableReference:
         checkErrorAndVisit(downcast<AST::GlobalVariableReference>(expression));
-    else if (is<AST::IndexExpression>(expression))
+        break;
+    case AST::Expression::Kind::Index:
         checkErrorAndVisit(downcast<AST::IndexExpression>(expression));
-    else if (is<AST::ReadModifyWriteExpression>(expression))
+        break;
+    case AST::Expression::Kind::ReadModifyWrite:
         checkErrorAndVisit(downcast<AST::ReadModifyWriteExpression>(expression));
-    else if (is<AST::TernaryExpression>(expression))
+        break;
+    case AST::Expression::Kind::Ternary:
         checkErrorAndVisit(downcast<AST::TernaryExpression>(expression));
-    else if (is<AST::UnsignedIntegerLiteral>(expression))
+        break;
+    case AST::Expression::Kind::UnsignedIntegerLiteral:
         checkErrorAndVisit(downcast<AST::UnsignedIntegerLiteral>(expression));
-    else if (is<AST::EnumerationMemberLiteral>(expression))
+        break;
+    case AST::Expression::Kind::EnumerationMemberLiteral:
         checkErrorAndVisit(downcast<AST::EnumerationMemberLiteral>(expression));
-    else
+        break;
+    case AST::Expression::Kind::VariableReference:
         checkErrorAndVisit(downcast<AST::VariableReference>(expression));
+        break;
+    }
 }
 
 void Visitor::visit(AST::DotExpression& dotExpression)
@@ -427,11 +445,7 @@ void Visitor::visit(AST::Fallthrough&)
 
 void Visitor::visit(AST::ForLoop& forLoop)
 {
-    WTF::visit(WTF::makeVisitor([&](UniqueRef<AST::Statement>& statement) {
-        checkErrorAndVisit(statement);
-    }, [&](UniqueRef<AST::Expression>& expression) {
-        checkErrorAndVisit(expression);
-    }), forLoop.initialization());
+    checkErrorAndVisit(forLoop.initialization());
     if (forLoop.condition())
         checkErrorAndVisit(*forLoop.condition());
     if (forLoop.increment())
@@ -465,10 +479,6 @@ void Visitor::visit(AST::SwitchStatement& switchStatement)
     checkErrorAndVisit(switchStatement.value());
     for (auto& switchCase : switchStatement.switchCases())
         checkErrorAndVisit(switchCase);
-}
-
-void Visitor::visit(AST::Trap&)
-{
 }
 
 void Visitor::visit(AST::VariableDeclarationsStatement& variableDeclarationsStatement)

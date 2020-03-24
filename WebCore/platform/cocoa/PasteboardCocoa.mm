@@ -51,11 +51,6 @@ static NSBitmapImageFileType bitmapPNGFileType()
 PasteboardWebContent::PasteboardWebContent() = default;
 PasteboardWebContent::~PasteboardWebContent() = default;
 
-const char* PasteboardCustomData::cocoaType()
-{
-    return "com.apple.WebKit.custom-pasteboard-data";
-}
-
 enum class ImageType {
     Invalid = 0,
     TIFF,
@@ -73,7 +68,7 @@ static ImageType cocoaTypeToImageType(const String& cocoaType)
     if (cocoaType == String(kUTTypeTIFF))
         return ImageType::TIFF;
 #if PLATFORM(MAC)
-    if (cocoaType == "Apple PNG pasteboard type") // NSPNGPboardType
+    if (cocoaType == String(legacyPNGPasteboardType())) // NSPNGPboardType
         return ImageType::PNG;
 #endif
     if (cocoaType == String(kUTTypePNG))
@@ -148,8 +143,11 @@ Pasteboard::FileContentState Pasteboard::fileContentState()
         // If the item can't be treated as an attachment, it's very likely that the content being dropped is just
         // an inline piece of text, with no files in the pasteboard (and therefore, no risk of leaking file paths
         // to web content). In cases such as these, we should not suppress DataTransfer access.
-        auto items = platformStrategies()->pasteboardStrategy()->allPasteboardItemInfo(m_pasteboardName);
-        mayContainFilePaths = items.size() != 1 || notFound != items.findMatching([] (auto& item) {
+        auto items = allPasteboardItemInfo();
+        if (!items)
+            return FileContentState::NoFileOrImageData;
+
+        mayContainFilePaths = items->size() != 1 || notFound != items->findMatching([] (auto& item) {
             return item.canBeTreatedAsAttachmentOrFile() || item.isNonTextType || item.containsFileURLAndFileUploadContent;
         });
     }
@@ -260,12 +258,12 @@ String Pasteboard::readString(const String& type)
 
 String Pasteboard::readStringInCustomData(const String& type)
 {
-    return readCustomData().sameOriginCustomData.get(type);
+    return readCustomData().readStringInCustomData(type);
 }
 
 String Pasteboard::readOrigin()
 {
-    return readCustomData().origin;
+    return readCustomData().origin();
 }
 
 const PasteboardCustomData& Pasteboard::readCustomData()
@@ -280,12 +278,12 @@ const PasteboardCustomData& Pasteboard::readCustomData()
     return *m_customDataCache; 
 }
 
-void Pasteboard::writeCustomData(const PasteboardCustomData& data)
+void Pasteboard::writeCustomData(const Vector<PasteboardCustomData>& data)
 {
-    m_changeCount = platformStrategies()->pasteboardStrategy()->writeCustomData(data, m_pasteboardName);
+    m_changeCount = platformStrategies()->pasteboardStrategy()->writeCustomData(data, name());
 }
 
-long Pasteboard::changeCount() const
+int64_t Pasteboard::changeCount() const
 {
     return platformStrategies()->pasteboardStrategy()->changeCount(m_pasteboardName);
 }

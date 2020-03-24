@@ -51,14 +51,14 @@ WI.CSSManager = class CSSManager extends WI.Object
 
         // COMPATIBILITY (iOS 9): Legacy backends did not send stylesheet
         // added/removed events and must be fetched manually.
-        this._fetchedInitialStyleSheets = InspectorBackend.domains.CSS.hasEvent("styleSheetAdded");
+        this._fetchedInitialStyleSheets = InspectorBackend.hasEvent("CSS.styleSheetAdded");
     }
 
     // Target
 
     initializeTarget(target)
     {
-        if (target.CSSAgent)
+        if (target.hasDomain("CSS"))
             target.CSSAgent.enable();
     }
 
@@ -67,41 +67,42 @@ WI.CSSManager = class CSSManager extends WI.Object
     static protocolStyleSheetOriginToEnum(origin)
     {
         switch (origin) {
-        case CSSAgent.StyleSheetOrigin.Regular:
+        case InspectorBackend.Enum.CSS.StyleSheetOrigin.Regular:
             return WI.CSSStyleSheet.Type.Author;
-        case CSSAgent.StyleSheetOrigin.User:
+        case InspectorBackend.Enum.CSS.StyleSheetOrigin.User:
             return WI.CSSStyleSheet.Type.User;
-        case CSSAgent.StyleSheetOrigin.UserAgent:
+        case InspectorBackend.Enum.CSS.StyleSheetOrigin.UserAgent:
             return WI.CSSStyleSheet.Type.UserAgent;
-        case CSSAgent.StyleSheetOrigin.Inspector:
+        case InspectorBackend.Enum.CSS.StyleSheetOrigin.Inspector:
             return WI.CSSStyleSheet.Type.Inspector;
         default:
             console.assert(false, "Unknown CSS.StyleSheetOrigin", origin);
-            return CSSAgent.StyleSheetOrigin.Regular;
+            return InspectorBackend.Enum.CSS.StyleSheetOrigin.Regular;
         }
     }
 
-    static protocolMediaSourceToEnum(source)
+    static protocolGroupingTypeToEnum(type)
     {
-        switch (source) {
-        case CSSAgent.CSSMediaSource.MediaRule:
-            return WI.CSSMedia.Type.MediaRule;
-        case CSSAgent.CSSMediaSource.ImportRule:
-            return WI.CSSMedia.Type.ImportRule;
-        case CSSAgent.CSSMediaSource.LinkedSheet:
-            return WI.CSSMedia.Type.LinkedStyleSheet;
-        case CSSAgent.CSSMediaSource.InlineSheet:
-            return WI.CSSMedia.Type.InlineStyleSheet;
-        default:
-            console.assert(false, "Unknown CSS.CSSMediaSource", source);
-            return WI.CSSMedia.Type.MediaRule;
+        // COMPATIBILITY (iOS 13): CSS.Grouping did not exist yet.
+        if (!InspectorBackend.Enum.CSS.Grouping) {
+            switch (type) {
+            case "mediaRule":
+                return WI.CSSGrouping.Type.MediaRule;
+            case "importRule":
+                return WI.CSSGrouping.Type.MediaImportRule;
+            case "linkedSheet":
+                return WI.CSSGrouping.Type.MediaLinkNode;
+            case "inlineSheet":
+                return WI.CSSGrouping.Type.MediaStyleNode;
+            }
         }
+        return type;
     }
 
     static displayNameForPseudoId(pseudoId)
     {
         // Compatibility (iOS 12.2): CSS.PseudoId did not exist.
-        if (!InspectorBackend.domains.CSS.PseudoId) {
+        if (!InspectorBackend.Enum.CSS.PseudoId) {
             switch (pseudoId) {
             case 1: // PseudoId.FirstLine
                 return WI.unlocalizedString("::first-line");
@@ -137,31 +138,33 @@ WI.CSSManager = class CSSManager extends WI.Object
         }
 
         switch (pseudoId) {
-        case InspectorBackend.domains.CSS.PseudoId.FirstLine:
+        case CSSManager.PseudoSelectorNames.FirstLine:
             return WI.unlocalizedString("::first-line");
-        case InspectorBackend.domains.CSS.PseudoId.FirstLetter:
+        case CSSManager.PseudoSelectorNames.FirstLetter:
             return WI.unlocalizedString("::first-letter");
-        case InspectorBackend.domains.CSS.PseudoId.Marker:
+        case CSSManager.PseudoSelectorNames.Highlight:
+            return WI.unlocalizedString("::highlight");
+        case CSSManager.PseudoSelectorNames.Marker:
             return WI.unlocalizedString("::marker");
-        case InspectorBackend.domains.CSS.PseudoId.Before:
+        case CSSManager.PseudoSelectorNames.Before:
             return WI.unlocalizedString("::before");
-        case InspectorBackend.domains.CSS.PseudoId.After:
+        case CSSManager.PseudoSelectorNames.After:
             return WI.unlocalizedString("::after");
-        case InspectorBackend.domains.CSS.PseudoId.Selection:
+        case CSSManager.PseudoSelectorNames.Selection:
             return WI.unlocalizedString("::selection");
-        case InspectorBackend.domains.CSS.PseudoId.Scrollbar:
+        case CSSManager.PseudoSelectorNames.Scrollbar:
             return WI.unlocalizedString("::scrollbar");
-        case InspectorBackend.domains.CSS.PseudoId.ScrollbarThumb:
+        case CSSManager.PseudoSelectorNames.ScrollbarThumb:
             return WI.unlocalizedString("::scrollbar-thumb");
-        case InspectorBackend.domains.CSS.PseudoId.ScrollbarButton:
+        case CSSManager.PseudoSelectorNames.ScrollbarButton:
             return WI.unlocalizedString("::scrollbar-button");
-        case InspectorBackend.domains.CSS.PseudoId.ScrollbarTrack:
+        case CSSManager.PseudoSelectorNames.ScrollbarTrack:
             return WI.unlocalizedString("::scrollbar-track");
-        case InspectorBackend.domains.CSS.PseudoId.ScrollbarTrackPiece:
+        case CSSManager.PseudoSelectorNames.ScrollbarTrackPiece:
             return WI.unlocalizedString("::scrollbar-track-piece");
-        case InspectorBackend.domains.CSS.PseudoId.ScrollbarCorner:
+        case CSSManager.PseudoSelectorNames.ScrollbarCorner:
             return WI.unlocalizedString("::scrollbar-corner");
-        case InspectorBackend.domains.CSS.PseudoId.Resizer:
+        case CSSManager.PseudoSelectorNames.Resizer:
             return WI.unlocalizedString("::resizer");
 
         default:
@@ -201,11 +204,11 @@ WI.CSSManager = class CSSManager extends WI.Object
 
         switch (name) {
         case WI.CSSManager.Appearance.Light:
-            protocolName = PageAgent.Appearance.Light;
+            protocolName = InspectorBackend.Enum.Page.Appearance.Light;
             break;
 
         case WI.CSSManager.Appearance.Dark:
-            protocolName = PageAgent.Appearance.Dark;
+            protocolName = InspectorBackend.Enum.Page.Appearance.Dark;
             break;
 
         case null:
@@ -221,7 +224,8 @@ WI.CSSManager = class CSSManager extends WI.Object
 
         this._forcedAppearance = name || null;
 
-        PageAgent.setForcedAppearance(protocolName).then(() => {
+        let target = WI.assumingMainTarget();
+        target.PageAgent.setForcedAppearance(protocolName).then(() => {
             this.mediaQueryResultChanged();
             this.dispatchEventToListeners(WI.CSSManager.Event.ForcedAppearanceDidChange, {appearance: this._forcedAppearance});
         });
@@ -229,12 +233,12 @@ WI.CSSManager = class CSSManager extends WI.Object
 
     canForceAppearance()
     {
-        return window.PageAgent && !!PageAgent.setForcedAppearance && this._defaultAppearance;
+        return InspectorBackend.hasCommand("Page.setForcedAppearance") && this._defaultAppearance;
     }
 
     canForcePseudoClasses()
     {
-        return window.CSSAgent && !!CSSAgent.forcePseudoState;
+        return InspectorBackend.hasCommand("CSS.forcePseudoState");
     }
 
     propertyNameHasOtherVendorPrefix(name)
@@ -304,7 +308,7 @@ WI.CSSManager = class CSSManager extends WI.Object
         return this.styleSheets.filter((styleSheet) => styleSheet.isInspectorStyleSheet() && styleSheet.parentFrame === frame);
     }
 
-    preferredInspectorStyleSheetForFrame(frame, callback, doNotCreateIfMissing)
+    preferredInspectorStyleSheetForFrame(frame, callback)
     {
         var inspectorStyleSheets = this.inspectorStyleSheetsForFrame(frame);
         for (let styleSheet of inspectorStyleSheets) {
@@ -314,11 +318,9 @@ WI.CSSManager = class CSSManager extends WI.Object
             }
         }
 
-        if (doNotCreateIfMissing)
-            return;
-
-        if (CSSAgent.createStyleSheet) {
-            CSSAgent.createStyleSheet(frame.id, function(error, styleSheetId) {
+        let target = WI.assumingMainTarget();
+        if (target.hasCommand("CSS.createStyleSheet")) {
+            target.CSSAgent.createStyleSheet(frame.id, function(error, styleSheetId) {
                 const url = null;
                 let styleSheet = WI.cssManager.styleSheetForIdentifier(styleSheetId);
                 styleSheet.updateInfo(url, frame, styleSheet.origin, styleSheet.isInlineStyleTag(), styleSheet.startLineNumber, styleSheet.startColumnNumber);
@@ -335,7 +337,7 @@ WI.CSSManager = class CSSManager extends WI.Object
 
         let expression = appendWebInspectorSourceURL("document");
         let contextId = frame.pageExecutionContext.id;
-        RuntimeAgent.evaluate.invoke({expression, objectGroup: "", includeCommandLineAPI: false, doNotPauseOnExceptionsAndMuteConsole: true, contextId, returnByValue: false, generatePreview: false}, documentAvailable);
+        target.RuntimeAgent.evaluate.invoke({expression, objectGroup: "", includeCommandLineAPI: false, doNotPauseOnExceptionsAndMuteConsole: true, contextId, returnByValue: false, generatePreview: false}, documentAvailable);
 
         function documentAvailable(error, documentRemoteObjectPayload)
         {
@@ -357,7 +359,7 @@ WI.CSSManager = class CSSManager extends WI.Object
                 return;
             }
 
-            DOMAgent.querySelector(documentNodeId, "body", bodyNodeAvailable);
+            target.DOMAgent.querySelector(documentNodeId, "body", bodyNodeAvailable);
         }
 
         function bodyNodeAvailable(error, bodyNodeId)
@@ -369,7 +371,7 @@ WI.CSSManager = class CSSManager extends WI.Object
             }
 
             let selector = ""; // Intentionally empty.
-            CSSAgent.addRule(bodyNodeId, selector, cssRuleAvailable);
+            target.CSSAgent.addRule(bodyNodeId, selector, cssRuleAvailable);
         }
 
         function cssRuleAvailable(error, payload)
@@ -401,33 +403,6 @@ WI.CSSManager = class CSSManager extends WI.Object
         this.mediaQueryResultChanged();
     }
 
-    defaultAppearanceDidChange(protocolName)
-    {
-        // Called from WI.PageObserver.
-
-        let appearance = null;
-
-        switch (protocolName) {
-        case PageAgent.Appearance.Light:
-            appearance = WI.CSSManager.Appearance.Light;
-            break;
-
-        case PageAgent.Appearance.Dark:
-            appearance = WI.CSSManager.Appearance.Dark;
-            break;
-
-        default:
-            console.error("Unknown default appearance name:", protocolName);
-            break;
-        }
-
-        this._defaultAppearance = appearance;
-
-        this.mediaQueryResultChanged();
-
-        this.dispatchEventToListeners(WI.CSSManager.Event.DefaultAppearanceDidChange, {appearance});
-    }
-
     get modifiedStyles()
     {
         return Array.from(this._modifiedStyles.values());
@@ -448,19 +423,43 @@ WI.CSSManager = class CSSManager extends WI.Object
         this._modifiedStyles.delete(style.stringId);
     }
 
-    // Protected
+    // PageObserver
+
+    defaultAppearanceDidChange(protocolName)
+    {
+        let appearance = null;
+
+        switch (protocolName) {
+        case InspectorBackend.Enum.Page.Appearance.Light:
+            appearance = WI.CSSManager.Appearance.Light;
+            break;
+
+        case InspectorBackend.Enum.Page.Appearance.Dark:
+            appearance = WI.CSSManager.Appearance.Dark;
+            break;
+
+        default:
+            console.error("Unknown default appearance name:", protocolName);
+            break;
+        }
+
+        this._defaultAppearance = appearance;
+
+        this.mediaQueryResultChanged();
+
+        this.dispatchEventToListeners(WI.CSSManager.Event.DefaultAppearanceDidChange, {appearance});
+    }
+
+    // CSSObserver
 
     mediaQueryResultChanged()
     {
-        // Called from WI.CSSObserver.
-
         for (var key in this._nodeStylesMap)
             this._nodeStylesMap[key].mediaQueryResultDidChange();
     }
 
     styleSheetChanged(styleSheetIdentifier)
     {
-        // Called from WI.CSSObserver.
         var styleSheet = this.styleSheetForIdentifier(styleSheetIdentifier);
         console.assert(styleSheet);
 
@@ -468,7 +467,9 @@ WI.CSSManager = class CSSManager extends WI.Object
         if (styleSheet.isInlineStyleAttributeStyleSheet())
             return;
 
-        styleSheet.noteContentDidChange();
+        if (!styleSheet.noteContentDidChange())
+            return;
+
         this._updateResourceContent(styleSheet);
     }
 
@@ -530,10 +531,11 @@ WI.CSSManager = class CSSManager extends WI.Object
 
         // Clear our maps when the main frame navigates.
 
-        this._fetchedInitialStyleSheets = InspectorBackend.domains.CSS.hasEvent("styleSheetAdded");
+        this._fetchedInitialStyleSheets = InspectorBackend.hasEvent("CSS.styleSheetAdded");
         this._styleSheetIdentifierMap.clear();
         this._styleSheetFrameURLMap.clear();
         this._modifiedStyles.clear();
+        this._forcedAppearance = null;
 
         this._nodeStylesMap = {};
     }
@@ -545,7 +547,7 @@ WI.CSSManager = class CSSManager extends WI.Object
         var resource = event.data.resource;
         console.assert(resource);
 
-        if (resource.type !== WI.Resource.Type.Stylesheet)
+        if (resource.type !== WI.Resource.Type.StyleSheet)
             return;
 
         this._clearStyleSheetsForResource(resource);
@@ -556,7 +558,7 @@ WI.CSSManager = class CSSManager extends WI.Object
         console.assert(event.target instanceof WI.Resource);
 
         var resource = event.target;
-        if (resource.type !== WI.Resource.Type.Stylesheet)
+        if (resource.type !== WI.Resource.Type.StyleSheet)
             return;
 
         this._clearStyleSheetsForResource(resource);
@@ -564,7 +566,7 @@ WI.CSSManager = class CSSManager extends WI.Object
 
     _clearStyleSheetsForResource(resource)
     {
-        // Clear known stylesheets for this URL and frame. This will cause the stylesheets to
+        // Clear known stylesheets for this URL and frame. This will cause the style sheets to
         // be updated next time _fetchInfoForAllStyleSheets is called.
         this._styleSheetIdentifierMap.delete(this._frameURLMapKey(resource.parentFrame, resource.url));
     }
@@ -629,7 +631,8 @@ WI.CSSManager = class CSSManager extends WI.Object
             callback();
         }
 
-        CSSAgent.getAllStyleSheets(processStyleSheets.bind(this));
+        let target = WI.assumingMainTarget();
+        target.CSSAgent.getAllStyleSheets(processStyleSheets.bind(this));
     }
 
     _resourceContentDidChange(event)
@@ -638,8 +641,12 @@ WI.CSSManager = class CSSManager extends WI.Object
         if (resource === this._ignoreResourceContentDidChangeEventForResource)
             return;
 
-        // Ignore if it isn't a CSS stylesheet.
-        if (resource.type !== WI.Resource.Type.Stylesheet || resource.syntheticMIMEType !== "text/css")
+        // Ignore changes to resource overrides, those are not live on the page.
+        if (resource.isLocalResourceOverride)
+            return;
+
+        // Ignore if it isn't a CSS style sheet.
+        if (resource.type !== WI.Resource.Type.StyleSheet || resource.syntheticMIMEType !== "text/css")
             return;
 
         function applyStyleSheetChanges()
@@ -656,7 +663,8 @@ WI.CSSManager = class CSSManager extends WI.Object
                 // ignore the next _updateResourceContent call.
                 resource.__ignoreNextUpdateResourceContent = true;
 
-                WI.branchManager.currentBranch.revisionForRepresentedObject(styleSheet).content = resource.content;
+                let revision = styleSheet.editableRevision;
+                revision.updateRevisionContent(resource.content);
             }
 
             this._lookupStyleSheetForResource(resource, styleSheetFound.bind(this));
@@ -688,7 +696,7 @@ WI.CSSManager = class CSSManager extends WI.Object
 
                 // Only try to update stylesheet resources. Other resources, like documents, can contain
                 // multiple stylesheets and we don't have the source ranges to update those.
-                if (representedObject.type !== WI.Resource.Type.Stylesheet)
+                if (representedObject.type !== WI.Resource.Type.StyleSheet)
                     return;
             }
 
@@ -699,12 +707,12 @@ WI.CSSManager = class CSSManager extends WI.Object
 
             this._ignoreResourceContentDidChangeEventForResource = representedObject;
 
-            let revision = WI.branchManager.currentBranch.revisionForRepresentedObject(representedObject);
+            let revision = representedObject.editableRevision;
             if (styleSheet.isInspectorStyleSheet()) {
-                revision.content = representedObject.content;
+                revision.updateRevisionContent(representedObject.content);
                 styleSheet.dispatchEventToListeners(WI.SourceCode.Event.ContentDidChange);
             } else
-                revision.content = parameters.content;
+                revision.updateRevisionContent(parameters.content);
 
             this._ignoreResourceContentDidChangeEventForResource = null;
         }
@@ -740,6 +748,23 @@ WI.CSSManager.Appearance = {
     Dark: Symbol("dark"),
 };
 
+WI.CSSManager.PseudoSelectorNames = {
+    After: "after",
+    Before: "before",
+    FirstLetter: "first-letter",
+    FirstLine: "first-line",
+    Highlight: "highlight",
+    Marker: "marker",
+    Resizer: "resizer",
+    Scrollbar: "scrollbar",
+    ScrollbarButton: "scrollbar-button",
+    ScrollbarCorner: "scrollbar-corner",
+    ScrollbarThumb: "scrollbar-thumb",
+    ScrollbarTrack: "scrollbar-track",
+    ScrollbarTrackPiece: "scrollbar-track-piece",
+    Selection: "selection",
+};
+
 WI.CSSManager.PseudoElementNames = ["before", "after"];
 WI.CSSManager.ForceablePseudoClasses = ["active", "focus", "hover", "visited"];
-WI.CSSManager.PreferredInspectorStyleSheetSymbol = Symbol("css-manager-preferred-inspector-stylesheet");
+WI.CSSManager.PreferredInspectorStyleSheetSymbol = Symbol("css-manager-preferred-inspector-style-sheet");

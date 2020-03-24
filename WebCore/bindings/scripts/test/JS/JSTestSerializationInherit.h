@@ -48,8 +48,8 @@ public:
     }
 
     static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
-    static JSC::JSObject* serialize(JSC::ExecState&, JSTestSerializationInherit& thisObject, JSDOMGlobalObject&, JSC::ThrowScope&);
-    static void heapSnapshot(JSCell*, JSC::HeapSnapshotBuilder&);
+    static JSC::JSObject* serialize(JSC::JSGlobalObject&, JSTestSerializationInherit& thisObject, JSDOMGlobalObject&, JSC::ThrowScope&);
+    static void analyzeHeap(JSCell*, JSC::HeapAnalyzer&);
     TestSerializationInherit& wrapped() const
     {
         return static_cast<TestSerializationInherit&>(Base::wrapped());

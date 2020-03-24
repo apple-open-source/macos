@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2018 Apple Inc. All Rights Reserved.
+ *  Copyright (C) 2003-2019 Apple Inc. All Rights Reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -26,6 +26,7 @@
 #include "Frame.h"
 #include "JSNode.h"
 #include "QualifiedName.h"
+#include "SVGElement.h"
 #include "ScriptController.h"
 #include <JavaScriptCore/CatchScope.h>
 #include <JavaScriptCore/FunctionConstructor.h>
@@ -80,12 +81,29 @@ JSLazyEventListener::JSLazyEventListener(CreationArguments&& arguments, const St
 }
 
 #if !ASSERT_DISABLED
+static inline bool isCloneInShadowTreeOfSVGUseElement(Node& originalNode, EventTarget& eventTarget)
+{
+    if (!eventTarget.isNode())
+        return false;
+
+    auto& node = downcast<Node>(eventTarget);
+    if (!is<SVGElement>(node))
+        return false;
+
+    auto& element = downcast<SVGElement>(node);
+    if (!element.correspondingElement())
+        return false;
+
+    ASSERT(element.isInShadowTree());
+    return &originalNode == element.correspondingElement();
+}
+
 // This is to help find the underlying cause of <rdar://problem/24314027>.
 void JSLazyEventListener::checkValidityForEventTarget(EventTarget& eventTarget)
 {
     if (eventTarget.isNode()) {
         ASSERT(m_originalNode);
-        ASSERT(static_cast<EventTarget*>(m_originalNode.get()) == &eventTarget);
+        ASSERT(static_cast<EventTarget*>(m_originalNode.get()) == &eventTarget || isCloneInShadowTreeOfSVGUseElement(*m_originalNode, eventTarget));
     } else
         ASSERT(!m_originalNode);
 }
@@ -128,23 +146,23 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext& exec
     VM& vm = globalObject->vm();
     JSLockHolder lock(vm);
     auto scope = DECLARE_CATCH_SCOPE(vm);
-    ExecState* exec = globalObject->globalExec();
+    JSGlobalObject* lexicalGlobalObject = globalObject;
 
     MarkedArgumentBuffer args;
-    args.append(jsNontrivialString(exec, m_eventParameterName));
-    args.append(jsStringWithCache(exec, m_code));
+    args.append(jsNontrivialString(vm, m_eventParameterName));
+    args.append(jsStringWithCache(lexicalGlobalObject, m_code));
     ASSERT(!args.hasOverflowed());
 
     // We want all errors to refer back to the line on which our attribute was
     // declared, regardless of any newlines in our JavaScript source text.
     int overrideLineNumber = m_sourcePosition.m_line.oneBasedInt();
 
-    JSObject* jsFunction = constructFunctionSkippingEvalEnabledCheck(exec,
-        exec->lexicalGlobalObject(), args, Identifier::fromString(exec, m_functionName),
+    JSObject* jsFunction = constructFunctionSkippingEvalEnabledCheck(
+        lexicalGlobalObject, args, Identifier::fromString(vm, m_functionName),
         SourceOrigin { m_sourceURL, CachedScriptFetcher::create(document.charset()) },
         m_sourceURL, m_sourcePosition, overrideLineNumber);
     if (UNLIKELY(scope.exception())) {
-        reportCurrentException(exec);
+        reportCurrentException(lexicalGlobalObject);
         scope.clearException();
         return nullptr;
     }
@@ -155,12 +173,12 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext& exec
         if (!wrapper()) {
             // Ensure that 'node' has a JavaScript wrapper to mark the event listener we're creating.
             // FIXME: Should pass the global object associated with the node
-            setWrapper(vm, asObject(toJS(exec, globalObject, *m_originalNode)));
+            setWrapper(vm, asObject(toJS(lexicalGlobalObject, globalObject, *m_originalNode)));
         }
 
         // Add the event's home element to the scope
         // (and the document, and the form - see JSHTMLElement::eventHandlerScope)
-        listenerAsFunction->setScope(vm, jsCast<JSNode*>(wrapper())->pushEventHandlerScope(exec, listenerAsFunction->scope()));
+        listenerAsFunction->setScope(vm, jsCast<JSNode*>(wrapper())->pushEventHandlerScope(lexicalGlobalObject, listenerAsFunction->scope()));
     }
 
     return jsFunction;

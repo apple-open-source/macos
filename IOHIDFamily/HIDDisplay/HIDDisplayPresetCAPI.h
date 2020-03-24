@@ -181,7 +181,8 @@ CFIndex HIDDisplayGetPresetCount(HIDDisplayPresetInterfaceRef hidDisplayInterfac
  * field which will be filled with  error code on failure.
  *
  * @result
- * Returns factory default preset index of display device on success and -1 on failure.
+ * Returns factory default preset index of display device on success and -1 on failure. Additionally, if an error occurs and the error parameter is non-NULL, the error parameter will be set to a CFError
+ * describing the problem, which the caller must release.
  */
 CFIndex HIDDisplayGetFactoryDefaultPresetIndex(HIDDisplayPresetInterfaceRef hidDisplayInterface, CFErrorRef* error);
 
@@ -219,7 +220,8 @@ CFArrayRef __nullable HIDDisplayGetPresetCapabilities(HIDDisplayPresetInterfaceR
  * field which will be filled with  error code on failure.
  *
  * @result
- * Returns active preset index of display device on success and -1 on failure.
+ * Returns active preset index of display device on success and -1 on failure.Additionally, if an error occurs and the error parameter is non-NULL, the error parameter will be set to a
+ *  CFError describing the problem, which the caller must release.
  */
 CFIndex HIDDisplayGetActivePresetIndex(HIDDisplayPresetInterfaceRef hidDisplayInterface, CFErrorRef* error);
 
@@ -242,7 +244,8 @@ CFIndex HIDDisplayGetActivePresetIndex(HIDDisplayPresetInterfaceRef hidDisplayIn
  * field which will be filled with  error code on failure.
  *
  * @result
- * Returns true on success.
+ * Returns true on success.Additionally, if an error occurs and the error parameter is non-NULL, the error parameter will be set to a CFError describing the problem,
+ *  which the caller must release.
  */
 bool HIDDisplaySetActivePresetIndex(HIDDisplayPresetInterfaceRef hidDisplayInterface, CFIndex presetIndex, CFErrorRef* error);
 
@@ -268,7 +271,8 @@ bool HIDDisplaySetActivePresetIndex(HIDDisplayPresetInterfaceRef hidDisplayInter
  * field which will be filled with  error code on failure.
  *
  * @result
- * Returns preset info on success. preset info is dictionary containing preset fields and value
+ * Returns preset info on success. preset info is dictionary containing preset fields and value. Additionally, if an error occurs and the error parameter is non-NULL, the error parameter will be set to a CFError describing
+ * the problem, which the caller must release.
  */
 CFDictionaryRef __nullable HIDDisplayCopyPreset(HIDDisplayPresetInterfaceRef hidDisplayInterface, CFIndex presetIndex, CFErrorRef *error);
 
@@ -297,7 +301,7 @@ CFDictionaryRef __nullable HIDDisplayCopyPreset(HIDDisplayPresetInterfaceRef hid
  * field which will be filled with  error code on failure.
  *
  * @result
- * Returns true on success.
+ * Returns true on success. Additionally, if an error occurs and the error parameter is non-NULL, the error parameter will be set to a CFError describing the problem, which the caller must release.
  */
 bool HIDDisplaySetPreset(HIDDisplayPresetInterfaceRef hidDisplayInterface, CFIndex presetIndex, CFDictionaryRef info, CFErrorRef *error);
 

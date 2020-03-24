@@ -122,10 +122,12 @@ static void tests(void)
 
         return 2;
     }, ^{
-        NSError *ns_error = nil;
-        frozen_alice = (CFDataRef) CFBridgingRetain([alice_account encodedData:&ns_error]);
-        ok(frozen_alice, "Copy encoded %@", ns_error);
-        ns_error = nil;
+        [alice_account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+            NSError *ns_error = nil;
+            frozen_alice = (CFDataRef) CFBridgingRetain([alice_account encodedData:&ns_error]);
+            ok(frozen_alice, "Copy encoded %@", ns_error);
+            ns_error = nil;
+        }];
 
         SOSAccountPurgePrivateCredential(alice_account);
 

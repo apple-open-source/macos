@@ -136,6 +136,15 @@ NS_ASSUME_NONNULL_BEGIN
                     access:(NSString*)access
                  expecting:(OSStatus)status
                    message:(NSString*)message;
+
+- (BOOL)addGenericPassword:(NSString*)password
+                   account:(NSString*)account
+                    access:(NSString*)access
+                  viewHint:(NSString* _Nullable)viewHint
+               accessGroup:(NSString* _Nullable)accessGroup
+                 expecting:(OSStatus)status
+                   message:(NSString*)message;
+
 - (void)addGenericPassword:(NSString*)password account:(NSString*)account expecting:(OSStatus)status message:(NSString*)message;
 
 - (void)updateGenericPassword:(NSString*)newPassword account:(NSString*)account;

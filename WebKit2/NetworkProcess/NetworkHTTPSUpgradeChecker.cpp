@@ -34,6 +34,8 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RunLoop.h>
 
+#undef RELEASE_LOG_IF_ALLOWED
+#undef RELEASE_LOG_ERROR_IF_ALLOWED
 #define RELEASE_LOG_IF_ALLOWED(sessionID, fmt, ...) RELEASE_LOG_IF(sessionID.isAlwaysOnLoggingAllowed(), Network, "%p - NetworkHTTPSUpgradeChecker::" fmt, this, ##__VA_ARGS__)
 #define RELEASE_LOG_ERROR_IF_ALLOWED(sessionID, fmt, ...) RELEASE_LOG_ERROR_IF(sessionID.isAlwaysOnLoggingAllowed(), Network, "%p - NetworkHTTPSUpgradeChecker::" fmt, this, ##__VA_ARGS__)
 
@@ -67,7 +69,7 @@ NetworkHTTPSUpgradeChecker::NetworkHTTPSUpgradeChecker()
             return;
         }
 
-        m_database = std::make_unique<WebCore::SQLiteDatabase>();
+        m_database = makeUnique<WebCore::SQLiteDatabase>();
         bool isDatabaseOpen = m_database->open(path, WebCore::SQLiteDatabase::OpenMode::ReadOnly);
         if (!isDatabaseOpen) {
 #if PLATFORM(COCOA)
@@ -80,7 +82,7 @@ NetworkHTTPSUpgradeChecker::NetworkHTTPSUpgradeChecker()
         // Since we are using a workerQueue, the sequential dispatch blocks may be called by different threads.
         m_database->disableThreadingChecks();
 
-        m_statement = std::make_unique<WebCore::SQLiteStatement>(*m_database, httpsUpgradeCheckerQuery);
+        m_statement = makeUnique<WebCore::SQLiteStatement>(*m_database, httpsUpgradeCheckerQuery);
         int isStatementPrepared = (m_statement->prepare() == SQLITE_OK);
         ASSERT(isStatementPrepared);
         if (!isStatementPrepared)

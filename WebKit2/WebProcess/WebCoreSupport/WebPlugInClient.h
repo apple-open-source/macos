@@ -27,21 +27,20 @@
 #define WebPlugInClient_h
 
 #include <WebCore/PlugInClient.h>
-#include <pal/SessionID.h>
 
 namespace WebKit {
 
 class WebPage;
 
 class WebPlugInClient : public WebCore::PlugInClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit WebPlugInClient(WebPage&);
     virtual ~WebPlugInClient();
 
 private:
-    void pageDestroyed() override;
     bool shouldAutoStartFromOrigin(const String& pageOrigin, const String& pluginOrigin, const String& mimeType) override;
-    void didStartFromOrigin(const String& pageOrigin, const String& pluginOrigin, const String& mimeType, PAL::SessionID) override;
+    void didStartFromOrigin(const String& pageOrigin, const String& pluginOrigin, const String& mimeType) override;
 
     WebPage& m_webPage;
 };

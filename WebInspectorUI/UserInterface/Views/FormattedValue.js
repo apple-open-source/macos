@@ -32,6 +32,7 @@ WI.FormattedValue.hasSimpleDisplay = function(object)
     case "number":
     case "string":
     case "symbol":
+    case "bigint":
     case "undefined":
         return true;
 
@@ -125,7 +126,7 @@ WI.FormattedValue.createElementForNodePreview = function(preview, {remoteObjectA
 
         span.addEventListener("mouseenter", (event) => {
             if (domNode) {
-                WI.domManager.highlightDOMNode(domNode.id, "all");
+                domNode.highlight();
                 return;
             }
 
@@ -133,7 +134,7 @@ WI.FormattedValue.createElementForNodePreview = function(preview, {remoteObjectA
                 remoteObject.pushNodeToFrontend((nodeId) => {
                     domNode = WI.domManager.nodeForId(nodeId);
                     if (domNode)
-                        WI.domManager.highlightDOMNode(domNode.id, "all");
+                        domNode.highlight();
                 });
             });
         });

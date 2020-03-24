@@ -82,7 +82,6 @@ public:
     using ThreadSafeRefCounted<IDBDatabase>::deref;
 
     const char* activeDOMObjectName() const final;
-    bool canSuspendForDocumentSuspension() const final;
     void stop() final;
 
     const IDBDatabaseInfo& info() const { return m_info; }
@@ -111,6 +110,9 @@ public:
 
     bool hasPendingActivity() const final;
 
+    void setIsContextSuspended(bool isContextSuspended) { m_isContextSuspended = isContextSuspended; }
+    bool isContextSuspended() const { return m_isContextSuspended; }
+
 private:
     IDBDatabase(ScriptExecutionContext&, IDBClient::IDBConnectionProxy&, const IDBResultData&);
 
@@ -131,6 +133,8 @@ private:
     HashMap<IDBResourceIdentifier, RefPtr<IDBTransaction>> m_abortingTransactions;
     
     const EventNames& m_eventNames; // Need to cache this so we can use it from GC threads.
+
+    bool m_isContextSuspended { false };
 };
 
 } // namespace WebCore

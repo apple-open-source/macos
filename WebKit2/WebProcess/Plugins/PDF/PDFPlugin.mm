@@ -48,6 +48,7 @@
 #import "WebProcess.h"
 #import <JavaScriptCore/JSContextRef.h>
 #import <JavaScriptCore/JSObjectRef.h>
+#import <JavaScriptCore/OpaqueJSString.h>
 #import <Quartz/Quartz.h>
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/AXObjectCache.h>
@@ -81,7 +82,7 @@
 #import <WebCore/ScrollbarTheme.h>
 #import <WebCore/Settings.h>
 #import <WebCore/WebAccessibilityObjectWrapperMac.h>
-#import <WebCore/WheelEventTestTrigger.h>
+#import <WebCore/WheelEventTestMonitor.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/NSMenuSPI.h>
 #import <wtf/UUID.h>
@@ -156,9 +157,7 @@ static const int defaultScrollMagnitudeThresholdForPageFlip = 20;
 - (void)setPdfLayerController:(PDFLayerController *)pdfLayerController
 {
     _pdfLayerController = pdfLayerController;
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     [_pdfLayerController setAccessibilityParent:self];
-#endif
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
@@ -191,29 +190,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if ([attribute isEqualToString:NSAccessibilityPositionAttribute])
         return [NSValue valueWithPoint:_pdfPlugin->boundsOnScreen().location()];
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     if ([attribute isEqualToString:NSAccessibilityChildrenAttribute])
         return @[ _pdfLayerController ];
     if ([attribute isEqualToString:NSAccessibilityRoleAttribute])
         return NSAccessibilityGroupRole;
-#else
-    if ([attribute isEqualToString:NSAccessibilityValueAttribute])
-        return [_pdfLayerController accessibilityValueAttribute];
-    if ([attribute isEqualToString:NSAccessibilitySelectedTextAttribute])
-        return [_pdfLayerController accessibilitySelectedTextAttribute];
-    if ([attribute isEqualToString:NSAccessibilitySelectedTextRangeAttribute])
-        return [_pdfLayerController accessibilitySelectedTextRangeAttribute];
-    if ([attribute isEqualToString:NSAccessibilityNumberOfCharactersAttribute])
-        return [_pdfLayerController accessibilityNumberOfCharactersAttribute];
-    if ([attribute isEqualToString:NSAccessibilityVisibleCharacterRangeAttribute])
-        return [_pdfLayerController accessibilityVisibleCharacterRangeAttribute];
-    if ([attribute isEqualToString:NSAccessibilityRoleAttribute])
-        return [_pdfLayerController accessibilityRoleAttribute];
-    if ([attribute isEqualToString:NSAccessibilityRoleDescriptionAttribute])
-        return [_pdfLayerController accessibilityRoleDescriptionAttribute];
-    if ([attribute isEqualToString:NSAccessibilityFocusedAttribute])
-        return [_parent accessibilityAttributeValue:NSAccessibilityFocusedAttribute];
-#endif
 
     return 0;
 }
@@ -260,16 +240,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             NSAccessibilityPositionAttribute,
             NSAccessibilityFocusedAttribute,
             // PDFLayerController has its own accessibilityChildren.
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
             NSAccessibilityChildrenAttribute
-#else
-            NSAccessibilityRoleAttribute,
-            NSAccessibilityValueAttribute,
-            NSAccessibilitySelectedTextAttribute,
-            NSAccessibilitySelectedTextRangeAttribute,
-            NSAccessibilityNumberOfCharactersAttribute,
-            NSAccessibilityVisibleCharacterRangeAttribute
-#endif
             ];
         [attributeNames retain];
     }
@@ -281,16 +252,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (NSArray *)accessibilityActionNames
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     return nil;
-#else
-    static NSArray *actionNames = 0;
-    
-    if (!actionNames)
-        actionNames = [[NSArray arrayWithObject:NSAccessibilityShowMenuAction] retain];
-    
-    return actionNames;
-#endif
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
@@ -319,16 +281,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (NSArray *)accessibilityParameterizedAttributeNames
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     return nil;
-#else
-    return [_pdfLayerController accessibilityParameterizedAttributeNames];
-#endif
 }
 
 - (id)accessibilityFocusedUIElement
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     if (WebKit::PDFPluginAnnotation* activeAnnotation = _pdfPlugin->activeAnnotation()) {
         if (WebCore::AXObjectCache* existingCache = _pdfPlugin->axObjectCache()) {
             if (WebCore::AccessibilityObject* object = existingCache->getOrCreate(activeAnnotation->element()))
@@ -338,12 +295,8 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         }
     }
     return nil;
-#else
-    return self;
-#endif
 }
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
 - (id)accessibilityAssociatedControlForAnnotation:(PDFAnnotation *)annotation
 {
     // Only active annotations seem to have their associated controls available.
@@ -361,16 +314,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     return object->wrapper();
 }
-#endif
 
 - (id)accessibilityHitTest:(NSPoint)point
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     point = _pdfPlugin->convertFromRootViewToPDFView(WebCore::IntPoint(point));
     return [_pdfLayerController accessibilityHitTest:point];
-#else
-    return self;
-#endif
 }
 
 @end
@@ -777,8 +725,8 @@ Ref<Scrollbar> PDFPlugin::createScrollbar(ScrollbarOrientation orientation)
     didAddScrollbar(widget.ptr(), orientation);
     if (Frame* frame = webFrame()->coreFrame()) {
         if (Page* page = frame->page()) {
-            if (page->expectsWheelEventTriggers())
-                scrollAnimator().setWheelEventTestTrigger(page->testTrigger());
+            if (page->isMonitoringWheelEvents())
+                scrollAnimator().setWheelEventTestMonitor(page->wheelEventTestMonitor());
         }
     }
     pluginView()->frame()->view()->addChild(widget);
@@ -1019,12 +967,10 @@ void PDFPlugin::pdfDocumentDidLoad()
     if ([document isLocked])
         createPasswordEntryForm();
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     if ([m_pdfLayerController respondsToSelector:@selector(setURLFragment:)]) {
         String pdfURLFragment = webFrame()->url().fragmentIdentifier();
         [m_pdfLayerController setURLFragment:pdfURLFragment];
     }
-#endif
 }
     
 void PDFPlugin::streamDidReceiveResponse(uint64_t streamID, const URL&, uint32_t, uint32_t, const String& mimeType, const String&, const String& suggestedFilename)
@@ -1244,6 +1190,8 @@ RefPtr<ShareableBitmap> PDFPlugin::snapshot()
 
     auto bitmap = ShareableBitmap::createShareable(backingStoreSize, { });
     auto context = bitmap->createGraphicsContext();
+    if (!context)
+        return nullptr;
 
     context->scale(FloatSize(contentsScaleFactor, -contentsScaleFactor));
     context->translate(-m_scrollOffset.width(), -m_pdfDocumentSize.height() + m_scrollOffset.height());
@@ -1430,23 +1378,6 @@ NSEvent *PDFPlugin::nsEventForWebMouseEvent(const WebMouseEvent& event)
     return [NSEvent mouseEventWithType:eventType location:positionInPDFViewCoordinates modifierFlags:modifierFlags timestamp:0 windowNumber:0 context:nil eventNumber:0 clickCount:event.clickCount() pressure:0];
 }
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
-void PDFPlugin::updateCursor(const WebMouseEvent& event, UpdateCursorMode mode)
-{
-    HitTestResult hitTestResult = None;
-
-    PDFSelection *selectionUnderMouse = [m_pdfLayerController getSelectionForWordAtPoint:convertFromPluginToPDFView(event.position())];
-    if (selectionUnderMouse && [[selectionUnderMouse string] length])
-        hitTestResult = Text;
-
-    if (hitTestResult == m_lastHitTestResult && mode == UpdateIfNeeded)
-        return;
-
-    webFrame()->page()->send(Messages::WebPageProxy::SetCursor(hitTestResult == Text ? WebCore::iBeamCursor() : WebCore::pointerCursor()));
-    m_lastHitTestResult = hitTestResult;
-}
-#endif
-
 bool PDFPlugin::handleMouseEvent(const WebMouseEvent& event)
 {
     PlatformMouseEvent platformEvent = platform(event);
@@ -1488,9 +1419,6 @@ bool PDFPlugin::handleMouseEvent(const WebMouseEvent& event)
     switch (event.type()) {
     case WebEvent::MouseMove:
         mouseMovedInContentArea();
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
-        updateCursor(event);
-#endif
 
         if (targetScrollbar) {
             if (!targetScrollbarForLastMousePosition) {
@@ -1555,9 +1483,6 @@ bool PDFPlugin::handleMouseEvent(const WebMouseEvent& event)
 bool PDFPlugin::handleMouseEnterEvent(const WebMouseEvent& event)
 {
     mouseEnteredContentArea();
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
-    updateCursor(event, ForceUpdate);
-#endif
     return false;
 }
 
@@ -1584,12 +1509,8 @@ bool PDFPlugin::handleContextMenuEvent(const WebMouseEvent& event)
     FrameView* frameView = webFrame()->coreFrame()->view();
     IntPoint point = frameView->contentsToScreen(IntRect(frameView->windowToContents(event.position()), IntSize())).location();
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     NSUserInterfaceLayoutDirection uiLayoutDirection = webPage->userInterfaceLayoutDirection() == UserInterfaceLayoutDirection::LTR ? NSUserInterfaceLayoutDirectionLeftToRight : NSUserInterfaceLayoutDirectionRightToLeft;
     NSMenu *nsMenu = [m_pdfLayerController menuForEvent:nsEventForWebMouseEvent(event) withUserInterfaceLayoutDirection:uiLayoutDirection];
-#else
-    NSMenu *nsMenu = [m_pdfLayerController menuForEvent:nsEventForWebMouseEvent(event)];
-#endif
 
     if (!nsMenu)
         return false;
@@ -1773,11 +1694,7 @@ RefPtr<SharedBuffer> PDFPlugin::liveResourceData() const
 bool PDFPlugin::pluginHandlesContentOffsetForAccessibilityHitTest() const
 {
     // The PDF plugin handles the scroll view offset natively as part of the layer conversions.
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     return true;
-#else
-    return false;
-#endif
 }
 
     
@@ -1819,7 +1736,7 @@ void PDFPlugin::writeItemsToPasteboard(NSString *pasteboardName, NSArray *items,
     for (NSString *type in types)
         pasteboardTypes.append(type);
 
-    uint64_t newChangeCount;
+    int64_t newChangeCount;
     auto& webProcess = WebProcess::singleton();
     webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardTypes(pasteboardName, pasteboardTypes),
         Messages::WebPasteboardProxy::SetPasteboardTypes::Reply(newChangeCount), 0);
@@ -2216,7 +2133,6 @@ NSData *PDFPlugin::liveData() const
 
 id PDFPlugin::accessibilityAssociatedPluginParentForElement(WebCore::Element* element) const
 {
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300
     if (!m_activeAnnotation)
         return nil;
 
@@ -2224,9 +2140,6 @@ id PDFPlugin::accessibilityAssociatedPluginParentForElement(WebCore::Element* el
         return nil;
 
     return [m_activeAnnotation->annotation() accessibilityNode];
-#else
-    return nil;
-#endif
 }
 
 NSObject *PDFPlugin::accessibilityObject() const

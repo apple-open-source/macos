@@ -142,22 +142,22 @@ static std::unique_ptr<LinkPreloadResourceClient> createLinkPreloadResourceClien
 {
     switch (resource.type()) {
     case CachedResource::Type::ImageResource:
-        return std::make_unique<LinkPreloadImageResourceClient>(loader, downcast<CachedImage>(resource));
+        return makeUnique<LinkPreloadImageResourceClient>(loader, downcast<CachedImage>(resource));
     case CachedResource::Type::Script:
-        return std::make_unique<LinkPreloadDefaultResourceClient>(loader, downcast<CachedScript>(resource));
+        return makeUnique<LinkPreloadDefaultResourceClient>(loader, downcast<CachedScript>(resource));
     case CachedResource::Type::CSSStyleSheet:
-        return std::make_unique<LinkPreloadStyleResourceClient>(loader, downcast<CachedCSSStyleSheet>(resource));
+        return makeUnique<LinkPreloadStyleResourceClient>(loader, downcast<CachedCSSStyleSheet>(resource));
     case CachedResource::Type::FontResource:
-        return std::make_unique<LinkPreloadFontResourceClient>(loader, downcast<CachedFont>(resource));
+        return makeUnique<LinkPreloadFontResourceClient>(loader, downcast<CachedFont>(resource));
 #if ENABLE(VIDEO_TRACK)
     case CachedResource::Type::TextTrackResource:
-        return std::make_unique<LinkPreloadDefaultResourceClient>(loader, downcast<CachedTextTrack>(resource));
+        return makeUnique<LinkPreloadDefaultResourceClient>(loader, downcast<CachedTextTrack>(resource));
 #endif
     case CachedResource::Type::MediaResource:
         ASSERT(RuntimeEnabledFeatures::sharedFeatures().mediaPreloadingEnabled());
         FALLTHROUGH;
     case CachedResource::Type::RawResource:
-        return std::make_unique<LinkPreloadRawResourceClient>(loader, downcast<CachedRawResource>(resource));
+        return makeUnique<LinkPreloadRawResourceClient>(loader, downcast<CachedRawResource>(resource));
     case CachedResource::Type::MainResource:
     case CachedResource::Type::Icon:
 #if ENABLE(SVG_FONTS)
@@ -265,7 +265,7 @@ std::unique_ptr<LinkPreloadResourceClient> LinkLoader::preloadIfNeeded(const Lin
         return nullptr;
 
     auto options = CachedResourceLoader::defaultCachedResourceOptions();
-    auto linkRequest = createPotentialAccessControlRequest(url, document, params.crossOrigin, WTFMove(options));
+    auto linkRequest = createPotentialAccessControlRequest(url, WTFMove(options), document, params.crossOrigin);
     linkRequest.setPriority(CachedResource::defaultPriorityForResourceType(type.value()));
     linkRequest.setInitiator("link");
     linkRequest.setIgnoreForRequestCount(true);
@@ -283,7 +283,7 @@ std::unique_ptr<LinkPreloadResourceClient> LinkLoader::preloadIfNeeded(const Lin
 
 void LinkLoader::prefetchIfNeeded(const LinkLoadParameters& params, Document& document)
 {
-    if (!params.relAttribute.isLinkPrefetch || !params.href.isValid() || !document.frame() || !m_client.shouldLoadLink())
+    if (!params.href.isValid() || !document.frame())
         return;
 
     ASSERT(RuntimeEnabledFeatures::sharedFeatures().linkPrefetchEnabled());
@@ -316,7 +316,7 @@ void LinkLoader::cancelLoad()
         m_preloadResourceClient->clear();
 }
 
-bool LinkLoader::loadLink(const LinkLoadParameters& params, Document& document)
+void LinkLoader::loadLink(const LinkLoadParameters& params, Document& document)
 {
     if (params.relAttribute.isDNSPrefetch) {
         // FIXME: The href attribute of the link element can be in "//hostname" form, and we shouldn't attempt
@@ -327,6 +327,11 @@ bool LinkLoader::loadLink(const LinkLoadParameters& params, Document& document)
 
     preconnectIfNeeded(params, document);
 
+    if (params.relAttribute.isLinkPrefetch) {
+        prefetchIfNeeded(params, document);
+        return;
+    }
+
     if (m_client.shouldLoadLink()) {
         auto resourceClient = preloadIfNeeded(params, document, this);
         if (m_preloadResourceClient)
@@ -334,10 +339,6 @@ bool LinkLoader::loadLink(const LinkLoadParameters& params, Document& document)
         if (resourceClient)
             m_preloadResourceClient = WTFMove(resourceClient);
     }
-
-    prefetchIfNeeded(params, document);
-
-    return true;
 }
 
 }

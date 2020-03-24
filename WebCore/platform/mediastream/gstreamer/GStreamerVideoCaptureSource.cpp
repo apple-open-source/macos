@@ -28,11 +28,12 @@
 #include "MediaSampleGStreamer.h"
 
 #include <gst/app/gstappsink.h>
-#include <webrtc/api/mediastreaminterface.h>
-#include <webrtc/api/peerconnectioninterface.h>
-#include <webrtc/media/base/videocommon.h>
-#include <webrtc/media/engine/webrtcvideocapturer.h>
-#include <webrtc/media/engine/webrtcvideocapturerfactory.h>
+#include <webrtc/api/media_stream_interface.h>
+#include <webrtc/api/peer_connection_interface.h>
+#include <webrtc/media/base/video_common.h>
+// #include <webrtc/media/engine/video_capturer.h>
+// #include <webrtc/media/engine/video_capturer_factory.h>
+#include <webrtc/modules/video_capture/video_capture_factory.h>
 #include <webrtc/modules/video_capture/video_capture_defines.h>
 
 namespace WebCore {
@@ -127,14 +128,14 @@ DisplayCaptureFactory& GStreamerVideoCaptureSource::displayFactory()
 
 GStreamerVideoCaptureSource::GStreamerVideoCaptureSource(String&& deviceID, String&& name, String&& hashSalt, const gchar *source_factory)
     : RealtimeVideoCaptureSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt))
-    , m_capturer(std::make_unique<GStreamerVideoCapturer>(source_factory))
+    , m_capturer(makeUnique<GStreamerVideoCapturer>(source_factory))
 {
     initializeGStreamerDebug();
 }
 
 GStreamerVideoCaptureSource::GStreamerVideoCaptureSource(GStreamerCaptureDevice device, String&& hashSalt)
     : RealtimeVideoCaptureSource(String { device.persistentId() }, String { device.label() }, WTFMove(hashSalt))
-    , m_capturer(std::make_unique<GStreamerVideoCapturer>(device))
+    , m_capturer(makeUnique<GStreamerVideoCapturer>(device))
 {
     initializeGStreamerDebug();
 }

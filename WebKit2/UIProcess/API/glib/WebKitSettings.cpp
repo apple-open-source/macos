@@ -35,6 +35,7 @@
 #include "WebKitSettingsPrivate.h"
 #include "WebPageProxy.h"
 #include "WebPreferences.h"
+#include <WebCore/HTTPParsers.h>
 #include <WebCore/PlatformScreen.h>
 #include <WebCore/TextEncodingRegistry.h>
 #include <WebCore/UserAgent.h>
@@ -184,9 +185,6 @@ static void webKitSettingsConstructed(GObject* object)
     WebPreferences* prefs = settings->priv->preferences.get();
     prefs->setShouldRespectImageOrientation(true);
 
-    if (g_getenv("WEBKIT_WEBRTC_DISABLE_UNIFIED_PLAN"))
-        prefs->setWebRTCUnifiedPlanEnabled(FALSE);
-
     bool mediaStreamEnabled = prefs->mediaStreamEnabled();
     prefs->setMediaDevicesEnabled(mediaStreamEnabled);
     prefs->setPeerConnectionEnabled(mediaStreamEnabled);
@@ -286,7 +284,8 @@ static void webKitSettingsSetProperty(GObject* object, guint propId, const GValu
 #if PLATFORM(GTK)
     case PROP_ENABLE_PRIVATE_BROWSING:
         G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
-        webkit_settings_set_enable_private_browsing(settings, g_value_get_boolean(value));
+        if (g_value_get_boolean(value))
+            webkit_settings_set_enable_private_browsing(settings, TRUE);
         G_GNUC_END_IGNORE_DEPRECATIONS;
         break;
 #endif
@@ -1442,8 +1441,8 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
      *
      * The #WebKitHardwareAccelerationPolicy to decide how to enable and disable
      * hardware acceleration. The default value %WEBKIT_HARDWARE_ACCELERATION_POLICY_ON_DEMAND
-     * enables the hardware acceleration when the web contents request it, disabling it again
-     * when no longer needed. It's possible to enforce hardware acceleration to be always enabled
+     * enables the hardware acceleration when the web contents request it.
+     * It's possible to enforce hardware acceleration to be always enabled
      * by using %WEBKIT_HARDWARE_ACCELERATION_POLICY_ALWAYS. And it's also possible to disable it
      * completely using %WEBKIT_HARDWARE_ACCELERATION_POLICY_NEVER. Note that disabling hardware
      * acceleration might cause some websites to not render correctly or consume more CPU.
@@ -2390,7 +2389,7 @@ gboolean webkit_settings_get_enable_private_browsing(WebKitSettings* settings)
 {
     g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
 
-    return settings->priv->preferences->privateBrowsingEnabled();
+    return FALSE;
 }
 
 /**
@@ -2406,13 +2405,7 @@ void webkit_settings_set_enable_private_browsing(WebKitSettings* settings, gbool
 {
     g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
 
-    WebKitSettingsPrivate* priv = settings->priv;
-    bool currentValue = priv->preferences->privateBrowsingEnabled();
-    if (currentValue == enabled)
-        return;
-
-    priv->preferences->setPrivateBrowsingEnabled(enabled);
-    g_object_notify(G_OBJECT(settings), "enable-private-browsing");
+    g_warning("webkit_settings_set_enable_private_browsing is deprecated and does nothing, use #WebKitWebView:is-ephemeral or #WebKitWebContext:is-ephemeral instead");
 }
 #endif
 
@@ -2991,7 +2984,7 @@ gboolean webkit_settings_get_enable_page_cache(WebKitSettings* settings)
 {
     g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
 
-    return settings->priv->preferences->usesPageCache();
+    return settings->priv->preferences->usesBackForwardCache();
 }
 
 /**
@@ -3006,11 +2999,11 @@ void webkit_settings_set_enable_page_cache(WebKitSettings* settings, gboolean en
     g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
 
     WebKitSettingsPrivate* priv = settings->priv;
-    bool currentValue = priv->preferences->usesPageCache();
+    bool currentValue = priv->preferences->usesBackForwardCache();
     if (currentValue == enabled)
         return;
 
-    priv->preferences->setUsesPageCache(enabled);
+    priv->preferences->setUsesBackForwardCache(enabled);
     g_object_notify(G_OBJECT(settings), "enable-page-cache");
 }
 
@@ -3043,7 +3036,15 @@ void webkit_settings_set_user_agent(WebKitSettings* settings, const char* userAg
     g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
 
     WebKitSettingsPrivate* priv = settings->priv;
-    CString newUserAgent = (!userAgent || !strlen(userAgent)) ? WebCore::standardUserAgent("").utf8() : userAgent;
+
+    String userAgentString;
+    if (userAgent && *userAgent) {
+        userAgentString = String::fromUTF8(userAgent);
+        g_return_if_fail(WebCore::isValidUserAgentHeaderValue(userAgentString));
+    } else
+        userAgentString = WebCore::standardUserAgent("");
+
+    CString newUserAgent = userAgentString.utf8();
     if (newUserAgent == priv->userAgent)
         return;
 
@@ -3548,6 +3549,7 @@ void webkit_settings_set_hardware_acceleration_policy(WebKitSettings* settings, 
         }
         if (!priv->preferences->forceCompositingMode()) {
             priv->preferences->setForceCompositingMode(true);
+            priv->preferences->setThreadedScrollingEnabled(true);
             changed = true;
         }
         break;
@@ -3561,6 +3563,7 @@ void webkit_settings_set_hardware_acceleration_policy(WebKitSettings* settings, 
 
         if (priv->preferences->forceCompositingMode()) {
             priv->preferences->setForceCompositingMode(false);
+            priv->preferences->setThreadedScrollingEnabled(false);
             changed = true;
         }
         break;
@@ -3572,6 +3575,7 @@ void webkit_settings_set_hardware_acceleration_policy(WebKitSettings* settings, 
 
         if (priv->preferences->forceCompositingMode() && !HardwareAccelerationManager::singleton().forceHardwareAcceleration()) {
             priv->preferences->setForceCompositingMode(false);
+            priv->preferences->setThreadedScrollingEnabled(false);
             changed = true;
         }
         break;

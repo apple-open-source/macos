@@ -48,4 +48,6 @@ int hfs_removefile(struct vnode *dvp, struct vnode *vp, struct componentname *cn
 int hfs_vnop_renamex(struct vnode *fdvp,struct vnode *fvp, struct componentname *fcnp, struct vnode *tdvp, struct vnode *tvp, struct componentname *tcnp);
 int hfs_vnop_link(vnode_t vp, vnode_t tdvp, struct componentname *cnp);
 int hfs_removefile_callback(GenericLFBuf *psBuff, void *pvArgs);
+
+int  hfs_vgetrsrc( struct vnode *vp, struct vnode **rvpp);
 #endif /* lf_hfs_vnops_h */

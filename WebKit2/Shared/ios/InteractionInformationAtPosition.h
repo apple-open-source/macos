@@ -30,6 +30,8 @@
 #include "ArgumentCoders.h"
 #include "InteractionInformationRequest.h"
 #include "ShareableBitmap.h"
+#include <WebCore/Cursor.h>
+#include <WebCore/ElementContext.h>
 #include <WebCore/IntPoint.h>
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/SelectionRect.h>
@@ -50,12 +52,9 @@ struct InteractionInformationAtPosition {
     InteractionInformationRequest request;
 
     bool canBeValid { true };
-    bool nodeAtPositionIsFocusedElement { false };
     bool nodeAtPositionHasDoubleClickHandler { false };
-#if ENABLE(DATA_INTERACTION)
-    bool hasSelectionAtPosition { false };
-#endif
     bool isSelectable { false };
+    bool prefersDraggingOverTextSelection { false };
     bool isNearMarkedText { false };
     bool touchCalloutEnabled { true };
     bool isLink { false };
@@ -70,6 +69,7 @@ struct InteractionInformationAtPosition {
 #if ENABLE(DATALIST_ELEMENT)
     bool preventTextInteraction { false };
 #endif
+    bool shouldNotUseIBeamInEditableContent { false };
     WebCore::FloatPoint adjustedPointForNodeRespondingToClickEvents;
     URL url;
     URL imageURL;
@@ -83,11 +83,18 @@ struct InteractionInformationAtPosition {
     String textBefore;
     String textAfter;
 
+    float caretHeight { 0 };
+    WebCore::FloatRect lineCaretExtent;
+
+    Optional<WebCore::Cursor> cursor;
+
     WebCore::TextIndicatorData linkIndicator;
 #if ENABLE(DATA_DETECTION)
     String dataDetectorIdentifier;
     RetainPtr<NSArray> dataDetectorResults;
 #endif
+
+    Optional<WebCore::ElementContext> elementContext;
 
     // Copy compatible optional bits forward (for example, if we have a InteractionInformationAtPosition
     // with snapshots in it, and perform another request for the same point without requesting the snapshots,

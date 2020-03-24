@@ -18,7 +18,6 @@
 #import "keychain/ot/OctagonControlServer.h"
 #import "keychain/ot/OTJoiningConfiguration.h"
 #import "keychain/ot/proto/generated_source/OTPairingMessage.h"
-#import "keychain/ot/proto/generated_source/OTSOSMessage.h"
 #import "keychain/ot/proto/generated_source/OTApplicantToSponsorRound2M1.h"
 #import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound2M2.h"
 #import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound1M2.h"
@@ -109,6 +108,7 @@ typedef void(^OTNextState)(NSData *inData, OTPairingInternalCompletion complete)
 @property (assign) bool initiator;
 @property (assign) unsigned counter;
 @property (assign) bool acceptorWillSendInitialSyncCredentials;
+@property (assign) uint32_t acceptorInitialSyncCredentialsFlags;
 @property (strong) NSXPCConnection *connection;
 @property (strong) OTControl *otControl;
 @property (strong) NSString* contextID;
@@ -170,6 +170,7 @@ typedef void(^OTNextState)(NSData *inData, OTPairingInternalCompletion complete)
         _joiningConfiguration = [[OTJoiningConfiguration alloc]initWithProtocolType:OTProtocolPairing
                                                                      uniqueDeviceID:peerVersionContext.uniqueDeviceID
                                                                      uniqueClientID:peerVersionContext.uniqueClientID
+                                                                        pairingUUID:[[NSUUID UUID] UUIDString]
                                                                       containerName:nil
                                                                           contextID:OTDefaultContext
                                                                               epoch:0
@@ -207,7 +208,7 @@ typedef void(^OTNextState)(NSData *inData, OTPairingInternalCompletion complete)
 const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 #define EXTRA_SIZE 100
 
-- (NSData *)compressData:(NSData *)data
++ (NSData *)pairingChannelCompressData:(NSData *)data
 {
     NSMutableData *scratch = [NSMutableData dataWithLength:compression_encode_scratch_buffer_size(pairingCompression)];
 
@@ -226,7 +227,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     return o;
 }
 
-- (NSData *)decompressData:(NSData *)data
++ (NSData *)pairingChannelDecompressData:(NSData *)data
 {
     NSMutableData *scratch = [NSMutableData dataWithLength:compression_decode_scratch_buffer_size(pairingCompression)];
 
@@ -499,7 +500,10 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
         OTSponsorToApplicantRound2M2 *voucher = pairingMessage.voucher;
 
         //handle voucher and join octagon
-        [self.otControl rpcJoinWithConfiguration:self.joiningConfiguration vouchData:voucher.voucher vouchSig:voucher.voucherSignature preapprovedKeys:voucher.preapprovedKeys reply:^(NSError *error) {
+        [self.otControl rpcJoinWithConfiguration:self.joiningConfiguration
+                                       vouchData:voucher.voucher
+                                        vouchSig:voucher.voucherSignature
+                                           reply:^(NSError *error) {
             if (error || self.testFailOctagon) {
                 secerror("ot-pairing: failed to create %d message: %@", self.counter, error);
                 complete(true, NULL, error);
@@ -507,7 +511,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             }else{
                 secnotice(pairingScope, "initiatorThirdPacket successfully joined Octagon");
                 typeof(self) strongSelf = weakSelf;
-                if(OctagonPlatformSupportsSOS() && strongSelf->_acceptorWillSendInitialSyncCredentials == true) {
+                if(OctagonPlatformSupportsSOS() && strongSelf->_acceptorWillSendInitialSyncCredentials) {
                     strongSelf.nextState = ^(NSDictionary *nsdata, KCPairingInternalCompletion kscomplete){
                         [weakSelf initiatorFourthPacket:nsdata complete:kscomplete];
                     };
@@ -567,6 +571,11 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
     if (self.sessionSupportsSOS && indata[@"d"]) {
         secnotice("pairing", "acceptor initialSyncCredentials requested");
         self.acceptorWillSendInitialSyncCredentials = true;
+        self.acceptorInitialSyncCredentialsFlags =
+            SOSControlInitialSyncFlagTLK|
+            SOSControlInitialSyncFlagPCS|
+            SOSControlInitialSyncFlagBluetoothMigration;
+
     }
 
     if (indata[@"o"] == nil) {
@@ -749,6 +758,12 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             response.voucher = [[OTSponsorToApplicantRound2M2 alloc] init];
             response.voucher.voucher = voucher;
             response.voucher.voucherSignature = voucherSig;
+
+            if (self.acceptorWillSendInitialSyncCredentials) {
+                // no need to share TLKs over the pairing channel, that's provided by octagon
+                self.acceptorInitialSyncCredentialsFlags &= ~(SOSControlInitialSyncFlagTLK | SOSControlInitialSyncFlagPCS);
+            }
+
             reply[@"o"] = response.data;
 
             secnotice("pairing", "acceptor reply to packet 2");
@@ -761,10 +776,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 {
     secnotice("pairing", "acceptor packet 3");
 
-    const uint32_t initialSyncCredentialsFlags =
-        SOSControlInitialSyncFlagTLK|
-        SOSControlInitialSyncFlagPCS|
-        SOSControlInitialSyncFlagBluetoothMigration;
+    const uint32_t initialSyncCredentialsFlags = self.acceptorInitialSyncCredentialsFlags;
 
     [[self.connection remoteObjectProxyWithErrorHandler:^(NSError * _Nonnull error) {
         complete(true, NULL, error);
@@ -824,7 +836,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
     if (inputCompressedData) {
 
-        NSData *data = [self decompressData:inputCompressedData];
+        NSData *data = [[self class] pairingChannelDecompressData:inputCompressedData];
         if (data == NULL) {
             secnotice("pairing", "failed to decompress");
             complete(true, NULL, NULL);
@@ -849,7 +861,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             if (outdata == NULL && error)
                 error = error2;
             if (outdata)
-                compressedData = [self compressData:outdata];
+                compressedData = [[self class] pairingChannelCompressData:outdata];
 
             if (compressedData) {
                 NSString *key = [NSString stringWithFormat:@"com.apple.ckks.pairing.packet-size.%s.%u",

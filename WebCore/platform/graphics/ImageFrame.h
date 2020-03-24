@@ -61,7 +61,6 @@ public:
     bool isComplete() const { return m_decodingStatus == DecodingStatus::Complete; }
 
     IntSize size() const;
-    IntSize sizeRespectingOrientation() const { return !m_orientation.usesWidthAsHeight() ? size() : size().transposedSize(); }
     unsigned frameBytes() const { return hasNativeImage() ? (size().area() * sizeof(uint32_t)).unsafeGet() : 0; }
     SubsamplingLevel subsamplingLevel() const { return m_subsamplingLevel; }
 
@@ -91,7 +90,7 @@ private:
     SubsamplingLevel m_subsamplingLevel { SubsamplingLevel::Default };
     DecodingOptions m_decodingOptions;
 
-    ImageOrientation m_orientation { DefaultImageOrientation };
+    ImageOrientation m_orientation { ImageOrientation::None };
     Seconds m_duration;
     bool m_hasAlpha { true };
 };

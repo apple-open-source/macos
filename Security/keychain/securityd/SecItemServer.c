@@ -1157,19 +1157,16 @@ SecDbRef SecKeychainDbCreate(CFStringRef path, CFErrorRef* error) {
 SecDbRef SecKeychainDbInitialize(SecDbRef db) {
 
 #if OCTAGON
-    if(SecCKKSIsEnabled()) {
-        // This needs to be async, otherwise we get hangs between securityd, cloudd, and apsd
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-            SecCKKSInitialize(db);
-
-        });
-    }
-
-    if(OctagonIsEnabled() && OctagonShouldPerformInitialization()) {
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+    // This needs to be async, otherwise we get hangs between securityd, cloudd, and apsd
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        if(OctagonIsEnabled() && OctagonShouldPerformInitialization()) {
             OctagonInitialize();
-        });
-    }
+        }
+
+        if(SecCKKSIsEnabled()) {
+            SecCKKSInitialize(db);
+        }
+    });
 
     if(EscrowRequestServerIsEnabled()) {
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
@@ -1219,6 +1216,16 @@ static SecDbRef kc_dbhandle(CFErrorRef* error)
         }
     });
     return _kc_dbhandle;
+}
+
+/* whitebox testing only, and I really hope you call DbReset soon */
+void SecKeychainDbForceClose(void)
+{
+    dispatch_sync(get_kc_dbhandle_dispatch(), ^{
+        if(_kc_dbhandle) {
+            SecDbForceClose(_kc_dbhandle);
+        }
+    });
 }
 
 /* For whitebox testing only */

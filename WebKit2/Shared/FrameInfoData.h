@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <WebCore/FrameIdentifier.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/SecurityOriginData.h>
 
@@ -37,12 +38,12 @@ namespace WebKit {
 
 struct FrameInfoData {
     void encode(IPC::Encoder&) const;
-    static bool decode(IPC::Decoder&, FrameInfoData&);
+    static Optional<FrameInfoData> decode(IPC::Decoder&);
 
     bool isMainFrame { false };
     WebCore::ResourceRequest request;
     WebCore::SecurityOriginData securityOrigin;
-    uint64_t frameID { 0 };
+    Optional<WebCore::FrameIdentifier> frameID;
 };
 
 }

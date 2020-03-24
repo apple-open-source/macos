@@ -29,6 +29,7 @@
 #include "AuxiliaryProcessProxy.h"
 #include "DownloadProxy.h"
 #include "DownloadProxyMessages.h"
+#include "Logging.h"
 #include "MessageReceiverMap.h"
 #include "NetworkProcessMessages.h"
 #include "NetworkProcessProxy.h"
@@ -79,20 +80,20 @@ void DownloadProxyMap::applicationWillEnterForeground()
         m_process->send(Messages::NetworkProcess::ApplicationWillEnterForeground(), 0);
 }
 
-DownloadProxy& DownloadProxyMap::createDownloadProxy(WebProcessPool& processPool, const WebCore::ResourceRequest& resourceRequest)
+DownloadProxy& DownloadProxyMap::createDownloadProxy(WebsiteDataStore& dataStore, WebProcessPool& processPool, const WebCore::ResourceRequest& resourceRequest, const FrameInfoData& frameInfo, WebPageProxy* originatingPage)
 {
-    auto downloadProxy = DownloadProxy::create(*this, processPool, resourceRequest);
+    auto downloadProxy = DownloadProxy::create(*this, dataStore, processPool, resourceRequest, frameInfo, originatingPage);
     m_downloads.set(downloadProxy->downloadID(), downloadProxy.copyRef());
 
     RELEASE_LOG(Loading, "Adding download %" PRIu64 " to UIProcess DownloadProxyMap", downloadProxy->downloadID().downloadID());
 
     if (m_downloads.size() == 1 && m_shouldTakeAssertion) {
         ASSERT(!m_downloadUIAssertion);
-        m_downloadUIAssertion = std::make_unique<ProcessAssertion>(getCurrentProcessID(), "WebKit downloads"_s, AssertionState::UnboundedNetworking);
+        m_downloadUIAssertion = makeUnique<ProcessAssertion>(getCurrentProcessID(), "WebKit downloads"_s, AssertionState::UnboundedNetworking);
 
         ASSERT(!m_downloadNetworkingAssertion);
         RELEASE_ASSERT(m_process);
-        m_downloadNetworkingAssertion = std::make_unique<ProcessAssertion>(m_process->processIdentifier(), "WebKit downloads"_s, AssertionState::UnboundedNetworking);
+        m_downloadNetworkingAssertion = makeUnique<ProcessAssertion>(m_process->processIdentifier(), "WebKit downloads"_s, AssertionState::UnboundedNetworking);
 
         RELEASE_LOG(ProcessSuspension, "UIProcess took 'WebKit downloads' assertions for UIProcess and NetworkProcess");
     }

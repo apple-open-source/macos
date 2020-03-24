@@ -201,7 +201,7 @@ exit:
 }
 
 int
-LFHFS_Remove ( UVFSFileNode psDirNode, const char *pcUTF8Name, __unused  UVFSFileNode victimNode)
+LFHFS_Remove ( UVFSFileNode psDirNode, const char *pcUTF8Name, __unused UVFSFileNode victimNode)
 {
     LFHFS_LOG(LEVEL_DEBUG, "LFHFS_Remove\n");
     VERIFY_NODE_IS_VALID(psDirNode);

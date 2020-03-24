@@ -25,12 +25,9 @@
 
 #pragma once
 
+#include "WebPageProxyIdentifier.h"
 #include <WebCore/FrameLoaderClient.h>
 #include <pal/SessionID.h>
-
-namespace PAL {
-class SessionID;
-}
 
 namespace WebKit {
 
@@ -52,16 +49,15 @@ public:
 
     void applyToDocumentLoader(WebsitePoliciesData&&);
 
+    Optional<WebPageProxyIdentifier> webPageProxyID() const;
     Optional<WebCore::PageIdentifier> pageID() const final;
-    Optional<uint64_t> frameID() const final;
-    PAL::SessionID sessionID() const final;
+    Optional<WebCore::FrameIdentifier> frameID() const final;
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     bool hasFrameSpecificStorageAccess() final { return !!m_frameSpecificStorageAccessIdentifier; }
     
     struct FrameSpecificStorageAccessIdentifier {
-        PAL::SessionID sessionID;
-        uint64_t frameID;
+        WebCore::FrameIdentifier frameID;
         WebCore::PageIdentifier pageID;
     };
     void setHasFrameSpecificStorageAccess(FrameSpecificStorageAccessIdentifier&&);
@@ -75,7 +71,7 @@ private:
     
     void makeRepresentation(WebCore::DocumentLoader*) final;
 #if PLATFORM(IOS_FAMILY)
-    bool forceLayoutOnRestoreFromPageCache() final;
+    bool forceLayoutOnRestoreFromBackForwardCache() final;
 #endif
     void forceLayoutForNonHTML() final;
     
@@ -118,12 +114,12 @@ private:
     void dispatchWillClose() final;
     void dispatchDidStartProvisionalLoad() final;
     void dispatchDidReceiveTitle(const WebCore::StringWithDirection&) final;
-    void dispatchDidCommitLoad(Optional<WebCore::HasInsecureContent>) final;
+    void dispatchDidCommitLoad(Optional<WebCore::HasInsecureContent>, Optional<WebCore::UsedLegacyTLS>) final;
     void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&, WebCore::WillContinueLoading) final;
     void dispatchDidFailLoad(const WebCore::ResourceError&) final;
     void dispatchDidFinishDocumentLoad() final;
     void dispatchDidFinishLoad() final;
-    void dispatchDidExplicitOpen(const URL&) final;
+    void dispatchDidExplicitOpen(const URL&, const String& mimeType) final;
 
     void dispatchDidReachLayoutMilestone(OptionSet<WebCore::LayoutMilestone>) final;
     void dispatchDidLayout() final;
@@ -210,13 +206,12 @@ private:
 #endif
     void transitionToCommittedForNewPage() final;
 
-    void didSaveToPageCache() final;
-    void didRestoreFromPageCache() final;
+    void didRestoreFromBackForwardCache() final;
 
     void dispatchDidBecomeFrameset(bool) final;
 
     bool canCachePage() const final;
-    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, PAL::SessionID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&) final;
+    void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&) final;
 
     RefPtr<WebCore::Frame> createFrame(const URL&, const String& name, WebCore::HTMLFrameOwnerElement&, const String& referrer) final;
 
@@ -261,7 +256,7 @@ private:
     void forcePageTransitionIfNeeded() final;
 
 #if USE(QUICK_LOOK)
-    RefPtr<WebCore::PreviewLoaderClient> createPreviewLoaderClient(const String& fileName, const String& uti) final;
+    RefPtr<WebCore::LegacyPreviewLoaderClient> createPreviewLoaderClient(const String& fileName, const String& uti) final;
 #endif
 
 #if ENABLE(CONTENT_FILTERING)
@@ -286,7 +281,7 @@ private:
     bool m_hasSentResponseToPluginView;
     bool m_didCompletePageTransition;
     bool m_frameHasCustomContentProvider;
-    bool m_frameCameFromPageCache;
+    bool m_frameCameFromBackForwardCache;
     bool m_useIconLoadingClient { false };
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     Optional<FrameSpecificStorageAccessIdentifier> m_frameSpecificStorageAccessIdentifier;

@@ -40,6 +40,7 @@
 namespace WebCore {
 
 class CDMFactoryClearKey final : public CDMFactory {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     static CDMFactoryClearKey& singleton();
 
@@ -54,6 +55,7 @@ private:
 };
 
 class CDMPrivateClearKey final : public CDMPrivate {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     CDMPrivateClearKey();
     virtual ~CDMPrivateClearKey();
@@ -73,6 +75,20 @@ public:
     bool supportsInitData(const AtomString&, const SharedBuffer&) const final;
     RefPtr<SharedBuffer> sanitizeResponse(const SharedBuffer&) const final;
     Optional<String> sanitizeSessionId(const String&) const final;
+};
+
+class ProxyCDMClearKey final : public ProxyCDM {
+public:
+    struct Key {
+        CDMInstanceSession::KeyStatus status;
+        String keyIDData;
+        String keyValueData;
+    };
+
+    virtual ~ProxyCDMClearKey() = default;
+    const Vector<Key> isolatedKeys() const;
+private:
+    mutable Lock m_keysMutex;
 };
 
 class CDMInstanceClearKey final : public CDMInstance, public CanMakeWeakPtr<CDMInstanceClearKey> {
@@ -96,10 +112,10 @@ public:
         RefPtr<SharedBuffer> keyValueData;
     };
 
-    const Vector<Key> keys() const;
+    RefPtr<ProxyCDM> proxyCDM() const final { return m_proxyCDM; }
 
 private:
-    mutable Lock m_keysMutex;
+    RefPtr<ProxyCDM> m_proxyCDM;
 };
 
 class CDMInstanceSessionClearKey final : public CDMInstanceSession, public CanMakeWeakPtr<CDMInstanceSessionClearKey> {

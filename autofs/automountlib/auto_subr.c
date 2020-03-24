@@ -88,6 +88,19 @@ rosv_data_volume_prefix(size_t *lenp)
 	return data_path;
 }
 
+bool_t
+has_rosv_data_volume_prefix(const char *path, size_t *lenp)
+{
+	size_t prefix_len;
+	const char *prefix = rosv_data_volume_prefix(&prefix_len);
+	bool_t rv;
+
+	rv = strncmp(path, prefix, prefix_len) == 0;
+	if (lenp)
+		*lenp = prefix_len;
+	return rv;
+}
+
 char *
 automount_realpath(const char *file_name, char *resolved_name)
 {

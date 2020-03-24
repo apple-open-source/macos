@@ -27,8 +27,10 @@
 
 #if ENABLE(WEBGPU)
 
+#include "WHLSLError.h"
 #include "WHLSLNameContext.h"
 #include "WHLSLVisitor.h"
+#include <wtf/Expected.h>
 #include <wtf/HashSet.h>
 
 namespace WebCore {
@@ -43,6 +45,8 @@ public:
     NameResolver(NameResolver&, NameContext&);
 
     virtual ~NameResolver();
+
+    void setCurrentNameSpace(AST::NameSpace nameSpace) { m_currentNameSpace = nameSpace; }
 
 private:
     void visit(AST::FunctionDefinition&) override;
@@ -61,10 +65,11 @@ private:
     NameContext& m_nameContext;
     HashSet<AST::TypeReference*> m_typeReferences;
     NameResolver* m_parentNameResolver { nullptr };
+    AST::NameSpace m_currentNameSpace { AST::NameSpace::StandardLibrary };
 };
 
-bool resolveNamesInTypes(Program&, NameResolver&);
-bool resolveTypeNamesInFunctions(Program&, NameResolver&);
+Expected<void, Error> resolveNamesInTypes(Program&, NameResolver&);
+Expected<void, Error> resolveTypeNamesInFunctions(Program&, NameResolver&);
 
 } // namespace WHLSL
 

@@ -1670,7 +1670,18 @@ See remaining rules for examples.
 			<key>timeout</key>
 			<integer>300</integer>
 		</dict>
-		<key>com.apple.system-extensions.admin</key>
+        <key>com.apple.tcc.util.admin</key>
+        <dict>
+             <key>comment</key>
+             <string>For modification of TCC settings.</string>
+             <key>class</key>
+             <string>rule</string>
+             <key>rule</key>
+             <string>authenticate-admin-nonshared</string>
+             <key>shared</key>
+             <false/>
+         </dict>
+        <key>com.apple.system-extensions.admin</key>
 		<dict>
 			<key>comment</key>
 			<string>Authorize a 3rd party application which wants to manipulate system extensions.</string>

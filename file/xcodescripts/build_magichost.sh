@@ -43,7 +43,7 @@ env -i \
 		-target file \
 		-sdk "macosx" \
 		SRCROOT="${SRCROOT}" \
-		OBJROOT="${OBJROOT}" \
+		OBJROOT="${OBJROOT}/build_magichost" \
 		SYMROOT="${MAGICHOST_SYMROOT}" \
 		DSTROOT="${MAGICHOST_DSTROOT}" \
 		ARCHS='$(NATIVE_ARCH_ACTUAL)' \

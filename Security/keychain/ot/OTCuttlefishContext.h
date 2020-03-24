@@ -35,6 +35,7 @@
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "OTDeviceInformation.h"
+#import "keychain/ot/OTConstants.h"
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTClique.h"
 #import "keychain/ot/OTFollowup.h"
@@ -76,15 +77,13 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) CKKSLockStateTracker        *lockStateTracker;
 @property (nonatomic, readonly) OTCuttlefishAccountStateHolder* accountMetadataStore;
 @property (readonly) OctagonStateMachine* stateMachine;
-@property (readonly) BOOL postedRepairCFU;
-@property (readonly) BOOL postedEscrowRepairCFU;
-@property (readonly) BOOL postedRecoveryKeyCFU;
 @property (nullable, nonatomic) CKKSNearFutureScheduler* apsRateLimiter;
 @property (nullable, nonatomic) CKKSNearFutureScheduler* sosConsistencyRateLimiter;
 
 @property (readonly, nullable) CKKSViewManager*             viewManager;
 
 // Dependencies (for injection)
+@property (readonly) id<OTDeviceInformationAdapter> deviceAdapter;
 @property id<OTAuthKitAdapter> authKitAdapter;
 
 @property dispatch_queue_t queue;
@@ -107,6 +106,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)accountNoLongerAvailable:(NSError**)error;
 - (BOOL)idmsTrustLevelChanged:(NSError**)error;
 
+// Call these to manipulate the "CDP-ness" of the account
+// Note that there is no way to turn CDP back off again
+- (OTCDPStatus)getCDPStatus:(NSError* __autoreleasing *)error;
+- (BOOL)setCDPEnabled:(NSError* __autoreleasing *)error;
+
 - (void)deviceNameUpdated;
 
 - (void)startOctagonStateMachine;
@@ -122,7 +126,6 @@ NS_ASSUME_NONNULL_BEGIN
                                                               NSError * _Nullable error))reply;
 - (void)rpcJoin:(NSData*)vouchData
        vouchSig:(NSData*)vouchSig
-preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
           reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)rpcResetAndEstablish:(CuttlefishResetReason)resetReason reply:(nonnull void (^)(NSError * _Nullable))reply;
@@ -165,6 +168,8 @@ preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
                                       NSError* _Nullable error))reply;
 - (void)rpcSetRecoveryKey:(NSString*)recoveryKey reply:(void (^)(NSError * _Nullable error))reply;
 
+- (void)rpcRefetchCKKSPolicy:(void (^)(NSError * _Nullable error))reply;
+
 - (void)requestTrustedDeviceListRefresh;
 
 - (OTDeviceInformation*)prepareInformation;
@@ -178,24 +183,24 @@ preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
 
 - (void)waitForOctagonUpgrade:(void (^)(NSError* error))reply NS_SWIFT_NAME(waitForOctagonUpgrade(reply:));
 
-- (void)clearPendingCFUFlags;
-
 - (BOOL)waitForReady:(int64_t)timeOffset;
 
 
 // For testing.
-- (void)setPostedBool:(BOOL)posted;
 - (OTAccountMetadataClassC_AccountState)currentMemoizedAccountState;
 - (OTAccountMetadataClassC_TrustState)currentMemoizedTrustState;
 - (NSDate* _Nullable) currentMemoizedLastHealthCheck;
 - (void) checkTrustStatusAndPostRepairCFUIfNecessary:(void (^ _Nullable)(CliqueStatus status, BOOL posted, BOOL hasIdentity, NSError * _Nullable error))reply;
 - (void) setAccountStateHolder:(OTCuttlefishAccountStateHolder*)accountMetadataStore;
 
+- (void)clearCKKSViewManager;
+
+@property (nullable) TPPolicyVersion* policyOverride;
+
 // Octagon Health Check Helpers
 - (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck reply:(void (^)(NSError * _Nullable error))reply;
 - (BOOL)postRepairCFU:(NSError**)error;
 - (void)postConfirmPasscodeCFU:(NSError**)error;
-- (void)postRecoveryKeyCFU:(NSError**)error;
 
 // For reporting
 - (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error NS_SWIFT_NOTHROW;

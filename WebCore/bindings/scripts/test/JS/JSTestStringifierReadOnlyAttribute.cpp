@@ -21,6 +21,7 @@
 #include "config.h"
 #include "JSTestStringifierReadOnlyAttribute.h"
 
+#include "ActiveDOMObject.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -30,7 +31,7 @@
 #include "JSDOMWrapperCache.h"
 #include "ScriptExecutionContext.h"
 #include <JavaScriptCore/FunctionPrototype.h>
-#include <JavaScriptCore/HeapSnapshotBuilder.h>
+#include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
@@ -42,13 +43,13 @@ using namespace JSC;
 
 // Functions
 
-JSC::EncodedJSValue JSC_HOST_CALL jsTestStringifierReadOnlyAttributePrototypeFunctionToString(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL jsTestStringifierReadOnlyAttributePrototypeFunctionToString(JSC::JSGlobalObject*, JSC::CallFrame*);
 
 // Attributes
 
-JSC::EncodedJSValue jsTestStringifierReadOnlyAttributeConstructor(JSC::ExecState*, JSC::EncodedJSValue, JSC::PropertyName);
-bool setJSTestStringifierReadOnlyAttributeConstructor(JSC::ExecState*, JSC::EncodedJSValue, JSC::EncodedJSValue);
-JSC::EncodedJSValue jsTestStringifierReadOnlyAttributeIdentifier(JSC::ExecState*, JSC::EncodedJSValue, JSC::PropertyName);
+JSC::EncodedJSValue jsTestStringifierReadOnlyAttributeConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
+bool setJSTestStringifierReadOnlyAttributeConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
+JSC::EncodedJSValue jsTestStringifierReadOnlyAttributeIdentifier(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
 
 class JSTestStringifierReadOnlyAttributePrototype : public JSC::JSNonFinalObject {
 public:
@@ -74,6 +75,7 @@ private:
 
     void finishCreation(JSC::VM&);
 };
+STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestStringifierReadOnlyAttributePrototype, JSTestStringifierReadOnlyAttributePrototype::Base);
 
 using JSTestStringifierReadOnlyAttributeConstructor = JSDOMConstructorNotConstructable<JSTestStringifierReadOnlyAttribute>;
 
@@ -86,7 +88,7 @@ template<> JSValue JSTestStringifierReadOnlyAttributeConstructor::prototypeForSt
 template<> void JSTestStringifierReadOnlyAttributeConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestStringifierReadOnlyAttribute::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(&vm, String("TestStringifierReadOnlyAttribute"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("TestStringifierReadOnlyAttribute"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -121,6 +123,8 @@ void JSTestStringifierReadOnlyAttribute::finishCreation(VM& vm)
     Base::finishCreation(vm);
     ASSERT(inherits(vm, info()));
 
+    static_assert(!std::is_base_of<ActiveDOMObject, TestStringifierReadOnlyAttribute>::value, "Interface is not marked as [ActiveDOMObject] even though implementation class subclasses ActiveDOMObject.");
+
 }
 
 JSObject* JSTestStringifierReadOnlyAttribute::createPrototype(VM& vm, JSDOMGlobalObject& globalObject)
@@ -144,73 +148,74 @@ void JSTestStringifierReadOnlyAttribute::destroy(JSC::JSCell* cell)
     thisObject->JSTestStringifierReadOnlyAttribute::~JSTestStringifierReadOnlyAttribute();
 }
 
-template<> inline JSTestStringifierReadOnlyAttribute* IDLAttribute<JSTestStringifierReadOnlyAttribute>::cast(ExecState& state, EncodedJSValue thisValue)
+template<> inline JSTestStringifierReadOnlyAttribute* IDLAttribute<JSTestStringifierReadOnlyAttribute>::cast(JSGlobalObject& lexicalGlobalObject, EncodedJSValue thisValue)
 {
-    return jsDynamicCast<JSTestStringifierReadOnlyAttribute*>(state.vm(), JSValue::decode(thisValue));
+    return jsDynamicCast<JSTestStringifierReadOnlyAttribute*>(JSC::getVM(&lexicalGlobalObject), JSValue::decode(thisValue));
 }
 
-template<> inline JSTestStringifierReadOnlyAttribute* IDLOperation<JSTestStringifierReadOnlyAttribute>::cast(ExecState& state)
+template<> inline JSTestStringifierReadOnlyAttribute* IDLOperation<JSTestStringifierReadOnlyAttribute>::cast(JSGlobalObject& lexicalGlobalObject, CallFrame& callFrame)
 {
-    return jsDynamicCast<JSTestStringifierReadOnlyAttribute*>(state.vm(), state.thisValue());
+    return jsDynamicCast<JSTestStringifierReadOnlyAttribute*>(JSC::getVM(&lexicalGlobalObject), callFrame.thisValue());
 }
 
-EncodedJSValue jsTestStringifierReadOnlyAttributeConstructor(ExecState* state, EncodedJSValue thisValue, PropertyName)
+EncodedJSValue jsTestStringifierReadOnlyAttributeConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
 {
-    VM& vm = state->vm();
+    VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestStringifierReadOnlyAttributePrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype))
-        return throwVMTypeError(state, throwScope);
-    return JSValue::encode(JSTestStringifierReadOnlyAttribute::getConstructor(state->vm(), prototype->globalObject()));
+        return throwVMTypeError(lexicalGlobalObject, throwScope);
+    return JSValue::encode(JSTestStringifierReadOnlyAttribute::getConstructor(JSC::getVM(lexicalGlobalObject), prototype->globalObject()));
 }
 
-bool setJSTestStringifierReadOnlyAttributeConstructor(ExecState* state, EncodedJSValue thisValue, EncodedJSValue encodedValue)
+bool setJSTestStringifierReadOnlyAttributeConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, EncodedJSValue encodedValue)
 {
-    VM& vm = state->vm();
+    VM& vm = JSC::getVM(lexicalGlobalObject);
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto* prototype = jsDynamicCast<JSTestStringifierReadOnlyAttributePrototype*>(vm, JSValue::decode(thisValue));
     if (UNLIKELY(!prototype)) {
-        throwVMTypeError(state, throwScope);
+        throwVMTypeError(lexicalGlobalObject, throwScope);
         return false;
     }
     // Shadowing a built-in constructor
     return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
 }
 
-static inline JSValue jsTestStringifierReadOnlyAttributeIdentifierGetter(ExecState& state, JSTestStringifierReadOnlyAttribute& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestStringifierReadOnlyAttributeIdentifierGetter(JSGlobalObject& lexicalGlobalObject, JSTestStringifierReadOnlyAttribute& thisObject, ThrowScope& throwScope)
 {
     UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLDOMString>(state, throwScope, impl.identifier());
+    JSValue result = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.identifier());
     return result;
 }
 
-EncodedJSValue jsTestStringifierReadOnlyAttributeIdentifier(ExecState* state, EncodedJSValue thisValue, PropertyName)
+EncodedJSValue jsTestStringifierReadOnlyAttributeIdentifier(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
 {
-    return IDLAttribute<JSTestStringifierReadOnlyAttribute>::get<jsTestStringifierReadOnlyAttributeIdentifierGetter, CastedThisErrorBehavior::Assert>(*state, thisValue, "identifier");
+    return IDLAttribute<JSTestStringifierReadOnlyAttribute>::get<jsTestStringifierReadOnlyAttributeIdentifierGetter, CastedThisErrorBehavior::Assert>(*lexicalGlobalObject, thisValue, "identifier");
 }
 
-static inline JSC::EncodedJSValue jsTestStringifierReadOnlyAttributePrototypeFunctionToStringBody(JSC::ExecState* state, typename IDLOperation<JSTestStringifierReadOnlyAttribute>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestStringifierReadOnlyAttributePrototypeFunctionToStringBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestStringifierReadOnlyAttribute>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
 {
-    UNUSED_PARAM(state);
+    UNUSED_PARAM(lexicalGlobalObject);
+    UNUSED_PARAM(callFrame);
     UNUSED_PARAM(throwScope);
     auto& impl = castedThis->wrapped();
-    return JSValue::encode(toJS<IDLDOMString>(*state, impl.identifier()));
+    return JSValue::encode(toJS<IDLDOMString>(*lexicalGlobalObject, impl.identifier()));
 }
 
-EncodedJSValue JSC_HOST_CALL jsTestStringifierReadOnlyAttributePrototypeFunctionToString(ExecState* state)
+EncodedJSValue JSC_HOST_CALL jsTestStringifierReadOnlyAttributePrototypeFunctionToString(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
-    return IDLOperation<JSTestStringifierReadOnlyAttribute>::call<jsTestStringifierReadOnlyAttributePrototypeFunctionToStringBody>(*state, "toString");
+    return IDLOperation<JSTestStringifierReadOnlyAttribute>::call<jsTestStringifierReadOnlyAttributePrototypeFunctionToStringBody>(*lexicalGlobalObject, *callFrame, "toString");
 }
 
-void JSTestStringifierReadOnlyAttribute::heapSnapshot(JSCell* cell, HeapSnapshotBuilder& builder)
+void JSTestStringifierReadOnlyAttribute::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
 {
     auto* thisObject = jsCast<JSTestStringifierReadOnlyAttribute*>(cell);
-    builder.setWrappedObjectForCell(cell, &thisObject->wrapped());
+    analyzer.setWrappedObjectForCell(cell, &thisObject->wrapped());
     if (thisObject->scriptExecutionContext())
-        builder.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
-    Base::heapSnapshot(cell, builder);
+        analyzer.setLabelForCell(cell, "url " + thisObject->scriptExecutionContext()->url().string());
+    Base::analyzeHeap(cell, analyzer);
 }
 
 bool JSTestStringifierReadOnlyAttributeOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor, const char** reason)
@@ -237,7 +242,7 @@ extern "C" { extern void* _ZTVN7WebCore32TestStringifierReadOnlyAttributeE[]; }
 #endif
 #endif
 
-JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, Ref<TestStringifierReadOnlyAttribute>&& impl)
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObject, Ref<TestStringifierReadOnlyAttribute>&& impl)
 {
 
 #if ENABLE(BINDING_INTEGRITY)
@@ -261,9 +266,9 @@ JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, 
     return createWrapper<TestStringifierReadOnlyAttribute>(globalObject, WTFMove(impl));
 }
 
-JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestStringifierReadOnlyAttribute& impl)
+JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestStringifierReadOnlyAttribute& impl)
 {
-    return wrap(state, globalObject, impl);
+    return wrap(lexicalGlobalObject, globalObject, impl);
 }
 
 TestStringifierReadOnlyAttribute* JSTestStringifierReadOnlyAttribute::toWrapped(JSC::VM& vm, JSC::JSValue value)

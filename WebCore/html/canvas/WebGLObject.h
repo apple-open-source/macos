@@ -25,10 +25,14 @@
 
 #pragma once
 
-#include "GraphicsContext3D.h"
+#if ENABLE(WEBGL)
+
+#include "GraphicsTypes3D.h"
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
+class GraphicsContext3D;
 class WebGLContextGroup;
 class WebGLRenderingContextBase;
 
@@ -75,4 +79,11 @@ private:
     bool m_deleted { false };
 };
 
+inline Platform3DObject objectOrZero(WebGLObject* object)
+{
+    return object ? object->object() : 0;
+}
+
 } // namespace WebCore
+
+#endif

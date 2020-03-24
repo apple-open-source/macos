@@ -47,7 +47,7 @@ enum class FrameAndStackAdjustmentRequirement {
 };
 
 static MacroAssemblerCodeRef<JITThunkPtrTag> genericGenerationThunkGenerator(
-    VM* vm, FunctionPtr<CFunctionPtrTag> generationFunction, PtrTag resultTag, const char* name, unsigned extraPopsToRestore, FrameAndStackAdjustmentRequirement frameAndStackAdjustmentRequirement)
+    VM& vm, FunctionPtr<CFunctionPtrTag> generationFunction, PtrTag resultTag, const char* name, unsigned extraPopsToRestore, FrameAndStackAdjustmentRequirement frameAndStackAdjustmentRequirement)
 {
     AssemblyHelpers jit(nullptr);
 
@@ -73,7 +73,7 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> genericGenerationThunkGenerator(
         numberOfRequiredPops++;
     } while (stackMisalignment % stackAlignmentBytes());
     
-    ScratchBuffer* scratchBuffer = vm->scratchBufferForSize(requiredScratchMemorySizeInBytes());
+    ScratchBuffer* scratchBuffer = vm.scratchBufferForSize(requiredScratchMemorySizeInBytes());
     char* buffer = static_cast<char*>(scratchBuffer->dataBuffer());
     
     saveAllRegisters(jit, buffer);
@@ -86,6 +86,7 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> genericGenerationThunkGenerator(
     jit.peek(
         GPRInfo::argumentGPR1,
         (stackMisalignment - MacroAssembler::pushToSaveByteOffset()) / sizeof(void*));
+    jit.prepareCallOperation(vm);
     MacroAssembler::Call functionCall = jit.call(OperationPtrTag);
 
     // At this point we want to make a tail call to what was returned to us in the
@@ -128,18 +129,18 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> genericGenerationThunkGenerator(
     return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "%s", name);
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> osrExitGenerationThunkGenerator(VM* vm)
+MacroAssemblerCodeRef<JITThunkPtrTag> osrExitGenerationThunkGenerator(VM& vm)
 {
     unsigned extraPopsToRestore = 0;
     return genericGenerationThunkGenerator(
-        vm, compileFTLOSRExit, OSRExitPtrTag, "FTL OSR exit generation thunk", extraPopsToRestore, FrameAndStackAdjustmentRequirement::Needed);
+        vm, operationCompileFTLOSRExit, OSRExitPtrTag, "FTL OSR exit generation thunk", extraPopsToRestore, FrameAndStackAdjustmentRequirement::Needed);
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> lazySlowPathGenerationThunkGenerator(VM* vm)
+MacroAssemblerCodeRef<JITThunkPtrTag> lazySlowPathGenerationThunkGenerator(VM& vm)
 {
     unsigned extraPopsToRestore = 1;
     return genericGenerationThunkGenerator(
-        vm, compileFTLLazySlowPath, JITStubRoutinePtrTag, "FTL lazy slow path generation thunk", extraPopsToRestore, FrameAndStackAdjustmentRequirement::NotNeeded);
+        vm, operationCompileFTLLazySlowPath, JITStubRoutinePtrTag, "FTL lazy slow path generation thunk", extraPopsToRestore, FrameAndStackAdjustmentRequirement::NotNeeded);
 }
 
 static void registerClobberCheck(AssemblyHelpers& jit, RegisterSet dontClobber)
@@ -170,7 +171,7 @@ static void registerClobberCheck(AssemblyHelpers& jit, RegisterSet dontClobber)
     }
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> slowPathCallThunkGenerator(const SlowPathCallKey& key)
+MacroAssemblerCodeRef<JITThunkPtrTag> slowPathCallThunkGenerator(VM& vm, const SlowPathCallKey& key)
 {
     AssemblyHelpers jit(nullptr);
     jit.tagReturnAddress();
@@ -181,7 +182,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> slowPathCallThunkGenerator(const SlowPathC
     
     size_t currentOffset = key.offset() + sizeof(void*);
     
-#if CPU(X86) || CPU(X86_64)
+#if CPU(X86_64)
     currentOffset += sizeof(void*);
 #endif
     
@@ -201,6 +202,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> slowPathCallThunkGenerator(const SlowPathC
     
     jit.preserveReturnAddressAfterCall(GPRInfo::nonArgGPR0);
     jit.storePtr(GPRInfo::nonArgGPR0, AssemblyHelpers::Address(MacroAssembler::stackPointerRegister, key.offset()));
+    jit.prepareCallOperation(vm);
     
     registerClobberCheck(jit, key.argumentRegisters());
 

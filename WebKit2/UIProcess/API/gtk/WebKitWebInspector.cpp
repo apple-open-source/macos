@@ -284,6 +284,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* findClass)
 }
 
 class WebKitInspectorClient final : public WebInspectorProxyClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit WebKitInspectorClient(WebKitWebInspector* inspector)
         : m_inspector(inspector)
@@ -360,7 +361,7 @@ WebKitWebInspector* webkitWebInspectorCreate(WebInspectorProxy* webInspector)
 {
     WebKitWebInspector* inspector = WEBKIT_WEB_INSPECTOR(g_object_new(WEBKIT_TYPE_WEB_INSPECTOR, NULL));
     inspector->priv->webInspector = webInspector;
-    webInspector->setClient(std::make_unique<WebKitInspectorClient>(inspector));
+    webInspector->setClient(makeUnique<WebKitInspectorClient>(inspector));
     return inspector;
 }
 

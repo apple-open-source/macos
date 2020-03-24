@@ -146,7 +146,8 @@ bool SecCKKSDisable() {
 }
 
 bool SecCKKSResetSyncing(void) {
-    [CKKSViewManager resetManager: true setTo: nil];
+    // The function name is a bit of a lie, but it does the thing.
+    [OTManager resetManager:true to:nil];
     return SecCKKSIsEnabled();
 }
 
@@ -378,13 +379,15 @@ void CKKSRegisterSyncStatusCallback(CFStringRef cfuuid, SecBoolCFErrorCallback c
 
 void SecCKKSPerformLocalResync() {
 #if OCTAGON
-    secnotice("ckks", "Local keychain was reset; performing local resync");
-    [[CKKSViewManager manager] rpcResyncLocal:nil reply:^(NSError *result) {
-        if(result) {
-            secnotice("ckks", "Local keychain reset resync finished with an error: %@", result);
-        } else {
-            secnotice("ckks", "Local keychain reset resync finished successfully");
-        }
-    }];
+    if(SecCKKSIsEnabled()) {
+        secnotice("ckks", "Local keychain was reset; performing local resync");
+        [[CKKSViewManager manager] rpcResyncLocal:nil reply:^(NSError *result) {
+            if(result) {
+                secnotice("ckks", "Local keychain reset resync finished with an error: %@", result);
+            } else {
+                secnotice("ckks", "Local keychain reset resync finished successfully");
+            }
+        }];
+    }
 #endif
 }

@@ -1507,15 +1507,17 @@
 					/usr/include,
 					"$(PROJECT_DIR)/tcpdump/missing",
 					"$(SHARED_DERIVED_FILE_DIR)",
+					/usr/local/libressl/include,
 				);
+				LIBRARY_SEARCH_PATHS = /usr/local/libressl/lib;
 				"OTHER_CFLAGS[sdk=iphoneos*]" = "-DLBL_ALIGN=1";
 				"OTHER_CFLAGS[sdk=macosx*][arch=*]" = (
 					"-DHAVE_OPENSSL_EVP_H=1",
 					"-DHAVE_LIBCRYPTO=1",
 				);
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
-					"-lssl.35",
-					"-lcrypto.35",
+					"-lssl",
+					"-lcrypto",
 				);
 				PREBINDING = NO;
 				SDKROOT = macosx.internal;
@@ -1570,7 +1572,9 @@
 					/usr/include,
 					"$(PROJECT_DIR)/tcpdump/missing",
 					"$(SHARED_DERIVED_FILE_DIR)",
+					/usr/local/libressl/include,
 				);
+				LIBRARY_SEARCH_PATHS = /usr/local/libressl/lib;
 				ONLY_ACTIVE_ARCH = YES;
 				"OTHER_CFLAGS[sdk=iphoneos*]" = "-DLBL_ALIGN=1";
 				"OTHER_CFLAGS[sdk=macosx*][arch=*]" = (
@@ -1578,8 +1582,8 @@
 					"-DHAVE_LIBCRYPTO=1",
 				);
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
-					"-lssl.35",
-					"-lcrypto.35",
+					"-lssl",
+					"-lcrypto",
 				);
 				PREBINDING = NO;
 				SDKROOT = macosx.internal;

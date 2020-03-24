@@ -52,6 +52,7 @@ struct hc_engine {
     char *id;
     void (*destroy)(ENGINE *);
     const RSA_METHOD *rsa;
+    const ECDSA_METHOD *ecdsa;
     const DH_METHOD *dh;
     const RAND_METHOD *rand;
 };
@@ -120,6 +121,13 @@ ENGINE_set_name(ENGINE *engine, const char *name)
 }
 
 int
+ENGINE_set_ECDSA(ENGINE *engine, const ECDSA_METHOD *method)
+{
+    engine->ecdsa = method;
+    return 1;
+}
+
+int
 ENGINE_set_RSA(ENGINE *engine, const RSA_METHOD *method)
 {
     engine->rsa = method;
@@ -156,6 +164,12 @@ const RSA_METHOD *
 ENGINE_get_RSA(const ENGINE *engine)
 {
     return engine->rsa;
+}
+
+const ECDSA_METHOD *
+ENGINE_get_ECDSA(const ENGINE *engine)
+{
+    return engine->ecdsa;
 }
 
 const DH_METHOD *
@@ -195,6 +209,7 @@ ENGINE_get_default_##type(void)			\
 }
 
 SG_default_engine(RSA)
+SG_default_engine(ECDSA)
 SG_default_engine(DH)
 
 #undef SG_default_engine

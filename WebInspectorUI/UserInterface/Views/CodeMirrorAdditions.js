@@ -272,6 +272,32 @@
                     state._expectLink = true;
                 } else if (hexColorRegex.test(stream.current()))
                     style = style + " hex-color";
+            } else if (style === "error") {
+                if (state.state=== "atBlock" || state.state === "atBlock_parens") {
+                    switch (stream.current()) {
+                    case "prefers-color-scheme":
+                    case     "light":
+                    case     "dark":
+                    case "prefers-reduced-motion":
+                    case     "reduce":
+                    case     "no-preference":
+                    case "inverted-colors":
+                    case     "inverted":
+                    case "color-gamut":
+                    case     "p3":
+                    case     "rec2020":
+                    case "display-mode":
+                    case     "fullscreen":
+                    case     "standalone":
+                    case     "minimal-ui":
+                    case     "browser":
+                    case /*-webkit-*/"video-playable-inline":
+                    case /*-webkit-*/"transform-2d":
+                    case /*-webkit-*/"transform-3d":
+                        style = "property";
+                        break;
+                    }
+                }
             } else if (state._expectLink) {
                 delete state._expectLink;
 
@@ -299,11 +325,15 @@
         return style && (style + " m-" + (this.alternateName || this.name));
     }
 
-    function extendedToken(stream, state)
+    function extendedJavaScriptToken(stream, state)
     {
         // CodeMirror moves the original token function to _token when we extended it.
         // So call it to get the style that we will add an additional class name to.
         var style = this._token(stream, state);
+
+        if (style === "number" && stream.current().endsWith("n"))
+            style += " bigint";
+
         return style && (style + " m-" + (this.alternateName || this.name));
     }
 
@@ -334,7 +364,7 @@
 
     CodeMirror.extendMode("css", {token: extendedCSSToken});
     CodeMirror.extendMode("xml", {token: extendedXMLToken});
-    CodeMirror.extendMode("javascript", {token: extendedToken});
+    CodeMirror.extendMode("javascript", {token: extendedJavaScriptToken});
 
     CodeMirror.defineInitHook(function(codeMirror) {
         codeMirror.on("scrollCursorIntoView", scrollCursorIntoView);
@@ -619,6 +649,17 @@
         fallthrough: mac ? "macDefault" : "pcDefault"
     };
 
+    {
+        // CodeMirror's default behavior is to always insert a tab ("\t") regardless of `indentWithTabs`.
+        let original = CodeMirror.commands.insertTab;
+        CodeMirror.commands.insertTab = function(cm) {
+            if (cm.options.indentWithTabs)
+                original(cm);
+            else
+                CodeMirror.commands.insertSoftTab(cm);
+        };
+    }
+
     // Register some extra MIME-types for CodeMirror. These are in addition to the
     // ones CodeMirror already registers, like text/html, text/javascript, etc.
     var extraXMLTypes = ["text/xml", "text/xsl"];
@@ -641,6 +682,10 @@
     extraJSONTypes.forEach(function(type) {
         CodeMirror.defineMIME(type, {name: "javascript", json: true});
     });
+
+    // FIXME: Add WHLSL specific modes.
+    CodeMirror.defineMIME("x-pipeline/x-compute", CodeMirror.resolveMode("x-shader/x-vertex"));
+    CodeMirror.defineMIME("x-pipeline/x-render", CodeMirror.resolveMode("x-shader/x-vertex"));
 })();
 
 WI.compareCodeMirrorPositions = function(a, b)

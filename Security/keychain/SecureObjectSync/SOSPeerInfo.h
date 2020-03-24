@@ -77,7 +77,6 @@ bool SOSPeerInfoVersionIsCurrent(SOSPeerInfoRef pi);
 bool SOSPeerInfoVersionHasV2Data(SOSPeerInfoRef pi);
 SOSPeerInfoRef SOSPeerInfoCopyWithGestaltUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDictionaryRef gestalt, SecKeyRef signingKey, CFErrorRef* error);
 SOSPeerInfoRef SOSPeerInfoCopyWithBackupKeyUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDataRef backupKey, SecKeyRef signingKey, CFErrorRef* error);
-SOSPeerInfoRef SOSPeerInfoCopyWithEscrowRecordUpdate(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFStringRef dsid, CFDictionaryRef escrowRecord, SecKeyRef signingKey, CFErrorRef *error);
 SOSPeerInfoRef SOSPeerInfoCopyWithReplacedEscrowRecords(CFAllocatorRef allocator, SOSPeerInfoRef toCopy, CFDictionaryRef escrowRecords, SecKeyRef signingKey, CFErrorRef *error);
 
 
@@ -104,7 +103,6 @@ CF_RETURNS_RETAINED CFDateRef SOSPeerInfoGetApplicationDate(SOSPeerInfoRef pi);
 //
 bool SOSPeerInfoHasBackupKey(SOSPeerInfoRef peer);
 CFDataRef SOSPeerInfoCopyBackupKey(SOSPeerInfoRef peer);
-CFMutableDictionaryRef SOSPeerInfoCopyEscrowRecord(SOSPeerInfoRef peer);
 
 //
 // DER Import Export

@@ -57,7 +57,7 @@ WI.NetworkTabContentView = class NetworkTabContentView extends WI.TabContentView
 
     static isTabAllowed()
     {
-        return !!window.NetworkAgent;
+        return InspectorBackend.hasDomain("Network");
     }
 
     // Protected
@@ -81,6 +81,16 @@ WI.NetworkTabContentView = class NetworkTabContentView extends WI.TabContentView
         this._contentBrowser.contentViewContainer.closeAllContentViews();
 
         super.closed();
+    }
+
+    get canHandleFindEvent()
+    {
+        return this._networkTableContentView.canFocusFilterBar;
+    }
+
+    handleFindEvent()
+    {
+        this._networkTableContentView.focusFilterBar();
     }
 
     async handleFileDrop(files)

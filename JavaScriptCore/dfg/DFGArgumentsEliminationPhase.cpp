@@ -52,7 +52,7 @@ namespace JSC { namespace DFG {
 namespace {
 
 namespace DFGArgumentsEliminationPhaseInternal {
-static const bool verbose = false;
+static constexpr bool verbose = false;
 }
 
 class ArgumentsEliminationPhase : public Phase {
@@ -400,7 +400,7 @@ private:
                     // butterfly's child and check if it's a candidate.
                     break;
                     
-                case FilterGetByIdStatus:
+                case FilterGetByStatus:
                 case FilterPutByIdStatus:
                 case FilterCallLinkStatus:
                 case FilterInByIdStatus:
@@ -560,7 +560,7 @@ private:
                         if (inlineCallFrame) {
                             if (inlineCallFrame->isVarargs()) {
                                 isClobberedByBlock |= clobberedByThisBlock.operand(
-                                    inlineCallFrame->stackOffset + CallFrameSlot::argumentCount);
+                                    inlineCallFrame->stackOffset + CallFrameSlot::argumentCountIncludingThis);
                             }
 
                             if (!isClobberedByBlock || inlineCallFrame->isClosureCall) {
@@ -1246,7 +1246,7 @@ private:
                     
                 case CheckArray:
                 case GetButterfly:
-                case FilterGetByIdStatus:
+                case FilterGetByStatus:
                 case FilterPutByIdStatus:
                 case FilterCallLinkStatus:
                 case FilterInByIdStatus: {

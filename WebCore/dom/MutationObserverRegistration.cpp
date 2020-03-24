@@ -65,10 +65,10 @@ void MutationObserverRegistration::observedSubtreeNodeWillDetach(Node& node)
         return;
 
     node.registerTransientMutationObserver(*this);
-    m_observer->setHasTransientRegistration();
+    m_observer->setHasTransientRegistration(node.document());
 
     if (!m_transientRegistrationNodes) {
-        m_transientRegistrationNodes = std::make_unique<HashSet<GCReachableRef<Node>>>();
+        m_transientRegistrationNodes = makeUnique<HashSet<GCReachableRef<Node>>>();
 
         ASSERT(!m_nodeKeptAlive);
         m_nodeKeptAlive = &m_node; // Balanced in takeTransientRegistrations.

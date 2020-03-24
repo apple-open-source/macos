@@ -2,6 +2,7 @@
 #if OCTAGON
 
 #import <Foundation/Foundation.h>
+#import <TrustedPeers/TrustedPeers.h>
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
 #import "keychain/ot/OTStates.h"
@@ -16,11 +17,14 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface OTSOSUpgradeOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
 
+@property (readonly, nullable) TPPolicyVersion* policyOverride;
+
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
                    ckksConflictState:(OctagonState*)ckksConflictState
                           errorState:(OctagonState*)errorState
-                          deviceInfo:(OTDeviceInformation*)deviceInfo;
+                          deviceInfo:(OTDeviceInformation*)deviceInfo
+                      policyOverride:(TPPolicyVersion* _Nullable)policyOverride;
 
 @end
 

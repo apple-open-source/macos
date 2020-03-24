@@ -53,6 +53,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property BOOL postRepairCFU;
 @property BOOL postEscrowCFU;
 @property BOOL resetOctagon;
+@property BOOL leaveTrust;
 
 @end
 

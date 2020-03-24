@@ -21,6 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (long)resetOctagon:(NSString*)container context:(NSString*)contextID altDSID:(NSString*)altDSID;
 
+- (long)resetProtectedData:(NSString*)container context:(NSString*)contextID altDSID:(NSString*)altDSID appleID:(NSString*)appleID dsid:(NSString*)dsid;
+
 - (long)status:(NSString* _Nullable)container context:(NSString*)contextID json:(bool)json;
 
 - (long)recoverUsingBottleID:(NSString*)bottleID
@@ -36,6 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
                 control:(OTControl*)control;
 
 - (long)healthCheck:(NSString* _Nullable)container context:(NSString*)contextID skipRateLimitingCheck:(BOOL)skipRateLimitingCheck;
+- (long)refetchCKKSPolicy:(NSString*)container context:(NSString*)contextID;
 
 - (long)tapToRadar:(NSString *)action description:(NSString *)description radar:(NSString *)radar;
 

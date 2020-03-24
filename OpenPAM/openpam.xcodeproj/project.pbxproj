@@ -536,7 +536,6 @@
 				1C3D9E9F101FC807007934F5 /* Doc */,
 				1C3D9F04101FC96E007934F5 /* pam.d */,
 				08FB7795FE84155DC02AAC07 /* Source */,
-				C6A0FF2B0290797F04C91782 /* Documentation */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 			);
 			name = openpam;
@@ -746,13 +745,6 @@
 			name = pam.d;
 			sourceTree = "<group>";
 		};
-		C6A0FF2B0290797F04C91782 /* Documentation */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Documentation;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -870,6 +862,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastUpgradeCheck = 1120;
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "openpam" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1099,6 +1092,7 @@
 		1C3D9CDD101FB64E007934F5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				EXECUTABLE_EXTENSION = so.2;
 				INSTALL_PATH = /usr/lib/pam/;
 				MACH_O_TYPE = mh_dylib;
@@ -1109,6 +1103,7 @@
 		1C3D9CE9101FB70D007934F5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				EXECUTABLE_EXTENSION = so.2;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/openpam/lib";
 				INSTALL_PATH = /usr/lib/pam/;
@@ -1120,6 +1115,7 @@
 		1C3D9CF7101FB7F0007934F5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DYLIB_COMPATIBILITY_VERSION = 3.0.0;
 				DYLIB_CURRENT_VERSION = 3.0.0;
 				EXECUTABLE_PREFIX = lib;
@@ -1134,6 +1130,7 @@
 		1C3D9D1C101FB9CB007934F5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = all;
 			};
 			name = Release;
@@ -1141,6 +1138,7 @@
 		1C3D9E67101FC704007934F5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Install Legal";
 			};
 			name = Release;
@@ -1148,6 +1146,7 @@
 		1C3D9E6C101FC76A007934F5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Install Manpages";
 			};
 			name = Release;
@@ -1155,6 +1154,7 @@
 		1C3D9EFC101FC918007934F5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Install pam.d";
 			};
 			name = Release;
@@ -1162,6 +1162,7 @@
 		1C3D9F1B101FCF61007934F5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "Cleanup EVERYTHING";
 			};
 			name = Release;
@@ -1169,6 +1170,7 @@
 		1CEE19491027B0BF002306F4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				EXECUTABLE_PREFIX = lib;
 				INSTALL_PATH = /usr/lib;
@@ -1181,13 +1183,40 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"LIB_MAJ=2",
 					"OPENPAM_MODULES_DIR='\"/usr/lib/pam/;/usr/local/lib/pam/\"'",
 					_GNU_SOURCE,
 				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};

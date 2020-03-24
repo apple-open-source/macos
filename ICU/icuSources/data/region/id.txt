@@ -77,7 +77,7 @@ id{
         CF{"Republik Afrika Tengah"}
         CG{"Kongo - Brazzaville"}
         CH{"Swiss"}
-        CI{"Pantai Gading"}
+        CI{"Côte d’Ivoire"}
         CK{"Kepulauan Cook"}
         CL{"Cile"}
         CM{"Kamerun"}
@@ -306,7 +306,7 @@ id{
     Countries%variant{
         CD{"Kongo (RDK)"}
         CG{"Kongo (Republik)"}
-        CI{"Pantai Gading (Ivory Coast)"}
+        CI{"Pantai Gading"}
         CZ{"Republik Ceko"}
         FK{"Kepulauan Malvinas (Falkland)"}
         SZ{"Swaziland"}

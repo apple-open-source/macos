@@ -4,6 +4,8 @@
 <dict>
 	<key>KeySyncTopic</key>
 	<dict>
+		<key>uploadSizeLimit</key>
+		<real>1000000</real>
 		<key>splunk_allowInsecureCertificate</key>
 		<false/>
 		<key>splunk_topic</key>
@@ -13,6 +15,8 @@
 	</dict>
 	<key>CloudServicesTopic</key>
 	<dict>
+		<key>uploadSizeLimit</key>
+		<real>1000000</real>
 		<key>splunk_allowInsecureCertificate</key>
 		<false/>
 		<key>splunk_topic</key>
@@ -24,6 +28,8 @@
 	</dict>
 	<key>TrustTopic</key>
 	<dict>
+		<key>uploadSizeLimit</key>
+		<real>1000000</real>
 		<key>splunk_allowInsecureCertificate</key>
 		<false/>
 		<key>splunk_topic</key>
@@ -35,6 +41,8 @@
 	</dict>
 	<key>TransparencyTopic</key>
 	<dict>
+		<key>uploadSizeLimit</key>
+		<real>10000</real>
 		<key>splunk_allowInsecureCertificate</key>
 		<false/>
 		<key>splunk_topic</key>

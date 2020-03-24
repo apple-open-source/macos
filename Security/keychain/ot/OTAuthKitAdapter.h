@@ -20,6 +20,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSString* _Nullable)primaryiCloudAccountAltDSID:(NSError **)error;
 
 - (BOOL)accountIsHSA2ByAltDSID:(NSString*)altDSID;
+- (BOOL)accountIsDemoAccount:(NSError**)error NS_SWIFT_NOTHROW;
 
 - (NSString* _Nullable)machineID:(NSError**)error;
 - (void)fetchCurrentDeviceList:(void (^)(NSSet<NSString*>* _Nullable machineIDs, NSError* _Nullable error))complete;

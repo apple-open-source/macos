@@ -27,6 +27,7 @@
 #include "JSObject.h"
 #include "JSCInlines.h"
 #include "MarkedBlockInlines.h"
+#include "MarkedSpaceInlines.h"
 #include <wtf/ListDump.h>
 
 namespace JSC {
@@ -130,7 +131,7 @@ const Vector<size_t>& sizeClasses()
                 
                 // This is usually how we get out of the loop.
                 if (betterSizeClass > MarkedSpace::largeCutoff
-                    || betterSizeClass > Options::largeAllocationCutoff())
+                    || betterSizeClass > Options::preciseAllocationCutoff())
                     break;
                 
                 add(betterSizeClass);
@@ -139,8 +140,7 @@ const Vector<size_t>& sizeClasses()
             // Manually inject size classes for objects we know will be allocated in high volume.
             // FIXME: All of these things should have IsoSubspaces.
             // https://bugs.webkit.org/show_bug.cgi?id=179876
-            add(sizeof(UnlinkedFunctionCodeBlock));
-            add(sizeof(JSString));
+            add(256);
 
             {
                 // Sort and deduplicate.
@@ -196,8 +196,8 @@ void MarkedSpace::initializeSizeClassForStepSize()
 }
 
 MarkedSpace::MarkedSpace(Heap* heap)
-    : m_heap(heap)
 {
+    ASSERT_UNUSED(heap, heap == &this->heap());
     initializeSizeClassForStepSize();
 }
 
@@ -212,8 +212,13 @@ void MarkedSpace::freeMemory()
         [&] (MarkedBlock::Handle* block) {
             freeBlock(block);
         });
-    for (LargeAllocation* allocation : m_largeAllocations)
+    for (PreciseAllocation* allocation : m_preciseAllocations)
         allocation->destroy();
+    forEachSubspace([&](Subspace& subspace) {
+        if (subspace.isIsoSubspace())
+            static_cast<IsoSubspace&>(subspace).destroyLowerTierFreeList();
+        return IterationStatus::Continue;
+    });
 }
 
 void MarkedSpace::lastChanceToFinalize()
@@ -223,13 +228,14 @@ void MarkedSpace::lastChanceToFinalize()
             directory.lastChanceToFinalize();
             return IterationStatus::Continue;
         });
-    for (LargeAllocation* allocation : m_largeAllocations)
+    for (PreciseAllocation* allocation : m_preciseAllocations)
         allocation->lastChanceToFinalize();
+    // We do not call lastChanceToFinalize for lower-tier swept cells since we need nothing to do.
 }
 
-void MarkedSpace::sweep()
+void MarkedSpace::sweepBlocks()
 {
-    m_heap->sweeper().stopSweeping();
+    heap().sweeper().stopSweeping();
     forEachDirectory(
         [&] (BlockDirectory& directory) -> IterationStatus {
             directory.sweep();
@@ -237,39 +243,52 @@ void MarkedSpace::sweep()
         });
 }
 
-void MarkedSpace::sweepLargeAllocations()
+void MarkedSpace::sweepPreciseAllocations()
 {
-    RELEASE_ASSERT(m_largeAllocationsNurseryOffset == m_largeAllocations.size());
-    unsigned srcIndex = m_largeAllocationsNurseryOffsetForSweep;
+    RELEASE_ASSERT(m_preciseAllocationsNurseryOffset == m_preciseAllocations.size());
+    unsigned srcIndex = m_preciseAllocationsNurseryOffsetForSweep;
     unsigned dstIndex = srcIndex;
-    while (srcIndex < m_largeAllocations.size()) {
-        LargeAllocation* allocation = m_largeAllocations[srcIndex++];
+    while (srcIndex < m_preciseAllocations.size()) {
+        PreciseAllocation* allocation = m_preciseAllocations[srcIndex++];
         allocation->sweep();
         if (allocation->isEmpty()) {
-            m_capacity -= allocation->cellSize();
-            allocation->destroy();
+            if (auto* set = preciseAllocationSet())
+                set->remove(allocation->cell());
+            if (allocation->isLowerTier())
+                static_cast<IsoSubspace*>(allocation->subspace())->sweepLowerTierCell(allocation);
+            else {
+                m_capacity -= allocation->cellSize();
+                allocation->destroy();
+            }
             continue;
         }
         allocation->setIndexInSpace(dstIndex);
-        m_largeAllocations[dstIndex++] = allocation;
+        m_preciseAllocations[dstIndex++] = allocation;
     }
-    m_largeAllocations.shrink(dstIndex);
-    m_largeAllocationsNurseryOffset = m_largeAllocations.size();
+    m_preciseAllocations.shrink(dstIndex);
+    m_preciseAllocationsNurseryOffset = m_preciseAllocations.size();
 }
 
 void MarkedSpace::prepareForAllocation()
 {
-    ASSERT(!Thread::mayBeGCThread() || m_heap->worldIsStopped());
+    ASSERT(!Thread::mayBeGCThread() || heap().worldIsStopped());
     for (Subspace* subspace : m_subspaces)
         subspace->prepareForAllocation();
 
     m_activeWeakSets.takeFrom(m_newActiveWeakSets);
     
-    if (m_heap->collectionScope() == CollectionScope::Eden)
-        m_largeAllocationsNurseryOffsetForSweep = m_largeAllocationsNurseryOffset;
+    if (heap().collectionScope() == CollectionScope::Eden)
+        m_preciseAllocationsNurseryOffsetForSweep = m_preciseAllocationsNurseryOffset;
     else
-        m_largeAllocationsNurseryOffsetForSweep = 0;
-    m_largeAllocationsNurseryOffset = m_largeAllocations.size();
+        m_preciseAllocationsNurseryOffsetForSweep = 0;
+    m_preciseAllocationsNurseryOffset = m_preciseAllocations.size();
+}
+
+void MarkedSpace::enablePreciseAllocationTracking()
+{
+    m_preciseAllocationSet = makeUnique<HashSet<HeapCell*>>();
+    for (auto* allocation : m_preciseAllocations)
+        m_preciseAllocationSet->add(allocation->cell());
 }
 
 void MarkedSpace::visitWeakSets(SlotVisitor& visitor)
@@ -280,7 +299,7 @@ void MarkedSpace::visitWeakSets(SlotVisitor& visitor)
     
     m_newActiveWeakSets.forEach(visit);
     
-    if (m_heap->collectionScope() == CollectionScope::Full)
+    if (heap().collectionScope() == CollectionScope::Full)
         m_activeWeakSets.forEach(visit);
 }
 
@@ -292,7 +311,7 @@ void MarkedSpace::reapWeakSets()
     
     m_newActiveWeakSets.forEach(visit);
     
-    if (m_heap->collectionScope() == CollectionScope::Full)
+    if (heap().collectionScope() == CollectionScope::Full)
         m_activeWeakSets.forEach(visit);
 }
 
@@ -318,30 +337,30 @@ void MarkedSpace::stopAllocatingForGood()
 
 void MarkedSpace::prepareForConservativeScan()
 {
-    m_largeAllocationsForThisCollectionBegin = m_largeAllocations.begin() + m_largeAllocationsOffsetForThisCollection;
-    m_largeAllocationsForThisCollectionSize = m_largeAllocations.size() - m_largeAllocationsOffsetForThisCollection;
-    m_largeAllocationsForThisCollectionEnd = m_largeAllocations.end();
-    RELEASE_ASSERT(m_largeAllocationsForThisCollectionEnd == m_largeAllocationsForThisCollectionBegin + m_largeAllocationsForThisCollectionSize);
+    m_preciseAllocationsForThisCollectionBegin = m_preciseAllocations.begin() + m_preciseAllocationsOffsetForThisCollection;
+    m_preciseAllocationsForThisCollectionSize = m_preciseAllocations.size() - m_preciseAllocationsOffsetForThisCollection;
+    m_preciseAllocationsForThisCollectionEnd = m_preciseAllocations.end();
+    RELEASE_ASSERT(m_preciseAllocationsForThisCollectionEnd == m_preciseAllocationsForThisCollectionBegin + m_preciseAllocationsForThisCollectionSize);
     
     std::sort(
-        m_largeAllocationsForThisCollectionBegin, m_largeAllocationsForThisCollectionEnd,
-        [&] (LargeAllocation* a, LargeAllocation* b) {
+        m_preciseAllocationsForThisCollectionBegin, m_preciseAllocationsForThisCollectionEnd,
+        [&] (PreciseAllocation* a, PreciseAllocation* b) {
             return a < b;
         });
-    unsigned index = m_largeAllocationsOffsetForThisCollection;
-    for (auto* start = m_largeAllocationsForThisCollectionBegin; start != m_largeAllocationsForThisCollectionEnd; ++start, ++index) {
+    unsigned index = m_preciseAllocationsOffsetForThisCollection;
+    for (auto* start = m_preciseAllocationsForThisCollectionBegin; start != m_preciseAllocationsForThisCollectionEnd; ++start, ++index) {
         (*start)->setIndexInSpace(index);
-        ASSERT(m_largeAllocations[index] == *start);
-        ASSERT(m_largeAllocations[index]->indexInSpace() == index);
+        ASSERT(m_preciseAllocations[index] == *start);
+        ASSERT(m_preciseAllocations[index]->indexInSpace() == index);
     }
 }
 
 void MarkedSpace::prepareForMarking()
 {
-    if (m_heap->collectionScope() == CollectionScope::Eden)
-        m_largeAllocationsOffsetForThisCollection = m_largeAllocationsNurseryOffset;
+    if (heap().collectionScope() == CollectionScope::Eden)
+        m_preciseAllocationsOffsetForThisCollection = m_preciseAllocationsNurseryOffset;
     else
-        m_largeAllocationsOffsetForThisCollection = 0;
+        m_preciseAllocationsOffsetForThisCollection = 0;
 }
 
 void MarkedSpace::resumeAllocating()
@@ -351,7 +370,7 @@ void MarkedSpace::resumeAllocating()
             directory.resumeAllocating();
             return IterationStatus::Continue;
         });
-    // Nothing to do for LargeAllocations.
+    // Nothing to do for PreciseAllocations.
 }
 
 bool MarkedSpace::isPagedOut(MonotonicTime deadline)
@@ -365,7 +384,7 @@ bool MarkedSpace::isPagedOut(MonotonicTime deadline)
             }
             return IterationStatus::Continue;
         });
-    // FIXME: Consider taking LargeAllocations into account here.
+    // FIXME: Consider taking PreciseAllocations into account here.
     return result;
 }
 
@@ -398,7 +417,7 @@ void MarkedSpace::shrink()
 
 void MarkedSpace::beginMarking()
 {
-    if (m_heap->collectionScope() == CollectionScope::Full) {
+    if (heap().collectionScope() == CollectionScope::Full) {
         forEachDirectory(
             [&] (BlockDirectory& directory) -> IterationStatus {
                 directory.beginMarkingForFullCollection();
@@ -414,7 +433,7 @@ void MarkedSpace::beginMarking()
         
         m_markingVersion = nextVersion(m_markingVersion);
         
-        for (LargeAllocation* allocation : m_largeAllocations)
+        for (PreciseAllocation* allocation : m_preciseAllocations)
             allocation->flip();
     }
 
@@ -441,11 +460,11 @@ void MarkedSpace::endMarking()
     
     m_newlyAllocatedVersion = nextVersion(m_newlyAllocatedVersion);
     
-    for (unsigned i = m_largeAllocationsOffsetForThisCollection; i < m_largeAllocations.size(); ++i)
-        m_largeAllocations[i]->clearNewlyAllocated();
+    for (unsigned i = m_preciseAllocationsOffsetForThisCollection; i < m_preciseAllocations.size(); ++i)
+        m_preciseAllocations[i]->clearNewlyAllocated();
 
     if (!ASSERT_DISABLED) {
-        for (LargeAllocation* allocation : m_largeAllocations)
+        for (PreciseAllocation* allocation : m_preciseAllocations)
             ASSERT_UNUSED(allocation, !allocation->isNewlyAllocated());
     }
 
@@ -479,7 +498,7 @@ size_t MarkedSpace::objectCount()
         [&] (MarkedBlock::Handle* block) {
             result += block->markCount();
         });
-    for (LargeAllocation* allocation : m_largeAllocations) {
+    for (PreciseAllocation* allocation : m_preciseAllocations) {
         if (allocation->isMarked())
             result++;
     }
@@ -493,7 +512,7 @@ size_t MarkedSpace::size()
         [&] (MarkedBlock::Handle* block) {
             result += block->markCount() * block->cellSize();
         });
-    for (LargeAllocation* allocation : m_largeAllocations) {
+    for (PreciseAllocation* allocation : m_preciseAllocations) {
         if (allocation->isMarked())
             result += allocation->cellSize();
     }
@@ -533,7 +552,7 @@ void MarkedSpace::didAllocateInBlock(MarkedBlock::Handle* block)
 
 void MarkedSpace::snapshotUnswept()
 {
-    if (m_heap->collectionScope() == CollectionScope::Eden) {
+    if (heap().collectionScope() == CollectionScope::Eden) {
         forEachDirectory(
             [&] (BlockDirectory& directory) -> IterationStatus {
                 directory.snapshotUnsweptForEdenCollection();

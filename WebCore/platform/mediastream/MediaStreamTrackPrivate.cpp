@@ -32,6 +32,7 @@
 
 #include "GraphicsContext.h"
 #include "IntRect.h"
+#include "Logging.h"
 #include <wtf/UUID.h>
 
 #if PLATFORM(COCOA)
@@ -62,6 +63,7 @@ MediaStreamTrackPrivate::MediaStreamTrackPrivate(Ref<const Logger>&& logger, Ref
     , m_logIdentifier(uniqueLogIdentifier())
 #endif
 {
+    ASSERT(isMainThread());
     UNUSED_PARAM(logger);
 #if !RELEASE_LOG_DISABLED
     m_source->setLogger(m_logger.copyRef(), m_logIdentifier);
@@ -71,6 +73,7 @@ MediaStreamTrackPrivate::MediaStreamTrackPrivate(Ref<const Logger>&& logger, Ref
 
 MediaStreamTrackPrivate::~MediaStreamTrackPrivate()
 {
+    ASSERT(isMainThread());
     m_source->removeObserver(*this);
 }
 
@@ -261,7 +264,10 @@ void MediaStreamTrackPrivate::videoSampleAvailable(MediaSample& mediaSample)
 void MediaStreamTrackPrivate::audioSamplesAvailable(const MediaTime& mediaTime, const PlatformAudioData& data, const AudioStreamDescription& description, size_t sampleCount)
 {
     if (!m_hasSentStartProducedData) {
-        callOnMainThread([this, protectedThis = makeRef(*this)] {
+        callOnMainThread([this, weakThis = makeWeakPtr(this)] {
+            if (!weakThis)
+                return;
+
             if (!m_haveProducedData) {
                 m_haveProducedData = true;
                 updateReadyState();

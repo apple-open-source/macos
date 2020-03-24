@@ -145,14 +145,13 @@ extension OctagonPairingTests {
         clientStateMachine.notifyContainerChange()
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -161,14 +160,13 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             acceptorDumpCallback.fulfill()
@@ -285,14 +283,13 @@ extension OctagonPairingTests {
         clientStateMachine2.notifyContainerChange()
 
         let pair2InitiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -301,14 +298,13 @@ extension OctagonPairingTests {
         self.wait(for: [pair2InitiatorDumpCallback], timeout: 10)
 
         let pair2AcceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 3, "should be 3 peer ids")
             pair2AcceptorDumpCallback.fulfill()
@@ -437,14 +433,13 @@ extension OctagonPairingTests {
         clientStateMachine.notifyContainerChange()
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -453,14 +448,13 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             acceptorDumpCallback.fulfill()
@@ -549,14 +543,13 @@ extension OctagonPairingTests {
         clientStateMachine2.notifyContainerChange()
 
         let pair2InitiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -565,14 +558,13 @@ extension OctagonPairingTests {
         self.wait(for: [pair2InitiatorDumpCallback], timeout: 10)
 
         let pair2AcceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 3, "should be 3 peer ids")
             pair2AcceptorDumpCallback.fulfill()
@@ -973,14 +965,13 @@ extension OctagonPairingTests {
         clientStateMachine.notifyContainerChange()
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -989,14 +980,13 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             acceptorDumpCallback.fulfill()
@@ -1036,14 +1026,13 @@ extension OctagonPairingTests {
         clientStateMachine.notifyContainerChange()
 
         let pair2InitiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -1052,14 +1041,13 @@ extension OctagonPairingTests {
         self.wait(for: [pair2InitiatorDumpCallback], timeout: 10)
 
         let pair2AcceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 3, "should be 3 peer ids")
             pair2AcceptorDumpCallback.fulfill()
@@ -1263,14 +1251,13 @@ extension OctagonPairingTests {
         clientStateMachine.notifyContainerChange()
 
         let initiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -1279,14 +1266,13 @@ extension OctagonPairingTests {
         self.wait(for: [initiatorDumpCallback], timeout: 10)
 
         let acceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
             acceptorDumpCallback.fulfill()
@@ -1327,14 +1313,13 @@ extension OctagonPairingTests {
         clientStateMachine.notifyContainerChange()
 
         let pair2InitiatorDumpCallback = self.expectation(description: "initiatorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 2, "should be 2 peer ids")
 
@@ -1343,14 +1328,13 @@ extension OctagonPairingTests {
         self.wait(for: [pair2InitiatorDumpCallback], timeout: 10)
 
         let pair2AcceptorDumpCallback = self.expectation(description: "acceptorDumpCallback callback occurs")
-        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) {
-            dump, _ in
+        self.tphClient.dump(withContainer: self.cuttlefishContext.containerName, context: self.contextForAcceptor) { dump, _ in
             XCTAssertNotNil(dump, "dump should not be nil")
-            let egoSelf = dump!["self"] as? Dictionary<String, AnyObject>
+            let egoSelf = dump!["self"] as? [String: AnyObject]
             XCTAssertNotNil(egoSelf, "egoSelf should not be nil")
-            let dynamicInfo = egoSelf!["dynamicInfo"] as? Dictionary<String, AnyObject>
+            let dynamicInfo = egoSelf!["dynamicInfo"] as? [String: AnyObject]
             XCTAssertNotNil(dynamicInfo, "dynamicInfo should not be nil")
-            let included = dynamicInfo!["included"] as? Array<String>
+            let included = dynamicInfo!["included"] as? [String]
             XCTAssertNotNil(included, "included should not be nil")
             XCTAssertEqual(included!.count, 3, "should be 3 peer ids")
             pair2AcceptorDumpCallback.fulfill()

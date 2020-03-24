@@ -86,7 +86,6 @@ typedef void (^OTNextJoinCompleteBlock)(BOOL finished, NSData* _Nullable message
 - (void)rpcJoinWithConfiguration:(OTJoiningConfiguration*)config
                        vouchData:(NSData*)vouchData
                         vouchSig:(NSData*)vouchSig
-                 preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
                            reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)preflightBottledPeer:(NSString*)contextID
@@ -205,6 +204,18 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
        description:(NSString *)description
              radar:(NSString *)radar
              reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)refetchCKKSPolicy:(NSString* _Nullable)container
+                contextID:(NSString*)contextID
+                    reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)setCDPEnabled:(NSString* _Nullable)containerName
+            contextID:(NSString*)contextID
+                reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)getCDPStatus:(NSString* _Nullable)containerName
+           contextID:(NSString*)contextID
+               reply:(void (^)(OTCDPStatus status, NSError* _Nullable error))reply;
 
 @end
 

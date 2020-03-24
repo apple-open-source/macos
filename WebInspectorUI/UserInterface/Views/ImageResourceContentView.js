@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,14 +25,18 @@
 
 WI.ImageResourceContentView = class ImageResourceContentView extends WI.ResourceContentView
 {
-    constructor(resource)
+    constructor(resource, {disableDropZone} = {})
     {
+        console.assert(resource instanceof WI.Resource);
+
         super(resource, "image");
 
         this._imageElement = null;
+        this._draggingInternalImageElement = false;
+        this._disableDropZone = disableDropZone || false;
 
-        const toolTip = WI.UIString("Show Grid");
-        const activatedToolTip = WI.UIString("Hide Grid");
+        const toolTip = WI.UIString("Show transparency grid");
+        const activatedToolTip = WI.UIString("Hide transparency grid");
         this._showGridButtonNavigationItem = new WI.ActivateButtonNavigationItem("show-grid", toolTip, activatedToolTip, "Images/NavigationItemCheckers.svg", 13, 13);
         this._showGridButtonNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
         this._showGridButtonNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._showGridButtonClicked, this);
@@ -43,7 +47,11 @@ WI.ImageResourceContentView = class ImageResourceContentView extends WI.Resource
 
     get navigationItems()
     {
-        return [this._showGridButtonNavigationItem];
+        let items = super.navigationItems;
+
+        items.push(this._showGridButtonNavigationItem);
+
+        return items;
     }
 
     contentAvailable(content, base64Encoded)
@@ -61,13 +69,32 @@ WI.ImageResourceContentView = class ImageResourceContentView extends WI.Resource
             return;
         }
 
-        this._imageElement = document.createElement("img");
+        let imageContainer = this.element.appendChild(document.createElement("div"));
+        imageContainer.className = "img-container";
+
+        this._imageElement = imageContainer.appendChild(document.createElement("img"));
         this._imageElement.addEventListener("load", function() { URL.revokeObjectURL(objectURL); });
         this._imageElement.src = objectURL;
         this._imageElement.setAttribute("filename", this.resource.urlComponents.lastPathComponent || "");
         this._updateImageGrid();
 
-        this.element.appendChild(this._imageElement);
+        this._imageElement.addEventListener("dragstart", (event) => {
+            console.assert(!this._draggingInternalImageElement);
+            this._draggingInternalImageElement = true;
+        });
+        this._imageElement.addEventListener("dragend", (event) => {
+            console.assert(this._draggingInternalImageElement);
+            this._draggingInternalImageElement = false;
+        });
+
+        if (WI.NetworkManager.supportsLocalResourceOverrides() && !this._disableDropZone) {
+            let dropZoneView = new WI.DropZoneView(this);
+            dropZoneView.targetElement = imageContainer;
+            this.addSubview(dropZoneView);
+
+            if (this.showingLocalResourceOverride)
+                this.resource.addEventListener(WI.SourceCode.Event.ContentDidChange, this._handleLocalResourceContentDidChange, this);
+        }
     }
 
     // Protected
@@ -88,6 +115,60 @@ WI.ImageResourceContentView = class ImageResourceContentView extends WI.Resource
         super.hidden();
     }
 
+    closed()
+    {
+        WI.networkManager.removeEventListener(null, null, this);
+
+        super.closed();
+    }
+
+    // DropZoneView delegate
+
+    dropZoneShouldAppearForDragEvent(dropZone, event)
+    {
+        // Do not appear if the drag is the current image inside this view.
+        if (this._draggingInternalImageElement)
+            return false;
+
+        // Appear if the drop contains a file.
+        return event.dataTransfer.types.includes("Files");
+    }
+
+    dropZoneHandleDragEnter(dropZone, event)
+    {
+        if (this.showingLocalResourceOverride)
+            dropZone.text = WI.UIString("Update Image");
+        else if (WI.networkManager.localResourceOverrideForURL(this.resource.url))
+            dropZone.text = WI.UIString("Update Local Override");
+        else
+            dropZone.text = WI.UIString("Create Local Override");
+    }
+
+    dropZoneHandleDrop(dropZone, event)
+    {
+        let files = event.dataTransfer.files;
+        if (files.length !== 1) {
+            InspectorFrontendHost.beep();
+            return;
+        }
+
+        WI.FileUtilities.readData(files, async ({dataURL, mimeType, base64Encoded, content}) => {
+            let localResourceOverride = WI.networkManager.localResourceOverrideForURL(this.resource.url);
+            if (!localResourceOverride && !this.showingLocalResourceOverride) {
+                localResourceOverride = await this.resource.createLocalResourceOverride();
+                WI.networkManager.addLocalResourceOverride(localResourceOverride);
+            }
+
+            console.assert(localResourceOverride);
+
+            let revision = localResourceOverride.localResource.editableRevision;
+            revision.updateRevisionContent(content, {base64Encoded, mimeType});
+
+            if (!this.showingLocalResourceOverride)
+                WI.showLocalResourceOverride(localResourceOverride);
+        });
+    }
+
     // Private
 
     _updateImageGrid()
@@ -105,5 +186,10 @@ WI.ImageResourceContentView = class ImageResourceContentView extends WI.Resource
         WI.settings.showImageGrid.value = !this._showGridButtonNavigationItem.activated;
 
         this._updateImageGrid();
+    }
+
+    _handleLocalResourceContentDidChange(event)
+    {
+        this._imageElement.src = this.resource.createObjectURL();
     }
 };

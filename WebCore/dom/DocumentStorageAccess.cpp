@@ -31,11 +31,11 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Document.h"
+#include "EventLoop.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "JSDOMPromiseDeferred.h"
-#include "Microtasks.h"
 #include "Page.h"
 #include "RegistrableDomain.h"
 #include "SecurityOrigin.h"
@@ -44,11 +44,18 @@
 
 namespace WebCore {
 
+DocumentStorageAccess::DocumentStorageAccess(Document& document)
+    : m_document(document)
+{
+}
+
+DocumentStorageAccess::~DocumentStorageAccess() = default;
+
 DocumentStorageAccess* DocumentStorageAccess::from(Document& document)
 {
     auto* supplement = static_cast<DocumentStorageAccess*>(Supplement<Document>::from(&document, supplementName()));
     if (!supplement) {
-        auto newSupplement = std::make_unique<DocumentStorageAccess>(document);
+        auto newSupplement = makeUnique<DocumentStorageAccess>(document);
         supplement = newSupplement.get();
         provideTo(&document, supplementName(), WTFMove(newSupplement));
     }
@@ -74,17 +81,18 @@ void DocumentStorageAccess::hasStorageAccess(Ref<DeferredPromise>&& promise)
 {
     ASSERT(m_document.settings().storageAccessAPIEnabled());
 
-    if (m_document.frame() && hasFrameSpecificStorageAccess()) {
+    auto* frame = m_document.frame();
+    if (frame && hasFrameSpecificStorageAccess()) {
         promise->resolve<IDLBoolean>(true);
         return;
     }
     
-    if (!m_document.frame() || m_document.securityOrigin().isUnique()) {
+    if (!frame || m_document.securityOrigin().isUnique()) {
         promise->resolve<IDLBoolean>(false);
         return;
     }
     
-    if (m_document.frame()->isMainFrame()) {
+    if (frame->isMainFrame()) {
         promise->resolve<IDLBoolean>(true);
         return;
     }
@@ -96,44 +104,38 @@ void DocumentStorageAccess::hasStorageAccess(Ref<DeferredPromise>&& promise)
         return;
     }
     
-    auto frameID = m_document.frame()->loader().client().frameID();
-    auto pageID = m_document.frame()->loader().client().pageID();
-    if (!frameID || !pageID) {
+    auto* page = frame->page();
+    if (!page) {
         promise->reject();
         return;
     }
     
-    if (Page* page = m_document.page()) {
-        auto subFrameDomain = RegistrableDomain::uncheckedCreateFromHost(securityOrigin.host());
-        auto topFrameDomain = RegistrableDomain::uncheckedCreateFromHost(topSecurityOrigin.host());
-        page->chrome().client().hasStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID.value(), pageID.value(), [weakThis = makeWeakPtr(*this), promise = WTFMove(promise)] (bool hasAccess) {
-            DocumentStorageAccess* document = weakThis.get();
-            if (!document)
-                return;
-            
-            promise->resolve<IDLBoolean>(hasAccess);
-        });
-        return;
-    }
-    
-    promise->reject();
+    auto subFrameDomain = RegistrableDomain::uncheckedCreateFromHost(securityOrigin.host());
+    auto topFrameDomain = RegistrableDomain::uncheckedCreateFromHost(topSecurityOrigin.host());
+    page->chrome().client().hasStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), *frame, [weakThis = makeWeakPtr(*this), promise = WTFMove(promise)] (bool hasAccess) {
+        if (!weakThis)
+            return;
+
+        promise->resolve<IDLBoolean>(hasAccess);
+    });
 }
 
 void DocumentStorageAccess::requestStorageAccess(Ref<DeferredPromise>&& promise)
 {
     ASSERT(m_document.settings().storageAccessAPIEnabled());
     
-    if (m_document.frame() && hasFrameSpecificStorageAccess()) {
+    auto* frame = m_document.frame();
+    if (frame && hasFrameSpecificStorageAccess()) {
         promise->resolve();
         return;
     }
     
-    if (!m_document.frame() || m_document.securityOrigin().isUnique() || !isAllowedToRequestFrameSpecificStorageAccess()) {
+    if (!frame || m_document.securityOrigin().isUnique() || !isAllowedToRequestFrameSpecificStorageAccess()) {
         promise->reject();
         return;
     }
     
-    if (m_document.frame()->isMainFrame()) {
+    if (frame->isMainFrame()) {
         promise->resolve();
         return;
     }
@@ -163,10 +165,8 @@ void DocumentStorageAccess::requestStorageAccess(Ref<DeferredPromise>&& promise)
         return;
     }
 
-    Page* page = m_document.page();
-    auto frameID = m_document.frame()->loader().client().frameID();
-    auto pageID = m_document.frame()->loader().client().pageID();
-    if (!page || !frameID || !pageID) {
+    auto* page = frame->page();
+    if (!page) {
         promise->reject();
         return;
     }
@@ -174,41 +174,40 @@ void DocumentStorageAccess::requestStorageAccess(Ref<DeferredPromise>&& promise)
     auto subFrameDomain = RegistrableDomain::uncheckedCreateFromHost(securityOrigin.host());
     auto topFrameDomain = RegistrableDomain::uncheckedCreateFromHost(topSecurityOrigin.host());
     
-    page->chrome().client().requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID.value(), pageID.value(), [documentReference = makeWeakPtr(*this), promise = WTFMove(promise)] (StorageAccessWasGranted wasGranted, StorageAccessPromptWasShown promptWasShown) mutable {
-        DocumentStorageAccess* document = documentReference.get();
-        if (!document)
+    page->chrome().client().requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), *frame, [this, weakThis = makeWeakPtr(*this), promise = WTFMove(promise)] (StorageAccessWasGranted wasGranted, StorageAccessPromptWasShown promptWasShown) mutable {
+        if (!weakThis)
             return;
 
         // Consume the user gesture only if the user explicitly denied access.
         bool shouldPreserveUserGesture = wasGranted == StorageAccessWasGranted::Yes || promptWasShown == StorageAccessPromptWasShown::No;
 
         if (shouldPreserveUserGesture) {
-            MicrotaskQueue::mainThreadQueue().append(std::make_unique<VoidMicrotask>([documentReference = makeWeakPtr(*document)] () {
-                if (auto* document = documentReference.get())
-                    document->enableTemporaryTimeUserGesture();
-            }));
+            m_document.eventLoop().queueMicrotask([this, weakThis = makeWeakPtr(*weakThis)] {
+                if (weakThis)
+                    enableTemporaryTimeUserGesture();
+            });
         }
 
         if (wasGranted == StorageAccessWasGranted::Yes)
             promise->resolve();
         else {
             if (promptWasShown == StorageAccessPromptWasShown::Yes)
-                document->setWasExplicitlyDeniedFrameSpecificStorageAccess();
+                setWasExplicitlyDeniedFrameSpecificStorageAccess();
             promise->reject();
         }
 
         if (shouldPreserveUserGesture) {
-            MicrotaskQueue::mainThreadQueue().append(std::make_unique<VoidMicrotask>([documentReference = WTFMove(documentReference)] () {
-                if (auto* document = documentReference.get())
-                    document->consumeTemporaryTimeUserGesture();
-            }));
+            m_document.eventLoop().queueMicrotask([this, weakThis = makeWeakPtr(*weakThis)] {
+                if (weakThis)
+                    consumeTemporaryTimeUserGesture();
+            });
         }
     });
 }
 
 void DocumentStorageAccess::enableTemporaryTimeUserGesture()
 {
-    m_temporaryUserGesture = std::make_unique<UserGestureIndicator>(ProcessingUserGesture, &m_document);
+    m_temporaryUserGesture = makeUnique<UserGestureIndicator>(ProcessingUserGesture, &m_document);
 }
 
 void DocumentStorageAccess::consumeTemporaryTimeUserGesture()

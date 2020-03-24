@@ -25,4 +25,4 @@
 
 CFBundleRef _ApplicationCopyBundle( pid_t processID );
 
-CFStringRef _ApplicationCopyIdentifier( pid_t processID );
+CFStringRef _ApplicationCopyIdentifier( pid_t processID, const audit_token_t *auditToken );

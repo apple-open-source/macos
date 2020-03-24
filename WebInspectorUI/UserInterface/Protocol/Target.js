@@ -25,36 +25,40 @@
 
 WI.Target = class Target extends WI.Object
 {
-    constructor(identifier, name, type, connection)
+    constructor(parentTarget, identifier, name, type, connection, {isPaused, isProvisional} = {})
     {
+        console.assert(parentTarget === null || parentTarget instanceof WI.Target);
+        console.assert(!isPaused || parentTarget.hasCommand("Target.setPauseOnStart"));
         super();
 
+        this._parentTarget = parentTarget;
         this._identifier = identifier;
         this._name = name;
         this._type = type;
         this._connection = connection;
+        this._isPaused = !!isPaused;
+        this._isProvisional = !!isProvisional;
         this._executionContext = null;
         this._mainResource = null;
         this._resourceCollection = new WI.ResourceCollection;
         this._extraScriptCollection = new WI.ScriptCollection;
 
+        this._supportedCommandParameters = new Map;
+        this._supportedEventParameters = new Map;
+
         // Restrict the agents to the list of supported agents for this target type.
         // This makes it so `target.FooAgent` only exists if the "Foo" domain is
         // supported by the target.
         this._agents = {};
-        const supportedDomains = this._supportedDomainsForTargetType(this._type);
-        for (let domain of supportedDomains) {
-            let agent = this._connection._agents[domain];
-            if (agent && agent.active)
-                this._agents[domain] = agent;
-        }
+        for (let domainName of InspectorBackend.supportedDomainsForTargetType(this._type))
+            this._agents[domainName] = InspectorBackend._makeAgent(domainName, this);
 
         this._connection.target = this;
 
         // Agents we always expect in every target.
-        console.assert(this.RuntimeAgent);
-        console.assert(this.DebuggerAgent);
-        console.assert(this.ConsoleAgent);
+        console.assert(this.hasDomain("Target") || this.hasDomain("Runtime"));
+        console.assert(this.hasDomain("Target") || this.hasDomain("Debugger"));
+        console.assert(this.hasDomain("Target") || this.hasDomain("Console"));
     }
 
     // Target
@@ -63,7 +67,7 @@ WI.Target = class Target extends WI.Object
     {
         // Intentionally initialize InspectorAgent first if it is available.
         // This may not be strictly necessary anymore, but is historical.
-        if (this.InspectorAgent)
+        if (this.hasDomain("Inspector"))
             this.InspectorAgent.enable();
 
         // Initialize agents.
@@ -86,27 +90,48 @@ WI.Target = class Target extends WI.Object
             WI.performOneTimeFrontendInitializationsUsingTarget(this);
         });
 
-        setTimeout(() => {
+        console.assert(Target._initializationPromises.length || Target._completedInitializationPromiseCount);
+        Promise.all(Target._initializationPromises).then(() => {
             // Tell the backend we are initialized after all our initialization messages have been sent.
             // This allows an automatically paused backend to resume execution, but we want to ensure
             // our breakpoints were already sent to that backend.
             // COMPATIBILITY (iOS 8): Inspector.initialized did not exist yet.
-            if (this.InspectorAgent && this.InspectorAgent.initialized)
+            if (this.hasCommand("Inspector.initialized"))
                 this.InspectorAgent.initialized();
         });
+
+        this._resumeIfPaused();
     }
 
-    activateExtraDomain(domain)
+    _resumeIfPaused()
     {
-        let agent = this._connection._agents[domain];
-        if (agent && agent.active)
-            this._agents[domain] = agent;
+        if (this._isPaused) {
+            console.assert(this._parentTarget.hasCommand("Target.resume"));
+            this._parentTarget.TargetAgent.resume(this._identifier, (error) => {
+                if (error) {
+                    // Ignore errors if the target was destroyed after the command was sent.
+                    if (!this.isDestroyed)
+                        WI.reportInternalError(error);
+                    return;
+                }
+
+                this._isPaused = false;
+            });
+        }
+    }
+
+    activateExtraDomain(domainName)
+    {
+        // FIXME: <https://webkit.org/b/201150> Web Inspector: remove "extra domains" concept now that domains can be added based on the debuggable type
+
+        this._agents[domainName] = InspectorBackend._makeAgent(domainName, this);
     }
 
     // Agents
 
-    get AuditAgent() { return this._agents.Audit; }
+    get AnimationAgent() { return this._agents.Animation; }
     get ApplicationCacheAgent() { return this._agents.ApplicationCache; }
+    get AuditAgent() { return this._agents.Audit; }
     get CPUProfilerAgent() { return this._agents.CPUProfiler; }
     get CSSAgent() { return this._agents.CSS; }
     get CanvasAgent() { return this._agents.Canvas; }
@@ -131,7 +156,34 @@ WI.Target = class Target extends WI.Object
     get TimelineAgent() { return this._agents.Timeline; }
     get WorkerAgent() { return this._agents.Worker; }
 
+    // Static
+
+    static registerInitializationPromise(promise)
+    {
+        // This can be called for work that has to be done before `Inspector.initialized` is called.
+        // Should only be called before the first target is created.
+        console.assert(!Target._completedInitializationPromiseCount);
+
+        Target._initializationPromises.push(promise);
+
+        promise.then(() => {
+            ++Target._completedInitializationPromiseCount;
+            Target._initializationPromises.remove(promise);
+        });
+    }
+
     // Public
+
+    get parentTarget() { return this._parentTarget; }
+
+    get rootTarget()
+    {
+        if (this._type === WI.TargetType.Page)
+            return this;
+        if (this._parentTarget)
+            return this._parentTarget.rootTarget;
+        return this;
+    }
 
     get identifier() { return this._identifier; }
     set identifier(identifier) { this._identifier = identifier; }
@@ -145,6 +197,10 @@ WI.Target = class Target extends WI.Object
 
     get resourceCollection() { return this._resourceCollection; }
     get extraScriptCollection() { return this._extraScriptCollection; }
+
+    get isProvisional() { return this._isProvisional; }
+    get isPaused() { return this._isPaused; }
+    get isDestroyed() { return this._isDestroyed; }
 
     get displayName() { return this._name; }
 
@@ -183,31 +239,44 @@ WI.Target = class Target extends WI.Object
         this.dispatchEventToListeners(WI.Target.Event.ScriptAdded, {script});
     }
 
-    // Private
-
-    _supportedDomainsForTargetType(type)
+    didCommitProvisionalTarget()
     {
-        switch (type) {
-        case WI.Target.Type.JSContext:
-            return InspectorBackend.supportedDomainsForDebuggableType(WI.DebuggableType.JavaScript);
-        case WI.Target.Type.Worker:
-            return InspectorBackend.supportedDomainsForDebuggableType(WI.DebuggableType.Worker);
-        case WI.Target.Type.ServiceWorker:
-            return InspectorBackend.supportedDomainsForDebuggableType(WI.DebuggableType.ServiceWorker);
-        case WI.Target.Type.Page:
-            return InspectorBackend.supportedDomainsForDebuggableType(WI.DebuggableType.Web);
-        default:
-            console.assert(false, "Unexpected target type", type);
-            return InspectorBackend.supportedDomainsForDebuggableType(WI.DebuggableType.Web);
-        }
+        console.assert(this._isProvisional);
+        this._isProvisional = false;
     }
-};
 
-WI.Target.Type = {
-    Page: Symbol("page"),
-    JSContext: Symbol("jscontext"),
-    ServiceWorker: Symbol("service-worker"),
-    Worker: Symbol("worker"),
+    destroy()
+    {
+        this._isDestroyed = true;
+    }
+
+    hasDomain(domainName)
+    {
+        console.assert(!domainName.includes(".") && !domainName.endsWith("Agent"));
+        return domainName in this._agents;
+    }
+
+    hasCommand(qualifiedName, parameterName)
+    {
+        console.assert(qualifiedName.includes(".") && !qualifiedName.includes("Agent."));
+
+        let command = this._supportedCommandParameters.get(qualifiedName);
+        if (!command)
+            return false;
+
+        return parameterName === undefined || command._hasParameter(parameterName);
+    }
+
+    hasEvent(qualifiedName, parameterName)
+    {
+        console.assert(qualifiedName.includes(".") && !qualifiedName.includes("Agent."));
+
+        let event = this._supportedEventParameters.get(qualifiedName);
+        if (!event)
+            return false;
+
+        return parameterName === undefined || event._hasParameter(parameterName);
+    }
 };
 
 WI.Target.Event = {
@@ -215,3 +284,6 @@ WI.Target.Event = {
     ResourceAdded: "target-resource-added",
     ScriptAdded: "target-script-added",
 };
+
+WI.Target._initializationPromises = [];
+WI.Target._completedInitializationPromiseCount = 0;

@@ -28,13 +28,14 @@
 #if ENABLE(WEB_AUTHN)
 
 #include "MessageReceiver.h"
+#include <WebCore/FrameIdentifier.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
 struct ExceptionData;
 struct PublicKeyCredentialCreationOptions;
-struct PublicKeyCredentialData;
+struct AuthenticatorResponseData;
 struct PublicKeyCredentialRequestOptions;
 struct SecurityOriginData;
 }
@@ -49,21 +50,19 @@ class WebAuthenticatorCoordinatorProxy : private IPC::MessageReceiver {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(WebAuthenticatorCoordinatorProxy);
 public:
-    using FrameIdentifier = uint64_t;
-
     explicit WebAuthenticatorCoordinatorProxy(WebPageProxy&);
     ~WebAuthenticatorCoordinatorProxy();
 
 private:
-    using RequestCompletionHandler = CompletionHandler<void(const WebCore::PublicKeyCredentialData&, const WebCore::ExceptionData&)>;
+    using RequestCompletionHandler = CompletionHandler<void(const WebCore::AuthenticatorResponseData&, const WebCore::ExceptionData&)>;
     using QueryCompletionHandler = CompletionHandler<void(bool)>;
 
     // IPC::MessageReceiver.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     // Receivers.
-    void makeCredential(FrameIdentifier, WebCore::SecurityOriginData&&, Vector<uint8_t>&& hash, WebCore::PublicKeyCredentialCreationOptions&&, RequestCompletionHandler&&);
-    void getAssertion(FrameIdentifier, WebCore::SecurityOriginData&&, Vector<uint8_t>&& hash, WebCore::PublicKeyCredentialRequestOptions&&, RequestCompletionHandler&&);
+    void makeCredential(WebCore::FrameIdentifier, WebCore::SecurityOriginData&&, Vector<uint8_t>&& hash, WebCore::PublicKeyCredentialCreationOptions&&, RequestCompletionHandler&&);
+    void getAssertion(WebCore::FrameIdentifier, WebCore::SecurityOriginData&&, Vector<uint8_t>&& hash, WebCore::PublicKeyCredentialRequestOptions&&, RequestCompletionHandler&&);
     void isUserVerifyingPlatformAuthenticatorAvailable(QueryCompletionHandler&&);
 
     void handleRequest(WebAuthenticationRequestData&&, RequestCompletionHandler&&);

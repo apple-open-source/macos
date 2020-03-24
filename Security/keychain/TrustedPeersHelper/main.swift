@@ -30,23 +30,23 @@ class ServiceDelegate: NSObject, NSXPCListenerDelegate {
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
         let tphEntitlement = "com.apple.private.trustedpeershelper.client"
 
-        os_log("Received a new client: %@", log: tplogDebug, type: .default, newConnection)
+        os_log("Received a new client: %{public}@", log: tplogDebug, type: .default, newConnection)
         switch newConnection.value(forEntitlement: tphEntitlement) {
         case 1 as Int:
-            os_log("client has entitlement '%@'", log: tplogDebug, type: .default, tphEntitlement)
+            os_log("client has entitlement '%{public}@'", log: tplogDebug, type: .default, tphEntitlement)
         case true as Bool:
-            os_log("client has entitlement '%@'", log: tplogDebug, type: .default, tphEntitlement)
+            os_log("client has entitlement '%{public}@'", log: tplogDebug, type: .default, tphEntitlement)
 
         case let someInt as Int:
-            os_log("client(%@) has wrong integer value for '%@' (%d), rejecting", log: tplogDebug, type: .default, newConnection, tphEntitlement, someInt)
+            os_log("client(%{public}@) has wrong integer value for '%{public}@' (%d), rejecting", log: tplogDebug, type: .default, newConnection, tphEntitlement, someInt)
             return false
 
         case let someBool as Bool:
-            os_log("client(%@) has wrong boolean value for '%@' (%d), rejecting", log: tplogDebug, type: .default, newConnection, tphEntitlement, someBool)
+            os_log("client(%{public}@) has wrong boolean value for '%{public}@' (%d), rejecting", log: tplogDebug, type: .default, newConnection, tphEntitlement, someBool)
             return false
 
         default:
-            os_log("client(%@) is missing entitlement '%@', rejecting", log: tplogDebug, type: .default, newConnection, tphEntitlement)
+            os_log("client(%{public}@) is missing entitlement '%{public}@', rejecting", log: tplogDebug, type: .default, newConnection, tphEntitlement)
             return false
         }
 

@@ -10,16 +10,12 @@
 #include <vector>
 #include <thread>
 #include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/IOMessage.h>
 #include <IOKit/hid/IOHIDUserDevice.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <unistd.h>
 #include <os/assumes.h>
 #include <os/variant_private.h>
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#include "IOHIDShared.h"
-#pragma clang diagnostic pop
 
 #include <AssertMacros.h>
 extern "C"  {
@@ -220,8 +216,13 @@ public:
         semphore = dispatch_semaphore_create(0);
         
         callback = [](void * refcon, io_service_t service __unused , uint32_t  messageType, void * messageArgument __unused) -> void {
-            dispatch_semaphore_t semphore =  (dispatch_semaphore_t) refcon;
-            if (kIOHIDMessageOpenedByEventSystem == messageType) {
+            if (kIOMessageServicePropertyChange != messageType) {
+                return;
+            }
+
+            CFTypeRef value = IORegistryEntryCreateCFProperty(service, CFSTR (kIOHIDDeviceOpenedByEventSystemKey), kCFAllocatorDefault, 0);
+            if (value && CFEqual(value, kCFBooleanTrue)) {
+                dispatch_semaphore_t semphore =  (dispatch_semaphore_t) refcon;
                 dispatch_semaphore_signal(semphore);
             }
         };

@@ -28,8 +28,8 @@
 #if ENABLE(WEBGPU)
 
 #include "WHLSLExpression.h"
-#include "WHLSLLexer.h"
 #include "WHLSLVariableDeclaration.h"
+#include <wtf/FastMalloc.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -38,15 +38,16 @@ namespace WHLSL {
 
 namespace AST {
 
-class VariableReference : public Expression {
+class VariableReference final : public Expression {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     VariableReference(CodeLocation location, String&& name)
-        : Expression(location)
+        : Expression(location, Kind::VariableReference)
         , m_name(WTFMove(name))
     {
     }
 
-    virtual ~VariableReference() = default;
+    ~VariableReference() = default;
 
     VariableReference(const VariableReference&) = delete;
     VariableReference(VariableReference&&) = default;
@@ -59,8 +60,6 @@ public:
         return result;
     }
 
-    bool isVariableReference() const override { return true; }
-
     String& name() { return m_name; }
 
     VariableDeclaration* variable() { return m_variable; }
@@ -72,7 +71,7 @@ public:
 
 private:
     VariableReference(CodeLocation location)
-        : Expression(location)
+        : Expression(location, Kind::VariableReference)
     {
     }
 
@@ -85,6 +84,8 @@ private:
 }
 
 }
+
+DEFINE_DEFAULT_DELETE(VariableReference)
 
 SPECIALIZE_TYPE_TRAITS_WHLSL_EXPRESSION(VariableReference, isVariableReference())
 

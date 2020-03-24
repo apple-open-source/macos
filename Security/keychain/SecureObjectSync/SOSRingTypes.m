@@ -80,63 +80,6 @@ bool SOSRingResetToEmpty(SOSRingRef ring, CFStringRef myPeerID, CFErrorRef *erro
     return ringTypes[type]->sosRingResetToEmpty(ring, myPeerID, error);
 }
 
-bool SOSRingResetToOffering(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
-    SOSRingAssertStable(ring);
-    SOSRingType type = SOSRingGetType(ring);
-    if(!SOSRingValidType(type)){
-        SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Not valid ring type"), NULL, error);
-        return false;
-    }
-    if(!ringTypes[type]->sosRingResetToOffering){
-        SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Not valid ring type"), NULL, error);
-        return false;
-    }
-    return ringTypes[type]->sosRingResetToOffering(ring, user_privkey, requestor, error);
-}
-
-SOSRingStatus SOSRingDeviceIsInRing(SOSRingRef ring, CFStringRef peerID) {
-    SOSRingAssertStable(ring);
-    SOSRingType type = SOSRingGetType(ring);
-    if(!(SOSRingValidType(type))){
-        return kSOSRingError;
-    }
-       if(!(ringTypes[type]->sosRingDeviceIsInRing)){
-           return kSOSRingError;
-       }
-    return ringTypes[type]->sosRingDeviceIsInRing(ring, peerID);
-}
-
-bool SOSRingApply(SOSRingRef ring, SecKeyRef user_pubkey, SOSFullPeerInfoRef fpi, CFErrorRef *error) {
-    SOSRingAssertStable(ring);
-    SOSRingType type = SOSRingGetType(ring);
-    if(!(SOSRingValidType(type))){
-        SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Not valid ring type"), NULL, error);
-        return false;
-    }
-    if(!(ringTypes[type]->sosRingApply)){
-        return true;
-    }
-    if(!(SOSPeerInfoApplicationVerify(SOSFullPeerInfoGetPeerInfo(fpi), user_pubkey, error))){
-        SOSCreateError(kSOSErrorBadSignature, CFSTR("FullPeerInfo fails userkey signature check"), NULL, error);
-        return false;
-    }
-
-    return ringTypes[type]->sosRingApply(ring, user_pubkey, fpi, error);
-}
-
-bool SOSRingWithdraw(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
-    SOSRingAssertStable(ring);
-    SOSRingType type = SOSRingGetType(ring);
-    if(!SOSRingValidType(type)){
-        SOSCreateError(kSOSErrorUnexpectedType, CFSTR("Not valid ring type"), NULL, error);
-        return false;
-    }
-    if(!ringTypes[type]->sosRingWithdraw)
-        return true;
-
-    return ringTypes[type]->sosRingWithdraw(ring, user_privkey, requestor, error);
-}
-
 bool SOSRingGenerationSign(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
     SOSRingAssertStable(ring);
     SOSRingType type = SOSRingGetType(ring);

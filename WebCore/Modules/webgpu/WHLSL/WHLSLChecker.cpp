@@ -84,7 +84,7 @@ public:
         if (!nativeTypeDeclaration.isNumber()
             && !nativeTypeDeclaration.isVector()
             && !nativeTypeDeclaration.isMatrix())
-            setError();
+            setError(Error("Use of native type is not a POD in entrypoint semantic.", nativeTypeDeclaration.codeLocation()));
     }
 
     void visit(AST::StructureDefinition& structureDefinition) override
@@ -102,14 +102,14 @@ public:
         Visitor::visit(arrayType);
     }
 
-    void visit(AST::PointerType&) override
+    void visit(AST::PointerType& pointerType) override
     {
-        setError();
+        setError(Error("Illegal use of pointer in entrypoint semantic.", pointerType.codeLocation()));
     }
 
-    void visit(AST::ArrayReferenceType&) override
+    void visit(AST::ArrayReferenceType& arrayReferenceType) override
     {
-        setError();
+        setError(Error("Illegal use of array reference in entrypoint semantic.", arrayReferenceType.codeLocation()));
     }
 
     void visit(AST::TypeReference& typeReference) override
@@ -118,35 +118,97 @@ public:
     }
 };
 
-static AST::NativeFunctionDeclaration resolveWithOperatorAnderIndexer(AST::CodeLocation location, AST::ArrayReferenceType& firstArgument, const Intrinsics& intrinsics)
-{
-    const bool isOperator = true;
-    auto returnType = makeUniqueRef<AST::PointerType>(location, firstArgument.addressSpace(), firstArgument.elementType().clone());
-    AST::VariableDeclarations parameters;
-    parameters.append(makeUniqueRef<AST::VariableDeclaration>(location, AST::Qualifiers(), firstArgument.clone(), String(), nullptr, nullptr));
-    parameters.append(makeUniqueRef<AST::VariableDeclaration>(location, AST::Qualifiers(), UniqueRef<AST::UnnamedType>(AST::TypeReference::wrap(location, intrinsics.uintType())), String(), nullptr, nullptr));
-    return AST::NativeFunctionDeclaration(AST::FunctionDeclaration(location, AST::AttributeBlock(), WTF::nullopt, WTFMove(returnType), String("operator&[]", String::ConstructFromLiteral), WTFMove(parameters), nullptr, isOperator));
-}
+class FunctionKey {
+public:
+    FunctionKey() = default;
+    FunctionKey(WTF::HashTableDeletedValueType)
+    {
+        m_castReturnType = bitwise_cast<AST::NamedType*>(static_cast<uintptr_t>(1));
+    }
 
-static AST::NativeFunctionDeclaration resolveWithOperatorLength(AST::CodeLocation location, AST::UnnamedType& firstArgument, const Intrinsics& intrinsics)
-{
-    const bool isOperator = true;
-    auto returnType = AST::TypeReference::wrap(location, intrinsics.uintType());
-    AST::VariableDeclarations parameters;
-    parameters.append(makeUniqueRef<AST::VariableDeclaration>(location, AST::Qualifiers(), firstArgument.clone(), String(), nullptr, nullptr));
-    return AST::NativeFunctionDeclaration(AST::FunctionDeclaration(location, AST::AttributeBlock(), WTF::nullopt, WTFMove(returnType), String("operator.length", String::ConstructFromLiteral), WTFMove(parameters), nullptr, isOperator));
-}
+    FunctionKey(String name, Vector<std::reference_wrapper<AST::UnnamedType>> types, AST::NamedType* castReturnType = nullptr)
+        : m_name(WTFMove(name))
+        , m_types(WTFMove(types))
+        , m_castReturnType(castReturnType)
+    { }
 
-static AST::NativeFunctionDeclaration resolveWithReferenceComparator(AST::CodeLocation location, ResolvingType& firstArgument, ResolvingType& secondArgument, const Intrinsics& intrinsics)
+    bool isEmptyValue() const { return m_name.isNull(); }
+    bool isHashTableDeletedValue() const { return m_castReturnType == bitwise_cast<AST::NamedType*>(static_cast<uintptr_t>(1)); }
+
+    unsigned hash() const
+    {
+        unsigned hash = IntHash<size_t>::hash(m_types.size());
+        hash ^= m_name.hash();
+        for (size_t i = 0; i < m_types.size(); ++i)
+            hash ^= m_types[i].get().hash() + i;
+
+        if (m_castReturnType)
+            hash ^= WTF::PtrHash<AST::Type*>::hash(&m_castReturnType->unifyNode());
+
+        return hash;
+    }
+
+    bool operator==(const FunctionKey& other) const
+    {
+        if (m_types.size() != other.m_types.size())
+            return false;
+
+        if (m_name != other.m_name)
+            return false;
+
+        for (size_t i = 0; i < m_types.size(); ++i) {
+            if (!matches(m_types[i].get(), other.m_types[i].get()))
+                return false;
+        }
+
+        if (static_cast<bool>(m_castReturnType) != static_cast<bool>(other.m_castReturnType))
+            return false;
+
+        if (!m_castReturnType)
+            return true;
+
+        if (&m_castReturnType->unifyNode() == &other.m_castReturnType->unifyNode())
+            return true;
+
+        return false;
+    }
+
+    struct Hash {
+        static unsigned hash(const FunctionKey& key)
+        {
+            return key.hash();
+        }
+
+        static bool equal(const FunctionKey& a, const FunctionKey& b)
+        {
+            return a == b;
+        }
+
+        static const bool safeToCompareToEmptyOrDeleted = false;
+        static const bool emptyValueIsZero = false;
+    };
+
+    struct Traits : public WTF::SimpleClassHashTraits<FunctionKey> {
+        static const bool hasIsEmptyValueFunction = true;
+        static bool isEmptyValue(const FunctionKey& key) { return key.isEmptyValue(); }
+    };
+
+private:
+    String m_name;
+    Vector<std::reference_wrapper<AST::UnnamedType>> m_types;
+    AST::NamedType* m_castReturnType;
+};
+
+static AST::NativeFunctionDeclaration resolveWithReferenceComparator(CodeLocation location, ResolvingType& firstArgument, ResolvingType& secondArgument, const Intrinsics& intrinsics)
 {
     const bool isOperator = true;
     auto returnType = AST::TypeReference::wrap(location, intrinsics.boolType());
-    auto argumentType = firstArgument.visit(WTF::makeVisitor([](UniqueRef<AST::UnnamedType>& unnamedType) -> UniqueRef<AST::UnnamedType> {
-        return unnamedType->clone();
-    }, [&](RefPtr<ResolvableTypeReference>&) -> UniqueRef<AST::UnnamedType> {
-        return secondArgument.visit(WTF::makeVisitor([](UniqueRef<AST::UnnamedType>& unnamedType) -> UniqueRef<AST::UnnamedType> {
-            return unnamedType->clone();
-        }, [&](RefPtr<ResolvableTypeReference>&) -> UniqueRef<AST::UnnamedType> {
+    auto argumentType = firstArgument.visit(WTF::makeVisitor([](Ref<AST::UnnamedType>& unnamedType) -> Ref<AST::UnnamedType> {
+        return unnamedType.copyRef();
+    }, [&](RefPtr<ResolvableTypeReference>&) -> Ref<AST::UnnamedType> {
+        return secondArgument.visit(WTF::makeVisitor([](Ref<AST::UnnamedType>& unnamedType) -> Ref<AST::UnnamedType> {
+            return unnamedType.copyRef();
+        }, [&](RefPtr<ResolvableTypeReference>&) -> Ref<AST::UnnamedType> {
             // We encountered "null == null".
             // FIXME: https://bugs.webkit.org/show_bug.cgi?id=198162 This can probably be generalized, using the "preferred type" infrastructure used by generic literals
             ASSERT_NOT_REACHED();
@@ -154,51 +216,25 @@ static AST::NativeFunctionDeclaration resolveWithReferenceComparator(AST::CodeLo
         }));
     }));
     AST::VariableDeclarations parameters;
-    parameters.append(makeUniqueRef<AST::VariableDeclaration>(location, AST::Qualifiers(), argumentType->clone(), String(), nullptr, nullptr));
-    parameters.append(makeUniqueRef<AST::VariableDeclaration>(location, AST::Qualifiers(), UniqueRef<AST::UnnamedType>(WTFMove(argumentType)), String(), nullptr, nullptr));
-    return AST::NativeFunctionDeclaration(AST::FunctionDeclaration(location, AST::AttributeBlock(), WTF::nullopt, WTFMove(returnType), String("operator==", String::ConstructFromLiteral), WTFMove(parameters), nullptr, isOperator));
+    parameters.append(makeUniqueRef<AST::VariableDeclaration>(location, AST::Qualifiers(), argumentType.copyRef(), String(), nullptr, nullptr));
+    parameters.append(makeUniqueRef<AST::VariableDeclaration>(location, AST::Qualifiers(), WTFMove(argumentType), String(), nullptr, nullptr));
+    return AST::NativeFunctionDeclaration(AST::FunctionDeclaration(location, AST::AttributeBlock(), WTF::nullopt, WTFMove(returnType), String("operator==", String::ConstructFromLiteral), WTFMove(parameters), nullptr, isOperator, ParsingMode::StandardLibrary));
 }
 
 enum class Acceptability {
     Yes,
-    Maybe,
     No
 };
 
-static Optional<AST::NativeFunctionDeclaration> resolveByInstantiation(const String& name, AST::CodeLocation location, const Vector<std::reference_wrapper<ResolvingType>>& types, const Intrinsics& intrinsics)
+static Optional<AST::NativeFunctionDeclaration> resolveByInstantiation(const String& name, CodeLocation location, const Vector<std::reference_wrapper<ResolvingType>>& types, const Intrinsics& intrinsics)
 {
-    if (name == "operator&[]" && types.size() == 2) {
-        auto* firstArgumentArrayRef = types[0].get().visit(WTF::makeVisitor([](UniqueRef<AST::UnnamedType>& unnamedType) -> AST::ArrayReferenceType* {
-            if (is<AST::ArrayReferenceType>(static_cast<AST::UnnamedType&>(unnamedType)))
-                return &downcast<AST::ArrayReferenceType>(static_cast<AST::UnnamedType&>(unnamedType));
-            return nullptr;
-        }, [](RefPtr<ResolvableTypeReference>&) -> AST::ArrayReferenceType* {
-            return nullptr;
-        }));
-        bool secondArgumentIsUint = types[1].get().visit(WTF::makeVisitor([&](UniqueRef<AST::UnnamedType>& unnamedType) -> bool {
-            return matches(unnamedType, intrinsics.uintType());
-        }, [&](RefPtr<ResolvableTypeReference>& resolvableTypeReference) -> bool {
-            return resolvableTypeReference->resolvableType().canResolve(intrinsics.uintType());
-        }));
-        if (firstArgumentArrayRef && secondArgumentIsUint)
-            return resolveWithOperatorAnderIndexer(location, *firstArgumentArrayRef, intrinsics);
-    } else if (name == "operator.length" && types.size() == 1) {
-        auto* firstArgumentReference = types[0].get().visit(WTF::makeVisitor([](UniqueRef<AST::UnnamedType>& unnamedType) -> AST::UnnamedType* {
-            if (is<AST::ArrayReferenceType>(static_cast<AST::UnnamedType&>(unnamedType)) || is<AST::ArrayType>(static_cast<AST::UnnamedType&>(unnamedType)))
-                return &unnamedType;
-            return nullptr;
-        }, [](RefPtr<ResolvableTypeReference>&) -> AST::UnnamedType* {
-            return nullptr;
-        }));
-        if (firstArgumentReference)
-            return resolveWithOperatorLength(location, *firstArgumentReference, intrinsics);
-    } else if (name == "operator==" && types.size() == 2) {
+    if (name == "operator==" && types.size() == 2) {
         auto acceptability = [](ResolvingType& resolvingType) -> Acceptability {
-            return resolvingType.visit(WTF::makeVisitor([](UniqueRef<AST::UnnamedType>& unnamedType) -> Acceptability {
+            return resolvingType.visit(WTF::makeVisitor([](Ref<AST::UnnamedType>& unnamedType) -> Acceptability {
                 auto& unifyNode = unnamedType->unifyNode();
                 return is<AST::UnnamedType>(unifyNode) && is<AST::ReferenceType>(downcast<AST::UnnamedType>(unifyNode)) ? Acceptability::Yes : Acceptability::No;
-            }, [](RefPtr<ResolvableTypeReference>& resolvableTypeReference) -> Acceptability {
-                return is<AST::NullLiteralType>(resolvableTypeReference->resolvableType()) ? Acceptability::Maybe : Acceptability::No;
+            }, [](RefPtr<ResolvableTypeReference>&) -> Acceptability {
+                return Acceptability::No;
             }));
         };
         auto leftAcceptability = acceptability(types[0].get());
@@ -208,28 +244,11 @@ static Optional<AST::NativeFunctionDeclaration> resolveByInstantiation(const Str
             auto& unnamedType1 = *types[0].get().getUnnamedType();
             auto& unnamedType2 = *types[1].get().getUnnamedType();
             success = matches(unnamedType1, unnamedType2);
-        } else if ((leftAcceptability == Acceptability::Maybe && rightAcceptability == Acceptability::Yes)
-            || (leftAcceptability == Acceptability::Yes && rightAcceptability == Acceptability::Maybe))
-            success = true;
+        } 
         if (success)
             return resolveWithReferenceComparator(location, types[0].get(), types[1].get(), intrinsics);
     }
     return WTF::nullopt;
-}
-
-static AST::FunctionDeclaration* resolveFunction(Program& program, Vector<std::reference_wrapper<AST::FunctionDeclaration>, 1>* possibleOverloads, Vector<std::reference_wrapper<ResolvingType>>& types, const String& name, AST::CodeLocation location, const Intrinsics& intrinsics, AST::NamedType* castReturnType = nullptr)
-{
-    if (possibleOverloads) {
-        if (AST::FunctionDeclaration* function = resolveFunctionOverload(*possibleOverloads, types, castReturnType))
-            return function;
-    }
-
-    if (auto newFunction = resolveByInstantiation(name, location, types, intrinsics)) {
-        program.append(WTFMove(*newFunction));
-        return &program.nativeFunctionDeclarations().last();
-    }
-
-    return nullptr;
 }
 
 static bool checkSemantics(Vector<EntryPointItem>& inputItems, Vector<EntryPointItem>& outputItems, const Optional<AST::EntryPointType>& entryPointType, const Intrinsics& intrinsics)
@@ -296,7 +315,7 @@ static bool checkSemantics(Vector<EntryPointItem>& inputItems, Vector<EntryPoint
                     podChecker.checkErrorAndVisit(downcast<AST::ArrayType>(*item.unnamedType).type());
                 else
                     continue;
-                if (podChecker.error())
+                if (podChecker.hasError())
                     return false;
             }
             return true;
@@ -310,97 +329,11 @@ static bool checkSemantics(Vector<EntryPointItem>& inputItems, Vector<EntryPoint
     return true;
 }
 
-static bool checkOperatorOverload(const AST::FunctionDefinition& functionDefinition, const Intrinsics& intrinsics, NameContext& nameContext)
+static bool checkOperatorOverload(const AST::FunctionDefinition& functionDefinition)
 {
     enum class CheckKind {
         Index,
         Dot
-    };
-
-    auto checkGetter = [&](CheckKind kind) -> bool {
-        size_t numExpectedParameters = kind == CheckKind::Index ? 2 : 1;
-        if (functionDefinition.parameters().size() != numExpectedParameters)
-            return false;
-        auto& firstParameterUnifyNode = (*functionDefinition.parameters()[0]->type())->unifyNode();
-        if (is<AST::UnnamedType>(firstParameterUnifyNode)) {
-            auto& unnamedType = downcast<AST::UnnamedType>(firstParameterUnifyNode);
-            if (is<AST::PointerType>(unnamedType) || is<AST::ArrayReferenceType>(unnamedType) || is<AST::ArrayType>(unnamedType))
-                return false;
-        }
-        if (kind == CheckKind::Index) {
-            auto& secondParameterUnifyNode = (*functionDefinition.parameters()[1]->type())->unifyNode();
-            if (!is<AST::NamedType>(secondParameterUnifyNode))
-                return false;
-            auto& namedType = downcast<AST::NamedType>(secondParameterUnifyNode);
-            if (!is<AST::NativeTypeDeclaration>(namedType))
-                return false;
-            auto& nativeTypeDeclaration = downcast<AST::NativeTypeDeclaration>(namedType);
-            if (!nativeTypeDeclaration.isInt())
-                return false;
-        }
-        return true;
-    };
-
-    auto checkSetter = [&](CheckKind kind) -> bool {
-        size_t numExpectedParameters = kind == CheckKind::Index ? 3 : 2;
-        if (functionDefinition.parameters().size() != numExpectedParameters)
-            return false;
-        auto& firstArgumentUnifyNode = (*functionDefinition.parameters()[0]->type())->unifyNode();
-        if (is<AST::UnnamedType>(firstArgumentUnifyNode)) {
-            auto& unnamedType = downcast<AST::UnnamedType>(firstArgumentUnifyNode);
-            if (is<AST::PointerType>(unnamedType) || is<AST::ArrayReferenceType>(unnamedType) || is<AST::ArrayType>(unnamedType))
-                return false;
-        }
-        if (kind == CheckKind::Index) {
-            auto& secondParameterUnifyNode = (*functionDefinition.parameters()[1]->type())->unifyNode();
-            if (!is<AST::NamedType>(secondParameterUnifyNode))
-                return false;
-            auto& namedType = downcast<AST::NamedType>(secondParameterUnifyNode);
-            if (!is<AST::NativeTypeDeclaration>(namedType))
-                return false;
-            auto& nativeTypeDeclaration = downcast<AST::NativeTypeDeclaration>(namedType);
-            if (!nativeTypeDeclaration.isInt())
-                return false;
-        }
-        if (!matches(functionDefinition.type(), *functionDefinition.parameters()[0]->type()))
-            return false;
-        auto& valueType = *functionDefinition.parameters()[numExpectedParameters - 1]->type();
-        auto getterName = functionDefinition.name().substring(0, functionDefinition.name().length() - 1);
-        auto* getterFuncs = nameContext.getFunctions(getterName);
-        if (!getterFuncs)
-            return false;
-        Vector<ResolvingType> argumentTypes;
-        Vector<std::reference_wrapper<ResolvingType>> argumentTypeReferences;
-        for (size_t i = 0; i < numExpectedParameters - 1; ++i)
-            argumentTypes.append((*functionDefinition.parameters()[i]->type())->clone());
-        for (auto& argumentType : argumentTypes)
-            argumentTypeReferences.append(argumentType);
-        auto* overload = resolveFunctionOverload(*getterFuncs, argumentTypeReferences);
-        if (!overload)
-            return false;
-        auto& resultType = overload->type();
-        return matches(resultType, valueType);
-    };
-
-    auto checkAnder = [&](CheckKind kind) -> bool {
-        size_t numExpectedParameters = kind == CheckKind::Index ? 2 : 1;
-        if (functionDefinition.parameters().size() != numExpectedParameters)
-            return false;
-        {
-            auto& unifyNode = functionDefinition.type().unifyNode();
-            if (!is<AST::UnnamedType>(unifyNode))
-                return false;
-            auto& unnamedType = downcast<AST::UnnamedType>(unifyNode);
-            if (!is<AST::PointerType>(unnamedType))
-                return false;
-        }
-        {
-            auto& unifyNode = (*functionDefinition.parameters()[0]->type())->unifyNode();
-            if (!is<AST::UnnamedType>(unifyNode))
-                return false;
-            auto& unnamedType = downcast<AST::UnnamedType>(unifyNode);
-            return is<AST::PointerType>(unnamedType) || is<AST::ArrayReferenceType>(unnamedType);
-        }
     };
 
     if (!functionDefinition.isOperator())
@@ -424,27 +357,6 @@ static bool checkOperatorOverload(const AST::FunctionDefinition& functionDefinit
         return functionDefinition.parameters().size() == 2;
     if (functionDefinition.name() == "operator~")
         return functionDefinition.parameters().size() == 1;
-    if (functionDefinition.name() == "operator=="
-        || functionDefinition.name() == "operator<"
-        || functionDefinition.name() == "operator<="
-        || functionDefinition.name() == "operator>"
-        || functionDefinition.name() == "operator>=") {
-        return functionDefinition.parameters().size() == 2
-            && matches(functionDefinition.type(), intrinsics.boolType());
-    }
-    if (functionDefinition.name() == "operator[]")
-        return checkGetter(CheckKind::Index);
-    if (functionDefinition.name() == "operator[]=")
-        return checkSetter(CheckKind::Index);
-    if (functionDefinition.name() == "operator&[]")
-        return checkAnder(CheckKind::Index);
-    if (functionDefinition.name().startsWith("operator.")) {
-        if (functionDefinition.name().endsWith("="))
-            return checkSetter(CheckKind::Dot);
-        return checkGetter(CheckKind::Dot);
-    }
-    if (functionDefinition.name().startsWith("operator&."))
-        return checkAnder(CheckKind::Dot);
     return false;
 }
 
@@ -454,13 +366,32 @@ public:
         : m_intrinsics(intrinsics)
         , m_program(program)
     {
+        auto addFunction = [&] (AST::FunctionDeclaration& function) {
+            AST::NamedType* castReturnType = nullptr;
+            if (function.isCast() && is<AST::NamedType>(function.type().unifyNode()))
+                castReturnType = &downcast<AST::NamedType>(function.type().unifyNode());
+
+            Vector<std::reference_wrapper<AST::UnnamedType>> types;
+            types.reserveInitialCapacity(function.parameters().size());
+
+            for (auto& param : function.parameters())
+                types.uncheckedAppend(normalizedTypeForFunctionKey(*param->type()));
+
+            auto addResult = m_functions.add(FunctionKey { function.name(), WTFMove(types), castReturnType }, Vector<std::reference_wrapper<AST::FunctionDeclaration>, 1>());
+            addResult.iterator->value.append(function);
+        };
+
+        for (auto& function : m_program.functionDefinitions())
+            addFunction(function.get());
+        for (auto& function : m_program.nativeFunctionDeclarations())
+            addFunction(function.get());
     }
 
     virtual ~Checker() = default;
 
     void visit(Program&) override;
 
-    bool assignTypes();
+    Expected<void, Error> assignTypes();
 
 private:
     bool checkShaderType(const AST::FunctionDefinition&);
@@ -471,13 +402,15 @@ private:
     };
     Optional<RecurseInfo> recurseAndGetInfo(AST::Expression&, bool requiresLeftValue = false);
     Optional<RecurseInfo> getInfo(AST::Expression&, bool requiresLeftValue = false);
-    Optional<UniqueRef<AST::UnnamedType>> recurseAndWrapBaseType(AST::PropertyAccessExpression&);
+    RefPtr<AST::UnnamedType> recurseAndWrapBaseType(AST::PropertyAccessExpression&);
     bool recurseAndRequireBoolType(AST::Expression&);
-    void assignType(AST::Expression&, UniqueRef<AST::UnnamedType>&&, AST::TypeAnnotation);
-    void assignType(AST::Expression&, RefPtr<ResolvableTypeReference>&&, AST::TypeAnnotation);
+    void assignConcreteType(AST::Expression&, Ref<AST::UnnamedType>, AST::TypeAnnotation);
+    void assignConcreteType(AST::Expression&, AST::NamedType&, AST::TypeAnnotation);
+    void assignType(AST::Expression&, RefPtr<ResolvableTypeReference>, AST::TypeAnnotation);
     void forwardType(AST::Expression&, ResolvingType&, AST::TypeAnnotation);
 
     void visit(AST::FunctionDefinition&) override;
+    void visit(AST::FunctionDeclaration&) override;
     void visit(AST::EnumerationDefinition&) override;
     void visit(AST::TypeReference&) override;
     void visit(AST::VariableDeclaration&) override;
@@ -495,7 +428,6 @@ private:
     void visit(AST::IntegerLiteral&) override;
     void visit(AST::UnsignedIntegerLiteral&) override;
     void visit(AST::FloatLiteral&) override;
-    void visit(AST::NullLiteral&) override;
     void visit(AST::BooleanLiteral&) override;
     void visit(AST::EnumerationMemberLiteral&) override;
     void visit(AST::LogicalNotExpression&) override;
@@ -509,15 +441,43 @@ private:
     void visit(AST::TernaryExpression&) override;
     void visit(AST::CallExpression&) override;
 
-    void finishVisiting(AST::PropertyAccessExpression&, ResolvingType* additionalArgumentType = nullptr);
+    AST::FunctionDeclaration* resolveFunction(Vector<std::reference_wrapper<ResolvingType>>& types, const String& name, CodeLocation, AST::NamedType* castReturnType = nullptr);
 
+    AST::UnnamedType& wrappedFloatType()
+    {
+        if (!m_wrappedFloatType)
+            m_wrappedFloatType = AST::TypeReference::wrap({ }, m_intrinsics.floatType());
+        return *m_wrappedFloatType;
+    }
+
+    AST::UnnamedType& wrappedUintType()
+    {
+        if (!m_wrappedUintType)
+            m_wrappedUintType = AST::TypeReference::wrap({ }, m_intrinsics.uintType());
+        return *m_wrappedUintType;
+    }
+
+    AST::UnnamedType& normalizedTypeForFunctionKey(AST::UnnamedType& type)
+    {
+        auto* unifyNode = &type.unifyNode();
+        if (unifyNode == &m_intrinsics.uintType() || unifyNode == &m_intrinsics.intType())
+            return wrappedFloatType();
+
+        return type;
+    }
+
+    RefPtr<AST::TypeReference> m_wrappedFloatType;
+    RefPtr<AST::TypeReference> m_wrappedUintType;
     HashMap<AST::Expression*, std::unique_ptr<ResolvingType>> m_typeMap;
-    HashSet<String> m_vertexEntryPoints;
-    HashSet<String> m_fragmentEntryPoints;
-    HashSet<String> m_computeEntryPoints;
+    HashSet<String> m_vertexEntryPoints[AST::nameSpaceCount];
+    HashSet<String> m_fragmentEntryPoints[AST::nameSpaceCount];
+    HashSet<String> m_computeEntryPoints[AST::nameSpaceCount];
     const Intrinsics& m_intrinsics;
     Program& m_program;
     AST::FunctionDefinition* m_currentFunction { nullptr };
+    HashMap<FunctionKey, Vector<std::reference_wrapper<AST::FunctionDeclaration>, 1>, FunctionKey::Hash, FunctionKey::Traits> m_functions;
+    AST::NameSpace m_currentNameSpace { AST::NameSpace::StandardLibrary };
+    bool m_isVisitingParameters { false };
 };
 
 void Checker::visit(Program& program)
@@ -538,119 +498,173 @@ void Checker::visit(Program& program)
         checkErrorAndVisit(program.nativeFunctionDeclarations()[i]);
 }
 
-bool Checker::assignTypes()
+Expected<void, Error> Checker::assignTypes()
 {
     for (auto& keyValuePair : m_typeMap) {
-        auto success = keyValuePair.value->visit(WTF::makeVisitor([&](UniqueRef<AST::UnnamedType>& unnamedType) -> bool {
-            keyValuePair.key->setType(unnamedType->clone());
+        auto success = keyValuePair.value->visit(WTF::makeVisitor([&](Ref<AST::UnnamedType>& unnamedType) -> bool {
+            keyValuePair.key->setType(unnamedType.copyRef());
             return true;
         }, [&](RefPtr<ResolvableTypeReference>& resolvableTypeReference) -> bool {
             if (!resolvableTypeReference->resolvableType().maybeResolvedType()) {
                 if (!static_cast<bool>(commit(resolvableTypeReference->resolvableType())))
                     return false;
             }
-            keyValuePair.key->setType(resolvableTypeReference->resolvableType().resolvedType().clone());
+            keyValuePair.key->setType(resolvableTypeReference->resolvableType().resolvedType());
             return true;
         }));
         if (!success)
-            return false;
+            return makeUnexpected(Error("Could not resolve the type of a constant."));
     }
 
-    return true;
+    return { };
 }
 
 bool Checker::checkShaderType(const AST::FunctionDefinition& functionDefinition)
 {
+    auto index = static_cast<unsigned>(m_currentNameSpace);
     switch (*functionDefinition.entryPointType()) {
     case AST::EntryPointType::Vertex:
-        return static_cast<bool>(m_vertexEntryPoints.add(functionDefinition.name()));
+        return static_cast<bool>(m_vertexEntryPoints[index].add(functionDefinition.name()));
     case AST::EntryPointType::Fragment:
-        return static_cast<bool>(m_fragmentEntryPoints.add(functionDefinition.name()));
+        return static_cast<bool>(m_fragmentEntryPoints[index].add(functionDefinition.name()));
     case AST::EntryPointType::Compute:
-        return static_cast<bool>(m_computeEntryPoints.add(functionDefinition.name()));
+        return static_cast<bool>(m_computeEntryPoints[index].add(functionDefinition.name()));
     }
+}
+
+void Checker::visit(AST::FunctionDeclaration& functionDeclaration)
+{
+    m_isVisitingParameters = true;
+    Visitor::visit(functionDeclaration);
+    m_isVisitingParameters = false;
 }
 
 void Checker::visit(AST::FunctionDefinition& functionDefinition)
 {
+    m_currentNameSpace = functionDefinition.nameSpace();
     m_currentFunction = &functionDefinition;
     if (functionDefinition.entryPointType()) {
         if (!checkShaderType(functionDefinition)) {
-            setError();
+            setError(Error("Duplicate entrypoint function.", functionDefinition.codeLocation()));
             return;
         }
         auto entryPointItems = gatherEntryPointItems(m_intrinsics, functionDefinition);
         if (!entryPointItems) {
-            setError();
+            setError(entryPointItems.error());
             return;
         }
         if (!checkSemantics(entryPointItems->inputs, entryPointItems->outputs, functionDefinition.entryPointType(), m_intrinsics)) {
-            setError();
+            setError(Error("Bad semantics for entrypoint.", functionDefinition.codeLocation()));
             return;
         }
     }
-    if (!checkOperatorOverload(functionDefinition, m_intrinsics, m_program.nameContext())) {
-        setError();
+    if (!checkOperatorOverload(functionDefinition)) {
+        setError(Error("Operator does not match expected signature.", functionDefinition.codeLocation()));
         return;
     }
 
     Visitor::visit(functionDefinition);
 }
 
-static Optional<UniqueRef<AST::UnnamedType>> matchAndCommit(ResolvingType& left, ResolvingType& right)
+static RefPtr<AST::UnnamedType> matchAndCommit(ResolvingType& left, ResolvingType& right)
 {
-    return left.visit(WTF::makeVisitor([&](UniqueRef<AST::UnnamedType>& left) -> Optional<UniqueRef<AST::UnnamedType>> {
-        return right.visit(WTF::makeVisitor([&](UniqueRef<AST::UnnamedType>& right) -> Optional<UniqueRef<AST::UnnamedType>> {
+    return left.visit(WTF::makeVisitor([&](Ref<AST::UnnamedType>& left) -> RefPtr<AST::UnnamedType> {
+        return right.visit(WTF::makeVisitor([&](Ref<AST::UnnamedType>& right) -> RefPtr<AST::UnnamedType> {
             if (matches(left, right))
-                return left->clone();
-            return WTF::nullopt;
-        }, [&](RefPtr<ResolvableTypeReference>& right) -> Optional<UniqueRef<AST::UnnamedType>> {
+                return left.copyRef();
+            return nullptr;
+        }, [&](RefPtr<ResolvableTypeReference>& right) -> RefPtr<AST::UnnamedType> {
             return matchAndCommit(left, right->resolvableType());
         }));
-    }, [&](RefPtr<ResolvableTypeReference>& left) -> Optional<UniqueRef<AST::UnnamedType>> {
-        return right.visit(WTF::makeVisitor([&](UniqueRef<AST::UnnamedType>& right) -> Optional<UniqueRef<AST::UnnamedType>> {
+    }, [&](RefPtr<ResolvableTypeReference>& left) -> RefPtr<AST::UnnamedType> {
+        return right.visit(WTF::makeVisitor([&](Ref<AST::UnnamedType>& right) -> RefPtr<AST::UnnamedType> {
             return matchAndCommit(right, left->resolvableType());
-        }, [&](RefPtr<ResolvableTypeReference>& right) -> Optional<UniqueRef<AST::UnnamedType>> {
+        }, [&](RefPtr<ResolvableTypeReference>& right) -> RefPtr<AST::UnnamedType> {
             return matchAndCommit(left->resolvableType(), right->resolvableType());
         }));
     }));
 }
 
-static Optional<UniqueRef<AST::UnnamedType>> matchAndCommit(ResolvingType& resolvingType, AST::UnnamedType& unnamedType)
+static RefPtr<AST::UnnamedType> matchAndCommit(ResolvingType& resolvingType, AST::UnnamedType& unnamedType)
 {
-    return resolvingType.visit(WTF::makeVisitor([&](UniqueRef<AST::UnnamedType>& resolvingType) -> Optional<UniqueRef<AST::UnnamedType>> {
+    return resolvingType.visit(WTF::makeVisitor([&](Ref<AST::UnnamedType>& resolvingType) -> RefPtr<AST::UnnamedType> {
         if (matches(unnamedType, resolvingType))
-            return unnamedType.clone();
-        return WTF::nullopt;
-    }, [&](RefPtr<ResolvableTypeReference>& resolvingType) -> Optional<UniqueRef<AST::UnnamedType>> {
+            return &unnamedType;
+        return nullptr;
+    }, [&](RefPtr<ResolvableTypeReference>& resolvingType) -> RefPtr<AST::UnnamedType> {
         return matchAndCommit(unnamedType, resolvingType->resolvableType());
     }));
 }
 
-static Optional<UniqueRef<AST::UnnamedType>> matchAndCommit(ResolvingType& resolvingType, AST::NamedType& namedType)
+static bool matchAndCommit(ResolvingType& resolvingType, AST::NamedType& namedType)
 {
-    return resolvingType.visit(WTF::makeVisitor([&](UniqueRef<AST::UnnamedType>& resolvingType) -> Optional<UniqueRef<AST::UnnamedType>> {
+    return resolvingType.visit(WTF::makeVisitor([&](Ref<AST::UnnamedType>& resolvingType) {
         if (matches(resolvingType, namedType))
-            return resolvingType->clone();
-        return WTF::nullopt;
-    }, [&](RefPtr<ResolvableTypeReference>& resolvingType) -> Optional<UniqueRef<AST::UnnamedType>> {
+            return true;
+        return false;
+    }, [&](RefPtr<ResolvableTypeReference>& resolvingType) -> bool {
         return matchAndCommit(namedType, resolvingType->resolvableType());
     }));
 }
 
-static Optional<UniqueRef<AST::UnnamedType>> commit(ResolvingType& resolvingType)
+static RefPtr<AST::UnnamedType> commit(ResolvingType& resolvingType)
 {
-    return resolvingType.visit(WTF::makeVisitor([&](UniqueRef<AST::UnnamedType>& unnamedType) -> Optional<UniqueRef<AST::UnnamedType>> {
-        return unnamedType->clone();
-    }, [&](RefPtr<ResolvableTypeReference>& resolvableTypeReference) -> Optional<UniqueRef<AST::UnnamedType>> {
+    return resolvingType.visit(WTF::makeVisitor([&](Ref<AST::UnnamedType>& unnamedType) -> RefPtr<AST::UnnamedType> {
+        return unnamedType.copyRef();
+    }, [&](RefPtr<ResolvableTypeReference>& resolvableTypeReference) -> RefPtr<AST::UnnamedType> {
         if (!resolvableTypeReference->resolvableType().maybeResolvedType())
             return commit(resolvableTypeReference->resolvableType());
-        return resolvableTypeReference->resolvableType().resolvedType().clone();
+        return &resolvableTypeReference->resolvableType().resolvedType();
     }));
+}
+
+AST::FunctionDeclaration* Checker::resolveFunction(Vector<std::reference_wrapper<ResolvingType>>& types, const String& name, CodeLocation location, AST::NamedType* castReturnType)
+{
+    Vector<std::reference_wrapper<AST::UnnamedType>> unnamedTypes;
+    unnamedTypes.reserveInitialCapacity(types.size());
+
+    for (auto resolvingType : types) {
+        AST::UnnamedType* type = resolvingType.get().visit(WTF::makeVisitor([&](Ref<AST::UnnamedType>& unnamedType) -> AST::UnnamedType* {
+            return unnamedType.ptr();
+        }, [&](RefPtr<ResolvableTypeReference>& resolvableTypeReference) -> AST::UnnamedType* {
+            if (resolvableTypeReference->resolvableType().maybeResolvedType())
+                return &resolvableTypeReference->resolvableType().resolvedType();
+
+            if (resolvableTypeReference->resolvableType().isFloatLiteralType()
+                || resolvableTypeReference->resolvableType().isIntegerLiteralType()
+                || resolvableTypeReference->resolvableType().isUnsignedIntegerLiteralType())
+                return &wrappedFloatType();
+
+            return commit(resolvableTypeReference->resolvableType()).get();
+        }));
+
+        if (!type) {
+            setError(Error("Could not resolve the type of a constant."));
+            return nullptr;
+        }
+
+        unnamedTypes.uncheckedAppend(normalizedTypeForFunctionKey(*type));
+    }
+
+    {
+        auto iter = m_functions.find(FunctionKey { name, WTFMove(unnamedTypes), castReturnType });
+        if (iter != m_functions.end()) {
+            if (AST::FunctionDeclaration* function = resolveFunctionOverload(iter->value, types, castReturnType, m_currentNameSpace))
+                return function;
+        }
+    }
+
+    if (auto newFunction = resolveByInstantiation(name, location, types, m_intrinsics)) {
+        m_program.append(WTFMove(*newFunction));
+        return &m_program.nativeFunctionDeclarations().last();
+    }
+
+    return nullptr;
 }
 
 void Checker::visit(AST::EnumerationDefinition& enumerationDefinition)
 {
+    bool isSigned;
     auto* baseType = ([&]() -> AST::NativeTypeDeclaration* {
         checkErrorAndVisit(enumerationDefinition.type());
         auto& baseType = enumerationDefinition.type().unifyNode();
@@ -662,82 +676,37 @@ void Checker::visit(AST::EnumerationDefinition& enumerationDefinition)
         auto& nativeTypeDeclaration = downcast<AST::NativeTypeDeclaration>(namedType);
         if (!nativeTypeDeclaration.isInt())
             return nullptr;
+        isSigned = nativeTypeDeclaration.isSigned();
         return &nativeTypeDeclaration;
     })();
     if (!baseType) {
-        setError();
+        setError(Error("Invalid base type for enum.", enumerationDefinition.codeLocation()));
         return;
     }
 
     auto enumerationMembers = enumerationDefinition.enumerationMembers();
 
-    auto matchAndCommitMember = [&](AST::EnumerationMember& member) -> bool {
-        return member.value()->visit(WTF::makeVisitor([&](AST::Expression& value) -> bool {
-            auto valueInfo = recurseAndGetInfo(value);
-            if (!valueInfo)
-                return false;
-            return static_cast<bool>(matchAndCommit(valueInfo->resolvingType, *baseType));
-        }));
-    };
-
     for (auto& member : enumerationMembers) {
-        if (!member.get().value())
-            continue;
-
-        if (!matchAndCommitMember(member)) {
-            setError();
-            return;
-        }
-    }
-
-    int64_t nextValue = 0;
-    for (auto& member : enumerationMembers) {
-        if (member.get().value()) {
-            auto value = member.get().value()->visit(WTF::makeVisitor([&](AST::IntegerLiteral& integerLiteral) -> int64_t {
-                return integerLiteral.valueForSelectedType();
-            }, [&](AST::UnsignedIntegerLiteral& unsignedIntegerLiteral) -> int64_t {
-                return unsignedIntegerLiteral.valueForSelectedType();
-            }, [&](auto&) -> int64_t {
-                ASSERT_NOT_REACHED();
-                return 0;
-            }));
-            nextValue = baseType->successor()(value);
-        } else {
-            if (nextValue > std::numeric_limits<int>::max()) {
-                ASSERT(nextValue <= std::numeric_limits<unsigned>::max());
-                member.get().setValue(AST::ConstantExpression(AST::UnsignedIntegerLiteral(member.get().codeLocation(), static_cast<unsigned>(nextValue))));
-            }
-            ASSERT(nextValue >= std::numeric_limits<int>::min());
-            member.get().setValue(AST::ConstantExpression(AST::IntegerLiteral(member.get().codeLocation(), static_cast<int>(nextValue))));
-
-            if (!matchAndCommitMember(member)) {
-                setError();
+        int64_t value = member.get().value();
+        if (isSigned) {
+            if (static_cast<int64_t>(static_cast<int32_t>(value)) != value) {
+                setError(Error("Invalid enumeration value.", member.get().codeLocation()));
                 return;
             }
-
-            nextValue = baseType->successor()(nextValue);
+        } else {
+            if (static_cast<int64_t>(static_cast<uint32_t>(value)) != value) {
+                setError(Error("Invalid enumeration value.", member.get().codeLocation()));
+                return;
+            }
         }
     }
 
-    auto getValue = [&](AST::EnumerationMember& member) -> int64_t {
-        ASSERT(member.value());
-        auto value = member.value()->visit(WTF::makeVisitor([&](AST::IntegerLiteral& integerLiteral) -> int64_t {
-            return integerLiteral.value();
-        }, [&](AST::UnsignedIntegerLiteral& unsignedIntegerLiteral) -> int64_t {
-            return unsignedIntegerLiteral.value();
-        }, [&](auto&) -> int64_t {
-            ASSERT_NOT_REACHED();
-            return 0;
-        }));
-        return value;
-    };
-
     for (size_t i = 0; i < enumerationMembers.size(); ++i) {
-        auto value = getValue(enumerationMembers[i].get());
+        auto value = enumerationMembers[i].get().value();
         for (size_t j = i + 1; j < enumerationMembers.size(); ++j) {
-            auto otherValue = getValue(enumerationMembers[j].get());
+            auto otherValue = enumerationMembers[j].get().value();
             if (value == otherValue) {
-                setError();
+                setError(Error("Cannot declare duplicate enumeration values.", enumerationMembers[j].get().codeLocation()));
                 return;
             }
         }
@@ -745,13 +714,13 @@ void Checker::visit(AST::EnumerationDefinition& enumerationDefinition)
 
     bool foundZero = false;
     for (auto& member : enumerationMembers) {
-        if (!getValue(member.get())) {
+        if (!member.get().value()) {
             foundZero = true;
             break;
         }
     }
     if (!foundZero) {
-        setError();
+        setError(Error("enum definition must contain a zero value.", enumerationDefinition.codeLocation()));
         return;
     }
 }
@@ -767,7 +736,7 @@ void Checker::visit(AST::TypeReference& typeReference)
 auto Checker::recurseAndGetInfo(AST::Expression& expression, bool requiresLeftValue) -> Optional<RecurseInfo>
 {
     Visitor::visit(expression);
-    if (error())
+    if (hasError())
         return WTF::nullopt;
     return getInfo(expression, requiresLeftValue);
 }
@@ -779,7 +748,7 @@ auto Checker::getInfo(AST::Expression& expression, bool requiresLeftValue) -> Op
 
     const auto& typeAnnotation = expression.typeAnnotation();
     if (requiresLeftValue && typeAnnotation.isRightValue()) {
-        setError();
+        setError(Error("Unexpected rvalue.", expression.codeLocation()));
         return WTF::nullopt;
     }
     return {{ *typeIterator->value, typeAnnotation }};
@@ -790,39 +759,58 @@ void Checker::visit(AST::VariableDeclaration& variableDeclaration)
     // ReadModifyWriteExpressions are the only place where anonymous variables exist,
     // and that doesn't recurse on the anonymous variables, so we can assume the variable has a type.
     checkErrorAndVisit(*variableDeclaration.type());
+    if (matches(*variableDeclaration.type(), m_intrinsics.voidType())) {
+        setError(Error("Variables can't have void type.", variableDeclaration.codeLocation()));
+        return;
+    }
     if (variableDeclaration.initializer()) {
         auto& lhsType = *variableDeclaration.type();
         auto initializerInfo = recurseAndGetInfo(*variableDeclaration.initializer());
         if (!initializerInfo)
             return;
         if (!matchAndCommit(initializerInfo->resolvingType, lhsType)) {
-            setError();
+            setError(Error("Declared variable type does not match its initializer's type.", variableDeclaration.codeLocation()));
             return;
         }
+    } else if (!m_isVisitingParameters && is<AST::ReferenceType>(variableDeclaration.type()->unifyNode())) {
+        if (is<AST::PointerType>(variableDeclaration.type()->unifyNode()))
+            setError(Error("Must assign to a pointer variable declaration in its initializer.", variableDeclaration.codeLocation()));
+        else {
+            ASSERT(is<AST::ArrayReferenceType>(variableDeclaration.type()->unifyNode()));
+            setError(Error("Must assign to an array reference variable declaration in its initializer.", variableDeclaration.codeLocation()));
+        }
+        return;
     }
 }
 
-void Checker::assignType(AST::Expression& expression, UniqueRef<AST::UnnamedType>&& unnamedType, AST::TypeAnnotation typeAnnotation = AST::RightValue())
+void Checker::assignConcreteType(AST::Expression& expression, Ref<AST::UnnamedType> unnamedType, AST::TypeAnnotation typeAnnotation = AST::RightValue())
 {
-    auto addResult = m_typeMap.add(&expression, std::make_unique<ResolvingType>(WTFMove(unnamedType)));
+    auto addResult = m_typeMap.add(&expression, makeUnique<ResolvingType>(WTFMove(unnamedType)));
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
     expression.setTypeAnnotation(WTFMove(typeAnnotation));
 }
 
-void Checker::assignType(AST::Expression& expression, RefPtr<ResolvableTypeReference>&& resolvableTypeReference, AST::TypeAnnotation typeAnnotation = AST::RightValue())
+void Checker::assignConcreteType(AST::Expression& expression, AST::NamedType& type, AST::TypeAnnotation annotation)
 {
-    auto addResult = m_typeMap.add(&expression, std::make_unique<ResolvingType>(WTFMove(resolvableTypeReference)));
+    auto unnamedType = AST::TypeReference::wrap(type.codeLocation(), type);
+    Visitor::visit(unnamedType);
+    assignConcreteType(expression, WTFMove(unnamedType), annotation);
+}
+
+void Checker::assignType(AST::Expression& expression, RefPtr<ResolvableTypeReference> resolvableTypeReference, AST::TypeAnnotation typeAnnotation = AST::RightValue())
+{
+    auto addResult = m_typeMap.add(&expression, makeUnique<ResolvingType>(WTFMove(resolvableTypeReference)));
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
     expression.setTypeAnnotation(WTFMove(typeAnnotation));
 }
 
 void Checker::forwardType(AST::Expression& expression, ResolvingType& resolvingType, AST::TypeAnnotation typeAnnotation = AST::RightValue())
 {
-    resolvingType.visit(WTF::makeVisitor([&](UniqueRef<AST::UnnamedType>& result) {
-        auto addResult = m_typeMap.add(&expression, std::make_unique<ResolvingType>(result->clone()));
+    resolvingType.visit(WTF::makeVisitor([&](Ref<AST::UnnamedType>& result) {
+        auto addResult = m_typeMap.add(&expression, makeUnique<ResolvingType>(result.copyRef()));
         ASSERT_UNUSED(addResult, addResult.isNewEntry);
     }, [&](RefPtr<ResolvableTypeReference>& result) {
-        auto addResult = m_typeMap.add(&expression, std::make_unique<ResolvingType>(result.copyRef()));
+        auto addResult = m_typeMap.add(&expression, makeUnique<ResolvingType>(result.copyRef()));
         ASSERT_UNUSED(addResult, addResult.isNewEntry);
     }));
     expression.setTypeAnnotation(WTFMove(typeAnnotation));
@@ -840,11 +828,11 @@ void Checker::visit(AST::AssignmentExpression& assignmentExpression)
 
     auto resultType = matchAndCommit(leftInfo->resolvingType, rightInfo->resolvingType);
     if (!resultType) {
-        setError();
+        setError(Error("Left hand side of assignment does not match the type of the right hand side.", assignmentExpression.codeLocation()));
         return;
     }
 
-    assignType(assignmentExpression, WTFMove(*resultType));
+    assignConcreteType(assignmentExpression, *resultType);
 }
 
 void Checker::visit(AST::ReadModifyWriteExpression& readModifyWriteExpression)
@@ -853,16 +841,16 @@ void Checker::visit(AST::ReadModifyWriteExpression& readModifyWriteExpression)
     if (!leftValueInfo)
         return;
 
-    readModifyWriteExpression.oldValue().setType(leftValueInfo->resolvingType.getUnnamedType()->clone());
+    readModifyWriteExpression.oldValue().setType(*leftValueInfo->resolvingType.getUnnamedType());
 
     auto newValueInfo = recurseAndGetInfo(readModifyWriteExpression.newValueExpression());
     if (!newValueInfo)
         return;
 
-    if (Optional<UniqueRef<AST::UnnamedType>> matchedType = matchAndCommit(leftValueInfo->resolvingType, newValueInfo->resolvingType))
-        readModifyWriteExpression.newValue().setType(WTFMove(matchedType.value()));
+    if (RefPtr<AST::UnnamedType> matchedType = matchAndCommit(leftValueInfo->resolvingType, newValueInfo->resolvingType))
+        readModifyWriteExpression.newValue().setType(*matchedType);
     else {
-        setError();
+        setError(Error("Base of the read-modify-write expression does not match the type of the new value.", readModifyWriteExpression.codeLocation()));
         return;
     }
 
@@ -870,13 +858,13 @@ void Checker::visit(AST::ReadModifyWriteExpression& readModifyWriteExpression)
     if (!resultInfo)
         return;
 
-    forwardType(readModifyWriteExpression, resultInfo->resolvingType);
+    forwardType(readModifyWriteExpression, resultInfo->resolvingType, AST::RightValue());
 }
 
 static AST::UnnamedType* getUnnamedType(ResolvingType& resolvingType)
 {
-    return resolvingType.visit(WTF::makeVisitor([](UniqueRef<AST::UnnamedType>& type) -> AST::UnnamedType* {
-        return &type;
+    return resolvingType.visit(WTF::makeVisitor([](Ref<AST::UnnamedType>& type) -> AST::UnnamedType* {
+        return type.ptr();
     }, [](RefPtr<ResolvableTypeReference>& type) -> AST::UnnamedType* {
         // FIXME: If the type isn't committed, should we just commit() it now?
         return type->resolvableType().maybeResolvedType();
@@ -903,11 +891,11 @@ void Checker::visit(AST::DereferenceExpression& dereferenceExpression)
         return &downcast<AST::PointerType>(unnamedUnifyType);
     })(unnamedType);
     if (!pointerType) {
-        setError();
+        setError(Error("Cannot dereference a non-pointer type.", dereferenceExpression.codeLocation()));
         return;
     }
 
-    assignType(dereferenceExpression, pointerType->elementType().clone(), AST::LeftValue { pointerType->addressSpace() });
+    assignConcreteType(dereferenceExpression, pointerType->elementType(), AST::LeftValue { pointerType->addressSpace() });
 }
 
 void Checker::visit(AST::MakePointerExpression& makePointerExpression)
@@ -918,17 +906,17 @@ void Checker::visit(AST::MakePointerExpression& makePointerExpression)
 
     auto leftAddressSpace = leftValueInfo->typeAnnotation.leftAddressSpace();
     if (!leftAddressSpace) {
-        setError();
+        setError(Error("Cannot take the address of a non lvalue.", makePointerExpression.codeLocation()));
         return;
     }
 
     auto* leftValueType = getUnnamedType(leftValueInfo->resolvingType);
     if (!leftValueType) {
-        setError();
+        setError(Error("Cannot take the address of a value without a type.", makePointerExpression.codeLocation()));
         return;
     }
 
-    assignType(makePointerExpression, makeUniqueRef<AST::PointerType>(makePointerExpression.codeLocation(), *leftAddressSpace, leftValueType->clone()));
+    assignConcreteType(makePointerExpression, AST::PointerType::create(makePointerExpression.codeLocation(), *leftAddressSpace, *leftValueType));
 }
 
 void Checker::visit(AST::MakeArrayReferenceExpression& makeArrayReferenceExpression)
@@ -939,7 +927,7 @@ void Checker::visit(AST::MakeArrayReferenceExpression& makeArrayReferenceExpress
 
     auto* leftValueType = getUnnamedType(leftValueInfo->resolvingType);
     if (!leftValueType) {
-        setError();
+        setError(Error("Cannot make an array reference of a value without a type.", makeArrayReferenceExpression.codeLocation()));
         return;
     }
 
@@ -948,188 +936,142 @@ void Checker::visit(AST::MakeArrayReferenceExpression& makeArrayReferenceExpress
         auto& unnamedType = downcast<AST::UnnamedType>(unifyNode);
         if (is<AST::PointerType>(unnamedType)) {
             auto& pointerType = downcast<AST::PointerType>(unnamedType);
-            // FIXME: https://bugs.webkit.org/show_bug.cgi?id=198163 Save the fact that we're not targetting the item; we're targetting the item's inner element.
-            assignType(makeArrayReferenceExpression, makeUniqueRef<AST::ArrayReferenceType>(makeArrayReferenceExpression.codeLocation(), pointerType.addressSpace(), pointerType.elementType().clone()));
+            assignConcreteType(makeArrayReferenceExpression, AST::ArrayReferenceType::create(makeArrayReferenceExpression.codeLocation(), pointerType.addressSpace(), pointerType.elementType()));
             return;
         }
 
         auto leftAddressSpace = leftValueInfo->typeAnnotation.leftAddressSpace();
         if (!leftAddressSpace) {
-            setError();
+            setError(Error("Cannot make an array reference from a non-left-value.", makeArrayReferenceExpression.codeLocation()));
             return;
         }
 
         if (is<AST::ArrayType>(unnamedType)) {
             auto& arrayType = downcast<AST::ArrayType>(unnamedType);
             // FIXME: https://bugs.webkit.org/show_bug.cgi?id=198163 Save the number of elements.
-            assignType(makeArrayReferenceExpression, makeUniqueRef<AST::ArrayReferenceType>(makeArrayReferenceExpression.codeLocation(), *leftAddressSpace, arrayType.type().clone()));
+            assignConcreteType(makeArrayReferenceExpression, AST::ArrayReferenceType::create(makeArrayReferenceExpression.codeLocation(), *leftAddressSpace, arrayType.type()));
             return;
         }
     }
 
     auto leftAddressSpace = leftValueInfo->typeAnnotation.leftAddressSpace();
     if (!leftAddressSpace) {
-        setError();
+        setError(Error("Cannot make an array reference from a non-left-value.", makeArrayReferenceExpression.codeLocation()));
         return;
     }
 
-    assignType(makeArrayReferenceExpression, makeUniqueRef<AST::ArrayReferenceType>(makeArrayReferenceExpression.codeLocation(), *leftAddressSpace, leftValueType->clone()));
-}
-
-static Optional<UniqueRef<AST::UnnamedType>> argumentTypeForAndOverload(AST::UnnamedType& baseType, AST::AddressSpace addressSpace)
-{
-    auto& unifyNode = baseType.unifyNode();
-    if (is<AST::NamedType>(unifyNode)) {
-        auto& namedType = downcast<AST::NamedType>(unifyNode);
-        return { makeUniqueRef<AST::PointerType>(namedType.codeLocation(), addressSpace, AST::TypeReference::wrap(namedType.codeLocation(), namedType)) };
-    }
-
-    auto& unnamedType = downcast<AST::UnnamedType>(unifyNode);
-
-    if (is<AST::ArrayReferenceType>(unnamedType))
-        return unnamedType.clone();
-
-    if (is<AST::ArrayType>(unnamedType))
-        return { makeUniqueRef<AST::ArrayReferenceType>(unnamedType.codeLocation(), addressSpace, downcast<AST::ArrayType>(unnamedType).type().clone()) };
-
-    if (is<AST::PointerType>(unnamedType))
-        return WTF::nullopt;
-
-    return { makeUniqueRef<AST::PointerType>(unnamedType.codeLocation(), addressSpace, unnamedType.clone()) };
-}
-
-void Checker::finishVisiting(AST::PropertyAccessExpression& propertyAccessExpression, ResolvingType* additionalArgumentType)
-{
-    auto baseInfo = recurseAndGetInfo(propertyAccessExpression.base());
-    if (!baseInfo)
-        return;
-    auto baseUnnamedType = commit(baseInfo->resolvingType);
-    if (!baseUnnamedType)
-        return;
-
-    AST::FunctionDeclaration* getterFunction = nullptr;
-    AST::UnnamedType* getterReturnType = nullptr;
-    {
-        Vector<std::reference_wrapper<ResolvingType>> getterArgumentTypes { baseInfo->resolvingType };
-        if (additionalArgumentType)
-            getterArgumentTypes.append(*additionalArgumentType);
-        auto getterName = propertyAccessExpression.getterFunctionName();
-        auto* getterFunctions = m_program.nameContext().getFunctions(getterName);
-        getterFunction = resolveFunction(m_program, getterFunctions, getterArgumentTypes, getterName, propertyAccessExpression.codeLocation(), m_intrinsics);
-        if (getterFunction)
-            getterReturnType = &getterFunction->type();
-    }
-
-    AST::FunctionDeclaration* anderFunction = nullptr;
-    AST::UnnamedType* anderReturnType = nullptr;
-    auto leftAddressSpace = baseInfo->typeAnnotation.leftAddressSpace();
-    if (leftAddressSpace) {
-        if (auto argumentTypeForAndOverload = WHLSL::argumentTypeForAndOverload(*baseUnnamedType, *leftAddressSpace)) {
-            ResolvingType argumentType = { WTFMove(*argumentTypeForAndOverload) };
-            Vector<std::reference_wrapper<ResolvingType>> anderArgumentTypes { argumentType };
-            if (additionalArgumentType)
-                anderArgumentTypes.append(*additionalArgumentType);
-            auto anderName = propertyAccessExpression.anderFunctionName();
-            auto* anderFunctions = m_program.nameContext().getFunctions(anderName);
-            anderFunction = resolveFunction(m_program, anderFunctions, anderArgumentTypes, anderName, propertyAccessExpression.codeLocation(), m_intrinsics);
-            if (anderFunction)
-                anderReturnType = &downcast<AST::PointerType>(anderFunction->type()).elementType(); // FIXME: https://bugs.webkit.org/show_bug.cgi?id=198164 Enforce the return of anders will always be a pointer
-        }
-    }
-
-    AST::FunctionDeclaration* threadAnderFunction = nullptr;
-    AST::UnnamedType* threadAnderReturnType = nullptr;
-    if (auto argumentTypeForAndOverload = WHLSL::argumentTypeForAndOverload(*baseUnnamedType, AST::AddressSpace::Thread)) {
-        ResolvingType argumentType = { makeUniqueRef<AST::PointerType>(propertyAccessExpression.codeLocation(), AST::AddressSpace::Thread, baseUnnamedType->get().clone()) };
-        Vector<std::reference_wrapper<ResolvingType>> threadAnderArgumentTypes { argumentType };
-        if (additionalArgumentType)
-            threadAnderArgumentTypes.append(*additionalArgumentType);
-        auto anderName = propertyAccessExpression.anderFunctionName();
-        auto* anderFunctions = m_program.nameContext().getFunctions(anderName);
-        threadAnderFunction = resolveFunction(m_program, anderFunctions, threadAnderArgumentTypes, anderName, propertyAccessExpression.codeLocation(), m_intrinsics);
-        if (threadAnderFunction)
-            threadAnderReturnType = &downcast<AST::PointerType>(threadAnderFunction->type()).elementType(); // FIXME: https://bugs.webkit.org/show_bug.cgi?id=198164 Enforce the return of anders will always be a pointer
-    }
-
-    if (leftAddressSpace && !anderFunction && !getterFunction) {
-        setError();
-        return;
-    }
-
-    if (!leftAddressSpace && !threadAnderFunction && !getterFunction) {
-        setError();
-        return;
-    }
-
-    if (threadAnderFunction && getterFunction) {
-        setError();
-        return;
-    }
-
-    if (anderFunction && threadAnderFunction && !matches(*anderReturnType, *threadAnderReturnType)) {
-        setError();
-        return;
-    }
-
-    if (getterFunction && anderFunction && !matches(*getterReturnType, *anderReturnType)) {
-        setError();
-        return;
-    }
-
-    if (getterFunction && threadAnderFunction && !matches(*getterReturnType, *threadAnderReturnType)) {
-        setError();
-        return;
-    }
-
-    AST::UnnamedType* fieldType = getterReturnType ? getterReturnType : anderReturnType ? anderReturnType : threadAnderReturnType;
-
-    AST::FunctionDeclaration* setterFunction = nullptr;
-    AST::UnnamedType* setterReturnType = nullptr;
-    {
-        ResolvingType fieldResolvingType(fieldType->clone());
-        Vector<std::reference_wrapper<ResolvingType>> setterArgumentTypes { baseInfo->resolvingType };
-        if (additionalArgumentType)
-            setterArgumentTypes.append(*additionalArgumentType);
-        setterArgumentTypes.append(fieldResolvingType);
-        auto setterName = propertyAccessExpression.setterFunctionName();
-        auto* setterFunctions = m_program.nameContext().getFunctions(setterName);
-        setterFunction = resolveFunction(m_program, setterFunctions, setterArgumentTypes, setterName, propertyAccessExpression.codeLocation(), m_intrinsics);
-        if (setterFunction)
-            setterReturnType = &setterFunction->type();
-    }
-
-    if (setterFunction && !getterFunction) {
-        setError();
-        return;
-    }
-
-    propertyAccessExpression.setGetterFunction(getterFunction);
-    propertyAccessExpression.setAnderFunction(anderFunction);
-    propertyAccessExpression.setThreadAnderFunction(threadAnderFunction);
-    propertyAccessExpression.setSetterFunction(setterFunction);
-
-    AST::TypeAnnotation typeAnnotation = AST::RightValue();
-    if (auto leftAddressSpace = baseInfo->typeAnnotation.leftAddressSpace()) {
-        if (anderFunction)
-            typeAnnotation = AST::LeftValue { *leftAddressSpace };
-        else if (setterFunction)
-            typeAnnotation = AST::AbstractLeftValue();
-    } else if (!baseInfo->typeAnnotation.isRightValue() && (setterFunction || threadAnderFunction))
-        typeAnnotation = AST::AbstractLeftValue();
-    assignType(propertyAccessExpression, fieldType->clone(), WTFMove(typeAnnotation));
+    assignConcreteType(makeArrayReferenceExpression, AST::ArrayReferenceType::create(makeArrayReferenceExpression.codeLocation(), *leftAddressSpace, *leftValueType));
 }
 
 void Checker::visit(AST::DotExpression& dotExpression)
 {
-    finishVisiting(dotExpression);
+    auto baseInfo = recurseAndGetInfo(dotExpression.base());
+    if (!baseInfo)
+        return;
+
+    auto baseUnnamedType = commit(baseInfo->resolvingType);
+    if (!baseUnnamedType) {
+        setError(Error("Cannot resolve the type of the base of a dot expression.", dotExpression.codeLocation()));
+        return;
+    }
+
+    auto& type = baseUnnamedType->unifyNode();
+    if (is<AST::StructureDefinition>(type)) {
+        auto& structure = downcast<AST::StructureDefinition>(type);    
+        if (AST::StructureElement* element = structure.find(dotExpression.fieldName()))
+            assignConcreteType(dotExpression, element->type(), baseInfo->typeAnnotation);
+        else {
+            setError(Error(makeString("Field name: '", dotExpression.fieldName(), "' does not exist on structure: ", structure.name()), dotExpression.codeLocation()));
+            return;
+        }
+    } else if (dotExpression.fieldName() == "length") {
+        if (is<AST::ArrayReferenceType>(type)
+            || is<AST::ArrayType>(type)
+            || (is<AST::NativeTypeDeclaration>(type) && downcast<AST::NativeTypeDeclaration>(type).isVector())) {
+            assignConcreteType(dotExpression, wrappedUintType(), AST::RightValue());
+        } else {
+            setError(Error(".length field is only available on arrays, array references, or vectors.", dotExpression.codeLocation()));
+            return;
+        }
+    } else if (is<AST::NativeTypeDeclaration>(type) && downcast<AST::NativeTypeDeclaration>(type).isVector()) {
+        if (!m_program.isValidVectorProperty(dotExpression.fieldName())) {
+            setError(Error(makeString("'.", dotExpression.fieldName(), "' is not a valid property on a vector."), dotExpression.codeLocation()));
+            return;
+        }
+
+        auto typeAnnotation = baseInfo->typeAnnotation.isRightValue() ? AST::TypeAnnotation { AST::RightValue() } : AST::TypeAnnotation { AST::AbstractLeftValue() };
+
+        size_t fieldLength = dotExpression.fieldName().length();
+        auto& innerType = downcast<AST::NativeTypeDeclaration>(type).vectorTypeArgument();
+        if (fieldLength == 1)
+            assignConcreteType(dotExpression, innerType, typeAnnotation);
+        else {
+            if (matches(innerType, m_intrinsics.boolType()))
+                assignConcreteType(dotExpression, m_intrinsics.boolVectorTypeForSize(fieldLength), typeAnnotation);
+            else if (matches(innerType, m_intrinsics.intType()))
+                assignConcreteType(dotExpression, m_intrinsics.intVectorTypeForSize(fieldLength), typeAnnotation);
+            else if (matches(innerType, m_intrinsics.uintType()))
+                assignConcreteType(dotExpression, m_intrinsics.uintVectorTypeForSize(fieldLength), typeAnnotation);
+            else if (matches(innerType, m_intrinsics.floatType()))
+                assignConcreteType(dotExpression, m_intrinsics.floatVectorTypeForSize(fieldLength), typeAnnotation);
+            else
+                RELEASE_ASSERT_NOT_REACHED();
+        }
+    } else
+        setError(Error("Base value of dot expression must be a structure, array, or vector.", dotExpression.codeLocation()));
 }
 
 void Checker::visit(AST::IndexExpression& indexExpression)
 {
-    auto baseInfo = recurseAndGetInfo(indexExpression.indexExpression());
+    {
+        auto indexInfo = recurseAndGetInfo(indexExpression.indexExpression());
+        if (!indexInfo)
+            return;
+
+        if (!matchAndCommit(indexInfo->resolvingType, m_intrinsics.uintType())) {
+            setError(Error("Index in an index expression must be a uint.", indexExpression.codeLocation()));
+            return;
+        }
+    }
+
+    auto baseInfo = recurseAndGetInfo(indexExpression.base());
     if (!baseInfo)
         return;
-    finishVisiting(indexExpression, &baseInfo->resolvingType);
+
+    auto baseUnnamedType = commit(baseInfo->resolvingType);
+    if (!baseUnnamedType) {
+        setError(Error("Cannot resolve the type of the base of an index expression.", indexExpression.codeLocation()));
+        return;
+    }
+
+    auto& type = baseUnnamedType->unifyNode();
+    if (is<AST::ArrayReferenceType>(type)) {
+        auto& arrayReferenceType = downcast<AST::ArrayReferenceType>(type);
+        assignConcreteType(indexExpression, arrayReferenceType.elementType(), AST::LeftValue { arrayReferenceType.addressSpace() });
+    } else if (is<AST::ArrayType>(type))
+        assignConcreteType(indexExpression, downcast<AST::ArrayType>(type).type(), baseInfo->typeAnnotation);
+    else if (is<AST::NativeTypeDeclaration>(type)) {
+        auto& nativeType = downcast<AST::NativeTypeDeclaration>(type);
+        auto typeAnnotation = baseInfo->typeAnnotation.isRightValue() ? AST::TypeAnnotation { AST::RightValue() } : AST::TypeAnnotation { AST::AbstractLeftValue() };
+        if (nativeType.isVector())
+            assignConcreteType(indexExpression, nativeType.vectorTypeArgument(), typeAnnotation);
+        else if (nativeType.isMatrix()) {
+            auto& innerType = nativeType.matrixTypeArgument();
+            unsigned numRows = nativeType.numberOfMatrixRows();
+            if (matches(innerType, m_intrinsics.boolType()))
+                assignConcreteType(indexExpression, m_intrinsics.boolVectorTypeForSize(numRows), typeAnnotation);
+            else if (matches(innerType, m_intrinsics.floatType()))
+                assignConcreteType(indexExpression, m_intrinsics.floatVectorTypeForSize(numRows), typeAnnotation);
+            else
+                RELEASE_ASSERT_NOT_REACHED();
+        } else {
+            setError(Error("Index expression on unknown type.", indexExpression.codeLocation()));
+            return;
+        }
+    } else {
+        setError(Error("Index expression on an unknown base type. Base type must be an array, array reference, vector, or matrix.", indexExpression.codeLocation()));
+        return;
+    }
 }
 
 void Checker::visit(AST::VariableReference& variableReference)
@@ -1137,7 +1079,7 @@ void Checker::visit(AST::VariableReference& variableReference)
     ASSERT(variableReference.variable());
     ASSERT(variableReference.variable()->type());
     
-    assignType(variableReference, variableReference.variable()->type()->clone(), AST::LeftValue { AST::AddressSpace::Thread });
+    assignConcreteType(variableReference, *variableReference.variable()->type(), AST::LeftValue { AST::AddressSpace::Thread });
 }
 
 void Checker::visit(AST::Return& returnStatement)
@@ -1147,12 +1089,12 @@ void Checker::visit(AST::Return& returnStatement)
         if (!valueInfo)
             return;
         if (!matchAndCommit(valueInfo->resolvingType, m_currentFunction->type()))
-            setError();
+            setError(Error("Type of the return value must match the return type of the function.", returnStatement.codeLocation()));
         return;
     }
 
     if (!matches(m_currentFunction->type(), m_intrinsics.voidType()))
-        setError();
+        setError(Error("Cannot return a value from a void function.", returnStatement.codeLocation()));
 }
 
 void Checker::visit(AST::PointerType&)
@@ -1184,26 +1126,21 @@ void Checker::visit(AST::FloatLiteral& floatLiteral)
     assignType(floatLiteral, adoptRef(*new ResolvableTypeReference(floatLiteral.type())));
 }
 
-void Checker::visit(AST::NullLiteral& nullLiteral)
-{
-    assignType(nullLiteral, adoptRef(*new ResolvableTypeReference(nullLiteral.type())));
-}
-
 void Checker::visit(AST::BooleanLiteral& booleanLiteral)
 {
-    assignType(booleanLiteral, AST::TypeReference::wrap(booleanLiteral.codeLocation(), m_intrinsics.boolType()));
+    assignConcreteType(booleanLiteral, AST::TypeReference::wrap(booleanLiteral.codeLocation(), m_intrinsics.boolType()));
 }
 
 void Checker::visit(AST::EnumerationMemberLiteral& enumerationMemberLiteral)
 {
     ASSERT(enumerationMemberLiteral.enumerationDefinition());
     auto& enumerationDefinition = *enumerationMemberLiteral.enumerationDefinition();
-    assignType(enumerationMemberLiteral, AST::TypeReference::wrap(enumerationMemberLiteral.codeLocation(), enumerationDefinition));
+    assignConcreteType(enumerationMemberLiteral, AST::TypeReference::wrap(enumerationMemberLiteral.codeLocation(), enumerationDefinition));
 }
 
 bool Checker::isBoolType(ResolvingType& resolvingType)
 {
-    return resolvingType.visit(WTF::makeVisitor([&](UniqueRef<AST::UnnamedType>& left) -> bool {
+    return resolvingType.visit(WTF::makeVisitor([&](Ref<AST::UnnamedType>& left) -> bool {
         return matches(left, m_intrinsics.boolType());
     }, [&](RefPtr<ResolvableTypeReference>& left) -> bool {
         return static_cast<bool>(matchAndCommit(m_intrinsics.boolType(), left->resolvableType()));
@@ -1216,7 +1153,7 @@ bool Checker::recurseAndRequireBoolType(AST::Expression& expression)
     if (!expressionInfo)
         return false;
     if (!isBoolType(expressionInfo->resolvingType)) {
-        setError();
+        setError(Error("Expected bool type from expression.", expression.codeLocation()));
         return false;
     }
     return true;
@@ -1226,7 +1163,7 @@ void Checker::visit(AST::LogicalNotExpression& logicalNotExpression)
 {
     if (!recurseAndRequireBoolType(logicalNotExpression.operand()))
         return;
-    assignType(logicalNotExpression, AST::TypeReference::wrap(logicalNotExpression.codeLocation(), m_intrinsics.boolType()));
+    assignConcreteType(logicalNotExpression, AST::TypeReference::wrap(logicalNotExpression.codeLocation(), m_intrinsics.boolType()));
 }
 
 void Checker::visit(AST::LogicalExpression& logicalExpression)
@@ -1235,7 +1172,7 @@ void Checker::visit(AST::LogicalExpression& logicalExpression)
         return;
     if (!recurseAndRequireBoolType(logicalExpression.right()))
         return;
-    assignType(logicalExpression, AST::TypeReference::wrap(logicalExpression.codeLocation(), m_intrinsics.boolType()));
+    assignConcreteType(logicalExpression, AST::TypeReference::wrap(logicalExpression.codeLocation(), m_intrinsics.boolType()));
 }
 
 void Checker::visit(AST::IfStatement& ifStatement)
@@ -1262,12 +1199,8 @@ void Checker::visit(AST::DoWhileLoop& doWhileLoop)
 
 void Checker::visit(AST::ForLoop& forLoop)
 {
-    WTF::visit(WTF::makeVisitor([&](UniqueRef<AST::Statement>& statement) {
-        checkErrorAndVisit(statement);
-    }, [&](UniqueRef<AST::Expression>& expression) {
-        checkErrorAndVisit(expression);
-    }), forLoop.initialization());
-    if (error())
+    checkErrorAndVisit(forLoop.initialization());
+    if (hasError())
         return;
     if (forLoop.condition()) {
         if (!recurseAndRequireBoolType(*forLoop.condition()))
@@ -1297,7 +1230,7 @@ void Checker::visit(AST::SwitchStatement& switchStatement)
         return &valueNamedUnifyNode;
     })();
     if (!valueType) {
-        setError();
+        setError(Error("Invalid type for the expression condition of the switch statement.", switchStatement.codeLocation()));
         return;
     }
 
@@ -1314,8 +1247,6 @@ void Checker::visit(AST::SwitchStatement& switchStatement)
             return static_cast<bool>(matchAndCommit(*valueType, unsignedIntegerLiteral.type()));
         }, [&](AST::FloatLiteral& floatLiteral) -> bool {
             return static_cast<bool>(matchAndCommit(*valueType, floatLiteral.type()));
-        }, [&](AST::NullLiteral& nullLiteral) -> bool {
-            return static_cast<bool>(matchAndCommit(*valueType, nullLiteral.type()));
         }, [&](AST::BooleanLiteral&) -> bool {
             return matches(*valueType, m_intrinsics.boolType());
         }, [&](AST::EnumerationMemberLiteral& enumerationMemberLiteral) -> bool {
@@ -1323,7 +1254,7 @@ void Checker::visit(AST::SwitchStatement& switchStatement)
             return matches(*valueType, *enumerationMemberLiteral.enumerationDefinition());
         }));
         if (!success) {
-            setError();
+            setError(Error("Invalid type for switch case.", switchCase.codeLocation()));
             return;
         }
     }
@@ -1337,7 +1268,7 @@ void Checker::visit(AST::SwitchStatement& switchStatement)
                 continue;
 
             if (!static_cast<bool>(firstCase.value())) {
-                setError();
+                setError(Error("Cannot define multiple default cases in switch statement.", secondCase.codeLocation()));
                 return;
             }
 
@@ -1369,7 +1300,7 @@ void Checker::visit(AST::SwitchStatement& switchStatement)
                 return true;
             }));
             if (!success) {
-                setError();
+                setError(Error("Cannot define duplicate case statements in a switch.", secondCase.codeLocation()));
                 return;
             }
         }
@@ -1409,7 +1340,7 @@ void Checker::visit(AST::SwitchStatement& switchStatement)
                 return false;
             });
             if (!success) {
-                setError();
+                setError(Error("Switch cases must be exhaustive or you must define a default case.", switchStatement.codeLocation()));
                 return;
             }
         } else {
@@ -1424,7 +1355,7 @@ void Checker::visit(AST::SwitchStatement& switchStatement)
             }
             for (auto& enumerationMember : downcast<AST::EnumerationDefinition>(*valueType).enumerationMembers()) {
                 if (!values.contains(&enumerationMember.get())) {
-                    setError();
+                    setError(Error("Switch cases over an enum must be exhaustive or you must define a default case.", switchStatement.codeLocation()));
                     return;
                 }
             }
@@ -1436,7 +1367,7 @@ void Checker::visit(AST::CommaExpression& commaExpression)
 {
     ASSERT(commaExpression.list().size() > 0);
     Visitor::visit(commaExpression);
-    if (error())
+    if (hasError())
         return;
     auto lastInfo = getInfo(commaExpression.list().last());
     forwardType(commaExpression, lastInfo->resolvingType);
@@ -1453,11 +1384,11 @@ void Checker::visit(AST::TernaryExpression& ternaryExpression)
     
     auto resultType = matchAndCommit(bodyInfo->resolvingType, elseInfo->resolvingType);
     if (!resultType) {
-        setError();
+        setError(Error("lhs and rhs of a ternary expression must match.", ternaryExpression.codeLocation()));
         return;
     }
 
-    assignType(ternaryExpression, WTFMove(*resultType));
+    assignConcreteType(ternaryExpression, *resultType);
 }
 
 void Checker::visit(AST::CallExpression& callExpression)
@@ -1473,45 +1404,48 @@ void Checker::visit(AST::CallExpression& callExpression)
     // Don't recurse on the castReturnType, because it's guaranteed to be a NamedType, which will get visited later.
     // We don't want to recurse to the same node twice.
 
-    NameContext& nameContext = m_program.nameContext();
-    auto* functions = nameContext.getFunctions(callExpression.name());
-    if (!functions) {
-        if (auto* types = nameContext.getTypes(callExpression.name())) {
-            if (types->size() == 1) {
-                if ((functions = nameContext.getFunctions("operator cast"_str)))
-                    callExpression.setCastData((*types)[0].get());
-            }
+    auto* function = resolveFunction(types, callExpression.name(), callExpression.codeLocation());
+    if (hasError())
+        return;
+
+    if (!function) {
+        NameContext& nameContext = m_program.nameContext();
+        auto castTypes = nameContext.getTypes(callExpression.name(), m_currentNameSpace);
+        if (castTypes.size() == 1) {
+            AST::NamedType& castType = castTypes[0].get();
+            function = resolveFunction(types, "operator cast"_str, callExpression.codeLocation(), &castType);
+            if (hasError())
+                return;
+            if (function)
+                callExpression.setCastData(castType);
         }
     }
-    if (!functions) {
-        setError();
-        return;
-    }
 
-    auto* function = resolveFunction(m_program, functions, types, callExpression.name(), callExpression.codeLocation(), m_intrinsics, callExpression.castReturnType());
     if (!function) {
-        setError();
+        // FIXME: Add better error messages for why we can't resolve to one of the overrides.
+        // https://bugs.webkit.org/show_bug.cgi?id=200133
+        setError(Error("Cannot resolve function call to a concrete callee. Make sure you are using compatible types.", callExpression.codeLocation()));
         return;
     }
 
     for (size_t i = 0; i < function->parameters().size(); ++i) {
         if (!matchAndCommit(types[i].get(), *function->parameters()[i]->type())) {
-            setError();
+            setError(Error(makeString("Invalid type for parameter number ", i + 1, " in function call."), callExpression.codeLocation()));
             return;
         }
     }
 
     callExpression.setFunction(*function);
 
-    assignType(callExpression, function->type().clone());
+    assignConcreteType(callExpression, function->type());
 }
 
-bool check(Program& program)
+Expected<void, Error> check(Program& program)
 {
     Checker checker(program.intrinsics(), program);
     checker.checkErrorAndVisit(program);
-    if (checker.error())
-        return false;
+    if (checker.hasError())
+        return checker.result();
     return checker.assignTypes();
 }
 

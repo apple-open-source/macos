@@ -39,12 +39,12 @@ WI.CSSKeywordCompletions.forProperty = function(propertyName)
         let isNotPrefixed = name.charAt(0) !== "-";
 
         if (name in WI.CSSKeywordCompletions._propertyKeywordMap)
-            acceptedKeywords = acceptedKeywords.concat(WI.CSSKeywordCompletions._propertyKeywordMap[name]);
+            acceptedKeywords.pushAll(WI.CSSKeywordCompletions._propertyKeywordMap[name]);
         else if (isNotPrefixed && ("-webkit-" + name) in WI.CSSKeywordCompletions._propertyKeywordMap)
-            acceptedKeywords = acceptedKeywords.concat(WI.CSSKeywordCompletions._propertyKeywordMap["-webkit-" + name]);
+            acceptedKeywords.pushAll(WI.CSSKeywordCompletions._propertyKeywordMap["-webkit-" + name]);
 
         if (WI.CSSKeywordCompletions.isColorAwareProperty(name))
-            acceptedKeywords = acceptedKeywords.concat(WI.CSSKeywordCompletions._colors);
+            acceptedKeywords.pushAll(WI.CSSKeywordCompletions._colors);
 
         // Only suggest "inherit" on inheritable properties even though it is valid on all properties.
         if (WI.CSSKeywordCompletions.InheritedProperties.has(name))
@@ -67,7 +67,7 @@ WI.CSSKeywordCompletions.forProperty = function(propertyName)
 
     if (acceptedKeywords.includes(WI.CSSKeywordCompletions.AllPropertyNamesPlaceholder) && WI.CSSCompletions.cssNameCompletions) {
         acceptedKeywords.remove(WI.CSSKeywordCompletions.AllPropertyNamesPlaceholder);
-        acceptedKeywords = acceptedKeywords.concat(WI.CSSCompletions.cssNameCompletions.values);
+        acceptedKeywords.pushAll(WI.CSSCompletions.cssNameCompletions.values);
     }
 
     return new WI.CSSCompletions(Array.from(new Set(acceptedKeywords)), true);
@@ -75,14 +75,26 @@ WI.CSSKeywordCompletions.forProperty = function(propertyName)
 
 WI.CSSKeywordCompletions.isColorAwareProperty = function(name)
 {
-    if (name in WI.CSSKeywordCompletions._colorAwareProperties)
+    if (WI.CSSKeywordCompletions._colorAwareProperties.has(name))
         return true;
 
     let isNotPrefixed = name.charAt(0) !== "-";
-    if (isNotPrefixed && ("-webkit-" + name) in WI.CSSKeywordCompletions._colorAwareProperties)
+    if (isNotPrefixed && WI.CSSKeywordCompletions._colorAwareProperties.has("-webkit-" + name))
         return true;
 
     if (name.endsWith("color"))
+        return true;
+
+    return false;
+};
+
+WI.CSSKeywordCompletions.isTimingFunctionAwareProperty = function(name)
+{
+    if (WI.CSSKeywordCompletions._timingFunctionAwareProperties.has(name))
+        return true;
+
+    let isNotPrefixed = name.charAt(0) !== "-";
+    if (isNotPrefixed && WI.CSSKeywordCompletions._timingFunctionAwareProperties.has("-webkit-" + name))
         return true;
 
     return false;
@@ -95,16 +107,16 @@ WI.CSSKeywordCompletions.forFunction = function(functionName)
     if (functionName === "var")
         suggestions = [];
     else if (functionName === "calc" || functionName === "min" || functionName === "max")
-        suggestions = suggestions.concat(["calc()", "min()", "max()"]);
+        suggestions.push("calc()", "min()", "max()");
     else if (functionName === "env")
-        suggestions = suggestions.concat(["safe-area-inset-top", "safe-area-inset-right", "safe-area-inset-bottom", "safe-area-inset-left"]);
+        suggestions.push("safe-area-inset-top", "safe-area-inset-right", "safe-area-inset-bottom", "safe-area-inset-left");
     else if (functionName === "image-set")
         suggestions.push("url()");
     else if (functionName === "repeat")
-        suggestions = suggestions.concat(["auto", "auto-fill", "auto-fit", "min-content", "max-content"]);
+        suggestions.push("auto", "auto-fill", "auto-fit", "min-content", "max-content");
     else if (functionName.endsWith("gradient")) {
-        suggestions = suggestions.concat(["to", "left", "right", "top", "bottom"]);
-        suggestions = suggestions.concat(WI.CSSKeywordCompletions._colors);
+        suggestions.push("to", "left", "right", "top", "bottom");
+        suggestions.pushAll(WI.CSSKeywordCompletions._colors);
     }
 
     return new WI.CSSCompletions(suggestions, true);
@@ -302,17 +314,52 @@ WI.CSSKeywordCompletions._colors = [
     "wheat", "whitesmoke", "yellowgreen", "rgb()", "rgba()", "hsl()", "hsla()"
 ];
 
-WI.CSSKeywordCompletions._colorAwareProperties = [
-    "background", "background-color", "background-image", "border", "border-color", "border-top", "border-right", "border-bottom",
-    "border-left", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "box-shadow", "color",
-    "fill", "outline", "outline-color", "stroke", "text-line-through", "text-line-through-color", "text-overline", "text-overline-color",
-    "text-shadow", "text-underline", "text-underline-color", "-webkit-box-shadow", "-webkit-column-rule", "-webkit-column-rule-color",
-    "-webkit-text-emphasis", "-webkit-text-emphasis-color", "-webkit-text-fill-color", "-webkit-text-stroke", "-webkit-text-stroke-color",
-    "-webkit-text-decoration-color",
+WI.CSSKeywordCompletions._colorAwareProperties = new Set([
+    "background",
+    "background-color",
+    "background-image",
+    "border",
+    "border-color",
+    "border-bottom",
+    "border-bottom-color",
+    "border-left",
+    "border-left-color",
+    "border-right",
+    "border-right-color",
+    "border-top",
+    "border-top-color",
+    "box-shadow", "-webkit-box-shadow",
+    "color",
+    "column-rule", "-webkit-column-rule",
+    "column-rule-color", "-webkit-column-rule-color",
+    "fill",
+    "outline",
+    "outline-color",
+    "stroke",
+    "text-decoration-color", "-webkit-text-decoration-color",
+    "text-emphasis", "-webkit-text-emphasis",
+    "text-emphasis-color", "-webkit-text-emphasis-color",
+    "text-line-through",
+    "text-line-through-color",
+    "text-overline",
+    "text-overline-color",
+    "text-shadow",
+    "text-underline",
+    "text-underline-color",
+    "-webkit-text-fill-color",
+    "-webkit-text-stroke",
+    "-webkit-text-stroke-color",
 
     // iOS Properties
-    "-webkit-tap-highlight-color"
-].keySet();
+    "-webkit-tap-highlight-color",
+]);
+
+WI.CSSKeywordCompletions._timingFunctionAwareProperties = new Set([
+    "animation", "-webkit-animation",
+    "animation-timing-function", "-webkit-animation-timing-function",
+    "transition", "-webkit-transition",
+    "transition-timing-function", "-webkit-transition-timing-function",
+]);
 
 WI.CSSKeywordCompletions._propertyKeywordMap = {
     "content": [
@@ -496,22 +543,22 @@ WI.CSSKeywordCompletions._propertyKeywordMap = {
         "auto"
     ],
     "width": [
-        "intrinsic", "min-intrinsic", "-webkit-min-content", "-webkit-max-content", "-webkit-fill-available", "-webkit-fit-content", "calc()"
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "calc()"
     ],
     "height": [
-        "intrinsic", "min-intrinsic", "calc()"
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "calc()"
     ],
     "max-width": [
-        "none", "intrinsic", "min-intrinsic", "-webkit-min-content", "-webkit-max-content", "-webkit-fill-available", "-webkit-fit-content", "calc()"
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "none", "calc()"
     ],
     "min-width": [
-        "intrinsic", "min-intrinsic", "-webkit-min-content", "-webkit-max-content", "-webkit-fill-available", "-webkit-fit-content", "calc()"
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "calc()"
     ],
     "max-height": [
-        "none", "intrinsic", "min-intrinsic", "calc()"
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "none", "calc()"
     ],
     "min-height": [
-        "intrinsic", "min-intrinsic", "calc()"
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "calc()"
     ],
     "letter-spacing": [
         "normal", "calc()"
@@ -564,15 +611,6 @@ WI.CSSKeywordCompletions._propertyKeywordMap = {
     ],
     "perspective-origin": [
         "none", "left", "right", "bottom", "top", "center"
-    ],
-    "-webkit-marquee-increment": [
-        "small", "large", "medium"
-    ],
-    "-webkit-marquee-repetition": [
-        "infinite"
-    ],
-    "-webkit-marquee-speed": [
-        "normal", "slow", "fast"
     ],
     "margin-right": [
         "auto"
@@ -684,13 +722,13 @@ WI.CSSKeywordCompletions._propertyKeywordMap = {
         "auto"
     ],
     "grid-auto-columns": [
-        "auto", "-webkit-max-content", "-webkit-min-content", "minmax()",
+        "auto", "max-content", "-webkit-max-content", "min-content", "-webkit-min-content", "minmax()",
     ],
     "grid-auto-flow": [
         "row", "column", "dense"
     ],
     "grid-auto-rows": [
-        "auto", "-webkit-max-content", "-webkit-min-content", "minmax()",
+        "auto", "max-content", "-webkit-max-content", "min-content", "-webkit-min-content", "minmax()",
     ],
     "grid-column": [
         "auto"
@@ -717,10 +755,10 @@ WI.CSSKeywordCompletions._propertyKeywordMap = {
         "none"
     ],
     "grid-template-columns": [
-        "none", "auto", "-webkit-max-content", "-webkit-min-content", "minmax()", "repeat()"
+        "none", "auto", "max-content", "-webkit-max-content", "min-content", "-webkit-min-content", "minmax()", "repeat()"
     ],
     "grid-template-rows": [
-        "none", "auto", "-webkit-max-content", "-webkit-min-content", "minmax()", "repeat()"
+        "none", "auto", "max-content", "-webkit-max-content", "min-content", "-webkit-min-content", "minmax()", "repeat()"
     ],
     "scroll-snap-align": [
         "none", "start", "center", "end"
@@ -889,10 +927,10 @@ WI.CSSKeywordCompletions._propertyKeywordMap = {
         "none", "baseline", "contain",
     ],
     "-webkit-logical-height": [
-        "intrinsic", "min-intrinsic", "calc()",
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "calc()"
     ],
     "-webkit-logical-width": [
-        "intrinsic", "min-intrinsic", "-webkit-min-content", "-webkit-max-content", "-webkit-fill-available", "-webkit-fit-content", "calc()",
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "calc()"
     ],
     "-webkit-margin-after-collapse": [
         "collapse", "separate", "discard",
@@ -906,23 +944,17 @@ WI.CSSKeywordCompletions._propertyKeywordMap = {
     "-webkit-margin-top-collapse": [
         "collapse", "separate", "discard",
     ],
-    "-webkit-marquee-direction": [
-        "left", "right", "auto", "reverse", "forwards", "backwards", "ahead", "up", "down",
-    ],
-    "-webkit-marquee-style": [
-        "none", "scroll", "slide", "alternate",
-    ],
     "-webkit-max-logical-height": [
-        "none", "intrinsic", "min-intrinsic", "calc()",
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "none", "calc()"
     ],
     "-webkit-max-logical-width": [
-        "none", "intrinsic", "min-intrinsic", "-webkit-min-content", "-webkit-max-content", "-webkit-fill-available", "-webkit-fit-content", "calc()",
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "none", "calc()"
     ],
     "-webkit-min-logical-height": [
-        "intrinsic", "min-intrinsic", "calc()",
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "calc()"
     ],
     "-webkit-min-logical-width": [
-        "intrinsic", "min-intrinsic", "-webkit-min-content", "-webkit-max-content", "-webkit-fill-available", "-webkit-fit-content", "calc()",
+        "auto", "intrinsic", "min-intrinsic", "min-content", "-webkit-min-content", "max-content", "-webkit-max-content", "-webkit-fill-available", "fit-content", "-webkit-fit-content", "calc()"
     ],
     "-webkit-nbsp-mode": [
         "normal", "space",

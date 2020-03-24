@@ -31,6 +31,7 @@
 			<string>initial dtrace probe support</string>
 			<string>diagnostics and usage reporting</string>
 			<string>remove register keyword from headers (46170992)</string>
+			<string>backport REDoS fix in http.cookiejar (57240915)</string>
 		</array>
 	</dict>
 </array>

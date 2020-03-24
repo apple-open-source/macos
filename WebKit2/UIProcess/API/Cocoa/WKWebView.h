@@ -263,7 +263,7 @@ WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
  */
 @property (nonatomic) BOOL allowsMagnification;
 
-/* @abstract The factor by which the page content is currently scaled.
+/* @abstract The factor by which the viewport of the page is currently scaled.
  @discussion The default value is 1.0.
  */
 @property (nonatomic) CGFloat magnification;
@@ -317,6 +317,10 @@ WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
  */
 - (IBAction)stopLoading:(nullable id)sender;
 
+@end
+
+WK_API_AVAILABLE(macos(WK_MAC_TBA))
+@interface WKWebView (WKNSTextFinderClient) <NSTextFinderClient>
 @end
 
 #endif

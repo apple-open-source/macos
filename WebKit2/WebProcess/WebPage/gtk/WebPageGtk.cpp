@@ -174,16 +174,7 @@ void WebPage::getCenterForZoomGesture(const IntPoint& centerInViewCoordinates, C
     completionHandler(WTFMove(result));
 }
 
-void WebPage::setInputMethodState(bool enabled)
-{
-    if (m_inputMethodEnabled == enabled)
-        return;
-
-    m_inputMethodEnabled = enabled;
-    send(Messages::WebPageProxy::SetInputMethodState(enabled));
-}
-
-void WebPage::collapseSelectionInFrame(uint64_t frameID)
+void WebPage::collapseSelectionInFrame(FrameIdentifier frameID)
 {
     WebFrame* frame = WebProcess::singleton().webFrame(frameID);
     if (!frame || !frame->coreFrame())
@@ -200,7 +191,7 @@ void WebPage::showEmojiPicker(Frame& frame)
         if (!result.isEmpty())
             frame->editor().insertText(result, nullptr);
     };
-    sendWithAsyncReply(Messages::WebPageProxy::ShowEmojiPicker(frame.selection().absoluteCaretBounds()), WTFMove(completionHandler));
+    sendWithAsyncReply(Messages::WebPageProxy::ShowEmojiPicker(frame.view()->contentsToRootView(frame.selection().absoluteCaretBounds())), WTFMove(completionHandler));
 }
 
 void WebPage::effectiveAppearanceDidChange(bool useDarkAppearance, bool useInactiveAppearance)

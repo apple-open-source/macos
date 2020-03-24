@@ -30,67 +30,70 @@
 
 #import "GPUComputePipelineDescriptor.h"
 #import "GPUDevice.h"
+#import "GPUErrorScopes.h"
+#import "GPUPipelineLayout.h"
 #import "GPUPipelineMetalConvertLayout.h"
-#import "Logging.h"
 #import "WHLSLPrepare.h"
 #import <Metal/Metal.h>
 #import <wtf/BlockObjCExceptions.h>
+#import <wtf/DataLog.h>
+#import <wtf/MonotonicTime.h>
+#import <wtf/text/StringConcatenate.h>
 
 namespace WebCore {
 
-static bool trySetMetalFunctions(const char* const functionName, MTLLibrary *computeMetalLibrary, MTLComputePipelineDescriptor *mtlDescriptor, const String& computeEntryPointName)
+static bool trySetMetalFunctions(MTLLibrary *computeMetalLibrary, MTLComputePipelineDescriptor *mtlDescriptor, const String& computeEntryPointName, GPUErrorScopes& errorScopes)
 {
-#if LOG_DISABLED
-    UNUSED_PARAM(functionName);
-#endif
-
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     if (!computeMetalLibrary) {
-        LOG(WebGPU, "%s: MTLLibrary for compute stage does not exist!", functionName);
+        errorScopes.generatePrefixedError("MTLLibrary for compute stage does not exist!");
         return false;
     }
 
     auto function = adoptNS([computeMetalLibrary newFunctionWithName:computeEntryPointName]);
     if (!function) {
-        LOG(WebGPU, "%s: Cannot create compute MTLFunction \"%s\"!", functionName, computeEntryPointName.utf8().data());
+        errorScopes.generatePrefixedError(makeString("Cannot create compute MTLFunction '", computeEntryPointName, "'!"));
         return false;
     }
 
     [mtlDescriptor setComputeFunction:function.get()];
-    return true;
 
     END_BLOCK_OBJC_EXCEPTIONS;
 
-    return false;
+    return true;
 }
 
-static Optional<WHLSL::ComputeDimensions> trySetFunctions(const char* const functionName, const GPUPipelineStageDescriptor& computeStage, const GPUDevice& device, MTLComputePipelineDescriptor* mtlDescriptor, Optional<WHLSL::ComputePipelineDescriptor>& whlslDescriptor)
+static Optional<WHLSL::ComputeDimensions> trySetFunctions(const GPUProgrammableStageDescriptor& computeStage, const GPUDevice& device, MTLComputePipelineDescriptor* mtlDescriptor, Optional<WHLSL::ComputePipelineDescriptor>& whlslDescriptor, GPUErrorScopes& errorScopes)
 {
-#if LOG_DISABLED
-    UNUSED_PARAM(functionName);
-#endif
     RetainPtr<MTLLibrary> computeLibrary;
     String computeEntryPoint;
 
     WHLSL::ComputeDimensions computeDimensions { 1, 1, 1 };
 
     if (whlslDescriptor) {
-        // WHLSL functions are compiled to MSL first.
-        String whlslSource = computeStage.module->whlslSource();
-        ASSERT(!whlslSource.isNull());
+        ASSERT(computeStage.module->whlslModule());
 
         whlslDescriptor->entryPointName = computeStage.entryPoint;
 
-        auto whlslCompileResult = WHLSL::prepare(whlslSource, *whlslDescriptor);
-        if (!whlslCompileResult)
+        auto whlslCompileResult = WHLSL::prepare(*computeStage.module->whlslModule(), *whlslDescriptor);
+        if (!whlslCompileResult) {
+            errorScopes.generatePrefixedError(makeString("WHLSL compile error: ", whlslCompileResult.error()));
             return WTF::nullopt;
+        }
+
         computeDimensions = whlslCompileResult->computeDimensions;
 
         NSError *error = nil;
 
         BEGIN_BLOCK_OBJC_EXCEPTIONS;
-        computeLibrary = adoptNS([device.platformDevice() newLibraryWithSource:whlslCompileResult->metalSource options:nil error:&error]);
+        MonotonicTime startTime;
+        if (WHLSL::dumpMetalCompileTimes)
+            startTime = MonotonicTime::now();
+        // FIXME: https://webkit.org/b/200474 Add direct StringBuilder -> NSString conversion to avoid extra copy into a WTF::String
+        computeLibrary = adoptNS([device.platformDevice() newLibraryWithSource:whlslCompileResult->metalSource.toString() options:nil error:&error]);
+        if (WHLSL::dumpMetalCompileTimes)
+            dataLogLn("Metal compile times: ", (MonotonicTime::now() - startTime).milliseconds(), " ms");
         END_BLOCK_OBJC_EXCEPTIONS;
 #ifndef NDEBUG
         if (!computeLibrary)
@@ -99,14 +102,15 @@ static Optional<WHLSL::ComputeDimensions> trySetFunctions(const char* const func
         ASSERT(computeLibrary);
         // FIXME: https://bugs.webkit.org/show_bug.cgi?id=195771 Once we zero-fill variables, there should be no warnings, so we should be able to ASSERT(!error) here.
 
-        computeEntryPoint = whlslCompileResult->mangledEntryPointName;
+        computeEntryPoint = whlslCompileResult->mangledEntryPointName.toString();
     } else {
         computeLibrary = computeStage.module->platformShaderModule();
         computeEntryPoint = computeStage.entryPoint;
     }
 
-    if (trySetMetalFunctions(functionName, computeLibrary.get(), mtlDescriptor, computeEntryPoint))
+    if (trySetMetalFunctions(computeLibrary.get(), mtlDescriptor, computeEntryPoint, errorScopes))
         return computeDimensions;
+
     return WTF::nullopt;
 }
 
@@ -114,24 +118,23 @@ struct ConvertResult {
     RetainPtr<MTLComputePipelineDescriptor> pipelineDescriptor;
     WHLSL::ComputeDimensions computeDimensions;
 };
-static Optional<ConvertResult> convertComputePipelineDescriptor(const char* const functionName, const GPUComputePipelineDescriptor& descriptor, const GPUDevice& device)
+
+static Optional<ConvertResult> convertComputePipelineDescriptor(const GPUComputePipelineDescriptor& descriptor, const GPUDevice& device, GPUErrorScopes& errorScopes)
 {
     RetainPtr<MTLComputePipelineDescriptor> mtlDescriptor;
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
-
     mtlDescriptor = adoptNS([MTLComputePipelineDescriptor new]);
-
     END_BLOCK_OBJC_EXCEPTIONS;
 
     if (!mtlDescriptor) {
-        LOG(WebGPU, "%s: Error creating MTLDescriptor!", functionName);
+        errorScopes.generatePrefixedError("Error creating MTLComputePipelineDescriptor!");
         return WTF::nullopt;
     }
 
     const auto& computeStage = descriptor.computeStage;
 
-    bool isWhlsl = !computeStage.module->whlslSource().isNull();
+    bool isWhlsl = computeStage.module->whlslModule();
 
     Optional<WHLSL::ComputePipelineDescriptor> whlslDescriptor;
     if (isWhlsl)
@@ -141,12 +144,12 @@ static Optional<ConvertResult> convertComputePipelineDescriptor(const char* cons
         if (auto layout = convertLayout(*descriptor.layout))
             whlslDescriptor->layout = WTFMove(*layout);
         else {
-            LOG(WebGPU, "%s: Error converting GPUPipelineLayout!", functionName);
+            errorScopes.generatePrefixedError("Error converting GPUPipelineLayout!");
             return WTF::nullopt;
         }
     }
 
-    if (auto computeDimensions = trySetFunctions(functionName, computeStage, device, mtlDescriptor.get(), whlslDescriptor))
+    if (auto computeDimensions = trySetFunctions(computeStage, device, mtlDescriptor.get(), whlslDescriptor, errorScopes))
         return {{ mtlDescriptor, *computeDimensions }};
 
     return WTF::nullopt;
@@ -156,14 +159,15 @@ struct CreateResult {
     RetainPtr<MTLComputePipelineState> pipelineState;
     WHLSL::ComputeDimensions computeDimensions;
 };
-static Optional<CreateResult> tryCreateMTLComputePipelineState(const char* const functionName, const GPUDevice& device, const GPUComputePipelineDescriptor& descriptor)
+
+static Optional<CreateResult> tryCreateMTLComputePipelineState(const GPUDevice& device, const GPUComputePipelineDescriptor& descriptor, GPUErrorScopes& errorScopes)
 {
     if (!device.platformDevice()) {
-        LOG(WebGPU, "GPUComputePipeline::tryCreate(): Invalid GPUDevice!");
+        errorScopes.generatePrefixedError("Invalid GPUDevice!");
         return WTF::nullopt;
     }
 
-    auto convertResult = convertComputePipelineDescriptor(functionName, descriptor, device);
+    auto convertResult = convertComputePipelineDescriptor(descriptor, device, errorScopes);
     if (!convertResult)
         return WTF::nullopt;
     ASSERT(convertResult->pipelineDescriptor);
@@ -176,7 +180,7 @@ static Optional<CreateResult> tryCreateMTLComputePipelineState(const char* const
     NSError *error = nil;
     pipeline = adoptNS([device.platformDevice() newComputePipelineStateWithDescriptor:mtlDescriptor.get() options:MTLPipelineOptionNone reflection:nil error:&error]);
     if (!pipeline) {
-        LOG(WebGPU, "GPUComputePipeline::tryCreate(): %s!", error ? error.localizedDescription.UTF8String : "Unable to create MTLComputePipelineState!");
+        errorScopes.generatePrefixedError(error ? error.localizedDescription.UTF8String : "Unable to create MTLComputePipelineState!");
         return WTF::nullopt;
     }
 
@@ -185,21 +189,36 @@ static Optional<CreateResult> tryCreateMTLComputePipelineState(const char* const
     return {{ pipeline, convertResult->computeDimensions }};
 }
 
-RefPtr<GPUComputePipeline> GPUComputePipeline::tryCreate(const GPUDevice& device, const GPUComputePipelineDescriptor& descriptor)
+RefPtr<GPUComputePipeline> GPUComputePipeline::tryCreate(const GPUDevice& device, const GPUComputePipelineDescriptor& descriptor, GPUErrorScopes& errorScopes)
 {
-    const char* const functionName = "GPURenderPipeline::create()";
-
-    auto createResult = tryCreateMTLComputePipelineState(functionName, device, descriptor);
+    auto createResult = tryCreateMTLComputePipelineState(device, descriptor, errorScopes);
     if (!createResult)
         return nullptr;
 
-    return adoptRef(new GPUComputePipeline(WTFMove(createResult->pipelineState), createResult->computeDimensions));
+    return adoptRef(new GPUComputePipeline(WTFMove(createResult->pipelineState), createResult->computeDimensions, descriptor.layout));
 }
 
-GPUComputePipeline::GPUComputePipeline(RetainPtr<MTLComputePipelineState>&& pipeline, WHLSL::ComputeDimensions computeDimensions)
-    : m_platformComputePipeline(WTFMove(pipeline))
+GPUComputePipeline::GPUComputePipeline(RetainPtr<MTLComputePipelineState>&& pipeline, WHLSL::ComputeDimensions computeDimensions, const RefPtr<GPUPipelineLayout>& layout)
+    : GPUPipeline()
+    , m_platformComputePipeline(WTFMove(pipeline))
     , m_computeDimensions(computeDimensions)
+    , m_layout(layout)
 {
+}
+
+GPUComputePipeline::~GPUComputePipeline() = default;
+
+bool GPUComputePipeline::recompile(const GPUDevice& device, GPUProgrammableStageDescriptor&& computeStage)
+{
+    GPUComputePipelineDescriptor descriptor(makeRefPtr(m_layout.get()), WTFMove(computeStage));
+    auto errorScopes = GPUErrorScopes::create([] (GPUError&&) { });
+    if (auto createResult = tryCreateMTLComputePipelineState(device, descriptor, errorScopes)) {
+        m_platformComputePipeline = WTFMove(createResult->pipelineState);
+        m_computeDimensions = createResult->computeDimensions;
+        return true;
+    }
+
+    return false;
 }
 
 } // namespace WebCore

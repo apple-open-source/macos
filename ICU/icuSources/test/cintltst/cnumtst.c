@@ -3202,7 +3202,7 @@ static const FieldsData fields_en_CURR[] = {
     { UNUM_FRACTION_FIELD /*1*/,            9, 11 },
     { -1, -1, -1 },
 };
-/* "en_US", UNUM_PERCENT, -34 : "#,##0%" => "-34%" */
+/* "en_US"/"es_US/MX" , UNUM_PERCENT, -34 : "#,##0%" => "-34%" */
 static const FieldsData fields_en_PRCT[] = {
     { UNUM_SIGN_FIELD /*10*/,               0, 1 },
     { UNUM_INTEGER_FIELD /*0*/,             1, 3 },
@@ -3227,6 +3227,8 @@ static const FieldsData fields_en_PATN[] = {
 static const FormatForFieldsItem fffItems[] = {
     { "en_US", UNUM_CURRENCY_STANDARD, 123456.0, fields_en_CURR },
     { "en_US", UNUM_PERCENT,              -0.34, fields_en_PRCT },
+    { "es_US", UNUM_PERCENT,              -0.34, fields_en_PRCT }, // rdar://57000745
+    { "es_MX", UNUM_PERCENT,              -0.34, fields_en_PRCT }, // rdar://42948387
     { "fr_FR", UNUM_CURRENCY_STANDARD, 123456.0, fields_fr_CURR },
     { "en_US", UNUM_PATTERN_DECIMAL,       12.0, fields_en_PATN },
     { NULL, (UNumberFormatStyle)0, 0, NULL },
@@ -4254,15 +4256,15 @@ static void TestCurrForUnkRegion(void) {
 }
 
 static void TestMinIntMinFracZero(void) {
+    UChar ubuf[kUBufMax];
+    char  bbuf[kBBufMax];
+    int minInt, minFrac, maxFrac, ulen;
+
     UErrorCode status = U_ZERO_ERROR;
     UNumberFormat* unum = unum_open(UNUM_DECIMAL, NULL, 0, "en_US", NULL, &status);
     if ( U_FAILURE(status) ) {
         log_data_err("unum_open UNUM_DECIMAL for en_US fails with %s\n", u_errorName(status));
     } else {
-        UChar ubuf[kUBufMax];
-        char  bbuf[kBBufMax];
-        int minInt, minFrac, ulen;
-
         unum_setAttribute(unum, UNUM_MIN_INTEGER_DIGITS, 0);
         unum_setAttribute(unum, UNUM_MIN_FRACTION_DIGITS, 0);
         minInt = unum_getAttribute(unum, UNUM_MIN_INTEGER_DIGITS);
@@ -4270,10 +4272,13 @@ static void TestMinIntMinFracZero(void) {
         if (minInt != 0 || minFrac != 0) {
             log_err("after setting minInt=minFrac=0, get minInt %d, minFrac %d\n", minInt, minFrac);
         }
+
         ulen = unum_toPattern(unum, FALSE, ubuf, kUBufMax, &status);
-        if ( U_SUCCESS(status) ) {
+        if ( U_FAILURE(status) ) {
+            log_err("unum_toPattern fails with %s\n", u_errorName(status));
+        } else if (ulen < 3 || u_strstr(ubuf, u"#.#")==NULL) {
             u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
-            log_info("after setting minInt=minFrac=0, pattern (%d): %s\n", ulen, bbuf);
+            log_err("after setting minInt=minFrac=0, expect pattern to contain \"#.#\", but get (%d): \"%s\"\n", ulen, bbuf);
         }
 
         status = U_ZERO_ERROR;
@@ -4301,6 +4306,75 @@ static void TestMinIntMinFracZero(void) {
         } else if (u_strcmp(ubuf, u"0") != 0) {
             u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
             log_err("unum_formatDouble 0.0 expected \"0\", got \"%s\"\n", bbuf);
+        }
+
+        unum_close(unum);
+    }
+
+    status = U_ZERO_ERROR;
+    unum = unum_open(UNUM_CURRENCY, NULL, 0, "en_US", NULL, &status);
+    if ( U_FAILURE(status) ) {
+        log_data_err("unum_open UNUM_CURRENCY for en_US fails with %s\n", u_errorName(status));
+    } else {
+        unum_setAttribute(unum, UNUM_MIN_INTEGER_DIGITS, 0);
+        unum_setAttribute(unum, UNUM_MIN_FRACTION_DIGITS, 0);
+        minInt = unum_getAttribute(unum, UNUM_MIN_INTEGER_DIGITS);
+        minFrac = unum_getAttribute(unum, UNUM_MIN_FRACTION_DIGITS);
+        if (minInt != 0 || minFrac != 0) {
+            log_err("after setting CURRENCY minInt=minFrac=0, get minInt %d, minFrac %d\n", minInt, minFrac);
+        }
+
+        status = U_ZERO_ERROR;
+        ulen = unum_formatDouble(unum, 10.0, ubuf, kUBufMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_formatDouble (CURRRENCY) 10.0 ulen %d fails with %s\n", ulen, u_errorName(status));
+        } else if (u_strcmp(ubuf, u"$10") != 0) {
+            u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
+            log_err("unum_formatDouble (CURRRENCY) 10.0 expected \"$10\", got \"%s\"\n", bbuf);
+        }
+
+        status = U_ZERO_ERROR;
+        ulen = unum_formatDouble(unum, 0.9, ubuf, kUBufMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_formatDouble (CURRRENCY) 0.9 ulen %d fails with %s\n", ulen, u_errorName(status));
+        } else if (u_strcmp(ubuf, u"$.9") != 0) {
+            u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
+            log_err("unum_formatDouble (CURRRENCY) 0.9 expected \"$.9\", got \"%s\"\n", bbuf);
+        }
+
+        status = U_ZERO_ERROR;
+        ulen = unum_formatDouble(unum, 0.0, ubuf, kUBufMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_formatDouble (CURRRENCY) 0.0 ulen %d fails with %s\n", ulen, u_errorName(status));
+        } else if (u_strcmp(ubuf, u"$0") != 0) {
+            u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
+            log_err("unum_formatDouble (CURRRENCY) 0.0 expected \"$0\", got \"%s\"\n", bbuf);
+        }
+
+        unum_close(unum);
+    }
+
+   // addition for rdar://57291456
+    status = U_ZERO_ERROR;
+    unum = unum_open(UNUM_PATTERN_DECIMAL, NULL, 0, "en_IE", NULL, &status);
+    if ( U_FAILURE(status) ) {
+        log_data_err("unum_open UNUM_DECIMAL for en_US fails with %s\n", u_errorName(status));
+    } else {
+        unum_setAttribute(unum, UNUM_MIN_INTEGER_DIGITS, 0);
+        unum_setAttribute(unum, UNUM_MAX_FRACTION_DIGITS, 1);
+        minInt = unum_getAttribute(unum, UNUM_MIN_INTEGER_DIGITS);
+        maxFrac = unum_getAttribute(unum, UNUM_MAX_FRACTION_DIGITS);
+        if (minInt != 0 || maxFrac != 1) {
+            log_err("after setting minInt=0, maxFrac=1, get minInt %d, maxFrac %d\n", minInt, maxFrac);
+        }
+
+        status = U_ZERO_ERROR;
+        ulen = unum_formatDouble(unum, 0.0, ubuf, kUBufMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_formatDouble (maxFrac 1) 0.0 ulen %d fails with %s\n", ulen, u_errorName(status));
+        } else if (u_strcmp(ubuf, u".0") != 0) {
+            u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
+            log_err("unum_formatDouble (maxFrac 1) 0.0 expected \".0\", got \"%s\"\n", bbuf);
         }
 
         unum_close(unum);

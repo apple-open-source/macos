@@ -108,14 +108,26 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         this._text = text;
         this._name = name;
         this._rawValue = value;
+        this._value = undefined;
         this._priority = priority;
         this._enabled = enabled;
         this._implicit = implicit;
         this._anonymous = anonymous;
         this._inherited = WI.CSSProperty.isInheritedPropertyName(name);
         this._valid = valid;
-        this._variable = name.startsWith("--");
+        this._isVariable = name.startsWith("--");
         this._styleSheetTextRange = styleSheetTextRange || null;
+
+        this._rawValueNewlineIndent = "";
+        if (this._rawValue) {
+            let match = this._rawValue.match(/^[^\n]+\n(\s*)/);
+            if (match)
+                this._rawValueNewlineIndent = match[1];
+        }
+        this._rawValue = this._rawValue.replace(/\n\s+/g, "\n");
+
+        this._isShorthand = undefined;
+        this._shorthandPropertyNames = undefined;
 
         this._relatedShorthandProperty = null;
         this._relatedLonghandProperties = [];
@@ -148,6 +160,7 @@ WI.CSSProperty = class CSSProperty extends WI.Object
 
     commentOut(disabled)
     {
+        console.assert(this.editable);
         if (this._enabled === !disabled)
             return;
 
@@ -180,7 +193,10 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         if (!this._name)
             return "";
 
-        return `${this._name}: ${this._rawValue};`;
+        let text = `${this._name}: ${this._rawValue};`;
+        if (!this._enabled)
+            text = "/* " + text + " */";
+        return text;
     }
 
     get modified()
@@ -319,7 +335,7 @@ WI.CSSProperty = class CSSProperty extends WI.Object
     get anonymous() { return this._anonymous; }
     get inherited() { return this._inherited; }
     get valid() { return this._valid; }
-    get variable() { return this._variable; }
+    get isVariable() { return this._isVariable; }
     get styleSheetTextRange() { return this._styleSheetTextRange; }
 
     get initialState()
@@ -378,6 +394,28 @@ WI.CSSProperty = class CSSProperty extends WI.Object
         this._relatedLonghandProperties = [];
     }
 
+    get isShorthand()
+    {
+        if (this._isShorthand === undefined) {
+            this._isShorthand = WI.CSSCompletions.cssNameCompletions.isShorthandPropertyName(this._name);
+            if (this._isShorthand) {
+                let longhands = WI.CSSKeywordCompletions.LonghandNamesForShorthandProperty.get(this._name);
+                if (longhands && longhands.length === 1)
+                    this._isShorthand = false;
+            }
+        }
+        return this._isShorthand;
+    }
+
+    get shorthandPropertyNames()
+    {
+        if (!this._shorthandPropertyNames) {
+            this._shorthandPropertyNames = WI.CSSCompletions.cssNameCompletions.shorthandsForLonghand(this._name);
+            this._shorthandPropertyNames.remove("all");
+        }
+        return this._shorthandPropertyNames;
+    }
+
     hasOtherVendorNameOrKeyword()
     {
         if ("_hasOtherVendorNameOrKeyword" in this)
@@ -425,8 +463,10 @@ WI.CSSProperty = class CSSProperty extends WI.Object
     {
         let text = "";
 
-        if (this._name && this._rawValue)
-            text = this._name + ": " + this._rawValue + ";";
+        if (this._name && this._rawValue) {
+            let value = this._rawValue.replace(/\n/g, "\n" + this._rawValueNewlineIndent);
+            text = this._name + ": " + value + ";";
+        }
 
         let oldText = this._text;
         this._text = text;
@@ -462,7 +502,7 @@ WI.CSSProperty = class CSSProperty extends WI.Object
 
         console.assert(oldText === styleText.slice(range.startOffset, range.endOffset), "_styleSheetTextRange data is invalid.");
 
-        if (WI.settings.enableStyleEditingDebugMode.value) {
+        if (WI.settings.debugEnableStyleEditingDebugMode.value) {
             let prefix = styleText.slice(0, range.startOffset);
             let postfix = styleText.slice(range.endOffset);
             console.info(`${prefix}%c${oldText}%c${newText}%c${postfix}`, `background: hsl(356, 100%, 90%); color: black`, `background: hsl(100, 100%, 91%); color: black`, `background: transparent`);

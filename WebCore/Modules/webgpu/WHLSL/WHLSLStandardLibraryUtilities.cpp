@@ -30,9 +30,11 @@
 
 #include "WHLSLCallExpression.h"
 #include "WHLSLParser.h"
+#include "WHLSLProgram.h"
 #include "WHLSLStandardLibrary.h"
 #include "WHLSLStandardLibraryFunctionMap.h"
 #include "WHLSLVisitor.h"
+#include <wtf/DataLog.h>
 #include <wtf/HashSet.h>
 #include <wtf/NeverDestroyed.h>
 #include <pal/Gunzip.h>
@@ -40,6 +42,8 @@
 namespace WebCore {
 
 namespace WHLSL {
+
+constexpr bool verbose = false;
 
 static String decompressAndDecodeStandardLibrary()
 {
@@ -63,25 +67,25 @@ private:
         Visitor::visit(callExpression);
     }
 
-    void visit(AST::PropertyAccessExpression& propertyAccessExpression) override
-    {
-        m_functionNames.add(propertyAccessExpression.getterFunctionName());
-        m_functionNames.add(propertyAccessExpression.setterFunctionName());
-        m_functionNames.add(propertyAccessExpression.anderFunctionName());
-        Visitor::visit(propertyAccessExpression);
-    }
-
     HashSet<String> m_functionNames;
 };
 
-void includeStandardLibrary(Program& program, Parser& parser)
+Expected<void, Error> includeStandardLibrary(Program& program, Parser& parser, bool parseFullStandardLibrary)
 {
     static NeverDestroyed<String> standardLibrary(decompressAndDecodeStandardLibrary());
+    if (parseFullStandardLibrary) {
+        auto parseResult = parser.parse(program, standardLibrary.get(), ParsingMode::StandardLibrary, AST::NameSpace::StandardLibrary);
+        if (!parseResult)
+            return makeUnexpected(parseResult.error());
+        return { };
+    }
+
     static NeverDestroyed<HashMap<String, SubstringLocation>> standardLibraryFunctionMap(computeStandardLibraryFunctionMap());
 
     auto stringView = StringView(standardLibrary.get()).substring(0, firstFunctionOffsetInStandardLibrary());
-    auto parseFailure = parser.parse(program, stringView, Parser::Mode::StandardLibrary);
-    ASSERT_UNUSED(parseFailure, !parseFailure);
+    auto parseResult = parser.parse(program, stringView, ParsingMode::StandardLibrary, AST::NameSpace::StandardLibrary);
+    if (!parseResult)
+        return makeUnexpected(parseResult.error());
 
     NameFinder nameFinder;
     nameFinder.Visitor::visit(program);
@@ -90,6 +94,10 @@ void includeStandardLibrary(Program& program, Parser& parser)
     // The name of a call to a cast operator is the name of the type, so we can't match them up correctly.
     // Instead, just include all casting operators.
     functionNames.add("operator cast"_str);
+    // We need to make sure that an author can't write a function with the same signature as anything in the standard library.
+    // If they do so, we need to make sure it collides, so we include all potential duplicates here, and the "checkDuplicateFunctions" pass enforces it.
+    for (auto& functionDefinition : program.functionDefinitions())
+        functionNames.add(functionDefinition->name());
     while (!functionNames.isEmpty()) {
         auto nativeFunctionDeclarationsCount = program.nativeFunctionDeclarations().size();
         auto functionDefinitionsCount = program.functionDefinitions().size();
@@ -100,8 +108,19 @@ void includeStandardLibrary(Program& program, Parser& parser)
             if (iterator == standardLibraryFunctionMap.get().end())
                 continue;
             auto stringView = StringView(standardLibrary.get()).substring(iterator->value.start, iterator->value.end - iterator->value.start);
-            auto parseFailure = parser.parse(program, stringView, Parser::Mode::StandardLibrary);
-            ASSERT_UNUSED(parseFailure, !parseFailure);
+            if (verbose) {
+                dataLogLn("---------------------------");
+                dataLogLn(stringView);
+                dataLogLn("---------------------------");
+            }
+            auto start = program.functionDefinitions().size();
+            auto parseResult = parser.parse(program, stringView, ParsingMode::StandardLibrary, AST::NameSpace::StandardLibrary);
+            if (!parseResult)
+                return makeUnexpected(parseResult.error());
+            if (verbose) {
+                if (program.functionDefinitions().size() != start)
+                    dataLogLn("non native stdlib function: '", name, "'");
+            }
             allFunctionNames.add(name);
         }
         for ( ; nativeFunctionDeclarationsCount < program.nativeFunctionDeclarations().size(); ++nativeFunctionDeclarationsCount)
@@ -110,6 +129,7 @@ void includeStandardLibrary(Program& program, Parser& parser)
             nameFinder.Visitor::visit(program.functionDefinitions()[functionDefinitionsCount]);
         functionNames = nameFinder.takeFunctionNames();
     }
+    return { };
 }
 
 } // namespace WHLSL

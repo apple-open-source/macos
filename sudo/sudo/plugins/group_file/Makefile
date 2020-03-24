@@ -112,7 +112,7 @@ POBJS = $(IOBJS:.i=.plog)
 
 LIBOBJDIR = $(top_builddir)/@ac_config_libobj_dir@/
 
-VERSION = 1.8.29
+VERSION = 1.8.31
 
 all: group_file.la
 

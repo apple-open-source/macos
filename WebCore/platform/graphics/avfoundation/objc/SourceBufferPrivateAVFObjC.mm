@@ -814,7 +814,7 @@ void SourceBufferPrivateAVFObjC::removedFromMediaSource()
 
 MediaPlayer::ReadyState SourceBufferPrivateAVFObjC::readyState() const
 {
-    return m_mediaSource ? m_mediaSource->player()->readyState() : MediaPlayer::HaveNothing;
+    return m_mediaSource ? m_mediaSource->player()->readyState() : MediaPlayer::ReadyState::HaveNothing;
 }
 
 void SourceBufferPrivateAVFObjC::setReadyState(MediaPlayer::ReadyState readyState)
@@ -1133,7 +1133,7 @@ void SourceBufferPrivateAVFObjC::enqueueSample(Ref<MediaSample>&& sample, const 
                 CMSampleBufferRef rawSampleCopy;
                 CMSampleBufferCreateCopy(kCFAllocatorDefault, platformSample.sample.cmSampleBuffer, &rawSampleCopy);
                 auto sampleCopy = adoptCF(rawSampleCopy);
-                CMSetAttachment(sampleCopy.get(), kCMSampleBufferAttachmentKey_PostNotificationWhenConsumed, (__bridge CFDictionaryRef)@{ (__bridge NSString *)kCMSampleBufferAttachmentKey_PostNotificationWhenConsumed : @(YES) }, kCMAttachmentMode_ShouldNotPropagate);
+                CMSetAttachment(sampleCopy.get(), kCMSampleBufferAttachmentKey_PostNotificationWhenConsumed, (__bridge CFDictionaryRef)@{ (__bridge NSString *)kCMSampleBufferAttachmentKey_PostNotificationWhenConsumed : @YES }, kCMAttachmentMode_ShouldNotPropagate);
                 [m_displayLayer enqueueSampleBuffer:sampleCopy.get()];
 #if PLATFORM(IOS_FAMILY)
                 m_mediaSource->player()->setHasAvailableVideoFrame(true);
@@ -1289,7 +1289,7 @@ bool SourceBufferPrivateAVFObjC::canSwitchToType(const ContentType& contentType)
     MediaEngineSupportParameters parameters;
     parameters.isMediaSource = true;
     parameters.type = contentType;
-    return MediaPlayerPrivateMediaSourceAVFObjC::supportsType(parameters) != MediaPlayer::IsNotSupported;
+    return MediaPlayerPrivateMediaSourceAVFObjC::supportsType(parameters) != MediaPlayer::SupportsType::IsNotSupported;
 }
 
 void SourceBufferPrivateAVFObjC::setVideoLayer(AVSampleBufferDisplayLayer* layer)

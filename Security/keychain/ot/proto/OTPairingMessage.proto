@@ -28,14 +28,8 @@ option objc_class_visibility = "hidden";
 
 package OT;
 
-message SOSMessage {
-    optional bytes credential = 1;
-    optional bytes peerInfo = 2;
-    optional bytes circleBlob = 3;
-    optional bytes initialSyncItems = 4;
-}
 
-message SponsorToApplicantRound1M2{
+message SponsorToApplicantRound1M2 {
     optional uint64 epoch = 1;
 }
 
@@ -50,12 +44,14 @@ message ApplicantToSponsorRound2M1 {
 message SponsorToApplicantRound2M2{
     optional bytes voucher = 1;
     optional bytes voucherSignature = 2;
-    repeated bytes preapprovedKeys = 3;
+    // Claimed for a field, but never used
+    //reserved 3;
 }
 
 message PairingMessage {
-    optional SponsorToApplicantRound1M2 epoch= 1;
+    optional SponsorToApplicantRound1M2 epoch = 1;
     optional ApplicantToSponsorRound2M1 prepare = 2;
     optional SponsorToApplicantRound2M2 voucher = 3;
-    optional SOSMessage sosPairingMessage = 4;
+    // <rdar://problem/55465193> reserved is not a keyword (it should be)
+    // reserved 4;
 }

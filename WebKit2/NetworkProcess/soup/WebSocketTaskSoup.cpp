@@ -29,7 +29,9 @@
 #include "DataReference.h"
 #include "NetworkSocketChannel.h"
 #include <WebCore/HTTPParsers.h>
+#include <WebCore/WebSocketChannel.h>
 #include <wtf/glib/GUniquePtr.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebKit {
 
@@ -64,6 +66,28 @@ WebSocketTask::~WebSocketTask()
     cancel();
 }
 
+String WebSocketTask::acceptedExtensions() const
+{
+#if SOUP_CHECK_VERSION(2, 67, 90)
+    StringBuilder result;
+    GList* extensions = soup_websocket_connection_get_extensions(m_connection.get());
+    for (auto* it = extensions; it; it = g_list_next(it)) {
+        auto* extension = SOUP_WEBSOCKET_EXTENSION(it->data);
+
+        if (!result.isEmpty())
+            result.appendLiteral(", ");
+        result.append(String::fromUTF8(SOUP_WEBSOCKET_EXTENSION_GET_CLASS(extension)->name));
+
+        GUniquePtr<char> params(soup_websocket_extension_get_response_params(extension));
+        if (params)
+            result.append(String::fromUTF8(params.get()));
+    }
+    return result.toStringPreserveCapacity();
+#else
+    return { };
+#endif
+}
+
 void WebSocketTask::didConnect(GRefPtr<SoupWebsocketConnection>&& connection)
 {
     m_connection = WTFMove(connection);
@@ -78,7 +102,7 @@ void WebSocketTask::didConnect(GRefPtr<SoupWebsocketConnection>&& connection)
     g_signal_connect_swapped(m_connection.get(), "error", reinterpret_cast<GCallback>(didReceiveErrorCallback), this);
     g_signal_connect_swapped(m_connection.get(), "closed", reinterpret_cast<GCallback>(didCloseCallback), this);
 
-    m_channel.didConnect(soup_websocket_connection_get_protocol(m_connection.get()));
+    m_channel.didConnect(soup_websocket_connection_get_protocol(m_connection.get()), acceptedExtensions());
 }
 
 void WebSocketTask::didReceiveMessageCallback(WebSocketTask* task, SoupWebsocketDataType dataType, GBytes* message)
@@ -86,16 +110,16 @@ void WebSocketTask::didReceiveMessageCallback(WebSocketTask* task, SoupWebsocket
     if (g_cancellable_is_cancelled(task->m_cancellable.get()))
         return;
 
+    gsize dataSize;
+    const auto* data = g_bytes_get_data(message, &dataSize);
+
     switch (dataType) {
     case SOUP_WEBSOCKET_DATA_TEXT:
-        task->m_channel.didReceiveText(String::fromUTF8(static_cast<const char*>(g_bytes_get_data(message, nullptr))));
+        task->m_channel.didReceiveText(String::fromUTF8(static_cast<const char*>(data), dataSize));
         break;
-    case SOUP_WEBSOCKET_DATA_BINARY: {
-        gsize dataSize;
-        auto data = g_bytes_get_data(message, &dataSize);
+    case SOUP_WEBSOCKET_DATA_BINARY:
         task->m_channel.didReceiveBinaryData(static_cast<const uint8_t*>(data), dataSize);
         break;
-    }
     }
 }
 
@@ -139,8 +163,16 @@ void WebSocketTask::didClose(unsigned short code, const String& reason)
 
 void WebSocketTask::sendString(const String& text, CompletionHandler<void()>&& callback)
 {
-    if (m_connection && soup_websocket_connection_get_state(m_connection.get()) == SOUP_WEBSOCKET_STATE_OPEN)
-        soup_websocket_connection_send_text(m_connection.get(), text.utf8().data());
+    if (m_connection && soup_websocket_connection_get_state(m_connection.get()) == SOUP_WEBSOCKET_STATE_OPEN) {
+        CString utf8 = text.utf8(StrictConversionReplacingUnpairedSurrogatesWithFFFD);
+#if SOUP_CHECK_VERSION(2, 67, 3)
+        // Soup is going to copy the data immediately, so we can use g_bytes_new_static() here to avoid more data copies.
+        GRefPtr<GBytes> bytes = adoptGRef(g_bytes_new_static(utf8.data(), utf8.length()));
+        soup_websocket_connection_send_message(m_connection.get(), SOUP_WEBSOCKET_DATA_TEXT, bytes.get());
+#else
+        soup_websocket_connection_send_text(m_connection.get(), utf8.data());
+#endif
+    }
     callback();
 }
 
@@ -161,6 +193,11 @@ void WebSocketTask::close(int32_t code, const String& reason)
         didClose(code ? code : SOUP_WEBSOCKET_CLOSE_ABNORMAL, reason);
         return;
     }
+
+#if SOUP_CHECK_VERSION(2, 67, 90)
+    if (code == WebCore::WebSocketChannel::CloseEventCodeNotSpecified)
+        code = SOUP_WEBSOCKET_CLOSE_NO_STATUS;
+#endif
 
     if (soup_websocket_connection_get_state(m_connection.get()) == SOUP_WEBSOCKET_STATE_OPEN)
         soup_websocket_connection_close(m_connection.get(), code, reason.utf8().data());

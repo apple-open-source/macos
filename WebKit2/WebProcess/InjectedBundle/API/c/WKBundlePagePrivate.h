@@ -64,6 +64,7 @@ WK_EXPORT void WKBundlePageSetPageZoomFactor(WKBundlePageRef page, double zoomFa
 WK_EXPORT void WKBundlePageSetScaleAtOrigin(WKBundlePageRef page, double scale, WKPoint origin);
 
 WK_EXPORT void WKBundlePageForceRepaint(WKBundlePageRef page);
+WK_EXPORT void WKBundlePageFlushPendingEditorStateUpdate(WKBundlePageRef page);
 
 WK_EXPORT void WKBundlePageSimulateMouseDown(WKBundlePageRef page, int button, WKPoint position, int clickCount, WKEventModifiers modifiers, double time);
 WK_EXPORT void WKBundlePageSimulateMouseUp(WKBundlePageRef page, int button, WKPoint position, int clickCount, WKEventModifiers modifiers, double time);
@@ -83,7 +84,7 @@ WK_EXPORT bool WKBundlePageIsTrackingRepaints(WKBundlePageRef page);
 WK_EXPORT void WKBundlePageResetTrackedRepaints(WKBundlePageRef page);
 WK_EXPORT WKArrayRef WKBundlePageCopyTrackedRepaintRects(WKBundlePageRef page);
 
-WK_EXPORT void WKBundlePageSetComposition(WKBundlePageRef page, WKStringRef text, int from, int length, bool suppressUnderline);
+WK_EXPORT void WKBundlePageSetComposition(WKBundlePageRef page, WKStringRef text, int from, int length, bool suppressUnderline, WKArrayRef highlightData);
 WK_EXPORT bool WKBundlePageHasComposition(WKBundlePageRef page);
 WK_EXPORT void WKBundlePageConfirmComposition(WKBundlePageRef page);
 WK_EXPORT void WKBundlePageConfirmCompositionWithText(WKBundlePageRef page, WKStringRef text);
@@ -95,6 +96,7 @@ WK_EXPORT bool WKBundlePageCanShowMIMEType(WKBundlePageRef, WKStringRef mimeType
 
 WK_EXPORT void* WKAccessibilityRootObject(WKBundlePageRef);
 WK_EXPORT void* WKAccessibilityFocusedObject(WKBundlePageRef);
+WK_EXPORT bool WKAccessibilityCanUseSecondaryAXThread(WKBundlePageRef);
 
 WK_EXPORT void WKAccessibilityEnableEnhancedAccessibility(bool);
 WK_EXPORT bool WKAccessibilityEnhancedAccessibilityEnabled();
@@ -104,6 +106,8 @@ WK_EXPORT WKArrayRef WKBundlePageCopyContextMenuItems(WKBundlePageRef);
 WK_EXPORT WKArrayRef WKBundlePageCopyContextMenuAtPointInWindow(WKBundlePageRef, WKPoint);
 
 WK_EXPORT void WKBundlePageInsertNewlineInQuotedContent(WKBundlePageRef page);
+
+WK_EXPORT bool WKBundlePageIsSuspended(WKBundlePageRef page);
 
 // This only works if the SuppressesIncrementalRendering preference is set as well.
 typedef unsigned WKRenderingSuppressionToken;

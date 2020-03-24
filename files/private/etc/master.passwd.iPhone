@@ -28,3 +28,4 @@ _timed:*:266:266::0:0:Time Sync Daemon:/var/db/timed:/usr/bin/false
 _gpsd:*:267:267::0:0:GPS Daemon:/var/db/gpsd:/usr/bin/false
 _nearbyd:*:268:268::0:0:Proximity and Ranging Daemon:/var/db/nearbyd:/usr/bin/false
 _reportmemoryexception:*:269:269::0:0:ReportMemoryException:/var/empty:/usr/bin/false
+_iconservices:*:276:276::0:0:Icon services:/var/empty:/usr/bin/false

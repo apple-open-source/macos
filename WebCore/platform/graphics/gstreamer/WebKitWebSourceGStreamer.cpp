@@ -28,17 +28,31 @@
 #include "MainThreadNotifier.h"
 #include "MediaPlayer.h"
 #include "PlatformMediaResourceLoader.h"
+#include "PolicyChecker.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include <cstdint>
 #include <wtf/Condition.h>
 #include <wtf/Scope.h>
+#include <wtf/glib/WTFGType.h>
 #include <wtf/text/CString.h>
 
 using namespace WebCore;
 
+// Never pause download of media resources smaller than 2MiB.
+#define SMALL_MEDIA_RESOURCE_MAX_SIZE 2 * 1024 * 1024
+
+// Keep at most 2% of the full, non-small, media resource buffered. When this
+// threshold is reached, the download task is paused.
+#define HIGH_QUEUE_FACTOR_THRESHOLD 0.02
+
+// Keep at least 20% of maximum queue size buffered. When this threshold is
+// reached, the download task resumes.
+#define LOW_QUEUE_FACTOR_THRESHOLD 0.2
+
 class CachedResourceStreamingClient final : public PlatformMediaResourceClient {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(CachedResourceStreamingClient);
 public:
     CachedResourceStreamingClient(WebKitWebSrc*, ResourceRequest&&);
@@ -49,10 +63,10 @@ public:
     void setSourceElement(WebKitWebSrc* src) { m_src = GST_ELEMENT_CAST(src); }
 
 private:
-    void checkUpdateBlocksize(uint64_t bytesRead);
+    void checkUpdateBlocksize(unsigned bytesRead);
 
     // PlatformMediaResourceClient virtual methods.
-    void responseReceived(PlatformMediaResource&, const ResourceResponse&, CompletionHandler<void(ShouldContinue)>&&) override;
+    void responseReceived(PlatformMediaResource&, const ResourceResponse&, CompletionHandler<void(PolicyChecker::ShouldContinue)>&&) override;
     void dataReceived(PlatformMediaResource&, const char*, int) override;
     void accessControlCheckFailed(PlatformMediaResource&, const ResourceError&) override;
     void loadFailed(PlatformMediaResource&, const ResourceError&) override;
@@ -78,7 +92,6 @@ enum MainThreadSourceNotification {
     Dispose = 1 << 2,
 };
 
-#define WEBKIT_WEB_SRC_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_SRC, WebKitWebSrcPrivate))
 struct _WebKitWebSrcPrivate {
     ~_WebKitWebSrcPrivate()
     {
@@ -125,10 +138,11 @@ struct _WebKitWebSrcPrivate {
     bool isSeekable;
     bool isSeeking;
     bool wasSeeking { false };
-    uint64_t minimumBlocksize;
+    unsigned minimumBlocksize;
     Lock adapterLock;
     Condition adapterCondition;
     uint64_t queueSize { 0 };
+    bool isDownloadSuspended { false };
     GRefPtr<GstAdapter> adapter;
     GRefPtr<GstEvent> httpHeadersEvent;
     GUniquePtr<GstStructure> httpHeaders;
@@ -151,7 +165,7 @@ GST_DEBUG_CATEGORY_STATIC(webkit_web_src_debug);
 
 static void webKitWebSrcUriHandlerInit(gpointer gIface, gpointer ifaceData);
 
-static void webKitWebSrcDispose(GObject*);
+static void webKitWebSrcConstructed(GObject*);
 static void webKitWebSrcSetProperty(GObject*, guint propertyID, const GValue*, GParamSpec*);
 static void webKitWebSrcGetProperty(GObject*, guint propertyID, GValue*, GParamSpec*);
 static GstStateChangeReturn webKitWebSrcChangeState(GstElement*, GstStateChange);
@@ -168,24 +182,23 @@ static gboolean webKitWebSrcUnLockStop(GstBaseSrc*);
 static void webKitWebSrcSetContext(GstElement*, GstContext*);
 
 #define webkit_web_src_parent_class parent_class
-// We split this out into another macro to avoid a check-webkit-style error.
-#define WEBKIT_WEB_SRC_CATEGORY_INIT GST_DEBUG_CATEGORY_INIT(webkit_web_src_debug, "webkitwebsrc", 0, "websrc element");
-G_DEFINE_TYPE_WITH_CODE(WebKitWebSrc, webkit_web_src, GST_TYPE_PUSH_SRC,
+WEBKIT_DEFINE_TYPE_WITH_CODE(WebKitWebSrc, webkit_web_src, GST_TYPE_PUSH_SRC,
     G_IMPLEMENT_INTERFACE(GST_TYPE_URI_HANDLER, webKitWebSrcUriHandlerInit);
-    WEBKIT_WEB_SRC_CATEGORY_INIT);
+    GST_DEBUG_CATEGORY_INIT(webkit_web_src_debug, "webkitwebsrc", 0, "websrc element");
+)
 
 static void webkit_web_src_class_init(WebKitWebSrcClass* klass)
 {
     GObjectClass* oklass = G_OBJECT_CLASS(klass);
 
-    oklass->dispose = webKitWebSrcDispose;
+    oklass->constructed = webKitWebSrcConstructed;
     oklass->set_property = webKitWebSrcSetProperty;
     oklass->get_property = webKitWebSrcGetProperty;
 
     GstElementClass* eklass = GST_ELEMENT_CLASS(klass);
     gst_element_class_add_static_pad_template(eklass, &srcTemplate);
 
-    gst_element_class_set_metadata(eklass, "WebKit Web source element", "Source", "Handles HTTP/HTTPS uris",
+    gst_element_class_set_metadata(eklass, "WebKit Web source element", "Source/Network", "Handles HTTP/HTTPS uris",
         "Philippe Normand <philn@igalia.com>");
 
     /* Allows setting the uri using the 'location' property, which is used
@@ -229,14 +242,11 @@ static void webkit_web_src_class_init(WebKitWebSrcClass* klass)
 
     GstPushSrcClass* pushSrcClass = GST_PUSH_SRC_CLASS(klass);
     pushSrcClass->create = GST_DEBUG_FUNCPTR(webKitWebSrcCreate);
-
-    g_type_class_add_private(klass, sizeof(WebKitWebSrcPrivate));
 }
-
 
 static void webkitWebSrcReset(WebKitWebSrc* src)
 {
-    WebKitWebSrcPrivate* priv = WEBKIT_WEB_SRC_GET_PRIVATE(src);
+    WebKitWebSrcPrivate* priv = src->priv;
 
     GST_DEBUG_OBJECT(src, "Resetting internal state");
     priv->haveSize = false;
@@ -248,12 +258,12 @@ static void webkitWebSrcReset(WebKitWebSrc* src)
     priv->size = 0;
 }
 
-static void webkit_web_src_init(WebKitWebSrc* src)
+static void webKitWebSrcConstructed(GObject* object)
 {
-    WebKitWebSrcPrivate* priv = WEBKIT_WEB_SRC_GET_PRIVATE(src);
+    GST_CALL_PARENT(G_OBJECT_CLASS, constructed, (object));
 
-    src->priv = priv;
-    new (priv) WebKitWebSrcPrivate();
+    WebKitWebSrc* src = WEBKIT_WEB_SRC(object);
+    WebKitWebSrcPrivate* priv = src->priv;
 
     priv->notifier = MainThreadNotifier<MainThreadSourceNotification>::create();
     priv->adapter = adoptGRef(gst_adapter_new());
@@ -262,15 +272,6 @@ static void webkit_web_src_init(WebKitWebSrc* src)
     webkitWebSrcReset(src);
     gst_base_src_set_automatic_eos(GST_BASE_SRC_CAST(src), FALSE);
     gst_base_src_set_async(GST_BASE_SRC_CAST(src), TRUE);
-}
-
-static void webKitWebSrcDispose(GObject* object)
-{
-    WebKitWebSrcPrivate* priv = WEBKIT_WEB_SRC(object)->priv;
-
-    priv->~WebKitWebSrcPrivate();
-
-    GST_CALL_PARENT(G_OBJECT_CLASS, dispose, (object));
 }
 
 static void webKitWebSrcSetProperty(GObject* object, guint propID, const GValue* value, GParamSpec* pspec)
@@ -378,7 +379,9 @@ static GstFlowReturn webKitWebSrcCreate(GstPushSrc* pushSrc, GstBuffer** buffer)
         });
     }
 
-    GST_TRACE_OBJECT(src, "flushing: %s, doesHaveEOS: %s, queueSize: %" G_GSIZE_FORMAT, boolForPrinting(priv->isFlushing), boolForPrinting(priv->doesHaveEOS), priv->queueSize);
+    GST_TRACE_OBJECT(src, "flushing: %s, doesHaveEOS: %s, queueSize: %" G_GUINT64_FORMAT ", isDownloadSuspended: %s",
+        boolForPrinting(priv->isFlushing), boolForPrinting(priv->doesHaveEOS), priv->queueSize,
+        boolForPrinting(priv->isDownloadSuspended));
 
     if (priv->isFlushing) {
         GST_DEBUG_OBJECT(src, "Flushing");
@@ -397,20 +400,21 @@ static GstFlowReturn webKitWebSrcCreate(GstPushSrc* pushSrc, GstBuffer** buffer)
         unsigned retries = 0;
         size_t available = gst_adapter_available_fast(priv->adapter.get());
         while (available < size && !isAdapterDrained) {
-            priv->adapterCondition.waitFor(priv->adapterLock, 200_ms, [&] {
+            priv->adapterCondition.waitFor(priv->adapterLock, 100_ms, [&] {
                 return gst_adapter_available_fast(priv->adapter.get()) >= size;
             });
             retries++;
             available = gst_adapter_available_fast(priv->adapter.get());
-            if (available && available < size)
+            if (available && available < size) {
+                GST_TRACE_OBJECT(src, "did not get the %u blocksize bytes, let's push the %" G_GSIZE_FORMAT " bytes we got", size, available);
                 size = available;
-            else if (retries > 3)
+            } else if (retries > 3)
                 isAdapterDrained = true;
         }
     }
 
     if (isAdapterDrained) {
-        GST_DEBUG_OBJECT(src, "Adapter still empty after 3 seconds of waiting, assuming EOS");
+        GST_DEBUG_OBJECT(src, "Adapter still empty after 400 milli-seconds of waiting, assuming EOS");
         return GST_FLOW_EOS;
     }
 
@@ -436,14 +440,25 @@ static GstFlowReturn webKitWebSrcCreate(GstPushSrc* pushSrc, GstBuffer** buffer)
             GST_BUFFER_OFFSET(*buffer) = baseSrc->segment.position;
             GST_BUFFER_OFFSET_END(*buffer) = GST_BUFFER_OFFSET(*buffer) + size;
             GST_TRACE_OBJECT(src, "Buffer bounds set to %" G_GUINT64_FORMAT "-%" G_GUINT64_FORMAT, GST_BUFFER_OFFSET(*buffer), GST_BUFFER_OFFSET_END(*buffer));
-            GST_TRACE_OBJECT(src, "doesHaveEOS: %s, wasSeeking: %s, seeking: %s, size: %u", boolForPrinting(priv->doesHaveEOS), boolForPrinting(priv->wasSeeking), boolForPrinting(priv->isSeeking), size);
+            GST_TRACE_OBJECT(src, "doesHaveEOS: %s, wasSeeking: %s, seeking: %s, buffer size: %u, size: %" G_GUINT64_FORMAT, boolForPrinting(priv->doesHaveEOS), boolForPrinting(priv->wasSeeking), boolForPrinting(priv->isSeeking), size, priv->size);
             if (priv->haveSize && GST_BUFFER_OFFSET_END(*buffer) >= priv->size) {
                 if (priv->wasSeeking)
                     priv->wasSeeking = false;
-                else
+                else if (priv->isSeekable)
                     priv->doesHaveEOS = true;
             } else if (priv->wasSeeking)
                 priv->wasSeeking = false;
+
+            if (!priv->doesHaveEOS && priv->haveSize && priv->isSeekable
+                && (priv->size > SMALL_MEDIA_RESOURCE_MAX_SIZE) && priv->readPosition
+                && (priv->readPosition != priv->size)
+                && (priv->queueSize < (priv->size * HIGH_QUEUE_FACTOR_THRESHOLD * LOW_QUEUE_FACTOR_THRESHOLD))
+                && GST_STATE(src) >= GST_STATE_PAUSED && priv->isDownloadSuspended) {
+                GST_DEBUG_OBJECT(src, "[Buffering] Adapter running out of data, restarting download");
+                priv->isDownloadSuspended = false;
+                webKitWebSrcMakeRequest(baseSrc, false);
+            }
+
         } else
             GST_ERROR_OBJECT(src, "Empty adapter?");
     }
@@ -607,7 +622,7 @@ static gboolean webKitWebSrcMakeRequest(GstBaseSrc* baseSrc, bool notifyAsyncCom
             loadOptions |= PlatformMediaResourceLoader::LoadOption::BufferData;
         priv->resource = priv->loader->requestResource(ResourceRequest(request), loadOptions);
         if (priv->resource) {
-            priv->resource->setClient(std::make_unique<CachedResourceStreamingClient>(protector.get(), ResourceRequest(request)));
+            priv->resource->setClient(makeUnique<CachedResourceStreamingClient>(protector.get(), ResourceRequest(request)));
             GST_DEBUG_OBJECT(protector.get(), "Started request");
             if (notifyAsyncCompletion)
                 gst_base_src_start_complete(GST_BASE_SRC(src), GST_FLOW_OK);
@@ -776,7 +791,13 @@ static GstStateChangeReturn webKitWebSrcChangeState(GstElement* element, GstStat
     case GST_STATE_CHANGE_READY_TO_NULL:
         webKitWebSrcCloseSession(src);
         break;
-    default:
+    case GST_STATE_CHANGE_PAUSED_TO_READY: {
+        LockHolder locker(src->priv->responseLock);
+        GST_DEBUG_OBJECT(src, "PAUSED->READY cancelling network requests");
+        src->priv->isFlushing = true;
+        src->priv->responseCondition.notifyOne();
+        break;
+    } default:
         break;
     }
 
@@ -888,14 +909,14 @@ CachedResourceStreamingClient::CachedResourceStreamingClient(WebKitWebSrc* src, 
 
 CachedResourceStreamingClient::~CachedResourceStreamingClient() = default;
 
-void CachedResourceStreamingClient::checkUpdateBlocksize(uint64_t bytesRead)
+void CachedResourceStreamingClient::checkUpdateBlocksize(unsigned bytesRead)
 {
     WebKitWebSrc* src = WEBKIT_WEB_SRC(m_src.get());
     GstBaseSrc* baseSrc = GST_BASE_SRC_CAST(src);
     WebKitWebSrcPrivate* priv = src->priv;
 
-    uint64_t blocksize = gst_base_src_get_blocksize(baseSrc);
-    GST_LOG_OBJECT(src, "Checking to update blocksize. Read: %" PRIu64 ", current blocksize: %" PRIu64, bytesRead, blocksize);
+    unsigned blocksize = gst_base_src_get_blocksize(baseSrc);
+    GST_LOG_OBJECT(src, "Checking to update blocksize. Read: %u, current blocksize: %u", bytesRead, blocksize);
 
     if (bytesRead >= blocksize * s_growBlocksizeLimit) {
         m_reduceBlocksizeCount = 0;
@@ -903,7 +924,7 @@ void CachedResourceStreamingClient::checkUpdateBlocksize(uint64_t bytesRead)
 
         if (m_increaseBlocksizeCount >= s_growBlocksizeCount) {
             blocksize *= s_growBlocksizeFactor;
-            GST_DEBUG_OBJECT(src, "Increased blocksize to %" PRIu64, blocksize);
+            GST_DEBUG_OBJECT(src, "Increased blocksize to %u", blocksize);
             gst_base_src_set_blocksize(baseSrc, blocksize);
             m_increaseBlocksizeCount = 0;
         }
@@ -914,7 +935,7 @@ void CachedResourceStreamingClient::checkUpdateBlocksize(uint64_t bytesRead)
         if (m_reduceBlocksizeCount >= s_reduceBlocksizeCount) {
             blocksize *= s_reduceBlocksizeFactor;
             blocksize = std::max(blocksize, priv->minimumBlocksize);
-            GST_DEBUG_OBJECT(src, "Decreased blocksize to %" PRIu64, blocksize);
+            GST_DEBUG_OBJECT(src, "Decreased blocksize to %u", blocksize);
             gst_base_src_set_blocksize(baseSrc, blocksize);
             m_reduceBlocksizeCount = 0;
         }
@@ -924,7 +945,7 @@ void CachedResourceStreamingClient::checkUpdateBlocksize(uint64_t bytesRead)
     }
 }
 
-void CachedResourceStreamingClient::responseReceived(PlatformMediaResource&, const ResourceResponse& response, CompletionHandler<void(ShouldContinue)>&& completionHandler)
+void CachedResourceStreamingClient::responseReceived(PlatformMediaResource&, const ResourceResponse& response, CompletionHandler<void(PolicyChecker::ShouldContinue)>&& completionHandler)
 {
     WebKitWebSrc* src = WEBKIT_WEB_SRC(m_src.get());
     WebKitWebSrcPrivate* priv = src->priv;
@@ -978,7 +999,7 @@ void CachedResourceStreamingClient::responseReceived(PlatformMediaResource&, con
         GST_ELEMENT_ERROR(src, RESOURCE, READ, ("Received %d HTTP error code", response.httpStatusCode()), (nullptr));
         priv->doesHaveEOS = true;
         webKitWebSrcStop(GST_BASE_SRC_CAST(src));
-        completionHandler(ShouldContinue::No);
+        completionHandler(PolicyChecker::ShouldContinue::No);
         return;
     }
 
@@ -992,7 +1013,7 @@ void CachedResourceStreamingClient::responseReceived(PlatformMediaResource&, con
             GST_ELEMENT_ERROR(src, RESOURCE, READ, ("Received unexpected %d HTTP status code", response.httpStatusCode()), (nullptr));
             priv->doesHaveEOS = true;
             webKitWebSrcStop(GST_BASE_SRC_CAST(src));
-            completionHandler(ShouldContinue::No);
+            completionHandler(PolicyChecker::ShouldContinue::No);
             return;
         } else {
             GST_DEBUG_OBJECT(src, "Range request succeeded");
@@ -1010,7 +1031,8 @@ void CachedResourceStreamingClient::responseReceived(PlatformMediaResource&, con
             priv->size = length;
             priv->isDurationSet = false;
         }
-    }
+    } else
+        priv->haveSize = false;
 
     // Signal to downstream if this is an Icecast stream.
     GRefPtr<GstCaps> caps;
@@ -1037,7 +1059,7 @@ void CachedResourceStreamingClient::responseReceived(PlatformMediaResource&, con
         priv->wereHeadersReceived = true;
         priv->headersCondition.notifyOne();
     }
-    completionHandler(ShouldContinue::Yes);
+    completionHandler(PolicyChecker::ShouldContinue::Yes);
 }
 
 void CachedResourceStreamingClient::dataReceived(PlatformMediaResource&, const char* data, int length)
@@ -1084,6 +1106,16 @@ void CachedResourceStreamingClient::dataReceived(PlatformMediaResource&, const c
         GstBuffer* buffer = gst_buffer_new_wrapped(g_memdup(data, length), length);
         priv->queueSize += length;
         gst_adapter_push(priv->adapter.get(), buffer);
+        GST_TRACE_OBJECT(src, "[Buffering] isDownloadSuspended: %s", boolForPrinting(priv->isDownloadSuspended));
+        if (priv->haveSize && (priv->size > SMALL_MEDIA_RESOURCE_MAX_SIZE) && (priv->queueSize > (priv->size * HIGH_QUEUE_FACTOR_THRESHOLD))
+            && !priv->isDownloadSuspended && priv->isSeekable) {
+            GST_TRACE_OBJECT(src, "[Buffering] queueSize: %" G_GUINT64_FORMAT ", threshold: %f", priv->queueSize,
+                priv->size * HIGH_QUEUE_FACTOR_THRESHOLD);
+            GST_DEBUG_OBJECT(src, "[Buffering] Stopping resource loader");
+            priv->isDownloadSuspended = true;
+            priv->resource->stop();
+            return;
+        }
         priv->adapterCondition.notifyOne();
     }
 }

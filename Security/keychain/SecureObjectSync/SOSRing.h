@@ -45,10 +45,6 @@ CFTypeID SOSRingGetTypeID(void);
 
 SOSRingRef SOSRingCreate(CFStringRef name, CFStringRef myPeerID, SOSRingType type, CFErrorRef *error);
 bool SOSRingResetToEmpty(SOSRingRef ring, CFStringRef myPeerID, CFErrorRef *error);
-bool SOSRingResetToOffering(SOSRingRef ring, __unused SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error);
-SOSRingStatus SOSRingDeviceIsInRing(SOSRingRef ring, CFStringRef peerID);
-bool SOSRingApply(SOSRingRef ring, SecKeyRef user_pubkey, SOSFullPeerInfoRef requestor, CFErrorRef *error);
-bool SOSRingWithdraw(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error);
 bool SOSRingGenerationSign(SOSRingRef ring, SecKeyRef user_privkey, SOSFullPeerInfoRef requestor, CFErrorRef *error);
 bool SOSRingConcordanceSign(SOSRingRef ring, SOSFullPeerInfoRef requestor, CFErrorRef *error);
 SOSConcordanceStatus SOSRingConcordanceTrust(SOSFullPeerInfoRef me, CFSetRef peers,

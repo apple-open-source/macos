@@ -10,10 +10,49 @@
 #include "utilities/SecInternalReleasePriv.h"
 #import "utilities/debugging.h"
 
+#import "keychain/ot/OTClique.h"
 #import "keychain/ot/OT.h"
 #import "keychain/ot/OTConstants.h"
 #import "keychain/ot/OTControl.h"
 #import "keychain/otctl/OTControlCLI.h"
+
+
+#import <AuthKit/AKAppleIDAuthenticationController.h>
+#import <AuthKit/AKAppleIDAuthenticationContext.h>
+#import <AuthKit/AKAppleIDAuthenticationContext_Private.h>
+
+static NSString* fetch_pet(NSString* appleID, NSString* dsid)
+{
+    if(!appleID && !dsid) {
+        NSLog(@"Must provide either an AppleID or a DSID to fetch a PET");
+        exit(1);
+    }
+
+    AKAppleIDAuthenticationContext* authContext = [[AKAppleIDAuthenticationContext alloc] init];
+    authContext.username = appleID;
+
+    authContext.authenticationType = AKAppleIDAuthenticationTypeSilent;
+    authContext.isUsernameEditable = NO;
+
+    __block NSString* pet = nil;
+
+    dispatch_semaphore_t s = dispatch_semaphore_create(0);
+
+    AKAppleIDAuthenticationController *authenticationController = [[AKAppleIDAuthenticationController alloc] init];
+    [authenticationController authenticateWithContext:authContext
+                                           completion:^(AKAuthenticationResults authenticationResults, NSError *error) {
+                                               if(error) {
+                                                   NSLog(@"error fetching PET: %@", error);
+                                                   exit(1);
+                                               }
+
+                                               pet = authenticationResults[AKAuthenticationPasswordKey];
+                                               dispatch_semaphore_signal(s);
+    }];
+    dispatch_semaphore_wait(s, DISPATCH_TIME_FOREVER);
+
+    return pet;
+}
 
 // Mutual recursion to set up an object for jsonification
 static NSDictionary* cleanDictionaryForJSON(NSDictionary* dict);
@@ -194,6 +233,30 @@ static void print_json(NSDictionary* dict)
                                   }
                               }];
 
+    return ret;
+#else
+    printf("Unimplemented.\n");
+    return -1;
+#endif
+}
+
+
+- (long)resetProtectedData:(NSString*)container context:(NSString*)contextID altDSID:(NSString*)altDSID appleID:(NSString*)appleID dsid:(NSString*)dsid
+{
+#if OCTAGON
+    __block long ret = -1;
+
+    NSError* error = nil;
+    OTConfigurationContext *data = [[OTConfigurationContext alloc] init];
+    data.passwordEquivalentToken = fetch_pet(appleID, dsid);
+    data.authenticationAppleID = appleID;
+    data.altDSID = altDSID;
+    data.context = contextID;
+
+    OTClique* clique = [OTClique resetProtectedData:data error:&error];
+    if(clique != nil && error == nil) {
+        ret = 0;
+    }
     return ret;
 #else
     printf("Unimplemented.\n");
@@ -449,6 +512,28 @@ static void print_json(NSDictionary* dict)
     printf("Unimplemented.\n");
     return -1;
 #endif
+}
+
+- (long)refetchCKKSPolicy:(NSString*)container context:(NSString*)contextID
+{
+    #if OCTAGON
+        __block long ret = 1;
+
+        [self.control refetchCKKSPolicy:container
+                              contextID:contextID
+                                  reply:^(NSError * _Nullable error) {
+            if(error) {
+                printf("Error refetching CKKS policy: %s\n", [[error description] UTF8String]);
+            } else {
+                printf("CKKS refetch completed.\n");
+                ret = 0;
+            }
+        }];
+        return ret;
+    #else
+        printf("Unimplemented.\n");
+        return 1;
+    #endif
 }
 
 - (long)tapToRadar:(NSString *)action description:(NSString *)description radar:(NSString *)radar

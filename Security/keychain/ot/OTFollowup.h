@@ -57,7 +57,12 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType);
 
 - (NSDictionary *)sysdiagnoseStatus;
 - (NSDictionary<NSString*,NSNumber*> *)sfaStatus;
+@end
 
+@interface OTFollowup (Testing)
+// Reports on whether this individual OTFollowUp object has posted a CFU of this type.
+- (BOOL)hasPosted:(OTFollowupContextType)contextType;
+- (void)clearAllPostedFlags;
 @end
 
 NS_ASSUME_NONNULL_END

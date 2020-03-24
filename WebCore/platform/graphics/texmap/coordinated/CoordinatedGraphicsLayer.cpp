@@ -106,9 +106,10 @@ void CoordinatedGraphicsLayer::setShouldUpdateVisibleRect()
         downcast<CoordinatedGraphicsLayer>(*replicaLayer()).setShouldUpdateVisibleRect();
 }
 
-void CoordinatedGraphicsLayer::didChangeGeometry()
+void CoordinatedGraphicsLayer::didChangeGeometry(FlushNotification flushNotification)
 {
-    notifyFlushRequired();
+    if (flushNotification == FlushNotification::Required)
+        notifyFlushRequired();
     setShouldUpdateVisibleRect();
 }
 
@@ -238,6 +239,16 @@ void CoordinatedGraphicsLayer::setPosition(const FloatPoint& p)
     didChangeGeometry();
 }
 
+void CoordinatedGraphicsLayer::syncPosition(const FloatPoint& p)
+{
+    if (position() == p)
+        return;
+
+    GraphicsLayer::syncPosition(p);
+    m_nicosia.delta.positionChanged = true;
+    didChangeGeometry(FlushNotification::NotRequired);
+}
+
 void CoordinatedGraphicsLayer::setAnchorPoint(const FloatPoint3D& p)
 {
     if (anchorPoint() == p)
@@ -259,6 +270,26 @@ void CoordinatedGraphicsLayer::setSize(const FloatSize& size)
     if (maskLayer())
         maskLayer()->setSize(size);
     didChangeGeometry();
+}
+
+void CoordinatedGraphicsLayer::setBoundsOrigin(const FloatPoint& boundsOrigin)
+{
+    if (this->boundsOrigin() == boundsOrigin)
+        return;
+
+    GraphicsLayer::setBoundsOrigin(boundsOrigin);
+    m_nicosia.delta.boundsOriginChanged = true;
+    didChangeGeometry();
+}
+
+void CoordinatedGraphicsLayer::syncBoundsOrigin(const FloatPoint& boundsOrigin)
+{
+    if (this->boundsOrigin() == boundsOrigin)
+        return;
+
+    GraphicsLayer::syncBoundsOrigin(boundsOrigin);
+    m_nicosia.delta.boundsOriginChanged = true;
+    didChangeGeometry(FlushNotification::NotRequired);
 }
 
 void CoordinatedGraphicsLayer::setTransform(const TransformationMatrix& t)
@@ -794,7 +825,7 @@ void CoordinatedGraphicsLayer::flushCompositingStateForThisLayerOnly()
                 [&image](GraphicsContext& context)
                 {
                     IntRect rect { { }, IntSize { image.size() } };
-                    context.drawImage(image, rect, rect, ImagePaintingOptions(CompositeCopy));
+                    context.drawImage(image, rect, rect, ImagePaintingOptions(CompositeOperator::Copy));
                 });
             layerState.nativeImageID = nativeImageID;
             layerState.update.buffer = WTFMove(buffer);
@@ -981,7 +1012,7 @@ void CoordinatedGraphicsLayer::updateContentBuffers()
 
     // Ensure the TiledBackingStore object, and enforce a complete repaint if it's not been present yet.
     if (!layerState.mainBackingStore) {
-        layerState.mainBackingStore = std::make_unique<TiledBackingStore>(impl, effectiveContentsScale());
+        layerState.mainBackingStore = makeUnique<TiledBackingStore>(impl, effectiveContentsScale());
         m_pendingVisibleRectAdjustment = true;
     }
 
@@ -1132,7 +1163,7 @@ FloatPoint CoordinatedGraphicsLayer::computePositionRelativeToBase()
 {
     FloatPoint offset;
     for (const GraphicsLayer* currLayer = this; currLayer; currLayer = currLayer->parent())
-        offset += currLayer->position();
+        offset += (currLayer->position() - currLayer->boundsOrigin());
 
     return offset;
 }
@@ -1208,7 +1239,8 @@ void CoordinatedGraphicsLayer::computeTransformedVisibleRect()
 
 bool CoordinatedGraphicsLayer::shouldHaveBackingStore() const
 {
-    return drawsContent() && contentsAreVisible() && !m_size.isEmpty();
+    return drawsContent() && contentsAreVisible() && !m_size.isEmpty()
+        && (!!opacity() || m_animations.hasActiveAnimationsOfType(AnimatedPropertyOpacity));
 }
 
 bool CoordinatedGraphicsLayer::selfOrAncestorHasActiveTransformAnimation() const
@@ -1257,7 +1289,7 @@ bool CoordinatedGraphicsLayer::addAnimation(const KeyframeValueList& valueList, 
         listsMatch = validateTransformOperations(valueList, ignoredHasBigRotation) >= 0;
 
     m_lastAnimationStartTime = MonotonicTime::now() - Seconds(delayAsNegativeTimeOffset);
-    m_animations.add(TextureMapperAnimation(keyframesName, valueList, boxSize, *anim, listsMatch, m_lastAnimationStartTime, 0_s, TextureMapperAnimation::AnimationState::Playing));
+    m_animations.add(Nicosia::Animation(keyframesName, valueList, boxSize, *anim, listsMatch, m_lastAnimationStartTime, 0_s, Nicosia::Animation::AnimationState::Playing));
     m_animationStartedTimer.startOneShot(0_s);
     didChangeAnimations();
     return true;
@@ -1301,6 +1333,13 @@ bool CoordinatedGraphicsLayer::usesContentsLayer() const
 {
     return m_nicosia.contentLayer || m_compositedImage;
 }
+
+#if USE(NICOSIA)
+PlatformLayer* CoordinatedGraphicsLayer::platformLayer() const
+{
+    return m_nicosia.layer.get();
+}
+#endif
 
 } // namespace WebCore
 

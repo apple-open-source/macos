@@ -251,7 +251,7 @@ ReleaseAndExit:
 ErrorExit:
 
     *nodeNum                    = 0;
-    nodePtr->buffer                = nil;
+    nodePtr->buffer             = nil;
     nodePtr->blockHeader        = nil;
     *returnIndex                = 0;
     return    err;

@@ -97,20 +97,21 @@ WebSocketChannel::ConnectStatus WebSocketChannel::connect(const URL& requestedUR
     m_allowCookies = validatedURL->areCookiesAllowed;
     String userAgent = m_document->userAgent(m_document->url());
     String clientOrigin = m_document->securityOrigin().toString();
-    m_handshake = std::make_unique<WebSocketHandshake>(validatedURL->url, protocol, userAgent, clientOrigin, m_allowCookies);
+    m_handshake = makeUnique<WebSocketHandshake>(validatedURL->url, protocol, userAgent, clientOrigin, m_allowCookies);
     m_handshake->reset();
     if (m_deflateFramer.canDeflate())
         m_handshake->addExtensionProcessor(m_deflateFramer.createExtensionProcessor());
     if (m_identifier)
         InspectorInstrumentation::didCreateWebSocket(m_document.get(), m_identifier, validatedURL->url);
 
-    if (Frame* frame = m_document->frame()) {
-        ref();
-        Page* page = frame->page();
-        PAL::SessionID sessionID = page ? page->sessionID() : PAL::SessionID::defaultSessionID();
-        String partition = m_document->domainForCachePartition();
-        m_handle = m_socketProvider->createSocketStreamHandle(m_handshake->url(), *this, sessionID, partition, frame->loader().networkingContext());
-    }
+    auto* frame = m_document->frame();
+    auto* page = m_document->page();
+    if (!frame || !page)
+        return ConnectStatus::KO;
+
+    ref();
+    String partition = m_document->domainForCachePartition();
+    m_handle = m_socketProvider->createSocketStreamHandle(m_handshake->url(), *this, page->sessionID(), partition, frame->loader().networkingContext());
     return ConnectStatus::OK;
 }
 
@@ -202,7 +203,7 @@ void WebSocketChannel::close(int code, const String& reason)
 
 void WebSocketChannel::fail(const String& reason)
 {
-    LOG(Network, "WebSocketChannel %p fail() reason='%s'", this, reason.utf8().data());
+    RELEASE_LOG(Network, "WebSocketChannel %p fail() reason='%s'", this, reason.utf8().data());
     ASSERT(!m_suspended);
     if (m_document) {
         InspectorInstrumentation::didReceiveWebSocketFrameError(m_document.get(), m_identifier, reason);
@@ -362,6 +363,7 @@ void WebSocketChannel::didFailSocketStream(SocketStreamHandle& handle, const Soc
             message = "WebSocket network error: " + error.localizedDescription();
         InspectorInstrumentation::didReceiveWebSocketFrameError(m_document.get(), m_identifier, message);
         m_document->addConsoleMessage(MessageSource::Network, MessageLevel::Error, message);
+        LOG_ERROR("%s", message.utf8().data());
     }
     m_shouldDiscardReceivedData = true;
     if (m_client)
@@ -703,7 +705,7 @@ bool WebSocketChannel::processFrame()
 void WebSocketChannel::enqueueTextFrame(const CString& string)
 {
     ASSERT(m_outgoingFrameQueueStatus == OutgoingFrameQueueOpen);
-    auto frame = std::make_unique<QueuedFrame>();
+    auto frame = makeUnique<QueuedFrame>();
     frame->opCode = WebSocketFrame::OpCodeText;
     frame->frameType = QueuedFrameTypeString;
     frame->stringData = string;
@@ -713,7 +715,7 @@ void WebSocketChannel::enqueueTextFrame(const CString& string)
 void WebSocketChannel::enqueueRawFrame(WebSocketFrame::OpCode opCode, const char* data, size_t dataLength)
 {
     ASSERT(m_outgoingFrameQueueStatus == OutgoingFrameQueueOpen);
-    auto frame = std::make_unique<QueuedFrame>();
+    auto frame = makeUnique<QueuedFrame>();
     frame->opCode = opCode;
     frame->frameType = QueuedFrameTypeVector;
     frame->vectorData.resize(dataLength);
@@ -725,7 +727,7 @@ void WebSocketChannel::enqueueRawFrame(WebSocketFrame::OpCode opCode, const char
 void WebSocketChannel::enqueueBlobFrame(WebSocketFrame::OpCode opCode, Blob& blob)
 {
     ASSERT(m_outgoingFrameQueueStatus == OutgoingFrameQueueOpen);
-    auto frame = std::make_unique<QueuedFrame>();
+    auto frame = makeUnique<QueuedFrame>();
     frame->opCode = opCode;
     frame->frameType = QueuedFrameTypeBlob;
     frame->blobData = &blob;
@@ -763,7 +765,7 @@ void WebSocketChannel::processOutgoingFrameQueue()
                 ref(); // Will be derefed after didFinishLoading() or didFail().
                 ASSERT(!m_blobLoader);
                 ASSERT(frame->blobData);
-                m_blobLoader = std::make_unique<FileReaderLoader>(FileReaderLoader::ReadAsArrayBuffer, this);
+                m_blobLoader = makeUnique<FileReaderLoader>(FileReaderLoader::ReadAsArrayBuffer, this);
                 m_blobLoaderStatus = BlobLoaderStarted;
                 m_blobLoader->start(m_document.get(), *frame->blobData);
                 m_outgoingFrameQueue.prepend(WTFMove(frame));

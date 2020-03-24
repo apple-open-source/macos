@@ -34,8 +34,9 @@ class AppleUserHIDEventService: public IOHIDEventDriver
 private:
     struct AppleUserHIDEventService_IVars
     {
-        OSArray *elements;
-        IOHIDInterface *provider;
+        OSArray         * elements;
+        IOHIDInterface  * provider;
+        uint32_t        state;
     };
     
     AppleUserHIDEventService_IVars  *ivar;
@@ -65,5 +66,20 @@ public:
     virtual OSString *getManufacturer(void) APPLE_KEXT_OVERRIDE;
     virtual OSString *getProduct(void) APPLE_KEXT_OVERRIDE;
     virtual OSString *getSerialNumber(void) APPLE_KEXT_OVERRIDE;
+    
+    
+    virtual void     dispatchKeyboardEvent(AbsoluteTime                timeStamp,
+                                           UInt32                      usagePage,
+                                           UInt32                      usage,
+                                           UInt32                      value,
+                                           IOOptionBits                options = 0) APPLE_KEXT_OVERRIDE;
+    
+    virtual void     dispatchScrollWheelEventWithFixed(AbsoluteTime                timeStamp,
+                                                       IOFixed                     deltaAxis1,
+                                                       IOFixed                     deltaAxis2,
+                                                       IOFixed                     deltaAxis3,
+                                                       IOOptionBits                options = 0) APPLE_KEXT_OVERRIDE;
+    
+    virtual void    dispatchEvent(IOHIDEvent * event, IOOptionBits options=0) APPLE_KEXT_OVERRIDE;
 };
 #endif /* !_APPLEUSERHIDEVENTSERVICE_H */

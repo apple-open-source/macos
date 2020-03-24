@@ -69,13 +69,19 @@ bool DiskImageRep::readHeader(FileDesc& fd, UDIFFileHeader& header)
 // Object management.
 //
 DiskImageRep::DiskImageRep(const char *path)
-	: SingleDiskRep(path)
+	: SingleDiskRep(path), mSigningData(NULL)
 {
 	this->setup();
 }
 
+DiskImageRep::~DiskImageRep()
+{
+	free((void*)mSigningData);
+}
+
 void DiskImageRep::setup()
 {
+	free((void*)mSigningData);
 	mSigningData = NULL;
 	
 	// the UDIF "header" is in fact the last 512 bytes of the file, with no particular alignment
@@ -211,7 +217,7 @@ void DiskImageRep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef 
 //
 void DiskImageRep::Writer::flush()
 {
-	delete mSigningData;			// ditch previous blob just in case
+	free((void*)mSigningData);		// ditch previous blob just in case
 	mSigningData = Maker::make();	// assemble new signature SuperBlob
 	
 	// write signature superblob

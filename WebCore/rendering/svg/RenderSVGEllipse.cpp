@@ -54,20 +54,18 @@ void RenderSVGEllipse::updateShapeFromElement()
 
     calculateRadiiAndCenter();
 
-    // Element is invalid if either dimension is negative.
-    if (m_radii.width() < 0 || m_radii.height() < 0)
+    // Spec: "A negative value is illegal. A value of zero disables rendering of the element."
+    if (m_radii.isEmpty())
         return;
 
-    // Spec: "A value of zero disables rendering of the element."
-    if (!m_radii.isEmpty()) {
-        if (hasNonScalingStroke()) {
-            // Fallback to RenderSVGShape if shape has a non-scaling stroke.
-            RenderSVGShape::updateShapeFromElement();
-            m_usePathFallback = true;
-            return;
-        }
-        m_usePathFallback = false;
+    if (hasNonScalingStroke()) {
+        // Fallback to RenderSVGShape if shape has a non-scaling stroke.
+        RenderSVGShape::updateShapeFromElement();
+        m_usePathFallback = true;
+        return;
     }
+
+    m_usePathFallback = false;
 
     m_fillBoundingBox = FloatRect(m_center.x() - m_radii.width(), m_center.y() - m_radii.height(), 2 * m_radii.width(), 2 * m_radii.height());
     m_strokeBoundingBox = m_fillBoundingBox;
@@ -88,9 +86,12 @@ void RenderSVGEllipse::calculateRadiiAndCenter()
     }
 
     ASSERT(is<SVGEllipseElement>(graphicsElement()));
+
+    Length rx = style().svgStyle().rx();
+    Length ry = style().svgStyle().ry();
     m_radii = FloatSize(
-        lengthContext.valueForLength(style().svgStyle().rx(), SVGLengthMode::Width),
-        lengthContext.valueForLength(style().svgStyle().ry(), SVGLengthMode::Height));
+        lengthContext.valueForLength(rx.isAuto() ? ry : rx, SVGLengthMode::Width),
+        lengthContext.valueForLength(ry.isAuto() ? rx : ry, SVGLengthMode::Height));
 }
 
 void RenderSVGEllipse::fillShape(GraphicsContext& context) const

@@ -112,7 +112,7 @@ POBJS = system_group.plog
 
 LIBOBJDIR = $(top_builddir)/@ac_config_libobj_dir@/
 
-VERSION = 1.8.29
+VERSION = 1.8.31
 
 all: system_group.la
 

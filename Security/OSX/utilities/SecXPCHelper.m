@@ -143,7 +143,7 @@
     return NSStringFromClass([object class]);
 }
 
-+ (NSError *)cleanseErrorForXPC:(NSError * _Nullable)error
++ (NSError * _Nullable)cleanseErrorForXPC:(NSError * _Nullable)error
 {
     if (!error) {
         return nil;

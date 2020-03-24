@@ -67,7 +67,6 @@ protected:
 };
 
 WEBCORE_EXPORT JSC::CompleteSubspace* outputConstraintSubspaceFor(JSC::VM&);
-WEBCORE_EXPORT JSC::CompleteSubspace* globalObjectOutputConstraintSubspaceFor(JSC::VM&);
 
 template<typename ImplementationClass> class JSDOMWrapper : public JSDOMObject {
 public:
@@ -109,6 +108,6 @@ public:
     static constexpr bool isBuiltin = false;
 };
 
-JSC::JSValue cloneAcrossWorlds(JSC::ExecState&, const JSDOMObject& owner, JSC::JSValue);
+JSC::JSValue cloneAcrossWorlds(JSC::JSGlobalObject&, const JSDOMObject& owner, JSC::JSValue);
 
 } // namespace WebCore

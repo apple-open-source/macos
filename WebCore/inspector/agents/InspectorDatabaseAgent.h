@@ -47,25 +47,25 @@ class InspectorDatabaseAgent final : public InspectorAgentBase, public Inspector
     WTF_MAKE_NONCOPYABLE(InspectorDatabaseAgent);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit InspectorDatabaseAgent(WebAgentContext&);
-    virtual ~InspectorDatabaseAgent() = default;
+    InspectorDatabaseAgent(WebAgentContext&);
+    ~InspectorDatabaseAgent() override;
 
+    // InspectorAgentBase
     void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) override;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
 
-
-    // Called from the front-end.
+    // DatabaseBackendDispatcherHandler
     void enable(ErrorString&) override;
     void disable(ErrorString&) override;
     void getDatabaseTableNames(ErrorString&, const String& databaseId, RefPtr<JSON::ArrayOf<String>>& names) override;
     void executeSQL(const String& databaseId, const String& query, Ref<ExecuteSQLCallback>&&) override;
 
-    // Called from the injected script.
-    String databaseId(Database&);
-
     // InspectorInstrumentation
     void didCommitLoad();
     void didOpenDatabase(Database&);
+
+    // CommandLineAPI
+    String databaseId(Database&);
 
 private:
     Database* databaseForId(const String& databaseId);

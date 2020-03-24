@@ -45,9 +45,8 @@ using namespace WebCore;
 
 class WebPageProxy;
 
-WebFrameProxy::WebFrameProxy(WebPageProxy& page, uint64_t frameID)
+WebFrameProxy::WebFrameProxy(WebPageProxy& page, FrameIdentifier frameID)
     : m_page(makeWeakPtr(page))
-    , m_isFrameSet(false)
     , m_frameID(frameID)
 {
     WebProcessPool::statistics().wkFrameCount++;
@@ -84,7 +83,7 @@ void WebFrameProxy::loadURL(const URL& url, const String& referrer)
     if (!m_page)
         return;
 
-    m_page->process().send(Messages::WebPage::LoadURLInFrame(url, referrer, m_frameID), m_page->pageID());
+    m_page->send(Messages::WebPage::LoadURLInFrame(url, referrer, m_frameID));
 }
 
 void WebFrameProxy::loadData(const IPC::DataReference& data, const String& MIMEType, const String& encodingName, const URL& baseURL)
@@ -93,7 +92,7 @@ void WebFrameProxy::loadData(const IPC::DataReference& data, const String& MIMET
     if (!m_page)
         return;
 
-    m_page->process().send(Messages::WebPage::LoadDataInFrame(data, MIMEType, encodingName, baseURL, m_frameID), m_page->pageID());
+    m_page->send(Messages::WebPage::LoadDataInFrame(data, MIMEType, encodingName, baseURL, m_frameID));
 }
 
 void WebFrameProxy::stopLoading() const
@@ -104,7 +103,7 @@ void WebFrameProxy::stopLoading() const
     if (!m_page->hasRunningProcess())
         return;
 
-    m_page->process().send(Messages::WebPage::StopLoadingFrame(m_frameID), m_page->pageID());
+    m_page->send(Messages::WebPage::StopLoadingFrame(m_frameID));
 }
     
 bool WebFrameProxy::canProvideSource() const
@@ -147,9 +146,10 @@ void WebFrameProxy::didStartProvisionalLoad(const URL& url)
     m_frameLoadState.didStartProvisionalLoad(url);
 }
 
-void WebFrameProxy::didExplicitOpen(const URL& url)
+void WebFrameProxy::didExplicitOpen(URL&& url, String&& mimeType)
 {
-    m_frameLoadState.didExplicitOpen(url);
+    m_MIMEType = WTFMove(mimeType);
+    m_frameLoadState.didExplicitOpen(WTFMove(url));
 }
 
 void WebFrameProxy::didReceiveServerRedirectForProvisionalLoad(const URL& url)
@@ -263,7 +263,7 @@ void WebFrameProxy::collapseSelection()
     if (!m_page)
         return;
 
-    m_page->process().send(Messages::WebPage::CollapseSelectionInFrame(m_frameID), m_page->pageID());
+    m_page->process().send(Messages::WebPage::CollapseSelectionInFrame(m_frameID), m_page->webPageID());
 }
 #endif
 

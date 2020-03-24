@@ -44,6 +44,8 @@ SOSManifestRef SOSCreateManifestWithBackup(CFDictionaryRef backup, CFErrorRef *e
 // Hack to log objects from inside SOS code
 void SecItemServerAppendItemDescription(CFMutableStringRef desc, CFDictionaryRef object);
 
+// Are you a test? Call this to drop all data sources.
+void SecItemDataSourceFactoryReleaseAll(void);
 
 __END_DECLS
 

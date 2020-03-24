@@ -46,9 +46,9 @@
 #if PLATFORM(IOS_FAMILY)
 #import "MemoryMeasure.h"
 #import "WebFrameInternal.h"
+#import <WebCore/BackForwardCache.h>
 #import <WebCore/CachedImage.h>
 #import <WebCore/Frame.h>
-#import <WebCore/PageCache.h>
 #import <WebCore/WebCoreThreadRun.h>
 #endif
 
@@ -65,7 +65,6 @@ class DefaultStorageSessionProvider : public WebCore::StorageSessionProvider {
 {
 #if !PLATFORM(IOS_FAMILY)
     JSC::initializeThreading();
-    WTF::initializeMainThreadToProcessMainThread();
     RunLoop::initializeMainRunLoop();
 #endif
 }
@@ -162,33 +161,6 @@ class DefaultStorageSessionProvider : public WebCore::StorageSessionProvider {
 #endif
                      + (stats.scripts.size - stats.scripts.liveSize);
     }
-}
-
-+ (bool)addImageToCache:(CGImageRef)image forURL:(NSURL *)url
-{
-    return [WebCache addImageToCache:image forURL:url forFrame:nil];
-}
-
-+ (bool)addImageToCache:(CGImageRef)image forURL:(NSURL *)url forFrame:(WebFrame *)frame
-{
-    if (!image || !url || ![[url absoluteString] length])
-        return false;
-
-    auto provider = adoptRef(*new DefaultStorageSessionProvider);
-    return WebCore::MemoryCache::singleton().addImageToCache(RetainPtr<CGImageRef>(image), url, frame ? core(frame)->document()->domainForCachePartition() : emptyString(), PAL::SessionID::defaultSessionID(), WebCore::CookieJar::create(WTFMove(provider)).ptr());
-}
-
-+ (void)removeImageFromCacheForURL:(NSURL *)url
-{
-    [WebCache removeImageFromCacheForURL:url forFrame:nil];
-}
-
-+ (void)removeImageFromCacheForURL:(NSURL *)url forFrame:(WebFrame *)frame
-{
-    if (!url)
-        return;
-
-    return WebCore::MemoryCache::singleton().removeImageFromCache(url, frame ? core(frame)->document()->domainForCachePartition() : emptyString());
 }
 
 + (CGImageRef)imageForURL:(NSURL *)url

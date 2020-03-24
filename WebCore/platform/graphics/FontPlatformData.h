@@ -65,7 +65,7 @@ interface IDWriteFontFace;
 #endif
 
 #if USE(DIRECT2D)
-#include <dwrite.h>
+#include <dwrite_3.h>
 #endif
 
 namespace WebCore {
@@ -80,7 +80,6 @@ public:
     FontPlatformData(WTF::HashTableDeletedValueType);
     FontPlatformData();
 
-    FontPlatformData(const FontDescription&, const AtomString& family);
     FontPlatformData(float size, bool syntheticBold, bool syntheticOblique, FontOrientation = FontOrientation::Horizontal, FontWidthVariant = FontWidthVariant::RegularWidth, TextRenderingMode = TextRenderingMode::AutoTextRendering);
 
 #if PLATFORM(COCOA)
@@ -104,7 +103,7 @@ public:
 #endif
 
 #if PLATFORM(WIN) && USE(DIRECT2D)
-    FontPlatformData(GDIObject<HFONT>, IDWriteFont*, float size, bool syntheticBold, bool syntheticOblique, bool useGDI);
+    FontPlatformData(GDIObject<HFONT>&&, COMPtr<IDWriteFont>&&, float size, bool syntheticBold, bool syntheticOblique, bool useGDI);
 #endif
 
 #if PLATFORM(WIN) && USE(CAIRO)
@@ -113,11 +112,6 @@ public:
 
 #if USE(FREETYPE)
     FontPlatformData(cairo_font_face_t*, FcPattern*, float size, bool fixedWidth, bool syntheticBold, bool syntheticOblique, FontOrientation);
-    FontPlatformData(const FontPlatformData&);
-    FontPlatformData(FontPlatformData&&) = default;
-    FontPlatformData& operator=(const FontPlatformData&);
-    FontPlatformData& operator=(FontPlatformData&&) = default;
-    ~FontPlatformData();
 #endif
 
 #if PLATFORM(WIN)
@@ -149,8 +143,6 @@ public:
 #if USE(DIRECT2D)
     IDWriteFont* dwFont() const { return m_dwFont.get(); }
     IDWriteFontFace* dwFontFace() const { return m_dwFontFace.get(); }
-
-    static HRESULT createFallbackFont(const LOGFONT&, IDWriteFont**);
 #endif
 
     bool isFixedPitch() const;

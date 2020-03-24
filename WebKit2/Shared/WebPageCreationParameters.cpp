@@ -38,6 +38,7 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << store;
     encoder.encodeEnum(drawingAreaType);
     encoder << drawingAreaIdentifier;
+    encoder << webPageProxyIdentifier;
     encoder << pageGroupData;
     encoder << isEditable;
     encoder << underlayColor;
@@ -52,10 +53,8 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << paginationLineGridEnabled;
     encoder << userAgent;
     encoder << itemStates;
-    encoder << sessionID;
     encoder << userContentControllerID;
     encoder << visitedLinkTableID;
-    encoder << websiteDataStoreID;
     encoder << canRunBeforeUnloadConfirmPanel;
     encoder << canRunModal;
     encoder << deviceScaleFactor;
@@ -67,7 +66,7 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << muted;
     encoder << mayStartMediaWhenInWindow;
     encoder << mediaPlaybackIsSuspended;
-    encoder << viewLayoutSize;
+    encoder << minimumSizeForAutoLayout;
     encoder << autoSizingShouldExpandToViewHeight;
     encoder << viewportSizeForCSSViewportUnits;
     encoder.encodeEnum(scrollPinningBehavior);
@@ -118,9 +117,6 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #if ENABLE(APPLICATION_MANIFEST)
     encoder << applicationManifest;
 #endif
-#if ENABLE(SERVICE_WORKER)
-    encoder << hasRegisteredServiceWorkers;
-#endif
     encoder << needsFontAttributes;
     encoder << iceCandidateFilteringEnabled;
     encoder << enumeratingAllNetworkInterfacesEnabled;
@@ -133,11 +129,14 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #endif
     encoder << backgroundColor;
     encoder << oldPageID;
+    encoder << overriddenMediaType;
+    encoder << corsDisablingPatterns;
 }
 
 Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decoder& decoder)
 {
     WebPageCreationParameters parameters;
+
     if (!decoder.decode(parameters.viewSize))
         return WTF::nullopt;
     if (!decoder.decode(parameters.activityState))
@@ -151,6 +150,11 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
     if (!drawingAreaIdentifier)
         return WTF::nullopt;
     parameters.drawingAreaIdentifier = *drawingAreaIdentifier;
+    Optional<WebPageProxyIdentifier> webPageProxyIdentifier;
+    decoder >> webPageProxyIdentifier;
+    if (!webPageProxyIdentifier)
+        return WTF::nullopt;
+    parameters.webPageProxyIdentifier = WTFMove(*webPageProxyIdentifier);
     Optional<WebPageGroupData> pageGroupData;
     decoder >> pageGroupData;
     if (!pageGroupData)
@@ -191,9 +195,6 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     parameters.itemStates = WTFMove(*itemStates);
 
-    if (!decoder.decode(parameters.sessionID))
-        return WTF::nullopt;
-
     Optional<UserContentControllerIdentifier> userContentControllerIdentifier;
     decoder >> userContentControllerIdentifier;
     if (!userContentControllerIdentifier)
@@ -201,8 +202,6 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
     parameters.userContentControllerID = *userContentControllerIdentifier;
 
     if (!decoder.decode(parameters.visitedLinkTableID))
-        return WTF::nullopt;
-    if (!decoder.decode(parameters.websiteDataStoreID))
         return WTF::nullopt;
     if (!decoder.decode(parameters.canRunBeforeUnloadConfirmPanel))
         return WTF::nullopt;
@@ -226,7 +225,7 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     if (!decoder.decode(parameters.mediaPlaybackIsSuspended))
         return WTF::nullopt;
-    if (!decoder.decode(parameters.viewLayoutSize))
+    if (!decoder.decode(parameters.minimumSizeForAutoLayout))
         return WTF::nullopt;
     if (!decoder.decode(parameters.autoSizingShouldExpandToViewHeight))
         return WTF::nullopt;
@@ -343,11 +342,6 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     parameters.applicationManifest = WTFMove(*applicationManifest);
 #endif
-#if ENABLE(SERVICE_WORKER)
-    if (!decoder.decode(parameters.hasRegisteredServiceWorkers))
-        return WTF::nullopt;
-#endif
-
     if (!decoder.decode(parameters.needsFontAttributes))
         return WTF::nullopt;
 
@@ -400,6 +394,15 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
     if (!oldPageID)
         return WTF::nullopt;
     parameters.oldPageID = WTFMove(*oldPageID);
+
+    if (!decoder.decode(parameters.overriddenMediaType))
+        return WTF::nullopt;
+
+    Optional<Vector<String>> corsDisablingPatterns;
+    decoder >> corsDisablingPatterns;
+    if (!corsDisablingPatterns)
+        return WTF::nullopt;
+    parameters.corsDisablingPatterns = WTFMove(*corsDisablingPatterns);
 
     return parameters;
 }

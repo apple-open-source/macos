@@ -175,10 +175,10 @@ NS_ASSUME_NONNULL_BEGIN
 /* Synchronous operations */
 
 - (void)handleKeychainEventDbConnection:(SecDbConnectionRef)dbconn
+                                 source:(SecDbTransactionSource)txionSource
                                   added:(SecDbItemRef _Nullable)added
                                 deleted:(SecDbItemRef _Nullable)deleted
-                            rateLimiter:(CKKSRateLimiter*)rateLimiter
-                           syncCallback:(SecBoolNSErrorCallback)syncCallback;
+                            rateLimiter:(CKKSRateLimiter*)rateLimiter;
 
 - (void)setCurrentItemForAccessGroup:(NSData*)newItemPersistentRef
                                 hash:(NSData*)newItemSHA1
@@ -207,8 +207,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (bool)_onqueueWithAccountKeysCheckTLK:(CKKSKey*)proposedTLK error:(NSError* __autoreleasing*)error;
 
 - (BOOL)otherDevicesReportHavingTLKs:(CKKSCurrentKeySet*)keyset;
-
-- (NSSet<NSString*>*)_onqueuePriorityOutgoingQueueUUIDs;
 
 /* Asynchronous kickoffs */
 
@@ -304,6 +302,8 @@ NS_ASSUME_NONNULL_BEGIN
 // Please don't use these unless you're an Operation in this package
 @property NSHashTable<CKKSIncomingQueueOperation*>* incomingQueueOperations;
 @property NSHashTable<CKKSOutgoingQueueOperation*>* outgoingQueueOperations;
+
+@property NSHashTable<CKKSScanLocalItemsOperation*>* scanLocalItemsOperations;
 @property CKKSScanLocalItemsOperation* initialScanOperation;
 
 // Returns the current state of this view, fastStatus is the same, but as name promise, no expensive calculations

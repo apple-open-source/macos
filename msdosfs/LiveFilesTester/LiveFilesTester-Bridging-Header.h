@@ -73,7 +73,7 @@ int brdg_fsops_sync(UVFSFSOps* testerFsOps, UVFSFileNode* node);
 int brdg_fsops_readdir(UVFSFSOps* testerFsOps, UVFSFileNode *dirNode, void *buf, size_t buflen, uint64_t cookie, size_t *bytes_read,  uint64_t *verifier);
 int brdg_fsops_readdirattr(UVFSFSOps* testerFsOps, UVFSFileNode *dirNode, void *buf, size_t buflen, uint64_t cookie, size_t *bytes_read,  uint64_t *verifier);
 int brdg_fsops_getfsattr(UVFSFSOps* testerFsOps, UVFSFileNode *Node, const char *attr, UVFSFSAttributeValue *val, size_t len, size_t *retlen);
-int brdg_fsops_setfsattr(UVFSFSOps* testerFsOps, UVFSFileNode *Node, const char *attr, const UVFSFSAttributeValue *val, size_t len);
+int brdg_fsops_setfsattr(UVFSFSOps* testerFsOps, UVFSFileNode *Node, const char *attr, const UVFSFSAttributeValue *val, size_t len, UVFSFSAttributeValue *out_val, size_t out_len);
 uint64_t brdg_fsops_version(UVFSFSOps* testerFsOps);
 int brdg_fsops_check(UVFSFSOps* testerFsOps,int disk_fd, check_flags_t how);
 

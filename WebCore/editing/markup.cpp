@@ -176,12 +176,12 @@ void removeSubresourceURLAttributes(Ref<DocumentFragment>&& fragment, WTF::Funct
 
 std::unique_ptr<Page> createPageForSanitizingWebContent()
 {
-    auto pageConfiguration = pageConfigurationWithEmptyClients();
+    auto pageConfiguration = pageConfigurationWithEmptyClients(PAL::SessionID::defaultSessionID());
     
-    auto page = std::make_unique<Page>(WTFMove(pageConfiguration));
-    page->setIsForSanitizingWebContent();
+    auto page = makeUnique<Page>(WTFMove(pageConfiguration));
     page->settings().setMediaEnabled(false);
     page->settings().setScriptEnabled(false);
+    page->settings().setParserScriptingFlagPolicy(SettingsBase::ParserScriptingFlagPolicy::Enabled);
     page->settings().setPluginsEnabled(false);
     page->settings().setAcceleratedCompositingEnabled(false);
 

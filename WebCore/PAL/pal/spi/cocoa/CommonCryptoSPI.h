@@ -25,20 +25,14 @@
 
 #pragma once
 
-#if (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101300)
-#define HAVE_CCRSAGetCRTComponents 1
-#endif
-
 #if USE(APPLE_INTERNAL_SDK)
+
 #include <CommonCrypto/CommonCryptorSPI.h>
 #include <CommonCrypto/CommonDigestSPI.h>
 #include <CommonCrypto/CommonECCryptor.h>
 #include <CommonCrypto/CommonKeyDerivationSPI.h>
 #include <CommonCrypto/CommonRSACryptor.h>
-
-#if HAVE(CCRSAGetCRTComponents)
 #include <CommonCrypto/CommonRSACryptorSPI.h>
-#endif
 
 #else
 
@@ -80,10 +74,8 @@ extern "C" CCRSAKeyType CCRSAGetKeyType(CCRSACryptorRef key);
 extern "C" CCCryptorStatus CCRSACryptorImport(const void *keyPackage, size_t keyPackageLen, CCRSACryptorRef *key);
 extern "C" CCCryptorStatus CCRSACryptorExport(CCRSACryptorRef key, void *out, size_t *outLen);
 
-#if HAVE(CCRSAGetCRTComponents)
 extern "C" CCCryptorStatus CCRSAGetCRTComponentsSizes(CCRSACryptorRef rsaKey, size_t *dpSize, size_t *dqSize, size_t *qinvSize);
 extern "C" CCCryptorStatus CCRSAGetCRTComponents(CCRSACryptorRef rsaKey, void *dp, size_t dpSize, void *dq, size_t dqSize, void *qinv, size_t qinvSize);
-#endif
 
 #ifndef _CC_ECCRYPTOR_H_
 enum {
@@ -101,11 +93,7 @@ typedef uint32_t CCECKeyExternalFormat;
 typedef struct _CCECCryptor *CCECCryptorRef;
 extern "C" CCCryptorStatus CCECCryptorGeneratePair(size_t keysize, CCECCryptorRef *publicKey, CCECCryptorRef *privateKey);
 extern "C" void CCECCryptorRelease(CCECCryptorRef key);
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000)
 extern "C" CCCryptorStatus CCECCryptorImportKey(CCECKeyExternalFormat format, const void *keyPackage, size_t keyPackageLen, CCECKeyType keyType, CCECCryptorRef *key);
-#else
-extern "C" CCCryptorStatus CCECCryptorImportKey(CCECKeyExternalFormat format, void *keyPackage, size_t keyPackageLen, CCECKeyType keyType, CCECCryptorRef *key);
-#endif
 extern "C" CCCryptorStatus CCECCryptorExportKey(CCECKeyExternalFormat format, void *keyPackage, size_t *keyPackageLen, CCECKeyType keyType, CCECCryptorRef key);
 extern "C" int CCECGetKeySize(CCECCryptorRef key);
 extern "C" CCCryptorStatus CCECCryptorCreateFromData(size_t keySize, uint8_t *qX, size_t qXLength, uint8_t *qY, size_t qYLength, CCECCryptorRef *ref);

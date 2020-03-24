@@ -33,6 +33,7 @@
 #endif
 
 #include "WebMDNSRegister.h"
+#include <WebCore/LibWebRTCSocketIdentifier.h>
 
 namespace WebKit {
 
@@ -41,13 +42,15 @@ class LibWebRTCNetwork {
 public:
     LibWebRTCNetwork() = default;
 
+    void networkProcessCrashed();
+
 #if USE(LIBWEBRTC)
     WebRTCMonitor& monitor() { return m_webNetworkMonitor; }
     LibWebRTCSocketFactory& socketFactory() { return m_socketFactory; }
 
     void disableNonLocalhostConnections() { socketFactory().disableNonLocalhostConnections(); }
 
-    WebRTCSocket socket(uint64_t identifier) { return WebRTCSocket(socketFactory(), identifier); }
+    WebRTCSocket socket(WebCore::LibWebRTCSocketIdentifier identifier) { return WebRTCSocket(socketFactory(), identifier); }
     WebRTCResolver resolver(uint64_t identifier) { return WebRTCResolver(socketFactory(), identifier); }
 #endif
 
@@ -64,5 +67,12 @@ private:
     WebMDNSRegister m_mdnsRegister;
 #endif
 };
+
+inline void LibWebRTCNetwork::networkProcessCrashed()
+{
+#if USE(LIBWEBRTC)
+    m_webNetworkMonitor.networkProcessCrashed();
+#endif
+}
 
 } // namespace WebKit

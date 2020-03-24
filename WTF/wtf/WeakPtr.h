@@ -68,14 +68,24 @@ public:
     explicit operator bool() const { return m_ptr; }
     void clear() { m_ptr = nullptr; }
 
+#if !ASSERT_DISABLED
+    bool wasConstructedOnMainThread() const { return m_wasConstructedOnMainThread; }
+#endif
+
 private:
     template<typename T> explicit WeakPtrImpl(T* ptr)
         : m_ptr(static_cast<typename T::WeakValueType*>(ptr))
+#if !ASSERT_DISABLED
+        , m_wasConstructedOnMainThread(isMainThread())
+#endif
     {
         DID_CREATE_WEAK_PTR_IMPL(ptr);
     }
 
     void* m_ptr;
+#if !ASSERT_DISABLED
+    bool m_wasConstructedOnMainThread;
+#endif
 };
 
 template<typename T>
@@ -87,15 +97,30 @@ public:
     template<typename U> WeakPtr(const WeakPtr<U>&);
     template<typename U> WeakPtr(WeakPtr<U>&&);
 
-    T* get() const { return m_impl ? static_cast<T*>(m_impl->get<T>()) : nullptr; }
+    T* get() const
+    {
+        // FIXME: Our GC threads currently need to get opaque pointers from WeakPtrs and have to be special-cased.
+        ASSERT(!m_impl || Thread::mayBeGCThread() || m_impl->wasConstructedOnMainThread() == isMainThread());
+        return m_impl ? static_cast<T*>(m_impl->get<T>()) : nullptr;
+    }
+
     explicit operator bool() const { return m_impl && *m_impl; }
 
     WeakPtr& operator=(std::nullptr_t) { m_impl = nullptr; return *this; }
     template<typename U> WeakPtr& operator=(const WeakPtr<U>&);
     template<typename U> WeakPtr& operator=(WeakPtr<U>&&);
 
-    T* operator->() const { return get(); }
-    T& operator*() const { return *get(); }
+    T* operator->() const
+    {
+        ASSERT(!m_impl || m_impl->wasConstructedOnMainThread() == isMainThread());
+        return get();
+    }
+
+    T& operator*() const
+    {
+        ASSERT(!m_impl || m_impl->wasConstructedOnMainThread() == isMainThread());
+        return *get();
+    }
 
     void clear() { m_impl = nullptr; }
 
@@ -129,11 +154,18 @@ public:
         m_impl->clear();
     }
 
+    void initializeIfNeeded(const T& object) const
+    {
+        if (m_impl)
+            return;
+
+        ASSERT(m_wasConstructedOnMainThread == isMainThread());
+        m_impl = WeakPtrImpl::create(const_cast<T*>(&object));
+    }
+
     WeakPtr<T> createWeakPtr(T& object) const
     {
-        ASSERT(m_wasConstructedOnMainThread == isMainThread());
-        if (!m_impl)
-            m_impl = WeakPtrImpl::create(&object);
+        initializeIfNeeded(object);
 
         ASSERT(&object == m_impl->get<T>());
         return WeakPtr<T>(makeRef(*m_impl));
@@ -141,9 +173,7 @@ public:
 
     WeakPtr<const T> createWeakPtr(const T& object) const
     {
-        ASSERT(m_wasConstructedOnMainThread == isMainThread());
-        if (!m_impl)
-            m_impl = WeakPtrImpl::create(const_cast<T*>(&object));
+        initializeIfNeeded(object);
 
         ASSERT(&object == m_impl->get<T>());
         return WeakPtr<T>(makeRef(*m_impl));
@@ -167,12 +197,23 @@ private:
 #endif
 };
 
-template<typename T> class CanMakeWeakPtr {
+// We use lazy initialization of the WeakPtrFactory by default to avoid unnecessary initialization. Eager
+// initialization is however useful if you plan to call makeWeakPtr() from other threads.
+enum class WeakPtrFactoryInitialization { Lazy, Eager };
+
+template<typename T, WeakPtrFactoryInitialization initializationMode = WeakPtrFactoryInitialization::Lazy> class CanMakeWeakPtr {
 public:
-    typedef T WeakValueType;
+    using WeakValueType = T;
 
     const WeakPtrFactory<T>& weakPtrFactory() const { return m_weakPtrFactory; }
     WeakPtrFactory<T>& weakPtrFactory() { return m_weakPtrFactory; }
+
+protected:
+    CanMakeWeakPtr()
+    {
+        if (initializationMode == WeakPtrFactoryInitialization::Eager)
+            m_weakPtrFactory.initializeIfNeeded(static_cast<T&>(*this));
+    }
 
 private:
     WeakPtrFactory<T> m_weakPtrFactory;
@@ -253,4 +294,5 @@ template<typename T, typename U> inline bool operator!=(T* a, const WeakPtr<U>& 
 using WTF::CanMakeWeakPtr;
 using WTF::WeakPtr;
 using WTF::WeakPtrFactory;
+using WTF::WeakPtrFactoryInitialization;
 using WTF::makeWeakPtr;

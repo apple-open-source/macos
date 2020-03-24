@@ -52,6 +52,7 @@ class WebPageProxy;
 class AcceleratedBackingStoreWayland final : public AcceleratedBackingStore {
     WTF_MAKE_NONCOPYABLE(AcceleratedBackingStoreWayland); WTF_MAKE_FAST_ALLOCATED;
 public:
+    static bool checkRequirements();
     static std::unique_ptr<AcceleratedBackingStoreWayland> create(WebPageProxy&);
     ~AcceleratedBackingStoreWayland();
 
@@ -64,6 +65,8 @@ private:
 #endif
 
     bool paint(cairo_t*, const WebCore::IntRect&) override;
+    void realize() override;
+    void unrealize() override;
     bool makeContextCurrent() override;
 #if USE(WPE_RENDERER)
     void update(const LayerTreeContext&) override;

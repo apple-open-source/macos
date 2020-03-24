@@ -812,6 +812,7 @@ IOReturn IOHIDResourceDeviceUserClient::postReportResult(IOExternalMethodArgumen
 {
     OSObject * object = NULL;
     IOReturn result = kIOReturnNotFound;
+    IOByteCount descriptorLength = 0;
     
     u_int64_t token = (u_int64_t)arguments->scalarInput[kIOHIDResourceUserClientResponseIndexToken];
 
@@ -824,8 +825,23 @@ IOReturn IOHIDResourceDeviceUserClient::postReportResult(IOExternalMethodArgumen
         if (pResult->token != token)
             continue;
         
+        
         // RY: HIGHLY UNLIKELY > 4K
         if ( pResult->descriptor && arguments->structureInput ) {
+            
+            // HID User device API with length allows caller to modify return length
+            // which can be greater than orginal length of descriptor, we should check
+            // that here
+            descriptorLength = pResult->descriptor->getLength();
+            
+            if (descriptorLength < arguments->structureInputSize) {
+                pResult->ret = kIOReturnOverrun;
+                _commandGate->commandWakeup(object);
+                result = kIOReturnOverrun;
+                HIDLogError("Invalid report length expected : %d got : %d",(int)descriptorLength, (int)arguments->structureInputSize);
+                break;
+            }
+        
             pResult->descriptor->writeBytes(0, arguments->structureInput, arguments->structureInputSize);
             
             // 12978252:  If we get an IOBMD passed in, set the length to be the # of bytes that were transferred

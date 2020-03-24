@@ -36,15 +36,15 @@ namespace WebKit {
 
 bool WebInspectorUI::canSave()
 {
-    return false;
+    return true;
 }
 
-String WebInspectorUI::localizedStringsURL()
+String WebInspectorUI::localizedStringsURL() const
 {
     return String("resource:///org/webkit/inspector/Localizations/en.lproj/localizedStrings.js");
 }
 
-String RemoteWebInspectorUI::localizedStringsURL()
+String RemoteWebInspectorUI::localizedStringsURL() const
 {
     return String("resource:///org/webkit/inspector/Localizations/en.lproj/localizedStrings.js");
 }

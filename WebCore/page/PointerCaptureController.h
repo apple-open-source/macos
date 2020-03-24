@@ -26,14 +26,21 @@
 
 #if ENABLE(POINTER_EVENTS)
 
+#include "ExceptionOr.h"
 #include "PointerID.h"
 #include <wtf/HashMap.h>
 
 namespace WebCore {
 
+class Document;
 class Element;
 class EventTarget;
+class IntPoint;
+class MouseEvent;
+class Page;
+class PlatformTouchEvent;
 class PointerEvent;
+class WindowProxy;
 
 class PointerCaptureController {
     WTF_MAKE_NONCOPYABLE(PointerCaptureController);

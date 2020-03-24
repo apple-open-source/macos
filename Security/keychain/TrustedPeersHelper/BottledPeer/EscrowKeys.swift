@@ -28,7 +28,7 @@ let OT_ESCROW_SIGNING_HKDF_SIZE = 56
 let OT_ESCROW_ENCRYPTION_HKDF_SIZE = 56
 let OT_ESCROW_SYMMETRIC_HKDF_SIZE = 32
 
-enum escrowKeyType: Int {
+enum EscrowKeyType: Int {
     case kOTEscrowKeySigning = 1
     case kOTEscrowKeyEncryption = 2
     case kOTEscrowKeySymmetric = 3
@@ -46,13 +46,13 @@ class EscrowKeys: NSObject {
         self.secret = secret
         self.bottleSalt = bottleSalt
 
-        let encryptionKeyData = try EscrowKeys.generateEscrowKey(keyType: escrowKeyType.kOTEscrowKeyEncryption, masterSecret: secret, bottleSalt: bottleSalt)
+        let encryptionKeyData = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeyEncryption, masterSecret: secret, bottleSalt: bottleSalt)
         self.encryptionKey = _SFECKeyPair.init(secKey: try EscrowKeys.createSecKey(keyData: encryptionKeyData))
 
-        let signingKeyData = try EscrowKeys.generateEscrowKey(keyType: escrowKeyType.kOTEscrowKeySigning, masterSecret: secret, bottleSalt: bottleSalt)
+        let signingKeyData = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeySigning, masterSecret: secret, bottleSalt: bottleSalt)
         self.signingKey = _SFECKeyPair.init(secKey: try EscrowKeys.createSecKey(keyData: signingKeyData))
 
-        let symmetricKeyData = try EscrowKeys.generateEscrowKey(keyType: escrowKeyType.kOTEscrowKeySymmetric, masterSecret: secret, bottleSalt: bottleSalt)
+        let symmetricKeyData = try EscrowKeys.generateEscrowKey(keyType: EscrowKeyType.kOTEscrowKeySymmetric, masterSecret: secret, bottleSalt: bottleSalt)
         let specifier = _SFAESKeySpecifier.init(bitSize: TPHObjectiveC.aes256BitSize())
         self.symmetricKey = try _SFAESKey.init(data: symmetricKeyData, specifier: specifier)
 
@@ -62,34 +62,31 @@ class EscrowKeys: NSObject {
         _ = try EscrowKeys.storeEscrowedSymmetricKey(keyData: self.symmetricKey.keyData, label: escrowSigningPubKeyHash)
     }
 
-    class func generateEscrowKey(keyType: escrowKeyType, masterSecret: Data, bottleSalt: String) throws -> (Data) {
+    class func generateEscrowKey(keyType: EscrowKeyType, masterSecret: Data, bottleSalt: String) throws -> (Data) {
         var keyLength: Int
         var info: Data
         var derivedKey: Data
         var finalKey = Data()
 
         switch keyType {
-        case escrowKeyType.kOTEscrowKeySymmetric:
+        case EscrowKeyType.kOTEscrowKeySymmetric:
             keyLength = OT_ESCROW_SYMMETRIC_HKDF_SIZE
 
             let infoString = Array("Escrow Symmetric Key".utf8)
             info = Data(bytes: infoString, count: infoString.count)
 
-            break
-        case escrowKeyType.kOTEscrowKeyEncryption:
+        case EscrowKeyType.kOTEscrowKeyEncryption:
             keyLength = OT_ESCROW_ENCRYPTION_HKDF_SIZE
 
             let infoString = Array("Escrow Encryption Private Key".utf8)
             info = Data(bytes: infoString, count: infoString.count)
 
-            break
-        case escrowKeyType.kOTEscrowKeySigning:
+        case EscrowKeyType.kOTEscrowKeySigning:
             keyLength = OT_ESCROW_SIGNING_HKDF_SIZE
 
             let infoString = Array("Escrow Signing Private Key".utf8)
             info = Data(bytes: infoString, count: infoString.count)
 
-            break
         }
 
         guard let cp = ccec_cp_384() else {
@@ -119,10 +116,10 @@ class EscrowKeys: NSObject {
                             throw EscrowKeysError.corecryptoKeyGeneration(corecryptoError: status)
                         }
 
-                        if(keyType == escrowKeyType.kOTEscrowKeySymmetric) {
+                        if keyType == EscrowKeyType.kOTEscrowKeySymmetric {
                             finalKey = Data(buffer: derivedKeyBytes.bindMemory(to: UInt8.self))
                             return
-                        } else if(keyType == escrowKeyType.kOTEscrowKeyEncryption || keyType == escrowKeyType.kOTEscrowKeySigning) {
+                        } else if keyType == EscrowKeyType.kOTEscrowKeyEncryption || keyType == EscrowKeyType.kOTEscrowKeySigning {
                             status = ccec_generate_key_deterministic(cp,
                                                                      derivedKeyBytes.count, derivedKeyBytes.bindMemory(to: UInt8.self).baseAddress!,
                                                                      ccDRBGGetRngState(),
@@ -156,7 +153,7 @@ class EscrowKeys: NSObject {
         return key
     }
 
-    class func setKeyMaterialInKeychain(query: Dictionary<CFString, Any>) throws -> (Bool) {
+    class func setKeyMaterialInKeychain(query: [CFString: Any]) throws -> (Bool) {
         var result = false
 
         var results: CFTypeRef?
@@ -165,7 +162,7 @@ class EscrowKeys: NSObject {
         if status == errSecSuccess {
             result = true
         } else if status == errSecDuplicateItem {
-            var updateQuery: Dictionary<CFString, Any> = query
+            var updateQuery: [CFString: Any] = query
             updateQuery[kSecClass] = nil
 
             status = SecItemUpdate(query as CFDictionary, updateQuery as CFDictionary)
@@ -240,8 +237,8 @@ class EscrowKeys: NSObject {
         return try EscrowKeys.setKeyMaterialInKeychain(query: query)
     }
 
-    class func retrieveEscrowKeysFromKeychain(label: String) throws -> [Dictionary <CFString, Any>]? {
-        var keySet: [Dictionary<CFString, Any>]?
+    class func retrieveEscrowKeysFromKeychain(label: String) throws -> [ [CFString: Any]]? {
+        var keySet: [[CFString: Any]]?
 
         let query: [CFString: Any] = [
             kSecClass: kSecClassKey,
@@ -261,10 +258,10 @@ class EscrowKeys: NSObject {
         }
 
         if result != nil {
-            if let dictionaryArray = result as? [Dictionary<CFString, Any>] {
+            if let dictionaryArray = result as? [[CFString: Any]] {
                 keySet = dictionaryArray
             } else {
-                if let dictionary = result as? Dictionary<CFString, Any> {
+                if let dictionary = result as? [CFString: Any] {
                     keySet = [dictionary]
                 } else {
                     keySet = nil

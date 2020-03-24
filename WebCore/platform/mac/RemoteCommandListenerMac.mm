@@ -37,7 +37,7 @@ namespace WebCore {
 
 std::unique_ptr<RemoteCommandListener> RemoteCommandListener::create(RemoteCommandListenerClient& client)
 {
-    return std::make_unique<RemoteCommandListenerMac>(client);
+    return makeUnique<RemoteCommandListenerMac>(client);
 }
 
 void RemoteCommandListenerMac::updateSupportedCommands()
@@ -137,12 +137,11 @@ RemoteCommandListenerMac::RemoteCommandListenerMac(RemoteCommandListenerClient& 
         default:
             LOG(Media, "RemoteCommandListenerMac::RemoteCommandListenerMac - command %u not supported!", command);
             status = MRMediaRemoteCommandHandlerStatusCommandFailed;
-            return;
         };
 
-        if (!weakThis)
-            return;
-        weakThis->m_client.didReceiveRemoteControlCommand(platformCommand, &argument);
+        if (weakThis && status != MRMediaRemoteCommandHandlerStatusCommandFailed)
+            weakThis->m_client.didReceiveRemoteControlCommand(platformCommand, &argument);
+
         completion((__bridge CFArrayRef)@[@(status)]);
     });
 #endif // USE(MEDIAREMOTE)

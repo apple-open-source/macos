@@ -25,67 +25,68 @@
 #define _IOKIT_IOPCIDEVICE_H
 
 #include <IOKit/IOTypes.h>
-#include <IOKitUser/IOPCIDevice.h>
+#include <IOKit/pci/IOPCIFamilyDefinitions.h>
+
+#if TARGET_OS_OSX
+#include <PCIDriverKit/IOPCIDevice.h>
+#endif
 
 /* Definitions of PCI Config Registers */
 enum {
-    kIOPCIConfigVendorID                = 0x00,
-    kIOPCIConfigDeviceID                = 0x02,
-    kIOPCIConfigCommand                 = 0x04,
-    kIOPCIConfigStatus                  = 0x06,
-    kIOPCIConfigRevisionID              = 0x08,
-    kIOPCIConfigClassCode               = 0x09,
-    kIOPCIConfigCacheLineSize           = 0x0C,
-    kIOPCIConfigLatencyTimer            = 0x0D,
-    kIOPCIConfigHeaderType              = 0x0E,
-    kIOPCIConfigBIST                    = 0x0F,
-    kIOPCIConfigBaseAddress0            = 0x10,
-    kIOPCIConfigBaseAddress1            = 0x14,
-    kIOPCIConfigBaseAddress2            = 0x18,
-    kIOPCIConfigBaseAddress3            = 0x1C,
-    kIOPCIConfigBaseAddress4            = 0x20,
-    kIOPCIConfigBaseAddress5            = 0x24,
-    kIOPCIConfigCardBusCISPtr           = 0x28,
-    kIOPCIConfigSubSystemVendorID       = 0x2C,
-    kIOPCIConfigSubSystemID             = 0x2E,
-    kIOPCIConfigExpansionROMBase        = 0x30,
-    kIOPCIConfigCapabilitiesPtr         = 0x34,
-    kIOPCIConfigInterruptLine           = 0x3C,
-    kIOPCIConfigInterruptPin            = 0x3D,
-    kIOPCIConfigMinimumGrant            = 0x3E,
-    kIOPCIConfigMaximumLatency          = 0x3F
+    kIOPCIConfigVendorID                = kIOPCIConfigurationOffsetVendorID,
+    kIOPCIConfigDeviceID                = kIOPCIConfigurationOffsetDeviceID,
+    kIOPCIConfigCommand                 = kIOPCIConfigurationOffsetCommand,
+    kIOPCIConfigStatus                  = kIOPCIConfigurationOffsetStatus,
+    kIOPCIConfigRevisionID              = kIOPCIConfigurationOffsetRevisionID,
+    kIOPCIConfigClassCode               = kIOPCIConfigurationOffsetClassCode,
+    kIOPCIConfigCacheLineSize           = kIOPCIConfigurationOffsetCacheLineSize,
+    kIOPCIConfigLatencyTimer            = kIOPCIConfigurationOffsetLatencyTimer,
+    kIOPCIConfigHeaderType              = kIOPCIConfigurationOffsetHeaderType,
+    kIOPCIConfigBIST                    = kIOPCIConfigurationOffsetBIST,
+    kIOPCIConfigBaseAddress0            = kIOPCIConfigurationOffsetBaseAddress0,
+    kIOPCIConfigBaseAddress1            = kIOPCIConfigurationOffsetBaseAddress1,
+    kIOPCIConfigBaseAddress2            = kIOPCIConfigurationOffsetBaseAddress2,
+    kIOPCIConfigBaseAddress3            = kIOPCIConfigurationOffsetBaseAddress3,
+    kIOPCIConfigBaseAddress4            = kIOPCIConfigurationOffsetBaseAddress4,
+    kIOPCIConfigBaseAddress5            = kIOPCIConfigurationOffsetBaseAddress5,
+    kIOPCIConfigCardBusCISPtr           = kIOPCIConfigurationOffsetCardBusCISPtr,
+    kIOPCIConfigSubSystemVendorID       = kIOPCIConfigurationOffsetSubSystemVendorID,
+    kIOPCIConfigSubSystemID             = kIOPCIConfigurationOffsetSubSystemID,
+    kIOPCIConfigExpansionROMBase        = kIOPCIConfigurationOffsetExpansionROMBase,
+    kIOPCIConfigCapabilitiesPtr         = kIOPCIConfigurationOffsetCapabilitiesPtr,
+    kIOPCIConfigInterruptLine           = kIOPCIConfigurationOffsetInterruptLine,
+    kIOPCIConfigInterruptPin            = kIOPCIConfigurationOffsetInterruptPin,
+    kIOPCIConfigMinimumGrant            = kIOPCIConfigurationOffsetMinimumGrant,
+    kIOPCIConfigMaximumLatency          = kIOPCIConfigurationOffsetMaximumLatency
 };
 
 /* Definitions of Capabilities PCI Config Register */
 enum {
-    kIOPCICapabilityIDOffset            = 0x00,
-    kIOPCINextCapabilityOffset          = 0x01,
+    kIOPCIPowerManagementCapability     = kIOPCICapabilityIDPowerManagement,
+    kIOPCIAGPCapability                 = kIOPCICapabilityIDAGP,
+    kIOPCIVitalProductDataCapability    = kIOPCICapabilityIDVitalProductData,
+    kIOPCISlotIDCapability              = kIOPCICapabilityIDSlotID,
+    kIOPCIMSICapability                 = kIOPCICapabilityIDMSI,
+    kIOPCICPCIHotswapCapability         = kIOPCICapabilityIDCPCIHotswap,
+    kIOPCIPCIXCapability                = kIOPCICapabilityIDPCIX,
+    kIOPCILDTCapability                 = kIOPCICapabilityIDLDT,
+    kIOPCIVendorSpecificCapability      = kIOPCICapabilityIDVendorSpecific,
+    kIOPCIDebugPortCapability           = kIOPCICapabilityIDDebugPort,
+    kIOPCICPCIResourceControlCapability = kIOPCICapabilityIDCPCIResourceControl,
+    kIOPCIHotplugCapability             = kIOPCICapabilityIDHotplug,
+    kIOPCIAGP8Capability                = kIOPCICapabilityIDAGP8,
+    kIOPCISecureCapability              = kIOPCICapabilityIDSecure,
+    kIOPCIPCIExpressCapability          = kIOPCICapabilityIDPCIExpress,
+    kIOPCIMSIXCapability                = kIOPCICapabilityIDMSIX,
+    kIOPCIFPBCapability                 = kIOPCICapabilityIDFPB,
 
-    kIOPCIPowerManagementCapability     = 0x01,
-    kIOPCIAGPCapability                 = 0x02,
-    kIOPCIVitalProductDataCapability    = 0x03,
-    kIOPCISlotIDCapability              = 0x04,
-    kIOPCIMSICapability                 = 0x05,
-    kIOPCICPCIHotswapCapability         = 0x06,
-    kIOPCIPCIXCapability                = 0x07,
-    kIOPCILDTCapability                 = 0x08,
-    kIOPCIVendorSpecificCapability      = 0x09,
-    kIOPCIDebugPortCapability           = 0x0a,
-    kIOPCICPCIResourceControlCapability = 0x0b,
-    kIOPCIHotplugCapability             = 0x0c,
-    kIOPCIAGP8Capability                = 0x0e,
-    kIOPCISecureCapability              = 0x0f,
-    kIOPCIPCIExpressCapability          = 0x10,
-    kIOPCIMSIXCapability                = 0x11,
-    kIOPCIFPBCapability                 = 0x15,
-
-    kIOPCIExpressErrorReportingCapability            = -0x01UL,
-    kIOPCIExpressVirtualChannelCapability            = -0x02UL,
-    kIOPCIExpressDeviceSerialNumberCapability        = -0x03UL,
-    kIOPCIExpressPowerBudgetCapability               = -0x04UL,
-    kIOPCIExpressAccessControlServicesCapability     = -0x0DUL,
-    kIOPCIExpressLatencyTolerenceReportingCapability = -0x18UL,
-    kIOPCIExpressL1PMSubstatesCapability             = -0x1EUL,
+    kIOPCIExpressErrorReportingCapability            = kIOPCIExpressCapabilityIDErrorReporting,
+    kIOPCIExpressVirtualChannelCapability            = kIOPCIExpressCapabilityIDVirtualChannel,
+    kIOPCIExpressDeviceSerialNumberCapability        = kIOPCIExpressCapabilityIDDeviceSerialNumber,
+    kIOPCIExpressPowerBudgetCapability               = kIOPCIExpressCapabilityIDPowerBudget,
+    kIOPCIExpressAccessControlServicesCapability     = kIOPCIExpressCapabilityIDAccessControlServices,
+    kIOPCIExpressLatencyTolerenceReportingCapability = kIOPCIExpressCapabilityIDLatencyTolerenceReporting,
+    kIOPCIExpressL1PMSubstatesCapability             = kIOPCIExpressCapabilityIDL1PMSubstates,
 };
 
 /* Space definitions */
@@ -94,39 +95,6 @@ enum {
     kIOPCIIOSpace               = 1,
     kIOPCI32BitMemorySpace      = 2,
     kIOPCI64BitMemorySpace      = 3
-};
-
-/* Command register definitions */
-enum {
-    kIOPCICommandIOSpace                = 0x0001,
-    kIOPCICommandMemorySpace            = 0x0002,
-    kIOPCICommandBusMaster              = 0x0004,
-    kIOPCICommandSpecialCycles          = 0x0008,
-    kIOPCICommandMemWrInvalidate        = 0x0010,
-    kIOPCICommandPaletteSnoop           = 0x0020,
-    kIOPCICommandParityError            = 0x0040,
-    kIOPCICommandAddressStepping        = 0x0080,
-    kIOPCICommandSERR                   = 0x0100,
-    kIOPCICommandFastBack2Back          = 0x0200,
-    kIOPCICommandInterruptDisable       = 0x0400
-};
-
-/* Status register definitions */
-enum {
-	kIOPCIStatusInterrupt				= 0x0008,
-    kIOPCIStatusCapabilities            = 0x0010,
-    kIOPCIStatusPCI66                   = 0x0020,
-    kIOPCIStatusUDF                     = 0x0040,
-    kIOPCIStatusFastBack2Back           = 0x0080,
-    kIOPCIStatusDevSel0                 = 0x0000,
-    kIOPCIStatusDevSel1                 = 0x0200,
-    kIOPCIStatusDevSel2                 = 0x0400,
-    kIOPCIStatusDevSel3                 = 0x0600,
-    kIOPCIStatusTargetAbortCapable      = 0x0800,
-    kIOPCIStatusTargetAbortActive       = 0x1000,
-    kIOPCIStatusMasterAbortActive       = 0x2000,
-    kIOPCIStatusSERRActive              = 0x4000,
-    kIOPCIStatusParityErrActive         = 0x8000
 };
 
 enum {
@@ -143,40 +111,8 @@ enum {
     kPCI2PCIBridgeControl       = 0x3e
 };
 
-// constants which are part of the PCI Bus Power Management Spec.
-enum
-{
-    // capabilities bits in the 16 bit capabilities register
-    kPCIPMCPMESupportFromD3Cold = 0x8000,
-    kPCIPMCPMESupportFromD3Hot  = 0x4000,
-    kPCIPMCPMESupportFromD2             = 0x2000,
-    kPCIPMCPMESupportFromD1             = 0x1000,
-    kPCIPMCPMESupportFromD0             = 0x0800,
-    kPCIPMCD2Support                    = 0x0400,
-    kPCIPMCD1Support                    = 0x0200,
- 
-    kPCIPMCD3Support                    = 0x0001
-};
-
-enum
-{
-    // bits in the power management control/status register
-    kPCIPMCSPMEStatus                   = 0x8000,
-    kPCIPMCSPMEEnable                   = 0x0100,
-    kPCIPMCSPowerStateMask              = 0x0003,
-    kPCIPMCSPowerStateD3                = 0x0003,
-    kPCIPMCSPowerStateD2                = 0x0002,
-    kPCIPMCSPowerStateD1                = 0x0001,
-    kPCIPMCSPowerStateD0                = 0x0000,
-    
-    kPCIPMCSDefaultEnableBits           = (~(IOOptionBits)0),
-
-	kPCIPMCSPMEDisableInS3              = 0x00010000,
-	kPCIPMCSPMEWakeReason               = 0x00020000
-
-#define IOPCIPMCSPMEDISABLEINS3_DEFINED	1
-#define IOPCIPMCSPMEWAKEREASON_DEFINED	1
-};
+#define IOPCIPMCSPMEDISABLEINS3_DEFINED    1
+#define IOPCIPMCSPMEWAKEREASON_DEFINED    1
 
 union IOPCIAddressSpace {
     UInt32              bits;
@@ -239,13 +175,9 @@ struct IOPCIPhysicalAddress {
 };
 
 // IOPCIDevice matching property names
-#define kIOPCIMatchKey                  "IOPCIMatch"
-#define kIOPCIPrimaryMatchKey           "IOPCIPrimaryMatch"
-#define kIOPCISecondaryMatchKey         "IOPCISecondaryMatch"
-#define kIOPCIClassMatchKey             "IOPCIClassMatch"
 #define kIOPCITunnelCompatibleKey       "IOPCITunnelCompatible"
-#define kIOPCITunnelledKey 		  		"IOPCITunnelled"
-#define kIOPCITunnelL1EnableKey	  		"IOPCITunnelL1Enable"
+#define kIOPCITunnelledKey              "IOPCITunnelled"
+#define kIOPCITunnelL1EnableKey         "IOPCITunnelL1Enable"
 
 #define kIOPCIPauseCompatibleKey        "IOPCIPauseCompatible"
 
@@ -255,17 +187,6 @@ struct IOPCIPhysicalAddress {
 #define kIOPMPCISleepLinkDisableKey     "IOPMPCISleepLinkDisable"
 // property to reset secondary bus on sleep
 #define kIOPMPCISleepResetKey           "IOPMPCISleepReset"
-
-// pci express capabilities
-#define kIOPCIExpressCapabilitiesKey       "IOPCIExpressCapabilities"
-// pci express link status
-#define kIOPCIExpressLinkStatusKey       "IOPCIExpressLinkStatus"
-// pci express link capabilities
-#define kIOPCIExpressLinkCapabilitiesKey "IOPCIExpressLinkCapabilities"
-// pci express slot status
-#define kIOPCIExpressSlotStatusKey       "IOPCIExpressSlotStatus"
-// pci express slot capabilities
-#define kIOPCIExpressSlotCapabilitiesKey "IOPCIExpressSlotCapabilities"
 
 #ifndef kIOPlatformDeviceASPMEnableKey
 #define kIOPlatformDeviceASPMEnableKey  "IOPlatformDeviceASPMEnable"
@@ -332,49 +253,13 @@ class IOPCIMessagedInterruptController;
 class IOPCIConfigurator;
 class IOPCIEventSource;
 
-
 // IOPCIEvent.event
-enum 
+enum
 {
     kIOPCIEventCorrectableError = 1,
     kIOPCIEventNonFatalError    = 2,
     kIOPCIEventFatalError       = 3,
     kIOPCIEventLinkEnableChange = 4,
-};
-
-
-// PCIe error bits
-enum 
-{
-    kIOPCIUncorrectableErrorBitDataLinkProtocol      = 4,
-    kIOPCIUncorrectableErrorBitSurpriseDown          = 5,
-    kIOPCIUncorrectableErrorBitPoisonedTLP           = 12,
-    kIOPCIUncorrectableErrorBitFlowControlProtocol   = 13,
-    kIOPCIUncorrectableErrorBitCompletionTimeout     = 14,
-    kIOPCIUncorrectableErrorBitCompleterAbort        = 15,
-    kIOPCIUncorrectableErrorBitUnexpectedCompletion  = 16,
-    kIOPCIUncorrectableErrorBitReceiverOverflow      = 17,
-    kIOPCIUncorrectableErrorBitMalformedTLP          = 18,
-    kIOPCIUncorrectableErrorBitECRC                  = 19,
-    kIOPCIUncorrectableErrorBitUnsupportedRequest    = 20,
-
-    kIOPCIUncorrectableErrorBitACSViolation          = 21,
-    kIOPCIUncorrectableErrorBitInternal              = 22,
-    kIOPCIUncorrectableErrorBitMCBlockedTLP          = 23,
-    kIOPCIUncorrectableErrorBitAtomicOpEgressBlocked = 24,
-    kIOPCIUncorrectableErrorBitTLPPrefixBlocked      = 25
-};
-
-enum 
-{
-    kIOPCICorrectableErrorBitReceiver           = 0,
-    kIOPCICorrectableErrorBitBadTLP             = 6,
-    kIOPCICorrectableErrorBitBadDLLP            = 7,
-    kIOPCICorrectableErrorBitReplayNumRollover  = 8,
-    kIOPCICorrectableErrorBitReplayTimerTimeout = 12,
-    kIOPCICorrectableErrorBitAdvisoryNonFatal   = 13,
-    kIOPCICorrectableErrorBitCorrectedInternal  = 14,
-    kIOPCICorrectableErrorBitHeaderLogOverflow  = 15,
 };
 
 
@@ -481,7 +366,11 @@ Matches a device whose class code is 0x0200zz, an ethernet device.
 
 class IOPCIDevice : public IOService
 {
+#if TARGET_OS_OSX
     OSDeclareDefaultStructorsWithDispatch(IOPCIDevice)
+#else
+    OSDeclareDefaultStructors(IOPCIDevice)
+#endif
 
     friend class IOPCIBridge;
     friend class IOPCI2PCIBridge;
@@ -516,6 +405,9 @@ public:
                                     UInt32 type,  OSDictionary * properties,
                                     IOUserClient ** handler ) APPLE_KEXT_OVERRIDE;
 
+    virtual bool handleOpen(IOService * forClient, IOOptionBits options, void * arg);
+    virtual void handleClose(IOService * forClient, IOOptionBits options);
+
     virtual IOReturn requestProbe( IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn powerStateWillChangeTo (IOPMPowerFlags  capabilities, 
@@ -528,6 +420,7 @@ public:
 	virtual unsigned long powerStateForDomainState ( IOPMPowerFlags domainState ) APPLE_KEXT_OVERRIDE;
 
     virtual bool compareName( OSString * name, OSString ** matched = 0 ) const APPLE_KEXT_OVERRIDE;
+    virtual bool matchPropertyTable(OSDictionary * table) APPLE_KEXT_OVERRIDE;
     virtual bool matchPropertyTable( OSDictionary *     table,
                                      SInt32       *     score ) APPLE_KEXT_OVERRIDE;
     virtual IOService * matchLocation( IOService * client ) APPLE_KEXT_OVERRIDE;

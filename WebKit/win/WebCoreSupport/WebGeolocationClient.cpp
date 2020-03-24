@@ -48,8 +48,9 @@ void WebGeolocationClient::geolocationDestroyed()
     delete this;
 }
 
-void WebGeolocationClient::startUpdating()
+void WebGeolocationClient::startUpdating(const String& authorizationToken)
 {
+    UNUSED_PARAM(authorizationToken);
     COMPtr<IWebGeolocationProvider> provider;
     if (FAILED(m_webView->geolocationProvider(&provider)))
         return;
@@ -64,7 +65,7 @@ void WebGeolocationClient::stopUpdating()
     provider->unregisterWebView(m_webView.get());
 }
 
-Optional<GeolocationPosition> WebGeolocationClient::lastPosition()
+Optional<GeolocationPositionData> WebGeolocationClient::lastPosition()
 {
     COMPtr<IWebGeolocationProvider> provider;
     if (FAILED(m_webView->geolocationProvider(&provider)))
@@ -79,13 +80,13 @@ void WebGeolocationClient::requestPermission(Geolocation& geolocation)
 {
     COMPtr<IWebUIDelegate> uiDelegate;
     if (FAILED(m_webView->uiDelegate(&uiDelegate))) {
-        geolocation.setIsAllowed(false);
+        geolocation.setIsAllowed(false, { });
         return;
     }
 
     COMPtr<IWebUIDelegatePrivate2> uiDelegatePrivate2(Query, uiDelegate);
     if (!uiDelegatePrivate2) {
-        geolocation.setIsAllowed(false);
+        geolocation.setIsAllowed(false, { });
         return;
     }
 
@@ -96,5 +97,5 @@ void WebGeolocationClient::requestPermission(Geolocation& geolocation)
     if (hr != E_NOTIMPL)
         return;
 
-    geolocation.setIsAllowed(false);
+    geolocation.setIsAllowed(false, { });
 }

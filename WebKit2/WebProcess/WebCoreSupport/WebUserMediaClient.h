@@ -29,6 +29,7 @@ namespace WebKit {
 class WebPage;
 
 class WebUserMediaClient : public WebCore::UserMediaClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WebUserMediaClient(WebPage&);
     ~WebUserMediaClient() { }
@@ -39,8 +40,7 @@ private:
     void requestUserMediaAccess(WebCore::UserMediaRequest&) override;
     void cancelUserMediaAccessRequest(WebCore::UserMediaRequest&) override;
 
-    void enumerateMediaDevices(WebCore::MediaDevicesEnumerationRequest&) final;
-    void cancelMediaDevicesEnumerationRequest(WebCore::MediaDevicesEnumerationRequest&) final;
+    void enumerateMediaDevices(WebCore::Document&, CompletionHandler<void(const Vector<WebCore::CaptureDevice>&, const String&)>&&) final;
 
     DeviceChangeObserverToken addDeviceChangeObserver(WTF::Function<void()>&&) final;
     void removeDeviceChangeObserver(DeviceChangeObserverToken) final;

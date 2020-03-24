@@ -536,7 +536,7 @@ new_fnames_from_AEDesc(AEDesc *theList, long *numFiles, OSErr *error)
 	return fnames;
 
     /* Allocate the pointer list */
-    fnames = (char_u **) alloc(*numFiles * sizeof(char_u *));
+    fnames = ALLOC_MULT(char_u *, *numFiles);
 
     /* Empty out the list */
     for (fileCount = 0; fileCount < *numFiles; fileCount++)
@@ -2105,7 +2105,7 @@ gui_mac_unicode_key_event(
 		typeUnicodeText, NULL, 0, &actualSize, NULL))
 	return eventNotHandledErr;
 
-    text = (UniChar *)alloc(actualSize);
+    text = alloc(actualSize);
     if (!text)
 	return eventNotHandledErr;
 
@@ -2177,7 +2177,8 @@ gui_mac_unicode_key_event(
 	    key_char = simplify_key(key_char, (int *)&vimModifiers);
 
 	    /* Interpret META, include SHIFT, etc. */
-	    key_char = extract_modifiers(key_char, (int *)&vimModifiers);
+	    key_char = extract_modifiers(key_char, (int *)&vimModifiers,
+		    TRUE, NULL);
 	    if (key_char == CSI)
 		key_char = K_CSI;
 
@@ -2975,7 +2976,7 @@ receiveHandler(WindowRef theWindow, void *handlerRefCon, DragRef theDrag)
 	count = countItem;
     }
 
-    fnames = (char_u **)alloc(count * sizeof(char_u *));
+    fnames = ALLOC_MULT(char_u *, count);
     if (fnames == NULL)
 	return dragNotAcceptedErr;
 
@@ -4434,7 +4435,7 @@ gui_mch_insert_lines(int row, int num_lines)
      */
 
     void
-clip_mch_request_selection(VimClipboard *cbd)
+clip_mch_request_selection(Clipboard_T *cbd)
 {
 
     Handle	textOfClip;
@@ -4476,7 +4477,7 @@ clip_mch_request_selection(VimClipboard *cbd)
     /* In CARBON we don't need a Handle, a pointer is good */
     textOfClip = NewHandle(scrapSize);
 
-    /* tempclip = lalloc(scrapSize+1, TRUE); */
+    /* tempclip = alloc(scrapSize+1); */
     HLock(textOfClip);
     error = GetScrapFlavorData(scrap,
 	    flavor ? VIMSCRAPFLAVOR : SCRAPTEXTFLAVOR,
@@ -4488,7 +4489,7 @@ clip_mch_request_selection(VimClipboard *cbd)
     else
 	type = MAUTO;
 
-    tempclip = lalloc(scrapSize + 1, TRUE);
+    tempclip = alloc(scrapSize + 1);
     mch_memmove(tempclip, *textOfClip + flavor, scrapSize);
     tempclip[scrapSize] = 0;
 
@@ -4524,7 +4525,7 @@ clip_mch_request_selection(VimClipboard *cbd)
 }
 
     void
-clip_mch_lose_selection(VimClipboard *cbd)
+clip_mch_lose_selection(Clipboard_T *cbd)
 {
     /*
      * TODO: Really nothing to do?
@@ -4532,7 +4533,7 @@ clip_mch_lose_selection(VimClipboard *cbd)
 }
 
     int
-clip_mch_own_selection(VimClipboard *cbd)
+clip_mch_own_selection(Clipboard_T *cbd)
 {
     return OK;
 }
@@ -4541,7 +4542,7 @@ clip_mch_own_selection(VimClipboard *cbd)
  * Send the current selection to the clipboard.
  */
     void
-clip_mch_set_selection(VimClipboard *cbd)
+clip_mch_set_selection(Clipboard_T *cbd)
 {
     Handle	textOfClip;
     long	scrapSize;
@@ -4772,7 +4773,8 @@ gui_mch_add_menu_item(vimmenu_T *menu, int idx)
 	char_u	    *p_actext;
 
 	p_actext = menu->actext;
-	key = find_special_key(&p_actext, &modifiers, FALSE, FALSE, FALSE);
+	key = find_special_key(&p_actext, &modifiers, FALSE, FALSE, FALSE,
+								   TRUE, NULL);
 	if (*p_actext != 0)
 	    key = 0; /* error: trailing text */
 	/* find_special_key() returns a keycode with as many of the

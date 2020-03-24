@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009, 2010-2013, 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009, 2010-2013, 2015-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,8 +29,8 @@
  */
 
 
-#include "SCPreferencesInternal.h"
 #include "SCNetworkConfigurationInternal.h"
+#include "SCPreferencesInternal.h"
 
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -49,28 +49,41 @@ __log_SCNetworkConfiguration(void)
 }
 
 
-__private_extern__ CFDictionaryRef
-__getPrefsConfiguration(SCPreferencesRef prefs, CFStringRef path)
+static Boolean
+isEffectivelyEmptyConfiguration(CFDictionaryRef config)
 {
-	CFDictionaryRef config;
+	Boolean		empty	= FALSE;
 	CFIndex		n;
-
-	config = SCPreferencesPathGetValue(prefs, path);
 
 	n = isA_CFDictionary(config) ? CFDictionaryGetCount(config) : 0;
 	switch (n) {
 		case 0 :
-			// ignore empty configuration entities
-			config = NULL;
+			// if no keys
+			empty = TRUE;
 			break;
 		case 1 :
 			if (CFDictionaryContainsKey(config, kSCResvInactive)) {
 				// ignore [effectively] empty configuration entities
-				config = NULL;
+				empty = TRUE;
 			}
 			break;
 		default :
 			break;
+	}
+
+	return empty;
+}
+
+
+__private_extern__ CFDictionaryRef
+__SCNetworkConfigurationGetValue(SCPreferencesRef prefs, CFStringRef path)
+{
+	CFDictionaryRef config;
+
+	config = SCPreferencesPathGetValue(prefs, path);
+	if (isEffectivelyEmptyConfiguration(config)) {
+		// ignore [effectively] empty configuration entities
+		config = NULL;
 	}
 
 	return config;
@@ -78,11 +91,12 @@ __getPrefsConfiguration(SCPreferencesRef prefs, CFStringRef path)
 
 
 __private_extern__ Boolean
-__setPrefsConfiguration(SCPreferencesRef	prefs,
-			CFStringRef		path,
-			CFDictionaryRef		config,
-			Boolean			keepInactive)
+__SCNetworkConfigurationSetValue(SCPreferencesRef	prefs,
+				 CFStringRef		path,
+				 CFDictionaryRef	config,
+				 Boolean		keepInactive)
 {
+	Boolean			changed;
 	CFDictionaryRef		curConfig;
 	CFMutableDictionaryRef	newConfig	= NULL;
 	Boolean			ok;
@@ -93,6 +107,7 @@ __setPrefsConfiguration(SCPreferencesRef	prefs,
 	}
 
 	curConfig = SCPreferencesPathGetValue(prefs, path);
+	curConfig = isA_CFDictionary(curConfig);
 
 	if (config != NULL) {
 		newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
@@ -115,16 +130,20 @@ __setPrefsConfiguration(SCPreferencesRef	prefs,
 		}
 	}
 
+	// check if the configuration changed
+	changed = !_SC_CFEqual(curConfig, newConfig);
+
 	// set new configuration
-	if (_SC_CFEqual(curConfig, newConfig)) {
+	if (!changed) {
 		// if no change
 		if (newConfig != NULL) CFRelease(newConfig);
 		ok = TRUE;
 	} else if (newConfig != NULL) {
-		// if new configuration (or we are preserving a disabled state)
+		// if new configuration (or we are preserving a disabled state), update the prefs
 		ok = SCPreferencesPathSetValue(prefs, path, newConfig);
 		CFRelease(newConfig);
 	} else {
+		// update the prefs
 		ok = SCPreferencesPathRemoveValue(prefs, path);
 		if (!ok && (SCError() == kSCStatusNoKey)) {
 			ok = TRUE;
@@ -154,9 +173,10 @@ __setPrefsEnabled(SCPreferencesRef      prefs,
 		  CFStringRef		path,
 		  Boolean		enabled)
 {
-	CFDictionaryRef		curConfig;
-	CFMutableDictionaryRef  newConfig       = NULL;
-	Boolean			ok		= FALSE;
+	Boolean					changed;
+	CFDictionaryRef				curConfig;
+	CFMutableDictionaryRef 			newConfig       = NULL;
+	Boolean					ok		= FALSE;
 
 	// preserve current configuration
 	curConfig = SCPreferencesPathGetValue(prefs, path);
@@ -182,13 +202,17 @@ __setPrefsEnabled(SCPreferencesRef      prefs,
 		}
 	}
 
+	// check if the configuration changed
+	changed = !_SC_CFEqual(curConfig, newConfig);
+
 	// set new configuration
-	if (_SC_CFEqual(curConfig, newConfig)) {
+	if (!changed) {
 		// if no change
 		if (newConfig != NULL) CFRelease(newConfig);
 		ok = TRUE;
 	} else if (newConfig != NULL) {
 		// if updated configuration (or we are establishing as disabled)
+
 		ok = SCPreferencesPathSetValue(prefs, path, newConfig);
 		CFRelease(newConfig);
 	} else {
@@ -670,4 +694,49 @@ __str_to_rank(CFStringRef rankStr, SCNetworkServicePrimaryRank *rank)
 	}
 
 	return TRUE;
+}
+
+
+#define	kSCNetworkConfigurationFlagsBypassSystemInterfaces		(1<<0)
+#define	kSCNetworkConfigurationFlagsBypassSystemInterfacesForced	(1<<1)
+
+
+Boolean
+_SCNetworkConfigurationBypassSystemInterfaces(SCPreferencesRef prefs)
+{
+	Boolean		bypass;
+	uint32_t	nc_flags;
+
+	nc_flags = __SCPreferencesGetNetworkConfigurationFlags(prefs);
+	bypass = ((nc_flags & kSCNetworkConfigurationFlagsBypassSystemInterfaces) != 0);
+	if (bypass ||
+	    (nc_flags & kSCNetworkConfigurationFlagsBypassSystemInterfacesForced) != 0) {
+		// if bypass flag explicitly requested
+		return bypass;
+	}
+
+	if (!__SCPreferencesUsingDefaultPrefs(prefs)) {
+		// if not using the default prefs (i.e. /L/P/SC/preferences.plist)
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+
+void
+_SCNetworkConfigurationSetBypassSystemInterfaces(SCPreferencesRef prefs, Boolean shouldBypass)
+{
+	uint32_t	nc_flags;
+
+	nc_flags = __SCPreferencesGetNetworkConfigurationFlags(prefs);
+	if (shouldBypass) {
+		nc_flags |= kSCNetworkConfigurationFlagsBypassSystemInterfaces;
+	} else {
+		nc_flags &= ~kSCNetworkConfigurationFlagsBypassSystemInterfaces;
+	}
+	nc_flags |= kSCNetworkConfigurationFlagsBypassSystemInterfacesForced;
+	__SCPreferencesSetNetworkConfigurationFlags(prefs, nc_flags);
+
+	return;
 }

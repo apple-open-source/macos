@@ -29,10 +29,17 @@ OTHER_LDFLAGS[sdk=macos*][arch=*] = $(inherited) -framework IOBluetooth
 _SUPPORTS_TEXT_BASED_API_log_RemoteHID = NO
 _SUPPORTS_TEXT_BASED_API_RemoteHID = YES
 
-_INSTALL_PATH_RemoteHID = /AppleInternal/Library/Frameworks
+_INSTALL_PATH_RemoteHID_internal = /AppleInternal/Library/Frameworks
+_INSTALL_PATH_RemoteHID = $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks
+
+_INSTALL_PATH_log_RemoteHID_internal = /usr/local/lib/log
 _INSTALL_PATH_log_RemoteHID = /usr/local/lib/log
 
-INSTALL_PATH = $(_INSTALL_PATH_$(PRODUCT_NAME))
+_PATH_1 = _internal
+_PATH_0 =
+_PATH_ =
+
+INSTALL_PATH = $(_INSTALL_PATH_$(PRODUCT_NAME)_internal)
 SUPPORTS_TEXT_BASED_API = $(_SUPPORTS_TEXT_BASED_API_$(PRODUCT_NAME))
 TAPI_VERIFY_MODE = Pedantic
 OTHER_CFLAGS =  $(inherited) -ftrivial-auto-var-init=pattern

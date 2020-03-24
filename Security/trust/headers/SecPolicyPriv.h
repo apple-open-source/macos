@@ -187,6 +187,11 @@ extern const CFStringRef kSecPolicyAppleKeyTransparency
     API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
 extern const CFStringRef kSecPolicyAppleLegacySSL
     API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
+extern const CFStringRef kSecPolicyAppleAlisha
+    API_AVAILABLE(macos(10.15.4), ios(13.4), watchos(6.2), tvos(13.4));
+extern const CFStringRef kSecPolicyAppleMeasuredBootPolicySigning
+    API_AVAILABLE(macos(10.15.4), ios(13.4), watchos(6.2), tvos(13.4));
+
 
 /*!
 	@enum Policy Name Constants (Private)
@@ -209,6 +214,7 @@ extern const CFStringRef kSecPolicyAppleLegacySSL
     @constant kSecPolicyNameAppleAMPService
     @constant kSecPolicyNameAppleSiriService
     @constant kSecPolicyNameAppleHomeAppClipUploadService
+    @constant kSecPolicyNameAppleUpdatesService
  */
 extern const CFStringRef kSecPolicyNameAppleAST2Service
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
@@ -244,6 +250,8 @@ extern const CFStringRef kSecPolicyNameAppleSiriService
     API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
 extern const CFStringRef kSecPolicyNameAppleHomeAppClipUploadService
     API_AVAILABLE(macos(10.15.1), ios(13.2), watchos(6.1), tvos(13.1));
+extern const CFStringRef kSecPolicyNameAppleUpdatesService
+    API_AVAILABLE(macos(10.15.4), ios(13.4), watchos(6.2), tvos(13.4));
 
 /*!
  @enum Policy Value Constants
@@ -1790,7 +1798,7 @@ SecPolicyRef SecPolicyCreateAppleComponentCertificate(CFDataRef __nullable testR
  pinning options:
      * The chain is anchored to any of the production Apple Root CAs.
      * There are exactly 3 certs in the chain.
-     * The intermediate has a marker extension with OID TBD.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.2.3".
      * The leaf has a marker extension with OID 1.2.840.113635.100.6.69.1 and value
         matching the applicationId.
      * Revocation is checked via any available method.
@@ -1820,6 +1828,37 @@ SecPolicyRef SecPolicyCreateAppleKeyTransparency(CFStringRef applicationId)
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateLegacySSL(Boolean server, CFStringRef __nullable hostname)
     SPI_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
+
+/*!
+ @function SecPolicyCreateAlisha
+ @abstract Returns a policy object for verifying Alisha certificates.
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check and
+ pinning options:
+     * EC key sizes are P-256 or larger.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateAlisha(void)
+    API_AVAILABLE(macos(10.15.4), ios(13.4), watchos(6.2), tvos(13.4));
+
+/*!
+ @function SecPolicyCreateMeasuredBootPolicySigning
+ @abstract Returns a policy object for verifying Measured Boot Policy Signing certificates.
+ @discussion The resulting policy uses the Basic X.509 policy with no validity check and
+ pinning options:
+     * There are exactly 3 certs in the chain.
+     * The intermediate has a marker extension with OID 1.2.840.113635.100.6.24.17.
+     * The leaf has a marker extension with OID 1.2.840.113635.100.6.26.6.1
+     * RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger.
+ Because this policy does not pin the anchors, the caller must use SecTrustSetAnchorCertificates with
+ the expected roots.
+ @result A policy object. The caller is responsible for calling CFRelease on this when
+ it is no longer needed.
+ */
+__nullable CF_RETURNS_RETAINED
+SecPolicyRef SecPolicyCreateMeasuredBootPolicySigning(void)
+    API_AVAILABLE(macos(10.15.4), ios(13.4), watchos(6.2), tvos(13.4));
 
 /*
  *  Legacy functions (OS X only)

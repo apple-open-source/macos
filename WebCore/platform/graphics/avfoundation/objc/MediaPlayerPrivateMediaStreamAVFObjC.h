@@ -32,6 +32,7 @@
 #include "MediaSample.h"
 #include "MediaStreamPrivate.h"
 #include <CoreGraphics/CGAffineTransform.h>
+#include <wtf/Deque.h>
 #include <wtf/Function.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/MediaTime.h>
@@ -58,9 +59,7 @@ class VideoFullscreenLayerManagerObjC;
 class VideoTrackPrivateMediaStream;
 
 class MediaPlayerPrivateMediaStreamAVFObjC final : public CanMakeWeakPtr<MediaPlayerPrivateMediaStreamAVFObjC>, public MediaPlayerPrivateInterface, private MediaStreamPrivate::Observer, private MediaStreamTrackPrivate::Observer
-#if !RELEASE_LOG_DISABLED
     , private LoggerHelper
-#endif
 {
 public:
     explicit MediaPlayerPrivateMediaStreamAVFObjC(MediaPlayer*);
@@ -88,12 +87,10 @@ public:
     PlatformLayer* displayLayer();
     PlatformLayer* backgroundLayer();
 
-#if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
     const char* logClassName() const override { return "MediaPlayerPrivateMediaStreamAVFObjC"; }
     const void* logIdentifier() const final { return reinterpret_cast<const void*>(m_logIdentifier); }
     WTFLogChannel& logChannel() const final;
-#endif
 
 private:
     // MediaPlayerPrivateInterface
@@ -121,7 +118,6 @@ private:
 
     void setVolume(float) override;
     void setMuted(bool) override;
-    bool supportsMuting() const override { return true; }
 
     bool supportsScanning() const override { return false; }
 
@@ -142,8 +138,6 @@ private:
 
     bool didLoadingProgress() const override { return m_playing; }
 
-    void setSize(const IntSize&) override { /* No-op */ }
-
     void flushRenderers();
 
     using PendingSampleQueue = Deque<Ref<MediaSample>>;
@@ -158,14 +152,14 @@ private:
 
     void paint(GraphicsContext&, const FloatRect&) override;
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&) override;
-    bool metaDataAvailable() const { return m_mediaStreamPrivate && m_readyState >= MediaPlayer::HaveMetadata; }
+    bool metaDataAvailable() const { return m_mediaStreamPrivate && m_readyState >= MediaPlayer::ReadyState::HaveMetadata; }
 
     void acceleratedRenderingStateChanged() override;
     bool supportsAcceleratedRendering() const override { return true; }
 
     bool hasSingleSecurityOrigin() const override { return true; }
 
-    MediaPlayer::MovieLoadType movieLoadType() const override { return MediaPlayer::LiveStream; }
+    MediaPlayer::MovieLoadType movieLoadType() const override { return MediaPlayer::MovieLoadType::LiveStream; }
 
     String engineDescription() const override;
 
@@ -255,20 +249,18 @@ private:
     HashMap<String, RefPtr<VideoTrackPrivateMediaStream>> m_videoTrackMap;
     PendingSampleQueue m_pendingVideoSampleQueue;
 
-    MediaPlayer::NetworkState m_networkState { MediaPlayer::Empty };
-    MediaPlayer::ReadyState m_readyState { MediaPlayer::HaveNothing };
+    MediaPlayer::NetworkState m_networkState { MediaPlayer::NetworkState::Empty };
+    MediaPlayer::ReadyState m_readyState { MediaPlayer::ReadyState::HaveNothing };
     FloatSize m_intrinsicSize;
     float m_volume { 1 };
     DisplayMode m_displayMode { None };
     PlaybackState m_playbackState { PlaybackState::None };
     MediaSample::VideoRotation m_videoRotation { MediaSample::VideoRotation::None };
     CGAffineTransform m_videoTransform;
-    std::unique_ptr<VideoFullscreenLayerManagerObjC> m_videoFullscreenLayerManager;
 
-#if !RELEASE_LOG_DISABLED
     Ref<const Logger> m_logger;
     const void* m_logIdentifier;
-#endif
+    std::unique_ptr<VideoFullscreenLayerManagerObjC> m_videoFullscreenLayerManager;
 
     bool m_videoMirrored { false };
     bool m_playing { false };

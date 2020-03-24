@@ -1,0 +1,10 @@
+#include "IOHIDFamily/IOHIDFamily.xcconfig"
+
+_INSTALL_PATH_internal = /AppleInternal/Library/HIDPlugins/SessionFilters
+_INSTALL_PATH = $(SYSTEM_LIBRARY_DIR)/HIDPlugins/SessionFilters
+
+_PATH_1 = _internal
+_PATH_0 =
+_PATH_ =
+
+INSTALL_PATH = $(_INSTALL_PATH_$(PRODUCT_NAME)_internal)

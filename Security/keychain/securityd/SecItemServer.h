@@ -87,7 +87,9 @@ bool kc_with_dbt_non_item_tables(bool writeAndRead, CFErrorRef* error, bool (^pe
 bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef db, CFErrorRef *error, bool (^perform)(SecDbConnectionRef dbt));
 
 
+
 /* For whitebox testing only */
+void SecKeychainDbForceClose(void);
 void SecKeychainDbReset(dispatch_block_t inbetween);
 
 

@@ -57,13 +57,13 @@
 #include "RemoteInspector.h"
 #endif
 
-using namespace JSC;
-
 namespace Inspector {
+
+using namespace JSC;
 
 JSGlobalObjectInspectorController::JSGlobalObjectInspectorController(JSGlobalObject& globalObject)
     : m_globalObject(globalObject)
-    , m_injectedScriptManager(std::make_unique<InjectedScriptManager>(*this, InjectedScriptHost::create()))
+    , m_injectedScriptManager(makeUnique<InjectedScriptManager>(*this, InjectedScriptHost::create()))
     , m_executionStopwatch(Stopwatch::create())
     , m_scriptDebugServer(globalObject)
     , m_frontendRouter(FrontendRouter::create())
@@ -71,11 +71,11 @@ JSGlobalObjectInspectorController::JSGlobalObjectInspectorController(JSGlobalObj
 {
     auto context = jsAgentContext();
 
-    auto consoleAgent = std::make_unique<InspectorConsoleAgent>(context);
+    auto consoleAgent = makeUnique<InspectorConsoleAgent>(context);
     m_consoleAgent = consoleAgent.get();
     m_agents.append(WTFMove(consoleAgent));
 
-    m_consoleClient = std::make_unique<JSGlobalObjectConsoleClient>(m_consoleAgent);
+    m_consoleClient = makeUnique<JSGlobalObjectConsoleClient>(m_consoleAgent);
 
     m_executionStopwatch->start();
 }
@@ -156,8 +156,8 @@ void JSGlobalObjectInspectorController::dispatchMessageFromFrontend(const String
 
 void JSGlobalObjectInspectorController::appendAPIBacktrace(ScriptCallStack& callStack)
 {
-    static const int framesToShow = 31;
-    static const int framesToSkip = 3; // WTFGetBacktrace, appendAPIBacktrace, reportAPIException.
+    static constexpr int framesToShow = 31;
+    static constexpr int framesToSkip = 3; // WTFGetBacktrace, appendAPIBacktrace, reportAPIException.
 
     void* samples[framesToShow + framesToSkip];
     int frames = framesToShow + framesToSkip;
@@ -174,22 +174,22 @@ void JSGlobalObjectInspectorController::appendAPIBacktrace(ScriptCallStack& call
     }
 }
 
-void JSGlobalObjectInspectorController::reportAPIException(ExecState* exec, Exception* exception)
+void JSGlobalObjectInspectorController::reportAPIException(JSGlobalObject* globalObject, Exception* exception)
 {
-    VM& vm = exec->vm();
+    VM& vm = globalObject->vm();
     if (isTerminatedExecutionException(vm, exception))
         return;
 
     auto scope = DECLARE_CATCH_SCOPE(vm);
     ErrorHandlingScope errorScope(vm);
 
-    Ref<ScriptCallStack> callStack = createScriptCallStackFromException(exec, exception);
+    Ref<ScriptCallStack> callStack = createScriptCallStackFromException(globalObject, exception);
     if (includesNativeCallStackWhenReportingExceptions())
         appendAPIBacktrace(callStack.get());
 
     // FIXME: <http://webkit.org/b/115087> Web Inspector: Should not evaluate JavaScript handling exceptions
     // If this is a custom exception object, call toString on it to try and get a nice string representation for the exception.
-    String errorMessage = exception->value().toWTFString(exec);
+    String errorMessage = exception->value().toWTFString(globalObject);
     scope.clearException();
 
     if (JSGlobalObjectConsoleClient::logToSystemConsole()) {
@@ -200,7 +200,7 @@ void JSGlobalObjectInspectorController::reportAPIException(ExecState* exec, Exce
             ConsoleClient::printConsoleMessage(MessageSource::JS, MessageType::Log, MessageLevel::Error, errorMessage, String(), 0, 0);
     }
 
-    m_consoleAgent->addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::JS, MessageType::Log, MessageLevel::Error, errorMessage, WTFMove(callStack)));
+    m_consoleAgent->addMessageToConsole(makeUnique<ConsoleMessage>(MessageSource::JS, MessageType::Log, MessageLevel::Error, errorMessage, WTFMove(callStack)));
 }
 
 ConsoleClient* JSGlobalObjectInspectorController::consoleClient() const
@@ -280,7 +280,7 @@ InspectorAgent& JSGlobalObjectInspectorController::ensureInspectorAgent()
 {
     if (!m_inspectorAgent) {
         auto context = jsAgentContext();
-        auto inspectorAgent = std::make_unique<InspectorAgent>(context);
+        auto inspectorAgent = makeUnique<InspectorAgent>(context);
         m_inspectorAgent = inspectorAgent.get();
         m_agents.append(WTFMove(inspectorAgent));
     }
@@ -291,7 +291,7 @@ InspectorDebuggerAgent& JSGlobalObjectInspectorController::ensureDebuggerAgent()
 {
     if (!m_debuggerAgent) {
         auto context = jsAgentContext();
-        auto debuggerAgent = std::make_unique<JSGlobalObjectDebuggerAgent>(context, m_consoleAgent);
+        auto debuggerAgent = makeUnique<JSGlobalObjectDebuggerAgent>(context, m_consoleAgent);
         m_debuggerAgent = debuggerAgent.get();
         m_consoleClient->setInspectorDebuggerAgent(m_debuggerAgent);
         m_agents.append(WTFMove(debuggerAgent));
@@ -327,20 +327,20 @@ void JSGlobalObjectInspectorController::createLazyAgents()
 
     ensureInspectorAgent();
 
-    m_agents.append(std::make_unique<JSGlobalObjectRuntimeAgent>(context));
+    m_agents.append(makeUnique<JSGlobalObjectRuntimeAgent>(context));
 
     ensureDebuggerAgent();
 
-    auto scriptProfilerAgentPtr = std::make_unique<InspectorScriptProfilerAgent>(context);
+    auto scriptProfilerAgentPtr = makeUnique<InspectorScriptProfilerAgent>(context);
     m_consoleClient->setInspectorScriptProfilerAgent(scriptProfilerAgentPtr.get());
     m_agents.append(WTFMove(scriptProfilerAgentPtr));
 
-    auto heapAgent = std::make_unique<InspectorHeapAgent>(context);
+    auto heapAgent = makeUnique<InspectorHeapAgent>(context);
     if (m_consoleAgent)
         m_consoleAgent->setInspectorHeapAgent(heapAgent.get());
     m_agents.append(WTFMove(heapAgent));
 
-    m_agents.append(std::make_unique<JSGlobalObjectAuditAgent>(context));
+    m_agents.append(makeUnique<JSGlobalObjectAuditAgent>(context));
 }
 
 } // namespace Inspector

@@ -91,10 +91,6 @@ WK_EXPORT void WKPreferencesSetWebGLEnabled(WKPreferencesRef, bool);
 WK_EXPORT bool WKPreferencesGetWebGLEnabled(WKPreferencesRef);
 
 // Defaults to false.
-WK_EXPORT void WKPreferencesSetForceSoftwareWebGLRendering(WKPreferencesRef, bool);
-WK_EXPORT bool WKPreferencesGetForceSoftwareWebGLRendering(WKPreferencesRef);
-
-// Defaults to false.
 WK_EXPORT void WKPreferencesSetAccelerated2DCanvasEnabled(WKPreferencesRef, bool);
 WK_EXPORT bool WKPreferencesGetAccelerated2DCanvasEnabled(WKPreferencesRef);
 
@@ -306,6 +302,10 @@ WK_EXPORT bool WKPreferencesGetHiddenPageDOMTimerThrottlingAutoIncreases(WKPrefe
 WK_EXPORT void WKPreferencesSetHiddenPageCSSAnimationSuspensionEnabled(WKPreferencesRef preferences, bool enabled);
 WK_EXPORT bool WKPreferencesGetHiddenPageCSSAnimationSuspensionEnabled(WKPreferencesRef preferences);
 
+// Defaults to true.
+WK_EXPORT void WKPreferencesSetRenderingUpdateThrottlingEnabled(WKPreferencesRef preferences, bool enabled);
+WK_EXPORT bool WKPreferencesGetRenderingUpdateThrottlingEnabled(WKPreferencesRef preferences);
+
 // Defaults to false
 WK_EXPORT void WKPreferencesSetSnapshotAllPlugIns(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetSnapshotAllPlugIns(WKPreferencesRef preferencesRef);
@@ -395,6 +395,10 @@ WK_EXPORT bool WKPreferencesGetImageControlsEnabled(WKPreferencesRef preferences
 WK_EXPORT void WKPreferencesSetGamepadsEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetGamepadsEnabled(WKPreferencesRef preferencesRef);
 
+// Default to false.
+WK_EXPORT void WKPreferencesSetHighlightAPIEnabled(WKPreferencesRef preferencesRef, bool enabled);
+WK_EXPORT bool WKPreferencesGetHighlightAPIEnabled(WKPreferencesRef preferencesRef);
+
 // Not implemented, should be deleted once there are no callers.
 WK_EXPORT void WKPreferencesSetLongMousePressEnabled(WKPreferencesRef preferencesRef, bool enabled);
 WK_EXPORT bool WKPreferencesGetLongMousePressEnabled(WKPreferencesRef preferencesRef);
@@ -470,11 +474,7 @@ WK_EXPORT bool WKPreferencesGetIntersectionObserverEnabled(WKPreferencesRef);
 // Defaults to false
 WK_EXPORT void WKPreferencesSetMenuItemElementEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetMenuItemElementEnabled(WKPreferencesRef);
-    
-// Defaults to false
-WK_EXPORT void WKPreferencesSetDisplayContentsEnabled(WKPreferencesRef, bool flag);
-WK_EXPORT bool WKPreferencesGetDisplayContentsEnabled(WKPreferencesRef);
-    
+        
 // Defaults to false
 WK_EXPORT void WKPreferencesSetDataTransferItemsEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetDataTransferItemsEnabled(WKPreferencesRef);
@@ -482,7 +482,15 @@ WK_EXPORT bool WKPreferencesGetDataTransferItemsEnabled(WKPreferencesRef);
 // Defaults to false
 WK_EXPORT void WKPreferencesSetCustomPasteboardDataEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetCustomPasteboardDataEnabled(WKPreferencesRef);
-    
+
+// Defaults to false
+WK_EXPORT void WKPreferencesSetDialogElementEnabled(WKPreferencesRef, bool flag);
+WK_EXPORT bool WKPreferencesGetDialogElementEnabled(WKPreferencesRef);
+
+// Defaults to false
+WK_EXPORT void WKPreferencesSetKeygenElementEnabled(WKPreferencesRef, bool flag);
+WK_EXPORT bool WKPreferencesGetKeygenElementEnabled(WKPreferencesRef);
+
 // Defaults to false, true for iOS
 WK_EXPORT void WKPreferencesSetWebShareEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetWebShareEnabled(WKPreferencesRef);
@@ -498,6 +506,10 @@ WK_EXPORT bool WKPreferencesGetResourceTimingEnabled(WKPreferencesRef);
 // Defaults to false
 WK_EXPORT void WKPreferencesSetFetchAPIKeepAliveEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetFetchAPIKeepAliveEnabled(WKPreferencesRef);
+
+// Defaults to false
+WK_EXPORT void WKPreferencesSetIsNSURLSessionWebSocketEnabled(WKPreferencesRef, bool flag);
+WK_EXPORT bool WKPreferencesGetIsNSURLSessionWebSocketEnabled(WKPreferencesRef);
 
 // Defaults to true.
 WK_EXPORT void WKPreferencesSetLargeImageAsyncDecodingEnabled(WKPreferencesRef preferencesRef, bool flag);
@@ -590,6 +602,10 @@ WK_EXPORT bool WKPreferencesGetPunchOutWhiteBackgroundsInDarkMode(WKPreferencesR
 // Defaults to false
 WK_EXPORT void WKPreferencesSetReferrerPolicyAttributeEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetReferrerPolicyAttributeEnabled(WKPreferencesRef);
+
+// Defaults to false
+WK_EXPORT void WKPreferencesSetLazyImageLoadingEnabled(WKPreferencesRef, bool flag);
+WK_EXPORT bool WKPreferencesGetLazyImageLoadingEnabled(WKPreferencesRef);
 
 #ifdef __cplusplus
 }

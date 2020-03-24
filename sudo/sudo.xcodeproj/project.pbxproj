@@ -666,6 +666,7 @@
 		FEB8CDA22373353200FE6119 /* getdelim.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = getdelim.c; sourceTree = "<group>"; };
 		FEB8CDA32373353200FE6119 /* pipe2.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pipe2.c; sourceTree = "<group>"; };
 		FEB8CDA42373353200FE6119 /* vsyslog.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vsyslog.c; sourceTree = "<group>"; };
+		FEC569F6241C638C00262D84 /* sudo-entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "sudo-entitlements.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -777,6 +778,7 @@
 		FE80184A1C69B175006A214E /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				FEC569F6241C638C00262D84 /* sudo-entitlements.plist */,
 				FE801A981C6AB1A5006A214E /* doc */,
 				FE801ABA1C6AB1A5006A214E /* include */,
 				FE801AD21C6AB1A5006A214E /* src */,

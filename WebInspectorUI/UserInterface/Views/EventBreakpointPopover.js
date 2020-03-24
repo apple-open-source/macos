@@ -56,32 +56,7 @@ WI.EventBreakpointPopover = class EventBreakpointPopover extends WI.Popover
         label.classList.add("label");
         label.textContent = WI.UIString("Break on events with name:");
 
-        let typeContainer = contentElement.appendChild(document.createElement("div"));
-        typeContainer.classList.add("event-type");
-
-        this._typeSelectElement = typeContainer.appendChild(document.createElement("select"));
-        this._typeSelectElement.addEventListener("change", this._handleTypeSelectChange.bind(this));
-        this._typeSelectElement.addEventListener("keydown", (event) => {
-            if (isEnterKey(event))
-                this.dismiss();
-        });
-
-        let createOption = (text, value) => {
-            let optionElement = this._typeSelectElement.appendChild(document.createElement("option"));
-            optionElement.value = value;
-            optionElement.textContent = text;
-        };
-
-        createOption(WI.UIString("DOM Event"), WI.EventBreakpoint.Type.Listener);
-
-        if (WI.DOMDebuggerManager.supportsEventBreakpoints()) {
-            createOption(WI.unlocalizedString("requestAnimationFrame"), "requestAnimationFrame");
-            createOption(WI.unlocalizedString("setTimeout"), "setTimeout");
-            createOption(WI.unlocalizedString("setInterval"), "setInterval");
-        } else
-            this._typeSelectElement.hidden = true;
-
-        this._domEventNameInputElement = typeContainer.appendChild(document.createElement("input"));
+        this._domEventNameInputElement = contentElement.appendChild(document.createElement("input"));
         this._domEventNameInputElement.setAttribute("dir", "ltr");
         this._domEventNameInputElement.placeholder = WI.UIString("Example: \u201C%s\u201D").format("click");
         this._domEventNameInputElement.spellcheck = false;
@@ -125,32 +100,18 @@ WI.EventBreakpointPopover = class EventBreakpointPopover extends WI.Popover
 
         this._presentOverTargetElement();
 
-        this._typeSelectElement.value = WI.EventBreakpoint.Type.Listener;
         this._domEventNameInputElement.select();
     }
 
     dismiss()
     {
-        let type = this._typeSelectElement.value;
-        let value = null;
-
-        if (type === WI.EventBreakpoint.Type.Listener)
-            value = this._domEventNameInputElement.value;
-        else {
-            value = type;
-
-            if (value === "requestAnimationFrame")
-                type = WI.EventBreakpoint.Type.AnimationFrame;
-            else if (value === "setTimeout" || value === "setInterval")
-                type = WI.EventBreakpoint.Type.Timer;
-        }
-
-        if (type && value)
-            this._breakpoint = new WI.EventBreakpoint(type, value);
-
-        super.dismiss();
+        let eventName = this._domEventNameInputElement.value;
+        if (eventName)
+            this._breakpoint = new WI.EventBreakpoint(WI.EventBreakpoint.Type.Listener, {eventName});
 
         this._suggestionsView.hide();
+
+        super.dismiss();
     }
 
     // CompletionSuggestionsView delegate
@@ -173,22 +134,6 @@ WI.EventBreakpointPopover = class EventBreakpointPopover extends WI.Popover
         this.present(targetFrame, this._preferredEdges);
     }
 
-    _handleTypeSelectChange(event)
-    {
-        let listenerTypeSelected = this._typeSelectElement.value === WI.EventBreakpoint.Type.Listener;
-        this._domEventNameInputElement.hidden = !listenerTypeSelected;
-
-        this.update();
-
-        if (listenerTypeSelected) {
-            this._domEventNameInputElement.focus();
-
-            if (this._domEventNameInputElement.value)
-                this._showSuggestionsView();
-        } else
-            this._suggestionsView.hide();
-    }
-
      _showSuggestionsView()
      {
         let computedStyle = window.getComputedStyle(this._domEventNameInputElement);
@@ -197,6 +142,6 @@ WI.EventBreakpointPopover = class EventBreakpointPopover extends WI.Popover
         let rect = WI.Rect.rectFromClientRect(this._domEventNameInputElement.getBoundingClientRect());
         rect.origin.x += padding;
         rect.size.width -= padding + parseInt(computedStyle.borderRightWidth) + parseInt(computedStyle.paddingRight);
-        this._suggestionsView.show(rect);
+        this._suggestionsView.show(rect.pad(2));
      }
 };

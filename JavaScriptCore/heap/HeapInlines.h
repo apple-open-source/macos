@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,9 +38,9 @@
 
 namespace JSC {
 
-ALWAYS_INLINE VM* Heap::vm() const
+ALWAYS_INLINE VM& Heap::vm() const
 {
-    return bitwise_cast<VM*>(bitwise_cast<uintptr_t>(this) - OBJECT_OFFSETOF(VM, heap));
+    return *bitwise_cast<VM*>(bitwise_cast<uintptr_t>(this) - OBJECT_OFFSETOF(VM, heap));
 }
 
 ALWAYS_INLINE Heap* Heap::heap(const HeapCell* cell)
@@ -70,8 +70,8 @@ inline bool Heap::worldIsStopped() const
 ALWAYS_INLINE bool Heap::isMarked(const void* rawCell)
 {
     HeapCell* cell = bitwise_cast<HeapCell*>(rawCell);
-    if (cell->isLargeAllocation())
-        return cell->largeAllocation().isMarked();
+    if (cell->isPreciseAllocation())
+        return cell->preciseAllocation().isMarked();
     MarkedBlock& block = cell->markedBlock();
     return block.isMarked(m_objectSpace.markingVersion(), cell);
 }
@@ -79,8 +79,8 @@ ALWAYS_INLINE bool Heap::isMarked(const void* rawCell)
 ALWAYS_INLINE bool Heap::testAndSetMarked(HeapVersion markingVersion, const void* rawCell)
 {
     HeapCell* cell = bitwise_cast<HeapCell*>(rawCell);
-    if (cell->isLargeAllocation())
-        return cell->largeAllocation().testAndSetMarked();
+    if (cell->isPreciseAllocation())
+        return cell->preciseAllocation().testAndSetMarked();
     MarkedBlock& block = cell->markedBlock();
     Dependency dependency = block.aboutToMark(markingVersion);
     return block.testAndSetMarked(cell, dependency);
@@ -188,7 +188,7 @@ inline void Heap::decrementDeferralDepthAndGCIfNeeded()
     ASSERT(!Thread::mayBeGCThread() || m_worldIsStopped);
     m_deferralDepth--;
     
-    if (UNLIKELY(m_didDeferGCWork)) {
+    if (UNLIKELY(m_didDeferGCWork) || Options::forceDidDeferGCWork()) {
         decrementDeferralDepthAndGCIfNeededSlow();
         
         // Here are the possible relationships between m_deferralDepth and m_didDeferGCWork.
@@ -217,7 +217,7 @@ inline void Heap::decrementDeferralDepthAndGCIfNeeded()
 inline HashSet<MarkedArgumentBuffer*>& Heap::markListSet()
 {
     if (!m_markListSet)
-        m_markListSet = std::make_unique<HashSet<MarkedArgumentBuffer*>>();
+        m_markListSet = makeUnique<HashSet<MarkedArgumentBuffer*>>();
     return *m_markListSet;
 }
 

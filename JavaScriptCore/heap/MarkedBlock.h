@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2018 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2019 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -52,9 +52,11 @@ typedef uint32_t HeapVersion;
 // allocation suffers from internal fragmentation: wasted space whose
 // size is equal to the difference between the cell size and the object
 // size.
-
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(MarkedBlock);
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(MarkedBlockHandle);
 class MarkedBlock {
     WTF_MAKE_NONCOPYABLE(MarkedBlock);
+    WTF_MAKE_STRUCT_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(MarkedBlock);
     friend class LLIntOffsetsExtractor;
     friend struct VerifyMarked;
 
@@ -77,6 +79,9 @@ public:
     static constexpr size_t blockMask = ~(blockSize - 1); // blockSize must be a power of two.
 
     static constexpr size_t atomsPerBlock = blockSize / atomSize;
+
+    static constexpr size_t maxNumberOfLowerTierCells = 8;
+    static_assert(maxNumberOfLowerTierCells <= 256);
     
     static_assert(!(MarkedBlock::atomSize & (MarkedBlock::atomSize - 1)), "MarkedBlock::atomSize must be a power of two.");
     static_assert(!(MarkedBlock::blockSize & (MarkedBlock::blockSize - 1)), "MarkedBlock::blockSize must be a power of two.");
@@ -102,7 +107,7 @@ public:
         
     class Handle {
         WTF_MAKE_NONCOPYABLE(Handle);
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_STRUCT_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(MarkedBlockHandle);
         friend class LLIntOffsetsExtractor;
         friend class MarkedBlock;
         friend struct VerifyMarked;
@@ -124,7 +129,7 @@ public:
         AlignedMemoryAllocator* alignedMemoryAllocator() const;
         Heap* heap() const;
         inline MarkedSpace* space() const;
-        VM* vm() const;
+        VM& vm() const;
         WeakSet& weakSet();
             
         enum SweepMode { SweepOnly, SweepToFreeList };
@@ -191,11 +196,11 @@ public:
             
         bool isFreeListed() const { return m_isFreeListed; }
         
-        size_t index() const { return m_index; }
+        unsigned index() const { return m_index; }
         
         void removeFromDirectory();
         
-        void didAddToDirectory(BlockDirectory*, size_t index);
+        void didAddToDirectory(BlockDirectory*, unsigned index);
         void didRemoveFromDirectory();
         
         void* start() const { return &m_block->atoms()[0]; }
@@ -224,18 +229,15 @@ public:
         
         void setIsFreeListed();
         
-        MarkedBlock::Handle* m_prev { nullptr };
-        MarkedBlock::Handle* m_next { nullptr };
-            
-        size_t m_atomsPerCell { std::numeric_limits<size_t>::max() };
-        size_t m_endAtom { std::numeric_limits<size_t>::max() }; // This is a fuzzy end. Always test for < m_endAtom.
+        unsigned m_atomsPerCell { std::numeric_limits<unsigned>::max() };
+        unsigned m_endAtom { std::numeric_limits<unsigned>::max() }; // This is a fuzzy end. Always test for < m_endAtom.
             
         CellAttributes m_attributes;
         bool m_isFreeListed { false };
+        unsigned m_index { std::numeric_limits<unsigned>::max() };
 
         AlignedMemoryAllocator* m_alignedMemoryAllocator { nullptr };
         BlockDirectory* m_directory { nullptr };
-        size_t m_index { std::numeric_limits<size_t>::max() };
         WeakSet m_weakSet;
         
         MarkedBlock* m_block { nullptr };
@@ -257,6 +259,8 @@ public:
         friend class MarkedBlock;
         
         Handle& m_handle;
+        // m_vm must remain a pointer (instead of a reference) because JSCLLIntOffsetsExtractor
+        // will fail otherwise.
         VM* m_vm;
         Subspace* m_subspace;
 
@@ -312,13 +316,14 @@ public:
     Handle& handle();
     const Handle& handle() const;
         
-    VM* vm() const;
+    VM& vm() const;
     inline Heap* heap() const;
     inline MarkedSpace* space() const;
 
     static bool isAtomAligned(const void*);
     static MarkedBlock* blockFor(const void*);
-    size_t atomNumber(const void*);
+    unsigned atomNumber(const void*);
+    size_t candidateAtomNumber(const void*);
         
     size_t markCount();
 
@@ -468,14 +473,14 @@ inline Heap* MarkedBlock::Handle::heap() const
     return m_weakSet.heap();
 }
 
-inline VM* MarkedBlock::Handle::vm() const
+inline VM& MarkedBlock::Handle::vm() const
 {
     return m_weakSet.vm();
 }
 
-inline VM* MarkedBlock::vm() const
+inline VM& MarkedBlock::vm() const
 {
-    return footer().m_vm;
+    return *footer().m_vm;
 }
 
 inline WeakSet& MarkedBlock::Handle::weakSet()
@@ -548,9 +553,18 @@ inline size_t MarkedBlock::Handle::size()
     return markCount() * cellSize();
 }
 
-inline size_t MarkedBlock::atomNumber(const void* p)
+inline size_t MarkedBlock::candidateAtomNumber(const void* p)
 {
+    // This function must return size_t instead of unsigned since pointer |p| is not guaranteed that this is within MarkedBlock.
+    // See MarkedBlock::isAtom which can accept out-of-bound pointers.
     return (reinterpret_cast<uintptr_t>(p) - reinterpret_cast<uintptr_t>(this)) / atomSize;
+}
+
+inline unsigned MarkedBlock::atomNumber(const void* p)
+{
+    size_t atomNumber = candidateAtomNumber(p);
+    ASSERT(atomNumber < handle().m_endAtom);
+    return atomNumber;
 }
 
 inline bool MarkedBlock::areMarksStale(HeapVersion markingVersion)
@@ -624,7 +638,7 @@ inline const Bitmap<MarkedBlock::atomsPerBlock>& MarkedBlock::newlyAllocated() c
 inline bool MarkedBlock::isAtom(const void* p)
 {
     ASSERT(MarkedBlock::isAtomAligned(p));
-    size_t atomNumber = this->atomNumber(p);
+    size_t atomNumber = candidateAtomNumber(p);
     if (atomNumber % handle().m_atomsPerCell) // Filters pointers into cell middles.
         return false;
     if (atomNumber >= handle().m_endAtom) // Filters pointers into invalid cells out of the range.
@@ -638,7 +652,7 @@ inline IterationStatus MarkedBlock::Handle::forEachCell(const Functor& functor)
     HeapCell::Kind kind = m_attributes.cellKind;
     for (size_t i = 0; i < m_endAtom; i += m_atomsPerCell) {
         HeapCell* cell = reinterpret_cast_ptr<HeapCell*>(&m_block->atoms()[i]);
-        if (functor(cell, kind) == IterationStatus::Done)
+        if (functor(i, cell, kind) == IterationStatus::Done)
             return IterationStatus::Done;
     }
     return IterationStatus::Continue;

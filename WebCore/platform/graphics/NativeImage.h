@@ -27,8 +27,7 @@
 
 #pragma once
 
-#include "GraphicsTypes.h"
-#include "ImageOrientation.h"
+#include "ImagePaintingOptions.h"
 
 #if USE(CG)
 #include <wtf/RetainPtr.h>
@@ -42,6 +41,7 @@ typedef struct CGImage* CGImageRef;
 #if USE(DIRECT2D)
 #include "COMPtr.h"
 #include <d2d1.h>
+#include <wincodec.h>
 #endif
 
 namespace WebCore {
@@ -61,11 +61,16 @@ typedef RefPtr<cairo_surface_t> NativeImagePtr;
 typedef RefPtr<SharedBitmap> NativeImagePtr;
 #endif
 
-IntSize nativeImageSize(const NativeImagePtr&);
+WEBCORE_EXPORT IntSize nativeImageSize(const NativeImagePtr&);
 bool nativeImageHasAlpha(const NativeImagePtr&);
 Color nativeImageSinglePixelSolidColor(const NativeImagePtr&);
 
-void drawNativeImage(const NativeImagePtr&, GraphicsContext&, const FloatRect&, const FloatRect&, const IntSize&, CompositeOperator, BlendMode, const ImageOrientation&);
+void drawNativeImage(const NativeImagePtr&, GraphicsContext&, const FloatRect&, const FloatRect&, const IntSize&, const ImagePaintingOptions&);
 void clearNativeImageSubimages(const NativeImagePtr&);
+
+class NativeImageHandle {
+public:
+    NativeImagePtr image;
+};
     
 }

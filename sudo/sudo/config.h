@@ -335,6 +335,9 @@
 /* Define to 1 if you have the `getuserattr' function. */
 /* #undef HAVE_GETUSERATTR */
 
+/* Define to 1 if you have the `getusershell' function. */
+#define HAVE_GETUSERSHELL 1
+
 /* Define to 1 if you have the `getutid' function. */
 /* #undef HAVE_GETUTID */
 
@@ -1013,7 +1016,7 @@
 #define PACKAGE_NAME "sudo"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "sudo 1.8.29"
+#define PACKAGE_STRING "sudo 1.8.31"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "sudo"
@@ -1022,7 +1025,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.8.29"
+#define PACKAGE_VERSION "1.8.31"
 
 /* Define to 1 if your system uses a Solaris-derived PAM and not Linux-PAM or
    OpenPAM. */
@@ -1264,6 +1267,11 @@
 /* Enable BSD extensions on systems that have them.  */
 #ifndef _BSD_SOURCE
 /* # undef _BSD_SOURCE */
+#endif
+
+/* Enable OpenBSD extensions on NetBSD.  */
+#ifndef _OPENBSD_SOURCE
+/* # undef _OPENBSD_SOURCE */
 #endif
 
 /* Enable BSD types on IRIX.  */

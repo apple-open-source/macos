@@ -41,6 +41,7 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
 
         this._inputField = document.createElement("input");
         this._inputField.type = "search";
+        this._inputField.placeholder = " "; // This is necessary for :placeholder-shown.
         this._inputField.spellcheck = false;
         this._inputField.incremental = true;
         this._inputField.setAttribute("results", 5);
@@ -73,7 +74,7 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
         this._nextResultButton.appendChild(nextResultButtonGlyphElement);
 
         if (fixed)
-            this._clearAndBlurKeyboardShortcut = new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Escape, this._clearAndBlur.bind(this), this.element);
+            this._clearAndBlurKeyboardShortcut = new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Escape, this.clearAndBlur.bind(this), this.element);
         else {
             let doneButtonElement = document.createElement("button");
             doneButtonElement.textContent = WI.UIString("Done");
@@ -163,7 +164,7 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
             this._inputField.select();
     }
 
-    _clearAndBlur()
+    clearAndBlur()
     {
         this.numberOfResults = null;
 

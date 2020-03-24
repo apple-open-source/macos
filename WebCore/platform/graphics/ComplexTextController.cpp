@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,7 +43,7 @@
 
 namespace WebCore {
 
-#if PLATFORM(WIN)
+#if PLATFORM(WIN) && !USE(DIRECT2D)
 
 class TextLayout {
 };
@@ -63,6 +63,11 @@ float FontCascade::width(TextLayout&, unsigned, unsigned, HashSet<const Font*>*)
     return 0;
 }
 
+void ComplexTextController::collectComplexTextRunsForCharacters(const UChar*, unsigned, unsigned, const Font*)
+{
+    ASSERT_NOT_REACHED();
+}
+
 #else
 
 class TextLayout {
@@ -77,7 +82,7 @@ public:
     TextLayout(RenderText& text, const FontCascade& font, float xPos)
         : m_font(font)
         , m_run(constructTextRun(text, xPos))
-        , m_controller(std::make_unique<ComplexTextController>(m_font, m_run, true))
+        , m_controller(makeUnique<ComplexTextController>(m_font, m_run, true))
     {
     }
 
@@ -146,10 +151,6 @@ ComplexTextController::ComplexTextController(const FontCascade& font, const Text
     , m_mayUseNaturalWritingDirection(mayUseNaturalWritingDirection)
     , m_forTextEmphasis(forTextEmphasis)
 {
-#if PLATFORM(WIN)
-    ASSERT_NOT_REACHED();
-#endif
-
     computeExpansionOpportunity();
 
     collectComplexTextRuns();
@@ -784,7 +785,8 @@ void ComplexTextController::adjustGlyphsAndAdvances()
                 if (runForbidsTrailingExpansion)
                     forbidTrailingExpansion = m_run.ltr() ? isLastCharacter : isFirstCharacter;
                 // Handle justification and word-spacing.
-                bool ideograph = FontCascade::isCJKIdeographOrSymbol(ch);
+                static bool expandAroundIdeographs = FontCascade::canExpandAroundIdeographsInComplexText();
+                bool ideograph = expandAroundIdeographs && FontCascade::isCJKIdeographOrSymbol(ch);
                 if (treatAsSpace || ideograph || forceLeadingExpansion || forceTrailingExpansion) {
                     // Distribute the run's total expansion evenly over all expansion opportunities in the run.
                     if (m_expansion) {

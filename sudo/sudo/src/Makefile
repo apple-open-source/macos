@@ -137,7 +137,7 @@ CHECK_TTYNAME_OBJS = check_ttyname.o ttyname.o
 
 LIBOBJDIR = $(top_builddir)/@ac_config_libobj_dir@/
 
-VERSION = 1.8.29
+VERSION = 1.8.31
 
 all: $(PROGS)
 

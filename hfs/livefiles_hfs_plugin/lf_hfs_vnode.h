@@ -12,18 +12,7 @@
 #include <sys/_types/_guid_t.h>
 
 #include "lf_hfs_common.h"
-
-/*
- * Vnode types.  VNON means no type.
- */
-enum vtype    {
-    /* 0 */
-    VNON,
-    /* 1 - 5 */
-    VREG, VDIR, VBLK, VCHR, VLNK,
-    /* 6 - 10 */
-    VSOCK, VFIFO, VBAD, VSTR, VCPLX
-};
+#include <System/sys/vnode.h>
 
 extern int VTtoUVFS_tab[];
 

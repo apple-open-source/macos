@@ -52,6 +52,7 @@ using namespace std;
 static Lock webFixedPositionContentDataLock;
 
 struct ViewportConstrainedLayerData {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
     ViewportConstrainedLayerData()
         : m_enclosingAcceleratedScrollLayer(nil)
     { }
@@ -62,6 +63,7 @@ struct ViewportConstrainedLayerData {
 typedef HashMap<RetainPtr<CALayer>, std::unique_ptr<ViewportConstrainedLayerData>> LayerInfoMap;
 
 struct WebFixedPositionContentData {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
 public:
     WebFixedPositionContentData(WebView *);
     ~WebFixedPositionContentData();
@@ -178,7 +180,7 @@ WebFixedPositionContentData::~WebFixedPositionContentData()
 
     for (auto& layerAndConstraints : layerMap) {
         CALayer* layer = layerAndConstraints.key;
-        auto layerData = std::make_unique<ViewportConstrainedLayerData>();
+        auto layerData = makeUnique<ViewportConstrainedLayerData>();
 
         layerData->m_enclosingAcceleratedScrollLayer = stickyContainers.get(layer);
         layerData->m_viewportConstraints = WTFMove(layerAndConstraints.value);

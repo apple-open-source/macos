@@ -344,7 +344,7 @@ FloatRect RenderThemeIOS::addRoundedBorderClip(const RenderObject& box, Graphics
     return border.rect();
 }
 
-void RenderThemeIOS::adjustCheckboxStyle(StyleResolver&, RenderStyle& style, const Element*) const
+void RenderThemeIOS::adjustCheckboxStyle(RenderStyle& style, const Element*) const
 {
     if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
         return;
@@ -447,19 +447,19 @@ int RenderThemeIOS::baselinePosition(const RenderBox& box) const
     return RenderTheme::baselinePosition(box);
 }
 
-bool RenderThemeIOS::isControlStyled(const RenderStyle& style, const BorderData& border, const FillLayer& background, const Color& backgroundColor) const
+bool RenderThemeIOS::isControlStyled(const RenderStyle& style, const RenderStyle& userAgentStyle) const
 {
     // Buttons and MenulistButtons are styled if they contain a background image.
     if (style.appearance() == PushButtonPart || style.appearance() == MenulistButtonPart)
         return !style.visitedDependentColor(CSSPropertyBackgroundColor).isVisible() || style.backgroundLayers().hasImage();
 
     if (style.appearance() == TextFieldPart || style.appearance() == TextAreaPart)
-        return style.backgroundLayers() != background;
+        return style.backgroundLayers() != userAgentStyle.backgroundLayers();
 
-    return RenderTheme::isControlStyled(style, border, background, backgroundColor);
+    return RenderTheme::isControlStyled(style, userAgentStyle);
 }
 
-void RenderThemeIOS::adjustRadioStyle(StyleResolver&, RenderStyle& style, const Element*) const
+void RenderThemeIOS::adjustRadioStyle(RenderStyle& style, const Element*) const
 {
     if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
         return;
@@ -561,7 +561,7 @@ void RenderThemeIOS::adjustRoundBorderRadius(RenderStyle& style, RenderBox& box)
 static void applyCommonButtonPaddingToStyle(RenderStyle& style, const Element& element)
 {
     Document& document = element.document();
-    auto emSize = CSSPrimitiveValue::create(0.5, CSSPrimitiveValue::CSS_EMS);
+    auto emSize = CSSPrimitiveValue::create(0.5, CSSUnitType::CSS_EMS);
     int pixels = emSize->computeLength<int>(CSSToLengthConversionData(&style, document.renderStyle(), document.renderView(), document.frame()->pageZoomFactor()));
     style.setPaddingBox(LengthBox(0, pixels, 0, pixels));
 }
@@ -620,7 +620,7 @@ static void adjustInputElementButtonStyle(RenderStyle& style, const HTMLInputEle
     }
 }
 
-void RenderThemeIOS::adjustMenuListButtonStyle(StyleResolver&, RenderStyle& style, const Element* element) const
+void RenderThemeIOS::adjustMenuListButtonStyle(RenderStyle& style, const Element* element) const
 {
     // Set the min-height to be at least MenuListMinHeight.
     if (style.height().isAuto())
@@ -765,9 +765,9 @@ const CGFloat kTrackThickness = 4.0;
 const CGFloat kTrackRadius = kTrackThickness / 2.0;
 const int kDefaultSliderThumbSize = 16;
 
-void RenderThemeIOS::adjustSliderTrackStyle(StyleResolver& selector, RenderStyle& style, const Element* element) const
+void RenderThemeIOS::adjustSliderTrackStyle(RenderStyle& style, const Element* element) const
 {
-    RenderTheme::adjustSliderTrackStyle(selector, style, element);
+    RenderTheme::adjustSliderTrackStyle(style, element);
 
     // FIXME: We should not be relying on border radius for the appearance of our controls <rdar://problem/7675493>.
     int radius = static_cast<int>(kTrackRadius);
@@ -989,9 +989,9 @@ int RenderThemeIOS::sliderTickOffsetFromTrackCenter() const
 }
 #endif
 
-void RenderThemeIOS::adjustSearchFieldStyle(StyleResolver& selector, RenderStyle& style, const Element* element) const
+void RenderThemeIOS::adjustSearchFieldStyle(RenderStyle& style, const Element* element) const
 {
-    RenderTheme::adjustSearchFieldStyle(selector, style, element);
+    RenderTheme::adjustSearchFieldStyle(style, element);
 
     if (!element)
         return;
@@ -1011,9 +1011,9 @@ bool RenderThemeIOS::paintSearchFieldDecorations(const RenderObject& box, const 
     return paintTextFieldDecorations(box, paintInfo, rect);
 }
 
-void RenderThemeIOS::adjustButtonStyle(StyleResolver& selector, RenderStyle& style, const Element* element) const
+void RenderThemeIOS::adjustButtonStyle(RenderStyle& style, const Element* element) const
 {
-    RenderTheme::adjustButtonStyle(selector, style, element);
+    RenderTheme::adjustButtonStyle(style, element);
 
 #if ENABLE(INPUT_TYPE_COLOR)
     if (style.appearance() == ColorWellPart)
@@ -1024,7 +1024,7 @@ void RenderThemeIOS::adjustButtonStyle(StyleResolver& selector, RenderStyle& sty
     // CSSPrimitiveValue::computeLengthInt only needs the element's style to calculate em lengths.
     // Since the element might not be in a document, just pass nullptr for the root element style
     // and the render view.
-    auto emSize = CSSPrimitiveValue::create(1.0, CSSPrimitiveValue::CSS_EMS);
+    auto emSize = CSSPrimitiveValue::create(1.0, CSSUnitType::CSS_EMS);
     int pixels = emSize->computeLength<int>(CSSToLengthConversionData(&style, nullptr, nullptr, 1.0, false));
     style.setPaddingBox(LengthBox(0, pixels, 0, pixels));
 
@@ -2037,7 +2037,7 @@ void RenderThemeIOS::paintSystemPreviewBadge(Image& image, const PaintInfo& pain
         m_ciContext = [CIContext context];
 
     RetainPtr<CGImageRef> cgImage;
-#if HAVE(IOSURFACE)
+#if HAVE(IOSURFACE_COREIMAGE_SUPPORT)
     // Crop the result to the badge location.
     CIImage *croppedImage = [sourceOverFilter.outputImage imageByCroppingToRect:flippedInsetBadgeRect];
     CIImage *translatedImage = [croppedImage imageByApplyingTransform:CGAffineTransformMakeTranslation(-flippedInsetBadgeRect.origin.x, -flippedInsetBadgeRect.origin.y)];

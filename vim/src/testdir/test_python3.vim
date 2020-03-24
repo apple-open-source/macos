@@ -1,9 +1,8 @@
 " Test for python 3 commands.
 " TODO: move tests from test88.in here.
 
-if !has('python3')
-  finish
-endif
+source check.vim
+CheckFeature python3
 
 func Test_py3do()
   " Check deleting lines does not trigger an ml_get error.
@@ -55,7 +54,7 @@ func Test_vim_function()
 
   try
     py3 f = vim.Function(b'\x80\xfdR' + vim.eval('s:foo()').encode())
-    call assert_equal(name, py3eval('f.name'))
+    call assert_equal(name, 'f.name'->py3eval())
   catch
     call assert_false(v:exception)
   endtry
@@ -160,3 +159,11 @@ func Test_Write_To_Current_Buffer_Fixes_Cursor_Str()
 
   bwipe!
 endfunction
+
+func Test_Catch_Exception_Message()
+  try
+    py3 raise RuntimeError( 'TEST' )
+  catch /.*/
+    call assert_match( '^Vim(.*):RuntimeError: TEST$', v:exception )
+  endtry
+endfunc

@@ -1,3 +1,43 @@
+================
+WebKitGTK 2.27.3
+================
+
+What's new in WebKitGTK 2.27.3?
+
+  - Improve performance when falling back to system fonts.
+  - Stop using DBus for the remote inspector implementation to improve the performance of both
+    WebDriver and remote inspector.
+  - Implement support for new ARIA roles: code, strong, emphasis, generic.
+  - Fix handling of content type with new custom protocols implementation.
+  - Make image decoders fully thread safe.
+  - Add support for get page source command in WebDriver.
+  - Add support for network proxy capabilities in WebDriver.
+  - Add support for new window command in WebDriver.
+  - Fix several crashes and rendering issues.
+
+=================
+WPE WebKit 2.27.2
+=================
+
+  - Add user messages API for the communication with the web extension.
+  - Enable service workers by default.
+  - Fix the build with WebDriver disabled.
+  - Show also client EGL extensions in about:gpu.
+  - Fix the build with unified sources disabled.
+  - Fix several crashes and rendering issues.
+
+=================
+WPE WebKit 2.27.1
+=================
+
+What's new in WPE WebKit 2.27.1?
+
+  - Enable asynchronous scrolling.
+  - Add about:gpu to show information about the graphics stack.
+  - Add WebKitWebView:page-id property.
+  - Fix the build with ENABLE_WEBDRIVER=OFF.
+  - Fix several crashes and rendering issues.
+
 =================
 WPE WebKit 2.25.1
 =================

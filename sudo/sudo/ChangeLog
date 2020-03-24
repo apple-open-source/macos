@@ -1,8 +1,309 @@
+2020-01-30  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* .hgtags:
+	Added tag SUDO_1_8_31 for changeset d14f7d0f6174
+	[57a9df806149] [tip] <1.8>
+
+	* configure, configure.ac, doc/LICENSE:
+	Sudo 1.8.31
+	[d14f7d0f6174] [SUDO_1_8_31] <1.8>
+
+2020-01-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* NEWS:
+	Sudo 1.8.31 changes.
+	[56a903dbf5a0] <1.8>
+
+	* src/tgetpass.c:
+	Fix a buffer overflow when pwfeedback is enabled and input is a not
+	a tty. In getln() if the user enters ^U (erase line) and the
+	write(2) fails, the remaining buffer size is reset but the current
+	pointer is not. While here, fix an incorrect break for erase when
+	write(2) fails. Also disable pwfeedback when input is not a tty as
+	it cannot work. CVE-2019-18634 Credit: Joe Vennix from Apple
+	Information Security.
+	[84640592b0ff] <1.8>
+
+2020-01-28  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/getentropy.c:
+	Allow getentropy.c to compile when MAP_ANON is unavailable.
+	[32676c5ab0fe] <1.8>
+
+	* MANIFEST, lib/util/Makefile.in, lib/util/arc4random.c,
+	lib/util/arc4random.h:
+	Remove multi-thread support from arc4random. Sudo is not multi-
+	threaded so we don't need the added complexity.
+	[50d219f43811] <1.8>
+
+	* lib/util/arc4random.h, lib/util/getentropy.c:
+	Backed out changeset 1371cff82ebd MAP_SGI_ANYADDR cannot be used in
+	place of MAP_ANON
+	[b71b2f99ab82] <1.8>
+
+2020-01-27  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/arc4random.h, lib/util/getentropy.c:
+	Fix compilation on IRIX; Bug #915 IRIX lacks MAP_ANON (and
+	MAP_ANONYMOUS) but we can use the IRIX-specific flag MAP_SGI_ANYADDR
+	instead. From Kazuo Kuroi
+	[1371cff82ebd] <1.8>
+
+2020-01-24  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/check.c:
+	Fix crash in sudo 1.8.30 when suspending sudo at the password
+	prompt. The closure pointer in sudo_conv_callback was being filled
+	in with a struct getpass_closure ** instead of a struct
+	getpass_closure *. The bug was introduced in the fix for Bug #910;
+	previously the closure variable was a struct getpass_closure, not a
+	pointer. Fix from Michael Norton; Bug #914.
+	[d792c6769a98] <1.8>
+
+2020-01-16  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/sudo_edit.c:
+	Treat EROFS (like EACCES) as a non-fatal error in dir_is_writable().
+	Fixes sudoedit on macOS 10.15 and above where the root file system
+	is mounted read-only. See https://support.apple.com/en-us/HT210650.
+	From Dan Villiom Podlaski Christiansen. Bug #913
+	[b5ba461a0c1c] <1.8>
+
+2020-01-11  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/sudo_edit.c:
+	For sudoedit_checkdir consider a user-owner directory to be
+	writable. The non-faccessat() code already did this so this just
+	brings the faccessat() path into alignment. Bug #912
+	[78d401155aa6] <1.8>
+
+2019-12-31  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* .hgtags:
+	Added tag SUDO_1_8_30 for changeset 19286fe67981
+	[062dfc2927a1] <1.8>
+
+	* doc/UPGRADE:
+	fix typo in previous
+	[19286fe67981] [SUDO_1_8_30] <1.8>
+
+	* configure, configure.ac:
+	Sudo 1.8.30
+	[a2f006190698] <1.8>
+
+	* NEWS, doc/UPGRADE:
+	Changes in sudo 1.8.30
+	[1e84449b338d] <1.8>
+
+2019-12-26  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/def_data.h:
+	Regenerate def_data.h, I_RUNAS_CHECK_SHELL should be 118, not 123.
+	From Zhang Xiao
+	[2f5a0086a76a] <1.8>
+
+2019-12-25  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/limits.c:
+	Use 64-bit resource limits on AIX.
+	[5912858111bb] <1.8>
+
+	* src/limits.c:
+	When restoring old resource limits, try to recover if we receive
+	EINVAL. On NetBSD, setrlimit(2) can return EINVAL if the new soft
+	limit is lower than the current resource usage. This can be a
+	problem when restoring the old stack limit if sudo has raised it.
+	[29bcc747a988] <1.8>
+
+	* src/limits.c:
+	Sudo doesn't require such a large stack.
+	[05b16a7546f8] <1.8>
+
+	* plugins/sudoers/Makefile.in:
+	Restore check for readable /etc/sudoers in pre-install target. If
+	there is no installed sudoers there is nothing to check...
+	[15d85f56a780] <1.8>
+
+	* config.h.in, configure, configure.ac:
+	Enable OpenBSD extensions on NetBSD to get reallocarray(3)
+	prototype.
+	[18b54eb14231] <1.8>
+
+	* include/sudo_event.h:
+	Add forward declaration of struct timeval for deprecated APIs.
+	[7445ee8e2ec9] <1.8>
+
+	* lib/util/sig2str.c, lib/util/str2sig.c:
+	Fix compilation on systems with SIGRTMIN/SIGRTMAX but not
+	_SC_RTSIG_MAX.
+	[5abea9a42fdc] <1.8>
+
+	* include/sudo_compat.h:
+	Older systems may not support WCONTINUED.
+	[c8aa5924b42b] <1.8>
+
+	* plugins/sudoers/logging.c:
+	Support systems that have nl_langinfo(3) but not the CODESET define.
+	Fixes compilation on old NetBSD versions.
+	[5435d054b427] <1.8>
+
+	* plugins/sudoers/starttime.c:
+	Fix a typo; HAVE_KINFO_PROC2_NETBSD not HAVE_KINFO_PROC2_NETBSD2
+	[59e8a0eab142] <1.8>
+
+2019-12-18  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/sudoers.c, src/limits.c:
+	Output the name of the limit when warning about setrlimit or
+	getrlimit. From Kimmo Suominen.
+	[31b1ee0352ac] <1.8>
+
+2019-12-11  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/selinux.c:
+	Save/restore the raw form of the file context in case mctrans is not
+	available.
+	[614f2b6a358e] <1.8>
+
+2019-12-09  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* MANIFEST, config.h.in, configure, configure.ac, doc/sudoers.man.in,
+	doc/sudoers.mdoc.in, include/sudo_compat.h, lib/util/Makefile.in,
+	lib/util/getusershell.c, mkdep.pl, plugins/sudoers/check.c,
+	plugins/sudoers/def_data.c, plugins/sudoers/def_data.h,
+	plugins/sudoers/def_data.in, plugins/sudoers/sudoers.c,
+	plugins/sudoers/sudoers.h:
+	Add runas_check_shell flag to require a runas user to have a valid
+	shell. Not enabled by default.
+	[ed6db31729cd] <1.8>
+
+	* doc/sudoers.man.in, doc/sudoers.mdoc.in, plugins/sudoers/def_data.c,
+	plugins/sudoers/def_data.h, plugins/sudoers/def_data.in,
+	plugins/sudoers/defaults.c, plugins/sudoers/sudoers.c:
+	Add a new flag "allow_unknown_runas_id" to control matching of
+	unknown IDs. Previous, sudo would always allow unknown user or group
+	IDs if the sudoers entry permitted it. This included the "ALL"
+	alias. With this change, the admin must explicitly enable support
+	for unknown IDs.
+	[c571f211f131] <1.8>
+
+2019-12-04  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/check.c:
+	Only update the time stamp entry after the approval function has
+	succeeded. Bug #910
+	[b8df50a7c3ee] <1.8>
+
+2019-11-20  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/po/cs.mo, plugins/sudoers/po/cs.po,
+	plugins/sudoers/po/de.mo, plugins/sudoers/po/de.po,
+	plugins/sudoers/po/fi.mo, plugins/sudoers/po/fi.po,
+	plugins/sudoers/po/nb.mo, plugins/sudoers/po/nb.po,
+	plugins/sudoers/po/zh_CN.mo, plugins/sudoers/po/zh_CN.po,
+	plugins/sudoers/po/zh_TW.mo, plugins/sudoers/po/zh_TW.po, po/cs.mo,
+	po/cs.po, po/fi.mo, po/fi.po, po/nb.mo, po/nb.po, po/zh_CN.mo,
+	po/zh_CN.po:
+	Updated translations from translationproject.org
+	[df05f0166963] <1.8>
+
+2019-11-19  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/group_file/plugin_test.c:
+	Sync with argument handling in group_plugin.c
+	[3ade83ffbf05] <1.8>
+
+	* plugins/sudoers/group_plugin.c:
+	If a group plugin has optional arguments, NULL terminate the vector.
+	Otherwise, the plugin cannot determine the end of arguments. The
+	behavior now matches the plugin documentation.
+	[518382245a88] <1.8>
+
+2019-11-12  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/limits.c:
+	Simplify resource limit fallback logic a bit.
+	[22d95f175a32] <1.8>
+
+2019-11-11  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/limits.c:
+	Don't set the RLIMIT_STACK soft/hard limits to unlimited. Use 8Mb
+	for soft and 64Mb for hard. Works around issues on macOS and docker.
+	See also Bug #908
+	[98fe708cd0f6] <1.8>
+
+	* src/tgetpass.c:
+	Restore resource limits before executing the askpass program. Linux
+	with docker seems to have issues executing a program when the stack
+	size is unlimited. Bug #908
+	[fbc2900ec544] <1.8>
+
+	* src/conversation.c:
+	Check for replies pointer being NULL just in case.
+	[71f620a9741f] <1.8>
+
+2019-11-06  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/env.c:
+	Do not warn about a missing /etc/environment file on Linux without
+	PAM. Bug #907
+	[bedf54a2775b] <1.8>
+
+2019-11-05  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* doc/sudoers.man.in, doc/sudoers.mdoc.in,
+	plugins/sudoers/cvtsudoers.c, plugins/sudoers/gram.c,
+	plugins/sudoers/gram.y, plugins/sudoers/parse.h,
+	plugins/sudoers/regress/parser/check_fill.c,
+	plugins/sudoers/sudoers.c, plugins/sudoers/sudoers.h,
+	plugins/sudoers/testsudoers.c, plugins/sudoers/toke_util.c,
+	plugins/sudoers/visudo.c:
+	Transparently handle the "sudo sudoedit" problem. Some admin are
+	confused about how to give users sudoedit permission and many users
+	try to run sudoedit via sudo instead of directly. If the user runs
+	"sudo sudoedit" sudo will now treat it as plain "sudoedit" after
+	issuing a warning. If the admin has specified a fully-qualified path
+	for sudoedit in sudoers, sudo will treat it as just "sudoedit" and
+	match accordingly. In visudo (but not sudo), a fully-qualified path
+	for sudoedit is now treated as an error.
+	[e571ee6e950b] <1.8>
+
+2019-11-02  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/logging.c, src/exec_monitor.c, src/exec_pty.c,
+	src/tgetpass.c:
+	Open all pipes using pipe2() with O_CLOEXEC. We no longer depend on
+	calling closefrom() before exec.
+	[f13ecdbe4b6d] <1.8>
+
+	* src/exec.c, src/tgetpass.c:
+	Call closefrom() before we change to a non-root UID. This prevents
+	another process from changing the NOFILE resource limit of the child
+	process and defeating the closefrom() call. Reported by Joe Vennix
+	from Apple Information Security.
+	[7207f993d347] <1.8>
+
+2019-11-01  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* doc/sudo.man.in, doc/sudo.mdoc.in:
+	Reference timestamp_type and timestamp_timeout in sudoers. This
+	should help users find details on how time stamp files work.
+	[1d7e880af1a8] <1.8>
+
+2019-10-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/limits.c:
+	macOS does not allow rlim_cur to be set to RLIM_INFINITY for
+	RLIMIT_NOFILE. We need to use OPEN_MAX instead as per the macOS
+	setrlimit manual. Bug #904
+	[d8bb162d78e9] <1.8>
+
 2019-10-28  Todd C. Miller  <Todd.Miller@sudo.ws>
 
 	* .hgtags:
 	Added tag SUDO_1_8_29 for changeset e36c1e564efa
-	[e0f35f614a93] [tip] <1.8>
+	[e0f35f614a93] <1.8>
 
 	* Makefile.in:
 	Fix ChangeLog generation on a branch.

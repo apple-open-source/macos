@@ -83,7 +83,7 @@ NSXPCInterface* OTSetupControlProtocol(NSXPCInterface* interface) {
                 argumentIndex:2
                       ofReply:YES];
         [interface setClasses:errorClasses
-                  forSelector:@selector(rpcJoinWithConfiguration:vouchData:vouchSig:preapprovedKeys:reply:)
+                  forSelector:@selector(rpcJoinWithConfiguration:vouchData:vouchSig:reply:)
                 argumentIndex:0
                       ofReply:YES];
 #endif /* __OBJC2__ */

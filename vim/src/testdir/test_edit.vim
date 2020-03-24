@@ -1,8 +1,10 @@
 " Test for edit functions
-"
+
 if exists("+t_kD")
   let &t_kD="[3;*~"
 endif
+
+source check.vim
 
 " Needed for testing basic rightleft: Test_edit_rightleft
 source view_util.vim
@@ -199,11 +201,11 @@ func Test_edit_07()
   endfu
   au InsertCharPre <buffer> :call DoIt()
   call feedkeys("A\<f5>\<c-p>u\<cr>\<c-l>\<cr>", 'tx')
-  call assert_equal(["Jan\<c-l>",''], getline(1,'$'))
+  call assert_equal(["Jan\<c-l>",''], 1->getline('$'))
   %d
   call setline(1, 'J')
   call feedkeys("A\<f5>\<c-p>u\<down>\<c-l>\<cr>", 'tx')
-  call assert_equal(["January"], getline(1,'$'))
+  call assert_equal(["January"], 1->getline('$'))
 
   delfu ListMonths
   delfu DoIt
@@ -345,7 +347,7 @@ func Test_edit_12()
   call cursor(2, 4)
   call feedkeys("R^\<c-d>", 'tnix')
   call assert_equal(["\tabc", "def"], getline(1, '$'))
-  call assert_equal([0, 2, 2, 0], getpos('.'))
+  call assert_equal([0, 2, 2, 0], '.'->getpos())
   %d
   call setline(1, ["\tabc", "\t\tdef"])
   call cursor(2, 2)
@@ -1359,9 +1361,26 @@ func Test_edit_complete_very_long_name()
     return
   endtry
 
-  " Try to get the Vim window position before setting 'columns'.
+  " Try to get the Vim window position before setting 'columns', so that we can
+  " move the window back to where it was.
   let winposx = getwinposx()
   let winposy = getwinposy()
+
+  if winposx >= 0 && winposy >= 0 && !has('gui_running')
+    " We did get the window position, but xterm may report the wrong numbers.
+    " Move the window to the reported position and compute any offset.
+    exe 'winpos ' . winposx . ' ' . winposy
+    sleep 100m
+    let x = getwinposx()
+    if x >= 0
+      let winposx += winposx - x
+    endif
+    let y = getwinposy()
+    if y >= 0
+      let winposy += winposy - y
+    endif
+  endif
+
   let save_columns = &columns
   " Need at least about 1100 columns to reproduce the problem.
   set columns=2000
@@ -1462,4 +1481,39 @@ func Test_edit_special_chars()
   call assert_equal("ABC !a\<C-O>g\<C-G>8", getline(2))
 
   close!
+endfunc
+
+func Test_edit_startinsert()
+  new
+  set backspace+=start
+  call setline(1, 'foobar')
+  call feedkeys("A\<C-U>\<Esc>", 'xt')
+  call assert_equal('', getline(1))
+
+  call setline(1, 'foobar')
+  call feedkeys(":startinsert!\<CR>\<C-U>\<Esc>", 'xt')
+  call assert_equal('', getline(1))
+
+  set backspace&
+  bwipe!
+endfunc
+
+func Test_edit_noesckeys()
+  CheckNotGui
+  new
+
+  " <Left> moves cursor when 'esckeys' is set
+  exe "set t_kl=\<Esc>OD"
+  set esckeys
+  call feedkeys("axyz\<Esc>ODX", "xt")
+  call assert_equal("xyXz", getline(1))
+
+  " <Left> exits Insert mode when 'esckeys' is off
+  set noesckeys
+  call setline(1, '')
+  call feedkeys("axyz\<Esc>ODX", "xt")
+  call assert_equal(["DX", "xyz"], getline(1, 2))
+
+  bwipe!
+  set esckeys
 endfunc

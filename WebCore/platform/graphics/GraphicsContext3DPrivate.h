@@ -28,8 +28,9 @@ namespace WebCore {
 class BitmapTextureGL;
 
 class GraphicsContext3DPrivate {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    GraphicsContext3DPrivate(GraphicsContext3D*, GraphicsContext3D::RenderStyle);
+    GraphicsContext3DPrivate(GraphicsContext3D*, GraphicsContext3D::Destination);
     ~GraphicsContext3DPrivate();
     bool makeContextCurrent();
     PlatformGraphicsContext3D platformContext();

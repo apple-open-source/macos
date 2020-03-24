@@ -41,14 +41,14 @@ class WebHeapAgent : public Inspector::InspectorHeapAgent {
     friend class SendGarbageCollectionEventsTask;
 public:
     WebHeapAgent(WebAgentContext&);
-    virtual ~WebHeapAgent();
+    ~WebHeapAgent() override;
 
-protected:
+    // HeapBackendDispatcherHandler
     void enable(ErrorString&) override;
     void disable(ErrorString&) override;
 
-    void dispatchGarbageCollectedEvent(Inspector::Protocol::Heap::GarbageCollection::Type, Seconds startTime, Seconds endTime) override;
-
+protected:
+    void dispatchGarbageCollectedEvent(Inspector::Protocol::Heap::GarbageCollection::Type, Seconds startTime, Seconds endTime) final;
     void dispatchGarbageCollectionEventsAfterDelay(Vector<GarbageCollectionData>&& collections);
 
     InstrumentingAgents& m_instrumentingAgents;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -50,6 +50,8 @@ int main(int argc, const char * argv[]) {
 		Class testClass;
 		SCTest *testClassObject;
 
+		_sc_log = 0;	// print (stdout)
+
 		if (argc == 1) {
 			usage();
 		}
@@ -85,6 +87,8 @@ int main(int argc, const char * argv[]) {
 				break;
 			}
 		}
+
+		_sc_log = 3;	// log AND print (stdout w/o timestamp)
 
 		testClassObject = [(SCTest *)[testClass alloc] initWithOptions:options];
 		if (testClassObject.options[kSCTestGlobalOptionCPU] != nil) {

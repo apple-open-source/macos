@@ -2,7 +2,7 @@ PRODUCT_NAME = xml2;
 INSTALL_PATH = /usr/local/lib/libxml2;
 EXECUTABLE_PREFIX = lib;
 
-PUBLIC_HEADERS_FOLDER_PATH = /usr/include/libxml2/libxml;
+PUBLIC_HEADERS_FOLDER_PATH = /usr/include/libxml;
 
 // Override HEADER_SEARCH_PATHS from Base.xcconfig for libxml2.a.
 HEADER_SEARCH_PATHS = "$(SRCROOT)/Pregenerated Files/include" $(SRCROOT)/libxml2/include;

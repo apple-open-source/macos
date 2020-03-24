@@ -46,13 +46,13 @@ class InbandMetadataTextTrackPrivateAVF;
 class InbandTextTrackPrivateAVF;
 class GenericCueData;
 
-class MediaPlayerPrivateAVFoundation : public CanMakeWeakPtr<MediaPlayerPrivateAVFoundation>, public MediaPlayerPrivateInterface, public AVFInbandTrackParent
+// Use eager initialization for the WeakPtrFactory since we call makeWeakPtr() from another thread.
+class MediaPlayerPrivateAVFoundation : public CanMakeWeakPtr<MediaPlayerPrivateAVFoundation, WeakPtrFactoryInitialization::Eager>, public MediaPlayerPrivateInterface, public AVFInbandTrackParent
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
 #endif
 {
 public:
-    virtual void repaint();
     virtual void metadataLoaded();
     virtual void playabilityKnown();
     virtual void rateChanged();
@@ -165,7 +165,7 @@ protected:
     void load(const String&, MediaSourcePrivateClient*) override;
 #endif
 #if ENABLE(MEDIA_STREAM)
-    void load(MediaStreamPrivate&) override { setNetworkState(MediaPlayer::FormatError); }
+    void load(MediaStreamPrivate&) override { setNetworkState(MediaPlayer::NetworkState::FormatError); }
 #endif
     void cancelLoad() override = 0;
 
@@ -186,14 +186,12 @@ protected:
     bool paused() const override;
     void setVolume(float) override = 0;
     bool hasClosedCaptions() const override { return m_cachedHasCaptions; }
-    void setClosedCaptionsVisible(bool) override = 0;
     MediaPlayer::NetworkState networkState() const override { return m_networkState; }
     MediaPlayer::ReadyState readyState() const override { return m_readyState; }
     MediaTime maxMediaTimeSeekable() const override;
     MediaTime minMediaTimeSeekable() const override;
     std::unique_ptr<PlatformTimeRanges> buffered() const override;
     bool didLoadingProgress() const override;
-    void setSize(const IntSize&) override;
     void paint(GraphicsContext&, const FloatRect&) override = 0;
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&) override = 0;
     void setPreload(MediaPlayer::Preload) override;
@@ -294,8 +292,7 @@ protected:
     MediaRenderingMode currentRenderingMode() const;
     MediaRenderingMode preferredRenderingMode() const;
 
-    bool metaDataAvailable() const { return m_readyState >= MediaPlayer::HaveMetadata; }
-    double requestedRate() const;
+    bool metaDataAvailable() const { return m_readyState >= MediaPlayer::ReadyState::HaveMetadata; }
     MediaTime maxTimeLoaded() const;
     bool isReadyForVideoSetup() const;
     virtual void setUpVideoRendering();
@@ -327,7 +324,6 @@ protected:
     const URL& resolvedURL() const { return m_resolvedURL; }
 
 private:
-    WeakPtr<MediaPlayerPrivateAVFoundation> m_weakThis;
     MediaPlayer* m_player;
 
     WTF::Function<void()> m_pendingSeek;

@@ -50,16 +50,19 @@ class Document;
 class Element;
 class Node;
 class NodeList;
-class StyleResolver;
 class StyleRule;
 
-class InspectorCSSAgent final
-    : public InspectorAgentBase
-    , public Inspector::CSSBackendDispatcherHandler
-    , public InspectorStyleSheet::Listener {
+namespace Style {
+class Resolver;
+}
+
+class InspectorCSSAgent final : public InspectorAgentBase , public Inspector::CSSBackendDispatcherHandler , public InspectorStyleSheet::Listener {
     WTF_MAKE_NONCOPYABLE(InspectorCSSAgent);
     WTF_MAKE_FAST_ALLOCATED;
 public:
+    InspectorCSSAgent(WebAgentContext&);
+    ~InspectorCSSAgent() override;
+
     class InlineStyleOverrideScope {
     public:
         InlineStyleOverrideScope(SecurityContext& context)
@@ -77,20 +80,11 @@ public:
         ContentSecurityPolicy* m_contentSecurityPolicy;
     };
 
-    InspectorCSSAgent(WebAgentContext&);
-    virtual ~InspectorCSSAgent() = default;
-
     static CSSStyleRule* asCSSStyleRule(CSSRule&);
 
+    // InspectorAgentBase
     void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) override;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
-    void reset();
-
-    // InspectorInstrumentation
-    void documentDetached(Document&);
-    void mediaQueryResultChanged();
-    void activeStyleSheetsUpdated(Document&);
-    bool forcePseudoState(const Element&, CSSSelector::PseudoClassType);
 
     // CSSBackendDispatcherHandler
     void enable(ErrorString&) override;
@@ -110,9 +104,20 @@ public:
     void getSupportedSystemFontFamilyNames(ErrorString&, RefPtr<JSON::ArrayOf<String>>& result) override;
     void forcePseudoState(ErrorString&, int nodeId, const JSON::Array& forcedPseudoClasses) override;
 
+    // InspectorStyleSheet::Listener
+    void styleSheetChanged(InspectorStyleSheet*) override;
+
+    // InspectorInstrumentation
+    void documentDetached(Document&);
+    void mediaQueryResultChanged();
+    void activeStyleSheetsUpdated(Document&);
+    bool forcePseudoState(const Element&, CSSSelector::PseudoClassType);
+
     // InspectorDOMAgent hooks
     void didRemoveDOMNode(Node&, int nodeId);
     void didModifyDOMAttr(Element&);
+
+    void reset();
 
 private:
     class StyleSheetAction;
@@ -140,13 +145,11 @@ private:
     InspectorStyleSheet* createInspectorStyleSheetForDocument(Document&);
     Inspector::Protocol::CSS::StyleSheetOrigin detectOrigin(CSSStyleSheet* pageStyleSheet, Document* ownerDocument);
 
-    RefPtr<Inspector::Protocol::CSS::CSSRule> buildObjectForRule(StyleRule*, StyleResolver&, Element&);
+    RefPtr<Inspector::Protocol::CSS::CSSRule> buildObjectForRule(const StyleRule*, Style::Resolver&, Element&);
     RefPtr<Inspector::Protocol::CSS::CSSRule> buildObjectForRule(CSSStyleRule*);
-    RefPtr<JSON::ArrayOf<Inspector::Protocol::CSS::RuleMatch>> buildArrayForMatchedRuleList(const Vector<RefPtr<StyleRule>>&, StyleResolver&, Element&, PseudoId);
+    RefPtr<JSON::ArrayOf<Inspector::Protocol::CSS::RuleMatch>> buildArrayForMatchedRuleList(const Vector<RefPtr<const StyleRule>>&, Style::Resolver&, Element&, PseudoId);
     RefPtr<Inspector::Protocol::CSS::CSSStyle> buildObjectForAttributesStyle(StyledElement&);
 
-    // InspectorCSSAgent::Listener implementation
-    void styleSheetChanged(InspectorStyleSheet*) override;
 
     void resetPseudoStates();
 

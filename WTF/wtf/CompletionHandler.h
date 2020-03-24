@@ -35,15 +35,13 @@ template<typename> class CompletionHandler;
 // Wraps a Function to make sure it is always called once and only once.
 template <typename Out, typename... In>
 class CompletionHandler<Out(In...)> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     CompletionHandler() = default;
 
     template<typename CallableType, class = typename std::enable_if<std::is_rvalue_reference<CallableType&&>::value>::type>
     CompletionHandler(CallableType&& callable)
         : m_function(WTFMove(callable))
-#if !ASSERT_DISABLED
-        , m_wasConstructedOnMainThread(isMainThread())
-#endif
     {
     }
 
@@ -67,7 +65,7 @@ public:
 private:
     Function<Out(In...)> m_function;
 #if !ASSERT_DISABLED
-    bool m_wasConstructedOnMainThread;
+    bool m_wasConstructedOnMainThread { isMainThread() };
 #endif
 };
 
@@ -75,6 +73,7 @@ namespace Detail {
 
 template<typename Out, typename... In>
 class CallableWrapper<CompletionHandler<Out(In...)>, Out, In...> : public CallableWrapperBase<Out, In...> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit CallableWrapper(CompletionHandler<Out(In...)>&& completionHandler)
         : m_completionHandler(WTFMove(completionHandler))
@@ -88,7 +87,8 @@ private:
 
 } // namespace Detail
 
-class CompletionHandlerCallingScope {
+class CompletionHandlerCallingScope final {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     CompletionHandlerCallingScope() = default;
 

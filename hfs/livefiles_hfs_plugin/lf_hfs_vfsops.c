@@ -839,6 +839,7 @@ hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args)
 
     retval = hfs_CollectBtreeStats(hfsmp, vhp, embeddedOffset, args);
     free(vhp);
+    vhp = NULL;
     if ( retval )
     {
         LFHFS_LOG(LEVEL_DEBUG, "hfs_mountfs: hfs_CollectBtreeStats encountered failure %d \n", retval);

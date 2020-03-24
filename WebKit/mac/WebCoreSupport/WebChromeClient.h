@@ -41,6 +41,7 @@ class HTMLImageElement;
 // base class of the concrete class, WebChromeClientIOS. Because of that, this class and
 // many of its functions are not marked final. That is messy way to organize things.
 class WebChromeClient : public WebCore::ChromeClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WebChromeClient(WebView*);
 
@@ -117,9 +118,9 @@ private:
 
     bool shouldUnavailablePluginMessageBeButton(WebCore::RenderEmbeddedObject::PluginUnavailabilityReason) const final;
     void unavailablePluginButtonClicked(WebCore::Element&, WebCore::RenderEmbeddedObject::PluginUnavailabilityReason) const final;
-    void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags) final;
+    void mouseDidMoveOverElement(const WebCore::HitTestResult&, unsigned modifierFlags, const String&, WebCore::TextDirection) final;
 
-    void setToolTip(const String&, WebCore::TextDirection) final;
+    void setToolTip(const String&);
 
     void print(WebCore::Frame&) final;
     void exceededDatabaseQuota(WebCore::Frame&, const String& databaseName, WebCore::DatabaseDetails) final;
@@ -157,9 +158,6 @@ private:
 
     void enableSuddenTermination() final;
     void disableSuddenTermination() final;
-
-    bool shouldReplaceWithGeneratedFileForUpload(const String& path, String &generatedFilename) final;
-    String generateReplacementFile(const String& path) final;
 
 #if !PLATFORM(IOS_FAMILY)
     void elementDidFocus(WebCore::Element&) override;
@@ -229,6 +227,7 @@ private:
     void playbackTargetPickerClientStateDidChange(uint64_t /*contextId*/, WebCore::MediaProducer::MediaStateFlags) final;
     void setMockMediaPlaybackTargetPickerEnabled(bool) final;
     void setMockMediaPlaybackTargetPickerState(const String&, WebCore::MediaPlaybackTargetContext::State) final;
+    void mockMediaPlaybackTargetPickerDismissPopup() override;
 #endif
 
     String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String& challengeString, const URL&) const final;

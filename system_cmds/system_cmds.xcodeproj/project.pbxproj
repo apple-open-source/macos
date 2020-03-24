@@ -2370,6 +2370,7 @@
 		3521C8562245AB52001B3201 /* cpuctl.tproj */ = {isa = PBXFileReference; lastKnownFileType = folder; path = cpuctl.tproj; sourceTree = "<group>"; };
 		358407CD2245AC09006A0D8E /* cpuctl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = cpuctl.c; path = cpuctl.tproj/cpuctl.c; sourceTree = "<group>"; };
 		358407CF2245AC32006A0D8E /* cpuctl.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = cpuctl.8; path = cpuctl.tproj/cpuctl.8; sourceTree = "<group>"; };
+		43A96C7223D2DAAE0033235B /* login.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = login.entitlements; sourceTree = "<group>"; };
 		550C19E01804C55E001DA380 /* iosim.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = iosim.1; sourceTree = "<group>"; };
 		550C19E11804C55E001DA380 /* iosim.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = iosim.c; sourceTree = "<group>"; };
 		550C19EB1804D226001DA380 /* iosim */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iosim; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -3504,6 +3505,7 @@
 		BA4FD2591372FAFA0025925C /* login.tproj */ = {
 			isa = PBXGroup;
 			children = (
+				43A96C7223D2DAAE0033235B /* login.entitlements */,
 				BA4FD25B1372FAFA0025925C /* klogin.c */,
 				BA4FD25C1372FAFA0025925C /* login.1 */,
 				BA4FD25D1372FAFA0025925C /* login.c */,
@@ -7249,6 +7251,7 @@
 		18732FFB18CBD4A700275344 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = login.tproj/login.entitlements;
 				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*][arch=*]" = (
 					"$(inherited)",
 					USE_PAM,
@@ -7905,6 +7908,7 @@
 		BA473DB21377B2230005CC19 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = login.tproj/login.entitlements;
 				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*][arch=*]" = (
 					"$(inherited)",
 					USE_PAM,

@@ -54,6 +54,8 @@
 
 #include <OpenDirectory/OpenDirectory.h>
 
+#include <os/log.h>
+
 #include "deflt.h"
 #include "autofs.h"
 #include "automount.h"
@@ -84,6 +86,8 @@ static int mount_timeout = AUTOFS_MOUNT_TIMEOUT;
 
 static char gKextLoadCommand[] = "/sbin/kextload";
 static char gKextLoadPath[] = "/System/Library/Extensions/autofs.kext";
+
+os_log_t automount_logger;
 
 /*
  * XXX
@@ -185,6 +189,7 @@ make_ephemeral_link(struct autodir *dir)
 		}
 	}
  out:
+
 	return rv;
 }
 
@@ -224,6 +229,9 @@ main(int argc, char *argv[])
 	int flags, altflags;
 	struct staticmap *static_ent;
 
+	automount_logger = os_log_create("com.apple.filesystem.autofs", "automount");
+
+	os_log(automount_logger, "start");
 	/*
 	 * Read in the values from config file first before we check
 	 * commandline options so the options override the file.
@@ -308,6 +316,7 @@ main(int argc, char *argv[])
 	num_current_mounts = getmntinfo(&current_mounts, MNT_NOWAIT);
 	if (num_current_mounts == 0) {
 		pr_msg(LOG_ERR, "Couldn't get current mounts: %m");
+		os_log_error(automount_logger, "finish:getmntinfo");
 		exit(1);
 	}
 
@@ -356,6 +365,7 @@ main(int argc, char *argv[])
 		error = load_autofs();
 		if (error != 0) {
 			pr_msg(LOG_ERR, "can't load autofs kext");
+			os_log_error(automount_logger, "finish:load_autofs");
 			exit(1);
 		}
 
@@ -370,6 +380,7 @@ main(int argc, char *argv[])
 			pr_msg(LOG_ERR, "Another automount is running");
 		else
 			pr_msg(LOG_ERR, "Couldn't open %s: %m", "/dev/" AUTOFS_CONTROL_DEVICE);
+		os_log_error(automount_logger, "finish:autofs_control_fd");
 		exit(1);
 	}
 
@@ -393,6 +404,7 @@ main(int argc, char *argv[])
 			pr_msg(LOG_INFO, "Unmounting triggered mounts");
 		if (ioctl(autofs_control_fd, AUTOFS_UNMOUNT_TRIGGERED, 0) == -1)
 			pr_msg(LOG_WARNING, "AUTOFS_UNMOUNT_TRIGGERED failed: %m");
+		os_log(automount_logger, "finish:update");
 		exit(0);
 	}
 
@@ -413,6 +425,7 @@ main(int argc, char *argv[])
 	/*
 	 * Mount the daemon at its mount points.
 	 */
+	os_log(automount_logger, "master map loaded");
 	for (dir = dir_head; dir; dir = dir->dir_next) {
 
 		if (automount_realpath(dir->dir_name, real_mntpnt) == NULL) {
@@ -428,6 +441,7 @@ main(int argc, char *argv[])
 			if (errno != ENOENT) {
 				pr_msg(LOG_WARNING, "%s: Can't convert to real path: %m",
 				    dir->dir_name);
+				os_log_error(automount_logger, "automount_realpath:%s:%s:skipping", dir->dir_name, dir->dir_map);
 				continue;
 			}
 			dir->dir_realpath = NULL;
@@ -435,6 +449,7 @@ main(int argc, char *argv[])
 			dir->dir_realpath = strdup(real_mntpnt);
 			if (dir->dir_realpath == NULL) {
 				pr_msg(LOG_ERR, "Couldn't allocate real path: %m");
+				os_log_error(automount_logger, "finish:realpath:strdup");
 				exit(1);
 			}
 		}
@@ -443,7 +458,10 @@ main(int argc, char *argv[])
 		 * Skip null entries
 		 */
 		if (strcmp(dir->dir_map, "-null") == 0)
+		{
+			os_log(automount_logger, "skipping null map");
 			continue;
+		}
 
 		/*
 		 * Skip null'ed entries
@@ -526,7 +544,18 @@ main(int argc, char *argv[])
 		 * exist at the "mount point" path.
 		 */
 		if (strcmp(dir->dir_map, "-static") == 0) {
+			size_t prefix_len;
+
 			static_ent = get_staticmap_entry(dir->dir_name);
+			if (static_ent == NULL &&
+			    has_rosv_data_volume_prefix(dir->dir_name, &prefix_len)) {
+				/*
+				 * We didn't find an entry, but we have the
+				 * ROSV data volume prefix.  Try looking it up
+				 * again without the prefix.
+				 */
+				static_ent = get_staticmap_entry(dir->dir_name + prefix_len);
+			}
 			if (static_ent == NULL) {
 				/*
 				 * Whiskey tango foxtrot?  There should
@@ -641,6 +670,8 @@ main(int argc, char *argv[])
 					    dir->dir_name);
 					continue;
 				}
+
+				make_ephemeral_link(dir);
 			} else {
 				/*
 				 * Mountpoint doesn't exist.
@@ -757,6 +788,7 @@ main(int argc, char *argv[])
 		close(fd);
 	}
 
+	os_log(automount_logger, "finish");
 	return (0);
 }
 
@@ -917,6 +949,7 @@ static void
 usage()
 {
 	pr_msg(LOG_ERR, "Usage: automount  [ -vcu ]  [ -t duration ]");
+	os_log_error(automount_logger, "automount usage");
 	exit(1);
 	/* NOTREACHED */
 }

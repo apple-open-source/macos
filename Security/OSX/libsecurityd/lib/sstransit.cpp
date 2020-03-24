@@ -155,7 +155,10 @@ DataRetrieval::~DataRetrieval()
 {
 	if (mAddr) {
 		relocate(mAddr, mBase);
-		assert(mAttributes->size() == mAddr->size());
+		if (mAttributes->size() != mAddr->size()) {
+			secemergency("~DataRetrieval: size mismatch, %u != %u", mAttributes->size(), mAddr->size());
+			abort();
+		}
 		
 		// global (per-record) fields
 		mAttributes->recordType(mAddr->recordType());

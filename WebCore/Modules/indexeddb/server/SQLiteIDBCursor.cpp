@@ -46,7 +46,7 @@ static const size_t prefetchLimit = 8;
 
 std::unique_ptr<SQLiteIDBCursor> SQLiteIDBCursor::maybeCreate(SQLiteIDBTransaction& transaction, const IDBCursorInfo& info)
 {
-    auto cursor = std::make_unique<SQLiteIDBCursor>(transaction, info);
+    auto cursor = makeUnique<SQLiteIDBCursor>(transaction, info);
 
     if (!cursor->establishStatement())
         return nullptr;
@@ -59,7 +59,7 @@ std::unique_ptr<SQLiteIDBCursor> SQLiteIDBCursor::maybeCreate(SQLiteIDBTransacti
 
 std::unique_ptr<SQLiteIDBCursor> SQLiteIDBCursor::maybeCreateBackingStoreCursor(SQLiteIDBTransaction& transaction, const uint64_t objectStoreID, const uint64_t indexID, const IDBKeyRangeData& range)
 {
-    auto cursor = std::make_unique<SQLiteIDBCursor>(transaction, objectStoreID, indexID, range);
+    auto cursor = makeUnique<SQLiteIDBCursor>(transaction, objectStoreID, indexID, range);
 
     if (!cursor->establishStatement())
         return nullptr;
@@ -199,7 +199,7 @@ bool SQLiteIDBCursor::createSQLiteStatement(const String& sql)
     ASSERT(!m_currentUpperKey.isNull());
     ASSERT(m_transaction->sqliteTransaction());
 
-    m_statement = std::make_unique<SQLiteStatement>(m_transaction->sqliteTransaction()->database(), sql);
+    m_statement = makeUnique<SQLiteStatement>(m_transaction->sqliteTransaction()->database(), sql);
 
     if (m_statement->prepare() != SQLITE_OK) {
         LOG_ERROR("Could not create cursor statement (prepare/id) - '%s'", m_transaction->sqliteTransaction()->database().lastErrorMsg());
@@ -456,8 +456,7 @@ SQLiteIDBCursor::FetchResult SQLiteIDBCursor::internalFetchNextRecord(SQLiteCurs
         record.record.primaryKey = record.record.key;
 
         Vector<String> blobURLs, blobFilePaths;
-        PAL::SessionID sessionID;
-        auto error = m_transaction->backingStore().getBlobRecordsForObjectStoreRecord(record.rowID, blobURLs, sessionID, blobFilePaths);
+        auto error = m_transaction->backingStore().getBlobRecordsForObjectStoreRecord(record.rowID, blobURLs, blobFilePaths);
         if (!error.isNull()) {
             LOG_ERROR("Unable to fetch blob records from database while advancing cursor");
             markAsErrored(record);
@@ -465,7 +464,7 @@ SQLiteIDBCursor::FetchResult SQLiteIDBCursor::internalFetchNextRecord(SQLiteCurs
         }
 
         if (m_cursorType == IndexedDB::CursorType::KeyAndValue)
-            record.record.value = std::make_unique<IDBValue>(ThreadSafeDataBuffer::create(WTFMove(keyData)), blobURLs, sessionID, blobFilePaths);
+            record.record.value = makeUnique<IDBValue>(ThreadSafeDataBuffer::create(WTFMove(keyData)), blobURLs, blobFilePaths);
     } else {
         if (!deserializeIDBKeyData(keyData.data(), keyData.size(), record.record.primaryKey)) {
             LOG_ERROR("Unable to deserialize value data from database while advancing index cursor");
@@ -473,21 +472,25 @@ SQLiteIDBCursor::FetchResult SQLiteIDBCursor::internalFetchNextRecord(SQLiteCurs
             return FetchResult::Failure;
         }
 
-        SQLiteStatement objectStoreStatement(m_statement->database(), "SELECT value FROM Records WHERE key = CAST(? AS TEXT) and objectStoreID = ?;");
+        if (!m_cachedObjectStoreStatement || m_cachedObjectStoreStatement->reset() != SQLITE_OK) {
+            m_cachedObjectStoreStatement = makeUnique<SQLiteStatement>(m_statement->database(), "SELECT value FROM Records WHERE key = CAST(? AS TEXT) and objectStoreID = ?;");
+            if (m_cachedObjectStoreStatement->prepare() != SQLITE_OK)
+                m_cachedObjectStoreStatement = nullptr;
+        }
 
-        if (objectStoreStatement.prepare() != SQLITE_OK
-            || objectStoreStatement.bindBlob(1, keyData.data(), keyData.size()) != SQLITE_OK
-            || objectStoreStatement.bindInt64(2, m_objectStoreID) != SQLITE_OK) {
+        if (!m_cachedObjectStoreStatement
+            || m_cachedObjectStoreStatement->bindBlob(1, keyData.data(), keyData.size()) != SQLITE_OK
+            || m_cachedObjectStoreStatement->bindInt64(2, m_objectStoreID) != SQLITE_OK) {
             LOG_ERROR("Could not create index cursor statement into object store records (%i) '%s'", m_statement->database().lastError(), m_statement->database().lastErrorMsg());
             markAsErrored(record);
             return FetchResult::Failure;
         }
 
-        int result = objectStoreStatement.step();
+        int result = m_cachedObjectStoreStatement->step();
 
         if (result == SQLITE_ROW) {
-            objectStoreStatement.getColumnBlobAsVector(0, keyData);
-            record.record.value = std::make_unique<IDBValue>(ThreadSafeDataBuffer::create(WTFMove(keyData)));
+            m_cachedObjectStoreStatement->getColumnBlobAsVector(0, keyData);
+            record.record.value = makeUnique<IDBValue>(ThreadSafeDataBuffer::create(WTFMove(keyData)));
         } else if (result == SQLITE_DONE) {
             // This indicates that the record we're trying to retrieve has been removed from the object store.
             // Skip over it.

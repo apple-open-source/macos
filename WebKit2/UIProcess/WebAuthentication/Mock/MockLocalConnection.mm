@@ -28,8 +28,10 @@
 
 #if ENABLE(WEB_AUTHN)
 
+#import <Security/SecItem.h>
 #import <WebCore/ExceptionData.h>
 #import <wtf/RunLoop.h>
+#import <wtf/spi/cocoa/SecuritySPI.h>
 #import <wtf/text/WTFString.h>
 
 #import "LocalAuthenticationSoftLink.h"
@@ -97,6 +99,12 @@ void MockLocalConnection::getAttestation(const String& rpId, const String& usern
             (id)kSecValueRef: (id)key.get(),
             (id)kSecClass: (id)kSecClassKey,
             (id)kSecAttrLabel: (id)label,
+            (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+#if HAVE(DATA_PROTECTION_KEYCHAIN)
+            (id)kSecUseDataProtectionKeychain: @YES
+#else
+            (id)kSecAttrNoLegacy: @YES
+#endif
         };
         OSStatus status = SecItemAdd((__bridge CFDictionaryRef)addQuery, NULL);
         ASSERT_UNUSED(status, !status);
@@ -106,6 +114,17 @@ void MockLocalConnection::getAttestation(const String& rpId, const String& usern
 
         callback(key.get(), [NSArray arrayWithObjects: (__bridge id)attestationCertificate.get(), (__bridge id)attestationIssuingCACertificate.get(), nil], NULL);
     });
+}
+
+NSDictionary *MockLocalConnection::selectCredential(const NSArray *credentials) const
+{
+    auto preferredUserhandle = adoptNS([[NSData alloc] initWithBase64EncodedString:m_configuration.local->preferredUserhandleBase64 options:0]);
+    for (NSDictionary *credential : credentials) {
+        if ([credential[(id)kSecAttrApplicationTag] isEqualToData:preferredUserhandle.get()])
+            return credential;
+    }
+    ASSERT_NOT_REACHED();
+    return nil;
 }
 
 } // namespace WebKit

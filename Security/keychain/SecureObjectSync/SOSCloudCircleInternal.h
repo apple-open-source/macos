@@ -56,7 +56,6 @@ bool SOSCCPurgeUserCredentials(CFErrorRef* error);
 CFStringRef SOSCCGetStatusDescription(SOSCCStatus status);
 CFStringRef SOSCCGetViewResultDescription(SOSViewResultCode vrc);
 bool SOSCCAccountHasPublicKey(CFErrorRef *error);
-bool SOSCCAccountIsNew(CFErrorRef *error);
 
 /*!
  @function SOSCCProcessSyncWithPeers
@@ -75,14 +74,6 @@ SyncWithAllPeersReason SOSCCProcessSyncWithAllPeers(CFErrorRef* error);
 
 bool SOSCCProcessEnsurePeerRegistration(CFErrorRef* error);
 
-//Rings
-CFStringRef SOSCCGetAllTheRings(CFErrorRef *error);
-
-bool SOSCCApplyToARing(CFStringRef ringName, CFErrorRef* error);
-bool SOSCCWithdrawlFromARing(CFStringRef ringName, CFErrorRef* error);
-int SOSCCRingStatus(CFStringRef ringName, CFErrorRef* error);   // TODO: this returns SOSRingStatus
-bool SOSCCEnableRing(CFStringRef ringName, CFErrorRef* error);
-
 bool SOSCCCleanupKVSKeys(CFErrorRef *error);
 
 
@@ -93,27 +84,10 @@ bool SOSCCCleanupKVSKeys(CFErrorRef *error);
  */
 SOSPeerInfoRef SOSCCCopyMyPeerInfo(CFErrorRef *error);
 
-/*!
- @function SOSWrapToBackupSliceKeyBagForView
- @abstract Encrypts the given plaintext, and wraps the encryption key to the backup slice keybag for this view
- @param viewName The view to wrap to
- @param input The plaintext to encrypt
- @param output The ciphertext
- @param bskbEncoded The encoded backup slice keybag used to wrap the data
- @param error What went wrong if we returned false
- */
-bool SOSWrapToBackupSliceKeyBagForView(CFStringRef viewName, CFDataRef input, CFDataRef* output, CFDataRef* bskbEncoded, CFErrorRef* error);
-
 //
 // Security Tool calls
 //
-CFDataRef SOSCCCopyAccountState(CFErrorRef* error);
-bool SOSCCDeleteAccountState(CFErrorRef *error);
-CFDataRef SOSCCCopyEngineData(CFErrorRef* error);
-bool SOSCCDeleteEngineState(CFErrorRef *error);
 CFDataRef SOSCCCopyRecoveryPublicKey(CFErrorRef *error);
-CFDictionaryRef SOSCCCopyBackupInformation(CFErrorRef *error);
-bool SOSCCTestPopulateKVSWithBadKeys(CFErrorRef *error);
 CFDataRef SOSCCCopyInitialSyncData(SOSInitialSyncFlags flags, CFErrorRef *error);
 
 void SOSCCForEachEngineStateAsStringFromArray(CFArrayRef states, void (^block)(CFStringRef oneStateString));

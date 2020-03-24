@@ -276,12 +276,7 @@ enum {
     kIOHIDOpenedByFastPathClient    = 0x20000
 };
 
-/*!
- @defined kIOHIDMessageOpenedByEventSystem
- @abstract message to IOHIDInterface and /or IOHIDDevice if instance of corresponding  IOHIDEventService opened by event system and ready to receive events
- */
-
-#define kIOHIDMessageOpenedByEventSystem  iokit_vendor_specific_msg(1)
+// iokit_vendor_specific_msg(1) unused
 
 /*!
  @defined kIOHIDMessageRelayServiceInterfaceActive
@@ -289,7 +284,6 @@ enum {
  */
 
 #define kIOHIDMessageRelayServiceInterfaceActive     iokit_vendor_specific_msg(2)
-
 
 __END_DECLS
 

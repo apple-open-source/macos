@@ -40,16 +40,11 @@ namespace WHLSL {
 namespace AST {
 
 IntegerLiteralType::IntegerLiteralType(CodeLocation location, int value)
-    : m_value(value)
-    , m_preferredType(makeUniqueRef<TypeReference>(location, "int"_str, TypeArguments()))
+    : ResolvableType(Kind::IntegerLiteral)
+    , m_value(value)
+    , m_preferredType(TypeReference::create(location, "int"_str, TypeArguments()))
 {
 }
-
-IntegerLiteralType::~IntegerLiteralType() = default;
-
-IntegerLiteralType::IntegerLiteralType(IntegerLiteralType&&) = default;
-
-IntegerLiteralType& IntegerLiteralType::operator=(IntegerLiteralType&&) = default;
 
 bool IntegerLiteralType::canResolve(const Type& type) const
 {
@@ -77,8 +72,8 @@ IntegerLiteralType IntegerLiteralType::clone() const
 {
     IntegerLiteralType result(m_preferredType->codeLocation(), m_value);
     if (auto* type = maybeResolvedType())
-        result.resolve(type->clone());
-    result.m_preferredType = m_preferredType->cloneTypeReference();
+        result.resolve(const_cast<AST::UnnamedType&>(*type));
+    result.m_preferredType = m_preferredType.copyRef();
     return result;
 }
 

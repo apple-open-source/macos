@@ -58,6 +58,10 @@ typedef EGLBoolean (*PFNEGLBINDWAYLANDDISPLAYWL) (EGLDisplay, struct wl_display*
 typedef EGLBoolean (*PFNEGLUNBINDWAYLANDDISPLAYWL) (EGLDisplay, struct wl_display*);
 #endif
 
+#if !defined(EGL_WAYLAND_BUFFER_WL)
+#define EGL_WAYLAND_BUFFER_WL 0x31D5
+#endif
+
 #if !defined(PFNEGLQUERYWAYLANDBUFFERWL)
 typedef EGLBoolean (*PFNEGLQUERYWAYLANDBUFFERWL) (EGLDisplay, struct wl_resource*, EGLint attribute, EGLint* value);
 #endif
@@ -167,6 +171,9 @@ WaylandCompositor::Surface::~Surface()
 
 void WaylandCompositor::Surface::setWebPage(WebPageProxy* webPage)
 {
+    if (m_webPage == webPage)
+        return;
+
     if (m_webPage) {
         flushPendingFrameCallbacks();
         flushFrameCallbacks();
@@ -420,9 +427,9 @@ bool WaylandCompositor::initializeEGL()
         return false;
 
 #if USE(OPENGL_ES)
-    std::unique_ptr<Extensions3DOpenGLES> glExtensions = std::make_unique<Extensions3DOpenGLES>(nullptr,  false);
+    std::unique_ptr<Extensions3DOpenGLES> glExtensions = makeUnique<Extensions3DOpenGLES>(nullptr,  false);
 #else
-    std::unique_ptr<Extensions3DOpenGL> glExtensions = std::make_unique<Extensions3DOpenGL>(nullptr, GLContext::current()->version() >= 320);
+    std::unique_ptr<Extensions3DOpenGL> glExtensions = makeUnique<Extensions3DOpenGL>(nullptr, GLContext::current()->version() >= 320);
 #endif
     if (glExtensions->supports("GL_OES_EGL_image") || glExtensions->supports("GL_OES_EGL_image_external"))
         glImageTargetTexture2D = reinterpret_cast<PFNGLEGLIMAGETARGETTEXTURE2DOESPROC>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
@@ -551,7 +558,7 @@ void WaylandCompositor::bindSurfaceToWebPage(WaylandCompositor::Surface* surface
 {
     WebPageProxy* webPage = nullptr;
     for (auto* page : m_pageMap.keys()) {
-        if (page->pageID() == pageID) {
+        if (page->webPageID() == pageID) {
             webPage = page;
             break;
         }
@@ -561,6 +568,18 @@ void WaylandCompositor::bindSurfaceToWebPage(WaylandCompositor::Surface* surface
 
     surface->setWebPage(webPage);
     m_pageMap.set(webPage, makeWeakPtr(*surface));
+}
+
+void WaylandCompositor::bindWebPage(WebPageProxy& webPage)
+{
+    if (WeakPtr<Surface> surface = m_pageMap.get(&webPage))
+        surface->setWebPage(&webPage);
+}
+
+void WaylandCompositor::unbindWebPage(WebPageProxy& webPage)
+{
+    if (WeakPtr<Surface> surface = m_pageMap.get(&webPage))
+        surface->setWebPage(nullptr);
 }
 
 void WaylandCompositor::registerWebPage(WebPageProxy& webPage)

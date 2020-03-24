@@ -40,8 +40,10 @@
 #include <math.h>
 #include <CoreGraphics/CoreGraphics.h>
 #include <ImageIO/ImageIO.h>
+#include <pal/spi/cg/CoreGraphicsSPI.h>
 #include <wtf/Assertions.h>
 #include <wtf/CheckedArithmetic.h>
+#include <wtf/DebugHeap.h>
 #include <wtf/MainThread.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/Base64.h>
@@ -60,6 +62,9 @@
 #define USE_ARGB32 PLATFORM(IOS_FAMILY)
 
 namespace WebCore {
+
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ImageBuffer);
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ImageBuffer);
 
 static FloatSize scaleSizeToUserSpace(const FloatSize& logicalSize, const IntSize& backingStoreSize, const IntSize& internalSize)
 {
@@ -167,7 +172,8 @@ ImageBuffer::ImageBuffer(const FloatSize& size, float resolutionScale, CGColorSp
     }
 
     if (!accelerateRendering) {
-        if (!tryFastCalloc(m_data.backingStoreSize.height(), m_data.bytesPerRow.unsafeGet()).getValue(m_data.data))
+        m_data.data = ImageBufferMalloc::tryZeroedMalloc(m_data.backingStoreSize.height() * m_data.bytesPerRow.unsafeGet());
+        if (!m_data.data)
             return;
         ASSERT(!(reinterpret_cast<intptr_t>(m_data.data) & 3));
 
@@ -178,7 +184,7 @@ ImageBuffer::ImageBuffer(const FloatSize& size, float resolutionScale, CGColorSp
 #endif
         cgContext = adoptCF(CGBitmapContextCreate(m_data.data, m_data.backingStoreSize.width(), m_data.backingStoreSize.height(), 8, m_data.bytesPerRow.unsafeGet(), m_data.colorSpace, m_data.bitmapInfo));
         const auto releaseImageData = [] (void*, const void* data, size_t) {
-            fastFree(const_cast<void*>(data));
+            ImageBufferMalloc::free(const_cast<void*>(data));
         };
         // Create a live image that wraps the data.
         verifyImageBufferIsBigEnough(m_data.data, numBytes.unsafeGet());
@@ -187,7 +193,7 @@ ImageBuffer::ImageBuffer(const FloatSize& size, float resolutionScale, CGColorSp
         if (!cgContext)
             return;
 
-        m_data.context = std::make_unique<GraphicsContext>(cgContext.get());
+        m_data.context = makeUnique<GraphicsContext>(cgContext.get());
     }
 
     context().scale(FloatSize(1, -1));
@@ -334,11 +340,11 @@ RetainPtr<CGImageRef> ImageBuffer::copyNativeImage(BackingStoreCopy copyBehavior
     return image;
 }
 
-void ImageBuffer::drawConsuming(std::unique_ptr<ImageBuffer> imageBuffer, GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator op, BlendMode blendMode)
+void ImageBuffer::drawConsuming(std::unique_ptr<ImageBuffer> imageBuffer, GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
 #if USE(IOSURFACE_CANVAS_BACKING_STORE)
     if (!imageBuffer->m_data.surface) {
-        imageBuffer->draw(destContext, destRect, srcRect, op, blendMode);
+        imageBuffer->draw(destContext, destRect, srcRect, options);
         return;
     }
     
@@ -351,13 +357,13 @@ void ImageBuffer::drawConsuming(std::unique_ptr<ImageBuffer> imageBuffer, Graphi
     
     FloatRect adjustedSrcRect = srcRect;
     adjustedSrcRect.scale(resolutionScale);
-    destContext.drawNativeImage(image.get(), backingStoreSize, destRect, adjustedSrcRect, op, blendMode);
+    destContext.drawNativeImage(image.get(), backingStoreSize, destRect, adjustedSrcRect, options);
 #else
-    imageBuffer->draw(destContext, destRect, srcRect, op, blendMode);
+    imageBuffer->draw(destContext, destRect, srcRect, options);
 #endif
 }
 
-void ImageBuffer::draw(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator op, BlendMode blendMode)
+void ImageBuffer::draw(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
     RetainPtr<CGImageRef> image;
     if (&destContext == &context() || destContext.isAcceleratedContext())
@@ -367,10 +373,10 @@ void ImageBuffer::draw(GraphicsContext& destContext, const FloatRect& destRect, 
 
     FloatRect adjustedSrcRect = srcRect;
     adjustedSrcRect.scale(m_resolutionScale);
-    destContext.drawNativeImage(image.get(), m_data.backingStoreSize, destRect, adjustedSrcRect, op, blendMode);
+    destContext.drawNativeImage(image.get(), m_data.backingStoreSize, destRect, adjustedSrcRect, options);
 }
 
-void ImageBuffer::drawPattern(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, CompositeOperator op, BlendMode blendMode)
+void ImageBuffer::drawPattern(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
 {
     FloatRect adjustedSrcRect = srcRect;
     adjustedSrcRect.scale(m_resolutionScale);
@@ -378,14 +384,14 @@ void ImageBuffer::drawPattern(GraphicsContext& destContext, const FloatRect& des
     if (!context().isAcceleratedContext()) {
         if (&destContext == &context() || destContext.isAcceleratedContext()) {
             if (RefPtr<Image> copy = copyImage(CopyBackingStore)) // Drawing into our own buffer, need to deep copy.
-                copy->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, op, blendMode);
+                copy->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, options);
         } else {
             if (RefPtr<Image> imageForRendering = copyImage(DontCopyBackingStore))
-                imageForRendering->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, op, blendMode);
+                imageForRendering->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, options);
         }
     } else {
         if (RefPtr<Image> copy = copyImage(CopyBackingStore))
-            copy->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, op, blendMode);
+            copy->drawPattern(destContext, destRect, adjustedSrcRect, patternTransform, phase, spacing, options);
     }
 }
 

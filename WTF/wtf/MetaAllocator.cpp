@@ -31,9 +31,15 @@
 
 #include <wtf/DataLog.h>
 #include <wtf/FastMalloc.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/ProcessID.h>
 
 namespace WTF {
+
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(MetaAllocatorHandle);
+
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(MetaAllocatorFreeSpace);
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(MetaAllocatorFreeSpace);
 
 MetaAllocator::~MetaAllocator()
 {
@@ -397,22 +403,46 @@ void MetaAllocator::incrementPageOccupancy(void* address, size_t sizeInBytes)
 {
     uintptr_t firstPage = reinterpret_cast<uintptr_t>(address) >> m_logPageSize;
     uintptr_t lastPage = (reinterpret_cast<uintptr_t>(address) + sizeInBytes - 1) >> m_logPageSize;
+
+    uintptr_t currentPageStart = 0;
+    size_t count = 0;
+    auto flushNeedPages = [&] {
+        if (!currentPageStart)
+            return;
+        notifyNeedPage(reinterpret_cast<void*>(currentPageStart << m_logPageSize), count);
+        currentPageStart = 0;
+        count = 0;
+    };
     
     for (uintptr_t page = firstPage; page <= lastPage; ++page) {
-        HashMap<uintptr_t, size_t>::iterator iter = m_pageOccupancyMap.find(page);
-        if (iter == m_pageOccupancyMap.end()) {
-            m_pageOccupancyMap.add(page, 1);
+        auto result = m_pageOccupancyMap.add(page, 1);
+        if (result.isNewEntry) {
             m_bytesCommitted += m_pageSize;
-            notifyNeedPage(reinterpret_cast<void*>(page << m_logPageSize));
-        } else
-            iter->value++;
+            if (!currentPageStart)
+                currentPageStart = page;
+            ++count;
+        } else {
+            result.iterator->value++;
+            flushNeedPages();
+        }
     }
+    flushNeedPages();
 }
 
 void MetaAllocator::decrementPageOccupancy(void* address, size_t sizeInBytes)
 {
     uintptr_t firstPage = reinterpret_cast<uintptr_t>(address) >> m_logPageSize;
     uintptr_t lastPage = (reinterpret_cast<uintptr_t>(address) + sizeInBytes - 1) >> m_logPageSize;
+
+    uintptr_t currentPageStart = 0;
+    size_t count = 0;
+    auto flushFreePages = [&] {
+        if (!currentPageStart)
+            return;
+        notifyPageIsFree(reinterpret_cast<void*>(currentPageStart << m_logPageSize), count);
+        currentPageStart = 0;
+        count = 0;
+    };
     
     for (uintptr_t page = firstPage; page <= lastPage; ++page) {
         HashMap<uintptr_t, size_t>::iterator iter = m_pageOccupancyMap.find(page);
@@ -420,9 +450,13 @@ void MetaAllocator::decrementPageOccupancy(void* address, size_t sizeInBytes)
         if (!--(iter->value)) {
             m_pageOccupancyMap.remove(iter);
             m_bytesCommitted -= m_pageSize;
-            notifyPageIsFree(reinterpret_cast<void*>(page << m_logPageSize));
-        }
+            if (!currentPageStart)
+                currentPageStart = page;
+            ++count;
+        } else
+            flushFreePages();
     }
+    flushFreePages();
 }
 
 bool MetaAllocator::isInAllocatedMemory(const AbstractLocker&, void* address)
@@ -444,7 +478,7 @@ MetaAllocator::FreeSpaceNode* MetaAllocator::allocFreeSpaceNode()
 #ifndef NDEBUG
     m_mallocBalance++;
 #endif
-    return new (NotNull, fastMalloc(sizeof(FreeSpaceNode))) FreeSpaceNode();
+    return new (NotNull, MetaAllocatorFreeSpaceMalloc::malloc(sizeof(FreeSpaceNode))) FreeSpaceNode();
 }
 
 void MetaAllocator::freeFreeSpaceNode(FreeSpaceNode* node)
@@ -452,7 +486,7 @@ void MetaAllocator::freeFreeSpaceNode(FreeSpaceNode* node)
 #ifndef NDEBUG
     m_mallocBalance--;
 #endif
-    fastFree(node);
+    MetaAllocatorFreeSpaceMalloc::free(node);
 }
 
 #if ENABLE(META_ALLOCATOR_PROFILE)

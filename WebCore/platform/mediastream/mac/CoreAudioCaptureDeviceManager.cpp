@@ -36,6 +36,7 @@
 #include <CoreMedia/CMSync.h>
 #include <pal/spi/cf/CoreAudioSPI.h>
 #include <wtf/Assertions.h>
+#include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 
 #import <pal/cf/CoreMediaSoftLink.h>
@@ -119,31 +120,24 @@ Vector<CoreAudioCaptureDevice>& CoreAudioCaptureDeviceManager::coreAudioCaptureD
     static bool initialized;
     if (!initialized) {
         initialized = true;
-        refreshAudioCaptureDevices(DoNotNotify);
+        refreshAudioCaptureDevices(NotifyIfDevicesHaveChanged::DoNotNotify);
 
-        auto weakThis = makeWeakPtr(*this);
-        m_listenerBlock = Block_copy(^(UInt32 count, const AudioObjectPropertyAddress properties[]) {
-            if (!weakThis)
-                return;
+        auto listener = ^(UInt32 count, const AudioObjectPropertyAddress properties[]) {
+            bool notify = false;
+            for (UInt32 i = 0; i < count; ++i)
+                notify |= (properties[i].mSelector == kAudioHardwarePropertyDevices || properties[i].mSelector == kAudioHardwarePropertyDefaultInputDevice);
 
-            for (UInt32 i = 0; i < count; ++i) {
-                const AudioObjectPropertyAddress& property = properties[i];
-
-                if (property.mSelector != kAudioHardwarePropertyDevices)
-                    continue;
-
-                weakThis->refreshAudioCaptureDevices(Notify);
-                return;
-            }
-        });
+            if (notify)
+                CoreAudioCaptureDeviceManager::singleton().refreshAudioCaptureDevices(NotifyIfDevicesHaveChanged::Notify);
+        };
 
         AudioObjectPropertyAddress address = { kAudioHardwarePropertyDevices, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMaster };
-        auto err = AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &address, dispatch_get_main_queue(), m_listenerBlock);
+        auto err = AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &address, dispatch_get_main_queue(), listener);
         if (err)
             LOG_ERROR("CoreAudioCaptureDeviceManager::devices(%p) AudioObjectAddPropertyListener for kAudioHardwarePropertyDevices returned error %d (%.4s)", this, (int)err, (char*)&err);
 
         address = { kAudioHardwarePropertyDefaultInputDevice, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMaster };
-        err = AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &address, dispatch_get_main_queue(), m_listenerBlock);
+        err = AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &address, dispatch_get_main_queue(), listener);
         if (err)
             LOG_ERROR("CoreAudioCaptureDeviceManager::devices(%p) AudioObjectAddPropertyListener for kAudioHardwarePropertyDefaultInputDevice returned error %d (%.4s)", this, (int)err, (char*)&err);
     }
@@ -162,6 +156,8 @@ Optional<CoreAudioCaptureDevice> CoreAudioCaptureDeviceManager::coreAudioDeviceW
 
 void CoreAudioCaptureDeviceManager::refreshAudioCaptureDevices(NotifyIfDevicesHaveChanged notify)
 {
+    ASSERT(isMainThread());
+
     AudioObjectPropertyAddress address = { kAudioHardwarePropertyDevices, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMaster };
     UInt32 dataSize = 0;
     auto err = AudioObjectGetPropertyDataSize(kAudioObjectSystemObject, &address, 0, nullptr, &dataSize);
@@ -220,7 +216,7 @@ void CoreAudioCaptureDeviceManager::refreshAudioCaptureDevices(NotifyIfDevicesHa
         m_devices.append(captureDevice);
     }
 
-    if (notify == Notify) {
+    if (notify == NotifyIfDevicesHaveChanged::Notify) {
         deviceChanged();
         CoreAudioCaptureSourceFactory::singleton().devicesChanged(m_devices);
     }

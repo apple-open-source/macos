@@ -357,8 +357,10 @@ ffi_prep_closure_loc (ffi_closure*,
 		      void *user_data,
 		      void*codeloc);
 
+#if defined(__x86_64__) || defined(__arm64__)
 FFI_AVAILABLE_APPLE_2019
 ffi_closure * ffi_find_closure_for_code_np(void *code);
+#endif
 
 #ifdef __sgi
 # pragma pack 8

@@ -37,17 +37,13 @@
 #if ENABLE(MEDIA_STREAM)
 
 #include "FloatSize.h"
-#include "MediaStreamTrack.h"
 #include "MediaStreamTrackPrivate.h"
 #include <wtf/Function.h>
 #include <wtf/HashMap.h>
-#include <wtf/LoggerHelper.h>
 #include <wtf/MediaTime.h>
-#include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/UUID.h>
 #include <wtf/Vector.h>
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -57,7 +53,6 @@ class OrientationNotifier;
 class MediaStreamPrivate final
     : public MediaStreamTrackPrivate::Observer
     , public RefCounted<MediaStreamPrivate>
-    , public CanMakeWeakPtr<MediaStreamPrivate>
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
 #endif
@@ -103,9 +98,6 @@ public:
     bool hasAudio() const;
     bool muted() const;
 
-    bool hasCaptureVideoSource() const;
-    bool hasCaptureAudioSource() const;
-
     FloatSize intrinsicSize() const;
 
     void monitorOrientation(OrientationNotifier&);
@@ -128,7 +120,6 @@ private:
     void characteristicsChanged();
     void updateActiveVideoTrack();
 
-    void scheduleDeferredTask(Function<void ()>&&);
     void forEachObserver(const WTF::Function<void(Observer&)>&) const;
 
 #if !RELEASE_LOG_DISABLED

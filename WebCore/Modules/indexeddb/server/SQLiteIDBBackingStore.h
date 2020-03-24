@@ -33,6 +33,7 @@
 #include "IDBResourceIdentifier.h"
 #include "SQLiteIDBTransaction.h"
 #include <JavaScriptCore/Strong.h>
+#include <pal/SessionID.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
@@ -43,12 +44,13 @@ class SQLiteStatement;
 
 namespace IDBServer {
 
+class IDBSerializationContext;
 class SQLiteIDBCursor;
 
 class SQLiteIDBBackingStore : public IDBBackingStore {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    SQLiteIDBBackingStore(const IDBDatabaseIdentifier&, const String& databaseRootDirectory, IDBBackingStoreTemporaryFileHandler&, uint64_t quota);
+    SQLiteIDBBackingStore(PAL::SessionID, const IDBDatabaseIdentifier&, const String& databaseRootDirectory);
     
     ~SQLiteIDBBackingStore() final;
 
@@ -81,35 +83,30 @@ public:
     IDBObjectStoreInfo* infoForObjectStore(uint64_t objectStoreIdentifier) final;
     void deleteBackingStore() final;
 
-    void setQuota(uint64_t quota) final { m_quota = quota; }
-    uint64_t databasesSizeForOrigin() const final;
-
     bool supportsSimultaneousTransactions() final { return false; }
     bool isEphemeral() final { return false; }
 
+    bool hasTransaction(const IDBResourceIdentifier&) const final;
+
     void unregisterCursor(SQLiteIDBCursor&);
 
-    IDBBackingStoreTemporaryFileHandler& temporaryFileHandler() const { return m_temporaryFileHandler; }
-
-    IDBError getBlobRecordsForObjectStoreRecord(int64_t objectStoreRecord, Vector<String>& blobURLs, PAL::SessionID&, Vector<String>& blobFilePaths);
+    IDBError getBlobRecordsForObjectStoreRecord(int64_t objectStoreRecord, Vector<String>& blobURLs, Vector<String>& blobFilePaths);
 
     static String databaseNameFromEncodedFilename(const String&);
-    static uint64_t databasesSizeForFolder(const String& folder);
+    static uint64_t databasesSizeForDirectory(const String& directory);
 
     String databaseDirectory() const { return m_databaseDirectory; };
     static String fullDatabasePathForDirectory(const String&);
     static String databaseNameFromFile(const String&);
 
-    bool hasTransaction(const IDBResourceIdentifier&) const final;
+    PAL::SessionID sessionID() const { return m_sessionID; }
+
 private:
     String filenameForDatabaseName() const;
     String fullDatabasePath() const;
     String fullDatabaseDirectoryWithUpgrade();
     
-    String databaseRootDirectory() const { return m_databaseRootDirectory.isolatedCopy(); }
-
-    uint64_t quotaForOrigin() const;
-    uint64_t maximumSize() const;
+    String databaseRootDirectoryIsolatedCopy() const { return m_databaseRootDirectory.isolatedCopy(); }
 
     bool ensureValidRecordsTable();
     bool ensureValidIndexRecordsTable();
@@ -135,6 +132,7 @@ private:
     IDBError getAllIndexRecords(const IDBResourceIdentifier& transactionIdentifier, const IDBGetAllRecordsData&, IDBGetAllResult& outValue);
 
     void closeSQLiteDB();
+    void close() final;
 
     enum class SQL : size_t {
         CreateObjectStoreInfo,
@@ -181,18 +179,23 @@ private:
         GetKeyRecordsLowerOpenUpperClosed,
         GetKeyRecordsLowerClosedUpperOpen,
         GetKeyRecordsLowerClosedUpperClosed,
-        Count
+        CountRecordsLowerOpenUpperOpen,
+        CountRecordsLowerOpenUpperClosed,
+        CountRecordsLowerClosedUpperOpen,
+        CountRecordsLowerClosedUpperClosed,
+        CountIndexRecordsLowerOpenUpperOpen,
+        CountIndexRecordsLowerOpenUpperClosed,
+        CountIndexRecordsLowerClosedUpperOpen,
+        CountIndexRecordsLowerClosedUpperClosed,
+        Invalid,
     };
 
     SQLiteStatement* cachedStatement(SQL, const char*);
     SQLiteStatement* cachedStatementForGetAllObjectStoreRecords(const IDBGetAllRecordsData&);
 
-    std::unique_ptr<SQLiteStatement> m_cachedStatements[static_cast<int>(SQL::Count)];
+    std::unique_ptr<SQLiteStatement> m_cachedStatements[static_cast<int>(SQL::Invalid)];
 
-    JSC::VM& vm();
-    JSC::JSGlobalObject& globalObject();
-    void initializeVM();
-
+    PAL::SessionID m_sessionID;
     IDBDatabaseIdentifier m_identifier;
     std::unique_ptr<IDBDatabaseInfo> m_databaseInfo;
     std::unique_ptr<IDBDatabaseInfo> m_originalDatabaseInfoBeforeVersionChange;
@@ -205,12 +208,7 @@ private:
     String m_databaseRootDirectory;
     String m_databaseDirectory;
 
-    RefPtr<JSC::VM> m_vm;
-    JSC::Strong<JSC::JSGlobalObject> m_globalObject;
-
-    IDBBackingStoreTemporaryFileHandler& m_temporaryFileHandler;
-    
-    uint64_t m_quota;
+    Ref<IDBSerializationContext> m_serializationContext;
 };
 
 } // namespace IDBServer

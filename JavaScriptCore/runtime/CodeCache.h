@@ -59,7 +59,7 @@ class VM;
 class VariableEnvironment;
 
 namespace CodeCacheInternal {
-static const bool verbose = false;
+static constexpr bool verbose = false;
 } // namespace CodeCacheInternal
 
 struct SourceCodeValue {
@@ -179,18 +179,18 @@ private:
 
     // This constant factor biases cache capacity toward allowing a minimum
     // working set to enter the cache before it starts evicting.
-    static const Seconds workingSetTime;
-    static const int64_t workingSetMaxBytes = 16000000;
-    static const size_t workingSetMaxEntries = 2000;
+    static constexpr Seconds workingSetTime = 10_s;
+    static constexpr int64_t workingSetMaxBytes = 16000000;
+    static constexpr size_t workingSetMaxEntries = 2000;
 
     // This constant factor biases cache capacity toward recent activity. We
     // want to adapt to changing workloads.
-    static const int64_t recencyBias = 4;
+    static constexpr int64_t recencyBias = 4;
 
     // This constant factor treats a sampled event for one old object as if it
     // happened for many old objects. Most old objects are evicted before we can
     // sample them, so we need to extrapolate from the ones we do sample.
-    static const int64_t oldObjectSamplingMultiplier = 32;
+    static constexpr int64_t oldObjectSamplingMultiplier = 32;
 
     size_t numberOfEntries() const { return static_cast<size_t>(m_map.size()); }
     bool canPruneQuickly() const { return numberOfEntries() < workingSetMaxEntries; }
@@ -243,20 +243,20 @@ template <typename T> struct CacheTypes { };
 
 template <> struct CacheTypes<UnlinkedProgramCodeBlock> {
     typedef JSC::ProgramNode RootNode;
-    static const SourceCodeType codeType = SourceCodeType::ProgramType;
-    static const SourceParseMode parseMode = SourceParseMode::ProgramMode;
+    static constexpr SourceCodeType codeType = SourceCodeType::ProgramType;
+    static constexpr SourceParseMode parseMode = SourceParseMode::ProgramMode;
 };
 
 template <> struct CacheTypes<UnlinkedEvalCodeBlock> {
     typedef JSC::EvalNode RootNode;
-    static const SourceCodeType codeType = SourceCodeType::EvalType;
-    static const SourceParseMode parseMode = SourceParseMode::ProgramMode;
+    static constexpr SourceCodeType codeType = SourceCodeType::EvalType;
+    static constexpr SourceParseMode parseMode = SourceParseMode::ProgramMode;
 };
 
 template <> struct CacheTypes<UnlinkedModuleProgramCodeBlock> {
     typedef JSC::ModuleProgramNode RootNode;
-    static const SourceCodeType codeType = SourceCodeType::ModuleType;
-    static const SourceParseMode parseMode = SourceParseMode::ModuleEvaluateMode;
+    static constexpr SourceCodeType codeType = SourceCodeType::ModuleType;
+    static constexpr SourceParseMode parseMode = SourceParseMode::ModuleEvaluateMode;
 };
 
 template <class UnlinkedCodeBlockType, class ExecutableType = ScriptExecutable>
@@ -264,7 +264,7 @@ UnlinkedCodeBlockType* generateUnlinkedCodeBlockImpl(VM& vm, const SourceCode& s
 {
     typedef typename CacheTypes<UnlinkedCodeBlockType>::RootNode RootNode;
     std::unique_ptr<RootNode> rootNode = parse<RootNode>(
-        &vm, source, Identifier(), JSParserBuiltinMode::NotBuiltin, strictMode, scriptMode, CacheTypes<UnlinkedCodeBlockType>::parseMode, SuperBinding::NotNeeded, error, nullptr, ConstructorKind::None, derivedContextType, evalContextType);
+        vm, source, Identifier(), JSParserBuiltinMode::NotBuiltin, strictMode, scriptMode, CacheTypes<UnlinkedCodeBlockType>::parseMode, SuperBinding::NotNeeded, error, nullptr, ConstructorKind::None, derivedContextType, evalContextType);
     if (!rootNode)
         return nullptr;
 
@@ -281,7 +281,7 @@ UnlinkedCodeBlockType* generateUnlinkedCodeBlockImpl(VM& vm, const SourceCode& s
     bool isStrictMode = rootNode->features() & StrictModeFeature;
     ExecutableInfo executableInfo(usesEval, isStrictMode, false, false, ConstructorKind::None, scriptMode, SuperBinding::NotNeeded, CacheTypes<UnlinkedCodeBlockType>::parseMode, derivedContextType, isArrowFunctionContext, false, evalContextType);
 
-    UnlinkedCodeBlockType* unlinkedCodeBlock = UnlinkedCodeBlockType::create(&vm, executableInfo, codeGenerationMode);
+    UnlinkedCodeBlockType* unlinkedCodeBlock = UnlinkedCodeBlockType::create(vm, executableInfo, codeGenerationMode);
     unlinkedCodeBlock->recordParse(rootNode->features(), rootNode->hasCapturedVariables(), lineCount, unlinkedEndColumn);
     if (!source.provider()->sourceURLDirective().isNull())
         unlinkedCodeBlock->setSourceURLDirective(source.provider()->sourceURLDirective());
@@ -318,7 +318,7 @@ recursivelyGenerateUnlinkedCodeBlock(VM& vm, const SourceCode& source, JSParserS
 }
 
 void writeCodeBlock(VM&, const SourceCodeKey&, const SourceCodeValue&);
-RefPtr<CachedBytecode> serializeBytecode(VM&, UnlinkedCodeBlock*, const SourceCode&, SourceCodeType, JSParserStrictMode, JSParserScriptMode, int fd, BytecodeCacheError&, OptionSet<CodeGenerationMode>);
+RefPtr<CachedBytecode> serializeBytecode(VM&, UnlinkedCodeBlock*, const SourceCode&, SourceCodeType, JSParserStrictMode, JSParserScriptMode, FileSystem::PlatformFileHandle fd, BytecodeCacheError&, OptionSet<CodeGenerationMode>);
 SourceCodeKey sourceCodeKeyForSerializedProgram(VM&, const SourceCode&);
 SourceCodeKey sourceCodeKeyForSerializedModule(VM&, const SourceCode&);
 

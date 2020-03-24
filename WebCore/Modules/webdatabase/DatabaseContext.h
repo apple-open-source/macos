@@ -28,6 +28,7 @@
 #pragma once
 
 #include "ActiveDOMObject.h"
+#include "Document.h"
 #include <wtf/RefPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
@@ -72,7 +73,6 @@ private:
 
     void contextDestroyed() override;
     void stop() override;
-    bool canSuspendForDocumentSuspension() const override;
     const char* activeDOMObjectName() const override { return "DatabaseContext"; }
 
     RefPtr<DatabaseThread> m_databaseThread;

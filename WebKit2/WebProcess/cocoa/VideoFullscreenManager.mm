@@ -28,8 +28,10 @@
 #if (PLATFORM(IOS_FAMILY) && HAVE(AVKIT)) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
 
 #import "Attachment.h"
+#import "LayerHostingContext.h"
 #import "Logging.h"
 #import "PlaybackSessionManager.h"
+#import "VideoFullscreenManagerMessages.h"
 #import "VideoFullscreenManagerProxyMessages.h"
 #import "WebCoreArgumentCoders.h"
 #import "WebPage.h"
@@ -41,6 +43,7 @@
 #import <WebCore/EventNames.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/HTMLVideoElement.h>
+#import <WebCore/PictureInPictureSupport.h>
 #import <WebCore/PlatformCALayer.h>
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderLayerBacking.h>
@@ -117,7 +120,7 @@ VideoFullscreenManager::VideoFullscreenManager(WebPage& page, PlaybackSessionMan
     : m_page(&page)
     , m_playbackSessionManager(playbackSessionManager)
 {
-    WebProcess::singleton().addMessageReceiver(Messages::VideoFullscreenManager::messageReceiverName(), page.pageID(), *this);
+    WebProcess::singleton().addMessageReceiver(Messages::VideoFullscreenManager::messageReceiverName(), page.identifier(), *this);
 }
 
 VideoFullscreenManager::~VideoFullscreenManager()
@@ -134,13 +137,13 @@ VideoFullscreenManager::~VideoFullscreenManager()
     m_clientCounts.clear();
     
     if (m_page)
-        WebProcess::singleton().removeMessageReceiver(Messages::VideoFullscreenManager::messageReceiverName(), m_page->pageID());
+        WebProcess::singleton().removeMessageReceiver(Messages::VideoFullscreenManager::messageReceiverName(), m_page->identifier());
 }
 
 void VideoFullscreenManager::invalidate()
 {
     ASSERT(m_page);
-    WebProcess::singleton().removeMessageReceiver(Messages::VideoFullscreenManager::messageReceiverName(), m_page->pageID());
+    WebProcess::singleton().removeMessageReceiver(Messages::VideoFullscreenManager::messageReceiverName(), m_page->identifier());
     m_page = nullptr;
 }
 
@@ -245,6 +248,8 @@ void VideoFullscreenManager::enterVideoFullscreenForVideoElement(HTMLVideoElemen
     ASSERT(addResult.iterator->value == contextId);
 
     auto [model, interface] = ensureModelAndInterface(contextId);
+    HTMLMediaElementEnums::VideoFullscreenMode oldMode = interface->fullscreenMode();
+
     addClientForContext(contextId);
     if (!interface->layerHostingContext())
         interface->setLayerHostingContext(LayerHostingContext::createForExternalHostingProcess());
@@ -252,7 +257,6 @@ void VideoFullscreenManager::enterVideoFullscreenForVideoElement(HTMLVideoElemen
     auto videoRect = inlineVideoFrame(videoElement);
     FloatRect videoLayerFrame = FloatRect(0, 0, videoRect.width(), videoRect.height());
 
-    HTMLMediaElementEnums::VideoFullscreenMode oldMode = interface->fullscreenMode();
     interface->setTargetIsFullscreen(true);
     interface->setFullscreenMode(mode);
     interface->setFullscreenStandby(standby);
@@ -293,11 +297,10 @@ void VideoFullscreenManager::exitVideoFullscreenForVideoElement(WebCore::HTMLVid
 
     uint64_t contextId = m_videoElements.get(&videoElement);
     auto& interface = ensureInterface(contextId);
-
     interface.setTargetIsFullscreen(false);
-
-    if (interface.animationState() == VideoFullscreenInterfaceContext::AnimationType::FromFullscreen)
+    if (interface.animationState() != VideoFullscreenInterfaceContext::AnimationType::None)
         return;
+
     interface.setAnimationState(VideoFullscreenInterfaceContext::AnimationType::FromFullscreen);
     m_page->send(Messages::VideoFullscreenManagerProxy::ExitFullscreen(contextId, inlineVideoFrame(videoElement)));
 }

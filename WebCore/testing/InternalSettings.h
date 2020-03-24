@@ -105,6 +105,7 @@ public:
     ExceptionOr<void> setIncompleteImageBorderEnabled(bool);
     ExceptionOr<void> setShouldDispatchSyntheticMouseEventsWhenModifyingSelection(bool);
     ExceptionOr<void> setShouldDispatchSyntheticMouseOutAfterSyntheticClick(bool);
+    ExceptionOr<void> setAnimatedImageDebugCanvasDrawingEnabled(bool);
 
     using FrameFlatteningValue = FrameFlattening;
     ExceptionOr<void> setFrameFlattening(FrameFlatteningValue);
@@ -121,12 +122,15 @@ public:
     void setForcedDisplayIsMonochromeAccessibilityValue(ForcedAccessibilityValue);
     ForcedAccessibilityValue forcedPrefersReducedMotionAccessibilityValue() const;
     void setForcedPrefersReducedMotionAccessibilityValue(ForcedAccessibilityValue);
+    ForcedAccessibilityValue forcedSupportsHighDynamicRangeValue() const;
+    void setForcedSupportsHighDynamicRangeValue(ForcedAccessibilityValue);
 
     // RuntimeEnabledFeatures.
     static void setIndexedDBWorkersEnabled(bool);
     static void setWebGL2Enabled(bool);
     static void setWebGPUEnabled(bool);
     static void setWebVREnabled(bool);
+    static void setPictureInPictureAPIEnabled(bool);
     static void setScreenCaptureEnabled(bool);
 
     static bool webAnimationsCSSIntegrationEnabled();
@@ -203,6 +207,7 @@ private:
         bool m_shouldDispatchSyntheticMouseEventsWhenModifyingSelection;
         bool m_shouldDispatchSyntheticMouseOutAfterSyntheticClick { false };
         bool m_shouldDeactivateAudioSession;
+        bool m_animatedImageDebugCanvasDrawingEnabled;
         UserInterfaceDirectionPolicy m_userInterfaceDirectionPolicy;
         TextDirection m_systemLayoutDirection;
         PDFImageCachingPolicy m_pdfImageCachingPolicy;

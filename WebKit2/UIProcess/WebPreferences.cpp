@@ -27,6 +27,7 @@
 #include "WebPreferences.h"
 
 #include "WebPageGroup.h"
+#include "WebPageProxy.h"
 #include "WebPreferencesKeys.h"
 #include "WebProcessPool.h"
 #include <WebCore/LibWebRTCProvider.h>
@@ -34,10 +35,6 @@
 #include <wtf/ThreadingPrimitives.h>
 
 namespace WebKit {
-
-// FIXME: Manipulating this variable is not thread safe.
-// Instead of tracking private browsing state as a boolean preference, we should let the client provide storage sessions explicitly.
-static unsigned privateBrowsingPageCount;
 
 Ref<WebPreferences> WebPreferences::create(const String& identifier, const String& keyPrefix, const String& globalDebugKeyPrefix)
 {
@@ -87,25 +84,12 @@ void WebPreferences::addPage(WebPageProxy& webPageProxy)
 {
     ASSERT(!m_pages.contains(&webPageProxy));
     m_pages.add(&webPageProxy);
-
-    if (privateBrowsingEnabled()) {
-        if (!privateBrowsingPageCount)
-            WebProcessPool::willStartUsingPrivateBrowsing();
-
-        ++privateBrowsingPageCount;
-    }
 }
 
 void WebPreferences::removePage(WebPageProxy& webPageProxy)
 {
     ASSERT(m_pages.contains(&webPageProxy));
     m_pages.remove(&webPageProxy);
-
-    if (privateBrowsingEnabled()) {
-        --privateBrowsingPageCount;
-        if (!privateBrowsingPageCount)
-            WebProcessPool::willStopUsingPrivateBrowsing();
-    }
 }
 
 void WebPreferences::update()
@@ -122,11 +106,6 @@ void WebPreferences::updateStringValueForKey(const String& key, const String& va
 
 void WebPreferences::updateBoolValueForKey(const String& key, bool value)
 {
-    if (key == WebPreferencesKey::privateBrowsingEnabledKey()) {
-        updatePrivateBrowsingValue(value);
-        return;
-    }
-
     platformUpdateBoolValueForKey(key, value);
     update(); // FIXME: Only send over the changed key and value.
 }
@@ -142,6 +121,12 @@ void WebPreferences::updateBoolValueForInternalDebugFeatureKey(const String& key
     if (key == WebPreferencesKey::captureAudioInUIProcessEnabledKey()) {
         for (auto* page : m_pages)
             page->process().processPool().configuration().setShouldCaptureAudioInUIProcess(value);
+
+        return;
+    }
+    if (key == WebPreferencesKey::captureAudioInGPUProcessEnabledKey()) {
+        for (auto* page : m_pages)
+            page->process().processPool().configuration().setShouldCaptureAudioInGPUProcess(value);
 
         return;
     }
@@ -185,30 +170,6 @@ void WebPreferences::deleteKey(const String& key)
     update(); // FIXME: Only send over the changed key and value.
 }
 
-void WebPreferences::updatePrivateBrowsingValue(bool value)
-{
-    platformUpdateBoolValueForKey(WebPreferencesKey::privateBrowsingEnabledKey(), value);
-
-    unsigned pagesChanged = m_pages.size();
-    if (!pagesChanged)
-        return;
-
-    if (value) {
-        if (!privateBrowsingPageCount)
-            WebProcessPool::willStartUsingPrivateBrowsing();
-        privateBrowsingPageCount += pagesChanged;
-    }
-
-    update(); // FIXME: Only send over the changed key and value.
-
-    if (!value) {
-        ASSERT(privateBrowsingPageCount >= pagesChanged);
-        privateBrowsingPageCount -= pagesChanged;
-        if (!privateBrowsingPageCount)
-            WebProcessPool::willStopUsingPrivateBrowsing();
-    }
-}
-
 #define DEFINE_PREFERENCE_GETTER_AND_SETTERS(KeyUpper, KeyLower, TypeName, Type, DefaultValue, HumanReadableName, HumanReadableDescription) \
     void WebPreferences::set##KeyUpper(const Type& value) \
     { \
@@ -232,11 +193,6 @@ FOR_EACH_WEBKIT_DEBUG_PREFERENCE(DEFINE_PREFERENCE_GETTER_AND_SETTERS)
 
 #undef DEFINE_PREFERENCE_GETTER_AND_SETTERS
 
-
-bool WebPreferences::anyPagesAreUsingPrivateBrowsing()
-{
-    return privateBrowsingPageCount;
-}
 
 void WebPreferences::registerDefaultBoolValueForKey(const String& key, bool value)
 {

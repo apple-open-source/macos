@@ -180,7 +180,7 @@ std::unique_ptr<ContextMenu> ContextMenuController::maybeCreateContextMenu(Event
     }
 #endif
 
-    return std::make_unique<ContextMenu>();
+    return makeUnique<ContextMenu>();
 }
 
 void ContextMenuController::showContextMenu(Event& event)
@@ -886,11 +886,12 @@ void ContextMenuController::populate()
 #if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
             appendItem(ToggleVideoEnhancedFullscreen, m_contextMenu.get());
 #endif
-            appendItem(*separatorItem(), m_contextMenu.get());
-            appendItem(CopyMediaLinkItem, m_contextMenu.get());
-            appendItem(OpenMediaInNewWindowItem, m_contextMenu.get());
-            if (m_context.hitTestResult().isDownloadableMedia() && loader.client().canHandleRequest(ResourceRequest(mediaURL)))
+            if (m_context.hitTestResult().isDownloadableMedia() && loader.client().canHandleRequest(ResourceRequest(mediaURL))) {
+                appendItem(*separatorItem(), m_contextMenu.get());
+                appendItem(CopyMediaLinkItem, m_contextMenu.get());
+                appendItem(OpenMediaInNewWindowItem, m_contextMenu.get());
                 appendItem(DownloadMediaItem, m_contextMenu.get());
+            }
         }
 
         if (imageURL.isEmpty() && linkURL.isEmpty() && mediaURL.isEmpty()) {

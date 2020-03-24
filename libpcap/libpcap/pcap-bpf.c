@@ -2842,6 +2842,9 @@ get_if_flags(const char *name, bpf_u_int32 *flags, char *errbuf)
 
 	if (ioctl(sock, SIOCGIFMEDIA, &req) < 0) {
 		if (errno == EOPNOTSUPP || errno == EINVAL || errno == ENOTTY ||
+#ifdef __APPLE__
+		    errno == EPWROFF ||
+#endif /* __APPLE__ */
 		    errno == ENODEV || errno == EPERM) {
 			/*
 			 * Not supported, so we can't provide any

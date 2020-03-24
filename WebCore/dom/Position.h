@@ -106,8 +106,8 @@ public:
     RefPtr<Node> firstNode() const;
 
     // These are convenience methods which are smart about whether the position is neighbor anchored or parent anchored
-    Node* computeNodeBeforePosition() const;
-    Node* computeNodeAfterPosition() const;
+    WEBCORE_EXPORT Node* computeNodeBeforePosition() const;
+    WEBCORE_EXPORT Node* computeNodeAfterPosition() const;
 
     Node* anchorNode() const { return m_anchorNode.get(); }
 
@@ -263,17 +263,8 @@ inline bool operator<=(const Position& a, const Position& b)
     return !a.isNull() && !b.isNull() && (a == b || a < b);
 }
 
-inline Position positionInParentBeforeNode(const Node* node)
-{
-    ASSERT(node->parentNode());
-    return Position(node->parentNode(), node->computeNodeIndex(), Position::PositionIsOffsetInAnchor);
-}
-
-inline Position positionInParentAfterNode(const Node* node)
-{
-    ASSERT(node->parentNode());
-    return Position(node->parentNode(), node->computeNodeIndex() + 1, Position::PositionIsOffsetInAnchor);
-}
+Position positionInParentBeforeNode(Node*);
+Position positionInParentAfterNode(Node*);
 
 // positionBeforeNode and positionAfterNode return neighbor-anchored positions, construction is O(1)
 inline Position positionBeforeNode(Node* anchorNode)

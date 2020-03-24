@@ -373,13 +373,6 @@ protected:
                                 SInt32                      deltaAxis3,
                                 IOOptionBits                options = 0 );
 
-    void                    dispatchScrollWheelEventWithFixed(
-                                AbsoluteTime                timeStamp,
-                                IOFixed                     deltaAxis1,
-                                IOFixed                     deltaAxis2,
-                                IOFixed                     deltaAxis3,
-                                IOOptionBits                options = 0 );
-
     virtual void            dispatchTabletPointerEvent(
                                 AbsoluteTime                timeStamp,
                                 UInt32                      transducerID,
@@ -906,7 +899,14 @@ protected:
     OSMetaClassDeclareReservedUsed(IOHIDEventService, 21);
     virtual IOHIDEvent *copyMatchingEvent(OSDictionary *matching);
     
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 22);
+    OSMetaClassDeclareReservedUsed(IOHIDEventService, 22);
+    virtual void     dispatchScrollWheelEventWithFixed(AbsoluteTime                timeStamp,
+                                                       IOFixed                     deltaAxis1,
+                                                       IOFixed                     deltaAxis2,
+                                                       IOFixed                     deltaAxis3,
+                                                       IOOptionBits                options = 0);
+
+    
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 23);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 24);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 25);

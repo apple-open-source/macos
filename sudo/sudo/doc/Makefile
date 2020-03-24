@@ -88,7 +88,7 @@ OTHER_DOCS = $(top_srcdir)/ChangeLog $(top_srcdir)/README \
 
 OTHER_DOCS_LDAP = $(top_srcdir)/README.LDAP $(srcdir)/schema.*
 
-VERSION = 1.8.29
+VERSION = 1.8.31
 PACKAGE_TARNAME = sudo
 
 all: $(DEVDOCS) $(DOCS)

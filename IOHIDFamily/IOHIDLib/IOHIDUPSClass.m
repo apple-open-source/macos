@@ -105,9 +105,12 @@
     uint32_t usagePage = [props[@(kIOHIDPrimaryUsagePageKey)] intValue];
     uint32_t usage = [props[@(kIOHIDPrimaryUsageKey)] intValue];
     
-    if (usagePage == kHIDPage_GenericDesktop &&
-        usage == kHIDUsage_GD_Keyboard) {
+    if (props[@(kIOPSAccessoryCategoryKey)]) {
+        _properties[@(kIOPSAccessoryCategoryKey)] = props[@(kIOPSAccessoryCategoryKey)];
+    } else if (usagePage == kHIDPage_GenericDesktop && usage == kHIDUsage_GD_Keyboard) {
         _properties[@(kIOPSAccessoryCategoryKey)] = @(kIOPSAccessoryCategoryKeyboard);
+    } else if (usagePage == kHIDPage_GenericDesktop && usage == kHIDUsage_GD_Mouse) {
+        _properties[@(kIOPSAccessoryCategoryKey)] = @(kIOPSAccessoryCategoryMouse);
     } else if (props[@(kIOHIDGameControllerTypeKey)]) {
         _properties[@(kIOPSAccessoryCategoryKey)] = @(kIOPSAccessoryCategoryGameController);
     }
@@ -754,7 +757,7 @@ static void _valueAvailableCallback(void *context,
                                             kCFAllocatorDefault,
                                             0);
     require_action(ret == kIOReturnSuccess, exit, {
-        UPSLogError("Failed to query properties with error %x",ret);
+        UPSLogError("Failed to query properties with error %x",(int)ret);
     });
     
     
@@ -771,7 +774,7 @@ static void _valueAvailableCallback(void *context,
                                             kIOCFPlugInInterfaceID,
                                             &plugin, &score);
     require_action(ret == kIOReturnSuccess , exit, {
-        UPSLogError("Failed to create plugin interface with error %x",ret);
+        UPSLogError("Failed to create plugin interface with error %x",(int)ret);
     });
     
     require_action(plugin, exit, {
@@ -794,12 +797,12 @@ static void _valueAvailableCallback(void *context,
     
     ret = (*_device)->open(_device, 0);
     require_action(ret == kIOReturnSuccess, exit, {
-         UPSLogError("Failed to open device with error %x",ret);
+         UPSLogError("Failed to open device with error %x",(int)ret);
     });
     
     ret = (*_device)->copyMatchingElements(_device, nil, &elements, 0);
     require_action(ret == kIOReturnSuccess, exit, {
-        UPSLogError("Failed to copy matching elements with error %x",ret);
+        UPSLogError("Failed to copy matching elements with error %x",(int)ret);
     });
     
     require_action(elements, exit, {
@@ -813,7 +816,7 @@ static void _valueAvailableCallback(void *context,
                             CFUUIDGetUUIDBytes(kIOHIDDeviceQueueInterfaceID),
                             (LPVOID *)&_queue);
     require_action(result == S_OK, exit, {
-        UPSLogError("Failed to get queue interface with error %d",result);
+        UPSLogError("Failed to get queue interface with error %d",(int)result);
         ret = kIOReturnError;
         
     });
@@ -828,7 +831,7 @@ static void _valueAvailableCallback(void *context,
                         CFUUIDGetUUIDBytes(kIOHIDDeviceTransactionInterfaceID),
                         (LPVOID *)&_transaction);
     require_action(result == S_OK , exit, {
-        UPSLogError("Failed to get transaction interface with error %d",result);
+        UPSLogError("Failed to get transaction interface with error %d",(int)result);
         ret = kIOReturnError;
     });
     

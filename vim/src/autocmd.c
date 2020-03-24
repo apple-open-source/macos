@@ -155,6 +155,8 @@ static struct event_name
     {"QuickFixCmdPre",	EVENT_QUICKFIXCMDPRE},
     {"QuitPre",		EVENT_QUITPRE},
     {"RemoteReply",	EVENT_REMOTEREPLY},
+    {"SafeState",	EVENT_SAFESTATE},
+    {"SafeStateAgain",	EVENT_SAFESTATEAGAIN},
     {"SessionLoadPost",	EVENT_SESSIONLOADPOST},
     {"ShellCmdPost",	EVENT_SHELLCMDPOST},
     {"ShellFilterPost",	EVENT_SHELLFILTERPOST},
@@ -172,6 +174,7 @@ static struct event_name
     {"TabLeave",	EVENT_TABLEAVE},
     {"TermChanged",	EVENT_TERMCHANGED},
     {"TerminalOpen",	EVENT_TERMINALOPEN},
+    {"TerminalWinOpen", EVENT_TERMINALWINOPEN},
     {"TermResponse",	EVENT_TERMRESPONSE},
     {"TextChanged",	EVENT_TEXTCHANGED},
     {"TextChangedI",	EVENT_TEXTCHANGEDI},
@@ -238,16 +241,6 @@ static garray_T augroups = {0, 0, sizeof(char_u *), 10, NULL};
 #define AUGROUP_NAME(i) (((char_u **)augroups.ga_data)[i])
 /* use get_deleted_augroup() to get this */
 static char_u *deleted_augroup = NULL;
-
-/*
- * Set by the apply_autocmds_group function if the given event is equal to
- * EVENT_FILETYPE. Used by the readfile function in order to determine if
- * EVENT_BUFREADPOST triggered the EVENT_FILETYPE.
- *
- * Relying on this value requires one to reset it prior calling
- * apply_autocmds_group.
- */
-int au_did_filetype INIT(= FALSE);
 
 /*
  * The ID of the current group.  Group 0 is the default one.
@@ -1193,7 +1186,7 @@ do_autocmd_event(
 		    return FAIL;
 		}
 
-		ap = (AutoPat *)alloc((unsigned)sizeof(AutoPat));
+		ap = ALLOC_ONE(AutoPat);
 		if (ap == NULL)
 		    return FAIL;
 		ap->pat = vim_strnsave(pat, patlen);
@@ -1242,7 +1235,7 @@ do_autocmd_event(
 	    prev_ac = &(ap->cmds);
 	    while ((ac = *prev_ac) != NULL)
 		prev_ac = &ac->next;
-	    ac = (AutoCmd *)alloc((unsigned)sizeof(AutoCmd));
+	    ac = ALLOC_ONE(AutoCmd);
 	    if (ac == NULL)
 		return FAIL;
 	    ac->cmd = vim_strsave(cmd);
@@ -1423,7 +1416,7 @@ aucmd_prepbuf(
     // back to using the current window.
     if (win == NULL && aucmd_win == NULL)
     {
-	win_alloc_aucmd_win();
+	aucmd_win = win_alloc_popup_win();
 	if (aucmd_win == NULL)
 	    win = curwin;
     }
@@ -1451,19 +1444,11 @@ aucmd_prepbuf(
 	// unexpected results.
 	aco->use_aucmd_win = TRUE;
 	aucmd_win_used = TRUE;
-	aucmd_win->w_buffer = buf;
-#if defined(FEAT_SYN_HL) || defined(FEAT_SPELL)
-	aucmd_win->w_s = &buf->b_s;
-#endif
-	++buf->b_nwindows;
-	win_init_empty(aucmd_win); // set cursor and topline to safe values
 
-	// Make sure w_localdir and globaldir are NULL to avoid a chdir() in
-	// win_enter_ext().
-	VIM_CLEAR(aucmd_win->w_localdir);
+	win_init_popup_win(aucmd_win, buf);
+
 	aco->globaldir = globaldir;
 	globaldir = NULL;
-
 
 	// Split the current window, put the aucmd_win in the upper half.
 	// We don't want the BufEnter or WinEnter autocommands.
@@ -1599,8 +1584,8 @@ win_found:
 	    curbuf = curwin->w_buffer;
 	    if (win_valid(aco->save_prevwin))
 		prevwin = aco->save_prevwin;
-	    // In case the autocommand move the cursor to a position that that
-	    // not exist in curbuf.
+	    // In case the autocommand moves the cursor to a position that
+	    // does not exist in curbuf.
 	    check_cursor();
 	}
     }
@@ -1677,7 +1662,7 @@ apply_autocmds_retval(
 /*
  * Return TRUE when there is a CursorHold autocommand defined.
  */
-    int
+    static int
 has_cursorhold(void)
 {
     return (first_autopat[(int)(get_real_state() == NORMAL_BUSY
@@ -1696,10 +1681,7 @@ trigger_cursorhold(void)
 	    && has_cursorhold()
 	    && reg_recording == 0
 	    && typebuf.tb_len == 0
-#ifdef FEAT_INS_EXPAND
-	    && !ins_compl_active()
-#endif
-	    )
+	    && !ins_compl_active())
     {
 	state = get_real_state();
 	if (state == NORMAL_BUSY || (state & INSERT) != 0)
@@ -1717,7 +1699,6 @@ has_cursormoved(void)
     return (first_autopat[(int)EVENT_CURSORMOVED] != NULL);
 }
 
-#if defined(FEAT_CONCEAL) || defined(PROTO)
 /*
  * Return TRUE when there is a CursorMovedI autocommand defined.
  */
@@ -1726,7 +1707,6 @@ has_cursormovedI(void)
 {
     return (first_autopat[(int)EVENT_CURSORMOVEDI] != NULL);
 }
-#endif
 
 /*
  * Return TRUE when there is a TextChanged autocommand defined.
@@ -1746,7 +1726,6 @@ has_textchangedI(void)
     return (first_autopat[(int)EVENT_TEXTCHANGEDI] != NULL);
 }
 
-#if defined(FEAT_INS_EXPAND) || defined(PROTO)
 /*
  * Return TRUE when there is a TextChangedP autocommand defined.
  */
@@ -1755,7 +1734,6 @@ has_textchangedP(void)
 {
     return (first_autopat[(int)EVENT_TEXTCHANGEDP] != NULL);
 }
-#endif
 
 /*
  * Return TRUE when there is an InsertCharPre autocommand defined.
@@ -2064,9 +2042,7 @@ apply_autocmds_group(
     if (!autocmd_busy)
     {
 	save_search_patterns();
-#ifdef FEAT_INS_EXPAND
 	if (!ins_compl_active())
-#endif
 	{
 	    saveRedobuff(&save_redo);
 	    did_save_redobuff = TRUE;
@@ -2261,14 +2237,11 @@ unblock_autocmds(void)
 # endif
 }
 
-#if defined(FEAT_EVAL) && (defined(FEAT_XIM) || defined(IME_WITHOUT_XIM)) \
-	|| defined(PROTO)
     int
 is_autocmd_blocked(void)
 {
     return autocmd_blocked != 0;
 }
-#endif
 
 /*
  * Find next autocommand pattern that matches.
@@ -2303,8 +2276,8 @@ auto_next_pat(
 	    {
 		name = event_nr2name(apc->event);
 		s = _("%s Autocommands for \"%s\"");
-		sourcing_name = alloc((unsigned)(STRLEN(s)
-					    + STRLEN(name) + ap->patlen + 1));
+		sourcing_name = alloc(STRLEN(s)
+					      + STRLEN(name) + ap->patlen + 1);
 		if (sourcing_name != NULL)
 		{
 		    sprintf((char *)sourcing_name, s,
@@ -2339,7 +2312,7 @@ auto_next_pat(
  * Returns allocated string, or NULL for end of autocommands.
  */
     char_u *
-getnextac(int c UNUSED, void *cookie, int indent UNUSED)
+getnextac(int c UNUSED, void *cookie, int indent UNUSED, int do_concat UNUSED)
 {
     AutoPatCmd	    *acp = (AutoPatCmd *)cookie;
     char_u	    *retval;
@@ -2445,7 +2418,6 @@ has_autocmd(event_T event, char_u *sfname, buf_T *buf)
     return retval;
 }
 
-#if defined(FEAT_CMDL_COMPL) || defined(PROTO)
 /*
  * Function given to ExpandGeneric() to obtain the list of autocommand group
  * names.
@@ -2530,7 +2502,6 @@ get_event_name(expand_T *xp UNUSED, int idx)
     return (char_u *)event_names[idx - augroups.ga_len].name;
 }
 
-#endif	// FEAT_CMDL_COMPL
 
 #if defined(FEAT_EVAL) || defined(PROTO)
 /*

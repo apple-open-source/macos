@@ -1,4 +1,84 @@
 ================
+WebKitGTK 2.27.3
+================
+
+What's new in WebKitGTK 2.27.3?
+
+  - Add support for Pointer Lock API.
+  - Improve performance when falling back to system fonts.
+  - Stop using DBus for the remote inspector implementation to improve the performance of both
+    WebDriver and remote inspector.
+  - Implement support for new ARIA roles: code, strong, emphasis, generic.
+  - Fix handling of content type with new custom protocols implementation.
+  - Make image decoders fully thread safe.
+  - Add support for get page source command in WebDriver.
+  - Add support for network proxy capabilities in WebDriver.
+  - Add support for new window command in WebDriver.
+  - Fix several crashes and rendering issues.
+  - Translation updates: Brazilian Portuguese, Ukrainian.
+
+================
+WebKitGTK 2.27.2
+================
+
+What's new in WebKitGTK 2.27.2?
+
+  - Add user messages API for the communication with the web extension.
+  - Enable service workers by default.
+  - Add support for saving data in Web Inspector.
+  - More navigation gesture improvement.
+  - Fix the build with WebDriver disabled.
+  - Show also client EGL extensions in about:gpu.
+  - Disable accelerated compositing when we fail to initialize the EGL dispaly under Wayland.
+  - Fix several crashes and rendering issues.
+
+================
+WebKitGTK 2.27.1
+================
+
+What's new in WebKitGTK+ 2.27.1?
+
+  - Enable async scrolling when accelerating compositing policy is 'always'.
+  - Add about:gpu to show information about the graphics stack.
+  - Add API to enable Process Swap on (Cross-site) Navigation, that is now disabled by default.
+  - Add WebKitWebView:page-id property.
+  - Improve swipe navigation gesture style.
+  - Fix several crashes and rendering issues.
+
+================
+WebKitGTK 2.25.4
+================
+
+What's new in WebKitGTK+ 2.25.4?
+
+  - Switch to use libsoup WebSockets API.
+  - Add support for permessage-deflate WebSocket extension.
+  - Add support for datalist element in text input fields.
+  - Fix a crash with empty video source.
+  - Fix several crashes and rendering issues.
+
+================
+WebKitGTK 2.25.3
+================
+
+What's new in WebKitGTK+ 2.25.3?
+
+  - Remove support for GTK2 NPAPI plugins.
+  - Fix web view updates after swapping web process if accelerated compositing mode is forced.
+  - Make kinetic scrolling work again.
+  - Fix position of emoji chooser when page is scrolled.
+  - Fix web process deadlock when scrolling twitter timeline which contains HLS videos.
+  - Make navigation gesture use dark fallback background color color on dark themes.
+  - Make Previous/Next gesture work in RTL mode.
+  - Support cancelling touchscreen back/forward gesture.
+  - Add user agent quirk to make github work in FreeBSD.
+  - Fix content disappearing when using CSS transforms.
+  - Fix some radio streams that could not be played.
+  - Fix video pause that sometimes caused to skip to finish.
+  - Fix volume level changes when playing a video.
+  - Fix several crashes and rendering issues.
+
+================
 WebKitGTK 2.25.2
 ================
 

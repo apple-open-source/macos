@@ -34,6 +34,7 @@
 namespace WebKit {
 using namespace WebCore;
 
+#if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
 static unsigned modifiersToEventState(OptionSet<WebEvent::Modifier> modifiers)
 {
     unsigned state = 0;
@@ -48,15 +49,15 @@ static unsigned modifiersToEventState(OptionSet<WebEvent::Modifier> modifiers)
     return state;
 }
 
-static unsigned mouseButtonToGdkButton(WebMouseEvent::Button button)
+static unsigned mouseButtonToGdkButton(MouseButton button)
 {
     switch (button) {
-    case WebMouseEvent::NoButton:
-    case WebMouseEvent::LeftButton:
+    case MouseButton::None:
+    case MouseButton::Left:
         return GDK_BUTTON_PRIMARY;
-    case WebMouseEvent::MiddleButton:
+    case MouseButton::Middle:
         return GDK_BUTTON_MIDDLE;
-    case WebMouseEvent::RightButton:
+    case MouseButton::Right:
         return GDK_BUTTON_SECONDARY;
     }
     return GDK_BUTTON_PRIMARY;
@@ -101,7 +102,7 @@ static void doMotionEvent(GtkWidget* widget, const WebCore::IntPoint& location, 
     gtk_main_do_event(event.get());
 }
 
-void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, MouseInteraction interaction, WebMouseEvent::Button button, const WebCore::IntPoint& locationInView, OptionSet<WebEvent::Modifier> keyModifiers)
+void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, MouseInteraction interaction, MouseButton button, const WebCore::IntPoint& locationInView, OptionSet<WebEvent::Modifier> keyModifiers)
 {
     unsigned gdkButton = mouseButtonToGdkButton(button);
     auto modifier = stateModifierForGdkButton(gdkButton);
@@ -131,7 +132,9 @@ void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, 
         break;
     }
 }
+#endif // ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
 
+#if ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
 static void doKeyStrokeEvent(GdkEventType type, GtkWidget* widget, unsigned keyVal, unsigned state, bool doReleaseAfterPress = false)
 {
     ASSERT(type == GDK_KEY_PRESS || type == GDK_KEY_RELEASE);
@@ -331,5 +334,6 @@ void WebAutomationSession::platformSimulateKeySequence(WebPageProxy& page, const
         p = g_utf8_next_char(p);
     } while (*p);
 }
+#endif // ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
 
 } // namespace WebKit

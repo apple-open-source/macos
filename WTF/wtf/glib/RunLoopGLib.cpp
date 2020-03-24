@@ -123,6 +123,12 @@ void RunLoop::wakeUp()
     g_source_set_ready_time(m_source.get(), 0);
 }
 
+RunLoop::CycleResult RunLoop::cycle(RunLoopMode)
+{
+    g_main_context_iteration(NULL, FALSE);
+    return CycleResult::Continue;
+}
+
 class DispatchAfterContext {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -147,7 +153,7 @@ void RunLoop::dispatchAfter(Seconds duration, Function<void()>&& function)
     g_source_set_name(source.get(), "[WebKit] RunLoop dispatchAfter");
     g_source_set_ready_time(source.get(), g_get_monotonic_time() + duration.microsecondsAs<gint64>());
 
-    std::unique_ptr<DispatchAfterContext> context = std::make_unique<DispatchAfterContext>(WTFMove(function));
+    std::unique_ptr<DispatchAfterContext> context = makeUnique<DispatchAfterContext>(WTFMove(function));
     g_source_set_callback(source.get(), [](gpointer userData) -> gboolean {
         std::unique_ptr<DispatchAfterContext> context(static_cast<DispatchAfterContext*>(userData));
         context->dispatch();

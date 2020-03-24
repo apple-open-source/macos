@@ -35,6 +35,7 @@
 #include "IntRect.h"
 #include "StrokeStyleApplier.h"
 #include <CoreGraphics/CoreGraphics.h>
+#include <pal/spi/cg/CoreGraphicsSPI.h>
 #include <wtf/MathExtras.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/WTFString.h>
@@ -184,12 +185,10 @@ bool Path::contains(const FloatPoint &point, WindRule rule) const
     return ret;
 }
 
-bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) const
+bool Path::strokeContains(StrokeStyleApplier& applier, const FloatPoint& point) const
 {
     if (isNull())
         return false;
-
-    ASSERT(applier);
 
     CGContextRef context = scratchContext();
 
@@ -197,8 +196,8 @@ bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) 
     CGContextBeginPath(context);
     CGContextAddPath(context, platformPath());
 
-    GraphicsContext gc(context);
-    applier->strokeStyle(&gc);
+    GraphicsContext graphicsContext(context);
+    applier.strokeStyle(&graphicsContext);
 
     bool hitSuccess = CGContextPathContainsPoint(context, point, kCGPathStroke);
     CGContextRestoreGState(context);
@@ -307,9 +306,9 @@ void Path::platformAddPathForRoundedRect(const FloatRect& rect, const FloatSize&
         CGRect rectToDraw = rect;
         CGFloat rectWidth = CGRectGetWidth(rectToDraw);
         CGFloat rectHeight = CGRectGetHeight(rectToDraw);
-        if (rectWidth < 2 * radiusWidth)
+        if (2 * radiusWidth > rectWidth)
             radiusWidth = rectWidth / 2 - std::numeric_limits<CGFloat>::epsilon();
-        if (rectHeight < 2 * radiusHeight)
+        if (2 * radiusHeight > rectHeight)
             radiusHeight = rectHeight / 2 - std::numeric_limits<CGFloat>::epsilon();
         CGPathAddRoundedRect(ensurePlatformPath(), nullptr, rectToDraw, radiusWidth, radiusHeight);
         return;
@@ -317,7 +316,24 @@ void Path::platformAddPathForRoundedRect(const FloatRect& rect, const FloatSize&
 
 #if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000)
     CGRect rectToDraw = rect;
+    
+    enum Corners {
+        BottomLeft,
+        BottomRight,
+        TopRight,
+        TopLeft
+    };
     CGSize corners[4] = { bottomLeftRadius, bottomRightRadius, topRightRadius, topLeftRadius };
+
+    CGFloat rectWidth = CGRectGetWidth(rectToDraw);
+    CGFloat rectHeight = CGRectGetHeight(rectToDraw);
+    
+    // Clamp the radii after conversion to CGFloats.
+    corners[TopRight].width = std::min(corners[TopRight].width, rectWidth - corners[TopLeft].width);
+    corners[BottomRight].width = std::min(corners[BottomRight].width, rectWidth - corners[BottomLeft].width);
+    corners[BottomLeft].height = std::min(corners[BottomLeft].height, rectHeight - corners[TopLeft].height);
+    corners[BottomRight].height = std::min(corners[BottomRight].height, rectHeight - corners[TopRight].height);
+
     CGPathAddUnevenCornersRoundedRect(ensurePlatformPath(), nullptr, rectToDraw, corners);
     return;
 #endif
@@ -411,29 +427,27 @@ FloatPoint Path::currentPoint() const
 static void CGPathApplierToPathApplier(void* info, const CGPathElement* element)
 {
     const PathApplierFunction& function = *(PathApplierFunction*)info;
-    FloatPoint points[3];
-    PathElement pelement;
-    pelement.type = (PathElementType)element->type;
-    pelement.points = points;
+    PathElement pathElement;
+    pathElement.type = (PathElement::Type)element->type;
     CGPoint* cgPoints = element->points;
     switch (element->type) {
     case kCGPathElementMoveToPoint:
     case kCGPathElementAddLineToPoint:
-        points[0] = cgPoints[0];
+        pathElement.points[0] = cgPoints[0];
         break;
     case kCGPathElementAddQuadCurveToPoint:
-        points[0] = cgPoints[0];
-        points[1] = cgPoints[1];
+        pathElement.points[0] = cgPoints[0];
+        pathElement.points[1] = cgPoints[1];
         break;
     case kCGPathElementAddCurveToPoint:
-        points[0] = cgPoints[0];
-        points[1] = cgPoints[1];
-        points[2] = cgPoints[2];
+        pathElement.points[0] = cgPoints[0];
+        pathElement.points[1] = cgPoints[1];
+        pathElement.points[2] = cgPoints[2];
         break;
     case kCGPathElementCloseSubpath:
         break;
     }
-    function(pelement);
+    function(pathElement);
 }
 
 void Path::apply(const PathApplierFunction& function) const

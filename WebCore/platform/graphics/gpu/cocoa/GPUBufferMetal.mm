@@ -30,61 +30,55 @@
 
 #import "GPUBufferDescriptor.h"
 #import "GPUDevice.h"
-#import "Logging.h"
+#import "GPUErrorScopes.h"
 #import <JavaScriptCore/ArrayBuffer.h>
 #import <Metal/Metal.h>
 #import <wtf/BlockObjCExceptions.h>
+#import <wtf/BlockPtr.h>
 #import <wtf/CheckedArithmetic.h>
 #import <wtf/MainThread.h>
 
 namespace WebCore {
 
-static constexpr auto readOnlyFlags = OptionSet<GPUBufferUsage::Flags> { GPUBufferUsage::Flags::Index, GPUBufferUsage::Flags::Vertex, GPUBufferUsage::Flags::Uniform, GPUBufferUsage::Flags::TransferSource };
+static constexpr auto readOnlyFlags = OptionSet<GPUBufferUsage::Flags> { GPUBufferUsage::Flags::Index, GPUBufferUsage::Flags::Vertex, GPUBufferUsage::Flags::Uniform, GPUBufferUsage::Flags::CopySource };
 
 
-bool GPUBuffer::validateBufferUsage(const GPUDevice& device, OptionSet<GPUBufferUsage::Flags> usage)
+bool GPUBuffer::validateBufferUsage(const GPUDevice& device, OptionSet<GPUBufferUsage::Flags> usage, GPUErrorScopes& errorScopes)
 {
     if (!device.platformDevice()) {
-        LOG(WebGPU, "GPUBuffer::tryCreate(): Invalid GPUDevice!");
+        errorScopes.generatePrefixedError("Invalid GPUDevice!");
         return false;
     }
 
     if (usage.containsAll({ GPUBufferUsage::Flags::MapWrite, GPUBufferUsage::Flags::MapRead })) {
-        LOG(WebGPU, "GPUBuffer::tryCreate(): Buffer cannot have both MAP_READ and MAP_WRITE usage!");
-        return false;
-    }
-
-    if (usage.containsAny(readOnlyFlags) && (usage & GPUBufferUsage::Flags::Storage)) {
-        LOG(WebGPU, "GPUBuffer::tryCreate(): Buffer cannot have both STORAGE and a read-only usage!");
+        errorScopes.generatePrefixedError("Buffer cannot have both MAP_READ and MAP_WRITE usage!");
         return false;
     }
 
     return true;
 }
 
-RefPtr<GPUBuffer> GPUBuffer::tryCreate(Ref<GPUDevice>&& device, const GPUBufferDescriptor& descriptor, bool isMappedOnCreation)
+RefPtr<GPUBuffer> GPUBuffer::tryCreate(GPUDevice& device, const GPUBufferDescriptor& descriptor, GPUBufferMappedOption isMapped, GPUErrorScopes& errorScopes)
 {
     // MTLBuffer size (NSUInteger) is 32 bits on some platforms.
     NSUInteger size = 0;
     if (!WTF::convertSafely(descriptor.size, size)) {
-        LOG(WebGPU, "GPUBuffer::tryCreate(): Buffer size is too large!");
+        errorScopes.generateError("", GPUErrorFilter::OutOfMemory);
         return nullptr;
     }
 
     auto usage = OptionSet<GPUBufferUsage::Flags>::fromRaw(descriptor.usage);
-    if (!validateBufferUsage(device.get(), usage))
+    if (!validateBufferUsage(device, usage, errorScopes))
         return nullptr;
 
-#if PLATFORM(MAC)
     // copyBufferToBuffer calls require 4-byte alignment. "Unmapping" a mapped-on-creation GPUBuffer
     // that is otherwise unmappable requires such a copy to upload data.
-    if (isMappedOnCreation
+    if (isMapped == GPUBufferMappedOption::IsMapped
         && !usage.containsAny({ GPUBufferUsage::Flags::MapWrite, GPUBufferUsage::Flags::MapRead })
         && descriptor.size % 4) {
-        LOG(WebGPU, "GPUBuffer::tryCreate(): Data must be aligned to a multiple of 4 bytes!");
+        errorScopes.generatePrefixedError("Data must be aligned to a multiple of 4 bytes!");
         return nullptr;
     }
-#endif
 
     // FIXME: Metal best practices: Read-only one-time-use data less than 4 KB should not allocate a MTLBuffer and be used in [MTLCommandEncoder set*Bytes] calls instead.
 
@@ -97,30 +91,33 @@ RefPtr<GPUBuffer> GPUBuffer::tryCreate(Ref<GPUDevice>&& device, const GPUBufferD
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
-    mtlBuffer = adoptNS([device->platformDevice() newBufferWithLength:static_cast<NSUInteger>(descriptor.size) options:resourceOptions]);
+    mtlBuffer = adoptNS([device.platformDevice() newBufferWithLength:static_cast<NSUInteger>(descriptor.size) options:resourceOptions]);
 
     END_BLOCK_OBJC_EXCEPTIONS;
 
     if (!mtlBuffer) {
-        LOG(WebGPU, "GPUBuffer::tryCreate(): Unable to create MTLBuffer!");
+        errorScopes.generateError("", GPUErrorFilter::OutOfMemory);
         return nullptr;
     }
 
-    return adoptRef(*new GPUBuffer(WTFMove(mtlBuffer), WTFMove(device), size, usage, isMappedOnCreation));
+    return adoptRef(*new GPUBuffer(WTFMove(mtlBuffer), device, size, usage, isMapped));
 }
 
-GPUBuffer::GPUBuffer(RetainPtr<MTLBuffer>&& buffer, Ref<GPUDevice>&& device, size_t size, OptionSet<GPUBufferUsage::Flags> usage, bool isMapped)
+GPUBuffer::GPUBuffer(RetainPtr<MTLBuffer>&& buffer, GPUDevice& device, size_t size, OptionSet<GPUBufferUsage::Flags> usage, GPUBufferMappedOption isMapped)
     : m_platformBuffer(WTFMove(buffer))
-    , m_device(WTFMove(device))
+    , m_device(makeRef(device))
     , m_byteLength(size)
     , m_usage(usage)
-    , m_isMappedFromCreation(isMapped)
+    , m_isMappedFromCreation(isMapped == GPUBufferMappedOption::IsMapped)
 {
+    m_platformUsage = MTLResourceUsageRead;
+    if (isStorage())
+        m_platformUsage |= MTLResourceUsageWrite;
 }
 
 GPUBuffer::~GPUBuffer()
 {
-    destroy();
+    destroy(nullptr);
 }
 
 bool GPUBuffer::isReadOnly() const
@@ -147,40 +144,41 @@ JSC::ArrayBuffer* GPUBuffer::mapOnCreation()
 #if USE(METAL)
 void GPUBuffer::commandBufferCommitted(MTLCommandBuffer *commandBuffer)
 {
+    ASSERT(isMainThread());
     ++m_numScheduledCommandBuffers;
 
-    auto protectedThis = makeRefPtr(this);
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer>) {
-        protectedThis->commandBufferCompleted();
-    }];
+    // Make sure |this| only gets ref'd / deref'd on the main thread since it is not ThreadSafeRefCounted.
+    [commandBuffer addCompletedHandler:makeBlockPtr([this, protectedThis = makeRef(*this)](id<MTLCommandBuffer>) mutable {
+        callOnMainThread([this, protectedThis = WTFMove(protectedThis)] {
+            commandBufferCompleted();
+        });
+    }).get()];
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
 void GPUBuffer::commandBufferCompleted()
 {
+    ASSERT(isMainThread());
     ASSERT(m_numScheduledCommandBuffers);
 
-    if (m_numScheduledCommandBuffers == 1 && state() == State::Mapped) {
-        callOnMainThread([this, protectedThis = makeRef(*this)] () {
-            runMappingCallback();
-        });
-    }
+    if (m_numScheduledCommandBuffers == 1 && state() == State::Mapped)
+        runMappingCallback();
 
     --m_numScheduledCommandBuffers;
 }
 #endif // USE(METAL)
 
-void GPUBuffer::registerMappingCallback(MappingCallback&& callback, bool isRead)
+void GPUBuffer::registerMappingCallback(MappingCallback&& callback, bool isRead, GPUErrorScopes& errorScopes)
 {
     // Reject if request is invalid.
     if (isRead && !isMapReadable()) {
-        LOG(WebGPU, "GPUBuffer::mapReadAsync(): Invalid operation!");
+        errorScopes.generatePrefixedError("Invalid operation!");
         callback(nullptr);
         return;
     }
     if (!isRead && !isMapWriteable()) {
-        LOG(WebGPU, "GPUBuffer::mapWriteAsync(): Invalid operation!");
+        errorScopes.generatePrefixedError("Invalid operation!");
         callback(nullptr);
         return;
     }
@@ -220,7 +218,7 @@ JSC::ArrayBuffer* GPUBuffer::stagingBufferForWrite()
     return m_stagingBuffer.get();
 }
 
-void GPUBuffer::copyStagingBufferToGPU()
+void GPUBuffer::copyStagingBufferToGPU(GPUErrorScopes* errorScopes)
 {
     MTLCommandQueue *queue;
     if (!m_device->tryGetQueue() || !(queue = m_device->tryGetQueue()->platformQueue()))
@@ -233,8 +231,8 @@ void GPUBuffer::copyStagingBufferToGPU()
     stagingMtlBuffer = adoptNS([m_device->platformDevice() newBufferWithLength:static_cast<NSUInteger>(m_byteLength) options:MTLResourceCPUCacheModeDefaultCache]);
     END_BLOCK_OBJC_EXCEPTIONS;
 
-    if (!stagingMtlBuffer) {
-        LOG(WebGPU, "GPUBuffer::unmap(): Unable to create staging buffer!");
+    if (!stagingMtlBuffer && errorScopes) {
+        errorScopes->generateError("", GPUErrorFilter::OutOfMemory);
         return;
     }
 
@@ -252,10 +250,10 @@ void GPUBuffer::copyStagingBufferToGPU()
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
-void GPUBuffer::unmap()
+void GPUBuffer::unmap(GPUErrorScopes* errorScopes)
 {
-    if (!m_isMappedFromCreation && !isMappable()) {
-        LOG(WebGPU, "GPUBuffer::unmap(): Invalid operation: buffer is not mappable!");
+    if (!m_isMappedFromCreation && !isMappable() && errorScopes) {
+        errorScopes->generatePrefixedError("Invalid operation: GPUBuffer is not mappable!");
         return;
     }
 
@@ -265,7 +263,7 @@ void GPUBuffer::unmap()
             ASSERT(m_platformBuffer && m_platformBuffer.get().contents);
             memcpy(m_platformBuffer.get().contents, m_stagingBuffer->data(), m_byteLength);
         } else if (m_isMappedFromCreation)
-            copyStagingBufferToGPU();
+            copyStagingBufferToGPU(errorScopes);
 
         m_isMappedFromCreation = false;
         m_stagingBuffer = nullptr;
@@ -278,10 +276,10 @@ void GPUBuffer::unmap()
     }
 }
 
-void GPUBuffer::destroy()
+void GPUBuffer::destroy(GPUErrorScopes* errorScopes)
 {
     if (state() == State::Mapped)
-        unmap();
+        unmap(errorScopes);
 
     m_platformBuffer = nullptr;
 }

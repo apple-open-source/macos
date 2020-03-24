@@ -30,7 +30,8 @@
 
 #import "UIKitSPI.h"
 #import "VersionChecks.h"
-#import "WKWebViewInternal.h"
+#import "WKDeferringGestureRecognizer.h"
+#import "WKWebViewIOS.h"
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <wtf/WeakObjCPtr.h>
 
@@ -182,6 +183,22 @@ static BOOL shouldForwardScrollViewDelegateMethodToExternalDelegate(SEL selector
 - (id <UIScrollViewDelegate>)delegate
 {
     return _externalDelegate.getAutoreleased();
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRequireFailureOfGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
+{
+    if ([otherGestureRecognizer isKindOfClass:WKDeferringGestureRecognizer.class])
+        return [(WKDeferringGestureRecognizer *)otherGestureRecognizer shouldDeferGestureRecognizer:gestureRecognizer];
+
+    return NO;
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldBeRequiredToFailByGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
+{
+    if ([gestureRecognizer isKindOfClass:WKDeferringGestureRecognizer.class])
+        return [(WKDeferringGestureRecognizer *)gestureRecognizer shouldDeferGestureRecognizer:otherGestureRecognizer];
+
+    return NO;
 }
 
 - (void)_updateDelegate
@@ -339,9 +356,9 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
 
 - (void)_adjustForAutomaticKeyboardInfo:(NSDictionary *)info animated:(BOOL)animated lastAdjustment:(CGFloat*)lastAdjustment
 {
-    [super _adjustForAutomaticKeyboardInfo:info animated:animated lastAdjustment:lastAdjustment];
-
     _keyboardBottomInsetAdjustment = [[UIPeripheralHost sharedInstance] getVerticalOverlapForView:self usingKeyboardInfo:info];
+
+    [super _adjustForAutomaticKeyboardInfo:info animated:animated lastAdjustment:lastAdjustment];
 }
 
 - (UIEdgeInsets)_systemContentInset

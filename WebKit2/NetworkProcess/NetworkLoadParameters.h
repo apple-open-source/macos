@@ -26,11 +26,13 @@
 #pragma once
 
 #include "NetworkActivityTracker.h"
+#include "WebPageProxyIdentifier.h"
 #include <WebCore/BlobDataFileReference.h>
+#include <WebCore/FrameIdentifier.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/ResourceLoaderOptions.h>
 #include <WebCore/ResourceRequest.h>
-#include <pal/SessionID.h>
+#include <WebCore/SecurityOrigin.h>
 #include <wtf/ProcessID.h>
 
 namespace WebKit {
@@ -39,10 +41,14 @@ enum class PreconnectOnly { No, Yes };
 
 class NetworkLoadParameters {
 public:
+    WebPageProxyIdentifier webPageProxyID;
     WebCore::PageIdentifier webPageID;
-    uint64_t webFrameID { 0 };
+    WebCore::FrameIdentifier webFrameID;
+    RefPtr<WebCore::SecurityOrigin> topOrigin;
     WTF::ProcessID parentPID { 0 };
-    PAL::SessionID sessionID { PAL::SessionID::emptySessionID() };
+#if HAVE(AUDIT_TOKEN)
+    Optional<audit_token_t> networkProcessAuditToken;
+#endif
     WebCore::ResourceRequest request;
     WebCore::ContentSniffingPolicy contentSniffingPolicy { WebCore::ContentSniffingPolicy::SniffContent };
     WebCore::ContentEncodingSniffingPolicy contentEncodingSniffingPolicy { WebCore::ContentEncodingSniffingPolicy::Sniff };

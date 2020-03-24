@@ -14,7 +14,6 @@
 __attribute__((visibility("hidden")))
 @interface OTSponsorToApplicantRound2M2 : PBCodable <NSCopying>
 {
-    NSMutableArray<NSData *> *_preapprovedKeys;
     NSData *_voucher;
     NSData *_voucherSignature;
 }
@@ -25,13 +24,6 @@ __attribute__((visibility("hidden")))
 
 @property (nonatomic, readonly) BOOL hasVoucherSignature;
 @property (nonatomic, retain) NSData *voucherSignature;
-
-@property (nonatomic, retain) NSMutableArray<NSData *> *preapprovedKeys;
-- (void)clearPreapprovedKeys;
-- (void)addPreapprovedKeys:(NSData *)i;
-- (NSUInteger)preapprovedKeysCount;
-- (NSData *)preapprovedKeysAtIndex:(NSUInteger)idx;
-+ (Class)preapprovedKeysType;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTSponsorToApplicantRound2M2 *)other;

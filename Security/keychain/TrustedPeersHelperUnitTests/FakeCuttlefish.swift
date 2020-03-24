@@ -66,16 +66,19 @@ struct FakeCuttlefishAssertion: CustomStringConvertible {
     }
 }
 
-@objc class FakeCuttlefishNotify: NSObject {
+@objc
+class FakeCuttlefishNotify: NSObject {
     let pushes: (Data) -> Void
     let containerName: String
-    @objc init(_ containerName: String, pushes: @escaping (Data) -> Void) {
+    @objc
+    init(_ containerName: String, pushes: @escaping (Data) -> Void) {
         self.containerName = containerName
         self.pushes = pushes
     }
 
-    @objc public func notify(_ function: String) throws {
-        let notification: [String: Dictionary<String, Any>] = [
+    @objc
+    public func notify(_ function: String) throws {
+        let notification: [String: [String: Any]] = [
             "aps": ["content-available": 1],
             "cf": [
                 "f": function,
@@ -99,7 +102,7 @@ extension ViewKey {
 
         record[SecCKRecordWrappedKeyKey] = self.wrappedkeyBase64
 
-        switch(self.keyclass) {
+        switch self.keyclass {
         case .tlk:
             record[SecCKRecordKeyClassKey] = "tlk"
         case .classA:
@@ -110,7 +113,7 @@ extension ViewKey {
             abort()
         }
 
-        if self.parentkeyUuid.count > 0 {
+        if !self.parentkeyUuid.isEmpty {
             // TODO: no idea how to tell it about the 'verify' action
             record[SecCKRecordParentKeyRefKey] = CKRecord.Reference(recordID: CKRecord.ID(__recordName: self.parentkeyUuid, zoneID: zoneID), action: .none)
         }
@@ -120,7 +123,7 @@ extension ViewKey {
 
     func fakeKeyPointer(zoneID: CKRecordZone.ID) -> CKRecord {
         let recordName: String
-        switch(self.keyclass) {
+        switch self.keyclass {
         case .tlk:
             recordName = "tlk"
         case .classA:
@@ -199,6 +202,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
     var returnRepairAccountResponse: Bool = false
     var returnRepairEscrowResponse: Bool = false
     var returnResetOctagonResponse: Bool = false
+    var returnLeaveTrustResponse: Bool = false
     var returnRepairErrorResponse: Error?
     var fetchChangesCalledCount: Int = 0
 
@@ -211,6 +215,10 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
     var healthListener: ((GetRepairActionRequest) -> NSError?)?
     var fetchViableBottlesListener: ((FetchViableBottlesRequest) -> NSError?)?
     var resetListener: ((ResetRequest) -> NSError?)?
+    var setRecoveryKeyListener: ((SetRecoveryKeyRequest) -> NSError?)?
+
+    // Any policies in here will be returned by FetchPolicy before any inbuilt policies
+    var policyOverlay: [TPPolicyDocument] = []
 
     var fetchViableBottlesDontReturnBottleWithID: String?
 
@@ -259,7 +267,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
         return Changes.with { changes in
             changes.changeToken = self.currentChangeToken
 
-            changes.differences = self.state.peersByID.compactMap({ (key: String, value: Peer) -> PeerDifference? in
+            changes.differences = self.state.peersByID.compactMap { (key: String, value: Peer) -> PeerDifference? in
                 let old = snapshot.peersByID[key]
                 if old == nil {
                     return PeerDifference.with {
@@ -272,7 +280,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                 } else {
                     return nil
                 }
-            })
+            }
             snapshot.peersByID.forEach { (key: String, _: Peer) in
                 if nil == self.state.peersByID[key] {
                     changes.differences.append(PeerDifference.with {
@@ -562,6 +570,15 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
 
     func setRecoveryKey(_ request: SetRecoveryKeyRequest, completion: @escaping (SetRecoveryKeyResponse?, Error?) -> Void) {
         print("FakeCuttlefish: setRecoveryKey called")
+
+        if let listener = self.setRecoveryKeyListener {
+            let operationError = listener(request)
+            guard operationError == nil else {
+                completion(nil, operationError)
+                return
+            }
+        }
+
         guard let snapshot = self.snapshotsByChangeToken[request.changeToken] else {
             completion(nil, FakeCuttlefishError.unknownChangeToken)
             return
@@ -648,8 +665,15 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
         var response = FetchPolicyDocumentsResponse()
 
         let policies = builtInPolicyDocuments()
-        let dummyPolicies = Dictionary(uniqueKeysWithValues: policies.map({ ($0.policyVersion, ($0.policyHash, $0.protobuf)) }))
+        let dummyPolicies = Dictionary(uniqueKeysWithValues: policies.map { ($0.version.versionNumber, ($0.version.policyHash, $0.protobuf)) })
+        let overlayPolicies = Dictionary(uniqueKeysWithValues: self.policyOverlay.map { ($0.version.versionNumber, ($0.version.policyHash, $0.protobuf)) })
+
         for key in request.keys {
+            if let (hash, data) = overlayPolicies[key.version], hash == key.hash {
+                response.entries.append(PolicyDocumentMapEntry.with { $0.key = key; $0.value = data })
+                continue
+            }
+
             guard let (hash, data) = dummyPolicies[key.version] else {
                 continue
             }
@@ -703,6 +727,11 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                 $0.repairAction = .resetOctagon
             }
             completion(response, nil)
+        } else if returnLeaveTrustResponse {
+            let response = GetRepairActionResponse.with {
+                $0.repairAction = .leaveTrust
+            }
+            completion(response, nil)
         } else if self.returnNoActionResponse {
             let response = GetRepairActionResponse.with {
                 $0.repairAction = .noAction
@@ -716,6 +745,10 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
         } else {
             completion(GetRepairActionResponse(), nil)
         }
+    }
+
+    func getClubCertificates(_: GetClubCertificatesRequest, completion: @escaping (GetClubCertificatesResponse?, Error?) -> Void) {
+        completion(GetClubCertificatesResponse(), nil)
     }
 
     func getSupportAppInfo(_: GetSupportAppInfoRequest, completion: @escaping (GetSupportAppInfoResponse?, Error?) -> Void) {

@@ -25,11 +25,14 @@
 
 #pragma once
 
+#if ENABLE(WEBGL)
+
 #include "Event.h"
 
 namespace WebCore {
 
 class WebGLContextEvent final : public Event {
+    WTF_MAKE_ISO_ALLOCATED(WebGLContextEvent);
 public:
     static Ref<WebGLContextEvent> create(const AtomString& type, CanBubble canBubble, IsCancelable cancelable, const String& statusMessage)
     {
@@ -58,3 +61,5 @@ private:
 };
 
 } // namespace WebCore
+
+#endif

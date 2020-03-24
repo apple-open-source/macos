@@ -33,6 +33,7 @@
 
 #include "Blob.h"
 #include "Document.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "ScriptExecutionContext.h"
 #include "SocketProvider.h"
@@ -145,7 +146,7 @@ void WorkerThreadableWebSocketChannel::resume()
 WorkerThreadableWebSocketChannel::Peer::Peer(Ref<ThreadableWebSocketChannelClientWrapper>&& clientWrapper, WorkerLoaderProxy& loaderProxy, ScriptExecutionContext& context, const String& taskMode, SocketProvider& provider)
     : m_workerClientWrapper(WTFMove(clientWrapper))
     , m_loaderProxy(loaderProxy)
-    , m_mainWebSocketChannel(WebSocketChannel::create(downcast<Document>(context), *this, provider))
+    , m_mainWebSocketChannel(ThreadableWebSocketChannel::create(downcast<Document>(context), *this, provider))
     , m_taskMode(taskMode)
 {
     ASSERT(isMainThread());
@@ -362,7 +363,7 @@ void WorkerThreadableWebSocketChannel::Bridge::mainThreadInitialize(ScriptExecut
 
     bool sent = loaderProxy.postTaskForModeToWorkerGlobalScope({
         ScriptExecutionContext::Task::CleanupTask,
-        [clientWrapper = clientWrapper.copyRef(), &loaderProxy, peer = std::make_unique<Peer>(clientWrapper.copyRef(), loaderProxy, context, taskMode, WTFMove(provider))](ScriptExecutionContext& context) mutable {
+        [clientWrapper = clientWrapper.copyRef(), &loaderProxy, peer = makeUnique<Peer>(clientWrapper.copyRef(), loaderProxy, context, taskMode, WTFMove(provider))](ScriptExecutionContext& context) mutable {
             ASSERT_UNUSED(context, context.isWorkerGlobalScope());
             if (clientWrapper->failedWebSocketChannelCreation()) {
                 // If Bridge::initialize() quitted earlier, we need to kick mainThreadDestroy() to delete the peer.

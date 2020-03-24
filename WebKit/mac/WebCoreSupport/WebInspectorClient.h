@@ -29,6 +29,7 @@
 #import <JavaScriptCore/InspectorFrontendChannel.h>
 #import <WebCore/FloatRect.h>
 #import <WebCore/InspectorClient.h>
+#import <WebCore/InspectorDebuggableType.h>
 #import <WebCore/InspectorFrontendClientLocal.h>
 #import <wtf/Forward.h>
 #import <wtf/HashMap.h>
@@ -51,6 +52,7 @@ class Page;
 class WebInspectorFrontendClient;
 
 class WebInspectorClient final : public WebCore::InspectorClient, public Inspector::FrontendChannel {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit WebInspectorClient(WebView *inspectedWebView);
 
@@ -116,7 +118,13 @@ public:
 
     void startWindowDrag() override;
 
-    String localizedStringsURL() override;
+    String localizedStringsURL() const override;
+    Inspector::DebuggableType debuggableType() const final { return Inspector::DebuggableType::Page; };
+    String targetPlatformName() const final { return "macOS"_s; };
+    String targetBuildVersion() const final { return "Unknown"_s; };
+    String targetProductVersion() const final { return "Unknown"_s; };
+    bool targetIsSimulator() const final { return false; }
+
 
     void bringToFront() override;
     void closeWindow() override;
@@ -136,6 +144,11 @@ public:
 
     void inspectedURLChanged(const String& newURL) override;
     void showCertificate(const WebCore::CertificateInfo&) override;
+
+#if ENABLE(INSPECTOR_TELEMETRY)
+    bool supportsDiagnosticLogging() override;
+    void logDiagnosticEvent(const String& eventName, const WebCore::DiagnosticLoggingClient::ValueDictionary&) override;
+#endif
 
 private:
     void updateWindowTitle() const;

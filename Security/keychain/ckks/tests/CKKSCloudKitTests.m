@@ -41,6 +41,7 @@
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
+#import "keychain/ot/OTManager.h"
 
 @interface CKKSCloudKitTests : XCTestCase
 
@@ -95,11 +96,20 @@
                                                                                                               nsdistributednotificationCenterClass:[NSDistributedNotificationCenter class]
                                                                                                                                      notifierClass:[FakeCKKSNotifier class]];
 
-    CKKSViewManager* manager = [[CKKSViewManager alloc] initWithContainerName:containerName
-                                                                       usePCS:SecCKKSContainerUsePCS
-                                                                   sosAdapter:nil
-                                                    cloudKitClassDependencies:cloudKitClassDependencies];
-    [CKKSViewManager resetManager:false setTo:manager];
+    CKContainer* container = [CKKSViewManager makeCKContainer:SecCKKSContainerName usePCS:SecCKKSContainerUsePCS];
+    CKKSAccountStateTracker* accountStateTracker = [[CKKSAccountStateTracker alloc] init:container
+                                                               nsnotificationCenterClass:cloudKitClassDependencies.nsnotificationCenterClass];
+
+    CKKSLockStateTracker* lockStateTracker = [[CKKSLockStateTracker alloc] init];
+
+    CKKSViewManager* manager = [[CKKSViewManager alloc] initWithContainer:container
+                                                               sosAdapter:nil
+                                                      accountStateTracker:accountStateTracker
+                                                         lockStateTracker:lockStateTracker
+                                                cloudKitClassDependencies:cloudKitClassDependencies];
+    // No longer a supported mechanism:
+    //[CKKSViewManager resetManager:false setTo:manager];
+    (void)manager;
 
     // Make a new fake keychain
     NSString* smallName = [self.name componentsSeparatedByString:@" "][1];

@@ -83,6 +83,44 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "CharCodeAtIntrinsic";
     case CharAtIntrinsic:
         return "CharAtIntrinsic";
+    case DatePrototypeGetTimeIntrinsic:
+        return "DatePrototypeGetTimeIntrinsic";
+    case DatePrototypeGetFullYearIntrinsic:
+        return "DatePrototypeGetFullYearIntrinsic";
+    case DatePrototypeGetUTCFullYearIntrinsic:
+        return "DatePrototypeGetUTCFullYearIntrinsic";
+    case DatePrototypeGetMonthIntrinsic:
+        return "DatePrototypeGetMonthIntrinsic";
+    case DatePrototypeGetUTCMonthIntrinsic:
+        return "DatePrototypeGetUTCMonthIntrinsic";
+    case DatePrototypeGetDateIntrinsic:
+        return "DatePrototypeGetDateIntrinsic";
+    case DatePrototypeGetUTCDateIntrinsic:
+        return "DatePrototypeGetUTCDateIntrinsic";
+    case DatePrototypeGetDayIntrinsic:
+        return "DatePrototypeGetDayIntrinsic";
+    case DatePrototypeGetUTCDayIntrinsic:
+        return "DatePrototypeGetUTCDayIntrinsic";
+    case DatePrototypeGetHoursIntrinsic:
+        return "DatePrototypeGetHoursIntrinsic";
+    case DatePrototypeGetUTCHoursIntrinsic:
+        return "DatePrototypeGetUTCHoursIntrinsic";
+    case DatePrototypeGetMinutesIntrinsic:
+        return "DatePrototypeGetMinutesIntrinsic";
+    case DatePrototypeGetUTCMinutesIntrinsic:
+        return "DatePrototypeGetUTCMinutesIntrinsic";
+    case DatePrototypeGetSecondsIntrinsic:
+        return "DatePrototypeGetSecondsIntrinsic";
+    case DatePrototypeGetUTCSecondsIntrinsic:
+        return "DatePrototypeGetUTCSecondsIntrinsic";
+    case DatePrototypeGetMillisecondsIntrinsic:
+        return "DatePrototypeGetMillisecondsIntrinsic";
+    case DatePrototypeGetUTCMillisecondsIntrinsic:
+        return "DatePrototypeGetUTCMillisecondsIntrinsic";
+    case DatePrototypeGetTimezoneOffsetIntrinsic:
+        return "DatePrototypeGetTimezoneOffsetIntrinsic";
+    case DatePrototypeGetYearIntrinsic:
+        return "DatePrototypeGetYearIntrinsic";
     case FromCharCodeIntrinsic:
         return "FromCharCodeIntrinsic";
     case PowIntrinsic:
@@ -123,6 +161,8 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "ObjectKeysIntrinsic";
     case ReflectGetPrototypeOfIntrinsic:
         return "ReflectGetPrototypeOfIntrinsic";
+    case StringPrototypeCodePointAtIntrinsic:
+        return "StringPrototypeCodePointAtIntrinsic";
     case StringPrototypeValueOfIntrinsic:
         return "StringPrototypeValueOfIntrinsic";
     case StringPrototypeReplaceIntrinsic:
@@ -147,8 +187,8 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "TruncIntrinsic";
     case IsTypedArrayViewIntrinsic:
         return "IsTypedArrayViewIntrinsic";
-    case BoundThisNoArgsFunctionCallIntrinsic:
-        return "BoundThisNoArgsFunctionCallIntrinsic";
+    case BoundFunctionCallIntrinsic:
+        return "BoundFunctionCallIntrinsic";
     case JSMapGetIntrinsic:
         return "JSMapGetIntrinsic";
     case JSMapHasIntrinsic:

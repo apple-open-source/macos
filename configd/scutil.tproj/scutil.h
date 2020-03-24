@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009, 2012, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009, 2012, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,7 +37,9 @@
 #include <sys/cdefs.h>
 #include <histedit.h>
 
-#define SC_LOG_HANDLE	_SC_LOG_DEFAULT
+#define SC_LOG_HANDLE		_SC_LOG_DEFAULT
+#define USE_SC_LOG_OR_PRINT	1
+
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -54,9 +56,11 @@ extern AuthorizationRef		authorization;
 extern InputRef			currentInput;
 extern Boolean			doDispatch;
 extern int			nesting;
+extern SCPreferencesRef		ni_prefs;
 extern CFRunLoopRef		notifyRl;
 extern CFRunLoopSourceRef	notifyRls;
 extern SCPreferencesRef		prefs;
+extern char			*prefsPath;
 extern SCDynamicStoreRef	store;
 extern CFPropertyListRef	value;
 extern CFMutableArrayRef	watchedKeys;

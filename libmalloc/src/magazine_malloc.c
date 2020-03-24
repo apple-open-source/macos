@@ -675,13 +675,13 @@ szone_destroy(szone_t *szone)
 
 	// deallocate the death-row cache outside the zone lock
 	while (idx != idx_max) {
-		mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, 0);
+		mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, szone->debug_flags);
 		if (++idx == szone->large_cache_depth) {
 			idx = 0;
 		}
 	}
 	if (0 != local_entry_cache[idx].address && 0 != local_entry_cache[idx].size) {
-		mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, 0);
+		mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, szone->debug_flags);
 	}
 #endif
 
@@ -696,7 +696,7 @@ szone_destroy(szone_t *szone)
 	}
 	large_entries_free_no_lock(szone, szone->large_entries, szone->num_large_entries, &range_to_deallocate);
 	if (range_to_deallocate.size) {
-		mvm_deallocate_pages((void *)range_to_deallocate.address, (size_t)range_to_deallocate.size, 0);
+		mvm_deallocate_pages((void *)range_to_deallocate.address, (size_t)range_to_deallocate.size, szone->debug_flags);
 	}
 
 	/* destroy allocator regions */
@@ -1448,14 +1448,14 @@ szone_pressure_relief(szone_t *szone, size_t goal)
 		// deallocate the death-row cache outside the zone lock
 		size_t total = 0;
 		while (idx != idx_max) {
-			mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, 0);
+			mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, szone->debug_flags);
 			total += local_entry_cache[idx].size;
 			if (++idx == szone->large_cache_depth) {
 				idx = 0;
 			}
 		}
 		if (0 != local_entry_cache[idx].address && 0 != local_entry_cache[idx].size) {
-			mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, 0);
+			mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, szone->debug_flags);
 			total += local_entry_cache[idx].size;
 		}
 	}
@@ -1647,7 +1647,7 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 #endif
 
 	/* get memory for the zone. */
-	szone = mvm_allocate_pages(SZONE_PAGED_SIZE, 0, 0, VM_MEMORY_MALLOC);
+	szone = mvm_allocate_pages(SZONE_PAGED_SIZE, 0, DISABLE_ASLR, VM_MEMORY_MALLOC);
 	if (!szone) {
 		return NULL;
 	}

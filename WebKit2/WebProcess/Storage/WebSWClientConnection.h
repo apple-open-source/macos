@@ -30,11 +30,9 @@
 #include "Connection.h"
 #include "MessageReceiver.h"
 #include "MessageSender.h"
-#include "ServiceWorkerClientFetch.h"
 #include "SharedMemory.h"
 #include <WebCore/MessageWithMessagePorts.h>
 #include <WebCore/SWClientConnection.h>
-#include <pal/SessionID.h>
 #include <wtf/UniqueRef.h>
 
 namespace WebCore {
@@ -49,10 +47,10 @@ class WebServiceWorkerProvider;
 
 class WebSWClientConnection final : public WebCore::SWClientConnection, private IPC::MessageSender, public IPC::MessageReceiver {
 public:
-    static Ref<WebSWClientConnection> create(PAL::SessionID sessionID) { return adoptRef(*new WebSWClientConnection { sessionID }); }
+    static Ref<WebSWClientConnection> create() { return adoptRef(*new WebSWClientConnection); }
     ~WebSWClientConnection();
 
-    WebCore::SWServerConnectionIdentifier serverConnectionIdentifier() const final;
+    WebCore::SWServerConnectionIdentifier serverConnectionIdentifier() const final { return m_identifier; }
 
     void addServiceWorkerRegistrationInServer(WebCore::ServiceWorkerRegistrationIdentifier) final;
     void removeServiceWorkerRegistrationInServer(WebCore::ServiceWorkerRegistrationIdentifier) final;
@@ -61,20 +59,16 @@ public:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
     bool mayHaveServiceWorkerRegisteredForOrigin(const WebCore::SecurityOriginData&) const final;
-    void startFetch(WebCore::FetchIdentifier, WebCore::ServiceWorkerRegistrationIdentifier, const WebCore::ResourceRequest&, const WebCore::FetchOptions&, const String& referrer);
-    void cancelFetch(WebCore::FetchIdentifier, WebCore::ServiceWorkerRegistrationIdentifier);
-    void continueDidReceiveFetchResponse(WebCore::FetchIdentifier, WebCore::ServiceWorkerRegistrationIdentifier);
 
     void connectionToServerLost();
 
     void syncTerminateWorker(WebCore::ServiceWorkerIdentifier) final;
 
-    PAL::SessionID sessionID() const { return m_sessionID; }
+    bool isThrottleable() const { return m_isThrottleable; }
+    void updateThrottleState();
 
 private:
-    explicit WebSWClientConnection(PAL::SessionID);
-
-    void initializeConnectionIfNeeded();
+    WebSWClientConnection();
 
     void scheduleJobInServer(const WebCore::ServiceWorkerJobData&) final;
     void finishFetchingScriptInServer(const WebCore::ServiceWorkerFetchResult&) final;
@@ -85,39 +79,38 @@ private:
     void matchRegistration(WebCore::SecurityOriginData&& topOrigin, const URL& clientURL, RegistrationCallback&&) final;
     void didMatchRegistration(uint64_t matchRequestIdentifier, Optional<WebCore::ServiceWorkerRegistrationData>&&);
     void didGetRegistrations(uint64_t matchRequestIdentifier, Vector<WebCore::ServiceWorkerRegistrationData>&&);
-    void whenRegistrationReady(const WebCore::SecurityOrigin& topOrigin, const URL& clientURL, WhenRegistrationReadyCallback&&) final;
+    void whenRegistrationReady(const WebCore::SecurityOriginData& topOrigin, const URL& clientURL, WhenRegistrationReadyCallback&&) final;
     void registrationReady(uint64_t callbackID, WebCore::ServiceWorkerRegistrationData&&);
 
+    void setDocumentIsControlled(WebCore::DocumentIdentifier, WebCore::ServiceWorkerRegistrationData&&, CompletionHandler<void(bool)>&&);
+
     void getRegistrations(WebCore::SecurityOriginData&& topOrigin, const URL& clientURL, GetRegistrationsCallback&&) final;
+    void isServiceWorkerRunning(WebCore::ServiceWorkerIdentifier, CompletionHandler<void(bool)>&&) final;
 
     void didResolveRegistrationPromise(const WebCore::ServiceWorkerRegistrationKey&) final;
-    void updateThrottleState() final;
-    bool isThrottleable() const final { return m_isThrottleable; }
     void storeRegistrationsOnDiskForTesting(CompletionHandler<void()>&&) final;
 
     void scheduleStorageJob(const WebCore::ServiceWorkerJobData&);
 
-    void runOrDelayTaskForImport(WTF::Function<void()>&& task);
+    void runOrDelayTaskForImport(Function<void()>&& task);
 
-    IPC::Connection* messageSenderConnection() const final { return m_connection.get(); }
-    uint64_t messageSenderDestinationID() const final { return m_identifier.toUInt64(); }
+    IPC::Connection* messageSenderConnection() const final;
+    uint64_t messageSenderDestinationID() const final { return 0; }
 
     void setSWOriginTableSharedMemory(const SharedMemory::Handle&);
     void setSWOriginTableIsImported();
 
-    template<typename U> void ensureConnectionAndSend(const U& message);
+    void clear();
 
-    PAL::SessionID m_sessionID;
     WebCore::SWServerConnectionIdentifier m_identifier;
 
-    RefPtr<IPC::Connection> m_connection;
     UniqueRef<WebSWOriginTable> m_swOriginTable;
 
     uint64_t m_previousCallbackIdentifier { 0 };
     HashMap<uint64_t, RegistrationCallback> m_ongoingMatchRegistrationTasks;
     HashMap<uint64_t, GetRegistrationsCallback> m_ongoingGetRegistrationsTasks;
     HashMap<uint64_t, WhenRegistrationReadyCallback> m_ongoingRegistrationReadyTasks;
-    Deque<WTF::Function<void()>> m_tasksPendingOriginImport;
+    Deque<Function<void()>> m_tasksPendingOriginImport;
     bool m_isThrottleable { true };
 }; // class WebSWServerConnection
 

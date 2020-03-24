@@ -459,7 +459,11 @@
 }
 
 + (NSArray<CKKSKey*>*)selfWrappedKeys:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
-    return [self allWhere: @{@"UUID": [CKKSSQLWhereObject op:@"=" string:@"parentKeyUUID"], @"state":  SecCKKSProcessedStateLocal, @"ckzone":zoneID.zoneName} error:error];
+    return [self allWhere: @{@"UUID": [CKKSSQLWhereColumn op:CKKSSQLWhereComparatorEquals
+                                                      column:CKKSSQLWhereColumnNameParentKeyUUID],
+                             @"state":  SecCKKSProcessedStateLocal,
+                             @"ckzone":zoneID.zoneName}
+                    error:error];
 }
 
 + (instancetype _Nullable)currentKeyForClass:(CKKSKeyClass*)keyclass

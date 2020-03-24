@@ -61,7 +61,7 @@ static bool scheduledWithCustomRunLoopMode(const Optional<SchedulePairHashSet>& 
 {
     // Sync xhr uses the message queue.
     if (m_messageQueue)
-        return m_messageQueue->append(std::make_unique<Function<void()>>(WTFMove(function)));
+        return m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(function)));
 
     // This is the common case.
     if (!scheduledWithCustomRunLoopMode(m_scheduledPairs))
@@ -79,7 +79,7 @@ static bool scheduledWithCustomRunLoopMode(const Optional<SchedulePairHashSet>& 
         CFRunLoopPerformBlock(pair->runLoop(), pair->mode(), block.get());
 }
 
-- (id)initWithHandle:(ResourceHandle*)handle messageQueue:(MessageQueue<Function<void()>>*)messageQueue
+- (id)initWithHandle:(WebCore::ResourceHandle*)handle messageQueue:(RefPtr<WebCore::SynchronousLoaderMessageQueue>&&)messageQueue
 {
     self = [self init];
     if (!self)
@@ -90,7 +90,7 @@ static bool scheduledWithCustomRunLoopMode(const Optional<SchedulePairHashSet>& 
         if (auto* pairs = m_handle->context()->scheduledRunLoopPairs())
             m_scheduledPairs = *pairs;
     }
-    m_messageQueue = messageQueue;
+    m_messageQueue = WTFMove(messageQueue);
 
     return self;
 }
@@ -252,7 +252,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
         ResourceResponse resourceResponse(r.get());
         resourceResponse.setSource(ResourceResponse::Source::Network);
-        ResourceHandle::getConnectionTimingData(connection.get(), resourceResponse.deprecatedNetworkLoadMetrics());
+        resourceResponse.setDeprecatedNetworkLoadMetrics(ResourceHandle::getConnectionTimingData(connection.get()));
 
         m_handle->didReceiveResponse(WTFMove(resourceResponse), [self, protectedSelf = WTFMove(protectedSelf)] {
             m_semaphore.signal();

@@ -22,6 +22,9 @@
 #include "lf_hfs_journal.h"
 #include "lf_hfs_vfsops.h"
 #include "lf_hfs_mount.h"
+#include "lf_hfs_readwrite_ops.h"
+
+#include "lf_hfs_vnops.h"
 
 static int
 FSOPS_GetRootVnode(struct vnode* psDevVnode, struct vnode** ppsRootVnode)
@@ -261,14 +264,15 @@ LFHFS_Unmount ( UVFSFileNode psRootNode, UVFSUnmountHint hint )
 {
     VERIFY_NODE_IS_VALID(psRootNode);
     LFHFS_LOG(LEVEL_DEBUG, "HFS_Unmount (psRootNode %p) (hint %u)\n", psRootNode, hint);
-
+    
     int iError = 0;
     struct vnode       *psRootVnode = (struct vnode*) psRootNode;
     FileSystemRecord_s *psFSRecord  = VPTOFSRECORD(psRootVnode);
     struct mount       *psMount     = psRootVnode->sFSParams.vnfs_mp;
     struct cnode       *psDevCnode  = VTOHFS(psRootVnode)->hfs_devvp->sFSParams.vnfs_fsnode;
     struct hfsmount    *psHfsMp     = psMount->psHfsmount;
-    
+    psFSRecord->uUnmountHint        = hint;
+
     #if HFS_CRASH_TEST
         CRASH_ABORT(CRASH_ABORT_ON_UNMOUNT, psHfsMp, NULL);
     #endif
@@ -290,11 +294,24 @@ LFHFS_Unmount ( UVFSFileNode psRootNode, UVFSUnmountHint hint )
 }
 
 int
-LFHFS_SetFSAttr ( UVFSFileNode psNode, const char *pcAttr, const UVFSFSAttributeValue *psAttrVal, size_t uLen )
+LFHFS_SetFSAttr ( UVFSFileNode psNode, const char *pcAttr, const UVFSFSAttributeValue *psAttrVal, size_t uLen, UVFSFSAttributeValue *psOutAttrVal, size_t uOutLen )
 {
 #pragma unused (psNode, pcAttr, psAttrVal, uLen)
     VERIFY_NODE_IS_VALID(psNode);
-    LFHFS_LOG(LEVEL_DEBUG, "LFHFS_SetFSAttr (ENOTSUP)\n");
+
+    if (pcAttr == NULL || psAttrVal == NULL || psOutAttrVal == NULL) return EINVAL;
+
+    if (strcmp(pcAttr, LI_FSATTR_PREALLOCATE) == 0)
+    {
+         if (uLen < sizeof (UVFSFSAttributeValue) || uOutLen < sizeof (UVFSFSAttributeValue))
+             return EINVAL;
+
+         LIFilePreallocateArgs_t* psPreAllocReq = (LIFilePreallocateArgs_t *) ((void *) psAttrVal->fsa_opaque);
+         LIFilePreallocateArgs_t* psPreAllocRes = (LIFilePreallocateArgs_t *) ((void *) psOutAttrVal->fsa_opaque);
+
+         memcpy (psPreAllocRes, psPreAllocReq, sizeof(LIFilePreallocateArgs_t));
+         return hfs_vnop_preallocate(psNode, psPreAllocReq, psPreAllocRes);
+    }
 
     return ENOTSUP;
 }
@@ -690,7 +707,11 @@ UVFSFSOps HFS_fsOps = {
     .fsops_listxattr    = LFHFS_ListXAttr,
 
     .fsops_scandir      = LFHFS_ScanDir,
-    .fsops_scanids      = LFHFS_ScanIDs
+    .fsops_scanids      = LFHFS_ScanIDs,
+    
+    .fsops_stream_lookup = LFHFS_StreamLookup,
+    .fsops_stream_reclaim = LFHFS_StreamReclaim,
+    .fsops_stream_read = LFHFS_StreamRead,
 };
 
 #if HFS_CRASH_TEST

@@ -48,7 +48,9 @@ static inline bool isAnonymousRubyInlineBlock(const RenderObject* object)
         || !isRuby(object->parent())
         || is<RenderRubyRun>(*object)
         || (object->isInline() && (object->isBeforeContent() || object->isAfterContent()))
-        || (object->isAnonymous() && is<RenderBlock>(*object) && object->style().display() == DisplayType::InlineBlock));
+        || (object->isAnonymous() && is<RenderBlock>(*object) && object->style().display() == DisplayType::InlineBlock)
+        || object->isRenderMultiColumnFlow()
+        || object->isRenderMultiColumnSet());
 
     return object
         && isRuby(object->parent())
@@ -109,7 +111,7 @@ static RenderRubyRun* lastRubyRun(const RenderElement* ruby)
     if (child && !is<RenderRubyRun>(*child))
         child = child->previousSibling();
     if (!is<RenderRubyRun>(child)) {
-        ASSERT(!child || child->isBeforeContent() || child == rubyBeforeBlock(ruby));
+        ASSERT(!child || child->isBeforeContent() || child == rubyBeforeBlock(ruby) || child->isRenderMultiColumnFlow() || child->isRenderMultiColumnSet());
         return nullptr;
     }
     return downcast<RenderRubyRun>(child);
@@ -213,6 +215,7 @@ void RenderTreeBuilder::Ruby::attach(RenderRubyRun& parent, RenderPtr<RenderObje
             RenderElement* ruby = parent.parent();
             ASSERT(isRuby(ruby));
             auto newRun = RenderRubyRun::staticCreateRubyRun(ruby);
+            auto& run = *newRun;
             m_builder.attach(*ruby, WTFMove(newRun), parent.nextSibling());
             // Add the new ruby text and move the old one to the new run
             // Note: Doing it in this order and not using RenderRubyRun's methods,
@@ -221,7 +224,7 @@ void RenderTreeBuilder::Ruby::attach(RenderRubyRun& parent, RenderPtr<RenderObje
             m_builder.blockFlowBuilder().attach(parent, WTFMove(child), beforeChild);
             auto takenBeforeChild = m_builder.blockBuilder().detach(parent, *beforeChild);
 
-            m_builder.attach(*newRun, WTFMove(takenBeforeChild));
+            m_builder.attach(run, WTFMove(takenBeforeChild));
             return;
         }
         if (parent.hasRubyBase()) {

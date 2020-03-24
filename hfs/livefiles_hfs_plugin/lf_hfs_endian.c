@@ -228,10 +228,7 @@ hfs_swap_BTNode (
     if ((srcDesc->kind == kBTIndexNode) ||
         (srcDesc->kind == kBTLeafNode)) {
 
-        if (VTOVCB(vp)->vcbSigWord == kHFSPlusSigWord) {
-            error = hfs_swap_HFSPlusBTInternalNode (src, VTOC(vp)->c_fileid, direction);
-        }
-
+        error = hfs_swap_HFSPlusBTInternalNode (src, VTOC(vp)->c_fileid, direction);
         if (error) goto fail;
 
     } else if (srcDesc-> kind == kBTMapNode) {

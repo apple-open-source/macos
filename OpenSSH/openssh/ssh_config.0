@@ -54,22 +54,28 @@ DESCRIPTION
              Match keyword) to be used only when the conditions following the
              Match keyword are satisfied.  Match conditions are specified
              using one or more criteria or the single token all which always
-             matches.  The available criteria keywords are: canonical, exec,
-             host, originalhost, user, and localuser.  The all criteria must
-             appear alone or immediately after canonical.  Other criteria may
-             be combined arbitrarily.  All criteria but all and canonical
-             require an argument.  Criteria may be negated by prepending an
-             exclamation mark (M-bM-^@M-^X!M-bM-^@M-^Y).
+             matches.  The available criteria keywords are: canonical, final,
+             exec, host, originalhost, user, and localuser.  The all criteria
+             must appear alone or immediately after canonical or final.  Other
+             criteria may be combined arbitrarily.  All criteria but all,
+             canonical, and final require an argument.  Criteria may be
+             negated by prepending an exclamation mark (M-bM-^@M-^X!M-bM-^@M-^Y).
 
              The canonical keyword matches only when the configuration file is
              being re-parsed after hostname canonicalization (see the
-             CanonicalizeHostname option.)  This may be useful to specify
-             conditions that work with canonical host names only.  The exec
-             keyword executes the specified command under the user's shell.
-             If the command returns a zero exit status then the condition is
-             considered true.  Commands containing whitespace characters must
-             be quoted.  Arguments to exec accept the tokens described in the
-             TOKENS section.
+             CanonicalizeHostname option).  This may be useful to specify
+             conditions that work with canonical host names only.
+
+             The final keyword requests that the configuration be re-parsed
+             (regardless of whether CanonicalizeHostname is enabled), and
+             matches only during this final pass.  If CanonicalizeHostname is
+             enabled, then canonical and final match during the same pass.
+
+             The exec keyword executes the specified command under the user's
+             shell.  If the command returns a zero exit status then the
+             condition is considered true.  Commands containing whitespace
+             characters must be quoted.  Arguments to exec accept the tokens
+             described in the TOKENS section.
 
              The other keywords' criteria must be single entries or comma-
              separated lists and may use the wildcard and negation operators
@@ -165,7 +171,7 @@ DESCRIPTION
              Specifies which algorithms are allowed for signing of
              certificates by certificate authorities (CAs).  The default is:
 
-                   ecdsa-sha2-nistp256.ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
+                   ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,
                    ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ssh-rsa
 
              ssh(1) will not accept host certificates signed using algorithms
@@ -200,12 +206,14 @@ DESCRIPTION
 
      Ciphers
              Specifies the ciphers allowed and their order of preference.
-             Multiple ciphers must be comma-separated.  If the specified value
+             Multiple ciphers must be comma-separated.  If the specified list
              begins with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the specified ciphers will be
              appended to the default set instead of replacing them.  If the
-             specified value begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified
+             specified list begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified
              ciphers (including wildcards) will be removed from the default
-             set instead of replacing them.
+             set instead of replacing them.  If the specified list begins with
+             a M-bM-^@M-^X^M-bM-^@M-^Y character, then the specified ciphers will be placed at the
+             head of the default set.
 
              The supported ciphers are:
 
@@ -249,8 +257,9 @@ DESCRIPTION
      ConnectTimeout
              Specifies the timeout (in seconds) used when connecting to the
              SSH server, instead of using the default system TCP timeout.
-             This value is used only when the target is down or really
-             unreachable, not when it refuses the connection.
+             This timeout is applied both to establishing the connection and
+             to performing the initial SSH protocol handshake and key
+             exchange.
 
      ControlMaster
              Enables the sharing of multiple sessions over a single network
@@ -439,12 +448,14 @@ DESCRIPTION
      HostbasedKeyTypes
              Specifies the key types that will be used for hostbased
              authentication as a comma-separated list of patterns.
-             Alternately if the specified value begins with a M-bM-^@M-^X+M-bM-^@M-^Y character,
+             Alternately if the specified list begins with a M-bM-^@M-^X+M-bM-^@M-^Y character,
              then the specified key types will be appended to the default set
-             instead of replacing them.  If the specified value begins with a
+             instead of replacing them.  If the specified list begins with a
              M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified key types (including wildcards)
              will be removed from the default set instead of replacing them.
-             The default for this option is:
+             If the specified list begins with a M-bM-^@M-^X^M-bM-^@M-^Y character, then the
+             specified key types will be placed at the head of the default
+             set.  The default for this option is:
 
                 ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 ecdsa-sha2-nistp384-cert-v01@openssh.com,
@@ -459,12 +470,14 @@ DESCRIPTION
 
      HostKeyAlgorithms
              Specifies the host key algorithms that the client wants to use in
-             order of preference.  Alternately if the specified value begins
+             order of preference.  Alternately if the specified list begins
              with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the specified key types will be
              appended to the default set instead of replacing them.  If the
-             specified value begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified
+             specified list begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified
              key types (including wildcards) will be removed from the default
-             set instead of replacing them.  The default for this option is:
+             set instead of replacing them.  If the specified list begins with
+             a M-bM-^@M-^X^M-bM-^@M-^Y character, then the specified key types will be placed at
+             the head of the default set.  The default for this option is:
 
                 ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 ecdsa-sha2-nistp384-cert-v01@openssh.com,
@@ -488,19 +501,20 @@ DESCRIPTION
              option is useful for tunneling SSH connections or for multiple
              servers running on a single host.
 
-     HostName
+     Hostname
              Specifies the real host name to log into.  This can be used to
              specify nicknames or abbreviations for hosts.  Arguments to
-             HostName accept the tokens described in the TOKENS section.
+             Hostname accept the tokens described in the TOKENS section.
              Numeric IP addresses are also permitted (both on the command line
-             and in HostName specifications).  The default is the name given
+             and in Hostname specifications).  The default is the name given
              on the command line.
 
      IdentitiesOnly
-             Specifies that ssh(1) should only use the authentication identity
-             and certificate files explicitly configured in the ssh_config
-             files or passed on the ssh(1) command-line, even if ssh-agent(1)
-             or a PKCS11Provider offers more identities.  The argument to this
+             Specifies that ssh(1) should only use the configured
+             authentication identity and certificate files (either the default
+             files, or those explicitly configured in the ssh_config files or
+             passed on the ssh(1) command-line), even if ssh-agent(1) or a
+             PKCS11Provider offers more identities.  The argument to this
              keyword must be yes or no (the default).  This option is intended
              for situations where ssh-agent offers many different identities.
 
@@ -591,19 +605,20 @@ DESCRIPTION
 
      KexAlgorithms
              Specifies the available KEX (Key Exchange) algorithms.  Multiple
-             algorithms must be comma-separated.  Alternately if the specified
-             value begins with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the specified methods
-             will be appended to the default set instead of replacing them.
-             If the specified value begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the
-             specified methods (including wildcards) will be removed from the
-             default set instead of replacing them.  The default is:
+             algorithms must be comma-separated.  If the specified list begins
+             with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the specified methods will be appended
+             to the default set instead of replacing them.  If the specified
+             list begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified methods
+             (including wildcards) will be removed from the default set
+             instead of replacing them.  If the specified list begins with a
+             M-bM-^@M-^X^M-bM-^@M-^Y character, then the specified methods will be placed at the
+             head of the default set.  The default is:
 
                    curve25519-sha256,curve25519-sha256@libssh.org,
                    ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,
                    diffie-hellman-group-exchange-sha256,
                    diffie-hellman-group16-sha512,
                    diffie-hellman-group18-sha512,
-                   diffie-hellman-group-exchange-sha1,
                    diffie-hellman-group14-sha256,
                    diffie-hellman-group14-sha1
 
@@ -650,12 +665,14 @@ DESCRIPTION
      MACs    Specifies the MAC (message authentication code) algorithms in
              order of preference.  The MAC algorithm is used for data
              integrity protection.  Multiple algorithms must be comma-
-             separated.  If the specified value begins with a M-bM-^@M-^X+M-bM-^@M-^Y character,
+             separated.  If the specified list begins with a M-bM-^@M-^X+M-bM-^@M-^Y character,
              then the specified algorithms will be appended to the default set
-             instead of replacing them.  If the specified value begins with a
+             instead of replacing them.  If the specified list begins with a
              M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified algorithms (including
              wildcards) will be removed from the default set instead of
-             replacing them.
+             replacing them.  If the specified list begins with a M-bM-^@M-^X^M-bM-^@M-^Y
+             character, then the specified algorithms will be placed at the
+             head of the default set.
 
              The algorithms that contain "-etm" calculate the MAC after
              encryption (encrypt-then-mac).  These are considered safer and
@@ -690,10 +707,11 @@ DESCRIPTION
              be yes or no (the default).
 
      PKCS11Provider
-             Specifies which PKCS#11 provider to use.  The argument to this
-             keyword is the PKCS#11 shared library ssh(1) should use to
-             communicate with a PKCS#11 token providing the user's private RSA
-             key.
+             Specifies which PKCS#11 provider to use or none to indicate that
+             no provider should be used (the default).  The argument to this
+             keyword is a path to the PKCS#11 shared library ssh(1) should use
+             to communicate with a PKCS#11 token providing keys for user
+             authentication.
 
      Port    Specifies the port number to connect on the remote host.  The
              default is 22.
@@ -718,7 +736,7 @@ DESCRIPTION
              should read from its standard input and write to its standard
              output.  It should eventually connect an sshd(8) server running
              on some machine, or execute sshd -i somewhere.  Host key
-             management will be done using the HostName of the host being
+             management will be done using the Hostname of the host being
              connected (defaulting to the name typed by the user).  Setting
              the command to none disables this option entirely.  Note that
              CheckHostIP is not available for connects with a proxy command.
@@ -741,6 +759,11 @@ DESCRIPTION
              whichever is specified first will prevent later instances of the
              other from taking effect.
 
+             Note also that the configuration for the destination host (either
+             supplied via the command-line or the configuration file) is not
+             generally applied to jump hosts.  ~/.ssh/config should be used if
+             specific configuration is required for jump hosts.
+
      ProxyUseFdpass
              Specifies that ProxyCommand will pass a connected file descriptor
              back to ssh(1) instead of continuing to execute and pass data.
@@ -748,13 +771,15 @@ DESCRIPTION
 
      PubkeyAcceptedKeyTypes
              Specifies the key types that will be used for public key
-             authentication as a comma-separated list of patterns.
-             Alternately if the specified value begins with a M-bM-^@M-^X+M-bM-^@M-^Y character,
-             then the key types after it will be appended to the default
-             instead of replacing it.  If the specified value begins with a
-             M-bM-^@M-^X-M-bM-^@M-^Y character, then the specified key types (including wildcards)
-             will be removed from the default set instead of replacing them.
-             The default for this option is:
+             authentication as a comma-separated list of patterns.  If the
+             specified list begins with a M-bM-^@M-^X+M-bM-^@M-^Y character, then the key types
+             after it will be appended to the default instead of replacing it.
+             If the specified list begins with a M-bM-^@M-^X-M-bM-^@M-^Y character, then the
+             specified key types (including wildcards) will be removed from
+             the default set instead of replacing them.  If the specified list
+             begins with a M-bM-^@M-^X^M-bM-^@M-^Y character, then the specified key types will be
+             placed at the head of the default set.  The default for this
+             option is:
 
                 ecdsa-sha2-nistp256-cert-v01@openssh.com,
                 ecdsa-sha2-nistp384-cert-v01@openssh.com,
@@ -865,7 +890,7 @@ DESCRIPTION
              therefore will not be spoofable.  The TCP keepalive option
              enabled by TCPKeepAlive is spoofable.  The server alive mechanism
              is valuable when the client or server depend on knowing when a
-             connection has become inactive.
+             connection has become unresponsive.
 
              The default value is 3.  If, for example, ServerAliveInterval
              (see below) is set to 15 and ServerAliveCountMax is left at the
@@ -1069,7 +1094,7 @@ TOKENS
      ControlPath accepts the tokens %%, %C, %h, %i, %L, %l, %n, %p, %r, and
      %u.
 
-     HostName accepts the tokens %% and %h.
+     Hostname accepts the tokens %% and %h.
 
      IdentityAgent and IdentityFile accept the tokens %%, %d, %h, %i, %l, %r,
      and %u.
@@ -1077,7 +1102,7 @@ TOKENS
      LocalCommand accepts the tokens %%, %C, %d, %h, %i, %l, %n, %p, %r, %T,
      and %u.
 
-     ProxyCommand accepts the tokens %%, %h, %p, and %r.
+     ProxyCommand accepts the tokens %%, %h, %n, %p, and %r.
 
      RemoteCommand accepts the tokens %%, %C, %d, %h, %i, %l, %n, %p, %r, and
      %u.
@@ -1087,8 +1112,7 @@ FILES
              This is the per-user configuration file.  The format of this file
              is described above.  This file is used by the SSH client.
              Because of the potential for abuse, this file must have strict
-             permissions: read/write for the user, and not accessible by
-             others.
+             permissions: read/write for the user, and not writable by others.
 
      /etc/ssh/ssh_config
              Systemwide configuration file.  This file provides defaults for
@@ -1106,4 +1130,4 @@ AUTHORS
      created OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 6.4                     October 3, 2018                    OpenBSD 6.4
+OpenBSD 6.6                   September 13, 2019                   OpenBSD 6.6

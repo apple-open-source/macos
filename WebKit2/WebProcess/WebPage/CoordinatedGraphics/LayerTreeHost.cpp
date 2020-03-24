@@ -48,18 +48,18 @@ using namespace WebCore;
 
 LayerTreeHost::LayerTreeHost(WebPage& webPage)
     : m_webPage(webPage)
-    , m_coordinator(webPage.corePage(), *this)
     , m_compositorClient(*this)
     , m_surface(AcceleratedSurface::create(webPage, *this))
     , m_viewportController(webPage.size())
     , m_layerFlushTimer(RunLoop::main(), this, &LayerTreeHost::layerFlushTimerFired)
     , m_sceneIntegration(Nicosia::SceneIntegration::create(*this))
+    , m_coordinator(webPage, *this)
+    , m_displayID(std::numeric_limits<uint32_t>::max() - m_webPage.identifier().toUInt64())
 {
 #if USE(GLIB_EVENT_LOOP)
     m_layerFlushTimer.setPriority(RunLoopSourcePriority::LayerFlushTimer);
     m_layerFlushTimer.setName("[WebKit] LayerTreeHost");
 #endif
-    m_coordinator.createRootLayer(m_webPage.size());
     scheduleLayerFlush();
 
     if (FrameView* frameView = m_webPage.mainFrameView()) {
@@ -76,7 +76,7 @@ LayerTreeHost::LayerTreeHost(WebPage& webPage)
     if (m_surface->shouldPaintMirrored())
         paintFlags |= TextureMapper::PaintingMirrored;
 
-    m_compositor = ThreadedCompositor::create(m_compositorClient, m_compositorClient, m_webPage.corePage()->chrome().displayID(), scaledSize, scaleFactor, paintFlags);
+    m_compositor = ThreadedCompositor::create(m_compositorClient, m_compositorClient, m_displayID, scaledSize, scaleFactor, paintFlags);
     m_layerTreeContext.contextID = m_surface->surfaceID();
 
     didChangeViewport();
@@ -84,7 +84,12 @@ LayerTreeHost::LayerTreeHost(WebPage& webPage)
 
 LayerTreeHost::~LayerTreeHost()
 {
-    ASSERT(!m_isValid);
+    cancelPendingLayerFlush();
+
+    m_sceneIntegration->invalidate();
+    m_coordinator.invalidate();
+    m_compositor->invalidate();
+    m_surface = nullptr;
 }
 
 void LayerTreeHost::setLayerFlushSchedulingEnabled(bool layerFlushingEnabled)
@@ -137,7 +142,7 @@ void LayerTreeHost::layerFlushTimerFired()
     m_webPage.updateRendering();
     m_webPage.flushPendingEditorStateUpdate();
 
-    if (!m_isValid || !m_coordinator.rootCompositingLayer())
+    if (!m_coordinator.rootCompositingLayer())
         return;
 
     // If a force-repaint callback was registered, we should force a 'frame sync' that
@@ -162,19 +167,6 @@ void LayerTreeHost::setViewOverlayRootLayer(GraphicsLayer* viewOverlayRootLayer)
 {
     m_viewOverlayRootLayer = viewOverlayRootLayer;
     m_coordinator.setViewOverlayRootLayer(viewOverlayRootLayer);
-}
-
-void LayerTreeHost::invalidate()
-{
-    ASSERT(m_isValid);
-    m_isValid = false;
-
-    cancelPendingLayerFlush();
-
-    m_sceneIntegration->invalidate();
-    m_coordinator.invalidate();
-    m_compositor->invalidate();
-    m_surface = nullptr;
 }
 
 void LayerTreeHost::scrollNonCompositedContents(const IntRect& rect)

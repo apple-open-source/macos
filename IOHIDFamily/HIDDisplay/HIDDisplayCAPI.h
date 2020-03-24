@@ -11,6 +11,8 @@
 
 #import <HIDDisplay/HIDDisplayPresetCAPI.h>
 #import <HIDDisplay/HIDDisplayIOReportingCAPI.h>
+#import <HIDDisplay/HIDDisplayDeviceManagementCAPI.h>
+#import <HIDDisplay/HIDDisplayUserAdjustmentCAPI.h>
 
 
 #endif /* HIDDisplayCAPI_h */

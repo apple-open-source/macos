@@ -412,11 +412,15 @@ private:
 
 void RenderInline::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
 {
+    absoluteQuadsIgnoringContinuation({ }, quads, wasFixed);
+    if (continuation())
+        collectAbsoluteQuadsForContinuation(quads, wasFixed);
+}
+
+void RenderInline::absoluteQuadsIgnoringContinuation(const FloatRect&, Vector<FloatQuad>& quads, bool*) const
+{
     AbsoluteQuadsGeneratorContext context(this, quads);
     generateLineBoxRects(context);
-
-    if (RenderBoxModelObject* continuation = this->continuation())
-        continuation->absoluteQuads(quads, wasFixed);
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -1100,7 +1104,7 @@ void RenderInline::deleteLines()
 
 std::unique_ptr<InlineFlowBox> RenderInline::createInlineFlowBox()
 {
-    return std::make_unique<InlineFlowBox>(*this);
+    return makeUnique<InlineFlowBox>(*this);
 }
 
 InlineFlowBox* RenderInline::createAndAppendInlineFlowBox()

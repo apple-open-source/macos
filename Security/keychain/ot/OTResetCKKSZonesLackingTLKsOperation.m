@@ -73,7 +73,8 @@
 
     for(CKKSCurrentKeySet* incompleteKeySet in incompleteKeySets) {
         if(incompleteKeySet.error == nil) {
-            CKKSKeychainView* viewMatchingSet = [self.deps.viewManager findView:incompleteKeySet.viewName];
+            CKKSViewManager* viewManager = self.deps.viewManager;
+            CKKSKeychainView* viewMatchingSet = [viewManager findView:incompleteKeySet.viewName];
 
             if(!viewMatchingSet) {
                 secnotice("octagon-ckks", "No view matching viewset %@?", incompleteKeySet);

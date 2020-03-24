@@ -8,7 +8,6 @@
 #import <ProtocolBuffer/PBDataReader.h>
 
 #import "OTApplicantToSponsorRound2M1.h"
-#import "OTSOSMessage.h"
 #import "OTSponsorToApplicantRound1M2.h"
 #import "OTSponsorToApplicantRound2M2.h"
 
@@ -33,11 +32,6 @@
     return _voucher != nil;
 }
 @synthesize voucher = _voucher;
-- (BOOL)hasSosPairingMessage
-{
-    return _sosPairingMessage != nil;
-}
-@synthesize sosPairingMessage = _sosPairingMessage;
 
 - (NSString *)description
 {
@@ -58,10 +52,6 @@
     if (self->_voucher)
     {
         [dict setObject:[_voucher dictionaryRepresentation] forKey:@"voucher"];
-    }
-    if (self->_sosPairingMessage)
-    {
-        [dict setObject:[_sosPairingMessage dictionaryRepresentation] forKey:@"sosPairingMessage"];
     }
     return dict;
 }
@@ -136,24 +126,6 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
                 PBReaderRecallMark(reader, &mark_voucher);
             }
             break;
-            case 4 /* sosPairingMessage */:
-            {
-                OTSOSMessage *new_sosPairingMessage = [[OTSOSMessage alloc] init];
-                self->_sosPairingMessage = new_sosPairingMessage;
-                PBDataReaderMark mark_sosPairingMessage;
-                BOOL markError = !PBReaderPlaceMark(reader, &mark_sosPairingMessage);
-                if (markError)
-                {
-                    return NO;
-                }
-                BOOL inError = !OTSOSMessageReadFrom(new_sosPairingMessage, reader);
-                if (inError)
-                {
-                    return NO;
-                }
-                PBReaderRecallMark(reader, &mark_sosPairingMessage);
-            }
-            break;
             default:
                 if (!PBReaderSkipValueWithTag(reader, tag, aType))
                     return NO;
@@ -190,13 +162,6 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
             PBDataWriterWriteSubmessage(writer, self->_voucher, 3);
         }
     }
-    /* sosPairingMessage */
-    {
-        if (self->_sosPairingMessage != nil)
-        {
-            PBDataWriterWriteSubmessage(writer, self->_sosPairingMessage, 4);
-        }
-    }
 }
 
 - (void)copyTo:(OTPairingMessage *)other
@@ -213,10 +178,6 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     {
         other.voucher = _voucher;
     }
-    if (_sosPairingMessage)
-    {
-        other.sosPairingMessage = _sosPairingMessage;
-    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -225,7 +186,6 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     copy->_epoch = [_epoch copyWithZone:zone];
     copy->_prepare = [_prepare copyWithZone:zone];
     copy->_voucher = [_voucher copyWithZone:zone];
-    copy->_sosPairingMessage = [_sosPairingMessage copyWithZone:zone];
     return copy;
 }
 
@@ -239,8 +199,6 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     ((!self->_prepare && !other->_prepare) || [self->_prepare isEqual:other->_prepare])
     &&
     ((!self->_voucher && !other->_voucher) || [self->_voucher isEqual:other->_voucher])
-    &&
-    ((!self->_sosPairingMessage && !other->_sosPairingMessage) || [self->_sosPairingMessage isEqual:other->_sosPairingMessage])
     ;
 }
 
@@ -253,8 +211,6 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     [self->_prepare hash]
     ^
     [self->_voucher hash]
-    ^
-    [self->_sosPairingMessage hash]
     ;
 }
 
@@ -283,14 +239,6 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     else if (!self->_voucher && other->_voucher)
     {
         [self setVoucher:other->_voucher];
-    }
-    if (self->_sosPairingMessage && other->_sosPairingMessage)
-    {
-        [self->_sosPairingMessage mergeFrom:other->_sosPairingMessage];
-    }
-    else if (!self->_sosPairingMessage && other->_sosPairingMessage)
-    {
-        [self setSosPairingMessage:other->_sosPairingMessage];
     }
 }
 

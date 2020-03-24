@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013, 2014, 2017, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013, 2014, 2017-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -192,10 +192,6 @@ const cmdInfo commands_net[] = {
 		" enable protocol  [ <protocolType> ]\n"
 		" enable service   [ <serviceName> | <service#> ]"				},
 
-	{ "migrate",	2,	5,	do_net_migrate,		11,	0,
-		" migrate perform <old-configuration> <new-configuration> [<current-configuration>]\n"
-		" migrate validate <configuration> <expected-configuration>"},
-
 	{ "remove",	1,	2,	do_net_remove,		6,	0,
 		" remove protocol  [ <protocolType> ]\n"
 		" remove service   [ <serviceName> | <service#> ]\n"
@@ -223,8 +219,18 @@ const cmdInfo commands_net[] = {
 		" show sets\n\n"
 		" show set       [ <setName> | <set#> ]"					},
 
-	{ "update",	0,	1,	do_net_update,		10,	0,
+	{ "migrate",	2,	5,	do_net_migrate,		10,	0,
+		" migrate perform <old-configuration> <new-configuration> [<current-configuration>]\n"
+		" migrate validate <configuration> <expected-configuration>"},
+
+	{ "clean",	0,	0,	do_net_clean,		11,	0,
+		" clean                         : clean the network configuration"		},
+
+	{ "update",	0,	0,	do_net_update,		11,	0,
 		" update                        : update the network configuration"		},
+
+	{ "upgrade",	0,	1,	do_net_upgrade,		11,	0,
+		" upgrade [ <plist-name> ]      : upgrade the network configuration"		},
 
 	{ "snapshot",	0,	0,	do_net_snapshot,	99,	2,
 		" snapshot"									}

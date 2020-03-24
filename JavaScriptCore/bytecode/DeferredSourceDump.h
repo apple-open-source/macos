@@ -33,9 +33,10 @@ namespace JSC {
 class CodeBlock;
 
 class DeferredSourceDump {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     DeferredSourceDump(CodeBlock*);
-    DeferredSourceDump(CodeBlock*, CodeBlock* rootCodeBlock, JITType rootJITType, unsigned callerBytecodeIndex);
+    DeferredSourceDump(CodeBlock*, CodeBlock* rootCodeBlock, JITType rootJITType, BytecodeIndex callerBytecodeIndex);
 
     void dump();
 
@@ -43,7 +44,7 @@ private:
     Strong<CodeBlock> m_codeBlock;
     Strong<CodeBlock> m_rootCodeBlock;
     JITType m_rootJITType;
-    unsigned m_callerBytecodeIndex { UINT_MAX };
+    BytecodeIndex m_callerBytecodeIndex;
 };
 
 } // namespace JSC

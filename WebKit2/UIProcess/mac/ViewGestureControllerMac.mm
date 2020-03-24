@@ -144,7 +144,7 @@ void ViewGestureController::handleMagnificationGestureEvent(NSEvent *event, Floa
 
         // FIXME: We drop the first frame of the gesture on the floor, because we don't have the visible content bounds yet.
         m_magnification = m_webPageProxy.pageScaleFactor();
-        m_webPageProxy.process().send(Messages::ViewGestureGeometryCollector::CollectGeometryForMagnificationGesture(), m_webPageProxy.pageID());
+        m_webPageProxy.process().send(Messages::ViewGestureGeometryCollector::CollectGeometryForMagnificationGesture(), m_webPageProxy.webPageID());
         m_lastMagnificationGestureWasSmartMagnification = false;
 
         return;
@@ -196,7 +196,7 @@ void ViewGestureController::handleSmartMagnificationGesture(FloatPoint origin)
     if (m_activeGestureType != ViewGestureType::None)
         return;
 
-    m_webPageProxy.process().send(Messages::ViewGestureGeometryCollector::CollectGeometryForSmartMagnificationGesture(origin), m_webPageProxy.pageID());
+    m_webPageProxy.process().send(Messages::ViewGestureGeometryCollector::CollectGeometryForSmartMagnificationGesture(origin), m_webPageProxy.webPageID());
 }
 
 static float maximumRectangleComponentDelta(FloatRect a, FloatRect b)
@@ -467,6 +467,9 @@ void ViewGestureController::beginSwipeGesture(WebBackForwardListItem* targetItem
     if (m_webPageProxy.preferences().viewGestureDebuggingEnabled())
         applyDebuggingPropertiesToSwipeViews();
 
+    m_didCallEndSwipeGesture = false;
+    m_removeSnapshotImmediatelyWhenGestureEnds = false;
+
     CALayer *layerAdjacentToSnapshot = determineLayerAdjacentToSnapshotForParent(direction, snapshotLayerParent);
     BOOL swipingLeft = isPhysicallySwipingLeft(direction);
     if (swipingLeft)
@@ -598,6 +601,11 @@ void ViewGestureController::removeSwipeSnapshot()
 
     if (m_activeGestureType != ViewGestureType::Swipe)
         return;
+
+    if (!m_didCallEndSwipeGesture) {
+        m_removeSnapshotImmediatelyWhenGestureEnds = true;
+        return;
+    }
 
     if (m_currentSwipeSnapshot)
         m_currentSwipeSnapshot->setVolatile(true);

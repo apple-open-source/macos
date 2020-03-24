@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009-2011, 2014, 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009-2011, 2014, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,6 +37,9 @@
 #include "net_protocol.h"
 #include "net_service.h"
 #include "net_set.h"
+
+#include "SCNetworkConfigurationInternal.h"
+#include "SCPreferencesInternal.h"
 
 #include <unistd.h>
 
@@ -541,7 +544,6 @@ void
 do_net_open(int argc, char **argv)
 {
 	Boolean		ok;
-	CFStringRef	prefsID	= NULL;
 
 	if (prefs != NULL) {
 		if (_prefs_commitRequired(argc, argv, "close")) {
@@ -552,12 +554,7 @@ do_net_open(int argc, char **argv)
 		_prefs_close();
 	}
 
-	if (argc > 0) {
-		prefsID = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
-	}
-
-	ok = _prefs_open(CFSTR("scutil --net"), prefsID);
-	if (prefsID != NULL) CFRelease(prefsID);
+	ok = _prefs_open(CFSTR("scutil --net"), (argc > 0) ? argv[0] : NULL);
 	if (!ok) {
 		SCPrint(TRUE,
 			stdout,
@@ -1012,6 +1009,47 @@ do_net_show(int argc, char **argv)
 
 __private_extern__
 void
+do_net_clean(int argc, char **argv)
+{
+#pragma unused(argc)
+#pragma unused(argv)
+	Boolean		updated;
+
+	if (prefs == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("network configuration not open\n"));
+		return;
+	}
+
+	if (ni_prefs == NULL) {
+		ni_prefs = SCPreferencesCreateCompanion(prefs, INTERFACES_DEFAULT_CONFIG);
+		if (ni_prefs == NULL) {
+			SC_log(LOG_NOTICE, "SCPreferencesCreate( <NetworkInterfaces.plist> ) failed: %s", SCErrorString(SCError()));
+		}
+	}
+
+	updated = __SCNetworkConfigurationClean(prefs, ni_prefs);
+
+	if (updated) {
+		SCPrint(TRUE, stdout,
+			CFSTR("network configuration updated, use \"commit\" to save\n"));
+		if ((prefsPath == NULL) || (strcmp(prefsPath, PREFS_DEFAULT_CONFIG_PLIST) == 0)) {
+			SCPrint(TRUE, stdout,
+				CFSTR( "\n"
+				      "NOTE: because you have modified the system's \"live\" network configuration,\n"
+				      "      a <reboot> is also REQUIRED.\n"
+				      "\n"));
+		}
+		_prefs_changed = TRUE;
+	} else {
+		SCPrint(TRUE, stdout, CFSTR("network configuration not updated\n"));
+	}
+
+	return;
+}
+
+
+__private_extern__
+void
 do_net_update(int argc, char **argv)
 {
 #pragma unused(argc)
@@ -1071,9 +1109,89 @@ do_net_update(int argc, char **argv)
 				SCNetworkSetGetSetID(set),
 				setCreated ? "created, selected, and " : "");
 		}
+		_prefs_changed = TRUE;
 	}
 
 	CFRelease(set);
+	return;
+}
+
+
+__private_extern__
+void
+do_net_upgrade(int argc, char **argv)
+{
+	Boolean		do_commit	= FALSE;
+	Boolean		upgraded;
+
+	if (prefs == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("network configuration not open\n"));
+		return;
+	}
+
+	if (prefsPath != NULL) {
+		const char	*prefs_plist;
+
+		prefs_plist = strrchr(prefsPath, '/');
+		if (prefs_plist != NULL) {
+			prefs_plist++;
+		} else {
+			prefs_plist = prefsPath;
+		}
+
+		if (strcmp(prefs_plist, PREFS_DEFAULT_CONFIG_PLIST) != 0) {
+			SCPrint(TRUE, stdout, CFSTR("not updating a \"preferences.plist\" file\n"));
+			return;
+		}
+	}
+
+	if (argc > 0) {
+		if (strcmp(argv[0], PREFS_DEFAULT_CONFIG_PLIST) == 0) {
+			upgraded = __SCNetworkConfigurationUpgrade(&prefs, NULL, do_commit);
+		} else if (strcmp(argv[0], INTERFACES_DEFAULT_CONFIG_PLIST) == 0) {
+			if (ni_prefs == NULL) {
+				ni_prefs = SCPreferencesCreateCompanion(prefs, INTERFACES_DEFAULT_CONFIG);
+				if (ni_prefs == NULL) {
+					SC_log(LOG_NOTICE, "SCPreferencesCreate( <NetworkInterfaces.plist> ) failed: %s", SCErrorString(SCError()));
+				}
+			}
+
+			do_commit = TRUE;	// using alternate, created on-the-fly preferences.plist
+
+			upgraded = __SCNetworkConfigurationUpgrade(NULL, &ni_prefs, do_commit);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("invalid .plist (\"preferences.plist\", \"NetworkInterfaces.plist\"\n"));
+			return;
+		}
+	} else {
+		upgraded = __SCNetworkConfigurationUpgrade(&prefs, &ni_prefs, do_commit);
+	}
+
+	if (upgraded) {
+		SCPrint(TRUE, stdout,
+			do_commit ? CFSTR("network configuration upgraded/saved\n")
+				  : CFSTR("network configuration upgraded, use \"commit\" to save\n"));
+		if ((prefsPath == NULL) || (strcmp(prefsPath, PREFS_DEFAULT_CONFIG_PLIST) == 0)) {
+			SCPrint(TRUE, stdout,
+				do_commit ? CFSTR("\n"
+						  "NOTE: because you have modified the system's \"live\" network configuration,\n"
+						  "      a <reboot> is also REQUIRED.\n"
+						  "\n")
+
+					  : CFSTR("\n"
+						  "NOTE: because you are modifying the system's \"live\" network configuration,\n"
+						  "      a <reboot> will also be REQUIRED.\n"
+						  "\n")
+				);
+		}
+
+		if (!do_commit) {
+			_prefs_changed = TRUE;
+		}
+	} else {
+		SCPrint(TRUE, stdout, CFSTR("network configuration upgrade not needed\n"));
+	}
+
 	return;
 }
 

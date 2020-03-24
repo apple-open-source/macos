@@ -33,7 +33,7 @@
 #include "WebPage.h"
 #include "WebProcess.h"
 #include <WebCore/Geolocation.h>
-#include <WebCore/GeolocationPosition.h>
+#include <WebCore/GeolocationPositionData.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -48,9 +48,9 @@ void WebGeolocationClient::geolocationDestroyed()
     delete this;
 }
 
-void WebGeolocationClient::startUpdating()
+void WebGeolocationClient::startUpdating(const String& authorizationToken)
 {
-    WebProcess::singleton().supplement<WebGeolocationManager>()->registerWebPage(m_page);
+    WebProcess::singleton().supplement<WebGeolocationManager>()->registerWebPage(m_page, authorizationToken);
 }
 
 void WebGeolocationClient::stopUpdating()
@@ -63,7 +63,7 @@ void WebGeolocationClient::setEnableHighAccuracy(bool enabled)
     WebProcess::singleton().supplement<WebGeolocationManager>()->setEnableHighAccuracyForPage(m_page, enabled);
 }
 
-Optional<GeolocationPosition> WebGeolocationClient::lastPosition()
+Optional<GeolocationPositionData> WebGeolocationClient::lastPosition()
 {
     return WTF::nullopt;
 }
@@ -71,6 +71,11 @@ Optional<GeolocationPosition> WebGeolocationClient::lastPosition()
 void WebGeolocationClient::requestPermission(Geolocation& geolocation)
 {
     m_page.geolocationPermissionRequestManager().startRequestForGeolocation(geolocation);
+}
+
+void WebGeolocationClient::revokeAuthorizationToken(const String& authorizationToken)
+{
+    m_page.geolocationPermissionRequestManager().revokeAuthorizationToken(authorizationToken);
 }
 
 void WebGeolocationClient::cancelPermissionRequest(Geolocation& geolocation)

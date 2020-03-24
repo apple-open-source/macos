@@ -34,7 +34,6 @@
 #import "WKSharedAPICast.h"
 #import "WKString.h"
 #import "WKStringCF.h"
-#import <WebCore/AXIsolatedTree.h>
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/Document.h>
 #import <WebCore/Frame.h>
@@ -84,37 +83,6 @@
     return retrieveBlock();
 }
 
-#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-- (BOOL)clientSupportsIsolatedTree
-{
-    AXClientType type = _AXGetClientForCurrentRequestUntrusted();
-    // FIXME: Remove unknown client before enabling ACCESSIBILITY_ISOLATED_TREE.
-    return type == kAXClientTypeVoiceOver || type == kAXClientTypeUnknown;
-}
-
-- (id)isolatedTreeRootObject
-{
-    if (isMainThread()) {
-        if (auto cache = [self axObjectCache]) {
-            auto tree = AXIsolatedTree::initializeTreeForPageId(m_pageID, *cache);
-
-            // Now that we have created our tree, initialize the secondary thread,
-            // so future requests come in on the other thread.
-            _AXUIElementUseSecondaryAXThread(true);
-            if (auto rootNode = tree->rootNode())
-                return rootNode->wrapper();
-        }
-    } else {
-        auto tree = AXIsolatedTree::treeForPageID(m_pageID);
-        tree->applyPendingChanges();
-        if (auto rootNode = tree->rootNode())
-            return rootNode->wrapper();
-    }
-
-    return nil;
-}
-#endif
-
 - (id)accessibilityRootObjectWrapper
 {
     if (!WebCore::AXObjectCache::accessibilityEnabled())
@@ -123,15 +91,8 @@
     if (m_hasMainFramePlugin)
         return self.accessibilityPluginObject;
 
-#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    // If VoiceOver is on, ensure subsequent requests are now handled on the secondary AX thread.
-    bool clientSupportsIsolatedTree = [self clientSupportsIsolatedTree];
-    if (clientSupportsIsolatedTree)
-        return [self isolatedTreeRootObject];
-#endif
-
     if (auto cache = [self axObjectCache]) {
-        if (WebCore::AccessibilityObject* root = cache->rootObject())
+        if (WebCore::AXCoreObject* root = cache->rootObject())
             return root->wrapper();
     }
 
@@ -143,7 +104,7 @@
     m_page = page;
 
     if (page) {
-        m_pageID = page->pageID();
+        m_pageID = page->identifier();
 
         auto* frame = page->mainFrame();
         m_hasMainFramePlugin = frame && frame->document() ? frame->document()->isPluginDocument() : false;

@@ -85,12 +85,12 @@ NS_ASSUME_NONNULL_BEGIN
                                             NSError * _Nullable error))reply;
 
 - (void)rpcPrepareIdentityAsApplicantWithConfiguration:(OTJoiningConfiguration*)config
-                                              reply:(void (^)(NSString * _Nullable peerID,
-                                                              NSData * _Nullable permanentInfo,
-                                                              NSData * _Nullable permanentInfoSig,
-                                                              NSData * _Nullable stableInfo,
-                                                              NSData * _Nullable stableInfoSig,
-                                                              NSError * _Nullable error))reply;
+                                                 reply:(void (^)(NSString * _Nullable peerID,
+                                                                 NSData * _Nullable permanentInfo,
+                                                                 NSData * _Nullable permanentInfoSig,
+                                                                 NSData * _Nullable stableInfo,
+                                                                 NSData * _Nullable stableInfoSig,
+                                                                 NSError * _Nullable error))reply;
 - (void)rpcVoucherWithConfiguration:(OTJoiningConfiguration*)config
                              peerID:(NSString*)peerID
                       permanentInfo:(NSData *)permanentInfo
@@ -102,7 +102,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rpcJoinWithConfiguration:(OTJoiningConfiguration*)config
                        vouchData:(NSData*)vouchData
                         vouchSig:(NSData*)vouchSig
-                 preapprovedKeys:(NSArray<NSData*>* _Nullable)preapprovedKeys
                            reply:(void (^)(NSError * _Nullable error))reply;
 
 
@@ -234,6 +233,18 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
        description:(NSString *)description
              radar:(NSString *)radar
              reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)setCDPEnabled:(NSString* _Nullable)containerName
+            contextID:(NSString*)contextID
+                reply:(void (^)(NSError* _Nullable error))reply;
+
+- (void)getCDPStatus:(NSString* _Nullable)containerName
+           contextID:(NSString*)contextID
+               reply:(void (^)(OTCDPStatus status, NSError* _Nullable error))reply;
+
+- (void)refetchCKKSPolicy:(NSString* _Nullable)containerName
+                contextID:(NSString*)contextID
+                    reply:(void (^)(NSError* _Nullable error))reply;
 
 @end
 

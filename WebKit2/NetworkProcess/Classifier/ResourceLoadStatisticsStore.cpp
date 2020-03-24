@@ -42,6 +42,7 @@
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/ResourceLoadStatistics.h>
 #include <wtf/CallbackAggregator.h>
+#include <wtf/CrossThreadCopier.h>
 #include <wtf/DateMath.h>
 #include <wtf/MathExtras.h>
 #include <wtf/text/StringBuilder.h>
@@ -52,6 +53,7 @@ using namespace WebCore;
 constexpr Seconds minimumStatisticsProcessingInterval { 5_s };
 constexpr unsigned operatingDatesWindowLong { 30 };
 constexpr unsigned operatingDatesWindowShort { 7 };
+constexpr Seconds operatingTimeWindowForLiveOnTesting { 1_h };
 
 #if !RELEASE_LOG_DISABLED
 static String domainsToString(const Vector<RegistrableDomain>& domains)
@@ -65,14 +67,16 @@ static String domainsToString(const Vector<RegistrableDomain>& domains)
     return builder.toString();
 }
 
-static String domainsToString(const HashMap<RegistrableDomain, WebsiteDataToRemove>& domainsToRemoveWebsiteDataFor)
+static String domainsToString(const Vector<std::pair<RegistrableDomain, WebsiteDataToRemove>>& domainsToRemoveWebsiteDataFor)
 {
     StringBuilder builder;
-    for (auto& domain : domainsToRemoveWebsiteDataFor.keys()) {
+    for (auto& pair : domainsToRemoveWebsiteDataFor) {
+        auto& domain = pair.first;
+        auto& dataToRemove = pair.second;
         if (!builder.isEmpty())
             builder.appendLiteral(", ");
         builder.append(domain.string());
-        switch (domainsToRemoveWebsiteDataFor.get(domain)) {
+        switch (dataToRemove) {
         case WebsiteDataToRemove::All:
             builder.appendLiteral("(all data)");
             break;
@@ -445,6 +449,8 @@ void ResourceLoadStatisticsStore::clearBlockingStateForDomains(const Vector<Regi
 
 Optional<Seconds> ResourceLoadStatisticsStore::statisticsEpirationTime() const
 {
+    ASSERT(!RunLoop::isMain());
+
     if (m_parameters.timeToLiveUserInteraction)
         return WallTime::now().secondsSinceEpoch() - m_parameters.timeToLiveUserInteraction.value();
     
@@ -475,6 +481,8 @@ Vector<OperatingDate> ResourceLoadStatisticsStore::mergeOperatingDates(const Vec
 
 void ResourceLoadStatisticsStore::mergeOperatingDates(Vector<OperatingDate>&& newDates)
 {
+    ASSERT(!RunLoop::isMain());
+
     m_operatingDates = mergeOperatingDates(m_operatingDates, WTFMove(newDates));
 }
 
@@ -496,7 +504,20 @@ bool ResourceLoadStatisticsStore::hasStatisticsExpired(WallTime mostRecentUserIn
 {
     ASSERT(!RunLoop::isMain());
 
-    unsigned operatingDatesWindowInDays = (operatingDatesWindow == OperatingDatesWindow::Long ? operatingDatesWindowLong : operatingDatesWindowShort);
+    unsigned operatingDatesWindowInDays = 0;
+    switch (operatingDatesWindow) {
+    case OperatingDatesWindow::Long:
+        operatingDatesWindowInDays = operatingDatesWindowLong;
+        break;
+    case OperatingDatesWindow::Short:
+        operatingDatesWindowInDays = operatingDatesWindowShort;
+        break;
+    case OperatingDatesWindow::ForLiveOnTesting:
+        return WallTime::now() > mostRecentUserInteractionTime + operatingTimeWindowForLiveOnTesting;
+    case OperatingDatesWindow::ForReproTesting:
+        return true;
+    }
+
     if (m_operatingDates.size() >= operatingDatesWindowInDays) {
         if (OperatingDate::fromWallTime(mostRecentUserInteractionTime) < m_operatingDates.first())
             return true;
@@ -567,8 +588,11 @@ void ResourceLoadStatisticsStore::didCreateNetworkProcess()
     updateClientSideCookiesAgeCap();
 }
 
-void ResourceLoadStatisticsStore::debugLogDomainsInBatches(const char* action, const Vector<RegistrableDomain>& domains)
+void ResourceLoadStatisticsStore::debugLogDomainsInBatches(const char* action, const RegistrableDomainsToBlockCookiesFor& domainsToBlock)
 {
+    Vector<RegistrableDomain> domains;
+    domains.appendVector(domainsToBlock.domainsToBlockAndDeleteCookiesFor);
+    domains.appendVector(domainsToBlock.domainsToBlockButKeepCookiesFor);
     static const auto maxNumberOfDomainsInOneLogStatement = 50;
     if (domains.isEmpty())
         return;

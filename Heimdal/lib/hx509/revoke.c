@@ -1021,9 +1021,8 @@ hx509_ocsp_request(hx509_context context,
 	}
 	es->val[0].extnValue.length = 10;
 	
-	ret = CCRandomCopyBytes(kCCRandomDefault,
-				es->val[0].extnValue.data,
-				es->val[0].extnValue.length);
+	ret = CCRandomGenerateBytes(es->val[0].extnValue.data,
+				    es->val[0].extnValue.length);
 	if (ret) {
 	    ret = HX509_CRYPTO_INTERNAL_ERROR;
 	    goto out;

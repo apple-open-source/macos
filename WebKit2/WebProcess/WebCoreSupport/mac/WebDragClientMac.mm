@@ -69,7 +69,7 @@ static RefPtr<ShareableBitmap> convertImageToBitmap(NSImage *image, const IntSiz
         return nullptr;
 
     auto graphicsContext = bitmap->createGraphicsContext();
-    if (!graphicsContext || !graphicsContext->hasPlatformContext())
+    if (!graphicsContext)
         return nullptr;
 
     RetainPtr<NSGraphicsContext> savedContext = [NSGraphicsContext currentContext];
@@ -184,8 +184,9 @@ static RefPtr<ShareableBitmap> convertCGImageToBitmap(CGImageRef image, const In
         return nullptr;
 
     auto graphicsContext = bitmap->createGraphicsContext();
-    if (!graphicsContext || !graphicsContext->hasPlatformContext())
+    if (!graphicsContext)
         return nullptr;
+
     UIGraphicsPushContext(graphicsContext->platformContext());
     CGContextDrawImage(graphicsContext->platformContext(), CGRectMake(0, 0, size.width(), size.height()), image);
     UIGraphicsPopContext();

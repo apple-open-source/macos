@@ -104,7 +104,6 @@ public:
     void setAsyncFrameScrollingEnabled(WebPageGroupProxy*, bool);
     void setPluginsEnabled(WebPageGroupProxy*, bool);
     void setJavaScriptCanAccessClipboard(WebPageGroupProxy*, bool);
-    void setPrivateBrowsingEnabled(WebPageGroupProxy*, bool);
     void setPopupBlockingEnabled(WebPageGroupProxy*, bool);
     void setAuthorAndUserStylesEnabled(WebPageGroupProxy*, bool);
     void setSpatialNavigationEnabled(WebPageGroupProxy*, bool);

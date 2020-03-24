@@ -26,6 +26,7 @@
 #pragma once
 
 #include "SandboxExtension.h"
+#include <WebCore/NetworkStorageSession.h>
 #include <WebCore/RegistrableDomain.h>
 #include <pal/SessionID.h>
 #include <wtf/Seconds.h>
@@ -53,12 +54,10 @@ extern "C" CFStringRef const WebKit2HTTPSProxyDefaultsKey;
 namespace WebKit {
 
 enum class AllowsCellularAccess : bool { No, Yes };
-enum class AllowsTLSFallback : bool { No, Yes };
 
 struct NetworkSessionCreationParameters {
     void encode(IPC::Encoder&) const;
     static Optional<NetworkSessionCreationParameters> decode(IPC::Decoder&);
-    static NetworkSessionCreationParameters privateSessionParameters(const PAL::SessionID&);
     
     PAL::SessionID sessionID { PAL::SessionID::defaultSessionID() };
     String boundInterfaceIdentifier;
@@ -67,7 +66,6 @@ struct NetworkSessionCreationParameters {
     RetainPtr<CFDictionaryRef> proxyConfiguration;
     String sourceApplicationBundleIdentifier;
     String sourceApplicationSecondaryIdentifier;
-    AllowsTLSFallback allowsTLSFallback { AllowsTLSFallback::Yes };
     bool shouldLogCookieInformation { false };
     Seconds loadThrottleLatency;
     URL httpProxy;
@@ -84,15 +82,25 @@ struct NetworkSessionCreationParameters {
     String resourceLoadStatisticsDirectory;
     SandboxExtension::Handle resourceLoadStatisticsDirectoryExtensionHandle;
     bool enableResourceLoadStatistics { false };
+    bool enableResourceLoadStatisticsLogTestingEvent { false };
     bool shouldIncludeLocalhostInResourceLoadStatistics { true };
     bool enableResourceLoadStatisticsDebugMode { false };
-    bool enableThirdPartyCookieBlockingOnSitesWithoutUserInteraction { true };
+    WebCore::ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode { WebCore::ThirdPartyCookieBlockingMode::All };
+    WebCore::FirstPartyWebsiteDataRemovalMode firstPartyWebsiteDataRemovalMode { WebCore::FirstPartyWebsiteDataRemovalMode::AllButCookies };
     bool deviceManagementRestrictionsEnabled { false };
     bool allLoadsBlockedByDeviceManagementRestrictionsForTesting { false };
     WebCore::RegistrableDomain resourceLoadStatisticsManualPrevalentResource { };
 
-    String localStorageDirectory;
-    SandboxExtension::Handle localStorageDirectoryExtensionHandle;
+    String networkCacheDirectory;
+    SandboxExtension::Handle networkCacheDirectoryExtensionHandle;
+    String dataConnectionServiceType;
+    bool fastServerTrustEvaluationEnabled { false };
+    bool networkCacheSpeculativeValidationEnabled { false };
+    bool shouldUseTestingNetworkSession { false };
+    bool staleWhileRevalidateEnabled { false };
+    unsigned testSpeedMultiplier { 1 };
+    bool suppressesConnectionTerminationOnSystemChange { false };
+    bool allowsServerPreconnect { true };
 };
 
 } // namespace WebKit

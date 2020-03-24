@@ -71,7 +71,8 @@ bool KCJoiningOctagonPiggybackingEnabled() {
 @property (readwrite) NSData* challenge;
 @property (readwrite) NSData* salt;
 #if OCTAGON
-@property (nonatomic, strong) OTJoiningConfiguration* joiningConfiguration;
+@property (readwrite) NSString* sessionUUID;
+
 @property (nonatomic, strong) OTControl *otControl;
 #endif
 @property (nonatomic, strong) NSMutableDictionary *defaults;
@@ -147,7 +148,7 @@ bool KCJoiningOctagonPiggybackingEnabled() {
     }
 
     self->_session = [KCAESGCMDuplexSession sessionAsSender:key context:self.dsid];
-    self.session.pairingUUID = self.joiningConfiguration.pairingUUID;
+    self.session.pairingUUID = self.sessionUUID;
     self.session.piggybackingVersion = self.piggy_version;
 
     return self.session != nil;
@@ -219,9 +220,8 @@ bool KCJoiningOctagonPiggybackingEnabled() {
 
         if(self.piggy_version == kPiggyV2){
             OTPairingMessage* pairingMessage = [[OTPairingMessage alloc]initWithData: [message secondData]];
-
-            if(pairingMessage.epoch.epoch){
-                secnotice("octagon", "received epoch");
+            if(pairingMessage.hasEpoch) {
+                secnotice("octagon", "received epoch message: %@", [pairingMessage.epoch dictionaryRepresentation]);
                 self.epoch = pairingMessage.epoch.epoch;
             }
             else{
@@ -350,18 +350,13 @@ bool KCJoiningOctagonPiggybackingEnabled() {
 #if OCTAGON
     self->_piggy_version = KCJoiningOctagonPiggybackingEnabled() ? kPiggyV2 : kPiggyV1;
     self->_otControl = [OTControl controlObject:true error:error];
-    self->_joiningConfiguration = [[OTJoiningConfiguration alloc]initWithProtocolType:OTProtocolPiggybacking
-                                                                       uniqueDeviceID:@"requester-id"
-                                                                       uniqueClientID:@"requester-id"
-                                                                        containerName:nil
-                                                                            contextID:OTDefaultContext
-                                                                                epoch:0
-                                                                          isInitiator:true];
+
+    _sessionUUID = [[NSUUID UUID] UUIDString];
 #else
     self->_piggy_version = kPiggyV1;
 #endif
 
-    secnotice("joining", "joining: initWithSecretDelegate called, uuid=%@", self.joiningConfiguration.pairingUUID);
+    secnotice("joining", "joining: initWithSecretDelegate called, uuid=%@", self.sessionUUID);
 
     NSString* name = [NSString stringWithFormat: @"%llu", dsid];
     
@@ -390,11 +385,6 @@ bool KCJoiningOctagonPiggybackingEnabled() {
 -(void)setControlObject:(OTControl*)control
 {
     self.otControl = control;
-}
-
-- (void)setConfiguration:(OTJoiningConfiguration *)config
-{
-    self.joiningConfiguration = config;
 }
 #endif
 

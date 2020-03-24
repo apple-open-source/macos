@@ -638,6 +638,70 @@ errOut:
     CFReleaseNull(error);
 }
 
+- (void) test_revocation_checked_via_cache {
+    if (!ping_host("ocsp.digicert.com")) {
+        XCTAssert(false, "Unable to contact required network resource");
+        return;
+    }
+
+    SecCertificateRef leaf = NULL, subCA = NULL, root = NULL;
+    SecPolicyRef sslPolicy = NULL, ocspPolicy = NULL;
+    SecTrustRef trust = NULL;
+    CFArrayRef certs = NULL, anchors = NULL, policies = NULL;
+    CFDateRef verifyDate = NULL;
+    CFErrorRef error = NULL;
+
+    leaf = SecCertificateCreateWithBytes(NULL, _ocsp_c0, sizeof(_ocsp_c0));
+    subCA = SecCertificateCreateWithBytes(NULL, _ocsp_c1, sizeof(_ocsp_c1));
+    root = SecCertificateCreateWithBytes(NULL, _ocsp_c2, sizeof(_ocsp_c2));
+
+    sslPolicy = SecPolicyCreateSSL(true, CFSTR("www.apple.com"));
+    ocspPolicy = SecPolicyCreateRevocation(kSecRevocationOCSPMethod);
+
+    const void *v_certs[] = { leaf, subCA };
+    const void *v_anchors[] = { root };
+    const void *v_policies[] = { sslPolicy, ocspPolicy };
+
+    certs = CFArrayCreate(NULL, v_certs, 2, &kCFTypeArrayCallBacks);
+    policies = CFArrayCreate(NULL, v_policies, 2, &kCFTypeArrayCallBacks);
+    require_noerr_action(SecTrustCreateWithCertificates(certs, policies, &trust), errOut, fail("failed to create trust object"));
+
+    anchors = CFArrayCreate(NULL, v_anchors, 1, &kCFTypeArrayCallBacks);
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut, fail("failed to set anchors"));
+
+    verifyDate = CFDateCreate(NULL, 577000000.0); // April 14, 2019 at 10:46:40 PM PDT
+    require_noerr_action(SecTrustSetVerifyDate(trust, verifyDate), errOut, fail("failed to set verify date"));
+
+    is(SecTrustEvaluateWithError(trust, &error), true, "valid cert failed");
+
+    /* Set no fetch allowed, so we're relying on the cached response from above */
+    require_noerr_action(SecTrustSetNetworkFetchAllowed(trust, false), errOut, fail("failed to set network fetch disallowed"));
+
+    /* Evaluate trust. Cached response should tell us that it's revoked. */
+    is(SecTrustEvaluateWithError(trust, &error), true, "valid cert failed");
+
+    /* Verify that the results dictionary contains the kSecTrustRevocationChecked key for a valid cert where revocation checked */
+    CFDictionaryRef result = SecTrustCopyResult(trust);
+    isnt(result, NULL, "failed to copy result dictionary");
+    if (result) {
+        is(CFDictionaryGetValue(result, kSecTrustRevocationChecked), kCFBooleanTrue, "expected revocation checked flag");
+    }
+    CFReleaseNull(result);
+
+errOut:
+    CFReleaseNull(leaf);
+    CFReleaseNull(subCA);
+    CFReleaseNull(root);
+    CFReleaseNull(ocspPolicy);
+    CFReleaseNull(sslPolicy);
+    CFReleaseNull(trust);
+    CFReleaseNull(certs);
+    CFReleaseNull(anchors);
+    CFReleaseNull(policies);
+    CFReleaseNull(verifyDate);
+    CFReleaseNull(error);
+}
+
 #else  /* TARGET_OS_WATCH || TARGET_OS_BRIDGE */
 - (void)testNoNetworking
 {
@@ -680,7 +744,89 @@ errOut:
     CFReleaseNull(verifyDate);
     CFReleaseNull(error);
 }
-#endif
+#endif /* !TARGET_OS_WATCH && !TARGET_OS_BRIDGE */
+
+#if !TARGET_OS_BRIDGE
+/* bridgeOS doesn't use Valid */
+- (NSNumber *)runRevocationCheckNoNetwork:(SecCertificateRef)leaf
+                                    subCA:(SecCertificateRef)subCA
+{
+    CFArrayRef anchors = NULL;
+    SecPolicyRef smimePolicy = NULL, revocationPolicy = NULL;
+    CFArrayRef certs = NULL;
+    SecTrustRef trust = NULL;
+    CFDateRef date = NULL;
+    CFErrorRef error = NULL;
+    NSArray *policies = nil;
+    NSDictionary *result = nil;
+    NSNumber *revocationChecked = nil;
+
+    const void *v_certs[] = { leaf };
+    require_action(certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks), errOut,
+                   fail("unable to create certificates array"));
+    require_action(anchors = CFArrayCreate(NULL, (const void **)&subCA, 1, &kCFTypeArrayCallBacks), errOut,
+                   fail("unable to create anchors array"));
+
+    require_action(smimePolicy = SecPolicyCreateSMIME(kSecSignSMIMEUsage, NULL), errOut, fail("unable to create policy"));
+    revocationPolicy = SecPolicyCreateRevocation(kSecRevocationUseAnyAvailableMethod | kSecRevocationCheckIfTrusted);
+    policies = @[(__bridge id)smimePolicy, (__bridge id)revocationPolicy];
+    ok_status(SecTrustCreateWithCertificates(certs, (__bridge CFArrayRef)policies, &trust), "failed to create trust");
+    ok_status(SecTrustSetNetworkFetchAllowed(trust, false), "SecTrustSetNetworkFetchAllowed failed");
+
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, anchors), errOut,
+                         fail("unable to set anchors"));
+    ok(SecTrustEvaluateWithError(trust, &error), "Not trusted");
+    result = CFBridgingRelease(SecTrustCopyResult(trust));
+    revocationChecked = result[(__bridge NSString *)kSecTrustRevocationChecked];
+
+errOut:
+    CFReleaseNull(anchors);
+    CFReleaseNull(smimePolicy);
+    CFReleaseNull(revocationPolicy);
+    CFReleaseNull(certs);
+    CFReleaseNull(trust);
+    CFReleaseNull(date);
+    CFReleaseNull(error);
+
+    return revocationChecked;
+}
+
+- (void) test_revocation_checked_via_valid {
+    SecCertificateRef leaf = NULL, subCA = NULL;
+    NSNumber *revocationChecked = NULL;
+
+    require_action(leaf = SecCertificateCreateWithBytes(NULL, _leaf_sha256_valid_cav2_complete_ok1, sizeof(_leaf_sha256_valid_cav2_complete_ok1)), errOut,
+                   fail("unable to create cert"));
+    require_action(subCA = SecCertificateCreateWithBytes(NULL, _ca_sha256_valid_cav2_complete, sizeof(_ca_sha256_valid_cav2_complete)), errOut, fail("unable to create cert"));
+
+    revocationChecked = [self runRevocationCheckNoNetwork:leaf
+                                                    subCA:subCA];
+    XCTAssert(revocationChecked != NULL, "kSecTrustRevocationChecked is not in the result dictionary");
+
+errOut:
+    CFReleaseNull(leaf);
+    CFReleaseNull(subCA);
+}
+
+- (void) test_revocation_not_checked_no_network {
+    /* The intermediate does not have the noCAv2 flag and is "probably not revoked,", so
+       kSecTrustRevocationChecked should not be in the results dictionary */
+    SecCertificateRef leaf = NULL, subCA = NULL;
+    NSNumber *revocationChecked = NULL;
+
+    require_action(leaf = SecCertificateCreateWithBytes(NULL, _leaf_serial_invalid_incomplete_ok1, sizeof(_leaf_serial_invalid_incomplete_ok1)), errOut,
+                   fail("unable to create cert"));
+    require_action(subCA = SecCertificateCreateWithBytes(NULL, _ca_serial_invalid_incomplete, sizeof(_ca_serial_invalid_incomplete)), errOut, fail("unable to create cert"));
+
+    revocationChecked = [self runRevocationCheckNoNetwork:leaf
+                                                    subCA:subCA];
+    XCTAssert(revocationChecked == NULL, "kSecTrustRevocationChecked is in the result dictionary");
+
+errOut:
+    CFReleaseNull(leaf);
+    CFReleaseNull(subCA);
+}
+#endif /* !TARGET_OS_BRIDGE */
 
 /* bridgeOS and watchOS do not support networked OCSP but do support stapling */
 - (void) test_stapled_revoked_response {

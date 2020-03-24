@@ -31,6 +31,11 @@
 #include "PlatformTouchEventIOS.h"
 #endif
 
+namespace JSC {
+class CallFrame;
+class JSValue;
+}
+
 namespace WebCore {
 
 class DataTransfer;
@@ -38,6 +43,7 @@ class Node;
 class PlatformMouseEvent;
 
 class MouseEvent : public MouseRelatedEvent {
+    WTF_MAKE_ISO_ALLOCATED(MouseEvent);
 public:
     WEBCORE_EXPORT static Ref<MouseEvent> create(const AtomString& type, CanBubble, IsCancelable, IsComposed, MonotonicTime timestamp, RefPtr<WindowProxy>&&, int detail,
         const IntPoint& screenLocation, const IntPoint& windowLocation, const IntPoint& movementDelta, OptionSet<Modifier>, short button, unsigned short buttons,
@@ -63,7 +69,7 @@ public:
         int detail, int screenX, int screenY, int clientX, int clientY, bool ctrlKey, bool altKey, bool shiftKey, bool metaKey,
         short button, EventTarget* relatedTarget);
 
-    void initMouseEventQuirk(JSC::ExecState&, ScriptExecutionContext&, const AtomString& type, bool canBubble, bool cancelable, RefPtr<WindowProxy>&&,
+    void initMouseEventQuirk(JSC::JSGlobalObject&, ScriptExecutionContext&, const AtomString& type, bool canBubble, bool cancelable, RefPtr<WindowProxy>&&,
         int detail, int screenX, int screenY, int clientX, int clientY, bool ctrlKey, bool altKey, bool shiftKey, bool metaKey,
         short button, JSC::JSValue relatedTarget);
 

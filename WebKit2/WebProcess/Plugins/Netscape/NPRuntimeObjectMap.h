@@ -38,7 +38,7 @@ struct NPObject;
 typedef struct _NPVariant NPVariant;
 
 namespace JSC {
-    class ExecState;
+    class CallFrame;
     class VM;
     class JSGlobalObject;
     class JSObject;
@@ -74,8 +74,8 @@ public:
     JSC::JSObject* getOrCreateJSObject(JSC::JSGlobalObject*, NPObject*);
     void jsNPObjectDestroyed(JSNPObject*);
 
-    void convertJSValueToNPVariant(JSC::ExecState*, JSC::JSValue, NPVariant&);
-    JSC::JSValue convertNPVariantToJSValue(JSC::ExecState*, JSC::JSGlobalObject*, const NPVariant&);
+    void convertJSValueToNPVariant(JSC::JSGlobalObject*, JSC::JSValue, NPVariant&);
+    JSC::JSValue convertNPVariantToJSValue(JSC::JSGlobalObject*, const NPVariant&);
 
     bool evaluate(NPObject*, const String& scriptString, NPVariant* result);
 
@@ -83,10 +83,9 @@ public:
     void invalidate();
 
     JSC::JSGlobalObject* globalObject() const;
-    JSC::ExecState* globalExec() const;
 
     static void setGlobalException(const String& exceptionString);
-    static void moveGlobalExceptionToExecState(JSC::ExecState*);
+    static void moveGlobalExceptionToExecState(JSC::JSGlobalObject*);
 
 private:
     // WeakHandleOwner

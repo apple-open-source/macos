@@ -25,7 +25,10 @@
 
 #pragma once
 
+#if ENABLE(WEBGL)
+
 #include "WebGLSharedObject.h"
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -53,3 +56,5 @@ private:
 };
 
 } // namespace WebCore
+
+#endif

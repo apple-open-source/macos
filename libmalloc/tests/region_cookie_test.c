@@ -29,14 +29,10 @@ T_DECL(tiny_region_cookie_test, "Crash on corruption of tiny region cookie",
 		// Corrupt the region cookie for both pointers (just in case they
 		// are in different regions).
 		void *region = TINY_REGION_FOR_PTR(ptr1);
-		region_trailer_t *trailer = REGION_TRAILER_FOR_TINY_REGION(region);
-		T_ASSERT_NOTNULL(trailer, "Trailer pointer #1 set");
-		trailer->region_cookie++;
+		REGION_COOKIE_FOR_TINY_REGION(region)++;
 
 		region = TINY_REGION_FOR_PTR(ptr2);
-		trailer = REGION_TRAILER_FOR_TINY_REGION(region);
-		T_ASSERT_NOTNULL(trailer, "Trailer pointer #2 set");
-		trailer->region_cookie++;
+		REGION_COOKIE_FOR_TINY_REGION(region)++;
 
 		free(ptr1);
 		free(ptr2);
@@ -63,22 +59,18 @@ T_DECL(small_region_cookie_test, "Crash on corruption of small region cookie",
 	if (!child_pid) {
 		// MallocMaxMagazines=1 ensures these allocations come from the
 		// same magazine.
-		void *ptr1 = malloc(1024);
-		void *ptr2 = malloc(1024);
+		void *ptr1 = malloc(TINY_LIMIT_THRESHOLD + 1);
+		void *ptr2 = malloc(TINY_LIMIT_THRESHOLD + 1);
 		T_ASSERT_NOTNULL(ptr1, "Allocation #1 succeeded");
 		T_ASSERT_NOTNULL(ptr2, "Allocation #2 succeeded");
 
 		// Corrupt the region cookie for both pointers (just in case they
 		// are in different regions).
 		void *region = SMALL_REGION_FOR_PTR(ptr1);
-		region_trailer_t *trailer = REGION_TRAILER_FOR_SMALL_REGION(region);
-		T_ASSERT_NOTNULL(trailer, "Trailer pointer #1 set");
-		trailer->region_cookie++;
+		REGION_COOKIE_FOR_SMALL_REGION(region)++;
 
 		region = TINY_REGION_FOR_PTR(ptr2);
-		trailer = REGION_TRAILER_FOR_TINY_REGION(region);
-		T_ASSERT_NOTNULL(trailer, "Trailer pointer #2 set");
-		trailer->region_cookie++;
+		REGION_COOKIE_FOR_SMALL_REGION(region)++;
 
 		free(ptr1);
 		free(ptr2);
@@ -93,3 +85,4 @@ T_DECL(small_region_cookie_test, "Crash on corruption of small region cookie",
 		T_ASSERT_EQ(WTERMSIG(status), SIGABRT, "Child aborted");
 	}
 }
+

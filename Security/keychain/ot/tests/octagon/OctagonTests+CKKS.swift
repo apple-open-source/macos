@@ -6,11 +6,11 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         // Right after CKKS fetches for the first time, insert a new key hierarchy into CloudKit
         self.silentFetchesAllowed = false
-        self.expectCKFetchAndRun(beforeFinished: {
-            self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-            self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
+        self.expectCKFetchAndRun {
+            self.putFakeKeyHierarchiesInCloudKit()
+            self.putFakeDeviceStatusesInCloudKit()
             self.silentFetchesAllowed = true
-        })
+        }
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
@@ -37,12 +37,12 @@ class OctagonCKKSTests: OctagonTestsBase {
 
         // Right after CKKS fetches for the first time, insert a new key hierarchy into CloudKit
         self.silentFetchesAllowed = false
-        self.expectCKFetchAndRun(beforeFinished: {
-            self.putFakeKeyHierarchy(inCloudKit: self.manateeZoneID)
-            self.putFakeDeviceStatus(inCloudKit: self.manateeZoneID)
-            self.saveTLKMaterial(toKeychain: self.manateeZoneID)
+        self.expectCKFetchAndRun {
+            self.putFakeKeyHierarchiesInCloudKit()
+            self.putFakeDeviceStatusesInCloudKit()
+            self.saveTLKMaterialToKeychain()
             self.silentFetchesAllowed = true
-        })
+        }
 
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)

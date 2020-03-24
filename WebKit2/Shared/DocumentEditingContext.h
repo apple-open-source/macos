@@ -29,7 +29,7 @@
 
 #include "ArgumentCoders.h"
 #include "AttributedString.h"
-#include "TextInputContext.h"
+#include <WebCore/ElementContext.h>
 #include <WebCore/FloatRect.h>
 #include <WebCore/TextGranularity.h>
 #include <wtf/OptionSet.h>
@@ -47,6 +47,7 @@ struct DocumentEditingContextRequest {
         Rects = 1 << 2,
         Spatial = 1 << 3,
         Annotation = 1 << 4,
+        MarkedTextRects = 1 << 5,
     };
 
     OptionSet<Options> options;
@@ -56,7 +57,7 @@ struct DocumentEditingContextRequest {
 
     WebCore::FloatRect rect;
 
-    Optional<WebKit::TextInputContext> textInputContext;
+    Optional<WebCore::ElementContext> textInputContext;
 };
 
 struct DocumentEditingContext {

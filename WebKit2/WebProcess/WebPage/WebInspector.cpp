@@ -72,7 +72,7 @@ WebInspector::~WebInspector()
 
 void WebInspector::openLocalInspectorFrontend(bool underTest)
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::OpenLocalInspectorFrontend(canAttachWindow(), underTest), m_page->pageID());
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::OpenLocalInspectorFrontend(canAttachWindow(), underTest), m_page->identifier());
 }
 
 void WebInspector::setFrontendConnection(IPC::Attachment encodedConnectionIdentifier)
@@ -108,7 +108,7 @@ void WebInspector::setFrontendConnection(IPC::Attachment encodedConnectionIdenti
 
 void WebInspector::closeFrontendConnection()
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::DidClose(), m_page->pageID());
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::DidClose(), m_page->identifier());
 
     // If we tried to close the frontend before it was created, then no connection exists yet.
     if (m_frontendConnection) {
@@ -124,7 +124,7 @@ void WebInspector::closeFrontendConnection()
 
 void WebInspector::bringToFront()
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::BringToFront(), m_page->pageID());
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::BringToFront(), m_page->identifier());
 }
 
 void WebInspector::whenFrontendConnectionEstablished(Function<void()>&& callback)
@@ -167,7 +167,7 @@ void WebInspector::openInNewTab(const String& urlString)
         return;
 
     Frame& inspectedMainFrame = inspectedPage->mainFrame();
-    FrameLoadRequest frameLoadRequest { *inspectedMainFrame.document(), inspectedMainFrame.document()->securityOrigin(), { urlString }, "_blank"_s, LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, ShouldOpenExternalURLsPolicy::ShouldNotAllow, InitiatedByMainFrame::Unknown };
+    FrameLoadRequest frameLoadRequest { *inspectedMainFrame.document(), inspectedMainFrame.document()->securityOrigin(), ResourceRequest { urlString }, "_blank"_s, LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, ShouldOpenExternalURLsPolicy::ShouldNotAllow, InitiatedByMainFrame::Unknown };
 
     NavigationAction action { *inspectedMainFrame.document(), frameLoadRequest.resourceRequest(), frameLoadRequest.initiatedByMainFrame(), NavigationType::LinkClicked };
     Page* newPage = inspectedPage->chrome().createWindow(inspectedMainFrame, frameLoadRequest, { }, action);
@@ -209,19 +209,7 @@ void WebInspector::showResources()
     });
 }
 
-void WebInspector::showTimelines()
-{
-    if (!m_page->corePage())
-        return;
-
-    m_page->corePage()->inspectorController().show();
-
-    whenFrontendConnectionEstablished([=] {
-        m_frontendConnection->send(Messages::WebInspectorUI::ShowTimelines(), 0);
-    });
-}
-
-void WebInspector::showMainResourceForFrame(uint64_t frameIdentifier)
+void WebInspector::showMainResourceForFrame(WebCore::FrameIdentifier frameIdentifier)
 {
     WebFrame* frame = WebProcess::singleton().webFrame(frameIdentifier);
     if (!frame)
@@ -244,6 +232,8 @@ void WebInspector::startPageProfiling()
     if (!m_page->corePage())
         return;
 
+    m_page->corePage()->inspectorController().show();
+
     whenFrontendConnectionEstablished([=] {
         m_frontendConnection->send(Messages::WebInspectorUI::StartPageProfiling(), 0);
     });
@@ -253,6 +243,8 @@ void WebInspector::stopPageProfiling()
 {
     if (!m_page->corePage())
         return;
+
+    m_page->corePage()->inspectorController().show();
 
     whenFrontendConnectionEstablished([=] {
         m_frontendConnection->send(Messages::WebInspectorUI::StopPageProfiling(), 0);
@@ -281,12 +273,17 @@ void WebInspector::stopElementSelection()
 
 void WebInspector::elementSelectionChanged(bool active)
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::ElementSelectionChanged(active), m_page->pageID());
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::ElementSelectionChanged(active), m_page->identifier());
+}
+
+void WebInspector::timelineRecordingChanged(bool active)
+{
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::TimelineRecordingChanged(active), m_page->identifier());
 }
 
 void WebInspector::setMockCaptureDevicesEnabledOverride(Optional<bool> enabled)
 {
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::SetMockCaptureDevicesEnabledOverride(enabled), m_page->pageID());
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::SetMockCaptureDevicesEnabledOverride(enabled), m_page->identifier());
 }
 
 bool WebInspector::canAttachWindow()
@@ -320,7 +317,7 @@ void WebInspector::updateDockingAvailability()
 
     m_previousCanAttach = canAttachWindow;
 
-    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::AttachAvailabilityChanged(canAttachWindow), m_page->pageID());
+    WebProcess::singleton().parentProcessConnection()->send(Messages::WebInspectorProxy::AttachAvailabilityChanged(canAttachWindow), m_page->identifier());
 }
 
 } // namespace WebKit

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,8 +45,8 @@ public:
     ObjcField(IvarStructPtr);
     ObjcField(CFStringRef name);
     
-    virtual JSValue valueFromInstance(ExecState*, const Instance*) const;
-    virtual bool setValueToInstance(ExecState*, const Instance*, JSValue) const;
+    virtual JSValue valueFromInstance(JSGlobalObject*, const Instance*) const;
+    virtual bool setValueToInstance(JSGlobalObject*, const Instance*, JSValue) const;
 
 private:
     IvarStructPtr _ivar;
@@ -78,24 +78,29 @@ class ObjcArray : public Array {
 public:
     ObjcArray(ObjectStructPtr, RefPtr<RootObject>&&);
 
-    virtual bool setValueAt(ExecState*, unsigned int index, JSValue aValue) const;
-    virtual JSValue valueAt(ExecState*, unsigned int index) const;
+    virtual bool setValueAt(JSGlobalObject*, unsigned int index, JSValue aValue) const;
+    virtual JSValue valueAt(JSGlobalObject*, unsigned int index) const;
     virtual unsigned int getLength() const;
     
     ObjectStructPtr getObjcArray() const { return _array.get(); }
-
-    static JSValue convertObjcArrayToArray(ExecState *exec, ObjectStructPtr anObject);
 
 private:
     RetainPtr<ObjectStructPtr> _array;
 };
 
-class ObjcFallbackObjectImp : public JSDestructibleObject {
+class ObjcFallbackObjectImp final : public JSDestructibleObject {
 public:
-    typedef JSDestructibleObject Base;
-    static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetCallData;
+    using Base = JSDestructibleObject;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetCallData;
+    static constexpr bool needsDestruction = true;
 
-    static ObjcFallbackObjectImp* create(ExecState* exec, JSGlobalObject* globalObject, ObjcInstance* instance, const String& propertyName)
+    template<typename CellType, JSC::SubspaceAccess>
+    static IsoSubspace* subspaceFor(JSC::VM& vm)
+    {
+        return subspaceForImpl(vm);
+    }
+
+    static ObjcFallbackObjectImp* create(JSGlobalObject* exec, JSGlobalObject* globalObject, ObjcInstance* instance, const String& propertyName)
     {
         VM& vm = globalObject->vm();
         // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
@@ -125,13 +130,15 @@ protected:
 private:
     ObjcFallbackObjectImp(JSGlobalObject*, Structure*, ObjcInstance*, const String& propertyName);
     static void destroy(JSCell*);
-    static bool getOwnPropertySlot(JSObject*, ExecState*, PropertyName, PropertySlot&);
-    static bool put(JSCell*, ExecState*, PropertyName, JSValue, PutPropertySlot&);
+    static bool getOwnPropertySlot(JSObject*, JSGlobalObject*, PropertyName, PropertySlot&);
+    static bool put(JSCell*, JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
     static CallType getCallData(JSCell*, CallData&);
-    static bool deleteProperty(JSCell*, ExecState*, PropertyName);
-    static JSValue defaultValue(const JSObject*, ExecState*, PreferredPrimitiveType);
+    static bool deleteProperty(JSCell*, JSGlobalObject*, PropertyName);
+    static JSValue defaultValue(const JSObject*, JSGlobalObject*, PreferredPrimitiveType);
 
-    bool toBoolean(ExecState*) const; // FIXME: Currently this is broken because none of the superclasses are marked virtual. We need to solve this in the longer term.
+    bool toBoolean(JSGlobalObject*) const; // FIXME: Currently this is broken because none of the superclasses are marked virtual. We need to solve this in the longer term.
+
+    static IsoSubspace* subspaceForImpl(VM&);
 
     RefPtr<ObjcInstance> _instance;
     String m_item;

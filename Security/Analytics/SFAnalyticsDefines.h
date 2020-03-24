@@ -38,6 +38,7 @@ extern NSString* const SFAnalyticsColumnSoftFailureCount;
 extern NSString* const SFAnalyticsColumnSampleValue;
 extern NSString* const SFAnalyticsColumnSampleName;
 
+extern NSString* const SFAnalyticsPostTime;
 extern NSString* const SFAnalyticsEventTime;
 extern NSString* const SFAnalyticsEventType;
 extern NSString* const SFAnalyticsEventTypeErrorEvent;

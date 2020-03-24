@@ -35,13 +35,13 @@
 namespace WebCore {
 
 StyleRuleKeyframe::StyleRuleKeyframe(Ref<StyleProperties>&& properties)
-    : StyleRuleBase(Keyframe)
+    : StyleRuleBase(StyleRuleType::Keyframe)
     , m_properties(WTFMove(properties))
 {
 }
 
 StyleRuleKeyframe::StyleRuleKeyframe(std::unique_ptr<Vector<double>> keys, Ref<StyleProperties>&& properties)
-    : StyleRuleBase(Keyframe)
+    : StyleRuleBase(StyleRuleType::Keyframe)
     , m_properties(WTFMove(properties))
     , m_keys(*keys)
 {
@@ -63,7 +63,7 @@ String StyleRuleKeyframe::keyText() const
     for (size_t i = 0; i < m_keys.size(); ++i) {
         if (i)
             keyText.append(',');
-        keyText.appendFixedPrecisionNumber(m_keys.at(i) * 100);
+        keyText.append(FormattedNumber::fixedPrecision(m_keys.at(i) * 100));
         keyText.append('%');
     }
 

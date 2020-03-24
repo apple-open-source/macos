@@ -59,6 +59,7 @@
 
 #if PLATFORM(IOS_FAMILY)
 #include "PlatformLayer.h"
+#include "WKContentObservation.h"
 #define NSResponder WAKResponder
 #ifndef __OBJC__
 class WAKResponder;
@@ -116,7 +117,7 @@ struct WindowFeatures;
 
 enum class RouteSharingPolicy : uint8_t;
 
-class WEBCORE_EXPORT ChromeClient {
+class ChromeClient {
 public:
     virtual void chromeDestroyed() = 0;
 
@@ -188,10 +189,11 @@ public:
 
     virtual PlatformPageClient platformPageClient() const = 0;
 
-#if ENABLE(CURSOR_SUPPORT)
     virtual void setCursor(const Cursor&) = 0;
     virtual void setCursorHiddenUntilMouseMoves(bool) = 0;
-#endif
+    virtual bool supportsSettingCursor() { return true; }
+
+    virtual bool shouldUseMouseEventForSelection(const PlatformMouseEvent&) { return true; }
 
     virtual FloatSize screenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
     virtual FloatSize availableScreenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
@@ -206,9 +208,7 @@ public:
 
     virtual bool shouldUnavailablePluginMessageBeButton(RenderEmbeddedObject::PluginUnavailabilityReason) const { return false; }
     virtual void unavailablePluginButtonClicked(Element&, RenderEmbeddedObject::PluginUnavailabilityReason) const { }
-    virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) = 0;
-
-    virtual void setToolTip(const String&, TextDirection) = 0;
+    virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags, const String& toolTip, TextDirection) = 0;
 
     virtual void print(Frame&) = 0;
 
@@ -235,9 +235,6 @@ public:
     // the new cache.
     virtual void reachedApplicationCacheOriginQuota(SecurityOrigin&, int64_t totalSpaceNeeded) = 0;
 
-    virtual bool shouldReplaceWithGeneratedFileForUpload(const String& path, String& generatedFilename);
-    virtual String generateReplacementFile(const String& path);
-
 #if ENABLE(IOS_TOUCH_EVENTS)
     virtual void didPreventDefaultForEvent() = 0;
 #endif
@@ -247,7 +244,7 @@ public:
 #if PLATFORM(IOS_FAMILY)
     virtual void didReceiveMobileDocType(bool) = 0;
     virtual void setNeedsScrollNotifications(Frame&, bool) = 0;
-    virtual void observedContentChange(Frame&) = 0;
+    virtual void didFinishContentChangeObserving(Frame&, WKContentChange) = 0;
     virtual void notifyRevealedSelectionByScrollingFrame(Frame&) = 0;
 
     enum LayoutType { NormalLayout, Scroll };
@@ -475,6 +472,7 @@ public:
     virtual void playbackTargetPickerClientStateDidChange(uint64_t /*contextId*/, MediaProducer::MediaStateFlags) { }
     virtual void setMockMediaPlaybackTargetPickerEnabled(bool)  { }
     virtual void setMockMediaPlaybackTargetPickerState(const String&, MediaPlaybackTargetContext::State) { }
+    virtual void mockMediaPlaybackTargetPickerDismissPopup() { }
 #endif
 
     virtual void imageOrMediaDocumentSizeChanged(const IntSize&) { }
@@ -489,8 +487,8 @@ public:
     virtual RefPtr<Icon> createIconForFiles(const Vector<String>& /* filenames */) = 0;
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
-    virtual void hasStorageAccess(RegistrableDomain&& /*subFrameDomain*/, RegistrableDomain&& /*topFrameDomain*/, uint64_t /*frameID*/, PageIdentifier, WTF::CompletionHandler<void(bool)>&& completionHandler) { completionHandler(false); }
-    virtual void requestStorageAccess(RegistrableDomain&& /*subFrameDomain*/, RegistrableDomain&& /*topFrameDomain*/, uint64_t /*frameID*/, PageIdentifier, WTF::CompletionHandler<void(StorageAccessWasGranted, StorageAccessPromptWasShown)>&& completionHandler) { completionHandler(StorageAccessWasGranted::No, StorageAccessPromptWasShown::No); }
+    virtual void hasStorageAccess(RegistrableDomain&& /*subFrameDomain*/, RegistrableDomain&& /*topFrameDomain*/, Frame&, WTF::CompletionHandler<void(bool)>&& completionHandler) { completionHandler(false); }
+    virtual void requestStorageAccess(RegistrableDomain&& /*subFrameDomain*/, RegistrableDomain&& /*topFrameDomain*/, Frame&, WTF::CompletionHandler<void(StorageAccessWasGranted, StorageAccessPromptWasShown)>&& completionHandler) { completionHandler(StorageAccessWasGranted::No, StorageAccessPromptWasShown::No); }
 #endif
 
 #if ENABLE(DEVICE_ORIENTATION)

@@ -162,7 +162,7 @@ WI.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode extends WI.
 
     iconClassNames()
     {
-        return [WI.ResourceTreeElement.ResourceIconStyleClassName, this.resource.type];
+        return [WI.ResourceTreeElement.ResourceIconStyleClassName, ...WI.Resource.classNamesForResource(this.resource)];
     }
 
     appendContextMenuItems(contextMenu)
@@ -282,6 +282,7 @@ WI.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode extends WI.
         const options = {
             ignoreNetworkTab: true,
             ignoreSearchTab: true,
+            initiatorHint: WI.TabBrowser.TabNavigationInitiator.LinkClick,
         };
         WI.showSourceCode(this.resource, options);
     }

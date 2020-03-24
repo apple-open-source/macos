@@ -107,12 +107,8 @@ WI.URLBreakpointPopover = class URLBreakpointPopover extends WI.Popover
         });
 
         this._codeMirror.addKeyMap({
-            "Enter": () => {
-                this.dismiss();
-            },
-            "Esc": () => {
-                this.dismiss();
-            },
+            "Enter": () => { this.dismiss(); },
+            "Esc": () => { this.dismiss(); },
         });
 
         this._updateEditor();
@@ -142,7 +138,7 @@ WI.URLBreakpointPopover = class URLBreakpointPopover extends WI.Popover
             return;
 
         let targetFrame = WI.Rect.rectFromClientRect(this._targetElement.getBoundingClientRect());
-        this.present(targetFrame, this._preferredEdges);
+        this.present(targetFrame.pad(2), this._preferredEdges);
 
         // CodeMirror needs a refresh after the popover displays, to layout, otherwise it doesn't appear.
         setTimeout(() => {

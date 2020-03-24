@@ -29,11 +29,29 @@
 
 #include "LayoutUnit.h"
 #include "LayoutPoint.h"
-#include "LayoutRect.h"
 #include "MarginTypes.h"
 #include <wtf/Optional.h>
 
 namespace WebCore {
+
+#define USE_FLOAT_AS_INLINE_LAYOUT_UNIT 1
+
+#if USE_FLOAT_AS_INLINE_LAYOUT_UNIT
+using InlineLayoutUnit = float;
+using InlineLayoutPoint = FloatPoint;
+using InlineLayoutSize = FloatSize;
+using InlineLayoutRect = FloatRect;
+#else
+using InlineLayoutUnit = LayoutUnit;
+using InlineLayoutPoint = LayoutPoint;
+using InlineLayoutSize = LayoutSize;
+using InlineLayoutRect = LayoutRect;
+#endif
+
+namespace Display {
+class Box;
+}
+
 namespace Layout {
 
 struct Position {
@@ -98,11 +116,15 @@ inline void Point::moveBy(LayoutPoint offset)
 struct HorizontalEdges {
     LayoutUnit left;
     LayoutUnit right;
+
+    LayoutUnit width() const { return left + right; }
 };
 
 struct VerticalEdges {
     LayoutUnit top;
     LayoutUnit bottom;
+
+    LayoutUnit height() const { return top + bottom; }
 };
 
 struct Edges {
@@ -110,54 +132,105 @@ struct Edges {
     VerticalEdges vertical;
 };
 
-struct WidthAndMargin {
-    LayoutUnit width;
+struct ContentWidthAndMargin {
+    LayoutUnit contentWidth;
     UsedHorizontalMargin usedMargin;
     ComputedHorizontalMargin computedMargin;
 };
 
-struct HeightAndMargin {
-    LayoutUnit height;
+struct ContentHeightAndMargin {
+    LayoutUnit contentHeight;
     UsedVerticalMargin::NonCollapsedValues nonCollapsedMargin;
 };
 
 struct HorizontalGeometry {
     LayoutUnit left;
     LayoutUnit right;
-    WidthAndMargin widthAndMargin;
+    ContentWidthAndMargin contentWidthAndMargin;
 };
 
 struct VerticalGeometry {
     LayoutUnit top;
     LayoutUnit bottom;
-    HeightAndMargin heightAndMargin;
+    ContentHeightAndMargin contentHeightAndMargin;
 };
 
 struct UsedHorizontalValues {
-    explicit UsedHorizontalValues()
+    struct Constraints {
+        explicit Constraints(const Display::Box& containingBlockGeometry);
+        explicit Constraints(LayoutUnit contentBoxLeft, LayoutUnit horizontalConstraint)
+            : contentBoxLeft(contentBoxLeft)
+            , width(horizontalConstraint)
         {
         }
 
-    explicit UsedHorizontalValues(LayoutUnit containingBlockWidth)
-        : containingBlockWidth(containingBlockWidth)
-        {
-        }
+        LayoutUnit contentBoxLeft;
+        LayoutUnit width;
+    };
 
-    explicit UsedHorizontalValues(Optional<LayoutUnit> containingBlockWidth, Optional<LayoutUnit> width, Optional<UsedHorizontalMargin> margin)
-        : containingBlockWidth(containingBlockWidth)
+    explicit UsedHorizontalValues(Constraints constraints)
+        : constraints(constraints)
+    {
+    }
+
+    explicit UsedHorizontalValues(Constraints constraints, Optional<LayoutUnit> width, Optional<UsedHorizontalMargin> margin)
+        : constraints(constraints)
         , width(width)
         , margin(margin)
-        {
-        }
+    {
+    }
 
-    Optional<LayoutUnit> containingBlockWidth;
+    Constraints constraints;
     Optional<LayoutUnit> width;
     Optional<UsedHorizontalMargin> margin;
 };
 
 struct UsedVerticalValues {
+    struct Constraints {
+        explicit Constraints(const Display::Box& containingBlockGeometry);
+        explicit Constraints(LayoutUnit contentBoxTop, Optional<LayoutUnit> verticalConstraint = WTF::nullopt)
+            : contentBoxTop(contentBoxTop)
+            , height(verticalConstraint)
+        {
+        }
+
+        LayoutUnit contentBoxTop;
+        Optional<LayoutUnit> height;
+    };
+
+    explicit UsedVerticalValues(Constraints constraints, Optional<LayoutUnit> height = { })
+        : constraints(constraints)
+        , height(height)
+    {
+    }
+
+    Constraints constraints;
     Optional<LayoutUnit> height;
 };
+
+inline LayoutUnit toLayoutUnit(InlineLayoutUnit value)
+{
+    return LayoutUnit { value };
+}
+
+inline LayoutPoint toLayoutPoint(const InlineLayoutPoint& point)
+{
+    return LayoutPoint { point };
+}
+
+inline LayoutRect toLayoutRect(const InlineLayoutRect& rect)
+{
+    return LayoutRect { rect };
+}
+
+inline InlineLayoutUnit maxInlineLayoutUnit()
+{
+#if USE_FLOAT_AS_INLINE_LAYOUT_UNIT
+    return std::numeric_limits<float>::max();
+#else
+    return LayoutUnit::max();
+#endif
+}
 
 }
 }

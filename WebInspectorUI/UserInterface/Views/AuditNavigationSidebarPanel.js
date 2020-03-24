@@ -64,8 +64,8 @@ WI.AuditNavigationSidebarPanel = class AuditNavigationSidebarPanel extends WI.Na
         versionContainer.classList.add("audit-version");
 
         let version = WI.AuditTestBase.Version;
-        if (InspectorBackend.domains.Audit)
-            version = Math.min(version, InspectorBackend.domains.Audit.VERSION);
+        if (InspectorBackend.hasDomain("Audit"))
+            version = Math.min(version, InspectorBackend.getVersion("Audit"));
         versionContainer.textContent = WI.UIString("Audit version: %s").format(version);
 
         this.contentBrowser.showContentView(contentView);
@@ -76,8 +76,6 @@ WI.AuditNavigationSidebarPanel = class AuditNavigationSidebarPanel extends WI.Na
     initialLayout()
     {
         super.initialLayout();
-
-        this.contentTreeOutline.allowsRepeatSelection = false;
 
         let controlsNavigationBar = new WI.NavigationBar;
 
@@ -315,7 +313,7 @@ WI.AuditNavigationSidebarPanel = class AuditNavigationSidebarPanel extends WI.Na
 
     _handleImportButtonNavigationItemClicked(event)
     {
-        WI.FileUtilities.importJSON((result) => WI.auditManager.processJSON(result));
+        WI.FileUtilities.importJSON((result) => WI.auditManager.processJSON(result), {multiple: true});
     }
 
     _handleEditButtonNavigationItemClicked(event)

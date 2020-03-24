@@ -77,7 +77,7 @@ da{
         CF{"Den Centralafrikanske Republik"}
         CG{"Congo-Brazzaville"}
         CH{"Schweiz"}
-        CI{"Elfenbenskysten"}
+        CI{"Côte d’Ivoire"}
         CK{"Cookøerne"}
         CL{"Chile"}
         CM{"Cameroun"}
@@ -304,6 +304,7 @@ da{
     Countries%variant{
         CD{"Den Demokratiske Republik Congo (DRC)"}
         CG{"Republikken Congo"}
+        CI{"Elfenbenskysten"}
         CZ{"Den Tjekkiske Republik"}
         FK{"Falklandsøerne (Islas Malvinas)"}
         SZ{"Swaziland"}

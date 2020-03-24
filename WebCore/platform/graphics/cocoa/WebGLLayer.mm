@@ -55,6 +55,11 @@
 #define GL_ANGLE_explicit_context
 #include <ANGLE/gl2ext.h>
 #include <ANGLE/gl2ext_angle.h>
+#if PLATFORM(MAC)
+const GLenum ioSurfaceTextureType = GL_TEXTURE_RECTANGLE_ANGLE;
+#else
+const GLenum ioSurfaceTextureType = GL_TEXTURE_2D;
+#endif
 #endif
 
 @implementation WebGLLayer
@@ -65,18 +70,19 @@
 {
     _context = context;
     self = [super init];
-    _devicePixelRatio = context->getContextAttributes().devicePixelRatio;
-#if USE(OPENGL) || USE(ANGLE) && PLATFORM(MAC)
-    self.contentsOpaque = !context->getContextAttributes().alpha;
+    auto attributes = context->contextAttributes();
+    _devicePixelRatio = attributes.devicePixelRatio;
+#if USE(OPENGL) || USE(ANGLE)
+    self.contentsOpaque = !attributes.alpha;
     self.transform = CATransform3DIdentity;
     self.contentsScale = _devicePixelRatio;
 #else
-    self.opaque = !context->getContextAttributes().alpha;
+    self.opaque = !attributes.alpha;
 #endif
     return self;
 }
 
-#if USE(OPENGL) || (USE(ANGLE) && PLATFORM(MAC))
+#if USE(OPENGL) || USE(ANGLE)
 // When using an IOSurface as layer contents, we need to flip the
 // layer to take into account that the IOSurface provides content
 // in Y-up. This means that any incoming transform (unlikely, since
@@ -92,7 +98,7 @@
 {
     [super setAnchorPoint:CGPointMake(p.x, 1.0 - p.y)];
 }
-#endif // USE(OPENGL) || (USE(ANGLE) && PLATFORM(MAC))
+#endif // USE(OPENGL) || USE(ANGLE)
 
 #if USE(OPENGL)
 static void freeData(void *, const void *data, size_t /* size */)
@@ -107,7 +113,8 @@ static void freeData(void *, const void *data, size_t /* size */)
         return nullptr;
 
 #if USE(OPENGL)
-    CGLSetCurrentContext(_context->platformGraphicsContext3D());
+    CGLContextObj cglContext = static_cast<CGLContextObj>(_context->platformGraphicsContext3D());
+    CGLSetCurrentContext(cglContext);
 
     RetainPtr<CGColorSpaceRef> imageColorSpace = colorSpace;
     if (!imageColorSpace)
@@ -155,12 +162,13 @@ static void freeData(void *, const void *data, size_t /* size */)
     }
 #elif USE(OPENGL_ES)
     _context->presentRenderbuffer();
-#elif USE(ANGLE)
+#elif HAVE(IOSURFACE) && USE(ANGLE)
     _context->prepareTexture();
     if (_drawingBuffer) {
         if (_latchedPbuffer) {
+
             GC3Denum texture = _context->platformTexture();
-            gl::BindTexture(GL_TEXTURE_RECTANGLE_ANGLE, texture);
+            gl::BindTexture(ioSurfaceTextureType, texture);
             if (!EGL_ReleaseTexImage(_eglDisplay, _latchedPbuffer, EGL_BACK_BUFFER)) {
                 // FIXME: report error.
                 notImplemented();
@@ -181,8 +189,8 @@ static void freeData(void *, const void *data, size_t /* size */)
         layer->owner()->platformCALayerLayerDidDisplay(layer);
 }
 
-#if (USE(ANGLE) && PLATFORM(MAC))
-- (void)setEGLDisplay:(void*)display andConfig:(void*)config
+#if USE(ANGLE)
+- (void)setEGLDisplay:(void*)display config:(void*)config
 {
     _eglDisplay = display;
     _eglConfig = config;
@@ -197,7 +205,7 @@ static void freeData(void *, const void *data, size_t /* size */)
 }
 #endif
 
-#if USE(OPENGL) || (USE(ANGLE) && PLATFORM(MAC))
+#if HAVE(IOSURFACE) & (USE(OPENGL) || USE(ANGLE))
 - (void)allocateIOSurfaceBackingStoreWithSize:(WebCore::IntSize)size usingAlpha:(BOOL)usingAlpha
 {
     _bufferSize = size;
@@ -214,13 +222,13 @@ static void freeData(void *, const void *data, size_t /* size */)
     _drawingBuffer->migrateColorSpaceToProperties();
     _spareBuffer->migrateColorSpaceToProperties();
 
-#if USE(ANGLE) && PLATFORM(MAC)
+#if USE(ANGLE)
     const EGLint surfaceAttributes[] = {
         EGL_WIDTH, size.width(),
         EGL_HEIGHT, size.height(),
         EGL_IOSURFACE_PLANE_ANGLE, 0,
         EGL_TEXTURE_TARGET, EGL_TEXTURE_RECTANGLE_ANGLE,
-        EGL_TEXTURE_INTERNAL_FORMAT_ANGLE, GL_BGRA_EXT,
+        EGL_TEXTURE_INTERNAL_FORMAT_ANGLE, usingAlpha ? GL_BGRA_EXT : GL_RGB,
         EGL_TEXTURE_FORMAT, EGL_TEXTURE_RGBA,
         EGL_TEXTURE_TYPE_ANGLE, GL_UNSIGNED_BYTE,
         EGL_NONE, EGL_NONE
@@ -245,11 +253,13 @@ static void freeData(void *, const void *data, size_t /* size */)
     GC3Denum internalFormat = _usingAlpha ? GL_RGBA : GL_RGB;
 
     // Link the IOSurface to the texture.
-    CGLError error = CGLTexImageIOSurface2D(_context->platformGraphicsContext3D(), GL_TEXTURE_RECTANGLE_ARB, internalFormat, _bufferSize.width(), _bufferSize.height(), GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, ioSurface, 0);
+    CGLContextObj cglContext = static_cast<CGLContextObj>(_context->platformGraphicsContext3D());
+    CGLError error = CGLTexImageIOSurface2D(cglContext, GL_TEXTURE_RECTANGLE_ARB, internalFormat, _bufferSize.width(), _bufferSize.height(), GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, ioSurface, 0);
     ASSERT_UNUSED(error, error == kCGLNoError);
 #elif USE(ANGLE)
     GC3Denum texture = _context->platformTexture();
-    gl::BindTexture(GL_TEXTURE_RECTANGLE_ANGLE, texture);
+
+    gl::BindTexture(ioSurfaceTextureType, texture);
 
     if (_latchedPbuffer) {
         if (!EGL_ReleaseTexImage(_eglDisplay, _latchedPbuffer, EGL_BACK_BUFFER)) {
@@ -272,7 +282,7 @@ static void freeData(void *, const void *data, size_t /* size */)
     _latchedPbuffer = _drawingPbuffer;
 #endif
 }
-#endif // USE(OPENGL) || (USE(ANGLE) && PLATFORM(MAC))
+#endif // USE(OPENGL) || USE(ANGLE)
 
 @end
 

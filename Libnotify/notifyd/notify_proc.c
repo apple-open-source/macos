@@ -121,9 +121,11 @@ proc_create(notify_state_t *ns, client_t *c, pid_t proc, dispatch_source_t src)
 	dispatch_activate(src);
 }
 
-static void
+// Returns true on success
+static bool
 port_create(notify_state_t *ns, client_t *c, mach_port_t port)
 {
+	kern_return_t kstatus;
 	port_data_t *pdata = calloc(1, sizeof(port_data_t));
 
 	if (pdata == NULL) {
@@ -139,10 +141,16 @@ port_create(notify_state_t *ns, client_t *c, mach_port_t port)
 	_nc_table_insert_n(&ns->port_table, &pdata->port);
 	LIST_INSERT_HEAD(&pdata->clients, c, client_port_entry);
 
-	mach_port_insert_right(mach_task_self(), port, port,
-			MACH_MSG_TYPE_COPY_SEND);
+	kstatus = mach_port_insert_right(mach_task_self(), port,
+					 port, MACH_MSG_TYPE_COPY_SEND);
+	if (kstatus != KERN_SUCCESS) {
+		// This will fail if the port is dead
+		return false;
+	}
 	/* arming SEND_POSSIBLE must be done before we attempt any send */
 	port_arm_mach_notifications(port);
+
+	return true;
 }
 
 static bool
@@ -307,14 +315,15 @@ register_proc(client_t *c, pid_t pid)
 	proc_create(&global.notify_state, c, pid, src);
 }
 
-static void
+// Returns true on success
+static bool
 register_port(client_t *c, mach_port_t port)
 {
 	if (port_register(&global.notify_state, c, port)) {
-		return;
+		return true;
 	}
 
-	port_create(&global.notify_state, c, port);
+	return port_create(&global.notify_state, c, port);
 }
 
 
@@ -351,7 +360,6 @@ server_preflight(audit_token_t audit, int token, uid_t *uid, gid_t *gid, pid_t *
 		*pid = xpid;
 	}
 
-	if (token > 0)
 	{
 		client_t *c;
 		uint64_t xcid = make_client_id(xpid, token);
@@ -770,8 +778,12 @@ kern_return_t __notify_server_register_mach_port_2
 	if (!strncmp(name, SERVICE_PREFIX, SERVICE_PREFIX_LEN)) service_open(name, c, audit);
 
 	register_proc(c, pid);
-	register_port(c, port);
+	bool success = register_port(c, port);
+	if (!success) {
+		port_proc_cancel_client(c);
+	}
 
+	// The mach_port_dealloc of port is done when the registration is cancelled
 	return KERN_SUCCESS;
 }
 

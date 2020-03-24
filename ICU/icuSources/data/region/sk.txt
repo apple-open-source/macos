@@ -77,7 +77,7 @@ sk{
         CF{"Stredoafrická republika"}
         CG{"Konžská republika"}
         CH{"Švajčiarsko"}
-        CI{"Pobrežie Slonoviny"}
+        CI{"Côte d’Ivoire"}
         CK{"Cookove ostrovy"}
         CL{"Čile"}
         CM{"Kamerun"}
@@ -302,6 +302,7 @@ sk{
         US{"USA"}
     }
     Countries%variant{
+        CI{"Pobrežie Slonoviny"}
         CZ{"Česká republika"}
         FK{"Falklandy (Malvíny)"}
     }

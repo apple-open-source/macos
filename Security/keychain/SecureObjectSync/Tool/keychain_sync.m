@@ -59,7 +59,6 @@
 
 #include "keychain_sync.h"
 #include "keychain_log.h"
-#include "syncbackup.h"
 
 #include "secToolFileIO.h"
 #include "secViewDisplay.h"
@@ -329,30 +328,6 @@ static bool clientViewStatus(CFErrorRef *error) {
     return false;
 }
 
-
-static bool dumpYetToSync(CFErrorRef *error) {
-    CFArrayRef yetToSyncViews = SOSCCCopyYetToSyncViewsList(error);
-
-    bool hadError = yetToSyncViews;
-
-    if (yetToSyncViews) {
-        __block CFStringRef separator = CFSTR("");
-
-        printmsg(CFSTR("Yet to sync views: ["), NULL);
-
-        CFArrayForEach(yetToSyncViews, ^(const void *value) {
-            if (isString(value)) {
-                printmsg(CFSTR("%@%@"), separator, value);
-
-                separator = CFSTR(", ");
-            }
-        });
-        printmsg(CFSTR("]\n"), NULL);
-    }
-
-    return !hadError;
-}
-
 #pragma mark -
 #pragma mark --remove-peer
 
@@ -468,30 +443,20 @@ keychain_sync(int argc, char * const *argv)
 	 "
 	 "Account/Circle Management"
 	 "    -a     accept all applicants"
-	 "    -l     [reason] sign out of circle + set custom departure reason"
-	 "    -q     sign out of circle"
 	 "    -r     reject all applicants"
-	 "    -E     ensure fresh parameters"
      "    -b     device|all|single Register a backup bag - THIS RESETS BACKUPS!\n"
-     "    -A     Apply to a ring\n"
-     "    -B     Withdrawl from a ring\n"
-     "    -G     Enable Ring\n"
-     "    -F     Ring Status\n"
-     "    -I     Dump Ring Information\n"
 
 	 "    -N     (re-)set to new account (USE WITH CARE: device will not leave circle before resetting account!)"
 	 "    -O     reset to offering"
 	 "    -R     reset circle"
-	 "    -X     [limit]  best effort bail from circle in limit seconds"
      "    -o     list view unaware peers in circle"
      "    -0     boot view unaware peers from circle"
-     "    -1     grab account state from the keychain"
-     "    -2     delete account state from the keychain"
-     "    -3     grab engine state from the keychain"
-     "    -4     delete engine state from the keychain"
      "    -5     cleanup old KVS keys in KVS"
-     "    -6     [test]populate KVS with garbage KVS keys
 	 "
+     "Circle Tools\n"
+     "    --remove-peer SPID     Remove a peer identified by the first 8 or more\n"
+     "                           characters of its spid. Specify multiple times to\n"
+     "                           remove more than one peer.\n"
 	 "Password"
 	 "    -P     [label:]password  set password (optionally for a given label) for sync"
 	 "    -T     [label:]password  try password (optionally for a given label) for sync"
@@ -509,9 +474,6 @@ keychain_sync(int argc, char * const *argv)
      "    -L     list all known view and their status"
 	 "    -U     purge private key material cache\n"
      "    -V     Report View Sync Status on all known clients.\n"
-     "    -H     Set escrow record.\n"
-     "    -J     Get the escrow record.\n"
-     "    -M     Check peer availability.\n"
      */
     enum {
         SYNC_REMOVE_PEER,
@@ -527,359 +489,156 @@ keychain_sync(int argc, char * const *argv)
     CFMutableArrayRef peers2remove = NULL;
     SOSLogSetOutputTo(NULL, NULL);
 
-    while ((ch = getopt_long(argc, argv, "ab:deg:hikl:mopq:rSv:w:x:zA:B:MNJCDEF:HG:ILOP:RT:UWX:VY0123456", longopts, NULL)) != -1)
+    while ((ch = getopt_long(argc, argv, "ab:deikmorv:NCDLOP:RT:UWV05", longopts, NULL)) != -1)
         switch  (ch) {
-		case 'l':
-		{
-			fprintf(outFile, "Signing out of circle\n");
-			hadError = !SOSCCSignedOut(true, &error);
-			if (!hadError) {
-				errno = 0;
-				int reason = (int) strtoul(optarg, NULL, 10);
-				if (errno != 0 ||
-					reason < kSOSDepartureReasonError ||
-					reason >= kSOSNumDepartureReasons) {
-					fprintf(errFile, "Invalid custom departure reason %s\n", optarg);
-				} else {
-					fprintf(outFile, "Setting custom departure reason %d\n", reason);
-					hadError = !SOSCCSetLastDepartureReason(reason, &error);
-					notify_post(kSOSCCCircleChangedNotification);
-				}
-			}
-			break;
-		}
-			
-		case 'q':
-		{
-			fprintf(outFile, "Signing out of circle\n");
-			bool signOutImmediately = false;
-			if (strcasecmp(optarg, "true") == 0) {
-				signOutImmediately = true;
-			} else if (strcasecmp(optarg, "false") == 0) {
-				signOutImmediately = false;
-			} else {
-				fprintf(outFile, "Please provide a \"true\" or \"false\" whether you'd like to leave the circle immediately\n");
-			}
-			hadError = !SOSCCSignedOut(signOutImmediately, &error);
-			notify_post(kSOSCCCircleChangedNotification);
-			break;
-		}
-		case 'e':
-			fprintf(outFile, "Turning ON keychain syncing\n");
-			hadError = requestToJoinCircle(&error);
-			break;
-			
-		case 'd':
-			fprintf(outFile, "Turning OFF keychain syncing\n");
-			hadError = !SOSCCRemoveThisDeviceFromCircle(&error);
-			break;
-			
-		case 'a':
-		{
-			CFArrayRef applicants = SOSCCCopyApplicantPeerInfo(NULL);
-			if (applicants) {
-				hadError = !SOSCCAcceptApplicants(applicants, &error);
-				CFRelease(applicants);
-			} else {
-				fprintf(errFile, "No applicants to accept\n");
-			}
-			break;
-		}
-			
-		case 'r':
-		{
-			CFArrayRef applicants = SOSCCCopyApplicantPeerInfo(NULL);
-			if (applicants)	{
-				hadError = !SOSCCRejectApplicants(applicants, &error);
-				CFRelease(applicants);
-			} else {
-				fprintf(errFile, "No applicants to reject\n");
-			}
-			break;
-		}
-			
-		case 'i':
-			SOSCCDumpCircleInformation();
-			SOSCCDumpEngineInformation();
-			break;
-			
-		case 'k':
-			notify_post("com.apple.security.cloudkeychain.forceupdate");
-			break;
-
-        case 'o':
-        {
-            SOSCCDumpViewUnwarePeers();
-            break;
-        }
-
-        case '0':
-        {
-            CFArrayRef unawares = SOSCCCopyViewUnawarePeerInfo(&error);
-            if (unawares) {
-                hadError = !SOSCCRemovePeersFromCircle(unawares, &error);
-            } else {
-                hadError = true;
-            }
-            CFReleaseNull(unawares);
-            break;
-        }
-        case '1':
-        {
-            CFDataRef accountState = SOSCCCopyAccountState(&error);
-            if (accountState) {
-                printmsg(CFSTR(" %@\n"), CFDataCopyHexString(accountState));
-            } else {
-                hadError = true;
-            }
-            CFReleaseNull(accountState);
-            break;
-        }
-        case '2':
-        {
-            bool status = SOSCCDeleteAccountState(&error);
-            if (status) {
-                printmsg(CFSTR("Deleted account from the keychain %d\n"), status);
-            } else {
-                hadError = true;
-            }
-            break;
-        }
-        case '3':
-        {
-            CFDataRef engineState = SOSCCCopyEngineData(&error);
-            if (engineState) {
-                printmsg(CFSTR(" %@\n"), CFDataCopyHexString(engineState));
-            } else {
-                hadError = true;
-            }
-            CFReleaseNull(engineState);
-            break;
-        }
-        case '4':
-        {
-            bool status = SOSCCDeleteEngineState(&error);
-            if (status) {
-                printmsg(CFSTR("Deleted engine-state from the keychain %d\n"), status);
-            } else {
-                hadError = true;
-            }
-            break;
-        }
-        case '5' :
-        {
-            bool result = SOSCCCleanupKVSKeys(&error);
-            if(result)
+            case 'a':
             {
-                printmsg(CFSTR("Got all the keys from KVS %d\n"), result);
-            }else {
-                hadError = true;
+                CFArrayRef applicants = SOSCCCopyApplicantPeerInfo(NULL);
+                if (applicants) {
+                    hadError = !SOSCCAcceptApplicants(applicants, &error);
+                    CFRelease(applicants);
+                } else {
+                    fprintf(errFile, "No applicants to accept\n");
+                }
+                break;
             }
-            break;
-        }
-        case '6' :
-        {
-            bool result = SOSCCTestPopulateKVSWithBadKeys(&error);
-            if(result)
+            case 'b':
+            {
+                hadError = setBag(optarg, &error);
+                break;
+            }
+            case 'd':
+            {
+                fprintf(outFile, "Turning OFF keychain syncing\n");
+                hadError = !SOSCCRemoveThisDeviceFromCircle(&error);
+                break;
+            }
+            case 'e':
+            {
+                fprintf(outFile, "Turning ON keychain syncing\n");
+                hadError = requestToJoinCircle(&error);
+                break;
+            }
+            case 'i':
+            {
+                SOSCCDumpCircleInformation();
+                SOSCCDumpEngineInformation();
+                break;
+            }
+            case 'k':
+            {
+                notify_post("com.apple.security.cloudkeychain.forceupdate");
+                break;
+            }
+            case 'm':
+            {
+                hadError = !dumpMyPeer(&error);
+                break;
+            }
+            case 'o':
+            {
+                SOSCCDumpViewUnwarePeers();
+                break;
+            }
+            case 'r':
+            {
+                CFArrayRef applicants = SOSCCCopyApplicantPeerInfo(NULL);
+                if (applicants)	{
+                    hadError = !SOSCCRejectApplicants(applicants, &error);
+                    CFRelease(applicants);
+                } else {
+                    fprintf(errFile, "No applicants to reject\n");
+                }
+                break;
+            }
+            case 'v':
+            {
+                hadError = !viewcmd(optarg, &error);
+                break;
+            }
+            case 'C':
+            {
+                hadError = clearAllKVS(&error);
+                break;
+            }
+            case 'D':
+            {
+                (void)SOSCCDumpCircleKVSInformation(optarg);
+                break;
+            }
+            case 'L':
+            {
+                hadError = !listviewcmd(&error);
+                break;
+            }
+            case 'N':
+            {
+                hadError = !SOSCCAccountSetToNew(&error);
+                if (!hadError)
+                    notify_post(kSOSCCCircleChangedNotification);
+                break;
+            }
+            case 'O':
+            {
+                hadError = !SOSCCResetToOffering(&error);
+                break;
+            }
+            case 'P':
+            {
+                hadError = setPassword(optarg, &error);
+                break;
+            }
+            case 'R':
+            {
+                hadError = !SOSCCResetToEmpty(&error);
+                break;
+            }
+            case 'T':
+            {
+                hadError = tryPassword(optarg, &error);
+                break;
+            }
+            case 'U':
+            {
+                hadError = !SOSCCPurgeUserCredentials(&error);
+                break;
+            }
+            case 'V':
+            {
+                hadError = clientViewStatus(&error);
+                break;
+            }
+            case 'W':
+            {
+                hadError = syncAndWait(&error);
+                break;
+            }
+            case '0':
+            {
+                CFArrayRef unawares = SOSCCCopyViewUnawarePeerInfo(&error);
+                if (unawares) {
+                    hadError = !SOSCCRemovePeersFromCircle(unawares, &error);
+                } else {
+                    hadError = true;
+                }
+                CFReleaseNull(unawares);
+                break;
+            }
+            case '5' :
+            {
+                bool result = SOSCCCleanupKVSKeys(&error);
+                if(result)
                 {
-                    printmsg(CFSTR("Populated KVS with garbage %d\n"), result);
+                    printmsg(CFSTR("Got all the keys from KVS %d\n"), result);
                 }else {
                     hadError = true;
                 }
                 break;
-        }
-		case 'E':
-		{
-			fprintf(outFile, "Ensuring Fresh Parameters\n");
-			bool result = SOSCCRequestEnsureFreshParameters(&error);
-			if (error) {
-				hadError = true;
-				break;
-			}
-			if (result) {
-				fprintf(outFile, "Refreshed Parameters Ensured!\n");
-			} else {
-				fprintf(outFile, "Problem trying to ensure fresh parameters\n");
-			}
-			break;
-		}
-		case 'A':
-		{
-			fprintf(outFile, "Applying to Ring\n");
-			CFStringRef ringName = CFStringCreateWithCString(kCFAllocatorDefault, (char *)optarg, kCFStringEncodingUTF8);
-			hadError = SOSCCApplyToARing(ringName, &error);
-            CFReleaseNull(ringName);
-			break;
-		}
-		case 'B':
-		{
-			fprintf(outFile, "Withdrawing from Ring\n");
-			CFStringRef ringName = CFStringCreateWithCString(kCFAllocatorDefault, (char *)optarg, kCFStringEncodingUTF8);
-			hadError = SOSCCWithdrawlFromARing(ringName, &error);
-            CFReleaseNull(ringName);
-			break;
-		}
-		case 'F':
-		{
-			fprintf(outFile, "Status of this device in the Ring\n");
-			CFStringRef ringName = CFStringCreateWithCString(kCFAllocatorDefault, (char *)optarg, kCFStringEncodingUTF8);
-			hadError = SOSCCRingStatus(ringName, &error);
-            CFReleaseNull(ringName);
-			break;
-		}
-		case 'G':
-		{
-			fprintf(outFile, "Enabling Ring\n");
-			CFStringRef ringName = CFStringCreateWithCString(kCFAllocatorDefault, (char *)optarg, kCFStringEncodingUTF8);
-			hadError = SOSCCEnableRing(ringName, &error);
-            CFReleaseNull(ringName);
-			break;
-		}
-        case 'H':
-        {
-            fprintf(outFile, "Setting random escrow record\n");
-            bool success = SOSCCSetEscrowRecord(CFSTR("label"), 8, &error);
-            if(success)
-                hadError = false;
-            else
-                hadError = true;
-            break;
-        }
-        case 'J':
-        {
-            CFDictionaryRef attempts = SOSCCCopyEscrowRecord(&error);
-            if(attempts){
-                CFDictionaryForEach(attempts, ^(const void *key, const void *value) {
-                    if(isString(key)){
-                        char *keyString = CFStringToCString(key);
-                        fprintf(outFile, "%s:\n", keyString);
-                        free(keyString);
-                    }
-                    if(isDictionary(value)){
-                        CFDictionaryForEach(value, ^(const void *key, const void *value) {
-                            if(isString(key)){
-                                char *keyString = CFStringToCString(key);
-                                fprintf(outFile, "%s: ", keyString);
-                                free(keyString);
-                            }
-                            if(isString(value)){
-                                char *time = CFStringToCString(value);
-                                fprintf(outFile, "timestamp: %s\n", time);
-                                free(time);
-                            }
-                            else if(isNumber(value)){
-                                uint64_t tries;
-                                CFNumberGetValue(value, kCFNumberLongLongType, &tries);
-                                fprintf(outFile, "date: %llu\n", tries);
-                            }
-                        });
-                    }
-                  
-               });
             }
-            CFReleaseNull(attempts);
-            hadError = false;
-            break;
-        }
-		case 'I':
-		{
-			fprintf(outFile, "Printing all the rings\n");
-			CFStringRef ringdescription = SOSCCGetAllTheRings(&error);
-			if(!ringdescription)
-				hadError = true;
-			else
-				fprintf(outFile, "Rings: %s", CFStringToCString(ringdescription));
-			
-			break;
-		}
-
-		case 'N':
-			hadError = !SOSCCAccountSetToNew(&error);
-			if (!hadError)
-				notify_post(kSOSCCCircleChangedNotification);
-			break;
-
-		case 'R':
-			hadError = !SOSCCResetToEmpty(&error);
-			break;
-
-		case 'O':
-			hadError = !SOSCCResetToOffering(&error);
-			break;
-
-		case 'm':
-			hadError = !dumpMyPeer(&error);
-			break;
-
-		case 'C':
-			hadError = clearAllKVS(&error);
-			break;
-
-		case 'P':
-			hadError = setPassword(optarg, &error);
-			break;
-
-		case 'T':
-			hadError = tryPassword(optarg, &error);
-			break;
-
-		case 'X':
-		{
-			uint64_t limit = strtoul(optarg, NULL, 10);
-			hadError = !SOSCCBailFromCircle_BestEffort(limit, &error);
-			break;
-		}
-
-		case 'U':
-			hadError = !SOSCCPurgeUserCredentials(&error);
-			break;
-
-		case 'D':
-			(void)SOSCCDumpCircleKVSInformation(optarg);
-			break;
-
-		case 'W':
-			hadError = syncAndWait(&error);
-			break;
-
-		case 'v':
-			hadError = !viewcmd(optarg, &error);
-			break;
-
-        case 'V':
-            hadError = clientViewStatus(&error);
-            break;
-        case 'L':
-            hadError = !listviewcmd(&error);
-            break;
-
-        case 'b':
-            hadError = setBag(optarg, &error);
-            break;
-
-        case 'Y':
-            hadError = dumpYetToSync(&error);
-            break;
-        case 0:
-            switch (action) {
-            case SYNC_REMOVE_PEER: {
-                CFStringRef optstr;
-                optstr = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
-                if (peers2remove == NULL) {
-                    peers2remove = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-                }
-                CFArrayAppendValue(peers2remove, optstr);
-                CFRelease(optstr);
-                break;
-            }
+            case '?':
             default:
                 return SHOW_USAGE_MESSAGE;
-            }
-            break;
-        case '?':
-        default:
-            return SHOW_USAGE_MESSAGE;
-    }
+        }
 
     if (peers2remove != NULL) {
         hadError = !doRemovePeers(peers2remove, &error);

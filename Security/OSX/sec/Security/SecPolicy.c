@@ -132,6 +132,7 @@ SEC_CONST_DECL (kSecPolicyNameAppleParsecService, "Parsec");
 SEC_CONST_DECL (kSecPolicyNameAppleAMPService, "AMP");
 SEC_CONST_DECL (kSecPolicyNameAppleSiriService, "Siri");
 SEC_CONST_DECL (kSecPolicyNameAppleHomeAppClipUploadService, "HomeAppClipUploadService");
+SEC_CONST_DECL (kSecPolicyNameAppleUpdatesService, "Updates");
 
 #define kSecPolicySHA1Size 20
 #define kSecPolicySHA256Size 32
@@ -390,9 +391,10 @@ SecPolicyRef SecPolicyCreateWithProperties(CFTypeRef policyIdentifier,
         policy = SecPolicyCreateAppleComponentCertificate(rootDigest);
     }
     /* For a couple of common patterns we use the macro, but some of the
-     * policies are deprecated, so we need to ignore the warning. */
+     * policies are deprecated (or not yet available), so we need to ignore the warning. */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#pragma clang diagnostic ignored "-Wunguarded-availability"
 #define _P_OPTION_
 #define _P_OPTION_N name
 #define _P_PROPERTIES_(NAME, IN_NAME, FUNCTION)
@@ -3561,8 +3563,6 @@ errOut:
 /* This one is special because the intermediate has no marker OID */
 SecPolicyRef SecPolicyCreateAppleSoftwareSigning(void) {
     CFMutableDictionaryRef options = NULL;
-    CFDictionaryRef keySizes = NULL;
-    CFNumberRef rsaSize = NULL, ecSize = NULL;
     SecPolicyRef result = NULL;
 
     require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
@@ -3598,9 +3598,6 @@ SecPolicyRef SecPolicyCreateAppleSoftwareSigning(void) {
 
 errOut:
     CFReleaseSafe(options);
-    CFReleaseSafe(keySizes);
-    CFReleaseSafe(rsaSize);
-    CFReleaseSafe(ecSize);
     return result;
 }
 
@@ -4112,5 +4109,69 @@ SecPolicyRef SecPolicyCreateAppleKeyTransparency(CFStringRef applicationId) {
                                      kSecPolicyNameKeyTransparency, options), errOut);
 errOut:
     CFReleaseNull(options);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreateAlisha(void) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+    CFDictionaryRef keySizes = NULL;
+    CFNumberRef ecSize = NULL;
+
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    /* Alisha certs don't expire */
+    SecPolicyAddBasicCertOptions(options);
+
+    /* RSA key sizes are disallowed. EC key sizes are P-256 or larger. */
+    require(ecSize = CFNumberCreateWithCFIndex(NULL, 256), errOut);
+    require(keySizes = CFDictionaryCreate(NULL, (const void**)&kSecAttrKeyTypeEC,
+                                          (const void**)&ecSize, 1,
+                                          &kCFTypeDictionaryKeyCallBacks,
+                                          &kCFTypeDictionaryValueCallBacks), errOut);
+    add_element(options, kSecPolicyCheckKeySize, keySizes);
+
+    /* Check for weak hashes */
+    require(SecPolicyRemoveWeakHashOptions(options), errOut);
+
+    require(result = SecPolicyCreate(kSecPolicyAppleAlisha,
+                                     kSecPolicyNameAlisha, options), errOut);
+errOut:
+    CFReleaseNull(options);
+    CFReleaseNull(keySizes);
+    CFReleaseNull(ecSize);
+    return result;
+}
+
+SecPolicyRef SecPolicyCreateMeasuredBootPolicySigning(void) {
+    CFMutableDictionaryRef options = NULL;
+    SecPolicyRef result = NULL;
+
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    /* No expiration check. */
+    SecPolicyAddBasicCertOptions(options);
+
+    /* Exactly 3 certs in the chain */
+    require(SecPolicyAddChainLengthOptions(options, 3), errOut);
+
+    /* Corporate Signing subCA */
+    add_element(options, kSecPolicyCheckIntermediateMarkerOid, CFSTR("1.2.840.113635.100.6.24.17"));
+
+    /* Measured Boot Policy Signing Leaf OID */
+    add_leaf_marker_string(options, CFSTR("1.2.840.113635.100.6.26.6.1"));
+
+    /* RSA key sizes are 2048-bit or larger. EC key sizes are P-256 or larger. */
+    require(SecPolicyAddStrongKeySizeOptions(options), errOut);
+
+    require(result = SecPolicyCreate(kSecPolicyAppleMeasuredBootPolicySigning,
+                                     kSecPolicyNameMeasuredBootPolicySigning, options), errOut);
+
+errOut:
+    CFReleaseSafe(options);
     return result;
 }

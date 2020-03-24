@@ -135,7 +135,7 @@ static int get_x11_title(int);
 
 static char_u	*oldtitle = NULL;
 static volatile sig_atomic_t oldtitle_outdated = FALSE;
-static int	did_set_title = FALSE;
+static int	unix_did_set_title = FALSE;
 static char_u	*oldicon = NULL;
 static int	did_set_icon = FALSE;
 #endif
@@ -903,7 +903,7 @@ sig_alarm SIGDEFARG(sigarg)
 static JMP_BUF lc_jump_env;
 
 # ifdef SIGHASARG
-// Caught signal number, 0 when no was signal caught; used for mch_libcall().
+// Caught signal number, 0 when no signal was caught; used for mch_libcall().
 // Volatile because it is used in signal handlers.
 static volatile sig_atomic_t lc_signal;
 # endif
@@ -2213,7 +2213,7 @@ mch_settitle(char_u *title, char_u *icon)
 	else
 	    gui_mch_settitle(title, icon);
 #endif
-	did_set_title = TRUE;
+	unix_did_set_title = TRUE;
     }
 
     if ((type || *T_CIS != NUL) && icon != NULL)
@@ -2227,9 +2227,9 @@ mch_settitle(char_u *title, char_u *icon)
 
 	if (*T_CIS != NUL)
 	{
-	    out_str(T_CIS);			/* set icon start */
+	    out_str(T_CIS);			// set icon start
 	    out_str_nf(icon);
-	    out_str(T_CIE);			/* set icon end */
+	    out_str(T_CIE);			// set icon end
 	    out_flush();
 	}
 #ifdef FEAT_X11
@@ -2254,10 +2254,10 @@ mch_settitle(char_u *title, char_u *icon)
     void
 mch_restore_title(int which)
 {
-    int	do_push_pop = did_set_title || did_set_icon;
+    int	do_push_pop = unix_did_set_title || did_set_icon;
 
     /* only restore the title or icon when it has been set */
-    mch_settitle(((which & SAVE_RESTORE_TITLE) && did_set_title) ?
+    mch_settitle(((which & SAVE_RESTORE_TITLE) && unix_did_set_title) ?
 			(oldtitle ? oldtitle : p_titleold) : NULL,
 	       ((which & SAVE_RESTORE_ICON) && did_set_icon) ? oldicon : NULL);
 
@@ -2308,7 +2308,6 @@ use_xterm_like_mouse(char_u *name)
 }
 #endif
 
-#if defined(FEAT_MOUSE_TTY) || defined(PROTO)
 /*
  * Return non-zero when using an xterm mouse, according to 'ttymouse'.
  * Return 1 for "xterm".
@@ -2329,7 +2328,6 @@ use_xterm_mouse(void)
 	return 1;
     return 0;
 }
-#endif
 
     int
 vim_is_iris(char_u *name)
@@ -2473,7 +2471,8 @@ strerror(int err)
 #endif
 
 /*
- * Get name of current directory into buffer 'buf' of length 'len' bytes.
+ * Get name of current directory into buffer "buf" of length "len" bytes.
+ * "len" must be at least PATH_MAX.
  * Return OK for success, FAIL for failure.
  */
     int
@@ -2542,7 +2541,7 @@ mch_FullName(
     {
 	/*
 	 * If the file name has a path, change to that directory for a moment,
-	 * and then do the getwd() (and get back to where we were).
+	 * and then get the directory (and get back to where we were).
 	 * This will get the correct path name with "../" things.
 	 */
 	if (p != NULL)
@@ -3094,7 +3093,7 @@ executable_file(char_u *name)
 	return 0;
 #ifdef VMS
     /* Like on Unix system file can have executable rights but not necessarily
-     * be an executable, but on Unix is not a default for an ordianry file to
+     * be an executable, but on Unix is not a default for an ordinary file to
      * have an executable flag - on VMS it is in most cases.
      * Therefore, this check does not have any sense - let keep us to the
      * conventions instead:
@@ -3128,12 +3127,11 @@ mch_can_exe(char_u *name, char_u **path, int use_path)
 
     /* When "use_path" is false and if it's an absolute or relative path don't
      * need to use $PATH. */
-    if (!use_path || mch_isFullName(name) || (name[0] == '.'
-		   && (name[1] == '/' || (name[1] == '.' && name[2] == '/'))))
+    if (!use_path || gettail(name) != name)
     {
 	/* There must be a path separator, files in the current directory
 	 * can't be executed. */
-	if (gettail(name) != name && executable_file(name))
+	if ((use_path || gettail(name) != name) && executable_file(name))
 	{
 	    if (path != NULL)
 	    {
@@ -3150,7 +3148,7 @@ mch_can_exe(char_u *name, char_u **path, int use_path)
     p = (char_u *)getenv("PATH");
     if (p == NULL || *p == NUL)
 	return -1;
-    buf = alloc((unsigned)(STRLEN(name) + STRLEN(p) + 2));
+    buf = alloc(STRLEN(name) + STRLEN(p) + 2);
     if (buf == NULL)
 	return -1;
 
@@ -3235,7 +3233,7 @@ mch_early_init(void)
      * Ignore any errors.
      */
 #if defined(HAVE_SIGALTSTACK) || defined(HAVE_SIGSTACK)
-    signal_stack = (char *)alloc(SIGSTKSZ);
+    signal_stack = alloc(SIGSTKSZ);
     init_signal_stack();
 #endif
 }
@@ -3484,11 +3482,21 @@ mch_settmode(int tmode)
 				    /* but it breaks function keys on MINT */
 # endif
 				);
-# ifdef ONLCR	    /* don't map NL -> CR NL, we do it ourselves */
+# ifdef ONLCR
+	// Don't map NL -> CR NL, we do it ourselves.
+	// Also disable expanding tabs if possible.
+#  ifdef XTABS
+	tnew.c_oflag &= ~(ONLCR | XTABS);
+#  else
+#   ifdef TAB3
+	tnew.c_oflag &= ~(ONLCR | TAB3);
+#   else
 	tnew.c_oflag &= ~ONLCR;
+#   endif
+#  endif
 # endif
-	tnew.c_cc[VMIN] = 1;		/* return after 1 char */
-	tnew.c_cc[VTIME] = 0;		/* don't wait */
+	tnew.c_cc[VMIN] = 1;		// return after 1 char
+	tnew.c_cc[VTIME] = 0;		// don't wait
     }
     else if (tmode == TMODE_SLEEP)
     {
@@ -3618,7 +3626,6 @@ get_tty_info(int fd, ttyinfo_T *info)
 
 #endif /* VMS  */
 
-#if defined(FEAT_MOUSE_TTY) || defined(PROTO)
 static int	mouse_ison = FALSE;
 
 /*
@@ -3627,29 +3634,29 @@ static int	mouse_ison = FALSE;
     void
 mch_setmouse(int on)
 {
-# ifdef FEAT_BEVAL_TERM
+#ifdef FEAT_BEVAL_TERM
     static int	bevalterm_ison = FALSE;
-# endif
+#endif
     int		xterm_mouse_vers;
 
-# if defined(FEAT_X11) && defined(FEAT_XCLIPBOARD)
+#if defined(FEAT_X11) && defined(FEAT_XCLIPBOARD)
     if (!on)
 	// Make sure not tracing mouse movements.  Important when a button-down
 	// was received but no release yet.
 	stop_xterm_trace();
-# endif
+#endif
 
     if (on == mouse_ison
-# ifdef FEAT_BEVAL_TERM
+#ifdef FEAT_BEVAL_TERM
 	    && p_bevalterm == bevalterm_ison
-# endif
+#endif
 	    )
 	/* return quickly if nothing to do */
 	return;
 
     xterm_mouse_vers = use_xterm_mouse();
 
-# ifdef FEAT_MOUSE_URXVT
+#ifdef FEAT_MOUSE_URXVT
     if (ttym_flags == TTYM_URXVT)
     {
 	out_str_nf((char_u *)
@@ -3658,7 +3665,7 @@ mch_setmouse(int on)
 		   : IF_EB("\033[?1015l", ESC_STR "[?1015l")));
 	mouse_ison = on;
     }
-# endif
+#endif
 
     if (ttym_flags == TTYM_SGR)
     {
@@ -3670,7 +3677,7 @@ mch_setmouse(int on)
 	mouse_ison = on;
     }
 
-# ifdef FEAT_BEVAL_TERM
+#ifdef FEAT_BEVAL_TERM
     if (bevalterm_ison != (p_bevalterm && on))
     {
 	bevalterm_ison = (p_bevalterm && on);
@@ -3679,7 +3686,7 @@ mch_setmouse(int on)
 	    out_str_nf((char_u *)
 			(IF_EB("\033[?1003l", ESC_STR "[?1003l")));
     }
-# endif
+#endif
 
     if (xterm_mouse_vers > 0)
     {
@@ -3687,10 +3694,10 @@ mch_setmouse(int on)
 	    out_str_nf((char_u *)
 		       (xterm_mouse_vers > 1
 			? (
-# ifdef FEAT_BEVAL_TERM
+#ifdef FEAT_BEVAL_TERM
 			    bevalterm_ison
 			       ? IF_EB("\033[?1003h", ESC_STR "[?1003h") :
-# endif
+#endif
 			      IF_EB("\033[?1002h", ESC_STR "[?1002h"))
 			: IF_EB("\033[?1000h", ESC_STR "[?1000h")));
 	else	/* disable mouse events, could probably always send the same */
@@ -3701,7 +3708,7 @@ mch_setmouse(int on)
 	mouse_ison = on;
     }
 
-# ifdef FEAT_MOUSE_DEC
+#ifdef FEAT_MOUSE_DEC
     else if (ttym_flags == TTYM_DEC)
     {
 	if (on)	/* enable mouse events */
@@ -3710,9 +3717,9 @@ mch_setmouse(int on)
 	    out_str_nf((char_u *)"\033['z");
 	mouse_ison = on;
     }
-# endif
+#endif
 
-# ifdef FEAT_MOUSE_GPM
+#ifdef FEAT_MOUSE_GPM
     else
     {
 	if (on)
@@ -3726,9 +3733,9 @@ mch_setmouse(int on)
 	    mouse_ison = FALSE;
 	}
     }
-# endif
+#endif
 
-# ifdef FEAT_SYSMOUSE
+#ifdef FEAT_SYSMOUSE
     else
     {
 	if (on)
@@ -3742,9 +3749,9 @@ mch_setmouse(int on)
 	    mouse_ison = FALSE;
 	}
     }
-# endif
+#endif
 
-# ifdef FEAT_MOUSE_JSB
+#ifdef FEAT_MOUSE_JSB
     else
     {
 	if (on)
@@ -3764,14 +3771,14 @@ mch_setmouse(int on)
 	     *	  4 = Windows Cross Hair
 	     *	  5 = Windows UP Arrow
 	     */
-#  ifdef JSBTERM_MOUSE_NONADVANCED
+# ifdef JSBTERM_MOUSE_NONADVANCED
 	    /* Disables full feedback of pointer movements */
 	    out_str_nf((char_u *)IF_EB("\033[0~ZwLMRK1Q\033\\",
 					 ESC_STR "[0~ZwLMRK1Q" ESC_STR "\\"));
-#  else
+# else
 	    out_str_nf((char_u *)IF_EB("\033[0~ZwLMRK+1Q\033\\",
 					ESC_STR "[0~ZwLMRK+1Q" ESC_STR "\\"));
-#  endif
+# endif
 	    mouse_ison = TRUE;
 	}
 	else
@@ -3781,8 +3788,8 @@ mch_setmouse(int on)
 	    mouse_ison = FALSE;
 	}
     }
-# endif
-# ifdef FEAT_MOUSE_PTERM
+#endif
+#ifdef FEAT_MOUSE_PTERM
     else
     {
 	/* 1 = button press, 6 = release, 7 = drag, 1h...9l = right button */
@@ -3792,7 +3799,7 @@ mch_setmouse(int on)
 	    out_str_nf("\033[>1l\033[>6l\033[>7l\033[>1l\033[>9h");
 	mouse_ison = on;
     }
-# endif
+#endif
 }
 
 #if defined(FEAT_BEVAL_TERM) || defined(PROTO)
@@ -3955,7 +3962,6 @@ check_mouse_termcode(void)
 	del_mouse_termcode(KS_SGR_MOUSE_RELEASE);
     }
 }
-#endif
 
 /*
  * set screen mode, always fails.
@@ -4306,7 +4312,7 @@ open_pty(int *pty_master_fd, int *pty_slave_fd, char_u **name1, char_u **name2)
 /*
  * Send SIGINT to a child process if "c" is an interrupt character.
  */
-    void
+    static void
 may_send_sigint(int c UNUSED, pid_t pid UNUSED, pid_t wpid UNUSED)
 {
 # ifdef SIGINT
@@ -4323,10 +4329,10 @@ may_send_sigint(int c UNUSED, pid_t pid UNUSED, pid_t wpid UNUSED)
 # endif
 }
 
-#if !defined(USE_SYSTEM) || (defined(FEAT_GUI) && defined(FEAT_TERMINAL))
+#if !defined(USE_SYSTEM) || defined(FEAT_TERMINAL) || defined(PROTO)
 
-    static int
-build_argv(
+    int
+unix_build_argv(
 	char_u *cmd,
 	char ***argvp,
 	char_u **sh_tofree,
@@ -4353,7 +4359,7 @@ build_argv(
 
 	/* Break 'shellcmdflag' into white separated parts.  This doesn't
 	 * handle quoted strings, they are very unlikely to appear. */
-	*shcf_tofree = alloc((unsigned)STRLEN(p_shcf) + 1);
+	*shcf_tofree = alloc(STRLEN(p_shcf) + 1);
 	if (*shcf_tofree == NULL)    /* out of memory */
 	    return FAIL;
 	s = *shcf_tofree;
@@ -4393,7 +4399,7 @@ mch_call_shell_terminal(
     aco_save_T	aco;
     oparg_T	oa;		/* operator arguments */
 
-    if (build_argv(cmd, &argv, &tofree1, &tofree2) == FAIL)
+    if (unix_build_argv(cmd, &argv, &tofree1, &tofree2) == FAIL)
 	goto theend;
 
     init_job_options(&opt);
@@ -4488,9 +4494,9 @@ mch_call_shell_system(
 	else
 	    x = system((char *)cmd);
 # else
-	newcmd = lalloc(STRLEN(p_sh)
+	newcmd = alloc(STRLEN(p_sh)
 		+ (extra_shell_arg == NULL ? 0 : STRLEN(extra_shell_arg))
-		+ STRLEN(p_shcf) + STRLEN(cmd) + 4, TRUE);
+		+ STRLEN(p_shcf) + STRLEN(cmd) + 4);
 	if (newcmd == NULL)
 	    x = 0;
 	else
@@ -4570,7 +4576,7 @@ mch_call_shell_fork(
     if (options & SHELL_COOKED)
 	settmode(TMODE_COOK);		/* set to normal mode */
 
-    if (build_argv(cmd, &argv, &tofree1, &tofree2) == FAIL)
+    if (unix_build_argv(cmd, &argv, &tofree1, &tofree2) == FAIL)
 	goto error;
 
     /*
@@ -6028,14 +6034,20 @@ WaitForCharOrMouse(long msec, int *interrupted, int ignore_input)
 		rest -= msec;
 	}
 # endif
+# ifdef FEAT_SOUND_CANBERRA
+	// Invoke any pending sound callbacks.
+	if (has_sound_callback_in_queue())
+	    invoke_sound_callback();
+# endif
 # ifdef FEAT_MOUSE_GPM
 	gpm_process_wanted = 0;
 	avail = RealWaitForChar(read_cmd_fd, msec,
 					     &gpm_process_wanted, interrupted);
+	if (!avail && !gpm_process_wanted)
 # else
 	avail = RealWaitForChar(read_cmd_fd, msec, NULL, interrupted);
-# endif
 	if (!avail)
+# endif
 	{
 	    if (!ignore_input && input_available())
 		return 1;
@@ -6420,7 +6432,6 @@ select_eintr:
     return result;
 }
 
-#ifndef NO_EXPANDPATH
 /*
  * Expand a path into all matching files and/or directories.  Handles "*",
  * "?", "[a-z]", "**", etc.
@@ -6435,7 +6446,6 @@ mch_expandpath(
 {
     return unix_expandpath(gap, path, 0, flags, FALSE);
 }
-#endif
 
 /*
  * mch_expand_wildcards() - this code does wild-card pattern matching using
@@ -6872,7 +6882,7 @@ mch_expand_wildcards(
 	goto notfound;
     }
     *num_file = i;
-    *file = (char_u **)alloc(sizeof(char_u *) * i);
+    *file = ALLOC_MULT(char_u *, i);
     if (*file == NULL)
     {
 	/* out of memory */
@@ -6929,7 +6939,7 @@ mch_expand_wildcards(
 		    && !mch_can_exe((*file)[i], NULL, !(flags & EW_SHELLCMD)))
 	    continue;
 
-	p = alloc((unsigned)(STRLEN((*file)[i]) + 1 + dir));
+	p = alloc(STRLEN((*file)[i]) + 1 + dir);
 	if (p)
 	{
 	    STRCPY(p, (*file)[i]);
@@ -6967,7 +6977,7 @@ save_patterns(
     int		i;
     char_u	*s;
 
-    *file = (char_u **)alloc(num_pat * sizeof(char_u *));
+    *file = ALLOC_MULT(char_u *, num_pat);
     if (*file == NULL)
 	return FAIL;
     for (i = 0; i < num_pat; i++)
@@ -7804,7 +7814,7 @@ xterm_update(void)
 }
 
     int
-clip_xterm_own_selection(VimClipboard *cbd)
+clip_xterm_own_selection(Clipboard_T *cbd)
 {
     if (xterm_Shell != (Widget)0)
 	return clip_x11_own_selection(xterm_Shell, cbd);
@@ -7812,21 +7822,21 @@ clip_xterm_own_selection(VimClipboard *cbd)
 }
 
     void
-clip_xterm_lose_selection(VimClipboard *cbd)
+clip_xterm_lose_selection(Clipboard_T *cbd)
 {
     if (xterm_Shell != (Widget)0)
 	clip_x11_lose_selection(xterm_Shell, cbd);
 }
 
     void
-clip_xterm_request_selection(VimClipboard *cbd)
+clip_xterm_request_selection(Clipboard_T *cbd)
 {
     if (xterm_Shell != (Widget)0)
 	clip_x11_request_selection(xterm_Shell, xterm_dpy, cbd);
 }
 
     void
-clip_xterm_set_selection(VimClipboard *cbd)
+clip_xterm_set_selection(Clipboard_T *cbd)
 {
     clip_x11_set_selection(cbd);
 }

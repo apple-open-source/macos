@@ -46,13 +46,13 @@ class InjectedScriptManager;
 }
 
 namespace JSC {
-class ExecState;
+class CallFrame;
 class JSValue;
 }
 
 namespace WebCore {
 
-class AccessibilityObject;
+class AXCoreObject;
 class CharacterData;
 class DOMEditor;
 class Document;
@@ -82,18 +82,29 @@ class InspectorDOMAgent final : public InspectorAgentBase, public Inspector::DOM
     WTF_MAKE_FAST_ALLOCATED;
 public:
     InspectorDOMAgent(PageAgentContext&, InspectorOverlay*);
-    virtual ~InspectorDOMAgent();
+    ~InspectorDOMAgent() override;
 
     static String toErrorString(ExceptionCode);
     static String toErrorString(Exception&&);
 
+    static String documentURLString(Document*);
+
+    // We represent embedded doms as a part of the same hierarchy. Hence we treat children of frame owners differently.
+    // We also skip whitespace text nodes conditionally. Following methods encapsulate these specifics.
+    static Node* innerFirstChild(Node*);
+    static Node* innerNextSibling(Node*);
+    static Node* innerPreviousSibling(Node*);
+    static unsigned innerChildNodeCount(Node*);
+    static Node* innerParentNode(Node*);
+
+    static Node* scriptValueAsNode(JSC::JSValue);
+    static JSC::JSValue nodeAsScriptValue(JSC::JSGlobalObject&, Node*);
+
+    // InspectorAgentBase
     void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) override;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) override;
 
-    Vector<Document*> documents();
-    void reset();
-
-    // Methods called from the frontend for DOM nodes inspection.
+    // DOMBackendDispatcherHandler
     void querySelector(ErrorString&, int nodeId, const String& selectors, int* elementId) override;
     void querySelectorAll(ErrorString&, int nodeId, const String& selectors, RefPtr<JSON::ArrayOf<int>>& result) override;
     void getDocument(ErrorString&, RefPtr<Inspector::Protocol::DOM::Node>& root) override;
@@ -136,6 +147,7 @@ public:
     void markUndoableState(ErrorString&) override;
     void focus(ErrorString&, int nodeId) override;
     void setInspectedNode(ErrorString&, int nodeId) override;
+    void setAllowEditingUserAgentShadowTrees(ErrorString&, bool allow) final;
 
     // InspectorInstrumentation
     int identifierForNode(Node&);
@@ -166,11 +178,12 @@ public:
 
     void styleAttributeInvalidated(const Vector<Element*>& elements);
 
+    int pushNodeToFrontend(Node*);
     int pushNodeToFrontend(ErrorString&, int documentNodeId, Node*);
+    int pushNodePathToFrontend(Node*);
+    int pushNodePathToFrontend(ErrorString, Node*);
     Node* nodeForId(int nodeId);
     int boundNodeId(const Node*);
-
-    static String documentURLString(Document*);
 
     RefPtr<Inspector::Protocol::Runtime::RemoteObject> resolveNode(Node*, const String& objectGroup);
     bool handleMousePress();
@@ -179,21 +192,12 @@ public:
     void focusNode();
 
     InspectorHistory* history() { return m_history.get(); }
-
-    // We represent embedded doms as a part of the same hierarchy. Hence we treat children of frame owners differently.
-    // We also skip whitespace text nodes conditionally. Following methods encapsulate these specifics.
-    static Node* innerFirstChild(Node*);
-    static Node* innerNextSibling(Node*);
-    static Node* innerPreviousSibling(Node*);
-    static unsigned innerChildNodeCount(Node*);
-    static Node* innerParentNode(Node*);
+    Vector<Document*> documents();
+    void reset();
 
     Node* assertNode(ErrorString&, int nodeId);
     Element* assertElement(ErrorString&, int nodeId);
     Document* assertDocument(ErrorString&, int nodeId);
-
-    static Node* scriptValueAsNode(JSC::JSValue);
-    static JSC::JSValue nodeAsScriptValue(JSC::ExecState&, Node*);
 
     bool hasBreakpointForEventListener(EventTarget&, const AtomString& eventType, EventListener&, bool capture);
     int idForEventListener(EventTarget&, const AtomString& eventType, EventListener&, bool capture);
@@ -215,7 +219,6 @@ private:
     Node* assertEditableNode(ErrorString&, int nodeId);
     Element* assertEditableElement(ErrorString&, int nodeId);
 
-    int pushNodePathToFrontend(Node*);
     void pushChildNodesToFrontend(int nodeId, int depth = 1);
 
     Ref<Inspector::Protocol::DOM::Node> buildObjectForNode(Node*, int depth, NodeToIdMap*);
@@ -224,7 +227,7 @@ private:
     RefPtr<JSON::ArrayOf<Inspector::Protocol::DOM::Node>> buildArrayForPseudoElements(const Element&, NodeToIdMap* nodesMap);
     Ref<Inspector::Protocol::DOM::EventListener> buildObjectForEventListener(const RegisteredEventListener&, int identifier, EventTarget&, const AtomString& eventType, bool disabled, bool hasBreakpoint);
     RefPtr<Inspector::Protocol::DOM::AccessibilityProperties> buildObjectForAccessibilityProperties(Node*);
-    void processAccessibilityChildren(AccessibilityObject&, JSON::ArrayOf<int>&);
+    void processAccessibilityChildren(AXCoreObject&, JSON::ArrayOf<int>&);
     
     Node* nodeForPath(const String& path);
     Node* nodeForObjectId(const String& objectId);
@@ -255,10 +258,6 @@ private:
     std::unique_ptr<HighlightConfig> m_inspectModeHighlightConfig;
     std::unique_ptr<InspectorHistory> m_history;
     std::unique_ptr<DOMEditor> m_domEditor;
-    bool m_searchingForNode { false };
-    bool m_suppressAttributeModifiedEvent { false };
-    bool m_suppressEventListenerChangedEvent { false };
-    bool m_documentRequested { false };
 
 #if ENABLE(VIDEO)
     Timer m_mediaMetricsTimer;
@@ -317,6 +316,12 @@ private:
     HashSet<const Event*> m_dispatchedEvents;
     HashMap<int, InspectorEventListener> m_eventListenerEntries;
     int m_lastEventListenerId { 1 };
+
+    bool m_searchingForNode { false };
+    bool m_suppressAttributeModifiedEvent { false };
+    bool m_suppressEventListenerChangedEvent { false };
+    bool m_documentRequested { false };
+    bool m_allowEditingUserAgentShadowTrees { false };
 };
 
 } // namespace WebCore

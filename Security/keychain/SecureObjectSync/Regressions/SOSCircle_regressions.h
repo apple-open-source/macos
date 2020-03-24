@@ -13,7 +13,6 @@ ONE_TEST(sc_42_circlegencount)
 ONE_TEST(sc_45_digestvector)
 
 ONE_TEST(sc_130_resignationticket)
-ONE_TEST(sc_150_Ring)
 
 ONE_TEST(sc_150_backupkeyderivation)
 ONE_TEST(sc_153_backupslicekeybag)

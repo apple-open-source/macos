@@ -28,7 +28,6 @@
 #include "APIObject.h"
 #include "Connection.h"
 #include "DownloadID.h"
-#include "DownloadProxyMessages.h"
 #include "SandboxExtension.h"
 #include <WebCore/ResourceRequest.h>
 #include <wtf/Forward.h>
@@ -37,6 +36,7 @@
 
 namespace API {
 class Data;
+class FrameInfo;
 }
 
 namespace WebCore {
@@ -53,10 +53,17 @@ class DownloadID;
 class DownloadProxyMap;
 class WebPageProxy;
 class WebProcessPool;
+class WebsiteDataStore;
+
+struct FrameInfoData;
 
 class DownloadProxy : public API::ObjectImpl<API::Object::Type::Download>, public IPC::MessageReceiver {
 public:
-    static Ref<DownloadProxy> create(DownloadProxyMap&, WebProcessPool&, const WebCore::ResourceRequest&);
+
+    template<typename... Args> static Ref<DownloadProxy> create(Args&&... args)
+    {
+        return adoptRef(*new DownloadProxy(std::forward<Args>(args)...));
+    }
     ~DownloadProxy();
 
     DownloadID downloadID() const { return m_downloadID; }
@@ -72,7 +79,6 @@ public:
     void didReceiveSyncDownloadProxyMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
 
     WebPageProxy* originatingPage() const;
-    void setOriginatingPage(WebPageProxy*);
 
     void setRedirectChain(Vector<URL>&& redirectChain) { m_redirectChain = WTFMove(redirectChain); }
     const Vector<URL>& redirectChain() const { return m_redirectChain; }
@@ -98,8 +104,10 @@ public:
     void publishProgress(const URL&);
 #endif
 
+    API::FrameInfo& frameInfo() { return m_frameInfo.get(); }
+
 private:
-    explicit DownloadProxy(DownloadProxyMap&, WebProcessPool&, const WebCore::ResourceRequest&);
+    explicit DownloadProxy(DownloadProxyMap&, WebsiteDataStore&, WebProcessPool&, const WebCore::ResourceRequest&, const FrameInfoData&, WebPageProxy*);
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
@@ -118,6 +126,7 @@ private:
     void decideDestinationWithSuggestedFilenameAsync(DownloadID, const String& suggestedFilename);
 
     DownloadProxyMap& m_downloadProxyMap;
+    RefPtr<WebsiteDataStore> m_dataStore;
     RefPtr<WebProcessPool> m_processPool;
     DownloadID m_downloadID;
 
@@ -131,6 +140,7 @@ private:
     WeakPtr<WebPageProxy> m_originatingPage;
     Vector<URL> m_redirectChain;
     bool m_wasUserInitiated { true };
+    Ref<API::FrameInfo> m_frameInfo;
 };
 
 } // namespace WebKit

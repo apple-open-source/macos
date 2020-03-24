@@ -35,6 +35,7 @@ namespace WebCore {
 class DOMTimer;
 
 class DOMTimerHoldingTank {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     DOMTimerHoldingTank();
     ~DOMTimerHoldingTank();
@@ -53,7 +54,7 @@ private:
 
 class DeferDOMTimersForScope {
 public:
-    DeferDOMTimersForScope(bool enable)
+    explicit DeferDOMTimersForScope(bool enable)
         : m_previousIsDeferring { s_isDeferring }
     {
         if (enable)

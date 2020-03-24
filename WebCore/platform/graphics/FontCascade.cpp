@@ -41,7 +41,7 @@
 #include <wtf/text/AtomStringHash.h>
 #include <wtf/text/StringBuilder.h>
 
-#if PLATFORM(WIN)
+#if PLATFORM(WIN) && !USE(DIRECT2D)
 #include "UniscribeController.h"
 #endif
 
@@ -254,7 +254,7 @@ static Ref<FontCascadeFonts> retrieveOrAddCachedFonts(const FontCascadeDescripti
         return addResult.iterator->value->fonts.get();
 
     auto& newEntry = addResult.iterator->value;
-    newEntry = std::make_unique<FontCascadeCacheEntry>(WTFMove(key), FontCascadeFonts::create(WTFMove(fontSelector)));
+    newEntry = makeUnique<FontCascadeCacheEntry>(WTFMove(key), FontCascadeFonts::create(WTFMove(fontSelector)));
     Ref<FontCascadeFonts> glyphs = newEntry->fonts.get();
 
     static const unsigned unreferencedPruneInterval = 50;
@@ -267,6 +267,18 @@ static Ref<FontCascadeFonts> retrieveOrAddCachedFonts(const FontCascadeDescripti
     if (fontCascadeCache().size() > maximumEntries)
         fontCascadeCache().remove(fontCascadeCache().random());
     return glyphs;
+}
+
+bool FontCascade::isCurrent(const FontSelector& fontSelector) const
+{
+    if (!m_fonts)
+        return false;
+    if (m_fonts->generation() != FontCache::singleton().generation())
+        return false;
+    if (m_fonts->fontSelectorVersion() != fontSelector.version())
+        return false;
+
+    return true;
 }
 
 void FontCascade::update(RefPtr<FontSelector>&& fontSelector) const
@@ -326,9 +338,9 @@ std::unique_ptr<DisplayList::DisplayList> FontCascade::displayListForTextRun(Gra
     if (glyphBuffer.isEmpty())
         return nullptr;
     
-    std::unique_ptr<DisplayList::DisplayList> displayList = std::make_unique<DisplayList::DisplayList>();
+    std::unique_ptr<DisplayList::DisplayList> displayList = makeUnique<DisplayList::DisplayList>();
     GraphicsContext recordingContext([&](GraphicsContext& displayListContext) {
-        return std::make_unique<DisplayList::Recorder>(displayListContext, *displayList, context.state(), FloatRect(), AffineTransform());
+        return makeUnique<DisplayList::Recorder>(displayListContext, *displayList, context.state(), FloatRect(), AffineTransform());
     });
     
     FloatPoint startPoint(startX, 0);
@@ -350,7 +362,7 @@ float FontCascade::widthOfTextRange(const TextRun& run, unsigned from, unsigned 
 
     auto codePathToUse = codePath(run);
     if (codePathToUse == Complex) {
-#if PLATFORM(WIN)
+#if PLATFORM(WIN) && !USE(DIRECT2D)
         UniscribeController it(this, run);
         it.advance(from);
         offsetBeforeRange = it.runWidthSoFar();
@@ -1397,7 +1409,7 @@ float FontCascade::getGlyphsAndAdvancesForSimpleText(const TextRun& run, unsigne
     return initialAdvance;
 }
 
-#if !PLATFORM(WIN)
+#if !PLATFORM(WIN) || USE(DIRECT2D)
 float FontCascade::getGlyphsAndAdvancesForComplexText(const TextRun& run, unsigned from, unsigned to, GlyphBuffer& glyphBuffer, ForTextEmphasisOrNot forTextEmphasis) const
 {
     float initialAdvance;
@@ -1545,7 +1557,7 @@ float FontCascade::floatWidthForSimpleText(const TextRun& run, HashSet<const Fon
     return it.m_runWidthSoFar;
 }
 
-#if !PLATFORM(WIN)
+#if !PLATFORM(WIN) || USE(DIRECT2D)
 float FontCascade::floatWidthForComplexText(const TextRun& run, HashSet<const Font*>* fallbackFonts, GlyphOverflow* glyphOverflow) const
 {
     ComplexTextController controller(*this, run, true, fallbackFonts);
@@ -1578,7 +1590,7 @@ void FontCascade::adjustSelectionRectForSimpleText(const TextRun& run, LayoutRec
     selectionRect.setWidth(LayoutUnit::fromFloatCeil(afterWidth - beforeWidth));
 }
 
-#if !PLATFORM(WIN)
+#if !PLATFORM(WIN) || USE(DIRECT2D)
 void FontCascade::adjustSelectionRectForComplexText(const TextRun& run, LayoutRect& selectionRect, unsigned from, unsigned to) const
 {
     ComplexTextController controller(*this, run);
@@ -1638,7 +1650,7 @@ int FontCascade::offsetForPositionForSimpleText(const TextRun& run, float x, boo
     return offset;
 }
 
-#if !PLATFORM(WIN)
+#if !PLATFORM(WIN) || USE(DIRECT2D)
 int FontCascade::offsetForPositionForComplexText(const TextRun& run, float x, bool includePartialGlyphs) const
 {
     ComplexTextController controller(*this, run);
@@ -1706,23 +1718,23 @@ static void findPathIntersections(GlyphIterationState& state, const PathElement&
     bool doIntersection = false;
     FloatPoint point = FloatPoint();
     switch (element.type) {
-    case PathElementMoveToPoint:
+    case PathElement::Type::MoveToPoint:
         state.startingPoint = element.points[0];
         state.currentPoint = element.points[0];
         break;
-    case PathElementAddLineToPoint:
+    case PathElement::Type::AddLineToPoint:
         doIntersection = true;
         point = element.points[0];
         break;
-    case PathElementAddQuadCurveToPoint:
+    case PathElement::Type::AddQuadCurveToPoint:
         doIntersection = true;
         point = element.points[1];
         break;
-    case PathElementAddCurveToPoint:
+    case PathElement::Type::AddCurveToPoint:
         doIntersection = true;
         point = element.points[2];
         break;
-    case PathElementCloseSubpath:
+    case PathElement::Type::CloseSubpath:
         doIntersection = true;
         point = state.startingPoint;
         break;

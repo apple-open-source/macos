@@ -25,14 +25,15 @@
  */
 
 namespace JSC {
+class CallFrame;
+class JSGlobalObject;
 using EncodedJSValue = int64_t;
-class ExecState;
 }
 
 namespace WebCore {
 
-JSC::EncodedJSValue JSC_HOST_CALL cloneArrayBuffer(JSC::ExecState*);
-JSC::EncodedJSValue JSC_HOST_CALL structuredCloneArrayBuffer(JSC::ExecState*);
-JSC::EncodedJSValue JSC_HOST_CALL structuredCloneArrayBufferView(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL cloneArrayBuffer(JSC::JSGlobalObject*, JSC::CallFrame*);
+JSC::EncodedJSValue JSC_HOST_CALL structuredCloneArrayBuffer(JSC::JSGlobalObject*, JSC::CallFrame*);
+JSC::EncodedJSValue JSC_HOST_CALL structuredCloneArrayBufferView(JSC::JSGlobalObject*, JSC::CallFrame*);
 
 } // namespace WebCore

@@ -143,6 +143,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		43A96C7323D2DDBE0033235B /* screen.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = screen.entitlements; sourceTree = "<group>"; };
 		8DD76FB20486AB0100D96B5E /* screen */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = screen; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC3319AB0FF2106F00E570AB /* acls.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = acls.c; path = screen/acls.c; sourceTree = "<group>"; };
 		FC3319AC0FF2106F00E570AB /* acls.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = acls.h; path = screen/acls.h; sourceTree = "<group>"; };
@@ -243,6 +244,7 @@
 				FC7EF7040FF2BD1500469DB2 /* utf8encodings */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				FC331A550FF2170200E570AB /* libncurses.dylib */,
+				43A96C7323D2DDBE0033235B /* screen.entitlements */,
 				FC7EF6C80FF2BC1F00469DB2 /* screen.plist */,
 				FC7EF6DA0FF2BC4300469DB2 /* screen.txt */,
 			);
@@ -449,6 +451,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = screen.entitlements;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = screen;
 			};

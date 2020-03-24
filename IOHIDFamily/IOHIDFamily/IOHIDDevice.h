@@ -325,6 +325,16 @@ public:
 
     virtual IOReturn message( UInt32 type, IOService * provider,  void * argument = 0 ) APPLE_KEXT_OVERRIDE;
 
+    using IOService::setProperty;
+/*! @function setProperty
+    @abstract Synchronized method to add a property to an IOHIDDevice's property table.
+    @discussion This method will add or replace a property in a registry entry's property table, using the OSDictionary::setObject semantics. This method is synchronized with other IORegistryEntry accesses to the property table.
+    @param aKey The properties name as an OSSymbol.
+    @param anObject The property value.
+    @result true on success or false on a resource failure. */
+
+    virtual bool setProperty( const OSSymbol * aKey, OSObject * anObject) APPLE_KEXT_OVERRIDE;
+
 /*! @function newTransportString
     @abstract Returns a string object that describes the transport
     layer used by the HID device.

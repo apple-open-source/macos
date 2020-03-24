@@ -1983,6 +1983,23 @@ CFArrayRef OSKextFindLinkDependencies(
     CFArrayRef      * multipleDefinitionLibrariesOut)
                 __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
+/*!
+ * @function OSKextCopySymbolReferences
+ * @abstract
+ * Return all undefined symbol names referenced by a given kext
+ *
+ * @param    aKext         The kext to get undefined symbols for.
+ * @result
+ * An array of all undefined symbol names referenced by <code>aKext</code>.
+ *
+ * @discussion
+ * This function will copy the undefined symbol names referenced by <code>aKext</code>.
+ */
+CF_EXPORT CFMutableArrayRef
+OSKextCopySymbolReferences(
+    OSKextRef aKext)
+                API_AVAILABLE(macos(10.15.4));
+
 #pragma mark Linking and Loading; Other Kernel Operations
 /*********************************************************************
 * Linking and Loading; Other Kernel Operations

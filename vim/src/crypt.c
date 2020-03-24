@@ -206,7 +206,7 @@ crypt_whole_undofile(int method_nr)
 }
 
 /*
- * Get crypt method specifc length of the file header in bytes.
+ * Get crypt method specific length of the file header in bytes.
  */
     int
 crypt_get_header_len(int method_nr)
@@ -254,7 +254,7 @@ crypt_create(
     char_u	*seed,
     int		seed_len)
 {
-    cryptstate_T *state = (cryptstate_T *)alloc((int)sizeof(cryptstate_T));
+    cryptstate_T *state = ALLOC_ONE(cryptstate_T);
 
     if (state == NULL)
 	return state;
@@ -407,7 +407,7 @@ crypt_encode_alloc(
 	/* Not buffering, just return EOF. */
 	return (long)len;
 
-    *newptr = alloc((long)len);
+    *newptr = alloc(len);
     if (*newptr == NULL)
 	return -1;
     method->encode_fn(state, from, len, *newptr);

@@ -59,7 +59,7 @@ char *keychain_read_passphrase(const char *filename)
 			       (id)kSecAttrAccount: accountString,
 			       (id)kSecAttrLabel: [NSString stringWithFormat: @"SSH: %@", accountString],
 			       (id)kSecAttrService: @"OpenSSH",
-			       (id)kSecAttrNoLegacy: @YES,
+			       (id)kSecUseDataProtectionKeychain: @YES,
 			       (id)kSecAttrAccessGroup: @"com.apple.ssh.passphrases",
 			       (id)kSecReturnData: @YES,
 			       (id)kSecUseAuthenticationUI: (id)kSecUseAuthenticationUIFail};
@@ -88,7 +88,7 @@ char *keychain_read_passphrase(const char *filename)
 
 	// Try to load the key first and only return the passphrase if we know it's the right one
 	struct sshkey *private = NULL;
-	int r = sshkey_load_private_type(KEY_UNSPEC, filename, passphrase, &private, NULL, NULL);
+	int r = sshkey_load_private_type(KEY_UNSPEC, filename, passphrase, &private, NULL);
 	if (r != SSH_ERR_SUCCESS) {
 		debug2("Could not unlock key with the passphrase retrieved from the keychain.");
 		freezero(passphrase, strlen(passphrase));
@@ -115,7 +115,7 @@ void store_in_keychain(const char *filename, const char *passphrase)
 				(id)kSecAttrAccount: accountString,
 				(id)kSecAttrLabel: [NSString stringWithFormat: @"SSH: %@", accountString],
 				(id)kSecAttrService: @"OpenSSH",
-				(id)kSecAttrNoLegacy: @YES,
+				(id)kSecUseDataProtectionKeychain: @YES,
 				(id)kSecAttrAccessGroup: @"com.apple.ssh.passphrases",
 				(id)kSecUseAuthenticationUI: (id)kSecUseAuthenticationUIFail};
 
@@ -180,7 +180,7 @@ remove_from_keychain(const char *filename)
 			       (id)kSecClass: (id)kSecClassGenericPassword,
 			       (id)kSecAttrAccount: accountString,
 			       (id)kSecAttrService: @"OpenSSH",
-			       (id)kSecAttrNoLegacy: @YES,
+			       (id)kSecUseDataProtectionKeychain: @YES,
 			       (id)kSecAttrAccessGroup: @"com.apple.ssh.passphrases",
 			       (id)kSecUseAuthenticationUI: (id)kSecUseAuthenticationUIFail};
 
@@ -203,7 +203,7 @@ load_identities_from_keychain(int (^add_identity)(const char *identity))
 	NSDictionary	*searchQuery = @{
 				(id)kSecClass: (id)kSecClassGenericPassword,
 				(id)kSecAttrService: @"OpenSSH",
-				(id)kSecAttrNoLegacy: @YES,
+				(id)kSecUseDataProtectionKeychain: @YES,
 				(id)kSecAttrAccessGroup: @"com.apple.ssh.passphrases",
 				(id)kSecReturnAttributes: @YES,
 				(id)kSecMatchLimit: (id)kSecMatchLimitAll,

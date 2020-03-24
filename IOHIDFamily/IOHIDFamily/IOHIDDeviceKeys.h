@@ -175,7 +175,7 @@
  * @define kIOHIDReportIntervalKey
  *
  * @abstract
- * Number property set on the device from a client that describes the interval
+ * Number property set on the device from a client that describes the interval in us
  * at which the client wishes to receive reports. It is up to the device to
  * determine how to handle this key, if it chooses to do so.
  */

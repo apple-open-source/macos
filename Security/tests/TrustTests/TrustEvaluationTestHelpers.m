@@ -106,6 +106,10 @@
     }
 }
 
+- (void)setNeedsEvaluation {
+    SecTrustSetNeedsEvaluation(_trust);
+}
+
 - (bool)evaluate:(out NSError * _Nullable __autoreleasing *)outError {
     CFErrorRef localError = nil;
     _trustResult = kSecTrustResultInvalid;

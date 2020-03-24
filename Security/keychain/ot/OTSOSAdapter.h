@@ -19,14 +19,18 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)init NS_UNAVAILABLE;
 - (instancetype)initAsEssential:(BOOL)essential;
 
-// Helper methods
-+ (NSArray<NSData*>*)peerPublicSigningKeySPKIs:(NSSet<id<CKKSPeer>>* _Nullable)peers;
-
+// Helper methods.
 + (NSSet<NSString*>*)sosCKKSViewList;
 @end
 
+
 // This adapter is for a platform which does not have SOS (e.g., aTV, Watch, HomePod)
 @interface OTSOSMissingAdapter : NSObject <OTSOSAdapter>
+@end
+
+// Helper code
+@interface OTSOSAdapterHelpers : NSObject
++ (NSArray<NSData*>* _Nullable)peerPublicSigningKeySPKIsForCircle:(id<OTSOSAdapter>)sosAdapter error:(NSError**)error;
 @end
 
 NS_ASSUME_NONNULL_END

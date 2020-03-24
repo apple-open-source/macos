@@ -230,6 +230,45 @@
 
 #endif /* ARM */
 
+
+#if BCOMPILER(GCC_COMPATIBLE)
+/* __LP64__ is not defined on 64bit Windows since it uses LLP64. Using __SIZEOF_POINTER__ is simpler. */
+#if __SIZEOF_POINTER__ == 8
+#define BCPU_ADDRESS64 1
+#elif __SIZEOF_POINTER__ == 4
+#define BCPU_ADDRESS32 1
+#else
+#error "Unsupported pointer width"
+#endif
+#else
+#error "Unsupported compiler for bmalloc"
+#endif
+
+#if BCOMPILER(GCC_COMPATIBLE)
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define BCPU_BIG_ENDIAN 1
+#elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define BCPU_LITTLE_ENDIAN 1
+#elif __BYTE_ORDER__ == __ORDER_PDP_ENDIAN__
+#define BCPU_MIDDLE_ENDIAN 1
+#else
+#error "Unknown endian"
+#endif
+#else
+#error "Unsupported compiler for bmalloc"
+#endif
+
+#if BCPU(ADDRESS64)
+#if BOS(DARWIN) && BCPU(ARM64)
+#define BOS_EFFECTIVE_ADDRESS_WIDTH 36
+#else
+/* We strongly assume that effective address width is <= 48 in 64bit architectures (e.g. NaN boxing). */
+#define BOS_EFFECTIVE_ADDRESS_WIDTH 48
+#endif
+#else
+#define BOS_EFFECTIVE_ADDRESS_WIDTH 32
+#endif
+
 #define BATTRIBUTE_PRINTF(formatStringArgument, extraArguments) __attribute__((__format__(printf, formatStringArgument, extraArguments)))
 
 #if BPLATFORM(MAC) || BPLATFORM(IOS_FAMILY)
@@ -245,6 +284,9 @@
 #define BUNUSED_PARAM(variable) (void)variable
 #endif
 
+/* Enable this to put each IsoHeap and other allocation categories into their own malloc heaps, so that tools like vmmap can show how big each heap is. */
+#define BENABLE_MALLOC_HEAP_BREAKDOWN 0
+
 /* This is used for debugging when hacking on how bmalloc calculates its physical footprint. */
 #define ENABLE_PHYSICAL_PAGE_MAP 0
 
@@ -254,3 +296,16 @@
 #define BUSE_CHECK_NANO_MALLOC 0
 #endif
 
+#if BPLATFORM(MAC)
+#define BUSE_PARTIAL_SCAVENGE 1
+#else
+#define BUSE_PARTIAL_SCAVENGE 0
+#endif
+
+#if !defined(BUSE_PRECOMPUTED_CONSTANTS_VMPAGE4K)
+#define BUSE_PRECOMPUTED_CONSTANTS_VMPAGE4K 1
+#endif
+
+#if !defined(BUSE_PRECOMPUTED_CONSTANTS_VMPAGE16K)
+#define BUSE_PRECOMPUTED_CONSTANTS_VMPAGE16K 1
+#endif

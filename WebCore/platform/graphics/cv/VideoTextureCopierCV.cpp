@@ -40,6 +40,19 @@
 #include <OpenGLES/ES3/glext.h>
 #endif
 
+#if USE(ANGLE)
+#define EGL_EGL_PROTOTYPES 0
+#include <ANGLE/egl.h>
+#include <ANGLE/eglext.h>
+#include <ANGLE/eglext_angle.h>
+#include <ANGLE/entry_points_egl.h>
+#include <ANGLE/entry_points_gles_2_0_autogen.h>
+// Skip the inclusion of ANGLE's explicit context entry points for now.
+#define GL_ANGLE_explicit_context
+#include <ANGLE/gl2ext.h>
+#include <ANGLE/gl2ext_angle.h>
+#endif
+
 #include "CoreVideoSoftLink.h"
 
 namespace WebCore {
@@ -51,7 +64,7 @@ enum class PixelRange {
     Full,
 };
 
-enum class TransferFunction {
+enum class TransferFunctionCV {
     Unknown,
     kITU_R_709_2,
     kITU_R_601_4,
@@ -60,18 +73,6 @@ enum class TransferFunction {
     kP3_D65,
     kITU_R_2020,
 };
-
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
-enum {
-    kCVPixelFormatType_ARGB2101010LEPacked = 'l10r',
-    kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange = 'x420',
-    kCVPixelFormatType_422YpCbCr10BiPlanarVideoRange = 'x422',
-    kCVPixelFormatType_444YpCbCr10BiPlanarVideoRange = 'x444',
-    kCVPixelFormatType_420YpCbCr10BiPlanarFullRange  = 'xf20',
-    kCVPixelFormatType_422YpCbCr10BiPlanarFullRange  = 'xf22',
-    kCVPixelFormatType_444YpCbCr10BiPlanarFullRange  = 'xf44',
-};
-#endif
 
 static PixelRange pixelRangeFromPixelFormat(OSType pixelFormat)
 {
@@ -97,23 +98,23 @@ static PixelRange pixelRangeFromPixelFormat(OSType pixelFormat)
     }
 }
 
-static TransferFunction transferFunctionFromString(CFStringRef string)
+static TransferFunctionCV transferFunctionFromString(CFStringRef string)
 {
     if (!string || CFGetTypeID(string) != CFStringGetTypeID())
-        return TransferFunction::Unknown;
+        return TransferFunctionCV::Unknown;
     if (CFEqual(string, kCVImageBufferYCbCrMatrix_ITU_R_709_2))
-        return TransferFunction::kITU_R_709_2;
+        return TransferFunctionCV::kITU_R_709_2;
     if (CFEqual(string, kCVImageBufferYCbCrMatrix_ITU_R_601_4))
-        return TransferFunction::kITU_R_601_4;
+        return TransferFunctionCV::kITU_R_601_4;
     if (CFEqual(string, kCVImageBufferYCbCrMatrix_SMPTE_240M_1995))
-        return TransferFunction::kSMPTE_240M_1995;
+        return TransferFunctionCV::kSMPTE_240M_1995;
     if (canLoad_CoreVideo_kCVImageBufferYCbCrMatrix_DCI_P3() && CFEqual(string, kCVImageBufferYCbCrMatrix_DCI_P3))
-        return TransferFunction::kDCI_P3;
+        return TransferFunctionCV::kDCI_P3;
     if (canLoad_CoreVideo_kCVImageBufferYCbCrMatrix_P3_D65() && CFEqual(string, kCVImageBufferYCbCrMatrix_P3_D65))
-        return TransferFunction::kP3_D65;
+        return TransferFunctionCV::kP3_D65;
     if (canLoad_CoreVideo_kCVImageBufferYCbCrMatrix_ITU_R_2020() && CFEqual(string, kCVImageBufferYCbCrMatrix_ITU_R_2020))
-        return TransferFunction::kITU_R_2020;
-    return TransferFunction::Unknown;
+        return TransferFunctionCV::kITU_R_2020;
+    return TransferFunctionCV::Unknown;
 }
 
 struct GLfloatColor {
@@ -248,9 +249,9 @@ constexpr GLfloatColor YCbCrMatrix::operator*(const GLfloatColor& color) const
     );
 }
 
-static const Vector<GLfloat> YCbCrToRGBMatrixForRangeAndTransferFunction(PixelRange range, TransferFunction transferFunction)
+static const Vector<GLfloat> YCbCrToRGBMatrixForRangeAndTransferFunction(PixelRange range, TransferFunctionCV transferFunction)
 {
-    using MapKey = std::pair<PixelRange, TransferFunction>;
+    using MapKey = std::pair<PixelRange, TransferFunctionCV>;
     using MatrixMap = StdMap<MapKey, Vector<GLfloat>>;
 
     static NeverDestroyed<MatrixMap> matrices;
@@ -349,14 +350,14 @@ static const Vector<GLfloat> YCbCrToRGBMatrixForRangeAndTransferFunction(PixelRa
     static_assert((smpte240MFullMatrix * GLfloatColor(201, 158, 1,   255)).isApproximatelyEqualTo(GLfloatColors::cyan,    1.5f / 255.f), "SMPTE 240M full matrix does not produce cyan color");
 
     dispatch_once(&onceToken, ^{
-        matrices.get().emplace(MapKey(PixelRange::Video, TransferFunction::kITU_R_601_4), r601VideoMatrix);
-        matrices.get().emplace(MapKey(PixelRange::Full, TransferFunction::kITU_R_601_4), r601FullMatrix);
-        matrices.get().emplace(MapKey(PixelRange::Video, TransferFunction::kITU_R_709_2), r709VideoMatrix);
-        matrices.get().emplace(MapKey(PixelRange::Full, TransferFunction::kITU_R_709_2), r709FullMatrix);
-        matrices.get().emplace(MapKey(PixelRange::Video, TransferFunction::kITU_R_2020), bt2020VideoMatrix);
-        matrices.get().emplace(MapKey(PixelRange::Full, TransferFunction::kITU_R_2020), bt2020FullMatrix);
-        matrices.get().emplace(MapKey(PixelRange::Video, TransferFunction::kSMPTE_240M_1995), smpte240MVideoMatrix);
-        matrices.get().emplace(MapKey(PixelRange::Full, TransferFunction::kSMPTE_240M_1995), smpte240MFullMatrix);
+        matrices.get().emplace(MapKey(PixelRange::Video, TransferFunctionCV::kITU_R_601_4), r601VideoMatrix);
+        matrices.get().emplace(MapKey(PixelRange::Full, TransferFunctionCV::kITU_R_601_4), r601FullMatrix);
+        matrices.get().emplace(MapKey(PixelRange::Video, TransferFunctionCV::kITU_R_709_2), r709VideoMatrix);
+        matrices.get().emplace(MapKey(PixelRange::Full, TransferFunctionCV::kITU_R_709_2), r709FullMatrix);
+        matrices.get().emplace(MapKey(PixelRange::Video, TransferFunctionCV::kITU_R_2020), bt2020VideoMatrix);
+        matrices.get().emplace(MapKey(PixelRange::Full, TransferFunctionCV::kITU_R_2020), bt2020FullMatrix);
+        matrices.get().emplace(MapKey(PixelRange::Video, TransferFunctionCV::kSMPTE_240M_1995), smpte240MVideoMatrix);
+        matrices.get().emplace(MapKey(PixelRange::Full, TransferFunctionCV::kSMPTE_240M_1995), smpte240MFullMatrix);
     });
 
     // We should never be asked to handle a Pixel Format whose range value is unknown.
@@ -368,7 +369,7 @@ static const Vector<GLfloat> YCbCrToRGBMatrixForRangeAndTransferFunction(PixelRa
 
     // Assume unknown transfer functions are r.601:
     if (iterator == matrices.get().end())
-        iterator = matrices.get().find({range, TransferFunction::kITU_R_601_4});
+        iterator = matrices.get().find({range, TransferFunctionCV::kITU_R_601_4});
 
     ASSERT(iterator != matrices.get().end());
     return iterator->second;
@@ -527,14 +528,13 @@ bool VideoTextureCopierCV::initializeContextObjects()
 
     StringBuilder fragmentShaderSource;
 
-#if USE(OPENGL_ES)
+#if USE(OPENGL_ES) || USE(ANGLE)
     fragmentShaderSource.appendLiteral("precision mediump float;\n");
+#endif
+#if USE(OPENGL_ES) || (USE(ANGLE) && PLATFORM(IOS_FAMILY))
     fragmentShaderSource.appendLiteral("uniform sampler2D u_texture;\n");
-#elif USE(OPENGL)
+#elif USE(OPENGL) || (USE(ANGLE) && !PLATFORM(IOS_FAMILY))
     fragmentShaderSource.appendLiteral("uniform sampler2DRect u_texture;\n");
-#elif USE(ANGLE)
-    // FIXME: determine how to access rectangular textures via ANGLE.
-    ASSERT_NOT_REACHED();
 #else
 #error Unsupported configuration
 #endif
@@ -544,13 +544,10 @@ bool VideoTextureCopierCV::initializeContextObjects()
     fragmentShaderSource.appendLiteral("uniform int u_swapColorChannels;\n");
     fragmentShaderSource.appendLiteral("void main() {\n");
     fragmentShaderSource.appendLiteral("    vec2 texPos = vec2(v_texturePosition.x * u_textureDimensions.x, v_texturePosition.y * u_textureDimensions.y);\n");
-#if USE(OPENGL_ES)
+#if USE(OPENGL_ES) || (USE(ANGLE) && PLATFORM(IOS_FAMILY))
     fragmentShaderSource.appendLiteral("    vec4 color = texture2D(u_texture, texPos);\n");
-#elif USE(OPENGL)
+#elif USE(OPENGL) || (USE(ANGLE) && !PLATFORM(IOS_FAMILY))
     fragmentShaderSource.appendLiteral("    vec4 color = texture2DRect(u_texture, texPos);\n");
-#elif USE(ANGLE)
-    // FIXME: determine how to access rectangular textures via ANGLE.
-    ASSERT_NOT_REACHED();
 #else
 #error Unsupported configuration
 #endif
@@ -630,14 +627,12 @@ bool VideoTextureCopierCV::initializeUVContextObjects()
         "   if (u_flipY == 1) {\n"
         "       normalizedPosition.y = 1.0 - normalizedPosition.y;\n"
         "   }\n"
-#if USE(OPENGL_ES)
+#if USE(OPENGL_ES) || (USE(ANGLE) && PLATFORM(IOS_FAMILY))
         "   v_yTextureCoordinate = normalizedPosition;\n"
         "   v_uvTextureCoordinate = normalizedPosition;\n"
-#elif USE(OPENGL)
+#elif USE(OPENGL) || (USE(ANGLE) && !PLATFORM(IOS_FAMILY))
         "   v_yTextureCoordinate = normalizedPosition * u_yTextureSize;\n"
         "   v_uvTextureCoordinate = normalizedPosition * u_uvTextureSize;\n"
-#elif USE(ANGLE)
-        // FIXME: determine how to access rectangular textures via ANGLE.
 #else
 #error Unsupported configuration
 #endif
@@ -657,15 +652,15 @@ bool VideoTextureCopierCV::initializeUVContextObjects()
     }
 
     String fragmentShaderSource {
-#if USE(OPENGL_ES)
+#if USE(OPENGL_ES) || USE(ANGLE)
         "precision mediump float;\n"
+#endif
+#if USE(OPENGL_ES) || (USE(ANGLE) && PLATFORM(IOS_FAMILY))
         "#define SAMPLERTYPE sampler2D\n"
         "#define TEXTUREFUNC texture2D\n"
-#elif USE(OPENGL)
+#elif USE(OPENGL) || (USE(ANGLE) && !PLATFORM(IOS_FAMILY))
         "#define SAMPLERTYPE sampler2DRect\n"
         "#define TEXTUREFUNC texture2DRect\n"
-#elif USE(ANGLE)
-        // FIXME: determine how to access rectangular textures via ANGLE.
 #else
 #error Unsupported configuration
 #endif
@@ -734,8 +729,57 @@ bool VideoTextureCopierCV::initializeUVContextObjects()
     return true;
 }
 
+#if USE(ANGLE)
+void* VideoTextureCopierCV::attachIOSurfaceToTexture(GC3Denum target, GC3Denum internalFormat, GC3Dsizei width, GC3Dsizei height, GC3Denum type, IOSurfaceRef surface, GC3Duint plane)
+{
+    auto display = m_context->platformDisplay();
+    EGLint eglTextureTarget = 0;
+
+    if (target == GraphicsContext3D::TEXTURE_RECTANGLE_ARB)
+        eglTextureTarget = EGL_TEXTURE_RECTANGLE_ANGLE;
+    else if (target == GraphicsContext3D::TEXTURE_2D)
+        eglTextureTarget = EGL_TEXTURE_2D;
+    else {
+        LOG(WebGL, "Unknown texture target %d.", static_cast<int>(target));
+        return nullptr;
+    }
+
+    const EGLint surfaceAttributes[] = {
+        EGL_WIDTH, width,
+        EGL_HEIGHT, height,
+        EGL_IOSURFACE_PLANE_ANGLE, static_cast<EGLint>(plane),
+        EGL_TEXTURE_TARGET, static_cast<EGLint>(eglTextureTarget),
+        EGL_TEXTURE_INTERNAL_FORMAT_ANGLE, static_cast<EGLint>(internalFormat),
+        EGL_TEXTURE_FORMAT, EGL_TEXTURE_RGBA,
+        EGL_TEXTURE_TYPE_ANGLE, static_cast<EGLint>(type),
+        EGL_NONE, EGL_NONE
+    };
+    EGLSurface pbuffer = EGL_CreatePbufferFromClientBuffer(display, EGL_IOSURFACE_ANGLE, surface, m_context->platformConfig(), surfaceAttributes);
+    if (!pbuffer)
+        return nullptr;
+    if (!EGL_BindTexImage(display, pbuffer, EGL_BACK_BUFFER)) {
+        EGL_DestroySurface(display, pbuffer);
+        return nullptr;
+    }
+    return pbuffer;
+}
+
+void VideoTextureCopierCV::detachIOSurfaceFromTexture(void* handle)
+{
+    auto display = m_context->platformDisplay();
+    EGL_ReleaseTexImage(display, handle, EGL_BACK_BUFFER);
+    EGL_DestroySurface(display, handle);
+}
+#endif
+
 bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, size_t width, size_t height, Platform3DObject outputTexture, GC3Denum outputTarget, GC3Dint level, GC3Denum internalFormat, GC3Denum format, GC3Denum type, bool premultiplyAlpha, bool flipY)
 {
+    // CVOpenGLTextureCache seems to be disabled since the deprecation of
+    // OpenGL. To avoid porting unused code to the ANGLE code paths, remove it.
+#if USE(ANGLE)
+    UNUSED_PARAM(outputTarget);
+    UNUSED_PARAM(premultiplyAlpha);
+#else
     if (!m_textureCache) {
         m_textureCache = TextureCacheCV::create(m_context);
         if (!m_textureCache)
@@ -750,6 +794,7 @@ bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, si
 #endif
         return copyVideoTextureToPlatformTexture(texture.get(), width, height, outputTexture, outputTarget, level, internalFormat, format, type, premultiplyAlpha, flipY, swapColorChannels);
     }
+#endif // USE(ANGLE)
 
 #if HAVE(IOSURFACE)
     // FIXME: This currently only supports '420v' and '420f' pixel formats. Investigate supporting more pixel formats.
@@ -806,13 +851,10 @@ bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, si
     auto uvPlaneWidth = IOSurfaceGetWidthOfPlane(surface, 1);
     auto uvPlaneHeight = IOSurfaceGetHeightOfPlane(surface, 1);
 
-#if USE(OPENGL_ES)
+#if USE(OPENGL_ES) || (USE(ANGLE) && PLATFORM(IOS_FAMILY))
     GC3Denum videoTextureTarget = GraphicsContext3D::TEXTURE_2D;
-#elif USE(OPENGL)
-    GC3Denum videoTextureTarget = GL_TEXTURE_RECTANGLE_ARB;
-#elif USE(ANGLE)
-    // FIXME: determine how to access rectangular textures via ANGLE.
-    GC3Denum videoTextureTarget = GraphicsContext3D::TEXTURE_2D;
+#elif USE(OPENGL) || (USE(ANGLE) && !PLATFORM(IOS_FAMILY))
+    GC3Denum videoTextureTarget = GraphicsContext3D::TEXTURE_RECTANGLE_ARB;
 #else
 #error Unsupported configuration
 #endif
@@ -823,10 +865,18 @@ bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, si
     m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::LINEAR);
     m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE);
     m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE);
+#if USE(ANGLE)
+    auto uvHandle = attachIOSurfaceToTexture(videoTextureTarget, GraphicsContext3D::RG, uvPlaneWidth, uvPlaneHeight, GraphicsContext3D::UNSIGNED_BYTE, surface, 1);
+    if (!uvHandle) {
+        m_context->deleteTexture(uvTexture);
+        return false;
+    }
+#else
     if (!m_context->texImageIOSurface2D(videoTextureTarget, GraphicsContext3D::RG, uvPlaneWidth, uvPlaneHeight, GraphicsContext3D::RG, GraphicsContext3D::UNSIGNED_BYTE, surface, 1)) {
         m_context->deleteTexture(uvTexture);
         return false;
     }
+#endif // USE(ANGLE)
 
     auto yTexture = m_context->createTexture();
     m_context->activeTexture(GraphicsContext3D::TEXTURE0);
@@ -835,11 +885,20 @@ bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, si
     m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::LINEAR);
     m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE);
     m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE);
+#if USE(ANGLE)
+    auto yHandle = attachIOSurfaceToTexture(videoTextureTarget, GraphicsContext3D::RED, yPlaneWidth, yPlaneHeight, GraphicsContext3D::UNSIGNED_BYTE, surface, 0);
+    if (!yHandle) {
+        m_context->deleteTexture(yTexture);
+        m_context->deleteTexture(uvTexture);
+        return false;
+    }
+#else
     if (!m_context->texImageIOSurface2D(videoTextureTarget, GraphicsContext3D::LUMINANCE, yPlaneWidth, yPlaneHeight, GraphicsContext3D::LUMINANCE, GraphicsContext3D::UNSIGNED_BYTE, surface, 0)) {
         m_context->deleteTexture(yTexture);
         m_context->deleteTexture(uvTexture);
         return false;
     }
+#endif // USE(ANGLE)
 
     // Configure the drawing parameters.
     m_context->uniform1i(m_yTextureUniformLocation, 0);
@@ -856,7 +915,7 @@ bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, si
     // Do the actual drawing.
     m_context->drawArrays(GraphicsContext3D::TRIANGLES, 0, 6);
 
-#if USE(OPENGL_ES)
+#if USE(OPENGL_ES) || (USE(ANGLE) && PLATFORM(IOS_FAMILY))
     // flush() must be called here in order to re-synchronize the output texture's contents across the
     // two EAGL contexts.
     m_context->flush();
@@ -865,6 +924,10 @@ bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, si
     // Clean-up.
     m_context->deleteTexture(yTexture);
     m_context->deleteTexture(uvTexture);
+#if USE(ANGLE)
+    detachIOSurfaceFromTexture(yHandle);
+    detachIOSurfaceFromTexture(uvHandle);
+#endif
 
     m_lastSurface = surface;
     m_lastSurfaceSeed = newSurfaceSeed;
@@ -886,20 +949,40 @@ bool VideoTextureCopierCV::copyVideoTextureToPlatformTexture(TextureType inputVi
     GLfloat lowerRight[2] = { 0, 0 };
     GLfloat upperRight[2] = { 0, 0 };
     GLfloat upperLeft[2] = { 0, 0 };
+    Platform3DObject videoTextureName;
+    GC3Denum videoTextureTarget;
+
 #if USE(OPENGL_ES)
-    Platform3DObject videoTextureName = CVOpenGLESTextureGetName(inputVideoTexture);
-    GC3Denum videoTextureTarget = CVOpenGLESTextureGetTarget(inputVideoTexture);
+    videoTextureName = CVOpenGLESTextureGetName(inputVideoTexture);
+    videoTextureTarget = CVOpenGLESTextureGetTarget(inputVideoTexture);
     CVOpenGLESTextureGetCleanTexCoords(inputVideoTexture, lowerLeft, lowerRight, upperRight, upperLeft);
 #elif USE(OPENGL)
-    Platform3DObject videoTextureName = CVOpenGLTextureGetName(inputVideoTexture);
-    GC3Denum videoTextureTarget = CVOpenGLTextureGetTarget(inputVideoTexture);
+    videoTextureName = CVOpenGLTextureGetName(inputVideoTexture);
+    videoTextureTarget = CVOpenGLTextureGetTarget(inputVideoTexture);
     CVOpenGLTextureGetCleanTexCoords(inputVideoTexture, lowerLeft, lowerRight, upperRight, upperLeft);
 #elif USE(ANGLE)
-    Platform3DObject videoTextureName = CVOpenGLTextureGetName(inputVideoTexture);
-    GC3Denum videoTextureTarget = CVOpenGLTextureGetTarget(inputVideoTexture);
-    CVOpenGLTextureGetCleanTexCoords(inputVideoTexture, lowerLeft, lowerRight, upperRight, upperLeft);
+    // CVOpenGLTextureCacheCreateTextureFromImage seems to always return
+    // kCVReturnPixelBufferNotOpenGLCompatible on desktop macOS now, so this
+    // entire code path seems to be unused. Assume the IOSurface path will be
+    // taken when using ANGLE.
+    UNUSED_PARAM(lowerLeft);
+    UNUSED_PARAM(lowerRight);
+    UNUSED_PARAM(upperLeft);
+    UNUSED_PARAM(upperRight);
+    UNUSED_PARAM(width);
+    UNUSED_PARAM(height);
+    UNUSED_PARAM(outputTexture);
+    UNUSED_PARAM(outputTarget);
+    UNUSED_PARAM(level);
+    UNUSED_PARAM(internalFormat);
+    UNUSED_PARAM(format);
+    UNUSED_PARAM(type);
+    UNUSED_PARAM(premultiplyAlpha);
+    UNUSED_PARAM(flipY);
+    UNUSED_PARAM(swapColorChannels);
     // FIXME: determine how to access rectangular textures via ANGLE.
-    ASSERT_NOT_REACHED();
+    UNIMPLEMENTED();
+    return false;
 #endif
 
     if (lowerLeft[1] < upperRight[1])

@@ -52,7 +52,7 @@ public:
     static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
     static void visitChildren(JSCell*, JSC::SlotVisitor&);
 
-    static void heapSnapshot(JSCell*, JSC::HeapSnapshotBuilder&);
+    static void analyzeHeap(JSCell*, JSC::HeapAnalyzer&);
 protected:
     JSInterfaceName(JSC::Structure*, JSDOMGlobalObject&, Ref<InterfaceName>&&);
 
@@ -76,10 +76,10 @@ inline void* wrapperKey(InterfaceName* wrappableObject)
     return wrappableObject;
 }
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, InterfaceName&);
-inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, InterfaceName* impl) { return impl ? toJS(state, globalObject, *impl) : JSC::jsNull(); }
-JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<InterfaceName>&&);
-inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<InterfaceName>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
+JSC::JSValue toJS(JSC::JSGlobalObject*, JSDOMGlobalObject*, InterfaceName&);
+inline JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, InterfaceName* impl) { return impl ? toJS(lexicalGlobalObject, globalObject, *impl) : JSC::jsNull(); }
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject*, Ref<InterfaceName>&&);
+inline JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, RefPtr<InterfaceName>&& impl) { return impl ? toJSNewlyCreated(lexicalGlobalObject, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 template<> struct JSDOMWrapperConverterTraits<InterfaceName> {
     using WrapperClass = JSInterfaceName;

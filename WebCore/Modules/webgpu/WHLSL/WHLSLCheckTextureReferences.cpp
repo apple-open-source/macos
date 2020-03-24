@@ -26,15 +26,21 @@
 #include "config.h"
 #include "WHLSLCheckTextureReferences.h"
 
-#include "WHLSLInferTypes.h"
-
 #if ENABLE(WEBGPU)
+
+#include "WHLSLArrayReferenceType.h"
+#include "WHLSLArrayType.h"
+#include "WHLSLFunctionDefinition.h"
+#include "WHLSLInferTypes.h"
+#include "WHLSLNativeTypeDeclaration.h"
+#include "WHLSLPointerType.h"
+#include "WHLSLVisitor.h"
 
 namespace WebCore {
 
 namespace WHLSL {
 
-class TextureReferencesChecker : public Visitor {
+class TextureReferencesChecker final : public Visitor {
 public:
     TextureReferencesChecker() = default;
 
@@ -45,6 +51,8 @@ private:
     void visit(AST::ArrayReferenceType&) override;
     void visit(AST::ArrayType&) override;
     void visit(AST::Expression&) override;
+    void visit(AST::FunctionDefinition&) override;
+    void visit(AST::NativeFunctionDeclaration&) override;
 
     bool containsTextureOrSampler(AST::UnnamedType&);
 };
@@ -79,28 +87,28 @@ bool TextureReferencesChecker::containsTextureOrSampler(AST::UnnamedType& unname
 void TextureReferencesChecker::visit(AST::PointerType& pointerType)
 {
     Visitor::visit(pointerType);
-    if (error())
+    if (hasError())
         return;
     if (containsTextureOrSampler(pointerType.elementType()))
-        setError();
+        setError(Error("Cannot have a pointer to a texture or sampler.", pointerType.codeLocation()));
 }
 
 void TextureReferencesChecker::visit(AST::ArrayReferenceType& arrayReferenceType)
 {
     Visitor::visit(arrayReferenceType);
-    if (error())
+    if (hasError())
         return;
     if (containsTextureOrSampler(arrayReferenceType.elementType()))
-        setError();
+        setError(Error("Cannot have an array reference to a texture or sampler.", arrayReferenceType.codeLocation()));
 }
 
 void TextureReferencesChecker::visit(AST::ArrayType& arrayType)
 {
     Visitor::visit(arrayType);
-    if (error())
+    if (hasError())
         return;
     if (containsTextureOrSampler(arrayType.type()))
-        setError();
+        setError(Error("Cannot have an array of textures or samplers.", arrayType.codeLocation()));
 }
 
 void TextureReferencesChecker::visit(AST::Expression& expression)
@@ -109,11 +117,21 @@ void TextureReferencesChecker::visit(AST::Expression& expression)
     checkErrorAndVisit(expression.resolvedType());
 }
 
-bool checkTextureReferences(Program& program)
+void TextureReferencesChecker::visit(AST::FunctionDefinition& functionDefinition)
+{
+    if (functionDefinition.parsingMode() != ParsingMode::StandardLibrary)
+        Visitor::visit(functionDefinition);
+}
+
+void TextureReferencesChecker::visit(AST::NativeFunctionDeclaration&)
+{
+}
+
+Expected<void, Error> checkTextureReferences(Program& program)
 {
     TextureReferencesChecker textureReferencesChecker;
     textureReferencesChecker.checkErrorAndVisit(program);
-    return !textureReferencesChecker.error();
+    return textureReferencesChecker.result();
 }
 
 } // namespace WHLSL

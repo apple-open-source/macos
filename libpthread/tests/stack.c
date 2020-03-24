@@ -50,7 +50,11 @@ T_DECL(chkstk, "chkstk",
 	};
 	T_ASSERT_POSIX_SUCCESS(sigaction(SIGSEGV, &sa, NULL), "sigaction");
 
-	call_chkstk(1 << 24);
+#if __LP64__
+	call_chkstk(1ul << 32);
+#else
+	call_chkstk(1ul << 24);
+#endif
 	T_FAIL("should have crashed");
 #endif
 }

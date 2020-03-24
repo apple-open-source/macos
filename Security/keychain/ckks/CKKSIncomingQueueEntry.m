@@ -88,7 +88,7 @@
                                      error: (NSError * __autoreleasing *) error {
     NSMutableDictionary* whereDict = [@{@"state": CKKSNilToNSNull(state), @"ckzone":CKKSNilToNSNull(zoneID.zoneName)} mutableCopy];
     if(uuid) {
-        whereDict[@"UUID"] = [CKKSSQLWhereObject op:@">" stringValue:uuid];
+        whereDict[@"UUID"] = [CKKSSQLWhereValue op:CKKSSQLWhereComparatorGreaterThan value:uuid];
     }
     return [self fetch:n
                  where:whereDict

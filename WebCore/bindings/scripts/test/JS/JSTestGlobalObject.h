@@ -38,8 +38,6 @@ public:
         return ptr;
     }
 
-    static const bool needsDestruction = false;
-
     static TestGlobalObject* toWrapped(JSC::VM&, JSC::JSValue);
     static void destroy(JSC::JSCell*);
 
@@ -51,9 +49,11 @@ public:
     }
 
     static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
-    static void heapSnapshot(JSCell*, JSC::HeapSnapshotBuilder&);
+    template<typename, JSC::SubspaceAccess> static JSC::IsoSubspace* subspaceFor(JSC::VM& vm) { return subspaceForImpl(vm); }
+    static JSC::IsoSubspace* subspaceForImpl(JSC::VM& vm);
+    static void analyzeHeap(JSCell*, JSC::HeapAnalyzer&);
 public:
-    static const unsigned StructureFlags = Base::StructureFlags | JSC::HasStaticPropertyTable;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::HasStaticPropertyTable;
 protected:
     JSTestGlobalObject(JSC::Structure*, JSDOMGlobalObject&, Ref<TestGlobalObject>&&);
 
@@ -77,10 +77,10 @@ inline void* wrapperKey(TestGlobalObject* wrappableObject)
     return wrappableObject;
 }
 
-JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestGlobalObject&);
-inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, TestGlobalObject* impl) { return impl ? toJS(state, globalObject, *impl) : JSC::jsNull(); }
-JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, Ref<TestGlobalObject>&&);
-inline JSC::JSValue toJSNewlyCreated(JSC::ExecState* state, JSDOMGlobalObject* globalObject, RefPtr<TestGlobalObject>&& impl) { return impl ? toJSNewlyCreated(state, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
+JSC::JSValue toJS(JSC::JSGlobalObject*, JSDOMGlobalObject*, TestGlobalObject&);
+inline JSC::JSValue toJS(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, TestGlobalObject* impl) { return impl ? toJS(lexicalGlobalObject, globalObject, *impl) : JSC::jsNull(); }
+JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject*, Ref<TestGlobalObject>&&);
+inline JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject* lexicalGlobalObject, JSDOMGlobalObject* globalObject, RefPtr<TestGlobalObject>&& impl) { return impl ? toJSNewlyCreated(lexicalGlobalObject, globalObject, impl.releaseNonNull()) : JSC::jsNull(); }
 
 class JSTestGlobalObjectPrototype : public JSC::JSNonFinalObject {
 public:
@@ -104,8 +104,9 @@ private:
     {
     }
 public:
-    static const unsigned StructureFlags = Base::StructureFlags | JSC::HasStaticPropertyTable;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::HasStaticPropertyTable;
 };
+STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestGlobalObjectPrototype, JSTestGlobalObjectPrototype::Base);
 
 template<> struct JSDOMWrapperConverterTraits<TestGlobalObject> {
     using WrapperClass = JSTestGlobalObject;

@@ -29,38 +29,16 @@
 
 #include "DisplayRect.h"
 #include "LayoutUnits.h"
-#include "RenderStyleConstants.h"
 #include <wtf/IsoMalloc.h>
 
 namespace WebCore {
-
-class RenderStyle;
-
-namespace Layout {
-class BlockFormattingContext;
-class FloatAvoider;
-class FloatBox;
-class FormattingContext;
-class FloatingContext;
-class InlineFormattingContext;
-class LayoutState;
-}
-
 namespace Display {
 
 class Box {
     WTF_MAKE_ISO_ALLOCATED(Box);
 public:
-    friend class Layout::BlockFormattingContext;
-    friend class Layout::FloatAvoider;
-    friend class Layout::FloatBox;
-    friend class Layout::FormattingContext;
-    friend class Layout::FloatingContext;
-    friend class Layout::InlineFormattingContext;
-    friend class Layout::LayoutState;
-
-    Box(const RenderStyle&);
     Box(const Box&);
+    Box() = default;
     ~Box();
 
     LayoutUnit top() const;
@@ -74,6 +52,7 @@ public:
     LayoutSize size() const { return { width(), height() }; }
     LayoutUnit width() const { return borderLeft() + paddingBoxWidth() + borderRight(); }
     LayoutUnit height() const { return borderTop() + paddingBoxHeight() + borderBottom(); }
+    bool isEmpty() const { return size().isEmpty(); }
     Rect rect() const { return { top(), left(), width(), height() }; }
     Rect rectWithMargin() const;
 
@@ -124,6 +103,8 @@ public:
     LayoutUnit marginBoxHeight() const { return marginBefore() + borderBoxHeight() + marginAfter(); }
     LayoutUnit marginBoxWidth() const { return marginStart() + borderBoxWidth() + marginEnd(); }
 
+    LayoutUnit horizontalMarginBorderAndPadding() const { return marginStart() + horizontalBorder() + horizontalPadding().valueOr(0) + marginEnd(); }
+
     Rect marginBox() const;
     Rect nonCollapsedMarginBox() const;
 
@@ -135,18 +116,12 @@ public:
     void setHasEstimatedMarginBefore() { m_hasEstimatedMarginBefore = true; }
 #endif
 
-private:
-    struct Style {
-        Style(const RenderStyle&);
-
-        BoxSizing boxSizing { BoxSizing::ContentBox };
-    };
-
     void setTopLeft(const LayoutPoint&);
     void setTop(LayoutUnit);
     void setLeft(LayoutUnit);
     void moveHorizontally(LayoutUnit offset) { m_topLeft.move(offset, 0_lu); }
     void moveVertically(LayoutUnit offset) { m_topLeft.move(0_lu, offset); }
+    void moveBy(LayoutPoint offset) { m_topLeft.moveBy(offset); }
 
     void setContentBoxHeight(LayoutUnit);
     void setContentBoxWidth(LayoutUnit);
@@ -159,6 +134,7 @@ private:
     void setBorder(Layout::Edges);
     void setPadding(Optional<Layout::Edges>);
 
+private:
 #if !ASSERT_DISABLED
     void invalidateMargin();
     void invalidateBorder() { m_hasValidBorder = false; }
@@ -178,8 +154,6 @@ private:
     void setHasValidContentHeight() { m_hasValidContentHeight = true; }
     void setHasValidContentWidth() { m_hasValidContentWidth = true; }
 #endif
-
-    const Style m_style;
 
     LayoutPoint m_topLeft;
     LayoutUnit m_contentWidth;

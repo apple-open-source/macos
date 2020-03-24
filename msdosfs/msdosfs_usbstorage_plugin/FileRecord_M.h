@@ -22,7 +22,7 @@ int     FILERECORD_InitChainCache(FileSystemRecord_s *psFSRecord);
 void    FILERECORD_DeInitChainCache(FileSystemRecord_s *psFSRecord);
 void    FILERECORD_EvictAllFileChainCacheEntriesFromGivenOffset(NodeRecord_s* psNodeRecord,uint64_t uOffsetToEvictFrom);
 void    FILERECORD_GetChainFromCache(NodeRecord_s* psNodeRecord,uint64_t uWantedOffsetInFile,uint32_t* puWantedCluster, uint32_t* puContiguousClusterLength, int* piError);
-
+int     FILERECORD_UpdateNewAllocatedClustersInChain(NodeRecord_s* psNodeRecord, uint32_t uFirstCluster, uint32_t uChainLength, uint64_t uOffsetInFile);
 // ----------------- Locks -------------------
 void FILERECORD_MultiLock( NodeRecord_s** ppsNRs, int iNumOfElem, bool bIsWrite, bool bLock );
 

@@ -48,6 +48,7 @@
 #include <Security/cssmapi.h>
 #include <Security/cssmapple.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <CommonCrypto/CommonDigest.h>
 
 
 /*
@@ -213,21 +214,42 @@ SecCmsAlgArrayGetIndexByAlgTag(SECAlgorithmID **algorithmArray,
     return i;
 }
 
-CSSM_CC_HANDLE
+void *
 SecCmsUtilGetHashObjByAlgID(SECAlgorithmID *algid)
 {
     SECOidData *oidData = SECOID_FindOID(&(algid->algorithm));
     if (oidData)
     {
-	CSSM_ALGORITHMS alg = oidData->cssmAlgorithm;
-	if (alg)
-	{
-	    CSSM_CC_HANDLE digobj;
-	    CSSM_CSP_HANDLE cspHandle = SecCspHandleForAlgorithm(alg);
-
-	    if (!CSSM_CSP_CreateDigestContext(cspHandle, alg, &digobj))
-		return digobj;
-	}
+        void *digobj = NULL;
+        switch (oidData->offset) {
+            case SEC_OID_SHA1:
+                digobj = calloc(1, sizeof(CC_SHA1_CTX));
+                CC_SHA1_Init(digobj);
+                break;
+            case SEC_OID_MD5:
+                digobj = calloc(1, sizeof(CC_MD5_CTX));
+                CC_MD5_Init(digobj);
+                break;
+            case SEC_OID_SHA224:
+                digobj = calloc(1, sizeof(CC_SHA256_CTX));
+                CC_SHA224_Init(digobj);
+                break;
+            case SEC_OID_SHA256:
+                digobj = calloc(1, sizeof(CC_SHA256_CTX));
+                CC_SHA256_Init(digobj);
+                break;
+            case SEC_OID_SHA384:
+                digobj = calloc(1, sizeof(CC_SHA512_CTX));
+                CC_SHA384_Init(digobj);
+                break;
+            case SEC_OID_SHA512:
+                digobj = calloc(1, sizeof(CC_SHA512_CTX));
+                CC_SHA512_Init(digobj);
+                break;
+            default:
+                break;
+        }
+        return digobj;
     }
 
     return 0;

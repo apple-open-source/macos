@@ -195,6 +195,9 @@ public:
 								IOService *					client,
 								IOOptionBits				options = 0 ) APPLE_KEXT_OVERRIDE;
 
+	using IOService::setProperty;
+    virtual bool 			setProperty( const OSSymbol * aKey, OSObject * anObject) APPLE_KEXT_OVERRIDE;
+
     virtual OSString *      getTransport ();
     virtual UInt32          getLocationID ();
     virtual UInt32          getVendorID ();

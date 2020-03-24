@@ -316,7 +316,7 @@ read ahead when a large file is being read sequentially.  Trying larger
 values for this is suggested for mounts with a large bandwidth * delay
 product.
 .Pp
-.It Cm rdirplus
+.It Cm rdirplus / nordirplus
 Used with NFS v3/v4 to specify that directory read operations should
 retrieve additional information about each entry (e.g. use the NFSv3
 \fBReaddirPlus\fR RPC).  This option typically reduces RPC traffic for
@@ -335,7 +335,7 @@ prefetched entries which may not be referenced.  The current implementation
 avoids creating those entries until they are referenced.  Try this
 option and see whether performance improves or degrades. Probably most
 useful for client to server network interconnects with a large bandwidth
-times delay product.
+times delay product. Default value is rdirplus.
 .Pp
 .It Cm acregmin Ns = Ns Aq Ar seconds
 .It Cm acregmax Ns = Ns Aq Ar seconds
@@ -541,6 +541,8 @@ forms should be used instead.
 (intr),
 .Fl l
 (rdirplus),
+.Fl m
+(nordirplus),
 .Fl s
 (soft),
 .Fl I Ar readdirsize

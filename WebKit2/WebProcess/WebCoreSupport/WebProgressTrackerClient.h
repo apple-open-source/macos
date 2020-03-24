@@ -33,12 +33,11 @@ namespace WebKit {
 class WebPage;
 
 class WebProgressTrackerClient : public WebCore::ProgressTrackerClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit WebProgressTrackerClient(WebPage&);
     
 private:
-    void progressTrackerDestroyed() override;
-
     void progressStarted(WebCore::Frame& originatingProgressFrame) override;
     void progressEstimateChanged(WebCore::Frame& originatingProgressFrame) override;
     void progressFinished(WebCore::Frame& originatingProgressFrame) override;

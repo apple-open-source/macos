@@ -28,12 +28,13 @@
 
 #if HAVE(APP_SSO)
 
+#import "APINavigationAction.h"
 #import "WKNavigationDelegatePrivate.h"
 #import "WKUIDelegate.h"
 #import "WKWebViewConfigurationPrivate.h"
 #import "WKWebViewInternal.h"
+#import "WebPageProxy.h"
 #import <WebCore/ResourceResponse.h>
-#import <WebKit/APINavigationAction.h>
 #import <wtf/BlockPtr.h>
 
 @interface WKSOSecretDelegate : NSObject <WKNavigationDelegate, WKUIDelegate> {

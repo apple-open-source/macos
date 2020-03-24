@@ -97,12 +97,12 @@ void WebPasteboardProxy::getPasteboardBufferForType(const String& pasteboardName
     completionHandler(WTFMove(handle), size);
 }
 
-void WebPasteboardProxy::pasteboardCopy(const String& fromPasteboard, const String& toPasteboard, CompletionHandler<void(uint64_t)>&& completionHandler)
+void WebPasteboardProxy::pasteboardCopy(const String& fromPasteboard, const String& toPasteboard, CompletionHandler<void(int64_t)>&& completionHandler)
 {
     completionHandler(PlatformPasteboard(toPasteboard).copy(fromPasteboard));
 }
 
-void WebPasteboardProxy::getPasteboardChangeCount(const String& pasteboardName, CompletionHandler<void(uint64_t)>&& completionHandler)
+void WebPasteboardProxy::getPasteboardChangeCount(const String& pasteboardName, CompletionHandler<void(int64_t)>&& completionHandler)
 {
     completionHandler(PlatformPasteboard(pasteboardName).changeCount());
 }
@@ -122,17 +122,17 @@ void WebPasteboardProxy::getPasteboardURL(const String& pasteboardName, Completi
     completionHandler(PlatformPasteboard(pasteboardName).url().string());
 }
 
-void WebPasteboardProxy::addPasteboardTypes(const String& pasteboardName, const Vector<String>& pasteboardTypes, CompletionHandler<void(uint64_t)>&& completionHandler)
+void WebPasteboardProxy::addPasteboardTypes(const String& pasteboardName, const Vector<String>& pasteboardTypes, CompletionHandler<void(int64_t)>&& completionHandler)
 {
     completionHandler(PlatformPasteboard(pasteboardName).addTypes(pasteboardTypes));
 }
 
-void WebPasteboardProxy::setPasteboardTypes(const String& pasteboardName, const Vector<String>& pasteboardTypes, CompletionHandler<void(uint64_t)>&& completionHandler)
+void WebPasteboardProxy::setPasteboardTypes(const String& pasteboardName, const Vector<String>& pasteboardTypes, CompletionHandler<void(int64_t)>&& completionHandler)
 {
     completionHandler(PlatformPasteboard(pasteboardName).setTypes(pasteboardTypes));
 }
 
-void WebPasteboardProxy::setPasteboardURL(IPC::Connection& connection, const PasteboardURL& pasteboardURL, const String& pasteboardName, CompletionHandler<void(uint64_t)>&& completionHandler)
+void WebPasteboardProxy::setPasteboardURL(IPC::Connection& connection, const PasteboardURL& pasteboardURL, const String& pasteboardName, CompletionHandler<void(int64_t)>&& completionHandler)
 {
     for (auto* webProcessProxy : m_webProcessProxyList) {
         if (!webProcessProxy->hasConnection(connection))
@@ -146,17 +146,17 @@ void WebPasteboardProxy::setPasteboardURL(IPC::Connection& connection, const Pas
     completionHandler(0);
 }
 
-void WebPasteboardProxy::setPasteboardColor(const String& pasteboardName, const WebCore::Color& color, CompletionHandler<void(uint64_t)>&& completionHandler)
+void WebPasteboardProxy::setPasteboardColor(const String& pasteboardName, const WebCore::Color& color, CompletionHandler<void(int64_t)>&& completionHandler)
 {
     completionHandler(PlatformPasteboard(pasteboardName).setColor(color));
 }
 
-void WebPasteboardProxy::setPasteboardStringForType(const String& pasteboardName, const String& pasteboardType, const String& string, CompletionHandler<void(uint64_t)>&& completionHandler)
+void WebPasteboardProxy::setPasteboardStringForType(const String& pasteboardName, const String& pasteboardType, const String& string, CompletionHandler<void(int64_t)>&& completionHandler)
 {
     completionHandler(PlatformPasteboard(pasteboardName).setStringForType(string, pasteboardType));
 }
 
-void WebPasteboardProxy::setPasteboardBufferForType(const String& pasteboardName, const String& pasteboardType, const SharedMemory::Handle& handle, uint64_t size, CompletionHandler<void(uint64_t)>&& completionHandler)
+void WebPasteboardProxy::setPasteboardBufferForType(const String& pasteboardName, const String& pasteboardType, const SharedMemory::Handle& handle, uint64_t size, CompletionHandler<void(int64_t)>&& completionHandler)
 {
     if (handle.isNull())
         return completionHandler(PlatformPasteboard(pasteboardName).setBufferForType(0, pasteboardType));
@@ -175,9 +175,53 @@ void WebPasteboardProxy::typesSafeForDOMToReadAndWrite(const String& pasteboardN
     completionHandler(PlatformPasteboard(pasteboardName).typesSafeForDOMToReadAndWrite(origin));
 }
 
-void WebPasteboardProxy::writeCustomData(const WebCore::PasteboardCustomData& data, const String& pasteboardName, CompletionHandler<void(uint64_t)>&& completionHandler)
+void WebPasteboardProxy::writeCustomData(const Vector<PasteboardCustomData>& data, const String& pasteboardName, CompletionHandler<void(int64_t)>&& completionHandler)
 {
     completionHandler(PlatformPasteboard(pasteboardName).write(data));
+}
+
+void WebPasteboardProxy::allPasteboardItemInfo(const String& pasteboardName, int64_t changeCount, CompletionHandler<void(Optional<Vector<PasteboardItemInfo>>&&)>&& completionHandler)
+{
+    completionHandler(PlatformPasteboard(pasteboardName).allPasteboardItemInfo(changeCount));
+}
+
+void WebPasteboardProxy::informationForItemAtIndex(size_t index, const String& pasteboardName, int64_t changeCount, CompletionHandler<void(Optional<PasteboardItemInfo>&&)>&& completionHandler)
+{
+    completionHandler(PlatformPasteboard(pasteboardName).informationForItemAtIndex(index, changeCount));
+}
+
+void WebPasteboardProxy::getPasteboardItemsCount(const String& pasteboardName, CompletionHandler<void(uint64_t)>&& completionHandler)
+{
+    completionHandler(PlatformPasteboard(pasteboardName).count());
+}
+
+void WebPasteboardProxy::readStringFromPasteboard(size_t index, const String& pasteboardType, const String& pasteboardName, CompletionHandler<void(String&&)>&& completionHandler)
+{
+    completionHandler(PlatformPasteboard(pasteboardName).readString(index, pasteboardType));
+}
+
+void WebPasteboardProxy::readURLFromPasteboard(size_t index, const String& pasteboardName, CompletionHandler<void(String&& url, String&& title)>&& completionHandler)
+{
+    String title;
+    String url = PlatformPasteboard(pasteboardName).readURL(index, title);
+    completionHandler(WTFMove(url), WTFMove(title));
+}
+
+void WebPasteboardProxy::readBufferFromPasteboard(size_t index, const String& pasteboardType, const String& pasteboardName, CompletionHandler<void(SharedMemory::Handle&&, uint64_t size)>&& completionHandler)
+{
+    RefPtr<SharedBuffer> buffer = PlatformPasteboard(pasteboardName).readBuffer(index, pasteboardType);
+    if (!buffer)
+        return completionHandler({ }, 0);
+    uint64_t size = buffer->size();
+    if (!size)
+        return completionHandler({ }, 0);
+    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::allocate(size);
+    if (!sharedMemoryBuffer)
+        return completionHandler({ }, 0);
+    memcpy(sharedMemoryBuffer->data(), buffer->data(), size);
+    SharedMemory::Handle handle;
+    sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
+    completionHandler(WTFMove(handle), size);
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -202,55 +246,11 @@ void WebPasteboardProxy::writeStringToPasteboard(const String& pasteboardType, c
     PlatformPasteboard(pasteboardName).write(pasteboardType, text);
 }
 
-void WebPasteboardProxy::readStringFromPasteboard(uint64_t index, const String& pasteboardType, const String& pasteboardName, CompletionHandler<void(String&&)>&& completionHandler)
-{
-    completionHandler(PlatformPasteboard(pasteboardName).readString(index, pasteboardType));
-}
-
-void WebPasteboardProxy::readURLFromPasteboard(uint64_t index, const String& pasteboardName, CompletionHandler<void(String&& url, String&& title)>&& completionHandler)
-{
-    String title;
-    String url = PlatformPasteboard(pasteboardName).readURL(index, title);
-    completionHandler(WTFMove(url), WTFMove(title));
-}
-
-void WebPasteboardProxy::readBufferFromPasteboard(uint64_t index, const String& pasteboardType, const String& pasteboardName, CompletionHandler<void(SharedMemory::Handle&&, uint64_t size)>&& completionHandler)
-{
-    RefPtr<SharedBuffer> buffer = PlatformPasteboard(pasteboardName).readBuffer(index, pasteboardType);
-    if (!buffer)
-        return completionHandler({ }, 0);
-    uint64_t size = buffer->size();
-    if (!size)
-        return completionHandler({ }, 0);
-    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::allocate(size);
-    if (!sharedMemoryBuffer)
-        return completionHandler({ }, 0);
-    memcpy(sharedMemoryBuffer->data(), buffer->data(), size);
-    SharedMemory::Handle handle;
-    sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
-    completionHandler(WTFMove(handle), size);
-}
-
-void WebPasteboardProxy::getPasteboardItemsCount(const String& pasteboardName, CompletionHandler<void(uint64_t)>&& completionHandler)
-{
-    completionHandler(PlatformPasteboard(pasteboardName).count());
-}
-
-void WebPasteboardProxy::allPasteboardItemInfo(const String& pasteboardName, CompletionHandler<void(Vector<PasteboardItemInfo>&&)>&& completionHandler)
-{
-    completionHandler(PlatformPasteboard(pasteboardName).allPasteboardItemInfo());
-}
-
-void WebPasteboardProxy::informationForItemAtIndex(int index, const String& pasteboardName, CompletionHandler<void(PasteboardItemInfo&&)>&& completionHandler)
-{
-    completionHandler(PlatformPasteboard(pasteboardName).informationForItemAtIndex(index));
-}
-
 void WebPasteboardProxy::updateSupportedTypeIdentifiers(const Vector<String>& identifiers, const String& pasteboardName)
 {
     PlatformPasteboard(pasteboardName).updateSupportedTypeIdentifiers(identifiers);
 }
 
-#endif
+#endif // PLATFORM(IOS_FAMILY)
 
 } // namespace WebKit

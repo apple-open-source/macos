@@ -52,7 +52,7 @@ inline bool MarkedBlock::hasAnyNewlyAllocated()
 
 inline Heap* MarkedBlock::heap() const
 {
-    return &vm()->heap;
+    return &vm().heap;
 }
 
 inline MarkedSpace* MarkedBlock::space() const
@@ -253,7 +253,7 @@ void MarkedBlock::Handle::specializedSweep(FreeList* freeList, MarkedBlock::Hand
     
     unsigned cellSize = this->cellSize();
     
-    VM& vm = *this->vm();
+    VM& vm = this->vm();
     auto destroy = [&] (void* cell) {
         JSCell* jsCell = static_cast<JSCell*>(cell);
         if (!jsCell->isZapped()) {
@@ -481,6 +481,12 @@ inline MarkedBlock::Handle::MarksMode MarkedBlock::Handle::marksMode()
     if (space()->isMarking())
         marksAreUseful |= block().marksConveyLivenessDuringMarking(markingVersion);
     return marksAreUseful ? MarksNotStale : MarksStale;
+}
+
+inline void MarkedBlock::Handle::setIsFreeListed()
+{
+    m_directory->setIsEmpty(NoLockingNecessary, this, false);
+    m_isFreeListed = true;
 }
 
 template <typename Functor>

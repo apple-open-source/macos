@@ -35,6 +35,8 @@
 #import "keychain/ckks/CKKSAccountStateTracker.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
 
+#import "keychain/ot/OTManager.h"
+
 NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKey;
@@ -103,9 +105,24 @@ NS_ASSUME_NONNULL_BEGIN
 @property CKKSMockSOSPresentAdapter* mockSOSAdapter;
 @property (nullable) CKKSMockOctagonAdapter *mockOctagonAdapter;
 
--(NSSet*)managedViewList;
+- (NSSet<NSString*>*)managedViewList;
+- (TPPolicy*)viewSortingPolicyForManagedViewList;
+
 @property (nullable) id mockCKKSViewManager;
 @property (nullable) CKKSViewManager* injectedManager;
+
+// Injected into CKKSViewManager using OCMock
+@property BOOL overrideUseCKKSViewsFromPolicy;
+
+// Set this to true before calling -setup if you're going to configure the ckks view manager yourself
+// !disable format used because this will be initialized to false, and so will happen unless subclasses take positive action
+@property BOOL disableConfigureCKKSViewManagerWithViews;
+
+// Set this to true to override CKKSViewsFromPolicy to NO instead of the default YES
+// !disable format used because this will be initialized to false, and so will happen unless subclasses take positive action
+@property BOOL setCKKSViewsFromPolicyToNo;
+
+@property (nullable) OTManager* injectedOTManager;
 
 // Fill this in to fail the next modifyzones operation
 @property (nullable) NSError* nextModifyRecordZonesError;
@@ -159,6 +176,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (NSError* _Nullable)shouldFailModifyRecordZonesOperation;
 - (void)ensureZoneDeletionAllowed:(FakeCKZone*)zone;
+
+// Override this to interpose on how an OTManager is created
+// This will be called during setUp, after the CloudKit mocks are in-place
+// This needs to fill in the injectedOTManager variable on this class
+- (OTManager*)setUpOTManager:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
 
 // Use this to assert that a fetch occurs (especially if silentFetchesAllowed = false)
 - (void)expectCKFetch;

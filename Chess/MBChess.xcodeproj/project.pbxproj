@@ -6,7 +6,49 @@
 	objectVersion = 46;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		088506B823F30F5D0047C095 /* host */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 088506B923F30F5D0047C095 /* Build configuration list for PBXAggregateTarget "host" */;
+			buildPhases = (
+			);
+			dependencies = (
+				088506BE23F30F660047C095 /* PBXTargetDependency */,
+			);
+			name = host;
+			productName = host;
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
+		0885069423F30F480047C095 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8304F30114005E79F8 /* config.h */; };
+		0885069523F30F480047C095 /* extvars.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8804F30114005E79F8 /* extvars.h */; };
+		0885069623F30F480047C095 /* protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9104F30114005E79F8 /* protos.h */; };
+		0885069723F30F480047C095 /* sjeng.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9804F30114005E79F8 /* sjeng.h */; };
+		0885069823F30F480047C095 /* squares.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9904F30114005E79F8 /* squares.h */; };
+		0885069923F30F480047C095 /* attacks.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8004F30114005E79F8 /* attacks.c */; };
+		0885069A23F30F480047C095 /* draw.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8404F30114005E79F8 /* draw.c */; };
+		0885069B23F30F480047C095 /* book.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8204F30114005E79F8 /* book.c */; };
+		0885069C23F30F480047C095 /* ecache.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8504F30114005E79F8 /* ecache.c */; };
+		0885069D23F30F480047C095 /* epd.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8604F30114005E79F8 /* epd.c */; };
+		0885069E23F30F480047C095 /* eval.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8704F30114005E79F8 /* eval.c */; };
+		0885069F23F30F480047C095 /* learn.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8904F30114005E79F8 /* learn.c */; };
+		088506A023F30F480047C095 /* leval.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8A04F30114005E79F8 /* leval.c */; };
+		088506A123F30F480047C095 /* moves.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8B04F30114005E79F8 /* moves.c */; };
+		088506A223F30F480047C095 /* neval.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8C04F30114005E79F8 /* neval.c */; };
+		088506A323F30F480047C095 /* newbook.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8D04F30114005E79F8 /* newbook.c */; };
+		088506A423F30F480047C095 /* partner.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8E04F30114005E79F8 /* partner.c */; };
+		088506A523F30F480047C095 /* probe.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8F04F30114005E79F8 /* probe.c */; };
+		088506A623F30F480047C095 /* proof.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9004F30114005E79F8 /* proof.c */; };
+		088506A723F30F480047C095 /* rcfile.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9204F30114005E79F8 /* rcfile.c */; };
+		088506A823F30F480047C095 /* search.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9304F30114005E79F8 /* search.c */; };
+		088506A923F30F480047C095 /* see.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9404F30114005E79F8 /* see.c */; };
+		088506AA23F30F480047C095 /* segtb.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9504F30114005E79F8 /* segtb.c */; };
+		088506AB23F30F480047C095 /* seval.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9604F30114005E79F8 /* seval.c */; };
+		088506AC23F30F480047C095 /* sjeng.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9704F30114005E79F8 /* sjeng.c */; };
+		088506AD23F30F480047C095 /* ttable.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9A04F30114005E79F8 /* ttable.c */; };
+		088506AE23F30F480047C095 /* utils.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9B04F30114005E79F8 /* utils.c */; };
+		088506B023F30F480047C095 /* blob2.c in Sources */ = {isa = PBXBuildFile; fileRef = 95B4ED8104F30114005E79F8 /* blob2.c */; };
 		226F987D1CA9A5F000E4A1A2 /* Chess_128x128.png in Resources */ = {isa = PBXBuildFile; fileRef = 226F987C1CA9A5F000E4A1A2 /* Chess_128x128.png */; };
 		72527B4E229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
 		72527B4F229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
@@ -202,6 +244,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		088506BD23F30F660047C095 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 29B97313FDCFA39411CA2CEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0885069223F30F480047C095;
+			remoteInfo = sjeng_host;
+		};
 		950BD1120A1E582B00395116 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 29B97313FDCFA39411CA2CEA /* Project object */;
@@ -263,6 +312,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		088506B723F30F480047C095 /* sjeng_host */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sjeng_host; sourceTree = BUILT_PRODUCTS_DIR; };
 		089C165DFE840E0CC02AAC07 /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		226F987C1CA9A5F000E4A1A2 /* Chess_128x128.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Chess_128x128.png; path = Resources/Icons/Chess_128x128.png; sourceTree = "<group>"; };
@@ -396,6 +446,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		088506B123F30F480047C095 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		950BD1630A1E582B00395116 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -472,6 +529,7 @@
 				950BD1700A1E582B00395116 /* Chess.app */,
 				95844C900A670C1E0068CA82 /* sjeng.ChessEngine */,
 				95844CF20A670C280068CA82 /* Chess Tuner.app */,
+				088506B723F30F480047C095 /* sjeng_host */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -690,6 +748,40 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		0885069323F30F480047C095 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0885069423F30F480047C095 /* config.h in Headers */,
+				0885069523F30F480047C095 /* extvars.h in Headers */,
+				0885069623F30F480047C095 /* protos.h in Headers */,
+				0885069723F30F480047C095 /* sjeng.h in Headers */,
+				0885069823F30F480047C095 /* squares.h in Headers */,
+				0885069923F30F480047C095 /* attacks.c in Headers */,
+				0885069A23F30F480047C095 /* draw.c in Headers */,
+				0885069B23F30F480047C095 /* book.c in Headers */,
+				0885069C23F30F480047C095 /* ecache.c in Headers */,
+				0885069D23F30F480047C095 /* epd.c in Headers */,
+				0885069E23F30F480047C095 /* eval.c in Headers */,
+				0885069F23F30F480047C095 /* learn.c in Headers */,
+				088506A023F30F480047C095 /* leval.c in Headers */,
+				088506A123F30F480047C095 /* moves.c in Headers */,
+				088506A223F30F480047C095 /* neval.c in Headers */,
+				088506A323F30F480047C095 /* newbook.c in Headers */,
+				088506A423F30F480047C095 /* partner.c in Headers */,
+				088506A523F30F480047C095 /* probe.c in Headers */,
+				088506A623F30F480047C095 /* proof.c in Headers */,
+				088506A723F30F480047C095 /* rcfile.c in Headers */,
+				088506A823F30F480047C095 /* search.c in Headers */,
+				088506A923F30F480047C095 /* see.c in Headers */,
+				088506AA23F30F480047C095 /* segtb.c in Headers */,
+				088506AB23F30F480047C095 /* seval.c in Headers */,
+				088506AC23F30F480047C095 /* sjeng.c in Headers */,
+				088506AD23F30F480047C095 /* ttable.c in Headers */,
+				088506AE23F30F480047C095 /* utils.c in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		950BD1130A1E582B00395116 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -815,6 +907,25 @@
 /* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
+		0885069223F30F480047C095 /* sjeng_host */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 088506B323F30F480047C095 /* Build configuration list for PBXNativeTarget "sjeng_host" */;
+			buildPhases = (
+				0885069323F30F480047C095 /* Headers */,
+				088506AF23F30F480047C095 /* Sources */,
+				088506B123F30F480047C095 /* Frameworks */,
+				088506B223F30F480047C095 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = sjeng_host;
+			productInstallPath = /usr/local/bin;
+			productName = sjeng;
+			productReference = 088506B723F30F480047C095 /* sjeng_host */;
+			productType = "com.apple.product-type.tool";
+		};
 		950BD10E0A1E582B00395116 /* MBChess */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 950BD16B0A1E582B00395116 /* Build configuration list for PBXNativeTarget "MBChess" */;
@@ -888,6 +999,12 @@
 			attributes = {
 				DefaultBuildSystemTypeForWorkspace = Latest;
 				LastUpgradeCheck = 0420;
+				TargetAttributes = {
+					088506B823F30F5D0047C095 = {
+						CreatedOnToolsVersion = 12.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 950BD17E0A1E582C00395116 /* Build configuration list for PBXProject "MBChess" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -905,6 +1022,8 @@
 				95844C920A670C280068CA82 /* ChessTuner */,
 				95844C6B0A670C1E0068CA82 /* sjeng */,
 				95B4EDD204F3081E005E79F8 /* Opening Books */,
+				0885069223F30F480047C095 /* sjeng_host */,
+				088506B823F30F5D0047C095 /* host */,
 			);
 		};
 /* End PBXProject section */
@@ -966,6 +1085,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXRezBuildPhase section */
+		088506B223F30F480047C095 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		95844C8B0A670C1E0068CA82 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
@@ -1005,6 +1131,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		088506AF23F30F480047C095 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				088506B023F30F480047C095 /* blob2.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		950BD14C0A1E582B00395116 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1087,6 +1221,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		088506BE23F30F660047C095 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0885069223F30F480047C095 /* sjeng_host */;
+			targetProxy = 088506BD23F30F660047C095 /* PBXContainerItemProxy */;
+		};
 		950BD1110A1E582B00395116 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 95B4EDD204F3081E005E79F8 /* Opening Books */;
@@ -1166,6 +1305,106 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		088506B423F30F480047C095 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = s;
+				INSTALL_PATH = /usr/local/bin;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CFLAGS_ppc = "-O3 -fast -mcpu=G4";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		088506B523F30F480047C095 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/bin;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CFLAGS_ppc = "-O3 -fast -mcpu=G4";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		088506B623F30F480047C095 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/bin;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CFLAGS_ppc = "-O3 -fast -mcpu=G4";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = NO;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		088506BA23F30F5D0047C095 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		088506BB23F30F5D0047C095 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		088506BC23F30F5D0047C095 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Default;
+		};
 		950BD16C0A1E582B00395116 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1366,6 +1605,7 @@
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = s;
 				INSTALL_PATH = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1390,6 +1630,7 @@
 				COPY_PHASE_STRIP = YES;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1413,6 +1654,7 @@
 			buildSettings = {
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1512,6 +1754,26 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		088506B323F30F480047C095 /* Build configuration list for PBXNativeTarget "sjeng_host" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				088506B423F30F480047C095 /* Development */,
+				088506B523F30F480047C095 /* Deployment */,
+				088506B623F30F480047C095 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		088506B923F30F5D0047C095 /* Build configuration list for PBXAggregateTarget "host" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				088506BA23F30F5D0047C095 /* Development */,
+				088506BB23F30F5D0047C095 /* Deployment */,
+				088506BC23F30F5D0047C095 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
 		950BD16B0A1E582B00395116 /* Build configuration list for PBXNativeTarget "MBChess" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

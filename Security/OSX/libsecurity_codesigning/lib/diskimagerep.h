@@ -43,6 +43,7 @@ namespace CodeSigning {
 class DiskImageRep : public SingleDiskRep {
 public:
 	DiskImageRep(const char *path);
+	virtual ~DiskImageRep();
 	
 	CFDataRef identification();
 	CFDataRef component(CodeDirectory::SpecialSlot slot);
@@ -70,7 +71,7 @@ private:
 	UDIFFileHeader mHeader;						// disk image header (all fields NBO)
 	size_t mEndOfDataOffset;					// end of payload data (data fork + XML)
 	size_t mHeaderOffset;						// trailing header offset
-	const EmbeddedSignatureBlob *mSigningData;	// pointer to signature SuperBlob (in mapped memory)
+	const EmbeddedSignatureBlob *mSigningData;	// pointer to signature SuperBlob (malloc'd memory during setup)
 };
 
 

@@ -84,6 +84,8 @@ typedef enum {
     kPeerInfo = 4,
     kCircleBlob = 5,
 
+    kTLKRequest = 6,
+    
     kError = 0,
 
     kUnknown = 255,

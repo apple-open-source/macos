@@ -34,6 +34,7 @@
 #import "WKViewInternal.h"
 #import "WKWebViewInternal.h"
 #import "WebPageProxy.h"
+#import <pal/spi/cg/CoreGraphicsSPI.h>
 
 // FIXME: Make it possible to leave a snapshot of the content presented in the WKView while the thumbnail is live.
 // FIXME: Don't make new speculative tiles while thumbnailed.
@@ -58,10 +59,7 @@
     RetainPtr<NSColor> _overrideBackgroundColor;
 }
 
-@synthesize snapshotSize=_snapshotSize;
 @synthesize _waitingForSnapshot=_waitingForSnapshot;
-@synthesize exclusivelyUsesSnapshot=_exclusivelyUsesSnapshot;
-@synthesize shouldKeepSnapshotWhenRemovedFromSuperview=_shouldKeepSnapshotWhenRemovedFromSuperview;
 
 - (instancetype)initWithFrame:(NSRect)frame
 {
@@ -263,16 +261,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _maximumSnapshotSize = maximumSnapshotSize;
 
     [self _requestSnapshotIfNeeded];
-}
-
-// This should be removed when all clients go away; it is always YES now.
-- (void)setUsesSnapshot:(BOOL)usesSnapshot
-{
-}
-
-- (BOOL)usesSnapshot
-{
-    return YES;
 }
 
 - (void)_setThumbnailLayer:(CALayer *)layer

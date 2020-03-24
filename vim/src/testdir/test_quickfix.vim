@@ -1,8 +1,9 @@
 " Test for the quickfix feature.
 
-if !has('quickfix')
-  finish
-endif
+source check.vim
+CheckFeature quickfix
+
+source screendump.vim
 
 set encoding=utf-8
 
@@ -296,6 +297,18 @@ func Test_copenHeight()
   quit
 endfunc
 
+func Test_copenHeight_tabline()
+  set tabline=foo showtabline=2
+  copen
+  wincmd H
+  let height = winheight(0)
+  copen 10
+  call assert_equal(height, winheight(0))
+  quit
+  set tabline& showtabline&
+endfunc
+
+
 " Tests for the :cfile, :lfile, :caddfile, :laddfile, :cgetfile and :lgetfile
 " commands.
 func XfileTests(cchar)
@@ -518,7 +531,7 @@ func Test_nomem()
   call test_alloc_fail(GetAllocId('qf_dirname_start'), 0, 0)
   call assert_fails('vimgrep vim runtest.vim', 'E342:')
 
-  call test_alloc_fail(GetAllocId('qf_dirname_now'), 0, 0)
+  call GetAllocId('qf_dirname_now')->test_alloc_fail(0, 0)
   call assert_fails('vimgrep vim runtest.vim', 'E342:')
 
   call test_alloc_fail(GetAllocId('qf_namebuf'), 0, 0)
@@ -712,7 +725,7 @@ func Test_locationlist()
       " NOTE: problem 1:
       " intentionally not setting 'lnum' so that the quickfix entries are not
       " valid
-      call setloclist(0, qflist, ' ')
+      eval qflist->setloclist(0, ' ')
     endfor
 
     " Test A
@@ -818,68 +831,68 @@ func Test_efm1()
 	return
     endif
 
-    let l = [
-      \ '"Xtestfile", line 4.12: 1506-045 (S) Undeclared identifier fd_set.',
-      \ '﻿"Xtestfile", line 6 col 19; this is an error',
-      \ 'gcc -c -DHAVE_CONFIsing-prototypes -I/usr/X11R6/include  version.c',
-      \ 'Xtestfile:9: parse error before `asd''',
-      \ 'make: *** [vim] Error 1',
-      \ 'in file "Xtestfile" linenr 10: there is an error',
-      \ '',
-      \ '2 returned',
-      \ '"Xtestfile", line 11 col 1; this is an error',
-      \ '"Xtestfile", line 12 col 2; this is another error',
-      \ '"Xtestfile", line 14:10; this is an error in column 10',
-      \ '=Xtestfile=, line 15:10; this is another error, but in vcol 10 this time',
-      \ '"Xtestfile", linenr 16: yet another problem',
-      \ 'Error in "Xtestfile" at line 17:',
-      \ 'x should be a dot',
-      \ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 17',
-      \ '            ^',
-      \ 'Error in "Xtestfile" at line 18:',
-      \ 'x should be a dot',
-      \ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 18',
-      \ '.............^',
-      \ 'Error in "Xtestfile" at line 19:',
-      \ 'x should be a dot',
-      \ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 19',
-      \ '--------------^',
-      \ 'Error in "Xtestfile" at line 20:',
-      \ 'x should be a dot',
-      \ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 20',
-      \ '	       ^',
-      \ '',
-      \ 'Does anyone know what is the problem and how to correction it?',
-      \ '"Xtestfile", line 21 col 9: What is the title of the quickfix window?',
-      \ '"Xtestfile", line 22 col 9: What is the title of the quickfix window?'
-      \ ]
+    let l =<< trim [DATA]
+      "Xtestfile", line 4.12: 1506-045 (S) Undeclared identifier fd_set.
+      ﻿"Xtestfile", line 6 col 19; this is an error
+      gcc -c -DHAVE_CONFIsing-prototypes -I/usr/X11R6/include  version.c
+      Xtestfile:9: parse error before `asd'
+      make: *** [vim] Error 1
+      in file "Xtestfile" linenr 10: there is an error
+  
+      2 returned
+      "Xtestfile", line 11 col 1; this is an error
+      "Xtestfile", line 12 col 2; this is another error
+      "Xtestfile", line 14:10; this is an error in column 10
+      =Xtestfile=, line 15:10; this is another error, but in vcol 10 this time
+      "Xtestfile", linenr 16: yet another problem
+      Error in "Xtestfile" at line 17:
+      x should be a dot
+      	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 17
+                  ^
+      Error in "Xtestfile" at line 18:
+      x should be a dot
+      	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 18
+      .............^
+      Error in "Xtestfile" at line 19:
+      x should be a dot
+      	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 19
+      --------------^
+      Error in "Xtestfile" at line 20:
+      x should be a dot
+      	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 20
+      	       ^
+  
+      Does anyone know what is the problem and how to correction it?
+      "Xtestfile", line 21 col 9: What is the title of the quickfix window?
+      "Xtestfile", line 22 col 9: What is the title of the quickfix window?
+    [DATA]
 
     call writefile(l, 'Xerrorfile1')
     call writefile(l[:-2], 'Xerrorfile2')
 
-    let m = [
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  2',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  3',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  4',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  5',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  6',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  7',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  8',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  9',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 10',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 11',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 12',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 13',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 14',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 15',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 16',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 17',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 18',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 19',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 20',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 21',
-	\ '	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 22'
-	\ ]
+    let m =<< [DATA]
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  2
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  3
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  4
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  5
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  6
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  7
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  8
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  9
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 10
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 11
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 12
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 13
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 14
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 15
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 16
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 17
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 18
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 19
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 20
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 21
+	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 22
+[DATA]
     call writefile(m, 'Xtestfile')
 
     let save_efm = &efm
@@ -1092,21 +1105,23 @@ func Test_efm2()
   call assert_equal([' 1 Xtestfile:^\VLine search text\$:  '], l)
 
   " Test for %P, %Q and %t format specifiers
-  let lines=["[Xtestfile1]",
-	      \ "(1,17)  error: ';' missing",
-	      \ "(21,2)  warning: variable 'z' not defined",
-	      \ "(67,3)  error: end of file found before string ended",
-	      \ "--",
-	      \ "",
-	      \ "[Xtestfile2]",
-	      \ "--",
-	      \ "",
-	      \ "[Xtestfile3]",
-	      \ "NEW compiler v1.1",
-	      \ "(2,2)   warning: variable 'x' not defined",
-	      \ "(67,3)  warning: 's' already defined",
-	      \ "--"
-	      \]
+  let lines =<< trim [DATA]
+    [Xtestfile1]
+    (1,17)  error: ';' missing
+    (21,2)  warning: variable 'z' not defined
+    (67,3)  error: end of file found before string ended
+    --
+
+    [Xtestfile2]
+    --
+
+    [Xtestfile3]
+    NEW compiler v1.1
+    (2,2)   warning: variable 'x' not defined
+    (67,3)  warning: 's' already defined
+    --
+  [DATA]
+
   set efm=%+P[%f]%r,(%l\\,%c)%*[\ ]%t%*[^:]:\ %m,%+Q--%r
   " To exercise the push/pop file functionality in quickfix, the test files
   " need to be created.
@@ -1128,11 +1143,13 @@ func Test_efm2()
   call delete('Xtestfile3')
 
   " Tests for %E, %C and %Z format specifiers
-  let lines = ["Error 275",
-	      \ "line 42",
-	      \ "column 3",
-	      \ "' ' expected after '--'"
-	      \]
+  let lines =<< trim [DATA]
+    Error 275
+    line 42
+    column 3
+    ' ' expected after '--'
+  [DATA]
+
   set efm=%EError\ %n,%Cline\ %l,%Ccolumn\ %c,%Z%m
   cgetexpr lines
   let l = getqflist()
@@ -1143,9 +1160,11 @@ func Test_efm2()
   call assert_equal("\n' ' expected after '--'", l[0].text)
 
   " Test for %>
-  let lines = ["Error in line 147 of foo.c:",
-	      \"unknown variable 'i'"
-	      \]
+  let lines =<< trim [DATA]
+    Error in line 147 of foo.c:
+    unknown variable 'i'
+  [DATA]
+
   set efm=unknown\ variable\ %m,%E%>Error\ in\ line\ %l\ of\ %f:,%Z%m
   cgetexpr lines
   let l = getqflist()
@@ -1154,21 +1173,22 @@ func Test_efm2()
   call assert_equal("\nunknown variable 'i'", l[0].text)
 
   " Test for %A, %C and other formats
-  let lines = [
-	  \"==============================================================",
-	  \"FAIL: testGetTypeIdCachesResult (dbfacadeTest.DjsDBFacadeTest)",
-	  \"--------------------------------------------------------------",
-	  \"Traceback (most recent call last):",
-	  \'  File "unittests/dbfacadeTest.py", line 89, in testFoo',
-	  \"    self.assertEquals(34, dtid)",
-	  \'  File "/usr/lib/python2.2/unittest.py", line 286, in',
-	  \" failUnlessEqual",
-	  \"    raise self.failureException, \\",
-	  \"AssertionError: 34 != 33",
-	  \"",
-	  \"--------------------------------------------------------------",
-	  \"Ran 27 tests in 0.063s"
-	  \]
+  let lines =<< trim [DATA]
+    ==============================================================
+    FAIL: testGetTypeIdCachesResult (dbfacadeTest.DjsDBFacadeTest)
+    --------------------------------------------------------------
+    Traceback (most recent call last):
+      File "unittests/dbfacadeTest.py", line 89, in testFoo
+        self.assertEquals(34, dtid)
+      File "/usr/lib/python2.2/unittest.py", line 286, in
+     failUnlessEqual
+        raise self.failureException, \\
+    AssertionError: 34 != 33
+  
+    --------------------------------------------------------------
+    Ran 27 tests in 0.063s
+  [DATA]
+
   set efm=%C\ %.%#,%A\ \ File\ \"%f\"\\,\ line\ %l%.%#,%Z%[%^\ ]%\\@=%m
   cgetexpr lines
   let l = getqflist()
@@ -1509,7 +1529,7 @@ endfunc
 
 func Test_setqflist_invalid_nr()
   " The following command used to crash Vim
-  call setqflist([], ' ', {'nr' : $XXX_DOES_NOT_EXIST})
+  eval []->setqflist(' ', {'nr' : $XXX_DOES_NOT_EXIST})
 endfunc
 
 func Test_quickfix_set_list_with_act()
@@ -1661,7 +1681,7 @@ func Test_switchbuf()
   call assert_equal(1, bufwinnr('Xqftestfile3'))
 
   " If only quickfix window is open in the current tabpage, jumping to an
-  " entry with 'switchubf' set to 'usetab' should search in other tabpages.
+  " entry with 'switchbuf' set to 'usetab' should search in other tabpages.
   enew | only
   set switchbuf=usetab
   tabedit Xqftestfile1
@@ -2422,6 +2442,30 @@ func Test_cwindow_jump()
   set efm&vim
 endfunc
 
+func Test_cwindow_highlight()
+  CheckScreendump
+
+  let lines =<< trim END
+	set t_u7=
+	call setline(1, ['some', 'text', 'with', 'matches'])
+	write XCwindow
+	vimgrep e XCwindow
+	redraw
+	cwindow 4
+  END
+  call writefile(lines, 'XtestCwindow')
+  let buf = RunVimInTerminal('-S XtestCwindow', #{rows: 12})
+  call VerifyScreenDump(buf, 'Test_quickfix_cwindow_1', {})
+
+  call term_sendkeys(buf, ":cnext\<CR>")
+  call VerifyScreenDump(buf, 'Test_quickfix_cwindow_2', {})
+
+  " clean up
+  call StopVimInTerminal(buf)
+  call delete('XtestCwindow')
+  call delete('XCwindow')
+endfunc
+
 func XvimgrepTests(cchar)
   call s:setup_commands(a:cchar)
 
@@ -2657,7 +2701,7 @@ func Test_file_from_copen()
   cclose
 
   augroup! QF_Test
-endfunction
+endfunc
 
 func Test_resize_from_copen()
     augroup QF_Test
@@ -4260,3 +4304,93 @@ func Test_quickfix_count()
     call assert_fails('$' .. cmd, 'E16:')
   endfor
 endfunc
+
+" Test for aborting quickfix commands using QuickFixCmdPre
+func Xtest_qfcmd_abort(cchar)
+  call s:setup_commands(a:cchar)
+
+  call g:Xsetlist([], 'f')
+
+  " cexpr/lexpr
+  let e = ''
+  try
+    Xexpr ["F1:10:Line10", "F2:20:Line20"]
+  catch /.*/
+    let e = v:exception
+  endtry
+  call assert_equal('AbortCmd', e)
+  call assert_equal(0, g:Xgetlist({'nr' : '$'}).nr)
+
+  " cfile/lfile
+  call writefile(["F1:10:Line10", "F2:20:Line20"], 'Xfile1')
+  let e = ''
+  try
+    Xfile Xfile1
+  catch /.*/
+    let e = v:exception
+  endtry
+  call assert_equal('AbortCmd', e)
+  call assert_equal(0, g:Xgetlist({'nr' : '$'}).nr)
+  call delete('Xfile1')
+
+  " cgetbuffer/lgetbuffer
+  enew!
+  call append(0, ["F1:10:Line10", "F2:20:Line20"])
+  let e = ''
+  try
+    Xgetbuffer
+  catch /.*/
+    let e = v:exception
+  endtry
+  call assert_equal('AbortCmd', e)
+  call assert_equal(0, g:Xgetlist({'nr' : '$'}).nr)
+  enew!
+
+  " vimgrep/lvimgrep
+  let e = ''
+  try
+    Xvimgrep /func/ test_quickfix.vim
+  catch /.*/
+    let e = v:exception
+  endtry
+  call assert_equal('AbortCmd', e)
+  call assert_equal(0, g:Xgetlist({'nr' : '$'}).nr)
+
+  " helpgrep/lhelpgrep
+  let e = ''
+  try
+    Xhelpgrep quickfix
+  catch /.*/
+    let e = v:exception
+  endtry
+  call assert_equal('AbortCmd', e)
+  call assert_equal(0, g:Xgetlist({'nr' : '$'}).nr)
+
+  " grep/lgrep
+  if has('unix')
+    let e = ''
+    try
+      silent Xgrep func test_quickfix.vim
+    catch /.*/
+      let e = v:exception
+    endtry
+    call assert_equal('AbortCmd', e)
+    call assert_equal(0, g:Xgetlist({'nr' : '$'}).nr)
+  endif
+endfunc
+
+func Test_qfcmd_abort()
+  augroup QF_Test
+    au!
+    autocmd  QuickFixCmdPre * throw "AbortCmd"
+  augroup END
+
+  call Xtest_qfcmd_abort('c')
+  call Xtest_qfcmd_abort('l')
+
+  augroup QF_Test
+    au!
+  augroup END
+endfunc
+
+" vim: shiftwidth=2 sts=2 expandtab

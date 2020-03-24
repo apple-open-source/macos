@@ -55,7 +55,7 @@ void WebProcessProxy::unblockAccessibilityServerIfNeeded()
         return;
 
     SandboxExtension::Handle handle;
-    if (!SandboxExtension::createHandleForMachLookupByPid("com.apple.iphone.axserver-systemwide", processIdentifier(), handle))
+    if (!SandboxExtension::createHandleForMachLookup("com.apple.iphone.axserver-systemwide", connection() ? connection()->getAuditToken() : WTF::nullopt, handle))
         return;
 
     send(Messages::WebProcess::UnblockAccessibilityServer(handle), 0);

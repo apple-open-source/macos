@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2019 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -49,6 +49,7 @@
     macro(Promise) \
     macro(Reflect) \
     macro(RegExp) \
+    macro(RemotePlayback) \
     macro(Set) \
     macro(SharedArrayBuffer) \
     macro(String) \
@@ -282,7 +283,7 @@ namespace JSC {
     class CommonIdentifiers {
         WTF_MAKE_NONCOPYABLE(CommonIdentifiers); WTF_MAKE_FAST_ALLOCATED;
     private:
-        CommonIdentifiers(VM*);
+        CommonIdentifiers(VM&);
         ~CommonIdentifiers();
         friend class VM;
         

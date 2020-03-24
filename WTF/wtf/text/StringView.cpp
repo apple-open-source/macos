@@ -179,7 +179,7 @@ private:
 };
 
 StringView::GraphemeClusters::Iterator::Iterator(const StringView& stringView, unsigned index)
-    : m_impl(std::make_unique<Impl>(stringView, stringView.isNull() ? WTF::nullopt : Optional<NonSharedCharacterBreakIterator>(NonSharedCharacterBreakIterator(stringView)), index))
+    : m_impl(makeUnique<Impl>(stringView, stringView.isNull() ? WTF::nullopt : Optional<NonSharedCharacterBreakIterator>(NonSharedCharacterBreakIterator(stringView)), index))
 {
 }
 
@@ -284,6 +284,7 @@ String normalizedNFC(const String& string)
 // Manage reference count manually so UnderlyingString does not need to be defined in the header.
 
 struct StringView::UnderlyingString {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
     std::atomic_uint refCount { 1u };
     bool isValid { true };
     const StringImpl& string;

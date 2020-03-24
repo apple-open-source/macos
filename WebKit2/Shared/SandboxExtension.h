@@ -27,6 +27,7 @@
 
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/OptionSet.h>
 #include <wtf/ProcessID.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -49,9 +50,14 @@ public:
         ReadWrite,
         Mach,
         Generic,
-        ReadByPid
+        ReadByProcess
     };
 
+    enum class Flags : uint8_t {
+        Default,
+        NoReport
+    };
+    
     class Handle {
         WTF_MAKE_NONCOPYABLE(Handle);
     public:
@@ -104,8 +110,10 @@ public:
     static bool createHandleForReadWriteDirectory(const String& path, Handle&); // Will attempt to create the directory.
     static String createHandleForTemporaryFile(const String& prefix, Type, Handle&);
     static bool createHandleForGenericExtension(const String& extensionClass, Handle&);
-    static bool createHandleForMachLookupByPid(const String& service, ProcessID, Handle&);
-    static bool createHandleForReadByPid(const String& path, ProcessID, Handle&);
+#if HAVE(AUDIT_TOKEN)
+    static bool createHandleForMachLookup(const String& service, Optional<audit_token_t>, Handle&, OptionSet<Flags> = Flags::Default);
+    static bool createHandleForReadByAuditToken(const String& path, audit_token_t, Handle&);
+#endif
     ~SandboxExtension();
 
     bool consume();

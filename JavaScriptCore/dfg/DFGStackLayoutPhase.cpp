@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@
 namespace JSC { namespace DFG {
 
 class StackLayoutPhase : public Phase {
-    static const bool verbose = false;
+    static constexpr bool verbose = false;
     
 public:
     StackLayoutPhase(Graph& graph)
@@ -109,7 +109,7 @@ public:
             
             if (inlineCallFrame->isVarargs()) {
                 usedLocals.set(VirtualRegister(
-                    CallFrameSlot::argumentCount + inlineCallFrame->stackOffset).toLocal());
+                    CallFrameSlot::argumentCountIncludingThis + inlineCallFrame->stackOffset).toLocal());
             }
             
             for (unsigned argument = inlineCallFrame->argumentsWithFixup.size(); argument--;) {
@@ -175,7 +175,7 @@ public:
             
             if (inlineCallFrame->isVarargs()) {
                 inlineCallFrame->argumentCountRegister = assign(
-                    allocation, VirtualRegister(inlineCallFrame->stackOffset + CallFrameSlot::argumentCount));
+                    allocation, VirtualRegister(inlineCallFrame->stackOffset + CallFrameSlot::argumentCountIncludingThis));
             }
             
             for (unsigned argument = inlineCallFrame->argumentsWithFixup.size(); argument--;) {

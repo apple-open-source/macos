@@ -44,6 +44,11 @@
 @property FakeCKZone*          limitedZone;
 @property (readonly) ZoneKeys* limitedZoneKeys;
 
+@property CKRecordZoneID*      passwordsZoneID;
+@property CKKSKeychainView*    passwordsView;
+@property FakeCKZone*          passwordsZone;
+@property (readonly) ZoneKeys* passwordsZoneKeys;
+
 - (void)saveFakeKeyHierarchiesToLocalDatabase;
 - (void)putFakeDeviceStatusesInCloudKit;
 - (void)putFakeKeyHierachiesInCloudKit;

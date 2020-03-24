@@ -29,16 +29,18 @@
 
 #include "GPURenderPipelineDescriptor.h"
 #include "WebGPUPipelineDescriptorBase.h"
-#include "WebGPUPipelineStageDescriptor.h"
+#include "WebGPUProgrammableStageDescriptor.h"
 #include <wtf/Optional.h>
 
 namespace WebCore {
 
-struct WebGPURenderPipelineDescriptor : WebGPUPipelineDescriptorBase, GPURenderPipelineDescriptorBase {
-    Optional<GPURenderPipelineDescriptor> tryCreateGPURenderPipelineDescriptor() const;
+class GPUErrorScopes;
 
-    WebGPUPipelineStageDescriptor vertexStage;
-    Optional<WebGPUPipelineStageDescriptor> fragmentStage;
+struct WebGPURenderPipelineDescriptor : WebGPUPipelineDescriptorBase, GPURenderPipelineDescriptorBase {
+    Optional<GPURenderPipelineDescriptor> tryCreateGPURenderPipelineDescriptor(GPUErrorScopes&) const;
+
+    WebGPUProgrammableStageDescriptor vertexStage;
+    Optional<WebGPUProgrammableStageDescriptor> fragmentStage;
 };
 
 } // namespace WebCore

@@ -135,9 +135,11 @@ typedef struct
 typedef struct
 {
     pthread_mutex_t                 sFatMutex;
+    pthread_mutex_t                 sAlterFatMutex;
     uint64_t                        uLRUCounter;
     uint8_t                         uAmountOfAllocatedCacheEntries;
     FatCacheEntry_s                 psFATCacheEntries[FAT_CACHE_SIZE];
+    FatCacheEntry_s                 psAlterFATCacheEntries[FAT_CACHE_SIZE];
     bool                            bDriveDirtyBit;
 
 } VolumeFatCache_s;
@@ -251,6 +253,7 @@ typedef struct
                                                              * When metadata is changed/flushed, need to acquire this lock.
                                                              * <rdar://problem/45664056> - in order to prevent deadlock,
                                                              * need to acquire the DirtyBit Lock before locking the NodeRecord */
+    volatile atomic_uint_least64_t  uPreAllocatedOpenFiles;
 
     void*                           pvFSInfoCluster;        //FsInfoSector to allocate in case of FAT32
 
@@ -297,10 +300,18 @@ typedef struct
 
 } ClusterData_s;
 
+#define NUM_OF_COND (10)
+typedef struct
+{
+    pthread_cond_t sCond;
+    uint64_t uSectorNum;
+} RecordDataCond_t;
+
 typedef struct FileRecord_s
 {
     MultiReadSingleWriteHandler_s   sRecordLck;
-    MultiReadSingleWriteHandler_s   sUnAlignedWriteLck;
+    pthread_mutex_t                 sUnAlignedWriteLck;
+    RecordDataCond_t                sCondTable[NUM_OF_COND];
 
     RecordIdentifier_e              eRecordID;
     FileSystemRecord_s*             psFSRecord;
@@ -341,6 +352,11 @@ typedef struct
 
 typedef struct
 {
+    bool bIsPreAllocated;
+} FileData_s;
+
+typedef struct
+{
     uint32_t                uValidNodeMagic1;
 
     RecordData_s            sRecordData;
@@ -348,7 +364,7 @@ typedef struct
     {
         DirData_s       sDirData;
         SymLinkData_s   sSymLinkData;
-
+        FileData_s      sFileData;
     } sExtraData;
 
     uint32_t                uValidNodeMagic2;

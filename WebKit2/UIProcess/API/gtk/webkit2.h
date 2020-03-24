@@ -52,6 +52,7 @@
 #include <webkit2/WebKitGeolocationManager.h>
 #include <webkit2/WebKitGeolocationPermissionRequest.h>
 #include <webkit2/WebKitHitTestResult.h>
+#include <webkit2/WebKitInputMethodContext.h>
 #include <webkit2/WebKitInstallMissingMediaPluginsPermissionRequest.h>
 #include <webkit2/WebKitJavascriptResult.h>
 #include <webkit2/WebKitMimeInfo.h>
@@ -64,6 +65,7 @@
 #include <webkit2/WebKitOptionMenuItem.h>
 #include <webkit2/WebKitPermissionRequest.h>
 #include <webkit2/WebKitPlugin.h>
+#include <webkit2/WebKitPointerLockPermissionRequest.h>
 #include <webkit2/WebKitPrintCustomWidget.h>
 #include <webkit2/WebKitPrintOperation.h>
 #include <webkit2/WebKitResponsePolicyDecision.h>
@@ -79,6 +81,7 @@
 #include <webkit2/WebKitUserContentFilterStore.h>
 #include <webkit2/WebKitUserContentManager.h>
 #include <webkit2/WebKitUserMediaPermissionRequest.h>
+#include <webkit2/WebKitUserMessage.h>
 #include <webkit2/WebKitVersion.h>
 #include <webkit2/WebKitWebContext.h>
 #include <webkit2/WebKitWebInspector.h>

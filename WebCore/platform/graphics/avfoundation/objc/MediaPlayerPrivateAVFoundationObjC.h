@@ -39,6 +39,8 @@ OBJC_CLASS AVMediaSelectionGroup;
 OBJC_CLASS AVOutputContext;
 OBJC_CLASS AVPlayerItem;
 OBJC_CLASS AVPlayerItemLegibleOutput;
+OBJC_CLASS AVPlayerItemMetadataCollector;
+OBJC_CLASS AVPlayerItemMetadataOutput;
 OBJC_CLASS AVPlayerItemVideoOutput;
 OBJC_CLASS AVPlayerLayer;
 OBJC_CLASS AVURLAsset;
@@ -116,13 +118,14 @@ public:
     void durationDidChange(const MediaTime&);
     void rateDidChange(double);
     void timeControlStatusDidChange(int);
+    void metadataGroupDidArrive(const RetainPtr<NSArray>&, const MediaTime&);
     void metadataDidArrive(const RetainPtr<NSArray>&, const MediaTime&);
     void firstFrameAvailableDidChange(bool);
     void trackEnabledDidChange(bool);
     void canPlayFastReverseDidChange(bool);
     void canPlayFastForwardDidChange(bool);
 
-    void setBufferingPolicy(MediaPlayerEnums::BufferingPolicy) override;
+    void setBufferingPolicy(MediaPlayer::BufferingPolicy) override;
 
 #if HAVE(AVFOUNDATION_VIDEO_OUTPUT)
     void outputMediaDataWillChange(AVPlayerItemVideoOutput*);
@@ -155,8 +158,11 @@ public:
     bool waitingForKey() const final { return m_waitingForKey; }
 #endif
 
+    MediaTime currentMediaTime() const override;
+
 private:
     // engine support
+    friend class MediaPlayerFactoryAVFoundationObjC;
     static void getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types);
     static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
@@ -169,11 +175,8 @@ private:
     void platformPlay() override;
     void platformPause() override;
     bool platformPaused() const override;
-    MediaTime currentMediaTime() const override;
     void setVolume(float) override;
-    bool supportsMuting() const override { return true; }
     void setMuted(bool) override;
-    void setClosedCaptionsVisible(bool) override;
     void paint(GraphicsContext&, const FloatRect&) override;
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&) override;
     PlatformLayer* platformLayer() const override;
@@ -193,7 +196,6 @@ private:
 
     bool supportsAcceleratedRendering() const override { return true; }
     MediaTime mediaTimeForTimeValue(const MediaTime&) const override;
-    double maximumDurationToCacheMediaTime() const override;
 
     void createAVPlayer() override;
     void createAVPlayerItem() override;
@@ -306,6 +308,8 @@ private:
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
+    bool hasVideo() const final;
+    bool hasAudio() const final;
     bool isCurrentPlaybackTargetWireless() const override;
     String wirelessPlaybackTargetName() const override;
     MediaPlayer::WirelessPlaybackTargetType wirelessPlaybackTargetType() const override;
@@ -411,6 +415,9 @@ private:
     RefPtr<CDMInstanceFairPlayStreamingAVFObjC> m_cdmInstance;
 #endif
 #endif
+
+    RetainPtr<AVPlayerItemMetadataCollector> m_metadataCollector;
+    RetainPtr<AVPlayerItemMetadataOutput> m_metadataOutput;
 
     mutable RetainPtr<NSArray> m_cachedSeekableRanges;
     mutable RetainPtr<NSArray> m_cachedLoadedRanges;

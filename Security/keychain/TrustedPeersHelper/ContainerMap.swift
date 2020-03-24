@@ -191,7 +191,7 @@ public class MyCodeConnection: CloudKitCode.Invocable {
             operation.requestCompletedBlock = requestCompletion
 
             let loggingCompletion = { (response: ResponseType?, error: Error?) -> Void in
-                os_log("%@(%@): %@, error: %@",
+                os_log("%{public}@(%{public}@): %{public}@, error: %{public}@",
                        log: tplogDebug,
                        function,
                        "\(String(describing: request))",
@@ -283,5 +283,12 @@ class ContainerMap {
     static func urlForPersistentStore(name: ContainerName) -> URL {
         let filename = name.container + "-" + name.context + ".TrustedPeersHelper.db"
         return SecCopyURLForFileInKeychainDirectory(filename as CFString) as URL
+    }
+
+    // To be called via test only
+    func removeAllContainers() {
+        queue.sync {
+            self.containers.removeAll()
+        }
     }
 }

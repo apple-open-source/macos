@@ -189,11 +189,6 @@ bool SOSAccountScanForRetired(SOSAccount*  account, SOSCircleRef circle, CFError
 CF_RETURNS_RETAINED SOSCircleRef SOSAccountCloneCircleWithRetirement(SOSAccount*  account, SOSCircleRef starting_circle, CFErrorRef *error);
 
 //
-// MARK: Version incompatibility Functions
-//
-CFStringRef SOSAccountCopyIncompatibilityInfo(SOSAccount*  account, CFErrorRef* error);
-
-//
 // MARK: Backup functions
 //
 
@@ -208,9 +203,6 @@ bool SOSAccountBackupUpdateBackupPublicKey(SOSAccount *account, CFDataRef backup
 bool SOSAccountSetBSKBagForAllSlices(SOSAccount*  account, CFDataRef backupSlice, bool setupV0Only, CFErrorRef *error);
 
 CF_RETURNS_RETAINED SOSBackupSliceKeyBagRef SOSAccountBackupSliceKeyBagForView(SOSAccount*  account, CFStringRef viewName, CFErrorRef* error);
-
-bool SOSAccountIsLastBackupPeer(SOSAccount*  account, CFErrorRef *error);
-
 
 //
 // MARK: Recovery Public Key Functions

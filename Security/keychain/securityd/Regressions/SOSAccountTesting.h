@@ -116,6 +116,41 @@ static inline SOSViewResultCode SOSAccountUpdateView_wTxn(SOSAccount* acct, CFSt
     return result;
 }
 
+static inline bool SOSAccountIsMyPeerInBackupAndCurrentInView_wTxn(SOSAccount *account, CFStringRef viewname) {
+    __block bool result = false;
+    [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        result = SOSAccountIsMyPeerInBackupAndCurrentInView(account, viewname);
+    }];
+    return result;
+}
+
+static inline bool SOSAccountIsPeerInBackupAndCurrentInView_wTxn(SOSAccount *account, SOSPeerInfoRef peerInfo, CFStringRef viewname) {
+    __block bool result = false;
+    [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        result = SOSAccountIsPeerInBackupAndCurrentInView(account, peerInfo, viewname);
+    }];
+    return result;
+}
+
+static inline bool SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(SOSAccount *account, CFStringRef viewname) {
+    __block bool result = false;
+    [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        result = SOSAccountRecoveryKeyIsInBackupAndCurrentInView(account, viewname);
+    }];
+    return result;
+}
+
+static inline SOSBackupSliceKeyBagRef SOSAccountBackupSliceKeyBagForView_wTxn(SOSAccount *account, CFStringRef viewname, CFErrorRef *error) {
+    __block SOSBackupSliceKeyBagRef result = NULL;
+    [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        result = SOSAccountBackupSliceKeyBagForView(account, viewname, error);
+    }];
+    return result;
+}
+
+
+
+
 //
 // Account comparison
 //
@@ -141,7 +176,9 @@ static void SOSAccountResetToTest(SOSAccount* a, CFStringRef accountName) {
     a.key_transport = nil;
     a.kvs_message_transport = nil;
 
-    SOSAccountEnsureFactoryCirclesTest(a, accountName);
+    [a performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        SOSAccountEnsureFactoryCirclesTest(a, accountName);
+    }];
 }
 
 
@@ -810,7 +847,10 @@ static inline bool testAccountPersistence(SOSAccount* account) {
     SOSAccount* reinflatedAccount = NULL;
     NSError* error = nil;
 
-    require(retval, errOut);
+    if(!retval) {
+        error = nil;
+        return retval;
+    }
 
     // Re-inflate to "inflated"
     reinflatedAccount = [SOSAccount accountFromData:accountDER
@@ -822,16 +862,20 @@ static inline bool testAccountPersistence(SOSAccount* account) {
     ok(CFEqualSafe((__bridge CFTypeRef)reinflatedAccount, (__bridge CFTypeRef)account), "Compares");
 
     // Repeat through SOSAccountCopyEncodedData() interface - this is the normally called combined interface
-    accountDER = [account encodedData:&error];
+    [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        NSError* error = nil;
+        accountDER = [account encodedData:&error];
+    }];
+
     error = nil;
-    reinflatedAccount = [SOSAccount accountFromData:accountDER factory:test_factory error:&error];
-    ok(reinflatedAccount, "inflated2: %@", error);
-    ok(CFEqual((__bridge CFTypeRef)account, (__bridge CFTypeRef)reinflatedAccount), "Compares");
+    SOSAccount* reinflatedAccount2 = NULL;
+
+    reinflatedAccount2 = [SOSAccount accountFromData:accountDER factory:test_factory error:&error];
+    ok(reinflatedAccount2, "inflated2: %@", error);
+    ok(CFEqual((__bridge CFTypeRef)account, (__bridge CFTypeRef)reinflatedAccount2), "Compares");
 
     retval = true;
-errOut:
     error = nil;
-
     return retval;
 }
 

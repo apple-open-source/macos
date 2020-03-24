@@ -79,9 +79,11 @@ noinst_HEADERS = \
 
 EXTRA_libffi_la_SOURCES = \
 	src/aarch64/ffi.c src/aarch64/sysv.S				\
+	src/aarch64/win64_armasm.S						\
 	src/alpha/ffi.c src/alpha/osf.S					\
 	src/arc/ffi.c src/arc/arcompact.S				\
 	src/arm/ffi.c src/arm/sysv.S					\
+	src/arm/ffi.c src/arm/sysv_msvc_arm32.S			\
 	src/avr32/ffi.c src/avr32/sysv.S				\
 	src/bfin/ffi.c src/bfin/sysv.S					\
 	src/cris/ffi.c src/cris/sysv.S					\

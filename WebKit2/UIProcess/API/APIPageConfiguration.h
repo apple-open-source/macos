@@ -27,9 +27,9 @@
 
 #include "APIObject.h"
 #include "WebPreferencesStore.h"
-#include <pal/SessionID.h>
 #include <wtf/Forward.h>
 #include <wtf/GetPtr.h>
+#include <wtf/HashSet.h>
 
 #if PLATFORM(IOS_FAMILY)
 OBJC_PROTOCOL(_UIClickInteractionDriving);
@@ -44,12 +44,12 @@ class WebPreferences;
 class WebProcessPool;
 class WebURLSchemeHandler;
 class WebUserContentControllerProxy;
+class WebsiteDataStore;
 }
 
 namespace API {
 
 class ApplicationManifest;
-class WebsiteDataStore;
 class WebsitePolicies;
 
 class PageConfiguration : public ObjectImpl<Object::Type::PageConfiguration> {
@@ -84,21 +84,19 @@ public:
     WebKit::VisitedLinkStore* visitedLinkStore();
     void setVisitedLinkStore(WebKit::VisitedLinkStore*);
 
-    WebsiteDataStore* websiteDataStore();
-    void setWebsiteDataStore(WebsiteDataStore*);
+    WebKit::WebsiteDataStore* websiteDataStore();
+    void setWebsiteDataStore(WebKit::WebsiteDataStore*);
 
     WebsitePolicies* defaultWebsitePolicies() const;
     void setDefaultWebsitePolicies(WebsitePolicies*);
-
-    // FIXME: Once PageConfigurations *always* have a data store, get rid of the separate sessionID.
-    PAL::SessionID sessionID();
-    void setSessionID(PAL::SessionID);
 
     bool treatsSHA1SignedCertificatesAsInsecure() { return m_treatsSHA1SignedCertificatesAsInsecure; }
     void setTreatsSHA1SignedCertificatesAsInsecure(bool treatsSHA1SignedCertificatesAsInsecure) { m_treatsSHA1SignedCertificatesAsInsecure = treatsSHA1SignedCertificatesAsInsecure; } 
 
 #if PLATFORM(IOS_FAMILY)
-    bool alwaysRunsAtForegroundPriority() { return m_alwaysRunsAtForegroundPriority; }
+    bool clientNavigationsRunAtForegroundPriority() const { return m_clientNavigationsRunAtForegroundPriority; }
+    void setClientNavigationsRunAtForegroundPriority(bool value) { m_clientNavigationsRunAtForegroundPriority = value; }
+    bool alwaysRunsAtForegroundPriority() const { return m_alwaysRunsAtForegroundPriority; }
     void setAlwaysRunsAtForegroundPriority(bool alwaysRunsAtForegroundPriority) { m_alwaysRunsAtForegroundPriority = alwaysRunsAtForegroundPriority; }
     
     bool canShowWhileLocked() const { return m_canShowWhileLocked; }
@@ -139,6 +137,9 @@ public:
     void setURLSchemeHandlerForURLScheme(Ref<WebKit::WebURLSchemeHandler>&&, const WTF::String&);
     const HashMap<WTF::String, Ref<WebKit::WebURLSchemeHandler>>& urlSchemeHandlers() { return m_urlSchemeHandlers; }
 
+    const Vector<WTF::String>& corsDisablingPatterns() const { return m_corsDisablingPatterns; }
+    void setCORSDisablingPatterns(Vector<WTF::String>&& patterns) { m_corsDisablingPatterns = WTFMove(patterns); }
+
 private:
 
     RefPtr<WebKit::WebProcessPool> m_processPool;
@@ -149,14 +150,12 @@ private:
     RefPtr<WebKit::WebPageProxy> m_relatedPage;
     RefPtr<WebKit::VisitedLinkStore> m_visitedLinkStore;
 
-    RefPtr<WebsiteDataStore> m_websiteDataStore;
+    RefPtr<WebKit::WebsiteDataStore> m_websiteDataStore;
     RefPtr<WebsitePolicies> m_defaultWebsitePolicies;
-    // FIXME: We currently have to pass the session ID separately here to support the legacy private browsing session.
-    // Once we get rid of it we should get rid of this configuration parameter as well.
-    PAL::SessionID m_sessionID;
 
     bool m_treatsSHA1SignedCertificatesAsInsecure { true };
 #if PLATFORM(IOS_FAMILY)
+    bool m_clientNavigationsRunAtForegroundPriority { false };
     bool m_alwaysRunsAtForegroundPriority { false };
     bool m_canShowWhileLocked { false };
     RetainPtr<_UIClickInteractionDriving> m_clickInteractionDriverForTesting;
@@ -178,6 +177,7 @@ private:
 #endif
 
     HashMap<WTF::String, Ref<WebKit::WebURLSchemeHandler>> m_urlSchemeHandlers;
+    Vector<WTF::String> m_corsDisablingPatterns;
 };
 
 } // namespace API

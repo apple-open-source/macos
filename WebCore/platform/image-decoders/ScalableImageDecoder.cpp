@@ -153,47 +153,6 @@ RefPtr<ScalableImageDecoder> ScalableImageDecoder::create(SharedBuffer& data, Al
     return nullptr;
 }
 
-namespace {
-
-enum MatchType {
-    Exact,
-    UpperBound,
-    LowerBound
-};
-
-inline void fillScaledValues(Vector<int>& scaledValues, double scaleRate, int length)
-{
-    double inflateRate = 1. / scaleRate;
-    scaledValues.reserveCapacity(static_cast<int>(length * scaleRate + 0.5));
-    for (int scaledIndex = 0; ; ++scaledIndex) {
-        int index = static_cast<int>(scaledIndex * inflateRate + 0.5);
-        if (index >= length)
-            break;
-        scaledValues.append(index);
-    }
-}
-
-template <MatchType type> int getScaledValue(const Vector<int>& scaledValues, int valueToMatch, int searchStart)
-{
-    if (scaledValues.isEmpty())
-        return valueToMatch;
-
-    const int* dataStart = scaledValues.data();
-    const int* dataEnd = dataStart + scaledValues.size();
-    const int* matched = std::lower_bound(dataStart + searchStart, dataEnd, valueToMatch);
-    switch (type) {
-    case Exact:
-        return matched != dataEnd && *matched == valueToMatch ? matched - dataStart : -1;
-    case LowerBound:
-        return matched != dataEnd && *matched == valueToMatch ? matched - dataStart : matched - dataStart - 1;
-    case UpperBound:
-    default:
-        return matched != dataEnd ? matched - dataStart : -1;
-    }
-}
-
-}
-
 bool ScalableImageDecoder::frameIsCompleteAtIndex(size_t index) const
 {
     LockHolder lockHolder(m_mutex);
@@ -231,18 +190,15 @@ Seconds ScalableImageDecoder::frameDurationAtIndex(size_t index) const
     if (index >= m_frameBufferCache.size())
         return 0_s;
 
-    // Returning 0_s in case of an incomplete frame can break display of animated image formats.
-    // We pick up the decoded duration if it's available, otherwise the default 0_s value is
-    // adjusted below.
-    Seconds duration = 0_s;
     auto& frame = m_frameBufferCache[index];
-    if (frame.isComplete())
-        duration = frame.duration();
+    if (!frame.isComplete())
+        return 0_s;
 
     // Many annoying ads specify a 0 duration to make an image flash as quickly as possible.
     // We follow Firefox's behavior and use a duration of 100 ms for any frames that specify
     // a duration of <= 10 ms. See <rdar://problem/7689300> and <http://webkit.org/b/36082>
     // for more information.
+    Seconds duration = frame.duration();
     if (duration < 11_ms)
         return 100_ms;
     return duration;
@@ -262,49 +218,6 @@ NativeImagePtr ScalableImageDecoder::createFrameImageAtIndex(size_t index, Subsa
     // Return the buffer contents as a native image. For some ports, the data
     // is already in a native container, and this just increments its refcount.
     return buffer->backingStore()->image();
-}
-
-void ScalableImageDecoder::prepareScaleDataIfNecessary()
-{
-    m_scaled = false;
-    m_scaledColumns.clear();
-    m_scaledRows.clear();
-
-    int width = size().width();
-    int height = size().height();
-    int numPixels = height * width;
-    if (m_maxNumPixels <= 0 || numPixels <= m_maxNumPixels)
-        return;
-
-    m_scaled = true;
-    double scale = sqrt(m_maxNumPixels / (double)numPixels);
-    fillScaledValues(m_scaledColumns, scale, width);
-    fillScaledValues(m_scaledRows, scale, height);
-}
-
-int ScalableImageDecoder::upperBoundScaledX(int origX, int searchStart)
-{
-    return getScaledValue<UpperBound>(m_scaledColumns, origX, searchStart);
-}
-
-int ScalableImageDecoder::lowerBoundScaledX(int origX, int searchStart)
-{
-    return getScaledValue<LowerBound>(m_scaledColumns, origX, searchStart);
-}
-
-int ScalableImageDecoder::upperBoundScaledY(int origY, int searchStart)
-{
-    return getScaledValue<UpperBound>(m_scaledRows, origY, searchStart);
-}
-
-int ScalableImageDecoder::lowerBoundScaledY(int origY, int searchStart)
-{
-    return getScaledValue<LowerBound>(m_scaledRows, origY, searchStart);
-}
-
-int ScalableImageDecoder::scaledY(int origY, int searchStart)
-{
-    return getScaledValue<Exact>(m_scaledRows, origY, searchStart);
 }
 
 #if USE(DIRECT2D)

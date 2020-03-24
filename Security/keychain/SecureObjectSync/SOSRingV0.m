@@ -117,23 +117,6 @@ static bool SOSRingConcordanceSign_V0(SOSRingRef ring, SOSFullPeerInfoRef reques
 }
 
 
-__unused static bool SOSRingSetPayload_V0(SOSRingRef ring, SecKeyRef user_privkey, CFDataRef payload, SOSFullPeerInfoRef requestor, CFErrorRef *error) {
-    CFStringRef myPeerID = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(requestor));
-    SecKeyRef priv = SOSFullPeerInfoCopyDeviceKey(requestor, error);
-    bool retval = priv && myPeerID &&
-    SOSRingSetLastModifier(ring, myPeerID) &&
-    SOSRingSetPayload_Internal(ring, payload) &&
-    SOSRingGenerationSign_Internal(ring, priv, error);
-    if(user_privkey) SOSRingConcordanceSign_Internal(ring, user_privkey, error);
-    CFReleaseNull(priv);
-    return retval;
-}
-
-__unused static CFDataRef SOSRingGetPayload_V0(SOSRingRef ring, CFErrorRef *error) {
-    return SOSRingGetPayload_Internal(ring);
-}
-
-
 ringFuncStruct ringsV0 = {
     "V0",
     1,

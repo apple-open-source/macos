@@ -102,14 +102,17 @@ callback(const char *fmt, va_list ap)
 
 - (void)loadCertificates {
 
+    // Build a list of Identities from Certificates which have a local private key.
+    // Searching for kSecClassIdentity does not find SEP based private keys.
     NSDictionary *params = @{
-                             (__bridge id)kSecClass : (__bridge id)kSecClassIdentity,
+                             (__bridge id)kSecClass : (__bridge id)kSecClassCertificate,
                              (__bridge id)kSecReturnRef : (__bridge id)kCFBooleanTrue,
                              (__bridge id)kSecMatchLimit : (__bridge id) kSecMatchLimitAll,
                              };
     
     CFTypeRef result = NULL;
     OSStatus status;
+    SecIdentityRef identity = NULL;
     
     status  = SecItemCopyMatching((__bridge CFDictionaryRef)params, &result);
     if (status) {
@@ -117,8 +120,19 @@ callback(const char *fmt, va_list ap)
         return;
     }
     
-    NSArray *array = CFBridgingRelease(result);
-    
+    SecCertificateRef certRef;
+    NSMutableArray *array = [[NSMutableArray alloc] init];
+
+    NSLog(@"Found %ld keyChain items.", (long)CFArrayGetCount((CFArrayRef)result));
+    for (CFIndex i = 0; i < CFArrayGetCount(result); ++i) {
+        certRef = (SecCertificateRef)CFArrayGetValueAtIndex(result, i);
+
+        OSStatus status = SecIdentityCreateWithCertificate(NULL, certRef, &identity);
+        if (status == noErr) {
+            [ array addObject:CFBridgingRelease(identity)];
+        }
+    }
+
     NSMutableArray *items = [NSMutableArray array];
     
     NSLog(@"found: %ld entries:", [array count]);

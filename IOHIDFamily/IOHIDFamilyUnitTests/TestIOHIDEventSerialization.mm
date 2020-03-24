@@ -1,5 +1,5 @@
 //
-//  TestEventTree.m
+//  TestIOHIDEventSerialization.mm
 //  IOHIDFamilyUnitTests
 //
 //  Created by AB on 2/27/18.
@@ -40,7 +40,6 @@ namespace base {
 
 
 @interface TestIOHIDEventSerialization : XCTestCase
-
 @end
 
 @implementation TestIOHIDEventSerialization

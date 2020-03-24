@@ -150,12 +150,12 @@ static inline void appendCharactersReplacingEntitiesInternal(StringBuilder& resu
         CharacterType character = text[i];
         uint8_t substitution = character < WTF_ARRAY_LENGTH(entityMap) ? entityMap[character] : static_cast<uint8_t>(EntitySubstitutionNullIndex);
         if (UNLIKELY(substitution != EntitySubstitutionNullIndex) && entitySubstitutionList[substitution].mask & entityMask) {
-            result.appendCharacters(text + positionAfterLastEntity, i - positionAfterLastEntity);
+            result.appendSubstring(source, offset + positionAfterLastEntity, i - positionAfterLastEntity);
             result.appendCharacters(entitySubstitutionList[substitution].characters, entitySubstitutionList[substitution].length);
             positionAfterLastEntity = i + 1;
         }
     }
-    result.appendCharacters(text + positionAfterLastEntity, length - positionAfterLastEntity);
+    result.appendSubstring(source, offset + positionAfterLastEntity, length - positionAfterLastEntity);
 }
 
 void MarkupAccumulator::appendCharactersReplacingEntities(StringBuilder& result, const String& source, unsigned offset, unsigned length, EntityMask entityMask)
@@ -351,11 +351,8 @@ void MarkupAccumulator::appendNamespace(StringBuilder& result, const AtomString&
     namespaces.checkConsistency();
     if (namespaceURI.isEmpty()) {
         // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-xhtml-syntax.html#xml-fragment-serialization-algorithm
-        if (allowEmptyDefaultNS && namespaces.get(emptyAtom().impl())) {
-            result.append(' ');
-            result.append(xmlnsAtom().string());
-            result.appendLiteral("=\"\"");
-        }
+        if (allowEmptyDefaultNS && namespaces.get(emptyAtom().impl()))
+            result.append(' ', xmlnsAtom(), "=\"\"");
         return;
     }
 
@@ -370,12 +367,9 @@ void MarkupAccumulator::appendNamespace(StringBuilder& result, const AtomString&
         // Make sure xml prefix and namespace are always known to uphold the constraints listed at http://www.w3.org/TR/xml-names11/#xmlReserved.
         if (namespaceURI.impl() == XMLNames::xmlNamespaceURI->impl())
             return;
-        result.append(' ');
-        result.append(xmlnsAtom().string());
-        if (!prefix.isEmpty()) {
-            result.append(':');
-            result.append(prefix);
-        }
+        result.append(' ', xmlnsAtom());
+        if (!prefix.isEmpty())
+            result.append(':', prefix);
 
         result.append('=');
         result.append('"');
@@ -386,7 +380,7 @@ void MarkupAccumulator::appendNamespace(StringBuilder& result, const AtomString&
 
 EntityMask MarkupAccumulator::entityMaskForText(const Text& text) const
 {
-    if (!text.document().isHTMLDocument())
+    if (!text.document().isHTMLDocument() || inXMLFragmentSerialization())
         return EntityMaskInPCDATA;
 
     const QualifiedName* parentName = nullptr;
@@ -514,13 +508,6 @@ void MarkupAccumulator::appendCloseTag(StringBuilder& result, const Element& ele
     result.append('>');
 }
 
-static inline bool attributeIsInSerializedNamespace(const Attribute& attribute)
-{
-    return attribute.namespaceURI() == XMLNames::xmlNamespaceURI
-        || attribute.namespaceURI() == XLinkNames::xlinkNamespaceURI
-        || attribute.namespaceURI() == XMLNSNames::xmlnsNamespaceURI;
-}
-
 void MarkupAccumulator::generateUniquePrefix(QualifiedName& prefixedName, const Namespaces& namespaces)
 {
     // http://www.w3.org/TR/DOM-Level-3-Core/namespaces-algorithms.html#normalizeDocumentAlgo
@@ -539,35 +526,61 @@ void MarkupAccumulator::generateUniquePrefix(QualifiedName& prefixedName, const 
     } while (true);
 }
 
+// https://html.spec.whatwg.org/#attribute's-serialised-name
+static String htmlAttributeSerialization(const Attribute& attribute)
+{
+    if (attribute.namespaceURI().isEmpty())
+        return attribute.name().localName();
+
+    QualifiedName prefixedName = attribute.name();
+    if (attribute.namespaceURI() == XMLNames::xmlNamespaceURI)
+        prefixedName.setPrefix(xmlAtom());
+    else if (attribute.namespaceURI() == XMLNSNames::xmlnsNamespaceURI) {
+        if (prefixedName.localName() == xmlnsAtom())
+            return xmlnsAtom();
+        prefixedName.setPrefix(xmlnsAtom());
+    } else if (attribute.namespaceURI() == XLinkNames::xlinkNamespaceURI)
+        prefixedName.setPrefix(AtomString("xlink", AtomString::ConstructFromLiteral));
+    return prefixedName.toString();
+}
+
+// https://w3c.github.io/DOM-Parsing/#dfn-xml-serialization-of-the-attributes
+QualifiedName MarkupAccumulator::xmlAttributeSerialization(const Attribute& attribute, Namespaces* namespaces)
+{
+    QualifiedName prefixedName = attribute.name();
+    if (!attribute.namespaceURI().isEmpty()) {
+        if (attribute.namespaceURI() == XMLNames::xmlNamespaceURI) {
+            // Always use xml as prefix if the namespace is the XML namespace.
+            prefixedName.setPrefix(xmlAtom());
+        } else {
+            AtomStringImpl* foundNS = namespaces && attribute.prefix().impl() ? namespaces->get(attribute.prefix().impl()) : nullptr;
+            bool prefixIsAlreadyMappedToOtherNS = foundNS && foundNS != attribute.namespaceURI().impl();
+            if (attribute.prefix().isEmpty() || !foundNS || prefixIsAlreadyMappedToOtherNS) {
+                if (AtomStringImpl* prefix = namespaces ? namespaces->get(attribute.namespaceURI().impl()) : nullptr)
+                    prefixedName.setPrefix(AtomString(prefix));
+                else {
+                    bool shouldBeDeclaredUsingAppendNamespace = !attribute.prefix().isEmpty() && !foundNS;
+                    if (!shouldBeDeclaredUsingAppendNamespace && attribute.localName() != xmlnsAtom() && namespaces)
+                        generateUniquePrefix(prefixedName, *namespaces);
+                }
+            }
+        }
+    }
+    return prefixedName;
+}
+
 void MarkupAccumulator::appendAttribute(StringBuilder& result, const Element& element, const Attribute& attribute, Namespaces* namespaces)
 {
     bool isSerializingHTML = element.document().isHTMLDocument() && !inXMLFragmentSerialization();
 
     result.append(' ');
 
-    QualifiedName prefixedName = attribute.name();
-    if (isSerializingHTML && !attributeIsInSerializedNamespace(attribute))
-        result.append(attribute.name().localName());
+    Optional<QualifiedName> effectiveXMLPrefixedName;
+    if (isSerializingHTML)
+        result.append(htmlAttributeSerialization(attribute));
     else {
-        if (!attribute.namespaceURI().isEmpty()) {
-            if (attribute.namespaceURI() == XMLNames::xmlNamespaceURI) {
-                // Always use xml as prefix if the namespace is the XML namespace.
-                prefixedName.setPrefix(xmlAtom());
-            } else {
-                AtomStringImpl* foundNS = namespaces && attribute.prefix().impl() ? namespaces->get(attribute.prefix().impl()) : 0;
-                bool prefixIsAlreadyMappedToOtherNS = foundNS && foundNS != attribute.namespaceURI().impl();
-                if (attribute.prefix().isEmpty() || !foundNS || prefixIsAlreadyMappedToOtherNS) {
-                    if (AtomStringImpl* prefix = namespaces ? namespaces->get(attribute.namespaceURI().impl()) : 0)
-                        prefixedName.setPrefix(AtomString(prefix));
-                    else {
-                        bool shouldBeDeclaredUsingAppendNamespace = !attribute.prefix().isEmpty() && !foundNS;
-                        if (!shouldBeDeclaredUsingAppendNamespace && attribute.localName() != xmlnsAtom() && namespaces)
-                            generateUniquePrefix(prefixedName, *namespaces);
-                    }
-                }
-            }
-        }
-        result.append(prefixedName.toString());
+        effectiveXMLPrefixedName = xmlAttributeSerialization(attribute, namespaces);
+        result.append(effectiveXMLPrefixedName->toString());
     }
 
     result.append('=');
@@ -581,7 +594,7 @@ void MarkupAccumulator::appendAttribute(StringBuilder& result, const Element& el
     }
 
     if (!isSerializingHTML && namespaces && shouldAddNamespaceAttribute(attribute, *namespaces))
-        appendNamespace(result, prefixedName.prefix(), prefixedName.namespaceURI(), *namespaces);
+        appendNamespace(result, effectiveXMLPrefixedName->prefix(), effectiveXMLPrefixedName->namespaceURI(), *namespaces);
 }
 
 void MarkupAccumulator::appendCDATASection(StringBuilder& result, const String& section)

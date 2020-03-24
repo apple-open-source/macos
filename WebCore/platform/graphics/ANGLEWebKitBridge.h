@@ -25,6 +25,8 @@
 
 #pragma once
 
+#if ENABLE(WEBGL)
+
 #if USE(LIBEPOXY)
 // libepoxy headers have to be included before <ANGLE/ShaderLang.h> in order to avoid
 // picking up khrplatform.h inclusion that's done in ANGLE.
@@ -34,14 +36,14 @@
 #include <ANGLE/ShaderLang.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(COCOA)
+#if USE(ANGLE)
+#include <ANGLE/gl2.h>
 
+#elif PLATFORM(COCOA)
 #if USE(OPENGL_ES)
 #import <OpenGLES/ES2/glext.h>
 #elif USE(OPENGL)
 #include <OpenGL/gl.h>
-#elif USE(ANGLE)
-#include <ANGLE/gl2.h>
 #else
 #error Unsupported configuration
 #endif
@@ -58,6 +60,11 @@
 #else
 #include "OpenGLShims.h"
 #endif
+
+// FIXME
+#define GL_VERTEX_SHADER 0x8B31
+#define GL_FRAGMENT_SHADER 0x8B30
+//
 
 namespace WebCore {
 
@@ -99,3 +106,5 @@ private:
 };
 
 } // namespace WebCore
+
+#endif

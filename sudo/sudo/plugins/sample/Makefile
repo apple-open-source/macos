@@ -107,7 +107,7 @@ OBJS =	sample_plugin.lo
 
 LIBOBJDIR = $(top_builddir)/@ac_config_libobj_dir@/
 
-VERSION = 1.8.29
+VERSION = 1.8.31
 
 all: sample_plugin.la
 

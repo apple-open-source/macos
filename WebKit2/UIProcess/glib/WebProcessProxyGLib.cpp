@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WebProcessProxy.h"
 
+#include "UserMessage.h"
 #include "WebProcessPool.h"
 #include "WebsiteDataStore.h"
 #include <WebCore/PlatformDisplay.h>
@@ -43,8 +44,7 @@ void WebProcessProxy::platformGetLaunchOptions(ProcessLauncher::LaunchOptions& l
         if (!dataStore) {
             // Prewarmed processes don't have a WebsiteDataStore yet, so use the primary WebsiteDataStore from the WebProcessPool.
             // The process won't be used if current WebsiteDataStore is different than the WebProcessPool primary one.
-            if (auto* apiDataStore = m_processPool->websiteDataStore())
-                dataStore = &apiDataStore->websiteDataStore();
+            dataStore = m_processPool->websiteDataStore();
         }
 
         ASSERT(dataStore);
@@ -55,6 +55,17 @@ void WebProcessProxy::platformGetLaunchOptions(ProcessLauncher::LaunchOptions& l
 
         launchOptions.extraWebProcessSandboxPaths = m_processPool->sandboxPaths();
     }
+}
+
+void WebProcessProxy::sendMessageToWebContextWithReply(UserMessage&& message, CompletionHandler<void(UserMessage&&)>&& completionHandler)
+{
+    if (const auto& userMessageHandler = m_processPool->userMessageHandler())
+        userMessageHandler(WTFMove(message), WTFMove(completionHandler));
+}
+
+void WebProcessProxy::sendMessageToWebContext(UserMessage&& message)
+{
+    sendMessageToWebContextWithReply(WTFMove(message), [](UserMessage&&) { });
 }
 
 };

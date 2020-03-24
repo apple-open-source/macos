@@ -80,10 +80,12 @@ mvm_aslr_init(void)
 }
 
 void *
-mvm_allocate_pages(size_t size, unsigned char align, unsigned debug_flags, int vm_page_label)
-{
-	boolean_t add_guard_pages = debug_flags & MALLOC_ADD_GUARD_PAGES;
+mvm_allocate_pages(size_t size, unsigned char align, uint32_t debug_flags,
+		int vm_page_label) {
+	boolean_t add_prelude_guard_page = debug_flags & MALLOC_ADD_PRELUDE_GUARD_PAGE;
+	boolean_t add_postlude_guard_page = debug_flags & MALLOC_ADD_POSTLUDE_GUARD_PAGE;
 	boolean_t purgeable = debug_flags & MALLOC_PURGEABLE;
+	boolean_t use_entropic_range = !(debug_flags & DISABLE_ASLR);
 	mach_vm_address_t vm_addr;
 	uintptr_t addr;
 	mach_vm_size_t allocation_size = round_page_quanta(size);
@@ -94,12 +96,13 @@ mvm_allocate_pages(size_t size, unsigned char align, unsigned debug_flags, int v
 	if (!allocation_size) {
 		allocation_size = vm_page_quanta_size;
 	}
-	if (add_guard_pages) {
-		if (align > vm_page_quanta_shift) {
+	if (add_postlude_guard_page || add_prelude_guard_page) {
+		if (add_prelude_guard_page && align > vm_page_quanta_shift) {
 			/* <rdar://problem/16601499> alignment greater than pagesize needs more work */
 			allocation_size += (1 << align) + vm_page_quanta_size;
 		} else {
-			allocation_size += 2 * vm_page_quanta_size;
+			allocation_size += add_prelude_guard_page && add_postlude_guard_page ?
+					2 * vm_page_quanta_size : vm_page_quanta_size;
 		}
 	}
 
@@ -110,17 +113,54 @@ mvm_allocate_pages(size_t size, unsigned char align, unsigned debug_flags, int v
 		return NULL;
 	}
 
-	vm_addr = vm_page_quanta_size;
-	kr = mach_vm_map(mach_task_self(), &vm_addr, allocation_size, allocation_mask, alloc_flags, MEMORY_OBJECT_NULL, 0, FALSE,
-					 VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+retry:
+	vm_addr = use_entropic_range ? entropic_address : vm_page_quanta_size;
+	kr = mach_vm_map(mach_task_self(), &vm_addr, allocation_size,
+			allocation_mask, alloc_flags, MEMORY_OBJECT_NULL, 0, FALSE,
+			VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+	if (kr == KERN_NO_SPACE && use_entropic_range) {
+		vm_addr = vm_page_quanta_size;
+		kr = mach_vm_map(mach_task_self(), &vm_addr, allocation_size,
+				allocation_mask, alloc_flags, MEMORY_OBJECT_NULL, 0, FALSE,
+				VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+	}
 	if (kr) {
-		malloc_zone_error(debug_flags, false, "can't allocate region\n*** mach_vm_map(size=%lu) failed (error code=%d)\n", size, kr);
+		malloc_zone_error(debug_flags, false, "can't allocate region\n:"
+				"*** mach_vm_map(size=%lu, flags: %x) failed (error code=%d)\n",
+				size, debug_flags, kr);
 		return NULL;
 	}
 	addr = (uintptr_t)vm_addr;
 
-	if (add_guard_pages) {
-		if (align > vm_page_quanta_shift) {
+	if (use_entropic_range) {
+		// Don't allow allocation to rise above entropic_limit (for tidiness).
+		if (addr + allocation_size > entropic_limit) { // Exhausted current range?
+			uintptr_t t = entropic_address;
+			uintptr_t u = t - ENTROPIC_KABILLION;
+
+			// provided we don't wrap, deallocate and retry, in theexpanded
+			// entropic range
+			if (u < t) {
+				mach_vm_deallocate(mach_task_self(), vm_addr, allocation_size);
+				OSAtomicCompareAndSwapLong(t, u,
+						(volatile long *)&entropic_address);  // Just one reduction please
+				goto retry;
+			}
+			// fall through to use what we got
+		}
+		
+		if (addr < entropic_address) { // we wrapped to find this allocation, expand the entropic range
+			uintptr_t t = entropic_address;
+			uintptr_t u = t - ENTROPIC_KABILLION;
+			if (u < t) {
+				OSAtomicCompareAndSwapLong(t, u, (volatile long *)&entropic_address);  // Just one reduction please
+			}
+			// fall through to use what we got
+		}
+	}
+
+	if (add_postlude_guard_page || add_prelude_guard_page) {
+		if (add_prelude_guard_page && align > vm_page_quanta_shift) {
 			/* <rdar://problem/16601499> calculate the first address inside the alignment padding
 			 * where we can place the guard page and still be aligned.
 			 *
@@ -141,16 +181,18 @@ mvm_allocate_pages(size_t size, unsigned char align, unsigned debug_flags, int v
 				return NULL;
 			}
 
-			kr = mach_vm_deallocate(mach_task_self(), addr + allocation_size - trailing, trailing);
-			if (kr) {
-				malloc_zone_error(debug_flags, false, "can't unmap excess trailing guard region\n"
-						"*** mach_vm_deallocate(addr=%p, size=%lu) failed (code=%d)\n",
-						(void *)(addr + allocation_size - trailing), trailing, kr);
-				return NULL;
+			if (trailing) {
+				kr = mach_vm_deallocate(mach_task_self(), addr + allocation_size - trailing, trailing);
+				if (kr) {
+					malloc_zone_error(debug_flags, false, "can't unmap excess trailing guard region\n"
+							"*** mach_vm_deallocate(addr=%p, size=%lu) failed (code=%d)\n",
+							(void *)(addr + allocation_size - trailing), trailing, kr);
+					return NULL;
+				}
 			}
 
 			addr = alignaddr;
-		} else {
+		} else if (add_prelude_guard_page) {
 			addr += vm_page_quanta_size;
 		}
 		mvm_protect((void *)addr, size, PROT_NONE, debug_flags);
@@ -158,78 +200,21 @@ mvm_allocate_pages(size_t size, unsigned char align, unsigned debug_flags, int v
 	return (void *)addr;
 }
 
-void *
-mvm_allocate_pages_securely(size_t size, unsigned char align, int vm_page_label, uint32_t debug_flags)
-{
-	mach_vm_address_t vm_addr;
-	uintptr_t addr;
-	mach_vm_size_t allocation_size = round_page_quanta(size);
-	mach_vm_offset_t allocation_mask = ((mach_vm_offset_t)1 << align) - 1;
-	int alloc_flags = VM_FLAGS_ANYWHERE | VM_MAKE_TAG(vm_page_label);
-	kern_return_t kr;
-
-	if (debug_flags & DISABLE_ASLR) {
-		return mvm_allocate_pages(size, align, 0, vm_page_label);
-	}
-
-	if (!allocation_size) {
-		allocation_size = vm_page_quanta_size;
-	}
-	if (allocation_size < size) { // size_t arithmetic wrapped!
-		return NULL;
-	}
-
-retry:
-	vm_addr = entropic_address;
-	kr = mach_vm_map(mach_task_self(), &vm_addr, allocation_size, allocation_mask, alloc_flags, MEMORY_OBJECT_NULL, 0, FALSE,
-					 VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
-	if (kr == KERN_NO_SPACE) {
-		vm_addr = vm_page_quanta_size;
-		kr = mach_vm_map(mach_task_self(), &vm_addr, allocation_size, allocation_mask, alloc_flags, MEMORY_OBJECT_NULL, 0, FALSE,
-						 VM_PROT_DEFAULT, VM_PROT_ALL, VM_INHERIT_DEFAULT);
-	}
-	if (kr) {
-		malloc_zone_error(debug_flags, false, "can't allocate region securely\n",
-				"*** mach_vm_map(size=%lu) failed (error code=%d)\n", size, kr);
-		return NULL;
-	}
-	addr = (uintptr_t)vm_addr;
-
-	// Don't allow allocation to rise above entropic_limit (for tidiness).
-	if (addr + allocation_size > entropic_limit) { // Exhausted current range?
-		uintptr_t t = entropic_address;
-		uintptr_t u = t - ENTROPIC_KABILLION;
-
-		if (u < t) { // provided we don't wrap, deallocate and retry, in the expanded entropic range
-			mach_vm_deallocate(mach_task_self(), vm_addr, allocation_size);
-			OSAtomicCompareAndSwapLong(t, u, (volatile long *)&entropic_address);  // Just one reduction please
-			goto retry;
-		}
-		// fall through to use what we got
-	}
-
-	if (addr < entropic_address) { // we wrapped to find this allocation, expand the entropic range
-		uintptr_t t = entropic_address;
-		uintptr_t u = t - ENTROPIC_KABILLION;
-		if (u < t) {
-			OSAtomicCompareAndSwapLong(t, u, (volatile long *)&entropic_address);  // Just one reduction please
-		}
-		// fall through to use what we got
-	}
-	return (void *)addr;
-}
-
 void
 mvm_deallocate_pages(void *addr, size_t size, unsigned debug_flags)
 {
-	boolean_t add_guard_pages = debug_flags & MALLOC_ADD_GUARD_PAGES;
+	boolean_t added_prelude_guard_page = debug_flags & MALLOC_ADD_PRELUDE_GUARD_PAGE;
+	boolean_t added_postlude_guard_page = debug_flags & MALLOC_ADD_POSTLUDE_GUARD_PAGE;
 	mach_vm_address_t vm_addr = (mach_vm_address_t)addr;
 	mach_vm_size_t allocation_size = size;
 	kern_return_t kr;
 
-	if (add_guard_pages) {
+	if (added_prelude_guard_page) {
 		vm_addr -= vm_page_quanta_size;
-		allocation_size += 2 * vm_page_quanta_size;
+		allocation_size += vm_page_quanta_size;
+	}
+	if (added_postlude_guard_page) {
+		allocation_size += vm_page_quanta_size;
 	}
 	kr = mach_vm_deallocate(mach_task_self(), vm_addr, allocation_size);
 	if (kr) {
@@ -242,14 +227,14 @@ mvm_protect(void *address, size_t size, unsigned protection, unsigned debug_flag
 {
 	kern_return_t err;
 
-	if (!(debug_flags & MALLOC_DONT_PROTECT_PRELUDE)) {
+	if ((debug_flags & MALLOC_ADD_PRELUDE_GUARD_PAGE) && !(debug_flags & MALLOC_DONT_PROTECT_PRELUDE)) {
 		err = mprotect((void *)((uintptr_t)address - vm_page_quanta_size), vm_page_quanta_size, protection);
 		if (err) {
 			malloc_report(ASL_LEVEL_ERR, "*** can't mvm_protect(%u) region for prelude guard page at %p\n", protection,
 					(void *)((uintptr_t)address - vm_page_quanta_size));
 		}
 	}
-	if (!(debug_flags & MALLOC_DONT_PROTECT_POSTLUDE)) {
+	if ((debug_flags & MALLOC_ADD_POSTLUDE_GUARD_PAGE) && !(debug_flags & MALLOC_DONT_PROTECT_POSTLUDE)) {
 		err = mprotect((void *)(round_page_quanta(((uintptr_t)address + size))), vm_page_quanta_size, protection);
 		if (err) {
 			malloc_report(ASL_LEVEL_ERR, "*** can't mvm_protect(%u) region for postlude guard page at %p\n", protection,

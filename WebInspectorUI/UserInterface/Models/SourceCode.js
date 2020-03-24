@@ -29,12 +29,25 @@ WI.SourceCode = class SourceCode extends WI.Object
     {
         super();
 
-        this._originalRevision = new WI.SourceCodeRevision(this, null, false);
+        this._originalRevision = new WI.SourceCodeRevision(this);
         this._currentRevision = this._originalRevision;
 
         this._sourceMaps = null;
         this._formatterSourceMap = null;
         this._requestContentPromise = null;
+    }
+
+    // Static
+
+    static generateSpecialContentForURL(url)
+    {
+        if (url === "about:blank") {
+            return Promise.resolve({
+                content: "",
+                message: WI.unlocalizedString("about:blank")
+            });
+        }
+        return null;
     }
 
     // Public
@@ -71,6 +84,13 @@ WI.SourceCode = class SourceCode extends WI.Object
         this.dispatchEventToListeners(WI.SourceCode.Event.ContentDidChange);
     }
 
+    get editableRevision()
+    {
+        if (this._currentRevision === this._originalRevision)
+            this._currentRevision = this._originalRevision.copy();
+        return this._currentRevision;
+    }
+
     get content()
     {
         return this._currentRevision.content;
@@ -88,6 +108,22 @@ WI.SourceCode = class SourceCode extends WI.Object
 
         // Can be overridden by subclasses if better behavior is possible.
         return this.url;
+    }
+
+    get isScript()
+    {
+        // Implemented by subclasses if needed.
+        return false;
+    }
+
+    get supportsScriptBlackboxing()
+    {
+        if (!this.isScript)
+            return false;
+        if (!WI.DebuggerManager.supportsBlackboxingScripts())
+            return false;
+        let contentIdentifier = this.contentIdentifier;
+        return contentIdentifier && !isWebKitInjectedScript(contentIdentifier);
     }
 
     get sourceMaps()
@@ -151,6 +187,7 @@ WI.SourceCode = class SourceCode extends WI.Object
         if (this._ignoreRevisionContentDidChangeEvent)
             return;
 
+        console.assert(revision === this._currentRevision);
         if (revision !== this._currentRevision)
             return;
 
@@ -195,27 +232,37 @@ WI.SourceCode = class SourceCode extends WI.Object
     {
         // Different backend APIs return one of `content, `body`, `text`, or `scriptSource`.
         let rawContent = parameters.content || parameters.body || parameters.text || parameters.scriptSource;
+        let rawBase64Encoded = !!parameters.base64Encoded;
         let content = rawContent;
         let error = parameters.error;
+        let message = parameters.message;
+
         if (parameters.base64Encoded)
-            content = content ? decodeBase64ToBlob(content, this.mimeType) : "";
+            content = content ? WI.BlobUtilities.decodeBase64ToBlob(content, this.mimeType) : "";
 
         let revision = this.revisionForRequestedContent;
 
         this._ignoreRevisionContentDidChangeEvent = true;
-        revision.content = content || null;
+        revision.updateRevisionContent(rawContent, {
+            base64Encoded: rawBase64Encoded,
+            mimeType: this.mimeType,
+            blobContent: content instanceof Blob ? content : null,
+        });
         this._ignoreRevisionContentDidChangeEvent = false;
 
         // FIXME: Returning the content in this promise is misleading. It may not be current content
         // now, and it may become out-dated later on. We should drop content from this promise
         // and require clients to ask for the current contents from the sourceCode in the result.
+        // That would also avoid confusion around `content` being a Blob and eliminate the work
+        // of creating the Blob if it is not used.
 
         return Promise.resolve({
             error,
+            message,
             sourceCode: this,
             content,
             rawContent,
-            rawBase64Encoded: parameters.base64Encoded,
+            rawBase64Encoded,
         });
     }
 };

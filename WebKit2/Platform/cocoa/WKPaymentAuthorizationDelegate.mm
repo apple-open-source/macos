@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WKPaymentAuthorizationDelegate.h"
 
-#if USE(PASSKIT)
+#if USE(PASSKIT) && ENABLE(APPLE_PAY)
 
 #import <WebCore/Payment.h>
 #import <WebCore/PaymentMethod.h>
@@ -70,13 +70,8 @@
 - (void)completePaymentSession:(PKPaymentAuthorizationStatus)status errors:(NSArray<NSError *> *)errors didReachFinalState:(BOOL)didReachFinalState
 {
     _didReachFinalState = didReachFinalState;
-#if HAVE(PASSKIT_GRANULAR_ERRORS)
     auto result = adoptNS([PAL::allocPKPaymentAuthorizationResultInstance() initWithStatus:status errors:errors]);
     std::exchange(_didAuthorizePaymentCompletion, nil)(result.get());
-#else
-    ASSERT(!errors.count);
-    std::exchange(_didAuthorizePaymentCompletion, nil)(status);
-#endif
 }
 - (void)completeShippingContactSelection:(PKPaymentRequestShippingContactUpdate *)shippingContactUpdate
 {
@@ -221,4 +216,4 @@ static WebCore::ApplePaySessionPaymentRequest::ShippingMethod toShippingMethod(P
 
 @end
 
-#endif // USE(PASSKIT)
+#endif // USE(PASSKIT) && ENABLE(APPLE_PAY)

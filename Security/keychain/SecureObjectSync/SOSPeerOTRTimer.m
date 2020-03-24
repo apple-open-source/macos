@@ -25,7 +25,6 @@
 //AGGD
 NSString* const SecSOSAggdMaxRenegotiation   = @"com.apple.security.sos.otrrenegotiationmaxretries";
 
-__unused static int initialOTRTimeoutValue = 60; //best round trip time in KVS plus extra for good measure
 static int maxRetryCount = 7; //max number of times to attempt restarting OTR negotiation
 
 bool SOSPeerOTRTimerHaveReachedMaxRetryAllowance(SOSAccount* account, NSString* peerid){

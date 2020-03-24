@@ -46,11 +46,11 @@ ImageDecoderDirect2D::ImageDecoderDirect2D()
 {
 }
 
-IWICImagingFactory* ImageDecoderDirect2D::systemImagingFactory()
+IWICImagingFactory2* ImageDecoderDirect2D::systemImagingFactory()
 {
-    static IWICImagingFactory* wicImagingFactory = nullptr;
+    static IWICImagingFactory2* wicImagingFactory = nullptr;
     if (!wicImagingFactory) {
-        HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory, (LPVOID*)&wicImagingFactory);
+        HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory2, (LPVOID*)&wicImagingFactory);
         RELEASE_ASSERT(SUCCEEDED(hr));
     }
 
@@ -125,7 +125,7 @@ RepetitionCount ImageDecoderDirect2D::repetitionCount() const
 
 Optional<IntPoint> ImageDecoderDirect2D::hotSpot() const
 {
-    return IntPoint();
+    return WTF::nullopt;
 }
 
 IntSize ImageDecoderDirect2D::frameSizeAtIndex(size_t index, SubsamplingLevel subsamplingLevel) const
@@ -159,20 +159,25 @@ bool ImageDecoderDirect2D::frameIsCompleteAtIndex(size_t index) const
 ImageOrientation ImageDecoderDirect2D::frameOrientationAtIndex(size_t index) const
 {
     if (!m_nativeDecoder)
-        return ImageOrientation();
+        return ImageOrientation::None;
 
     COMPtr<IWICBitmapFrameDecode> frame;
     HRESULT hr = m_nativeDecoder->GetFrame(index, &frame);
     if (!SUCCEEDED(hr))
-        return ImageOrientation();
+        return ImageOrientation::None;
 
     COMPtr<IWICMetadataQueryReader> metadata;
     hr = frame->GetMetadataQueryReader(&metadata);
     if (!SUCCEEDED(hr))
-        return ImageOrientation();
+        return ImageOrientation::None;
 
-    // FIXME: Identify image type, and ask proper orientation.
-    return ImageOrientation();
+    PROPVARIANT value;
+    PropVariantInit(&value);
+    hr = metadata->GetMetadataByName(L"System.Photo.Orientation", &value);
+    if (SUCCEEDED(hr))
+        return ImageOrientation(static_cast<ImageOrientation::Orientation>(value.uiVal));
+
+    return ImageOrientation::None;
 }
 
 Seconds ImageDecoderDirect2D::frameDurationAtIndex(size_t index) const
@@ -192,16 +197,6 @@ Seconds ImageDecoderDirect2D::frameDurationAtIndex(size_t index) const
 
 bool ImageDecoderDirect2D::frameAllowSubsamplingAtIndex(size_t index) const
 {
-    if (!m_nativeDecoder)
-        return false;
-
-    COMPtr<IWICBitmapFrameDecode> frame;
-    HRESULT hr = m_nativeDecoder->GetFrame(index, &frame);
-    if (!SUCCEEDED(hr))
-        return false;
-
-    // FIXME: Figure out correct image format-specific query for subsampling check.
-    notImplemented();
     return true;
 }
 
@@ -215,8 +210,19 @@ bool ImageDecoderDirect2D::frameHasAlphaAtIndex(size_t index) const
     if (!SUCCEEDED(hr))
         return false;
 
-    // FIXME: Figure out correct image format-specific query for alpha check.
-    notImplemented();
+    COMPtr<IWICMetadataQueryReader> metadata;
+    hr = frame->GetMetadataQueryReader(&metadata);
+    if (!SUCCEEDED(hr))
+        return false;
+
+    GUID containerFormat;
+    hr = metadata->GetContainerFormat(&containerFormat);
+    if (!SUCCEEDED(hr))
+        return false;
+
+    if (::IsEqualGUID(GUID_ContainerFormatJpeg, containerFormat))
+        return false;
+
     return true;
 }
 
@@ -236,7 +242,10 @@ void ImageDecoderDirect2D::setTargetContext(ID2D1RenderTarget* renderTarget)
 
 NativeImagePtr ImageDecoderDirect2D::createFrameImageAtIndex(size_t index, SubsamplingLevel subsamplingLevel, const DecodingOptions&)
 {
-    if (!m_nativeDecoder || !m_renderTarget)
+    if (!m_nativeDecoder)
+        return nullptr;
+
+    if (!m_renderTarget)
         return nullptr;
 
     COMPtr<IWICBitmapFrameDecode> frame;
@@ -249,12 +258,17 @@ NativeImagePtr ImageDecoderDirect2D::createFrameImageAtIndex(size_t index, Subsa
     if (!SUCCEEDED(hr))
         return nullptr;
 
-    hr = converter->Initialize(frame.get(), GUID_WICPixelFormat32bppPBGRA, WICBitmapDitherTypeNone, nullptr, 0.f, WICBitmapPaletteTypeCustom);
+    hr = converter->Initialize(frame.get(), GUID_WICPixelFormat32bppPRGBA, WICBitmapDitherTypeNone, nullptr, 0.f, WICBitmapPaletteTypeCustom);
+    if (!SUCCEEDED(hr))
+        return nullptr;
+
+    COMPtr<IWICBitmap> wicBitmap;
+    hr = systemImagingFactory()->CreateBitmapFromSource(converter.get(), WICBitmapCacheOnDemand, &wicBitmap);
     if (!SUCCEEDED(hr))
         return nullptr;
 
     COMPtr<ID2D1Bitmap> bitmap;
-    hr = m_renderTarget->CreateBitmapFromWicBitmap(converter.get(), nullptr, &bitmap);
+    hr = m_renderTarget->CreateBitmapFromWicBitmap(wicBitmap.get(), &bitmap);
     if (!SUCCEEDED(hr))
         return nullptr;
 
@@ -286,6 +300,7 @@ void ImageDecoderDirect2D::setData(SharedBuffer& data, bool allDataReceived)
 
     // Image was valid.
 }
+
 }
 
 #endif

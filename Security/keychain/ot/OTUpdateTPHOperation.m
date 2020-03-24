@@ -18,6 +18,8 @@
 @interface OTUpdateTPHOperation ()
 @property OTOperationDependencies* deps;
 
+@property OctagonState* peerUnknownState;
+
 @property NSOperation* finishedOp;
 
 @property (nullable) OctagonFlag* retryFlag;
@@ -29,6 +31,7 @@
 
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
+                    peerUnknownState:(OctagonState*)peerUnknownState
                           errorState:(OctagonState*)errorState
                            retryFlag:(OctagonFlag* _Nullable)retryFlag
 {
@@ -37,6 +40,7 @@
 
         _intendedState = intendedState;
         _nextState = errorState;
+        _peerUnknownState = peerUnknownState;
 
         _retryFlag = retryFlag;
     }
@@ -135,8 +139,8 @@
                 self.nextState = OctagonStateBecomeUntrusted;
 
             } else if(peerState.peerStatus & TPPeerStatusUnknown) {
-                secnotice("octagon", "Self peer (%@) is unknown; moving to untrusted", peerState.peerID);
-                self.nextState = OctagonStateBecomeUntrusted;
+                secnotice("octagon", "Self peer (%@) is unknown; moving to '%@''", peerState.peerID, self.peerUnknownState);
+                self.nextState = self.peerUnknownState;
 
             } else {
                 self.nextState = self.intendedState;

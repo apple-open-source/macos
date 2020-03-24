@@ -36,6 +36,7 @@
 #include "ResourceHandleClient.h"
 #include "ResourceResponse.h"
 #include "SharedBuffer.h"
+#include "SynchronousLoaderClient.h"
 #if !PLATFORM(WIN)
 #include "WebCoreURLResponse.h"
 #endif
@@ -48,9 +49,9 @@
 
 namespace WebCore {
 
-ResourceHandleCFURLConnectionDelegateWithOperationQueue::ResourceHandleCFURLConnectionDelegateWithOperationQueue(ResourceHandle* handle, MessageQueue<Function<void()>>* messageQueue)
+ResourceHandleCFURLConnectionDelegateWithOperationQueue::ResourceHandleCFURLConnectionDelegateWithOperationQueue(ResourceHandle* handle, RefPtr<SynchronousLoaderMessageQueue>&& messageQueue)
     : ResourceHandleCFURLConnectionDelegate(handle)
-    , m_messageQueue(messageQueue)
+    , m_messageQueue(WTFMove(messageQueue))
 {
 }
 
@@ -169,7 +170,7 @@ CFURLRequestRef ResourceHandleCFURLConnectionDelegateWithOperationQueue::willSen
     };
 
     if (m_messageQueue)
-        m_messageQueue->append(std::make_unique<Function<void()>>(WTFMove(work)));
+        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(work)));
     else
         callOnMainThread(WTFMove(work));
     m_semaphore.wait();
@@ -207,7 +208,7 @@ void ResourceHandleCFURLConnectionDelegateWithOperationQueue::didReceiveResponse
     };
 
     if (m_messageQueue)
-        m_messageQueue->append(std::make_unique<Function<void()>>(WTFMove(work)));
+        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(work)));
     else
         callOnMainThread(WTFMove(work));
     m_semaphore.wait();
@@ -226,7 +227,7 @@ void ResourceHandleCFURLConnectionDelegateWithOperationQueue::didReceiveData(CFD
     };
     
     if (m_messageQueue)
-        m_messageQueue->append(std::make_unique<Function<void()>>(WTFMove(work)));
+        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(work)));
     else
         callOnMainThread(WTFMove(work));
 }
@@ -251,7 +252,7 @@ void ResourceHandleCFURLConnectionDelegateWithOperationQueue::didFinishLoading()
     };
     
     if (m_messageQueue)
-        m_messageQueue->append(std::make_unique<Function<void()>>(WTFMove(work)));
+        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(work)));
     else
         callOnMainThread(WTFMove(work));
 }
@@ -276,7 +277,7 @@ void ResourceHandleCFURLConnectionDelegateWithOperationQueue::didFail(CFErrorRef
     };
 
     if (m_messageQueue)
-        m_messageQueue->append(std::make_unique<Function<void()>>(WTFMove(work)));
+        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(work)));
     else
         callOnMainThread(WTFMove(work));
 }
@@ -311,7 +312,7 @@ CFCachedURLResponseRef ResourceHandleCFURLConnectionDelegateWithOperationQueue::
     };
     
     if (m_messageQueue)
-        m_messageQueue->append(std::make_unique<Function<void()>>(WTFMove(work)));
+        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(work)));
     else
         callOnMainThread(WTFMove(work));
     m_semaphore.wait();
@@ -331,7 +332,7 @@ void ResourceHandleCFURLConnectionDelegateWithOperationQueue::didReceiveChalleng
     };
 
     if (m_messageQueue)
-        m_messageQueue->append(std::make_unique<Function<void()>>(WTFMove(work)));
+        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(work)));
     else
         callOnMainThread(WTFMove(work));
 }
@@ -349,7 +350,7 @@ void ResourceHandleCFURLConnectionDelegateWithOperationQueue::didSendBodyData(CF
     };
 
     if (m_messageQueue)
-        m_messageQueue->append(std::make_unique<Function<void()>>(WTFMove(work)));
+        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(work)));
     else
         callOnMainThread(WTFMove(work));
 }
@@ -380,7 +381,7 @@ Boolean ResourceHandleCFURLConnectionDelegateWithOperationQueue::canRespondToPro
     };
     
     if (m_messageQueue)
-        m_messageQueue->append(std::make_unique<Function<void()>>(WTFMove(work)));
+        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(work)));
     else
         callOnMainThread(WTFMove(work));
     m_semaphore.wait();

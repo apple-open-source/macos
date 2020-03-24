@@ -26,6 +26,7 @@
 using namespace WebKit;
 
 class IconLoadingClient : public API::IconLoadingClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit IconLoadingClient(WebKitWebView* webView)
         : m_webView(webView)
@@ -61,5 +62,5 @@ private:
 
 void attachIconLoadingClientToView(WebKitWebView* webView)
 {
-    webkitWebViewGetPage(webView).setIconLoadingClient(std::make_unique<IconLoadingClient>(webView));
+    webkitWebViewGetPage(webView).setIconLoadingClient(makeUnique<IconLoadingClient>(webView));
 }

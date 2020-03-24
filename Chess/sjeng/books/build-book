@@ -2,7 +2,17 @@
 #
 # Build a sjeng opening book
 #
-cat <<END_BOOK_COMMANDS | "${BUILT_PRODUCTS_DIR}"/sjeng.ChessEngine
+
+set -e
+set -x
+
+if test -z "$RC_EMBEDDEDPROJECT_DIR" || test ! -e "${RC_EMBEDDEDPROJECT_DIR}/Chess_host"; then
+    SJENG="${BUILT_PRODUCTS_DIR}"/sjeng.ChessEngine
+else
+    SJENG="${RC_EMBEDDEDPROJECT_DIR}/Chess_host/usr/local/bin/sjeng_host"
+fi
+
+cat <<END_BOOK_COMMANDS | "$SJENG"
 variant $1
 book
 $2

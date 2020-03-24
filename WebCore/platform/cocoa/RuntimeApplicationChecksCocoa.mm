@@ -90,6 +90,12 @@ bool isInWebProcess()
     return mainBundleIsWebProcess;
 }
 
+bool isInNetworkProcess()
+{
+    static bool mainBundleIsNetworkProcess = [[[NSBundle mainBundle] bundleIdentifier] hasPrefix:@"com.apple.WebKit.Networking"];
+    return mainBundleIsNetworkProcess;
+}
+
 static bool applicationBundleIsEqualTo(const String& bundleIdentifierString)
 {
     return applicationBundleIdentifier() == bundleIdentifierString;
@@ -256,12 +262,6 @@ bool IOSApplication::isSpringBoard()
 {
     static bool isSpringBoard = applicationBundleIsEqualTo("com.apple.springboard"_s);
     return isSpringBoard;
-}
-
-bool IOSApplication::isWebApp()
-{
-    static bool isWebApp = applicationBundleIsEqualTo("com.apple.webapp"_s);
-    return isWebApp;
 }
 
 // FIXME: this needs to be changed when the WebProcess is changed to an XPC service.

@@ -16,14 +16,14 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           machineID: "asdf",
                           bottleSalt: "123456789",
                           bottleID: UUID().uuidString,
-                          modelID: "asdf",
+                          modelID: "iPhone9,1",
                           deviceName: "asdf",
                           serialNumber: "1234",
                           osVersion: "asdf",
                           policyVersion: nil,
                           policySecrets: nil,
                           signingPrivKeyPersistentRef: nil,
-                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, error in
+                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")
                             XCTAssertNotNil(peerID, "Should be a peer ID")
                             XCTAssertNotNil(permanentInfo, "Should have a permenent info")
@@ -44,8 +44,9 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
 
         XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName), "Should be no error saving fake account metadata")
 
-        OctagonInitialize()
+        self.cuttlefishContext.startOctagonStateMachine()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
@@ -53,10 +54,10 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
 
         #if !os(tvOS)
-        XCTAssertTrue(self.cuttlefishContext.postedRepairCFU, "should have posted an repair CFU")
+        XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should have posted an repair CFU")
         #else
         // Apple TV should not post a CFU, as there's no peers to join
-        XCTAssertFalse(self.cuttlefishContext.postedRepairCFU, "appleTV should not have posted a repair CFU")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "appleTV should not have posted a repair CFU")
         #endif
     }
 
@@ -78,14 +79,14 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           machineID: "asdf",
                           bottleSalt: "123456789",
                           bottleID: UUID().uuidString,
-                          modelID: "asdf",
+                          modelID: "iPhone9,1",
                           deviceName: "asdf",
                           serialNumber: "1234",
                           osVersion: "asdf",
                           policyVersion: nil,
                           policySecrets: nil,
                           signingPrivKeyPersistentRef: nil,
-                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, error in
+                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")
                             XCTAssertNotNil(peerID, "Should be a peer ID")
                             XCTAssertNotNil(permanentInfo, "Should have a permenent info")
@@ -106,8 +107,9 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
 
         XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName), "Should be no error saving fake account metadata")
 
-        OctagonInitialize()
+        self.cuttlefishContext.startOctagonStateMachine()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
@@ -116,17 +118,19 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
 
         // Since SOS isn't around to help, Octagon should post a CFU
         #if os(tvOS)
-        XCTAssertEqual(self.cuttlefishContext.postedRepairCFU, false, "Should not have posted a CFU on aTV (due to having no peers to join)")
+        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), false, "Should not have posted a CFU on aTV (due to having no peers to join)")
         #else
-        XCTAssertTrue(self.cuttlefishContext.postedRepairCFU, "should have posted an repair CFU, as SOS can't help")
+        XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should have posted an repair CFU, as SOS can't help")
         #endif
     }
 
     func testAttemptedJoinNotAttemptedStateSOSError() throws {
         self.startCKAccountStatusMock()
 
+        // Note that some errors mean "out of circle", so use NotReady here to avoid that
         self.mockSOSAdapter.sosEnabled = true
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCError)
+        self.mockSOSAdapter.circleStatusError = NSError(domain: kSOSErrorDomain as String, code: kSOSErrorNotReady, userInfo: nil)
 
         // Prepare an identity, then pretend like securityd thought it was in the right account
         let containerName = OTCKContainerName
@@ -140,14 +144,14 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           machineID: "asdf",
                           bottleSalt: "123456789",
                           bottleID: UUID().uuidString,
-                          modelID: "asdf",
+                          modelID: "iPhone9,1",
                           deviceName: "asdf",
                           serialNumber: "1234",
                           osVersion: "asdf",
                           policyVersion: nil,
                           policySecrets: nil,
                           signingPrivKeyPersistentRef: nil,
-                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, error in
+                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")
                             XCTAssertNotNil(peerID, "Should be a peer ID")
                             XCTAssertNotNil(permanentInfo, "Should have a permenent info")
@@ -168,8 +172,9 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
 
         XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName), "Should be no error saving fake account metadata")
 
-        OctagonInitialize()
+        self.cuttlefishContext.startOctagonStateMachine()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
@@ -177,7 +182,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
 
         // Since SOS is in 'error', octagon shouldn't post until SOS can say y/n
-        XCTAssertFalse(self.cuttlefishContext.postedRepairCFU, "should NOT have posted an repair CFU")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should NOT have posted an repair CFU")
     }
 
     func testAttemptedJoinNotAttemptedStateSOSDisabled() throws {
@@ -188,6 +193,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         // No need to mock not joining; Octagon won't have attempted a join if we just start it
         self.cuttlefishContext.startOctagonStateMachine()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
@@ -195,10 +201,10 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
 
         #if !os(tvOS)
-        XCTAssertTrue(self.cuttlefishContext.postedRepairCFU, "should have posted an repair CFU, as SOS is disabled")
+        XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should have posted an repair CFU, as SOS is disabled")
         #else
         // Apple TV should not post a CFU, as there's no peers to join
-        XCTAssertFalse(self.cuttlefishContext.postedRepairCFU, "appleTV should not have posted a repair CFU")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "appleTV should not have posted a repair CFU")
         #endif
     }
 
@@ -217,14 +223,14 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           machineID: "asdf",
                           bottleSalt: "123456789",
                           bottleID: UUID().uuidString,
-                          modelID: "asdf",
+                          modelID: "iPhone9,1",
                           deviceName: "asdf",
                           serialNumber: "1234",
                           osVersion: "asdf",
                           policyVersion: nil,
                           policySecrets: nil,
                           signingPrivKeyPersistentRef: nil,
-                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, error in
+                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")
                             XCTAssertNotNil(peerID, "Should be a peer ID")
                             XCTAssertNotNil(permanentInfo, "Should have a permenent info")
@@ -245,8 +251,9 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
 
         XCTAssertNoThrow(try account.saveToKeychain(forContainer: containerName, contextID: contextName), "Should be no error saving fake account metadata")
 
-        OctagonInitialize()
+        self.cuttlefishContext.startOctagonStateMachine()
 
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
@@ -254,10 +261,10 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
 
         #if !os(tvOS)
-        XCTAssertTrue(self.cuttlefishContext.postedRepairCFU, "should have posted an repair CFU")
+        XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should have posted an repair CFU")
         #else
         // Apple TV should not post a CFU, as there's no peers to join
-        XCTAssertFalse(self.cuttlefishContext.postedRepairCFU, "appleTV should not have posted a repair CFU")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "appleTV should not have posted a repair CFU")
         #endif
     }
 
@@ -268,12 +275,13 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         self.mockSOSAdapter.sosEnabled = false
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
 
         // Apple TV should not post a CFU, as there's no peers to join
-        XCTAssertFalse(self.cuttlefishContext.postedRepairCFU, "appleTV should not have posted a repair CFU")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "appleTV should not have posted a repair CFU")
 
         // Now, an iphone appears!
         let iphone = self.manager.context(forContainerName: OTCKContainerName,
@@ -296,7 +304,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
 
         // The TV should now post a CFU, as there's an iphone that can repair it
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
-        XCTAssertTrue(self.cuttlefishContext.postedRepairCFU, "appleTV should have posted a repair CFU")
+        XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "appleTV should have posted a repair CFU")
     }
 
     func testDontPostCFUWhenApprovalIncapablePeerJoins() throws {
@@ -305,12 +313,13 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         self.mockSOSAdapter.sosEnabled = false
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
 
         // Apple TV should not post a CFU, as there's no peers to join
-        XCTAssertFalse(self.cuttlefishContext.postedRepairCFU, "appleTV should not have posted a repair CFU")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "appleTV should not have posted a repair CFU")
 
         // Now, a mac appears! macs cannot fix apple TVs.
         let mac = self.manager.context(forContainerName: OTCKContainerName,
@@ -333,7 +342,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
 
         // The TV should not post a CFU, as there's still no iPhone to repair it
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
-        XCTAssertFalse(self.cuttlefishContext.postedRepairCFU, "appleTV should not have posted a repair CFU; no devices present can repair it")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "appleTV should not have posted a repair CFU; no devices present can repair it")
     }
 
     func testDontPostCFUWhenCapablePeersAreUntrusted() throws {
@@ -373,6 +382,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                       "iphone should distrust itself")
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         // Ensure that the aTV has fetched properly
@@ -382,7 +392,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
 
         // Apple TV should not post a CFU, as the only iPhone around is untrusted
-        XCTAssertFalse(self.cuttlefishContext.postedRepairCFU, "appleTV should not have posted a repair CFU")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "appleTV should not have posted a repair CFU")
 
         // Another iPhone resets the world
         let iphone2 = self.manager.context(forContainerName: OTCKContainerName,
@@ -403,7 +413,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
 
         // The aTV is notified, and now posts a CFU
         self.sendContainerChangeWaitForUntrustedFetch(context: self.cuttlefishContext)
-        XCTAssertTrue(self.cuttlefishContext.postedRepairCFU, "appleTV should have posted a repair CFU")
+        XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "appleTV should have posted a repair CFU")
     }
     #endif
 
@@ -413,14 +423,15 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCNotInCircle)
 
         self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
 
         #if os(tvOS)
-        XCTAssertEqual(self.cuttlefishContext.postedRepairCFU, false, "Should not have posted a CFU on aTV (due to having no peers to join)")
+        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), false, "Should not have posted a CFU on aTV (due to having no peers to join)")
         #else
-        XCTAssertTrue(self.cuttlefishContext.postedRepairCFU, "should have posted an repair CFU, as SOS can't help")
+        XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should have posted an repair CFU, as SOS can't help")
         #endif
     }
 }

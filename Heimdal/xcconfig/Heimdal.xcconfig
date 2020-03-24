@@ -26,7 +26,7 @@ HEIMDAL_OPENDIRECTORY_FRAMEWORK[sdk=appletvos*] =
 
 HEIMDAL_ASN1BASE_INSTALL_PATH = /usr/local
 
-WARNING_CFLAGS_MOST = $(inherit) -Weverything -Werror=all -Wno-undef -Wno-missing-variable-declarations -Wno-padded -Wno-unused-macros -Wno-cast-align -Wno-extended-offsetof -Wno-assign-enum -Wno-documentation-unknown-command -Wno-used-but-marked-unused -Wno-switch-enum -Wno-gnu-union-cast -Wno-pedantic -Wno-missing-noreturn -Wno-system-headers -Wno-unreachable-code-aggressive -Wno-reserved-id-macro -Wno-cast-qual -Wno-cstring-format-directive
+WARNING_CFLAGS_MOST = $(inherit) -Weverything -Werror=all -Wno-undef -Wno-missing-variable-declarations -Wno-padded -Wno-unused-macros -Wno-cast-align -Wno-assign-enum -Wno-documentation-unknown-command -Wno-used-but-marked-unused -Wno-switch-enum -Wno-gnu-union-cast -Wno-pedantic -Wno-missing-noreturn -Wno-system-headers -Wno-unreachable-code-aggressive -Wno-reserved-id-macro -Wno-cast-qual -Wno-cstring-format-directive
 
 CODE_SIGN_IDENTITY = -
 

@@ -35,8 +35,8 @@
 #include "CSSUnicodeRangeValue.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
+#include "DOMPromiseProxy.h"
 #include "Document.h"
-#include "FontVariantBuilder.h"
 #include "JSFontFace.h"
 #include "Quirks.h"
 #include "StyleProperties.h"
@@ -49,7 +49,7 @@ namespace WebCore {
 
 static bool populateFontFaceWithArrayBuffer(CSSFontFace& fontFace, Ref<JSC::ArrayBufferView>&& arrayBufferView)
 {
-    auto source = std::make_unique<CSSFontFaceSource>(fontFace, String(), nullptr, nullptr, WTFMove(arrayBufferView));
+    auto source = makeUnique<CSSFontFaceSource>(fontFace, String(), nullptr, nullptr, WTFMove(arrayBufferView));
     fontFace.adoptSource(WTFMove(source));
     return false;
 }
@@ -100,9 +100,6 @@ ExceptionOr<Ref<FontFace>> FontFace::create(Document& document, const String& fa
     auto setUnicodeRangeResult = result->setUnicodeRange(descriptors.unicodeRange.isEmpty() ? "U+0-10FFFF"_s : descriptors.unicodeRange);
     if (setUnicodeRangeResult.hasException())
         return setUnicodeRangeResult.releaseException();
-    auto setVariantResult = result->setVariant(descriptors.variant.isEmpty() ? "normal"_s : descriptors.variant);
-    if (setVariantResult.hasException())
-        return setVariantResult.releaseException();
     auto setFeatureSettingsResult = result->setFeatureSettings(descriptors.featureSettings.isEmpty() ? "normal"_s : descriptors.featureSettings);
     if (setFeatureSettingsResult.hasException())
         return setFeatureSettingsResult.releaseException();
@@ -126,14 +123,14 @@ Ref<FontFace> FontFace::create(CSSFontFace& face)
 
 FontFace::FontFace(CSSFontSelector& fontSelector)
     : m_backing(CSSFontFace::create(&fontSelector, nullptr, this))
-    , m_loadedPromise(*this, &FontFace::loadedPromiseResolve)
+    , m_loadedPromise(makeUniqueRef<LoadedPromise>(*this, &FontFace::loadedPromiseResolve))
 {
     m_backing->addClient(*this);
 }
 
 FontFace::FontFace(CSSFontFace& face)
     : m_backing(face)
-    , m_loadedPromise(*this, &FontFace::loadedPromiseResolve)
+    , m_loadedPromise(makeUniqueRef<LoadedPromise>(*this, &FontFace::loadedPromiseResolve))
 {
     m_backing->addClient(*this);
 }
@@ -214,61 +211,6 @@ ExceptionOr<void> FontFace::setUnicodeRange(const String& unicodeRange)
         success = m_backing->setUnicodeRange(*value);
     if (!success)
         return Exception { SyntaxError };
-    return { };
-}
-
-ExceptionOr<void> FontFace::setVariant(const String& variant)
-{
-    if (variant.isEmpty())
-        return Exception { SyntaxError };
-
-    auto style = MutableStyleProperties::create();
-    auto result = CSSParser::parseValue(style, CSSPropertyFontVariant, variant, true, HTMLStandardMode);
-    if (result == CSSParser::ParseResult::Error)
-        return Exception { SyntaxError };
-
-    // FIXME: Would be much better to stage the new settings and set them all at once
-    // instead of this dance where we make a backup and revert to it if something fails.
-    FontVariantSettings backup = m_backing->variantSettings();
-
-    auto normal = CSSValuePool::singleton().createIdentifierValue(CSSValueNormal);
-    bool success = true;
-
-    if (auto value = style->getPropertyCSSValue(CSSPropertyFontVariantLigatures))
-        success &= m_backing->setVariantLigatures(*value);
-    else
-        m_backing->setVariantLigatures(normal);
-
-    if (auto value = style->getPropertyCSSValue(CSSPropertyFontVariantPosition))
-        success &= m_backing->setVariantPosition(*value);
-    else
-        m_backing->setVariantPosition(normal);
-
-    if (auto value = style->getPropertyCSSValue(CSSPropertyFontVariantCaps))
-        success &= m_backing->setVariantCaps(*value);
-    else
-        m_backing->setVariantCaps(normal);
-
-    if (auto value = style->getPropertyCSSValue(CSSPropertyFontVariantNumeric))
-        success &= m_backing->setVariantNumeric(*value);
-    else
-        m_backing->setVariantNumeric(normal);
-
-    if (auto value = style->getPropertyCSSValue(CSSPropertyFontVariantAlternates))
-        success &= m_backing->setVariantAlternates(*value);
-    else
-        m_backing->setVariantAlternates(normal);
-
-    if (auto value = style->getPropertyCSSValue(CSSPropertyFontVariantEastAsian))
-        success &= m_backing->setVariantEastAsian(*value);
-    else
-        m_backing->setVariantEastAsian(normal);
-
-    if (!success) {
-        m_backing->setVariantSettings(backup);
-        return Exception { SyntaxError };
-    }
-
     return { };
 }
 
@@ -401,12 +343,6 @@ String FontFace::unicodeRange() const
     return values->cssText();
 }
 
-String FontFace::variant() const
-{
-    m_backing->updateStyleIfNeeded();
-    return computeFontVariant(m_backing->variantSettings())->cssText();
-}
-
 String FontFace::featureSettings() const
 {
     m_backing->updateStyleIfNeeded();
@@ -463,15 +399,15 @@ void FontFace::fontStateChanged(CSSFontFace& face, CSSFontFace::Status, CSSFontF
     case CSSFontFace::Status::Success:
         // FIXME: This check should not be needed, but because FontFace's are sometimes adopted after they have already
         // gone through a load cycle, we can sometimes come back through here and try to resolve the promise again.  
-        if (!m_loadedPromise.isFulfilled())
-            m_loadedPromise.resolve(*this);
+        if (!m_loadedPromise->isFulfilled())
+            m_loadedPromise->resolve(*this);
         deref();
         return;
     case CSSFontFace::Status::Failure:
         // FIXME: This check should not be needed, but because FontFace's are sometimes adopted after they have already
         // gone through a load cycle, we can sometimes come back through here and try to resolve the promise again.  
-        if (!m_loadedPromise.isFulfilled())
-            m_loadedPromise.reject(Exception { NetworkError });
+        if (!m_loadedPromise->isFulfilled())
+            m_loadedPromise->reject(Exception { NetworkError });
         deref();
         return;
     case CSSFontFace::Status::Pending:
@@ -483,7 +419,7 @@ void FontFace::fontStateChanged(CSSFontFace& face, CSSFontFace::Status, CSSFontF
 auto FontFace::load() -> LoadedPromise&
 {
     m_backing->load();
-    return m_loadedPromise;
+    return m_loadedPromise.get();
 }
 
 FontFace& FontFace::loadedPromiseResolve()

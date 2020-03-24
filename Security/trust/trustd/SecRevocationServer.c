@@ -289,6 +289,9 @@ void SecORVCConsumeOCSPResponse(SecORVCRef rvc, SecOCSPResponseRef ocspResponse 
     // but we haven't checked dates yet.
 
     bool sr_valid = SecOCSPSingleResponseCalculateValidity(sr, kSecDefaultOCSPResponseTTL, verifyTime);
+    if (sr_valid) {
+        rvc->rvc->revocation_checked = true;
+    }
     if (sr->certStatus == CS_Good) {
         // Side effect of SecOCSPResponseCalculateValidity sets ocspResponse->expireTime
         require_quiet(sr_valid && SecOCSPResponseCalculateValidity(ocspResponse, maxAge, kSecDefaultOCSPResponseTTL, verifyTime), errOut);
@@ -479,12 +482,11 @@ static void SecRVCProcessValidPolicyConstraints(SecRVCRef rvc) {
             SecPolicyRef policy = (SecPolicyRef)CFArrayGetValueAtIndex(policies, policyIX);
             if (!SecRVCPolicyConstraintsPermitPolicy(constraints, count, policy)) {
                 policyDeniedByConstraints = true;
-                SecPVCSetResultForced(pvc, kSecPolicyCheckIssuerPolicyConstraints, rvc->certIX,
-                                      kCFBooleanFalse, true);
-                pvc->result = kSecTrustResultRecoverableTrustFailure;
-                if (!rvc->valid_info->overridable) {
-                    /* error for this check should be non-recoverable */
-                    pvc->result = kSecTrustResultFatalTrustFailure;
+                if (rvc->valid_info->overridable) {
+                    SecPVCSetResultForcedWithTrustResult(pvc, kSecPolicyCheckIssuerPolicyConstraints, rvc->certIX,
+                                                         kCFBooleanFalse, true, kSecTrustResultRecoverableTrustFailure);
+                } else {
+                    SecPVCSetResultForced(pvc, kSecPolicyCheckIssuerPolicyConstraints, rvc->certIX, kCFBooleanFalse, true);
                 }
             }
         }
@@ -614,6 +616,10 @@ void SecRVCSetValidDeterminedErrorResult(SecRVCRef rvc) {
     CFReleaseNull(cfreason);
 }
 
+bool SecRVCRevocationChecked(SecRVCRef rvc) {
+    return rvc->revocation_checked;
+}
+
 static void SecRVCProcessValidInfoResults(SecRVCRef rvc) {
     if (!rvc || !rvc->valid_info || !rvc->builder) {
         return;
@@ -645,6 +651,7 @@ static void SecRVCProcessValidInfoResults(SecRVCRef rvc) {
         } else if (allowed) {
             /* definitely not revoked (allowlisted) */
             SecCertificatePathVCSetIsAllowlisted(path, true);
+            rvc->revocation_checked = true;
         }
         /* no-ca is definitive; no need to check further. */
         secdebug("validupdate", "rvc: definitely %s cert %" PRIdCFIndex,

@@ -25,14 +25,14 @@
 
 #import "_WKTextInputContext.h"
 
-namespace WebKit {
-struct TextInputContext;
+namespace WebCore {
+struct ElementContext;
 }
 
 @interface _WKTextInputContext ()
 
-- (instancetype)_initWithTextInputContext:(const WebKit::TextInputContext&)context;
+- (instancetype)_initWithTextInputContext:(const WebCore::ElementContext&)context;
 
-- (const WebKit::TextInputContext&)_textInputContext;
+- (const WebCore::ElementContext&)_textInputContext;
 
 @end

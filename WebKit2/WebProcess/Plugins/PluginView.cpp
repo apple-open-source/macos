@@ -898,7 +898,7 @@ std::unique_ptr<WebEvent> PluginView::createWebEvent(MouseEvent& event) const
     if (event.metaKey())
         modifiers.add(WebEvent::Modifier::MetaKey);
 
-    return std::make_unique<WebMouseEvent>(type, button, event.buttons(), m_plugin->convertToRootView(IntPoint(event.offsetX(), event.offsetY())), event.screenLocation(), 0, 0, 0, clickCount, modifiers, WallTime { }, 0);
+    return makeUnique<WebMouseEvent>(type, button, event.buttons(), m_plugin->convertToRootView(IntPoint(event.offsetX(), event.offsetY())), event.screenLocation(), 0, 0, 0, clickCount, modifiers, WallTime { }, 0);
 }
 
 void PluginView::handleEvent(Event& event)
@@ -1253,7 +1253,7 @@ void PluginView::performJavaScriptURLRequest(URLRequest* request)
     // Evaluate the JavaScript code. Note that running JavaScript here could cause the plug-in to be destroyed, so we
     // grab references to the plug-in here.
     RefPtr<Plugin> plugin = m_plugin;
-    auto result = frame->script().executeScript(jsString, request->allowPopups());
+    auto result = frame->script().executeScriptIgnoringException(jsString, request->allowPopups());
 
     if (!result)
         return;
@@ -1266,9 +1266,9 @@ void PluginView::performJavaScriptURLRequest(URLRequest* request)
     if (!request->target().isNull())
         return;
 
-    ExecState* scriptState = frame->script().globalObject(pluginWorld())->globalExec();
+    JSGlobalObject* globalObject = frame->script().globalObject(pluginWorld());
     String resultString;
-    result.getString(scriptState, resultString);
+    result.getString(globalObject, resultString);
   
     // Send the result back to the plug-in.
     plugin->didEvaluateJavaScript(request->requestID(), resultString);
@@ -1842,7 +1842,7 @@ void PluginView::pluginDidReceiveUserInteraction()
     String pluginOrigin = plugInImageElement.loadedUrl().host().toString();
     String mimeType = plugInImageElement.serviceType();
 
-    WebProcess::singleton().plugInDidReceiveUserInteraction(pageOrigin, pluginOrigin, mimeType, plugInImageElement.document().page()->sessionID());
+    WebProcess::singleton().plugInDidReceiveUserInteraction(pageOrigin, pluginOrigin, mimeType);
 }
 
 bool PluginView::shouldCreateTransientPaintingSnapshot() const

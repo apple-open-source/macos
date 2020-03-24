@@ -429,11 +429,12 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 
 		resources.scan(^(FTSENT *ent, uint32_t ruleFlags, const std::string relpath, Rule *rule) {
 			bool isSymlink = (ent->fts_info == FTS_SL);
+			bool isNested = (ruleFlags & ResourceBuilder::nested);
 			const std::string path(ent->fts_path);
 			const std::string accpath(ent->fts_accpath);
 			this->state.mLimitedAsync->perform(groupRef, ^{
 				CFRef<CFMutableDictionaryRef> seal;
-				if (ruleFlags & ResourceBuilder::nested) {
+				if (isNested) {
 					seal.take(signNested(path, relpath));
 				} else if (isSymlink) {
 					char target[PATH_MAX];
@@ -444,6 +445,10 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 					seal.take(cfmake<CFMutableDictionaryRef>("{symlink=%s}", target));
 				} else {
 					seal.take(resources.hashFile(accpath.c_str(), digestAlgorithms(), signingFlags() & kSecCSSignStrictPreflight));
+				}
+				if (seal.get() == NULL) {
+					secerror("Failed to generate sealed resource: %d, %d, %s", isNested, isSymlink, accpath.c_str());
+					MacOSError::throwMe(errSecCSBadResource);
 				}
 				if (ruleFlags & ResourceBuilder::optional)
 					CFDictionaryAddValue(seal, CFSTR("optional"), kCFBooleanTrue);

@@ -34,10 +34,12 @@
 
 OBJC_CLASS BKSApplicationStateMonitor;
 OBJC_CLASS UIView;
+OBJC_CLASS UIWindow;
 
 namespace WebKit {
 
 class ApplicationStateTracker : public CanMakeWeakPtr<ApplicationStateTracker> {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     ApplicationStateTracker(UIView *, SEL didEnterBackgroundSelector, SEL didFinishSnapshottingAfterEnteringBackgroundSelector, SEL willEnterForegroundSelector);
     ~ApplicationStateTracker();
@@ -62,6 +64,14 @@ private:
     id m_didFinishSnapshottingAfterEnteringBackgroundObserver;
     id m_willEnterForegroundObserver;
 };
+
+enum class ApplicationType {
+    Application,
+    ViewService,
+    Extension,
+};
+
+ApplicationType applicationType(UIWindow *);
 
 }
 

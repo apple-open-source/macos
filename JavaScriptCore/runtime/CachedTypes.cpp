@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,6 @@
 #include "CachedTypes.h"
 
 #include "BytecodeCacheError.h"
-#include "BytecodeCacheVersion.h"
 #include "BytecodeLivenessAnalysis.h"
 #include "JSCInlines.h"
 #include "JSImmutableButterfly.h"
@@ -41,6 +40,7 @@
 #include "UnlinkedModuleProgramCodeBlock.h"
 #include "UnlinkedProgramCodeBlock.h"
 #include <wtf/FastMalloc.h>
+#include <wtf/MallocPtr.h>
 #include <wtf/Optional.h>
 #include <wtf/UUID.h>
 #include <wtf/text/AtomStringImpl.h>
@@ -65,6 +65,11 @@ struct SourceTypeImpl<T, std::enable_if_t<!std::is_fundamental<T>::value && !std
 template<typename T>
 using SourceType = typename SourceTypeImpl<T>::type;
 
+static constexpr unsigned jscBytecodeCacheVersion()
+{
+    return StringHasher::computeHash(__TIMESTAMP__);
+}
+
 class Encoder {
     WTF_MAKE_NONCOPYABLE(Encoder);
     WTF_FORBID_HEAP_ALLOCATION;
@@ -88,7 +93,7 @@ public:
         ptrdiff_t m_offset;
     };
 
-    Encoder(VM& vm, int fd = -1)
+    Encoder(VM& vm, FileSystem::PlatformFileHandle fd = FileSystem::invalidPlatformFileHandle)
         : m_vm(vm)
         , m_fd(fd)
         , m_baseOffset(0)
@@ -152,16 +157,12 @@ public:
             return nullptr;
         m_currentPage->alignEnd();
 
-        if (m_fd != -1) {
-#if !OS(WINDOWS)
+        if (FileSystem::isHandleValid(m_fd)) {
             return releaseMapped(error);
-#else
-            RELEASE_ASSERT_NOT_REACHED();
-#endif
         }
 
         size_t size = m_baseOffset + m_currentPage->size();
-        MallocPtr<uint8_t> buffer = MallocPtr<uint8_t>::malloc(size);
+        MallocPtr<uint8_t, VMMalloc> buffer = MallocPtr<uint8_t, VMMalloc>::malloc(size);
         unsigned offset = 0;
         for (const auto& page : m_pages) {
             memcpy(buffer.get() + offset, page.buffer(), page.size());
@@ -172,17 +173,16 @@ public:
     }
 
 private:
-#if !OS(WINDOWS)
     RefPtr<CachedBytecode> releaseMapped(BytecodeCacheError& error)
     {
         size_t size = m_baseOffset + m_currentPage->size();
-        if (ftruncate(m_fd, size)) {
+        if (!FileSystem::truncateFile(m_fd, size)) {
             error = BytecodeCacheError::StandardError(errno);
             return nullptr;
         }
 
         for (const auto& page : m_pages) {
-            ssize_t bytesWritten = write(m_fd, page.buffer(), page.size());
+            int bytesWritten = FileSystem::writeToFile(m_fd, reinterpret_cast<char*>(page.buffer()), page.size());
             if (bytesWritten == -1) {
                 error = BytecodeCacheError::StandardError(errno);
                 return nullptr;
@@ -194,23 +194,22 @@ private:
             }
         }
 
-        void* buffer = mmap(nullptr, size, PROT_READ, MAP_PRIVATE, m_fd, 0);
-        if (buffer == MAP_FAILED) {
+        bool success;
+        FileSystem::MappedFileData mappedFileData(m_fd, FileSystem::MappedFileMode::Private, success);
+        if (!success) {
             error = BytecodeCacheError::StandardError(errno);
             return nullptr;
         }
 
-        return CachedBytecode::create(buffer, size, WTFMove(m_leafExecutables));
+        return CachedBytecode::create(WTFMove(mappedFileData), WTFMove(m_leafExecutables));
     }
-#endif
 
     class Page {
     public:
         Page(size_t size)
-            : m_offset(0)
+            : m_buffer(MallocPtr<uint8_t, VMMalloc>::malloc(size))
             , m_capacity(size)
         {
-            m_buffer = MallocPtr<uint8_t>::malloc(size);
         }
 
         bool malloc(size_t size, ptrdiff_t& result)
@@ -249,8 +248,8 @@ private:
         }
 
     private:
-        MallocPtr<uint8_t> m_buffer;
-        ptrdiff_t m_offset;
+        MallocPtr<uint8_t, VMMalloc> m_buffer;
+        ptrdiff_t m_offset { 0 };
         size_t m_capacity;
     };
 
@@ -270,7 +269,7 @@ private:
     }
 
     VM& m_vm;
-    int m_fd;
+    FileSystem::PlatformFileHandle m_fd;
     ptrdiff_t m_baseOffset;
     Page* m_currentPage;
     Vector<Page> m_pages;
@@ -598,10 +597,20 @@ ptrdiff_t CachedWriteBarrierOffsets::ptrOffset()
     return OBJECT_OFFSETOF(CachedWriteBarrier<void>, m_ptr);
 }
 
-template<typename T, size_t InlineCapacity = 0, typename OverflowHandler = CrashOnOverflow>
-class CachedVector : public VariableLengthObject<Vector<SourceType<T>, InlineCapacity, OverflowHandler>> {
+template<typename T, size_t InlineCapacity = 0, typename OverflowHandler = CrashOnOverflow, typename Malloc = WTF::VectorMalloc>
+class CachedVector : public VariableLengthObject<Vector<SourceType<T>, InlineCapacity, OverflowHandler, 16, Malloc>> {
 public:
-    void encode(Encoder& encoder, const Vector<SourceType<T>, InlineCapacity, OverflowHandler>& vector)
+    void encode(Encoder& encoder, const Vector<SourceType<T>, InlineCapacity, OverflowHandler, 16, Malloc>& vector)
+    {
+        m_size = vector.size();
+        if (!m_size)
+            return;
+        T* buffer = this->template allocate<T>(encoder, m_size);
+        for (unsigned i = 0; i < m_size; ++i)
+            ::JSC::encode(encoder, buffer[i], vector[i]);
+    }
+
+    void encode(Encoder& encoder, const RefCountedArray<SourceType<T>>& vector)
     {
         m_size = vector.size();
         if (!m_size)
@@ -612,7 +621,7 @@ public:
     }
 
     template<typename... Args>
-    void decode(Decoder& decoder, Vector<SourceType<T>, InlineCapacity, OverflowHandler>& vector, Args... args) const
+    void decode(Decoder& decoder, Vector<SourceType<T>, InlineCapacity, OverflowHandler, 16, Malloc>& vector, Args... args) const
     {
         if (!m_size)
             return;
@@ -621,6 +630,18 @@ public:
         for (unsigned i = 0; i < m_size; ++i)
             ::JSC::decode(decoder, buffer[i], vector[i], args...);
     }
+
+    template<typename... Args>
+    void decode(Decoder& decoder, RefCountedArray<SourceType<T>>& vector, Args... args) const
+    {
+        if (!m_size)
+            return;
+        vector = RefCountedArray<SourceType<T>>(m_size);
+        const T* buffer = this->template buffer<T>();
+        for (unsigned i = 0; i < m_size; ++i)
+            ::JSC::decode(decoder, buffer[i], vector[i], args...);
+    }
+
 
 private:
     unsigned m_size;
@@ -716,7 +737,7 @@ public:
             if (!m_isSymbol)
                 return AtomStringImpl::add(buffer, m_length).leakRef();
 
-            Identifier ident = Identifier::fromString(&decoder.vm(), buffer, m_length);
+            Identifier ident = Identifier::fromString(decoder.vm(), buffer, m_length);
             String str = decoder.vm().propertyNames->lookUpPrivateName(ident);
             StringImpl* impl = str.releaseImpl().get();
             ASSERT(impl->isSymbol());
@@ -778,7 +799,7 @@ public:
         if (str.isNull())
             return Identifier();
 
-        return Identifier::fromUid(&decoder.vm(), (UniquedStringImpl*)str.impl());
+        return Identifier::fromUid(decoder.vm(), (UniquedStringImpl*)str.impl());
     }
 
     void decode(Decoder& decoder, Identifier& ident) const
@@ -1319,7 +1340,7 @@ public:
             break;
         case EncodedType::String: {
             StringImpl* impl = this->buffer<CachedUniquedStringImpl>()->decode(decoder);
-            v = jsString(&decoder.vm(), adoptRef(*impl));
+            v = jsString(decoder.vm(), adoptRef(*impl));
             break;
         }
         case EncodedType::ImmutableButterfly:
@@ -1363,13 +1384,13 @@ public:
 
     InstructionStream* decode(Decoder& decoder) const
     {
-        Vector<uint8_t, 0, UnsafeVectorOverflow> instructionsVector;
+        Vector<uint8_t, 0, UnsafeVectorOverflow, 16, InstructionStreamMalloc> instructionsVector;
         m_instructions.decode(decoder, instructionsVector);
         return new InstructionStream(WTFMove(instructionsVector));
     }
 
 private:
-    CachedVector<uint8_t, 0, UnsafeVectorOverflow> m_instructions;
+    CachedVector<uint8_t, 0, UnsafeVectorOverflow, InstructionStreamMalloc> m_instructions;
 };
 
 class CachedMetadataTable : public CachedObject<UnlinkedMetadataTable> {
@@ -1806,7 +1827,6 @@ public:
 private:
     VirtualRegister m_thisRegister;
     VirtualRegister m_scopeRegister;
-    std::array<unsigned, LinkTimeConstantCount> m_linkTimeConstants;
 
     unsigned m_usesEval : 1;
     unsigned m_isStrictMode : 1;
@@ -1843,7 +1863,6 @@ private:
 
     CachedPtr<CachedInstructionStream> m_instructions;
     CachedVector<InstructionStream::Offset> m_jumpTargets;
-    CachedVector<InstructionStream::Offset> m_propertyAccessInstructions;
     CachedVector<CachedJSValue> m_constantRegisters;
     CachedVector<SourceCodeRepresentation> m_constantsSourceCodeRepresentation;
     CachedVector<ExpressionRangeInfo> m_expressionInfo;
@@ -2045,10 +2064,6 @@ ALWAYS_INLINE UnlinkedCodeBlock::UnlinkedCodeBlock(Decoder& decoder, Structure* 
 template<typename CodeBlockType>
 ALWAYS_INLINE void CachedCodeBlock<CodeBlockType>::decode(Decoder& decoder, UnlinkedCodeBlock& codeBlock) const
 {
-    for (unsigned i = LinkTimeConstantCount; i--;)
-        codeBlock.m_linkTimeConstants[i] = m_linkTimeConstants[i];
-
-    m_propertyAccessInstructions.decode(decoder, codeBlock.m_propertyAccessInstructions);
     m_constantRegisters.decode(decoder, codeBlock.m_constantRegisters, &codeBlock);
     m_constantsSourceCodeRepresentation.decode(decoder, codeBlock.m_constantsSourceCodeRepresentation);
     m_expressionInfo.decode(decoder, codeBlock.m_expressionInfo);
@@ -2214,9 +2229,6 @@ ALWAYS_INLINE void CachedCodeBlock<CodeBlockType>::encode(Encoder& encoder, cons
     m_codeGenerationMode = codeBlock.m_codeGenerationMode;
     m_codeType = codeBlock.m_codeType;
 
-    for (unsigned i = LinkTimeConstantCount; i--;)
-        m_linkTimeConstants[i] = codeBlock.m_linkTimeConstants[i];
-
     m_metadata.encode(encoder, codeBlock.m_metadata.get());
     m_rareData.encode(encoder, codeBlock.m_rareData.get());
 
@@ -2224,7 +2236,6 @@ ALWAYS_INLINE void CachedCodeBlock<CodeBlockType>::encode(Encoder& encoder, cons
     m_sourceMappingURLDirective.encode(encoder, codeBlock.m_sourceURLDirective.impl());
 
     m_instructions.encode(encoder, codeBlock.m_instructions.get());
-    m_propertyAccessInstructions.encode(encoder, codeBlock.m_propertyAccessInstructions);
     m_constantRegisters.encode(encoder, codeBlock.m_constantRegisters);
     m_constantsSourceCodeRepresentation.encode(encoder, codeBlock.m_constantsSourceCodeRepresentation);
     m_expressionInfo.encode(encoder, codeBlock.m_expressionInfo);
@@ -2280,7 +2291,7 @@ protected:
 
     bool isUpToDate(Decoder& decoder) const
     {
-        if (m_cacheVersion != JSC_BYTECODE_CACHE_VERSION)
+        if (m_cacheVersion != jscBytecodeCacheVersion())
             return false;
         if (m_bootSessionUUID.decode(decoder) != bootSessionUUIDString())
             return false;
@@ -2288,10 +2299,12 @@ protected:
     }
 
 private:
-    uint32_t m_cacheVersion { JSC_BYTECODE_CACHE_VERSION };
+    uint32_t m_cacheVersion { jscBytecodeCacheVersion() };
     CachedString m_bootSessionUUID;
     CachedCodeBlockTag m_tag;
 };
+
+static_assert(alignof(GenericCacheEntry) <= alignof(std::max_align_t));
 
 template<typename UnlinkedCodeBlockType>
 class CacheEntry : public GenericCacheEntry {
@@ -2329,6 +2342,9 @@ private:
     CachedSourceCodeKey m_key;
     CachedPtr<CachedCodeBlockType<UnlinkedCodeBlockType>> m_codeBlock;
 };
+
+static_assert(alignof(CacheEntry<UnlinkedProgramCodeBlock>) <= alignof(std::max_align_t));
+static_assert(alignof(CacheEntry<UnlinkedModuleProgramCodeBlock>) <= alignof(std::max_align_t));
 
 bool GenericCacheEntry::decode(Decoder& decoder, std::pair<SourceCodeKey, UnlinkedCodeBlock*>& result) const
 {
@@ -2376,7 +2392,7 @@ void encodeCodeBlock(Encoder& encoder, const SourceCodeKey& key, const UnlinkedC
     entry->encode(encoder, { key, jsCast<const UnlinkedCodeBlockType*>(codeBlock) });
 }
 
-RefPtr<CachedBytecode> encodeCodeBlock(VM& vm, const SourceCodeKey& key, const UnlinkedCodeBlock* codeBlock, int fd, BytecodeCacheError& error)
+RefPtr<CachedBytecode> encodeCodeBlock(VM& vm, const SourceCodeKey& key, const UnlinkedCodeBlock* codeBlock, FileSystem::PlatformFileHandle fd, BytecodeCacheError& error)
 {
     const ClassInfo* classInfo = codeBlock->classInfo(vm);
 
@@ -2394,7 +2410,7 @@ RefPtr<CachedBytecode> encodeCodeBlock(VM& vm, const SourceCodeKey& key, const U
 RefPtr<CachedBytecode> encodeCodeBlock(VM& vm, const SourceCodeKey& key, const UnlinkedCodeBlock* codeBlock)
 {
     BytecodeCacheError error;
-    return encodeCodeBlock(vm, key, codeBlock, -1, error);
+    return encodeCodeBlock(vm, key, codeBlock, FileSystem::invalidPlatformFileHandle, error);
 }
 
 RefPtr<CachedBytecode> encodeFunctionCodeBlock(VM& vm, const UnlinkedFunctionCodeBlock* codeBlock, BytecodeCacheError& error)

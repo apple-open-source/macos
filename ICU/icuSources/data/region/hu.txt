@@ -77,7 +77,7 @@ hu{
         CF{"Közép-afrikai Köztársaság"}
         CG{"Kongó - Brazzaville"}
         CH{"Svájc"}
-        CI{"Elefántcsontpart"}
+        CI{"Côte d’Ivoire"}
         CK{"Cook-szigetek"}
         CL{"Chile"}
         CM{"Kamerun"}
@@ -306,7 +306,7 @@ hu{
     Countries%variant{
         CD{"Kongó (KDK)"}
         CG{"Kongó (Köztársaság)"}
-        CI{"CI"}
+        CI{"Elefántcsontpart"}
         CZ{"Cseh Köztársaság"}
         FK{"Falkland-szigetek (Malvin-szigetek)"}
         TL{"Timor-Leste"}

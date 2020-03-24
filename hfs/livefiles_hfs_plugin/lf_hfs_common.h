@@ -35,13 +35,14 @@
 
 typedef struct
 {
-    int iFD;    // File descriptor as received from usbstoraged
-
+    int      iFD;         // File descriptor as received from usbstoraged
+    unsigned uUnmountHint; // Unmount hint (passed on in LFHFS_UNMOUNT, cleared on LFHFS_MOUNT)
 } FileSystemRecord_s;
 
 #define    VPTOFSRECORD(vp) (vp->sFSParams.vnfs_mp->psHfsmount->hfs_devvp->psFSRecord)
 
-#define    VNODE_TO_IFD(vp) ((vp->bIsMountVnode)? (vp->psFSRecord->iFD) : ((VPTOFSRECORD(vp))->iFD))
+#define    VNODE_TO_IFD(vp)          ((vp->bIsMountVnode)? (vp->psFSRecord->iFD)          : ((VPTOFSRECORD(vp))->iFD))
+#define    VNODE_TO_UNMOUNT_HINT(vp) ((vp->bIsMountVnode)? (vp->psFSRecord->uUnmountHint) : ((VPTOFSRECORD(vp))->uUnmountHint))
 
 /* Macros to clear/set/test flags. */
 #define    SET(t, f)    (t) |= (f)

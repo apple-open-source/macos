@@ -40,7 +40,7 @@ void InstanceOfStatus::appendVariant(const InstanceOfVariant& variant)
 }
 
 InstanceOfStatus InstanceOfStatus::computeFor(
-    CodeBlock* codeBlock, ICStatusMap& infoMap, unsigned bytecodeIndex)
+    CodeBlock* codeBlock, ICStatusMap& infoMap, BytecodeIndex bytecodeIndex)
 {
     ConcurrentJSLocker locker(codeBlock->m_lock);
     
@@ -75,7 +75,7 @@ InstanceOfStatus InstanceOfStatus::computeForStubInfo(const ConcurrentJSLocker&,
     if (!isInlineable(summary))
         return InstanceOfStatus(summary);
     
-    if (stubInfo->cacheType != CacheType::Stub)
+    if (stubInfo->cacheType() != CacheType::Stub)
         return TakesSlowPath; // This is conservative. It could be that we have no information.
     
     PolymorphicAccess* list = stubInfo->u.stub;

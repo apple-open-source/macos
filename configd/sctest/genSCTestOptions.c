@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -103,6 +103,7 @@ printOptionEntries()
 		printf("\t\t{\"%s\", %d, NULL, 0}, \\", testOptions[i].optionString, testOptions[i].hasArg);
 		printf("\n");
 	}
+	printf("\t\t{NULL, 0, NULL, 0},\n");
 }
 
 void

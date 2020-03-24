@@ -27,18 +27,19 @@
 
 namespace WebCore {
 class Geolocation;
-class GeolocationPosition;
+class GeolocationPositionData;
 }
 
 @class WebView;
 
 class WebGeolocationClient : public WebCore::GeolocationClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WebGeolocationClient(WebView *);
     WebView *webView() { return m_webView; }
 
     void geolocationDestroyed() override;
-    void startUpdating() override;
+    void startUpdating(const String& authorizationToken) override;
     void stopUpdating() override;
 #if PLATFORM(IOS_FAMILY)
     // FIXME: unify this with Mac on OpenSource.
@@ -47,7 +48,7 @@ public:
     void setEnableHighAccuracy(bool) override { }
 #endif
 
-    Optional<WebCore::GeolocationPosition> lastPosition() override;
+    Optional<WebCore::GeolocationPositionData> lastPosition() override;
 
     void requestPermission(WebCore::Geolocation&) override;
     void cancelPermissionRequest(WebCore::Geolocation&) override { };

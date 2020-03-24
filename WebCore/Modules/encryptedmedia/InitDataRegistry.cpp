@@ -133,7 +133,7 @@ Optional<Vector<std::unique_ptr<ISOProtectionSystemSpecificHeaderBox>>> InitData
         auto systemID = ISOProtectionSystemSpecificHeaderBox::peekSystemID(view, offset);
 #if HAVE(FAIRPLAYSTREAMING_CENC_INITDATA)
         if (systemID == ISOFairPlayStreamingPsshBox::fairPlaySystemID()) {
-            auto fpsPssh = std::make_unique<ISOFairPlayStreamingPsshBox>();
+            auto fpsPssh = makeUnique<ISOFairPlayStreamingPsshBox>();
             if (!fpsPssh->read(view, offset))
                 return WTF::nullopt;
             psshBoxes.append(WTFMove(fpsPssh));
@@ -142,7 +142,7 @@ Optional<Vector<std::unique_ptr<ISOProtectionSystemSpecificHeaderBox>>> InitData
 #else
         UNUSED_PARAM(systemID);
 #endif
-        auto psshBox = std::make_unique<ISOProtectionSystemSpecificHeaderBox>();
+        auto psshBox = makeUnique<ISOProtectionSystemSpecificHeaderBox>();
         if (!psshBox->read(view, offset))
             return WTF::nullopt;
 
@@ -171,7 +171,7 @@ Optional<Vector<Ref<SharedBuffer>>> InitDataRegistry::extractKeyIDsCenc(const Sh
 
             FourCC scheme = fpsPssh.initDataBox().info().scheme();
             if (CDMPrivateFairPlayStreaming::validFairPlayStreamingSchemes().contains(scheme)) {
-                for (auto request : fpsPssh.initDataBox().requests()) {
+                for (const auto& request : fpsPssh.initDataBox().requests()) {
                     auto& keyID = request.requestInfo().keyID();
                     keyIDs.append(SharedBuffer::create(keyID.data(), keyID.size()));
                 }

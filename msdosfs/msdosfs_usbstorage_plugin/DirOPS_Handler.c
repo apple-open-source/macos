@@ -460,7 +460,7 @@ DIROPS_LookForFreeEntriesInDirectory(NodeRecord_s* psFolderNode, uint32_t uAmoun
 
                     uint32_t uAmountOfAllocatedClusters = 0;
                     uint32_t uNewFirstAllocatedCluster = 0;
-                    iError = FAT_Access_M_AllocateClusters(psFSRecord, uAmountOfClustersToExtendTheDir, uLastCluster, &uNewFirstAllocatedCluster, &uLastCluster, &uAmountOfAllocatedClusters, false, true);
+                    iError = FAT_Access_M_AllocateClusters(psFSRecord, uAmountOfClustersToExtendTheDir, uLastCluster, &uNewFirstAllocatedCluster, &uLastCluster, &uAmountOfAllocatedClusters, false, true, NULL, false);
                     if (iError != 0)
                     {
                         MSDOS_LOG(LEVEL_ERROR, "DIROPS_LookForFreeEntriesInDirectory: Failed to allocate new cluster for dir expand [%d].\n",iError);
@@ -919,7 +919,7 @@ MSDOS_MkDir (UVFSFileNode dirNode, const char *name, const UVFSFileAttributes *a
     uint32_t uAllocatedCluster;
     uint32_t uLastAllocatedCluster;
     uint32_t uAmountOfAllocatedClusters =0;
-    iError = FAT_Access_M_AllocateClusters(psParentRecord->sRecordData.psFSRecord, 1,0, &uAllocatedCluster, &uLastAllocatedCluster, &uAmountOfAllocatedClusters, false, true);
+    iError = FAT_Access_M_AllocateClusters(psParentRecord->sRecordData.psFSRecord, 1,0, &uAllocatedCluster, &uLastAllocatedCluster, &uAmountOfAllocatedClusters, false, true, NULL, false);
     if (iError)
     {
         MSDOS_LOG(LEVEL_ERROR, "MSDOS_MkDir: New cluster allocation failure [%d].\n", iError);

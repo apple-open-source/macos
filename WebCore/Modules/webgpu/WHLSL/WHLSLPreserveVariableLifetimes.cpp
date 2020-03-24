@@ -30,6 +30,8 @@
 
 #include "WHLSLAST.h"
 #include "WHLSLASTDumper.h"
+#include "WHLSLLexer.h"
+#include "WHLSLProgram.h"
 #include "WHLSLReplaceWith.h"
 #include "WHLSLVisitor.h"
 
@@ -53,7 +55,7 @@ namespace WHLSL {
 //   "x". If "x" is a function parameter, we store to "struct->x" as the first
 //   thing we do in the function body.
 
-class EscapedVariableCollector : public Visitor {
+class EscapedVariableCollector final : public Visitor {
     using Base = Visitor;
 public:
 
@@ -76,12 +78,20 @@ public:
 
     void visit(AST::MakePointerExpression& makePointerExpression) override
     {
-        escapeVariableUse(makePointerExpression.leftValue());
+        if (makePointerExpression.mightEscape())
+            escapeVariableUse(makePointerExpression.leftValue());
     }
 
     void visit(AST::MakeArrayReferenceExpression& makeArrayReferenceExpression) override
     {
-        escapeVariableUse(makeArrayReferenceExpression.leftValue());
+        if (makeArrayReferenceExpression.mightEscape())
+            escapeVariableUse(makeArrayReferenceExpression.leftValue());
+    }
+
+    void visit(AST::FunctionDefinition& functionDefinition) override
+    {
+        if (functionDefinition.parsingMode() != ParsingMode::StandardLibrary)
+            Base::visit(functionDefinition);
     }
 
     HashMap<AST::VariableDeclaration*, String> takeEscapedVariables() { return WTFMove(m_escapedVariables); }
@@ -99,16 +109,16 @@ static ALWAYS_INLINE Token anonymousToken(Token::Type type)
 class PreserveLifetimes : public Visitor {
     using Base = Visitor;
 public:
-    PreserveLifetimes(UniqueRef<AST::TypeReference>& structType, const HashMap<AST::VariableDeclaration*, AST::StructureElement*>& variableMapping)
-        : m_structType(structType)
-        , m_pointerToStructType(makeUniqueRef<AST::PointerType>(anonymousToken(Token::Type::Identifier), AST::AddressSpace::Thread, m_structType->clone()))
+    PreserveLifetimes(Ref<AST::TypeReference> structType, const HashMap<AST::VariableDeclaration*, AST::StructureElement*>& variableMapping)
+        : m_structType(WTFMove(structType))
+        , m_pointerToStructType(AST::PointerType::create(anonymousToken(Token::Type::Identifier), AST::AddressSpace::Thread, m_structType.copyRef()))
         , m_variableMapping(variableMapping)
     { }
 
     UniqueRef<AST::VariableReference> makeStructVariableReference()
     {
         auto structVariableReference = makeUniqueRef<AST::VariableReference>(AST::VariableReference::wrap(*m_structVariable));
-        structVariableReference->setType(m_structVariable->type()->clone());
+        structVariableReference->setType(*m_structVariable->type());
         structVariableReference->setTypeAnnotation(AST::LeftValue { AST::AddressSpace::Thread });
         return structVariableReference;
     }
@@ -116,15 +126,15 @@ public:
     UniqueRef<AST::AssignmentExpression> assignVariableIntoStruct(AST::VariableDeclaration& variable, AST::StructureElement* element)
     {
         auto lhs = makeUniqueRef<AST::GlobalVariableReference>(variable.codeLocation(), makeStructVariableReference(), element);
-        lhs->setType(variable.type()->clone());
+        lhs->setType(*variable.type());
         lhs->setTypeAnnotation(AST::LeftValue { AST::AddressSpace::Thread });
 
         auto rhs = makeUniqueRef<AST::VariableReference>(AST::VariableReference::wrap(variable));
-        rhs->setType(variable.type()->clone());
+        rhs->setType(*variable.type());
         rhs->setTypeAnnotation(AST::LeftValue { AST::AddressSpace::Thread });
 
         auto assignment = makeUniqueRef<AST::AssignmentExpression>(variable.codeLocation(), WTFMove(lhs), WTFMove(rhs));
-        assignment->setType(variable.type()->clone());
+        assignment->setType(*variable.type());
         assignment->setTypeAnnotation(AST::RightValue());
 
         return assignment;
@@ -132,25 +142,28 @@ public:
 
     void visit(AST::FunctionDefinition& functionDefinition) override
     {
+        if (functionDefinition.parsingMode() == ParsingMode::StandardLibrary)
+            return;
+
         bool isEntryPoint = !!functionDefinition.entryPointType();
         if (isEntryPoint) {
             auto structVariableDeclaration = makeUniqueRef<AST::VariableDeclaration>(functionDefinition.codeLocation(), AST::Qualifiers(),
-                m_structType->clone(), String(), nullptr, nullptr);
+                m_structType.copyRef(), String(), nullptr, nullptr);
 
             auto structVariableReference = makeUniqueRef<AST::VariableReference>(AST::VariableReference::wrap(structVariableDeclaration));
-            structVariableReference->setType(m_structType->clone());
+            structVariableReference->setType(m_structType.copyRef());
             structVariableReference->setTypeAnnotation(AST::LeftValue { AST::AddressSpace::Thread });
 
             AST::VariableDeclarations structVariableDeclarations;
             structVariableDeclarations.append(WTFMove(structVariableDeclaration));
             auto structDeclarationStatement = makeUniqueRef<AST::VariableDeclarationsStatement>(functionDefinition.codeLocation(), WTFMove(structVariableDeclarations));
 
-            auto makePointerExpression = std::make_unique<AST::MakePointerExpression>(functionDefinition.codeLocation(), WTFMove(structVariableReference));
-            makePointerExpression->setType(m_pointerToStructType->clone());
+            std::unique_ptr<AST::Expression> makePointerExpression(new AST::MakePointerExpression(functionDefinition.codeLocation(), WTFMove(structVariableReference), AST::AddressEscapeMode::DoesNotEscape));
+            makePointerExpression->setType(m_pointerToStructType.copyRef());
             makePointerExpression->setTypeAnnotation(AST::RightValue());
 
             auto pointerDeclaration = makeUniqueRef<AST::VariableDeclaration>(functionDefinition.codeLocation(), AST::Qualifiers(),
-                m_pointerToStructType->clone(), "wrapper"_s, nullptr, WTFMove(makePointerExpression));
+                m_pointerToStructType.copyRef(), "wrapper"_s, nullptr, WTFMove(makePointerExpression));
             m_structVariable = &pointerDeclaration;
 
             AST::VariableDeclarations pointerVariableDeclarations;
@@ -161,7 +174,7 @@ public:
             functionDefinition.block().statements().insert(1, WTFMove(pointerDeclarationStatement));
         } else {
             auto pointerDeclaration = makeUniqueRef<AST::VariableDeclaration>(functionDefinition.codeLocation(), AST::Qualifiers(),
-                m_pointerToStructType->clone(), "wrapper"_s, nullptr, nullptr);
+                m_pointerToStructType.copyRef(), "wrapper"_s, nullptr, nullptr);
             m_structVariable = &pointerDeclaration;
             functionDefinition.parameters().append(WTFMove(pointerDeclaration));
         }
@@ -189,7 +202,7 @@ public:
 
         // This works because it's illegal to call an entrypoint. Therefore, we can only
         // call functions where we've already appended this struct as its final parameter.
-        if (!callExpression.function().isNativeFunctionDeclaration())
+        if (!callExpression.function().isNativeFunctionDeclaration() && callExpression.function().parsingMode() != ParsingMode::StandardLibrary)
             callExpression.arguments().append(makeStructVariableReference());
     }
 
@@ -201,7 +214,7 @@ public:
         if (iter == m_variableMapping.end())
             return;
 
-        auto type = variableReference.variable()->type()->clone();
+        Ref<AST::UnnamedType> type = *variableReference.variable()->type();
         AST::TypeAnnotation typeAnnotation = variableReference.typeAnnotation();
         auto* internalField = AST::replaceWith<AST::GlobalVariableReference>(variableReference, variableReference.codeLocation(), makeStructVariableReference(), iter->value);
         internalField->setType(WTFMove(type));
@@ -235,8 +248,8 @@ public:
 private:
     AST::VariableDeclaration* m_structVariable { nullptr };
 
-    UniqueRef<AST::TypeReference>& m_structType;
-    UniqueRef<AST::PointerType> m_pointerToStructType;
+    Ref<AST::TypeReference> m_structType;
+    Ref<AST::PointerType> m_pointerToStructType;
     // If this mapping contains the variable, it means that the variable's canonical location
     // is in the struct we use to preserve variable lifetimes.
     const HashMap<AST::VariableDeclaration*, AST::StructureElement*>& m_variableMapping;
@@ -247,7 +260,8 @@ void preserveVariableLifetimes(Program& program)
     HashMap<AST::VariableDeclaration*, String> escapedVariables;
     {
         EscapedVariableCollector collector;
-        collector.Visitor::visit(program);
+        for (size_t i = 0; i < program.functionDefinitions().size(); ++i)
+            collector.visit(program.functionDefinitions()[i]);
         escapedVariables = collector.takeEscapedVariables();
     }
 
@@ -255,7 +269,7 @@ void preserveVariableLifetimes(Program& program)
     for (auto& pair : escapedVariables) {
         auto* variable = pair.key;
         String name = pair.value;
-        elements.append(AST::StructureElement { variable->codeLocation(), { }, variable->type()->clone(), WTFMove(name), nullptr });
+        elements.append(AST::StructureElement { variable->codeLocation(), { }, *variable->type(), WTFMove(name), nullptr });
     }
 
     // Name of this doesn't matter, since we don't use struct names when
@@ -270,7 +284,7 @@ void preserveVariableLifetimes(Program& program)
 
     {
         auto wrapperStructType = AST::TypeReference::wrap(anonymousToken(Token::Type::Identifier), wrapperStructDefinition);
-        PreserveLifetimes preserveLifetimes(wrapperStructType, variableMapping);
+        PreserveLifetimes preserveLifetimes(WTFMove(wrapperStructType), variableMapping);
         preserveLifetimes.Visitor::visit(program);
     }
 

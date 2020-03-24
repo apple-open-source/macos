@@ -140,16 +140,11 @@ Vector<String> NavigatorBase::languages()
 }
 
 #if ENABLE(SERVICE_WORKER)
-ServiceWorkerContainer* NavigatorBase::serviceWorkerIfExists()
-{
-    return m_serviceWorkerContainer.get();
-}
-
 ServiceWorkerContainer& NavigatorBase::serviceWorker()
 {
     ASSERT(RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled());
     if (!m_serviceWorkerContainer)
-        m_serviceWorkerContainer = std::make_unique<ServiceWorkerContainer>(scriptExecutionContext(), *this);
+        m_serviceWorkerContainer = makeUnique<ServiceWorkerContainer>(scriptExecutionContext(), *this);
     return *m_serviceWorkerContainer;
 }
 

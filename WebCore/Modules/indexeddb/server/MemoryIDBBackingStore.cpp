@@ -46,13 +46,14 @@ namespace IDBServer {
 // The IndexedDB spec states the value you can get from the key generator is 2^53
 static uint64_t maxGeneratedKeyValue = 0x20000000000000;
 
-std::unique_ptr<MemoryIDBBackingStore> MemoryIDBBackingStore::create(const IDBDatabaseIdentifier& identifier)
+std::unique_ptr<MemoryIDBBackingStore> MemoryIDBBackingStore::create(PAL::SessionID sessionID, const IDBDatabaseIdentifier& identifier)
 {
-    return std::make_unique<MemoryIDBBackingStore>(identifier);
+    return makeUnique<MemoryIDBBackingStore>(sessionID, identifier);
 }
 
-MemoryIDBBackingStore::MemoryIDBBackingStore(const IDBDatabaseIdentifier& identifier)
+MemoryIDBBackingStore::MemoryIDBBackingStore(PAL::SessionID sessionID, const IDBDatabaseIdentifier& identifier)
     : m_identifier(identifier)
+    , m_sessionID(sessionID)
 {
 }
 
@@ -61,7 +62,7 @@ MemoryIDBBackingStore::~MemoryIDBBackingStore() = default;
 IDBError MemoryIDBBackingStore::getOrEstablishDatabaseInfo(IDBDatabaseInfo& info)
 {
     if (!m_databaseInfo)
-        m_databaseInfo = std::make_unique<IDBDatabaseInfo>(m_identifier.databaseName(), 0);
+        m_databaseInfo = makeUnique<IDBDatabaseInfo>(m_identifier.databaseName(), 0);
 
     info = *m_databaseInfo;
     return IDBError { };
@@ -72,7 +73,7 @@ void MemoryIDBBackingStore::setDatabaseInfo(const IDBDatabaseInfo& info)
     // It is not valid to directly set database info on a backing store that hasn't already set its own database info.
     ASSERT(m_databaseInfo);
 
-    m_databaseInfo = std::make_unique<IDBDatabaseInfo>(info);
+    m_databaseInfo = makeUnique<IDBDatabaseInfo>(info);
 }
 
 IDBError MemoryIDBBackingStore::beginTransaction(const IDBTransactionInfo& info)
@@ -135,7 +136,7 @@ IDBError MemoryIDBBackingStore::createObjectStore(const IDBResourceIdentifier& t
         return IDBError { ConstraintError };
 
     ASSERT(!m_objectStoresByIdentifier.contains(info.identifier()));
-    auto objectStore = MemoryObjectStore::create(info);
+    auto objectStore = MemoryObjectStore::create(m_sessionID, info);
 
     m_databaseInfo->addExistingObjectStore(info);
 
@@ -193,6 +194,9 @@ IDBError MemoryIDBBackingStore::renameObjectStore(const IDBResourceIdentifier& t
     objectStore->rename(newName);
     transaction->objectStoreRenamed(*objectStore, oldName);
 
+    m_objectStoresByName.remove(oldName);
+    m_objectStoresByName.set(newName, objectStore);
+
     m_databaseInfo->renameObjectStore(objectStoreIdentifier, newName);
 
     return IDBError { };
@@ -223,6 +227,11 @@ IDBError MemoryIDBBackingStore::createIndex(const IDBResourceIdentifier& transac
 {
     LOG(IndexedDB, "MemoryIDBBackingStore::createIndex");
 
+    ASSERT(m_databaseInfo);
+    auto* objectStoreInfo = m_databaseInfo->infoForExistingObjectStore(info.objectStoreIdentifier());
+    if (!objectStoreInfo)
+        return IDBError { ConstraintError };
+
     auto rawTransaction = m_transactions.get(transactionIdentifier);
     ASSERT(rawTransaction);
     ASSERT(rawTransaction->isVersionChange());
@@ -231,12 +240,25 @@ IDBError MemoryIDBBackingStore::createIndex(const IDBResourceIdentifier& transac
     if (!objectStore)
         return IDBError { ConstraintError };
 
-    return objectStore->createIndex(*rawTransaction, info);
+    auto error = objectStore->createIndex(*rawTransaction, info);
+    if (error.isNull())
+        objectStoreInfo->addExistingIndex(info);
+
+    return error;
 }
 
 IDBError MemoryIDBBackingStore::deleteIndex(const IDBResourceIdentifier& transactionIdentifier, uint64_t objectStoreIdentifier, uint64_t indexIdentifier)
 {
     LOG(IndexedDB, "MemoryIDBBackingStore::deleteIndex");
+
+    ASSERT(m_databaseInfo);
+    auto* objectStoreInfo = m_databaseInfo->infoForExistingObjectStore(objectStoreIdentifier);
+    if (!objectStoreInfo)
+        return IDBError { ConstraintError };
+
+    auto* indexInfo = objectStoreInfo->infoForExistingIndex(indexIdentifier);
+    if (!indexInfo)
+        return IDBError { ConstraintError };
 
     auto rawTransaction = m_transactions.get(transactionIdentifier);
     ASSERT(rawTransaction);
@@ -246,7 +268,11 @@ IDBError MemoryIDBBackingStore::deleteIndex(const IDBResourceIdentifier& transac
     if (!objectStore)
         return IDBError { ConstraintError };
 
-    return objectStore->deleteIndex(*rawTransaction, indexIdentifier);
+    auto error = objectStore->deleteIndex(*rawTransaction, indexIdentifier);
+    if (error.isNull())
+        objectStoreInfo->deleteIndex(indexIdentifier);
+
+    return error;
 }
 
 IDBError MemoryIDBBackingStore::renameIndex(const IDBResourceIdentifier& transactionIdentifier, uint64_t objectStoreIdentifier, uint64_t indexIdentifier, const String& newName)
@@ -483,6 +509,11 @@ IDBError MemoryIDBBackingStore::maybeUpdateKeyGeneratorNumber(const IDBResourceI
     if (newKeyNumber < objectStore->currentKeyGeneratorValue())
         return IDBError { };
 
+    if (newKeyNumber >= (double)maxGeneratedKeyValue) {
+        objectStore->setKeyGeneratorValue(maxGeneratedKeyValue + 1);
+        return IDBError { };
+    }
+
     uint64_t newKeyInteger(newKeyNumber);
     if (newKeyInteger <= uint64_t(newKeyNumber))
         ++newKeyInteger;
@@ -594,10 +625,8 @@ void MemoryIDBBackingStore::deleteBackingStore()
     // The in-memory IDB backing store doesn't need to do any cleanup when it is deleted.
 }
 
-uint64_t MemoryIDBBackingStore::databasesSizeForOrigin() const
+void MemoryIDBBackingStore::close()
 {
-    // FIXME: Implement this.
-    return 0;
 }
 
 } // namespace IDBServer

@@ -49,7 +49,7 @@ bool HIDDisplayIOReportingSetOutputData(HIDDisplayIOReportingInterfaceRef hidDis
     bool ret = [device setOutputData:(__bridge NSData*)data error:&err];
     
     if (ret == false && error) {
-        *error = (__bridge CFErrorRef)err;
+        *error = (__bridge_retained CFErrorRef)err;
     }
     return ret;
 }

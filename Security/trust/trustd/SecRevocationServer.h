@@ -52,6 +52,8 @@ struct OpaqueSecRVC {
     SecValidInfoRef     valid_info;
 
     bool                done;
+
+    bool                revocation_checked;
 };
 typedef struct OpaqueSecRVC *SecRVCRef;
 
@@ -91,6 +93,7 @@ void SecRVCDelete(SecRVCRef rvc);
 bool SecRVCHasDefinitiveValidInfo(SecRVCRef rvc);
 bool SecRVCHasRevokedValidInfo(SecRVCRef rvc);
 void SecRVCSetValidDeterminedErrorResult(SecRVCRef rvc);
+bool SecRVCRevocationChecked(SecRVCRef rvc);
 
 /* OCSP verification callbacks */
 void SecORVCConsumeOCSPResponse(SecORVCRef rvc, SecOCSPResponseRef ocspResponse /*CF_CONSUMED*/,

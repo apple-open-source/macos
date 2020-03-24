@@ -293,13 +293,13 @@ fi
 LIBS="$SAVELIBS"
 
 dnl Check for DBUS support
-AC_ARG_ENABLE(dbus, [  --disable-dbus          build without DBUS support])
-AC_ARG_WITH(dbusdir, [  --with-dbusdir          set DBUS configuration directory ],
-	DBUSDIR="$withval")
-
 DBUSDIR=""
 DBUS_NOTIFIER=""
 DBUS_NOTIFIERLIBS=""
+
+AC_ARG_ENABLE(dbus, [  --disable-dbus          build without DBUS support])
+AC_ARG_WITH(dbusdir, [  --with-dbusdir          set DBUS configuration directory ],
+	DBUSDIR="$withval")
 
 if test "x$enable_dbus" != xno -a "x$PKGCONFIG" != x -a "x$host_os_name" != xdarwin; then
 	AC_MSG_CHECKING(for DBUS)
@@ -317,7 +317,7 @@ if test "x$enable_dbus" != xno -a "x$PKGCONFIG" != x -a "x$host_os_name" != xdar
 		AC_CHECK_FUNC(dbus_threads_init,
 			      AC_DEFINE(HAVE_DBUS_THREADS_INIT))
 		LIBS="$SAVELIBS"
-		if test -d /etc/dbus-1; then
+		if test -d /etc/dbus-1 -a "x$DBUSDIR" = x; then
 			DBUSDIR="/etc/dbus-1"
 		fi
 	else

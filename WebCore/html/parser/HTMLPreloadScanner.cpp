@@ -42,6 +42,7 @@
 #include "MediaQueryParser.h"
 #include "RenderView.h"
 #include "RuntimeEnabledFeatures.h"
+#include "SecurityPolicy.h"
 #include "SizesAttributeParser.h"
 #include <wtf/MainThread.h>
 
@@ -161,7 +162,7 @@ public:
         if (!LinkLoader::isSupportedType(type.value(), m_typeAttribute))
             return nullptr;
 
-        auto request = std::make_unique<PreloadRequest>(initiatorFor(m_tagId), m_urlToLoad, predictedBaseURL, type.value(), m_mediaAttribute, m_moduleScript);
+        auto request = makeUnique<PreloadRequest>(initiatorFor(m_tagId), m_urlToLoad, predictedBaseURL, type.value(), m_mediaAttribute, m_moduleScript, m_referrerPolicy);
         request->setCrossOriginMode(m_crossOriginMode);
         request->setNonce(m_nonceAttribute);
 
@@ -236,8 +237,13 @@ private:
             if (match(attributeName, typeAttr)) {
                 m_moduleScript = equalLettersIgnoringASCIICase(attributeValue, "module") ? PreloadRequest::ModuleScript::Yes : PreloadRequest::ModuleScript::No;
                 break;
-            } else if (match(attributeName, nonceAttr))
+            } else if (match(attributeName, nonceAttr)) {
                 m_nonceAttribute = attributeValue;
+                break;
+            } else if (match(attributeName, referrerpolicyAttr)) {
+                m_referrerPolicy = parseReferrerPolicy(attributeValue, ReferrerPolicySource::ReferrerPolicyAttribute).valueOr(ReferrerPolicy::EmptyString);
+                break;
+            }
             processImageAndScriptAttribute(attributeName, attributeValue);
             break;
         case TagId::Link:
@@ -370,6 +376,7 @@ private:
     bool m_inputIsImage;
     float m_deviceScaleFactor;
     PreloadRequest::ModuleScript m_moduleScript { PreloadRequest::ModuleScript::No };
+    ReferrerPolicy m_referrerPolicy { ReferrerPolicy::EmptyString };
 };
 
 TokenPreloadScanner::TokenPreloadScanner(const URL& documentURL, float deviceScaleFactor)
@@ -420,7 +427,7 @@ void TokenPreloadScanner::scan(const HTMLToken& token, Vector<std::unique_ptr<Pr
             // The first <base> element is the one that wins.
             if (!m_predictedBaseElementURL.isEmpty())
                 return;
-            updatePredictedBaseURL(token);
+            updatePredictedBaseURL(token, document.settings().shouldRestrictBaseURLSchemes());
             return;
         }
         if (tagId == TagId::Picture) {
@@ -440,11 +447,15 @@ void TokenPreloadScanner::scan(const HTMLToken& token, Vector<std::unique_ptr<Pr
     }
 }
 
-void TokenPreloadScanner::updatePredictedBaseURL(const HTMLToken& token)
+void TokenPreloadScanner::updatePredictedBaseURL(const HTMLToken& token, bool shouldRestrictBaseURLSchemes)
 {
     ASSERT(m_predictedBaseElementURL.isEmpty());
-    if (auto* hrefAttribute = findAttribute(token.attributes(), hrefAttr->localName().string()))
-        m_predictedBaseElementURL = URL(m_documentURL, stripLeadingAndTrailingHTMLSpaces(StringImpl::create8BitIfPossible(hrefAttribute->value))).isolatedCopy();
+    auto* hrefAttribute = findAttribute(token.attributes(), hrefAttr->localName().string());
+    if (!hrefAttribute)
+        return;
+    URL temp { m_documentURL, stripLeadingAndTrailingHTMLSpaces(StringImpl::create8BitIfPossible(hrefAttribute->value)) };
+    if (!shouldRestrictBaseURLSchemes || SecurityPolicy::isBaseURLSchemeAllowed(temp))
+        m_predictedBaseElementURL = temp.isolatedCopy();
 }
 
 HTMLPreloadScanner::HTMLPreloadScanner(const HTMLParserOptions& options, const URL& documentURL, float deviceScaleFactor)

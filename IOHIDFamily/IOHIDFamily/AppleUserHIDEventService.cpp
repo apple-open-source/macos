@@ -31,8 +31,24 @@
 #include <IOKit/hid/AppleHIDUsageTables.h>
 #include "IOHIDFamilyPrivate.h"
 #include <IOKit/IOKitKeys.h>
+#include <stdatomic.h>
 
 #define kIOHIDEventServiceDextEntitlement "com.apple.developer.driverkit.family.hid.eventservice"
+
+
+#define HIDEventServiceLogFault(fmt, ...)   HIDLogFault("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
+#define HIDEventServiceLogError(fmt, ...)   HIDLogError("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
+#define HIDEventServiceLog(fmt, ...)        HIDLog("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
+#define HIDEventServiceLogInfo(fmt, ...)    HIDLogInfo("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
+#define HIDEventServiceLogDebug(fmt, ...)   HIDLogDebug("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
+
+
+enum {
+    kAppleUserHIDEventServiceStateStarted     = 1,
+    kAppleUserHIDEventServiceStateStopped     = 2,
+    kAppleUserHIDEventServiceStateKRStart     = 4,
+    kAppleUserHIDEventServiceStateDKStart     = 8
+};
 
 //===========================================================================
 // AppleUserHIDEventService class
@@ -44,6 +60,7 @@ OSDefineMetaClassAndStructors( AppleUserHIDEventService, IOHIDEventDriver )
 
 #define _elements   ivar->elements
 #define _provider   ivar->provider
+#define _state      ivar->state
 
 IOService *AppleUserHIDEventService::probe(IOService *provider, SInt32 *score)
 {
@@ -67,8 +84,10 @@ bool AppleUserHIDEventService::init(OSDictionary *dict)
     
     bzero(ivar, sizeof(AppleUserHIDEventService::AppleUserHIDEventService_IVars));
     
-    setProperty(kIOServiceDEXTEntitlementsKey, kIOHIDEventServiceDextEntitlement);
+    super::setProperty(kIOServiceDEXTEntitlementsKey, kIOHIDEventServiceDextEntitlement);
     
+    super::setProperty(kIOHIDRegisterServiceKey, kOSBooleanFalse);
+
     return true;
 }
 
@@ -87,29 +106,49 @@ void AppleUserHIDEventService::free()
 //----------------------------------------------------------------------------------------------------
 bool AppleUserHIDEventService::start(IOService * provider)
 {
-    bool     ok = false;
-    IOReturn ret;
+    bool            ok        = false;
+    IOReturn        ret       = kIOReturnSuccess;
     IOHIDInterface *interface = NULL;
     
-    setProperty(kIOHIDRegisterServiceKey, kOSBooleanFalse);
-    
-    interface = OSDynamicCast(IOHIDInterface, provider);
-    require(interface, exit);
-    
-    _elements = interface->createMatchingElements();
-    require(_elements, exit);
-    
-    ret = Start(provider);
-    if (kIOReturnSuccess != ret) {
-        IOLog("IOUserHIDEventService start:0x%x\n", ret);
-        return false;
+    bool dkStart = getProperty(kIOHIDDKStartKey) == kOSBooleanTrue;
+
+    HIDEventServiceLog ("start (state:0x%x)", _state);
+
+    bool krStart = ((atomic_fetch_or((_Atomic UInt32 *)&_state, kAppleUserHIDEventServiceStateKRStart) &  kAppleUserHIDEventServiceStateKRStart) == 0);
+
+    if (dkStart &&
+        (atomic_fetch_or((_Atomic UInt32 *)&_state, kAppleUserHIDEventServiceStateDKStart) &  kAppleUserHIDEventServiceStateDKStart)) {
+        //attemt to call kernel multiple times
+        HIDEventServiceLogError("Attempt to do kernel start for device multiple times");
+        return kIOReturnError;
     }
     
-    _provider = interface;
+    if (krStart) {
+        interface = OSDynamicCast(IOHIDInterface, provider);
+        require(interface, exit);
+        
+        _elements = interface->createMatchingElements();
+        require(_elements, exit);
+        
+        _provider = interface;
+    }
     
+    if (!dkStart) {
+        ret = Start(provider);
+        require_noerr_action(ret, exit, HIDEventServiceLogError("IOUserHIDEventService::Start:0x%x\n", ret));
+    } else if (krStart) {
+        ok = super::start(provider);
+        require_action(ok, exit, HIDEventServiceLogError("super::start:0x%x\n", ret));
+    } else {
+        return super::start(provider);
+    }
+
+    atomic_fetch_or((_Atomic UInt32 *)&_state, kAppleUserHIDEventServiceStateStarted);
+
     ok = true;
     
 exit:
+    
     return ok;
 }
 
@@ -209,4 +248,39 @@ UInt32 AppleUserHIDEventService::getVersion()
 UInt32 AppleUserHIDEventService::getCountryCode()
 {
     return IOHIDEventService::getCountryCode();
+}
+
+
+void AppleUserHIDEventService::dispatchKeyboardEvent(AbsoluteTime                timeStamp,
+                                                     UInt32                      usagePage,
+                                                     UInt32                      usage,
+                                                     UInt32                      value,
+                                                     IOOptionBits                options)
+{
+    require_action (_state & kAppleUserHIDEventServiceStateStarted, exit, HIDEventServiceLogError("HID EventService not ready (state:0x%x)", _state));
+    super::dispatchKeyboardEvent (timeStamp, usagePage, usage, value, options);
+exit:
+    return;
+}
+
+
+
+void AppleUserHIDEventService::dispatchScrollWheelEventWithFixed(AbsoluteTime               timeStamp,
+                                                                IOFixed                     deltaAxis1,
+                                                                IOFixed                     deltaAxis2,
+                                                                IOFixed                     deltaAxis3,
+                                                                IOOptionBits                options)
+{
+    require_action (_state & kAppleUserHIDEventServiceStateStarted, exit, HIDEventServiceLogError("HID EventService not ready (state:0x%x)", _state));
+    super::dispatchScrollWheelEventWithFixed (timeStamp, deltaAxis1, deltaAxis2, deltaAxis3);
+exit:
+    return;
+}
+
+void AppleUserHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
+{
+    require_action (_state & kAppleUserHIDEventServiceStateStarted, exit, HIDEventServiceLogError("HID EventService not ready (state:0x%x)", _state));
+    super::dispatchEvent (event, options);
+exit:
+    return;
 }

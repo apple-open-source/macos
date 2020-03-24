@@ -101,7 +101,7 @@
                                                                 self.tlkShares = tlkShares;
                                                                 self.pendingTLKShares = pendingTLKShares;
 
-                                                                secnotice("octagon-ckks", "Fetched %d key sets, %d broken key set,s %d tlk shares, and %d pendingTLKShares",
+                                                                secnotice("octagon-ckks", "Fetched %d key sets, %d broken key sets, %d tlk shares, and %d pendingTLKShares",
                                                                           (int)self.viewKeySets.count,
                                                                           (int)self.incompleteKeySets.count,
                                                                           (int)self.tlkShares.count,

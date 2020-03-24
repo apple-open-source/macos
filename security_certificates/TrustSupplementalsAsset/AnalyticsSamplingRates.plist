@@ -57,6 +57,10 @@
 		<integer>100</integer>
 		<key>ATSConnectionExceptionEvent</key>
 		<integer>100</integer>
+		<key>com.apple.network.activity.supermetric</key>
+		<integer>1</integer>
+		<key>com.apple.network.nwconnectionreport</key>
+		<integer>1</integer>
 	</dict>
 </dict>
 </plist>

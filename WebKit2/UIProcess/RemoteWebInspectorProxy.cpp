@@ -26,6 +26,7 @@
 #include "config.h"
 #include "RemoteWebInspectorProxy.h"
 
+#include "APIDebuggableInfo.h"
 #include "APINavigation.h"
 #include "RemoteWebInspectorProxyMessages.h"
 #include "RemoteWebInspectorUIMessages.h"
@@ -39,6 +40,7 @@ namespace WebKit {
 using namespace WebCore;
 
 RemoteWebInspectorProxy::RemoteWebInspectorProxy()
+    : m_debuggableInfo(API::DebuggableInfo::create(DebuggableInfoData::empty()))
 {
 }
 
@@ -52,14 +54,23 @@ void RemoteWebInspectorProxy::invalidate()
     closeFrontendPageAndWindow();
 }
 
-void RemoteWebInspectorProxy::load(const String& debuggableType, const String& backendCommandsURL)
+void RemoteWebInspectorProxy::setDiagnosticLoggingAvailable(bool available)
+{
+#if ENABLE(INSPECTOR_TELEMETRY)
+    m_inspectorPage->process().send(Messages::RemoteWebInspectorUI::SetDiagnosticLoggingAvailable(available), m_inspectorPage->webPageID());
+#else
+    UNUSED_PARAM(available);
+#endif
+}
+
+void RemoteWebInspectorProxy::load(Ref<API::DebuggableInfo>&& debuggableInfo, const String& backendCommandsURL)
 {
     createFrontendPageAndWindow();
 
-    m_debuggableType = debuggableType;
+    m_debuggableInfo = WTFMove(debuggableInfo);
     m_backendCommandsURL = backendCommandsURL;
 
-    m_inspectorPage->process().send(Messages::RemoteWebInspectorUI::Initialize(debuggableType, backendCommandsURL), m_inspectorPage->pageID());
+    m_inspectorPage->send(Messages::RemoteWebInspectorUI::Initialize(m_debuggableInfo->debuggableInfoData(), backendCommandsURL));
     m_inspectorPage->loadRequest(URL(URL(), WebInspectorProxy::inspectorPageURL()));
 }
 
@@ -81,7 +92,7 @@ void RemoteWebInspectorProxy::show()
 
 void RemoteWebInspectorProxy::sendMessageToFrontend(const String& message)
 {
-    m_inspectorPage->process().send(Messages::RemoteWebInspectorUI::SendMessageToFrontend(message), m_inspectorPage->pageID());
+    m_inspectorPage->send(Messages::RemoteWebInspectorUI::SendMessageToFrontend(message));
 }
 
 void RemoteWebInspectorProxy::frontendDidClose()
@@ -96,10 +107,10 @@ void RemoteWebInspectorProxy::frontendDidClose()
 
 void RemoteWebInspectorProxy::reopen()
 {
-    ASSERT(!m_debuggableType.isEmpty());
+    ASSERT(!m_backendCommandsURL.isEmpty());
 
     closeFrontendPageAndWindow();
-    load(m_debuggableType, m_backendCommandsURL);
+    load(m_debuggableInfo.copyRef(), m_backendCommandsURL);
 }
 
 void RemoteWebInspectorProxy::resetState()
@@ -157,7 +168,7 @@ void RemoteWebInspectorProxy::createFrontendPageAndWindow()
 
     trackInspectorPage(m_inspectorPage, nullptr);
 
-    m_inspectorPage->process().addMessageReceiver(Messages::RemoteWebInspectorProxy::messageReceiverName(), m_inspectorPage->pageID(), *this);
+    m_inspectorPage->process().addMessageReceiver(Messages::RemoteWebInspectorProxy::messageReceiverName(), m_inspectorPage->webPageID(), *this);
     m_inspectorPage->process().assumeReadAccessToBaseURL(*m_inspectorPage, WebInspectorProxy::inspectorBaseURL());
 }
 
@@ -166,7 +177,7 @@ void RemoteWebInspectorProxy::closeFrontendPageAndWindow()
     if (!m_inspectorPage)
         return;
 
-    m_inspectorPage->process().removeMessageReceiver(Messages::RemoteWebInspectorProxy::messageReceiverName(), m_inspectorPage->pageID());
+    m_inspectorPage->process().removeMessageReceiver(Messages::RemoteWebInspectorProxy::messageReceiverName(), m_inspectorPage->webPageID());
 
     untrackInspectorPage(m_inspectorPage);
 

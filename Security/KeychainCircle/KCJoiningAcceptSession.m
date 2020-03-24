@@ -127,6 +127,7 @@ typedef enum {
     self->_joiningConfiguration = [[OTJoiningConfiguration alloc]initWithProtocolType:@"OctagonPiggybacking"
                                                                        uniqueDeviceID:@"acceptor-deviceid"
                                                                        uniqueClientID:@"requester-deviceid"
+                                                                          pairingUUID:[[NSUUID UUID] UUIDString]
                                                                         containerName:nil
                                                                             contextID:OTDefaultContext
                                                                                 epoch:0
@@ -402,7 +403,38 @@ typedef enum {
 }
 #endif
 
+- (NSData*) createTLKRequestResponse: (NSError**) error {
+    NSError* localError = NULL;
+    NSData* initialSync = [self.circleDelegate circleGetInitialSyncViews:kSOSInitialSyncFlagTLKs error:&localError];
+    if (!initialSync) {
+        secnotice("joining", "Failed to get initial sync view: %@", localError);
+        if ( error!=NULL && localError != NULL )
+            *error = localError;
+        return nil;
+    }
+    
+    NSData* encryptedOutgoing = [self.session encrypt:initialSync error:&localError];
+    if (!encryptedOutgoing) {
+        secnotice("joining", "TLK request failed to encrypt: %@", localError);
+        if ( error!=NULL && localError != NULL )
+            *error = localError;
+        return nil;
+    }
+    self->_state = kAcceptDone;
+
+    secnotice("joining", "TLKRequest done.");
+
+    return [[KCJoiningMessage messageWithType:kTLKRequest
+                                         data:encryptedOutgoing
+                                        error:error] der];
+}
+
 - (NSData*) processApplication: (KCJoiningMessage*) message error:(NSError**) error {
+    
+    if ([message type] == kTLKRequest) {
+        return [self createTLKRequestResponse: error];
+    }
+    
     if ([message type] != kPeerInfo) {
         KCJoiningErrorCreate(kUnexpectedMessage, error, @"Expected peerInfo!");
         return nil;
@@ -530,6 +562,11 @@ typedef enum {
 - (void)setConfiguration:(OTJoiningConfiguration *)config
 {
     self.joiningConfiguration = config;
+}
+
+- (KCAESGCMDuplexSession*)accessSession
+{
+    return self.session;
 }
 #endif
 

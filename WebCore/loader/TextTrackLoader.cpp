@@ -92,7 +92,7 @@ void TextTrackLoader::processNewCueData(CachedResource& resource)
         return;
 
     if (!m_cueParser)
-        m_cueParser = std::make_unique<WebVTTParser>(static_cast<WebVTTParserClient*>(this), m_scriptExecutionContext);
+        m_cueParser = makeUnique<WebVTTParser>(static_cast<WebVTTParserClient*>(this), m_scriptExecutionContext);
 
     while (m_parseOffset < buffer->size()) {
         auto data = buffer->getSomeData(m_parseOffset);
@@ -159,7 +159,7 @@ bool TextTrackLoader::load(const URL& url, HTMLTrackElement& element)
     if (auto mediaElement = element.mediaElement())
         resourceRequest.setInspectorInitiatorNodeIdentifier(InspectorInstrumentation::identifierForNode(*mediaElement));
 
-    auto cueRequest = createPotentialAccessControlRequest(WTFMove(resourceRequest), document, element.mediaElementCrossOriginAttribute(), WTFMove(options));
+    auto cueRequest = createPotentialAccessControlRequest(WTFMove(resourceRequest), WTFMove(options), document, element.mediaElementCrossOriginAttribute());
     m_resource = document.cachedResourceLoader().requestTextTrack(WTFMove(cueRequest)).value_or(nullptr);
     if (!m_resource)
         return false;

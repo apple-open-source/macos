@@ -77,7 +77,7 @@ fi{
         CF{"Keski-Afrikan tasavalta"}
         CG{"Kongon tasavalta"}
         CH{"Sveitsi"}
-        CI{"Norsunluurannikko"}
+        CI{"Côte d’Ivoire"}
         CK{"Cookinsaaret"}
         CL{"Chile"}
         CM{"Kamerun"}
@@ -304,7 +304,7 @@ fi{
     Countries%variant{
         CD{"Kongo-Kinshasa"}
         CG{"Kongo-Brazzaville"}
-        CI{"Côte d’Ivoire"}
+        CI{"Norsunluurannikko"}
         CZ{"Tšekinmaa"}
         FK{"Falklandinsaaret (Malvinassaaret)"}
         TL{"Timor-Leste"}

@@ -26,6 +26,7 @@
 #include "config.h"
 #include "FindController.h"
 
+#include "CallbackID.h"
 #include "DrawingArea.h"
 #include "PluginView.h"
 #include "ShareableBitmap.h"
@@ -146,6 +147,7 @@ void FindController::updateFindUIAfterPageScroll(bool found, const String& strin
             selectedFrame->selection().clear();
 
         hideFindIndicator();
+        resetMatchIndex();
         didFailToFindString();
 
         m_webPage->send(Messages::WebPageProxy::DidFailToFindString(string));
@@ -223,7 +225,7 @@ void FindController::updateFindUIAfterPageScroll(bool found, const String& strin
         hideFindIndicator();
 }
 
-void FindController::findString(const String& string, FindOptions options, unsigned maxMatchCount)
+void FindController::findString(const String& string, FindOptions options, unsigned maxMatchCount, Optional<CallbackID> callbackID)
 {
     auto* pluginView = WebPage::pluginViewForFrame(m_webPage->mainFrame());
 
@@ -267,7 +269,7 @@ void FindController::findString(const String& string, FindOptions options, unsig
         if (!foundStringStartsAfterSelection) {
             if (options & FindOptionsBackwards)
                 m_foundStringMatchIndex--;
-            else
+            else if (!(options & FindOptionsNoIndexChange))
                 m_foundStringMatchIndex++;
         }
     }
@@ -276,6 +278,9 @@ void FindController::findString(const String& string, FindOptions options, unsig
     m_webPage->drawingArea()->dispatchAfterEnsuringUpdatedScrollPosition([protectedWebPage, found, string, options, maxMatchCount, didWrap] () {
         protectedWebPage->findController().updateFindUIAfterPageScroll(found, string, options, maxMatchCount, didWrap, FindUIOriginator::FindString);
     });
+
+    if (callbackID)
+        m_webPage->send(Messages::WebPageProxy::FindStringCallback(found, *callbackID));
 }
 
 void FindController::findStringMatches(const String& string, FindOptions options, unsigned maxMatchCount)
@@ -328,6 +333,10 @@ void FindController::getImageForFindMatch(uint32_t matchIndex)
         return;
 
     m_webPage->send(Messages::WebPageProxy::DidGetImageForFindMatch(handle, matchIndex));
+#if USE(DIRECT2D)
+    // Don't destroy the shared handle in the WebContent process. It will be destroyed in the UIProcess.
+    selectionSnapshot->leakSharedResource();
+#endif
 }
 
 void FindController::selectFindMatch(uint32_t matchIndex)
@@ -365,6 +374,7 @@ void FindController::hideFindUI()
         m_webPage->corePage()->unmarkAllTextMatches();
     
     hideFindIndicator();
+    resetMatchIndex();
 }
 
 #if !PLATFORM(IOS_FAMILY)
@@ -391,8 +401,12 @@ void FindController::hideFindIndicator()
 
     m_webPage->send(Messages::WebPageProxy::ClearTextIndicator());
     m_isShowingFindIndicator = false;
-    m_foundStringMatchIndex = -1;
     didHideFindIndicator();
+}
+
+void FindController::resetMatchIndex()
+{
+    m_foundStringMatchIndex = -1;
 }
 
 void FindController::willFindString()
@@ -523,7 +537,7 @@ void FindController::drawRect(PageOverlay&, GraphicsContext& graphicsContext, co
     graphicsContext.clearShadow();
 
     // Clear out the holes.
-    graphicsContext.setCompositeOperation(CompositeClear);
+    graphicsContext.setCompositeOperation(CompositeOperator::Clear);
     for (auto& path : whiteFramePaths)
         graphicsContext.fillPath(path);
 

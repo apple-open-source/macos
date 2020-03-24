@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -75,9 +75,11 @@ __private_extern__ AuthorizationRef	authorization	= NULL;
 __private_extern__ InputRef		currentInput	= NULL;
 __private_extern__ Boolean		doDispatch	= FALSE;
 __private_extern__ int			nesting		= 0;
+__private_extern__ SCPreferencesRef	ni_prefs	= NULL;
 __private_extern__ CFRunLoopRef		notifyRl	= NULL;
 __private_extern__ CFRunLoopSourceRef	notifyRls	= NULL;
 __private_extern__ SCPreferencesRef	prefs		= NULL;
+__private_extern__ char			*prefsPath	= NULL;
 __private_extern__ SCDynamicStoreRef	store		= NULL;
 __private_extern__ CFPropertyListRef	value		= NULL;
 __private_extern__ CFMutableArrayRef	watchedKeys	= NULL;

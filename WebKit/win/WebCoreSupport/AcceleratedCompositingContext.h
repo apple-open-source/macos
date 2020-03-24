@@ -40,6 +40,7 @@
 class WebView;
 
 class AcceleratedCompositingContext : public WebCore::GraphicsLayerClient {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(AcceleratedCompositingContext);
 public:
     explicit AcceleratedCompositingContext(WebView&);
@@ -52,7 +53,7 @@ public:
     bool enabled();
 
     // GraphicsLayerClient
-    void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, OptionSet<WebCore::GraphicsLayerPaintingPhase>, const WebCore::FloatRect& rectToPaint, WebCore::GraphicsLayerPaintBehavior) override;
+    void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect& rectToPaint, WebCore::GraphicsLayerPaintBehavior) override;
     float deviceScaleFactor() const override;
 
     void initialize();
@@ -64,8 +65,6 @@ public:
     bool flushPendingLayerChanges();
     bool flushPendingLayerChangesSoon();
     void scrollNonCompositedContents(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
-
-    static bool acceleratedCompositingAvailable();
 
 private:
     WebView& m_webView;

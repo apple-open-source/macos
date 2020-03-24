@@ -29,8 +29,8 @@
 #if ENABLE(WEBGPU)
 
 #include "WHLSLASTDumper.h"
-#include "WHLSLAutoInitializeVariables.h"
 #include "WHLSLCheckDuplicateFunctions.h"
+#include "WHLSLCheckReferenceTypes.h"
 #include "WHLSLCheckTextureReferences.h"
 #include "WHLSLChecker.h"
 #include "WHLSLComputeDimensions.h"
@@ -39,20 +39,50 @@
 #include "WHLSLLiteralTypeChecker.h"
 #include "WHLSLMetalCodeGenerator.h"
 #include "WHLSLNameResolver.h"
+#include "WHLSLNameSpace.h"
 #include "WHLSLParser.h"
 #include "WHLSLPreserveVariableLifetimes.h"
 #include "WHLSLProgram.h"
 #include "WHLSLPropertyResolver.h"
+#include "WHLSLPruneUnreachableStandardLibraryFunctions.h"
 #include "WHLSLRecursionChecker.h"
 #include "WHLSLRecursiveTypeChecker.h"
 #include "WHLSLSemanticMatcher.h"
 #include "WHLSLStandardLibraryUtilities.h"
 #include "WHLSLStatementBehaviorChecker.h"
-#include "WHLSLSynthesizeArrayOperatorLength.h"
 #include "WHLSLSynthesizeConstructors.h"
 #include "WHLSLSynthesizeEnumerationFunctions.h"
-#include "WHLSLSynthesizeStructureAccessors.h"
+#include <wtf/MonotonicTime.h>
 #include <wtf/Optional.h>
+
+namespace WebCore {
+
+namespace WHLSL {
+
+struct ShaderModule {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+
+    ShaderModule(const String& whlslSource)
+        : whlslSource(whlslSource)
+    {
+    }
+
+    String whlslSource;
+};
+
+}
+
+}
+
+namespace std {
+
+void default_delete<WebCore::WHLSL::ShaderModule>::operator()(WebCore::WHLSL::ShaderModule* shaderModule) const
+{
+    delete shaderModule;
+}
+
+}
 
 namespace WebCore {
 
@@ -63,6 +93,9 @@ static constexpr bool dumpASTAfterParsing = false;
 static constexpr bool dumpASTAtEnd = false;
 static constexpr bool alwaysDumpPassFailures = false;
 static constexpr bool dumpPassFailure = dumpASTBeforeEachPass || dumpASTAfterParsing || dumpASTAtEnd || alwaysDumpPassFailures;
+static constexpr bool dumpPhaseTimes = false;
+
+static constexpr bool parseFullStandardLibrary = false;
 
 static bool dumpASTIfNeeded(bool shouldDump, Program& program, const char* message)
 {
@@ -90,32 +123,98 @@ static bool dumpASTAtEndIfNeeded(Program& program)
     return dumpASTIfNeeded(dumpASTAtEnd, program, "AST at end");
 }
 
+using PhaseTimes = Vector<std::pair<String, Seconds>>;
+
+static void logPhaseTimes(PhaseTimes& phaseTimes)
+{
+    if (!dumpPhaseTimes)
+        return;
+
+    for (auto& entry : phaseTimes)
+        dataLogLn(entry.first, ": ", entry.second.milliseconds(), " ms");
+}
+
+class PhaseTimer {
+public:
+    PhaseTimer(const char* phaseName, PhaseTimes& phaseTimes)
+        : m_phaseTimes(phaseTimes)
+    {
+        if (dumpPhaseTimes) {
+            m_phaseName = phaseName;
+            m_start = MonotonicTime::now();
+        }
+    }
+
+    ~PhaseTimer()
+    {
+        if (dumpPhaseTimes) {
+            auto totalTime = MonotonicTime::now() - m_start;
+            m_phaseTimes.append({ m_phaseName, totalTime });
+        }
+    }
+
+private:
+    String m_phaseName;
+    PhaseTimes& m_phaseTimes;
+    MonotonicTime m_start;
+};
+
+UniqueRef<ShaderModule> createShaderModule(const String& whlslSource)
+{
+    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=200872 We should consider moving as much work from prepare() into here as possible.
+    return makeUniqueRef<ShaderModule>(whlslSource);
+}
+
 #define CHECK_PASS(pass, ...) \
     do { \
         dumpASTBetweenEachPassIfNeeded(program, "AST before " # pass); \
-        if (!pass(__VA_ARGS__)) { \
+        PhaseTimer phaseTimer(#pass, phaseTimes); \
+        auto result = pass(__VA_ARGS__); \
+        if (!result) { \
             if (dumpPassFailure) \
-                dataLogLn("failed pass: " # pass); \
-            return WTF::nullopt; \
+                dataLogLn("failed pass: " # pass, Lexer::errorString(result.error(), whlslSource1, whlslSource2)); \
+            return makeUnexpected(Lexer::errorString(result.error(), whlslSource1, whlslSource2)); \
         } \
     } while (0)
 
 #define RUN_PASS(pass, ...) \
     do { \
+        PhaseTimer phaseTimer(#pass, phaseTimes); \
         dumpASTBetweenEachPassIfNeeded(program, "AST before " # pass); \
         pass(__VA_ARGS__); \
     } while (0)
 
-static Optional<Program> prepareShared(String& whlslSource)
+static Expected<Program, String> prepareShared(PhaseTimes& phaseTimes, const String& whlslSource1, const String* whlslSource2 = nullptr)
 {
     Program program;
     Parser parser;
-    if (auto parseFailure = parser.parse(program, whlslSource, Parser::Mode::User)) {
-        if (dumpPassFailure)
-            dataLogLn("failed to parse the program: ", *parseFailure);
-        return WTF::nullopt;
+
+    {
+        program.nameContext().setCurrentNameSpace(AST::NameSpace::NameSpace1);
+
+        PhaseTimer phaseTimer("parse", phaseTimes);
+        auto parseResult = parser.parse(program, whlslSource1, ParsingMode::User, AST::NameSpace::NameSpace1);
+        if (!parseResult) {
+            if (dumpPassFailure)
+                dataLogLn("failed to parse the program: ", Lexer::errorString(parseResult.error(), whlslSource1, whlslSource2));
+            return makeUnexpected(Lexer::errorString(parseResult.error(), whlslSource1, whlslSource2));
+        }
+        if (whlslSource2) {
+            program.nameContext().setCurrentNameSpace(AST::NameSpace::NameSpace2);
+            auto parseResult = parser.parse(program, *whlslSource2, ParsingMode::User, AST::NameSpace::NameSpace2);
+            if (!parseResult) {
+                if (dumpPassFailure)
+                    dataLogLn("failed to parse the program: ", Lexer::errorString(parseResult.error(), whlslSource1, whlslSource2));
+                return makeUnexpected(Lexer::errorString(parseResult.error(), whlslSource1, whlslSource2));
+            }
+        }
+        program.nameContext().setCurrentNameSpace(AST::NameSpace::StandardLibrary);
     }
-    includeStandardLibrary(program, parser);
+
+    {
+        PhaseTimer phaseTimer("includeStandardLibrary", phaseTimes);
+        includeStandardLibrary(program, parser, parseFullStandardLibrary);
+    }
 
     if (!dumpASTBetweenEachPassIfNeeded(program, "AST after parsing"))
         dumpASTAfterParsingIfNeeded(program);
@@ -123,18 +222,17 @@ static Optional<Program> prepareShared(String& whlslSource)
     NameResolver nameResolver(program.nameContext());
     CHECK_PASS(resolveNamesInTypes, program, nameResolver);
     CHECK_PASS(checkRecursiveTypes, program);
-    CHECK_PASS(synthesizeStructureAccessors, program);
     CHECK_PASS(synthesizeEnumerationFunctions, program);
-    CHECK_PASS(synthesizeArrayOperatorLength, program);
     CHECK_PASS(resolveTypeNamesInFunctions, program, nameResolver);
     CHECK_PASS(synthesizeConstructors, program);
     CHECK_PASS(checkDuplicateFunctions, program);
 
     CHECK_PASS(check, program);
+    RUN_PASS(pruneUnreachableStandardLibraryFunctions, program);
 
     RUN_PASS(checkLiteralTypes, program);
     CHECK_PASS(checkTextureReferences, program);
-    CHECK_PASS(autoInitializeVariables, program);
+    CHECK_PASS(checkReferenceTypes, program);
     RUN_PASS(resolveProperties, program);
     RUN_PASS(findHighZombies, program);
     CHECK_PASS(checkStatementBehavior, program);
@@ -147,16 +245,38 @@ static Optional<Program> prepareShared(String& whlslSource)
     return program;
 }
 
-Optional<RenderPrepareResult> prepare(String& whlslSource, RenderPipelineDescriptor& renderPipelineDescriptor)
+Expected<RenderPrepareResult, String> prepare(const ShaderModule& vertexShaderModule, const ShaderModule* fragmentShaderModule, RenderPipelineDescriptor& renderPipelineDescriptor)
 {
-    auto program = prepareShared(whlslSource);
-    if (!program)
-        return WTF::nullopt;
-    auto matchedSemantics = matchSemantics(*program, renderPipelineDescriptor);
-    if (!matchedSemantics)
-        return WTF::nullopt;
+    PhaseTimes phaseTimes;
+    Metal::RenderMetalCode generatedCode;
 
-    auto generatedCode = Metal::generateMetalCode(*program, WTFMove(*matchedSemantics), renderPipelineDescriptor.layout);
+    {
+        PhaseTimer phaseTimer("prepare total", phaseTimes);
+        const String* secondShader = nullptr;
+        bool distinctFragmentShader = false;
+        if (fragmentShaderModule && fragmentShaderModule != &vertexShaderModule) {
+            secondShader = &fragmentShaderModule->whlslSource;
+            distinctFragmentShader = true;
+        }
+        auto program = prepareShared(phaseTimes, vertexShaderModule.whlslSource, secondShader);
+        if (!program)
+            return makeUnexpected(program.error());
+
+        Optional<MatchedRenderSemantics> matchedSemantics;
+        {
+            PhaseTimer phaseTimer("matchSemantics", phaseTimes);
+            matchedSemantics = matchSemantics(*program, renderPipelineDescriptor, distinctFragmentShader, fragmentShaderModule);
+            if (!matchedSemantics)
+                return makeUnexpected(Lexer::errorString(Error("Could not match semantics"_str), vertexShaderModule.whlslSource, secondShader));
+        }
+
+        {
+            PhaseTimer phaseTimer("generateMetalCode", phaseTimes);
+            generatedCode = Metal::generateMetalCode(*program, WTFMove(*matchedSemantics), renderPipelineDescriptor.layout);
+        }
+    }
+
+    logPhaseTimes(phaseTimes);
 
     RenderPrepareResult result;
     result.metalSource = WTFMove(generatedCode.metalSource);
@@ -165,19 +285,40 @@ Optional<RenderPrepareResult> prepare(String& whlslSource, RenderPipelineDescrip
     return result;
 }
 
-Optional<ComputePrepareResult> prepare(String& whlslSource, ComputePipelineDescriptor& computePipelineDescriptor)
+Expected<ComputePrepareResult, String> prepare(const ShaderModule& shaderModule, ComputePipelineDescriptor& computePipelineDescriptor)
 {
-    auto program = prepareShared(whlslSource);
-    if (!program)
-        return WTF::nullopt;
-    auto matchedSemantics = matchSemantics(*program, computePipelineDescriptor);
-    if (!matchedSemantics)
-        return WTF::nullopt;
-    auto computeDimensions = WHLSL::computeDimensions(*program, *matchedSemantics->shader);
-    if (!computeDimensions)
-        return WTF::nullopt;
+    PhaseTimes phaseTimes;
+    Metal::ComputeMetalCode generatedCode;
+    Optional<ComputeDimensions> computeDimensions;
 
-    auto generatedCode = Metal::generateMetalCode(*program, WTFMove(*matchedSemantics), computePipelineDescriptor.layout);
+    {
+        PhaseTimer phaseTimer("prepare total", phaseTimes);
+        auto program = prepareShared(phaseTimes, shaderModule.whlslSource);
+        if (!program)
+            return makeUnexpected(program.error());
+
+        Optional<MatchedComputeSemantics> matchedSemantics;
+        {
+            PhaseTimer phaseTimer("matchSemantics", phaseTimes);
+            matchedSemantics = matchSemantics(*program, computePipelineDescriptor);
+            if (!matchedSemantics)
+                return makeUnexpected(Lexer::errorString(Error("Could not match semantics"_str), shaderModule.whlslSource));
+        }
+
+        {
+            PhaseTimer phaseTimer("computeDimensions", phaseTimes);
+            computeDimensions = WHLSL::computeDimensions(*program, *matchedSemantics->shader);
+            if (!computeDimensions)
+                return makeUnexpected(Lexer::errorString(Error("Could not match compute dimensions"_str), shaderModule.whlslSource));
+        }
+
+        {
+            PhaseTimer phaseTimer("generateMetalCode", phaseTimes);
+            generatedCode = Metal::generateMetalCode(*program, WTFMove(*matchedSemantics), computePipelineDescriptor.layout);
+        }
+    }
+
+    logPhaseTimes(phaseTimes);
 
     ComputePrepareResult result;
     result.metalSource = WTFMove(generatedCode.metalSource);

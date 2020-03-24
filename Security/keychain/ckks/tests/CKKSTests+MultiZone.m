@@ -7,6 +7,9 @@
 #import <notify.h>
 
 #include <Security/SecItemPriv.h>
+#import <TrustedPeers/TrustedPeers.h>
+#import <TrustedPeers/TPPBPolicyKeyViewMapping.h>
+#import <TrustedPeers/TPDictionaryMatchingRules.h>
 
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 #import "keychain/ckks/tests/CloudKitKeychainSyncingMockXCTest.h"
@@ -22,6 +25,7 @@
 #import "keychain/ckks/CKKSZoneStateEntry.h"
 #import "keychain/ckks/CKKSManifest.h"
 
+#import "keychain/ckks/tests/CKKSTests+MultiZone.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
 
 #pragma clang diagnostic push
@@ -37,43 +41,7 @@
 #include <Security/SecKeyPriv.h>
 #pragma clang diagnostic pop
 
-@interface CloudKitKeychainSyncingMultiZoneTestsBase : CloudKitKeychainSyncingMockXCTest
-
-@property CKRecordZoneID*      engramZoneID;
-@property CKKSKeychainView*    engramView;
-@property FakeCKZone*          engramZone;
-@property (readonly) ZoneKeys* engramZoneKeys;
-
-@property CKRecordZoneID*      manateeZoneID;
-@property CKKSKeychainView*    manateeView;
-@property FakeCKZone*          manateeZone;
-@property (readonly) ZoneKeys* manateeZoneKeys;
-
-@property CKRecordZoneID*      autoUnlockZoneID;
-@property CKKSKeychainView*    autoUnlockView;
-@property FakeCKZone*          autoUnlockZone;
-@property (readonly) ZoneKeys* autoUnlockZoneKeys;
-
-@property CKRecordZoneID*      healthZoneID;
-@property CKKSKeychainView*    healthView;
-@property FakeCKZone*          healthZone;
-@property (readonly) ZoneKeys* healthZoneKeys;
-
-@property CKRecordZoneID*      applepayZoneID;
-@property CKKSKeychainView*    applepayView;
-@property FakeCKZone*          applepayZone;
-@property (readonly) ZoneKeys* applepayZoneKeys;
-
-@property CKRecordZoneID*      homeZoneID;
-@property CKKSKeychainView*    homeView;
-@property FakeCKZone*          homeZone;
-@property (readonly) ZoneKeys* homeZoneKeys;
-
-@property CKRecordZoneID*      limitedZoneID;
-@property CKKSKeychainView*    limitedView;
-@property FakeCKZone*          limitedZone;
-@property (readonly) ZoneKeys* limitedZoneKeys;
-
+@interface CloudKitKeychainSyncingMultiZoneTestsBase ()
 @end
 
 @implementation CloudKitKeychainSyncingMultiZoneTestsBase
@@ -81,6 +49,43 @@
     SecCKKSEnable();
     SecCKKSResetSyncing();
     [super setUp];
+}
+
+- (NSSet*)managedViewList {
+    NSMutableSet* parentSet = [[super managedViewList] mutableCopy];
+    [parentSet addObject:@"SafariPasswords"];
+    return parentSet;
+}
+
+// Make a policy as normal for most views, but Passwords is special
+- (TPPolicy*)viewSortingPolicyForManagedViewList
+{
+    NSMutableArray<TPPBPolicyKeyViewMapping*>* rules = [NSMutableArray array];
+
+    for(NSString* viewName in self.managedViewList) {
+        TPPBPolicyKeyViewMapping* mapping = [[TPPBPolicyKeyViewMapping alloc] init];
+        mapping.view = viewName;
+
+        // The real passwords view is on com.appple.cfnetwork, but for these tests, let's just use the sbd agrp (because of how the entitlements are specified)
+        if([viewName isEqualToString:@"SafariPasswords"]) {
+            mapping.matchingRule = [TPDictionaryMatchingRule fieldMatch:@"agrp"
+                                                             fieldRegex:[NSString stringWithFormat:@"^com\\.apple\\.sbd$"]];
+        } else {
+            mapping.matchingRule = [TPDictionaryMatchingRule fieldMatch:@"vwht"
+                                                             fieldRegex:[NSString stringWithFormat:@"^%@$", viewName]];
+        }
+
+        [rules addObject:mapping];
+    }
+
+    TPPolicy* policy = [TPPolicy policyWithModelToCategory:@[]
+                                          categoriesByView:@{}
+                                     introducersByCategory:@{}
+                                            keyViewMapping:rules
+                                         unknownRedactions:NO
+                                                   version:[[TPPolicyVersion alloc] initWithVersion:1 hash:@"fake-policy-for-views"]];
+
+    return policy;
 }
 
 - (void)setUp {
@@ -149,6 +154,19 @@
     XCTAssertNotNil(self.limitedView, "CKKSViewManager created the LimitedPeersAllowed view");
     [self.ckksViews addObject:self.limitedView];
     [self.ckksZones addObject:self.limitedZoneID];
+
+    self.passwordsZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"SafariPasswords" ownerName:CKCurrentUserDefaultName];
+    self.passwordsZone = [[FakeCKZone alloc] initZone: self.passwordsZoneID];
+    self.zones[self.passwordsZoneID] = self.passwordsZone;
+    self.passwordsView = [[CKKSViewManager manager] findOrCreateView:@"SafariPasswords"];
+    XCTAssertNotNil(self.passwordsView, "should have a passwords ckks view");
+    XCTAssertNotNil(self.passwordsView, "CKKSViewManager created the Passwords view");
+    [self.ckksViews addObject:self.passwordsView];
+    [self.ckksZones addObject:self.passwordsZoneID];
+
+    // These tests, at least, will use the policy codepaths!
+    [self.injectedManager setOverrideCKKSViewsFromPolicy:YES];
+    [self.injectedManager setSyncingViews:self.managedViewList sortingPolicy:self.viewSortingPolicyForManagedViewList];
 }
 
 + (void)tearDown {
@@ -186,6 +204,14 @@
     [self.homeView waitUntilAllOperationsAreFinished];
     self.homeView = nil;
 
+    [self.limitedView halt];
+    [self.limitedView waitUntilAllOperationsAreFinished];
+    self.limitedView = nil;
+
+    [self.passwordsView halt];
+    [self.passwordsView waitUntilAllOperationsAreFinished];
+    self.passwordsView = nil;
+
     [super tearDown];
 }
 
@@ -211,6 +237,7 @@
     [self putFakeDeviceStatusInCloudKit: self.applepayZoneID];
     [self putFakeDeviceStatusInCloudKit: self.homeZoneID];
     [self putFakeDeviceStatusInCloudKit: self.limitedZoneID];
+    [self putFakeDeviceStatusInCloudKit: self.passwordsZoneID];
 }
 
 - (void)putFakeKeyHierachiesInCloudKit{
@@ -221,6 +248,7 @@
     [self putFakeKeyHierarchyInCloudKit: self.applepayZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.homeZoneID];
     [self putFakeKeyHierarchyInCloudKit: self.limitedZoneID];
+    [self putFakeKeyHierarchyInCloudKit: self.passwordsZoneID];
 }
 
 - (void)saveTLKsToKeychain{
@@ -231,6 +259,7 @@
     [self saveTLKMaterialToKeychain:self.applepayZoneID];
     [self saveTLKMaterialToKeychain:self.homeZoneID];
     [self saveTLKMaterialToKeychain:self.limitedZoneID];
+    [self saveTLKMaterialToKeychain:self.passwordsZoneID];
 }
 
 - (void)deleteTLKMaterialsFromKeychain{
@@ -241,6 +270,7 @@
     [self deleteTLKMaterialFromKeychain: self.applepayZoneID];
     [self deleteTLKMaterialFromKeychain: self.homeZoneID];
     [self deleteTLKMaterialFromKeychain:self.limitedZoneID];
+    [self deleteTLKMaterialFromKeychain:self.passwordsZoneID];
 }
 
 - (void)waitForKeyHierarchyReadinesses {
@@ -251,6 +281,7 @@
     [self.applepayView waitForKeyHierarchyReadiness];
     [self.homeView waitForKeyHierarchyReadiness];
     [self.limitedView waitForKeyHierarchyReadiness];
+    [self.passwordsView waitForKeyHierarchyReadiness];
 }
 
 - (void)expectCKKSTLKSelfShareUploads {
@@ -424,6 +455,108 @@
     [self waitForExpectations:@[pcsChanged] timeout:0.2];
 }
 
+- (void)testMultipleZoneAdd {
+    [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
+
+    // Let the horses loose
+    [self startCKKSSubsystem];
+
+    // We expect a single record to be uploaded to the 'LimitedPeersAllowed' view
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.limitedZoneID];
+    [self addGenericPassword: @"data" account: @"account-delete-me-limited-peers" viewHint:(NSString*)kSecAttrViewHintLimitedPeersAllowed];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // We expect a single record to be uploaded to the 'atv' home
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.homeZoneID];
+    [self addGenericPassword: @"data" account: @"account-delete-me-home" viewHint:(NSString*)kSecAttrViewHintHome];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    OCMVerifyAllWithDelay(self.mockCKKSViewManager, 10);
+}
+
+- (void)testMultipleZoneDelete {
+    [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
+
+    [self startCKKSSubsystem];
+
+    // We expect a single record to be uploaded.
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.limitedZoneID];
+    [self addGenericPassword: @"data" account: @"account-delete-me-limited-peers" viewHint:(NSString*)kSecAttrViewHintLimitedPeersAllowed];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.homeZoneID];
+    [self addGenericPassword: @"data" account: @"account-delete-me-home" viewHint:(NSString*)kSecAttrViewHintHome];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    // We expect a single record to be deleted from the ATV zone
+    [self expectCKDeleteItemRecords:1 zoneID:self.homeZoneID];
+    [self deleteGenericPassword:@"account-delete-me-home"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // Now we expect a single record to be deleted from the test zone
+    [self expectCKDeleteItemRecords:1 zoneID:self.limitedZoneID];
+    [self deleteGenericPassword:@"account-delete-me-limited-peers"];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
+- (void)testAddAndReceiveDeleteForSafariPasswordItem {
+    [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
+
+    [self startCKKSSubsystem];
+
+    XCTestExpectation* passwordChanged = [self expectChangeForView:self.passwordsView.zoneName];
+
+    // We expect a single record to be uploaded to the Passwords view.
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.passwordsZoneID];
+
+    [self addGenericPassword:@"data"
+                     account:@"account-delete-me"
+                      access:(id)kSecAttrAccessibleWhenUnlocked
+                    viewHint:nil
+                 accessGroup:@"com.apple.sbd"
+                   expecting:errSecSuccess
+                     message:@"Item for Password view"];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForExpectations:@[passwordChanged] timeout:1];
+    [self waitForCKModifications];
+
+    [self waitForKeyHierarchyReadinesses];
+    [self.passwordsView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
+
+    // Now, the item is deleted. Do we properly remove it?
+    CKRecord* itemRecord = nil;
+    for(CKRecord* record in [self.passwordsZone.currentDatabase allValues]) {
+        if([record.recordType isEqualToString:SecCKRecordItemType]) {
+            itemRecord = record;
+            break;
+        }
+    }
+    XCTAssertNotNil(itemRecord, "Should have found the item in the password zone");
+
+    NSDictionary *query = @{(id)kSecClass : (id)kSecClassGenericPassword,
+                            (id)kSecAttrAccessGroup : @"com.apple.sbd",
+                            (id)kSecAttrAccount : @"account-delete-me",
+                            (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                            (id)kSecMatchLimit : (id)kSecMatchLimitOne,
+                            (id)kSecReturnData : (id)kCFBooleanTrue,
+                            };
+
+    CFTypeRef item = NULL;
+    XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should still exist");
+    XCTAssertNotNil((__bridge id)item, "No item should have been found");
+    CFReleaseNull(item);
+
+    // Now, the item is deleted. The passwords view should delete the local item, even though it has the wrong 'vwht' on disk.
+    [self.passwordsZone deleteCKRecordIDFromZone:itemRecord.recordID];
+    [self.passwordsView notifyZoneChange:nil];
+    [self.passwordsView waitForFetchAndIncomingQueueProcessing];
+
+    XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should no longer exist");
+    XCTAssertNil((__bridge id)item, "No item should have been found");
+}
+
 - (void)testAddOtherViewHintItem {
     [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
 
@@ -431,9 +564,46 @@
 
     // We expect no uploads to CKKS.
     [self addGenericPassword: @"data" account: @"account-delete-me-no-viewhint"];
-    [self addGenericPassword: @"data" account: @"account-delete-me-password" viewHint:(NSString*) kSOSViewAutofillPasswords];
+    [self addGenericPassword: @"data" account: @"account-delete-me-password" viewHint:(NSString*) kSOSViewBackupBagV0];
 
     sleep(1);
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+}
+
+- (void)testUploadItemsAddedBeforeStart {
+    [self addGenericPassword:@"data"
+                     account:@"account-delete-me"
+                      access:(id)kSecAttrAccessibleAfterFirstUnlock
+                    viewHint:nil
+                 accessGroup:@"com.apple.sbd"
+                   expecting:errSecSuccess
+                     message:@"Item for Password view"];
+
+    [self addGenericPassword:@"data"
+                     account:@"account-delete-me-2"
+                      access:(id)kSecAttrAccessibleAfterFirstUnlock
+                    viewHint:nil
+                 accessGroup:@"com.apple.sbd"
+                   expecting:errSecSuccess
+                     message:@"Item for Password view"];
+
+    [self addGenericPassword:@"data" account:@"account-delete-me-limited-peers" viewHint:(NSString*)kSecAttrViewHintLimitedPeersAllowed];
+
+    NSError* error = nil;
+    NSDictionary* currentOQEs = [CKKSOutgoingQueueEntry countsByStateInZone:self.passwordsZoneID error:&error];
+    XCTAssertNil(error, "Should be no error counting OQEs");
+    XCTAssertEqual(0, currentOQEs.count, "Should be no OQEs");
+
+    [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
+
+    // Now CKKS starts up
+    // Upon sign in, these items should be uploaded
+    [self expectCKModifyItemRecords:2 currentKeyPointerRecords:1 zoneID:self.passwordsZoneID
+                          checkItem:[self checkClassCBlock:self.passwordsZoneID message:@"Object was encrypted under class C key in hierarchy"]];
+    [self expectCKModifyItemRecords:1 currentKeyPointerRecords:1 zoneID:self.limitedZoneID];
+    [self startCKKSSubsystem];
+
+    XCTAssertEqual(0, [self.passwordsView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS entered ready");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 }
 

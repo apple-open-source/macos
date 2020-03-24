@@ -47,65 +47,84 @@ namespace WHLSL {
 
 namespace Metal {
 
-class FunctionDeclarationWriter : public Visitor {
-public:
-    FunctionDeclarationWriter(TypeNamer& typeNamer, HashMap<AST::FunctionDeclaration*, String>& functionMapping)
-        : m_typeNamer(typeNamer)
-        , m_functionMapping(functionMapping)
-    {
-    }
-
-    virtual ~FunctionDeclarationWriter() = default;
-
-    String toString() { return m_stringBuilder.toString(); }
-
-    void visit(AST::FunctionDeclaration&) override;
-
-private:
-    TypeNamer& m_typeNamer;
-    HashMap<AST::FunctionDeclaration*, String>& m_functionMapping;
-    StringBuilder m_stringBuilder;
-};
-
-void FunctionDeclarationWriter::visit(AST::FunctionDeclaration& functionDeclaration)
+static void declareFunction(StringBuilder& stringBuilder, AST::FunctionDeclaration& functionDeclaration, TypeNamer& typeNamer, HashMap<AST::FunctionDeclaration*, MangledFunctionName>& functionMapping)
 {
     if (functionDeclaration.entryPointType())
         return;
 
-    auto iterator = m_functionMapping.find(&functionDeclaration);
-    ASSERT(iterator != m_functionMapping.end());
-    m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(functionDeclaration.type()), ' ', iterator->value, '('));
+    auto iterator = functionMapping.find(&functionDeclaration);
+    ASSERT(iterator != functionMapping.end());
+    stringBuilder.append(typeNamer.mangledNameForType(functionDeclaration.type()), ' ', iterator->value, '(');
     for (size_t i = 0; i < functionDeclaration.parameters().size(); ++i) {
         if (i)
-            m_stringBuilder.append(", ");
-        m_stringBuilder.append(m_typeNamer.mangledNameForType(*functionDeclaration.parameters()[i]->type()));
+            stringBuilder.append(", ");
+        stringBuilder.append(typeNamer.mangledNameForType(*functionDeclaration.parameters()[i]->type()));
     }
-    m_stringBuilder.append(");\n");
+    stringBuilder.append(");\n");
 }
 
+struct Variable {
+    MangledVariableName name;
+    MangledTypeName type;
+};
+
 class FunctionDefinitionWriter : public Visitor {
+    class HoistedVariableCollector : public Visitor {
+        public:
+        HoistedVariableCollector(FunctionDefinitionWriter& functionDefinitionWriter)
+            : functionDefinitionWriter(functionDefinitionWriter)
+        {
+        }
+
+        void visit(AST::CallExpression& callExpression) override
+        {
+            Vector<Variable> variables;
+            size_t size = callExpression.arguments().size();
+            bool isVoid = matches(callExpression.resolvedType(), functionDefinitionWriter.m_intrinsics.voidType());
+            if (!isVoid)
+                ++size;
+            variables.reserveInitialCapacity(size);
+
+            for (auto& argument : callExpression.arguments()) {
+                auto type = functionDefinitionWriter.m_typeNamer.mangledNameForType(argument->resolvedType());
+                auto name = functionDefinitionWriter.generateNextVariableName();
+                variables.uncheckedAppend(Variable { name, type });
+            }
+
+            if (!isVoid)
+                variables.uncheckedAppend(Variable { functionDefinitionWriter.generateNextVariableName(), functionDefinitionWriter.m_typeNamer.mangledNameForType(callExpression.resolvedType()) });
+
+            toHoist.add(&callExpression, WTFMove(variables));
+
+            Visitor::visit(callExpression);
+        }
+
+        void visit(AST::ReadModifyWriteExpression& readModifyWrite) override
+        {
+            Vector<Variable> variables;
+            variables.append(Variable { functionDefinitionWriter.generateNextVariableName(), functionDefinitionWriter.m_typeNamer.mangledNameForType(*readModifyWrite.oldValue().type()) });
+            variables.append(Variable { functionDefinitionWriter.generateNextVariableName(), functionDefinitionWriter.m_typeNamer.mangledNameForType(*readModifyWrite.newValue().type()) });
+
+            toHoist.add(&readModifyWrite, WTFMove(variables));
+
+            Visitor::visit(readModifyWrite);
+        }
+
+        FunctionDefinitionWriter& functionDefinitionWriter;
+        HashMap<AST::Expression*, Vector<Variable>> toHoist;
+    };
+
 public:
-    FunctionDefinitionWriter(Intrinsics& intrinsics, TypeNamer& typeNamer, HashMap<AST::FunctionDeclaration*, String>& functionMapping, Layout& layout)
-        : m_intrinsics(intrinsics)
+    FunctionDefinitionWriter(StringBuilder& stringBuilder, Intrinsics& intrinsics, TypeNamer& typeNamer, HashMap<AST::FunctionDeclaration*, MangledFunctionName>& functionMapping, Layout& layout)
+        : m_stringBuilder(stringBuilder)
+        , m_intrinsics(intrinsics)
         , m_typeNamer(typeNamer)
         , m_functionMapping(functionMapping)
         , m_layout(layout)
     {
-        m_stringBuilder.append(makeString(
-            "template <typename T>\n"
-            "inline void ", memsetZeroFunctionName, "(thread T& value)\n"
-            "{\n"
-            "    thread char* ptr = static_cast<thread char*>(static_cast<thread void*>(&value));\n"
-            "    for (size_t i = 0; i < sizeof(T); ++i)\n"
-            "        ptr[i] = 0;\n"
-            "}\n"));
     }
 
-    static constexpr const char* memsetZeroFunctionName = "memsetZero";
-
     virtual ~FunctionDefinitionWriter() = default;
-
-    String toString() { return m_stringBuilder.toString(); }
 
     void visit(AST::NativeFunctionDeclaration&) override;
     void visit(AST::FunctionDefinition&) override;
@@ -126,20 +145,17 @@ protected:
     void visit(AST::Return&) override;
     void visit(AST::SwitchStatement&) override;
     void visit(AST::SwitchCase&) override;
-    void visit(AST::Trap&) override;
     void visit(AST::VariableDeclarationsStatement&) override;
     void visit(AST::WhileLoop&) override;
     void visit(AST::IntegerLiteral&) override;
     void visit(AST::UnsignedIntegerLiteral&) override;
     void visit(AST::FloatLiteral&) override;
-    void visit(AST::NullLiteral&) override;
     void visit(AST::BooleanLiteral&) override;
     void visit(AST::EnumerationMemberLiteral&) override;
     void visit(AST::Expression&) override;
-    void visit(AST::DotExpression&) override;
     void visit(AST::GlobalVariableReference&) override;
+    void visit(AST::DotExpression&) override;
     void visit(AST::IndexExpression&) override;
-    void visit(AST::PropertyAccessExpression&) override;
     void visit(AST::VariableDeclaration&) override;
     void visit(AST::AssignmentExpression&) override;
     void visit(AST::CallExpression&) override;
@@ -159,40 +175,9 @@ protected:
     };
     void emitLoop(LoopConditionLocation, AST::Expression* conditionExpression, AST::Expression* increment, AST::Statement& body);
 
-    String constantExpressionString(AST::ConstantExpression&);
+    void emitConstantExpressionString(AST::ConstantExpression&);
 
-    String generateNextVariableName()
-    {
-        return makeString("variable", m_variableCount++);
-    }
-
-    struct StackItem {
-        String value;
-        String leftValue;
-    };
-
-    void appendRightValue(AST::Expression&, String value)
-    {
-        m_stack.append({ WTFMove(value), String() });
-    }
-
-    void appendLeftValue(AST::Expression& expression, String value, String leftValue)
-    {
-        ASSERT_UNUSED(expression, expression.typeAnnotation().leftAddressSpace());
-        m_stack.append({ WTFMove(value), WTFMove(leftValue) });
-    }
-
-    String takeLastValue()
-    {
-        ASSERT(m_stack.last().value);
-        return m_stack.takeLast().value;
-    }
-
-    String takeLastLeftValue()
-    {
-        ASSERT(m_stack.last().leftValue);
-        return m_stack.takeLast().leftValue;
-    }
+    MangledVariableName generateNextVariableName() { return { m_variableCount++ }; }
 
     enum class BreakContext {
         Loop,
@@ -201,28 +186,41 @@ protected:
 
     Optional<BreakContext> m_currentBreakContext;
 
+    StringBuilder& m_stringBuilder;
     Intrinsics& m_intrinsics;
     TypeNamer& m_typeNamer;
-    HashMap<AST::FunctionDeclaration*, String>& m_functionMapping;
-    HashMap<AST::VariableDeclaration*, String> m_variableMapping;
-    StringBuilder m_stringBuilder;
+    HashMap<AST::FunctionDeclaration*, MangledFunctionName>& m_functionMapping;
+    HashMap<AST::VariableDeclaration*, MangledVariableName> m_variableMapping;
 
-    Vector<StackItem> m_stack;
     std::unique_ptr<EntryPointScaffolding> m_entryPointScaffolding;
     Layout& m_layout;
     unsigned m_variableCount { 0 };
-    String m_breakOutOfCurrentLoopEarlyVariable;
+    Optional<MangledVariableName> m_breakOutOfCurrentLoopEarlyVariable;
+    Indentation<4> m_indent { 0 };
+    HashMap<AST::Expression*, Vector<Variable>> m_hoistedVariables;
 };
 
-void FunctionDefinitionWriter::visit(AST::NativeFunctionDeclaration& nativeFunctionDeclaration)
+void FunctionDefinitionWriter::visit(AST::NativeFunctionDeclaration&)
 {
-    auto iterator = m_functionMapping.find(&nativeFunctionDeclaration);
-    ASSERT(iterator != m_functionMapping.end());
-    m_stringBuilder.append(writeNativeFunction(nativeFunctionDeclaration, iterator->value, m_intrinsics, m_typeNamer, memsetZeroFunctionName));
+    // We inline native function calls.
 }
 
 void FunctionDefinitionWriter::visit(AST::FunctionDefinition& functionDefinition)
 {
+
+    {
+        HoistedVariableCollector collector(*this);
+        collector.Visitor::visit(functionDefinition);
+        m_hoistedVariables = WTFMove(collector.toHoist);
+    }
+
+    auto defineHoistedVariables = [&] {
+        for (const auto& vector : m_hoistedVariables.values()) {
+            for (auto variable : vector)
+                m_stringBuilder.append(m_indent, variable.type, ' ', variable.name, ";\n");
+        }
+    };
+
     auto iterator = m_functionMapping.find(&functionDefinition);
     ASSERT(iterator != m_functionMapping.end());
     if (functionDefinition.entryPointType()) {
@@ -230,34 +228,48 @@ void FunctionDefinitionWriter::visit(AST::FunctionDefinition& functionDefinition
         if (!entryPointScaffolding)
             return;
         m_entryPointScaffolding = WTFMove(entryPointScaffolding);
-        m_stringBuilder.append(m_entryPointScaffolding->helperTypes());
-        m_stringBuilder.append('\n');
-        m_stringBuilder.append(makeString(m_entryPointScaffolding->signature(iterator->value), " {\n"));
-        m_stringBuilder.append(m_entryPointScaffolding->unpack());
-        for (size_t i = 0; i < functionDefinition.parameters().size(); ++i) {
-            auto addResult = m_variableMapping.add(&functionDefinition.parameters()[i], m_entryPointScaffolding->parameterVariables()[i]);
-            ASSERT_UNUSED(addResult, addResult.isNewEntry);
+        
+        m_entryPointScaffolding->emitHelperTypes(m_stringBuilder, m_indent);
+        m_entryPointScaffolding->emitSignature(m_stringBuilder, iterator->value, m_indent);
+        m_stringBuilder.append(m_indent, "{\n");
+        {
+            IndentationScope scope(m_indent);
+
+            m_entryPointScaffolding->emitUnpack(m_stringBuilder, m_indent);
+        
+            for (size_t i = 0; i < functionDefinition.parameters().size(); ++i) {
+                auto addResult = m_variableMapping.add(&functionDefinition.parameters()[i], m_entryPointScaffolding->parameterVariables()[i]);
+                ASSERT_UNUSED(addResult, addResult.isNewEntry);
+            }
+
+            defineHoistedVariables();
+
+            checkErrorAndVisit(functionDefinition.block());
         }
-        checkErrorAndVisit(functionDefinition.block());
-        ASSERT(m_stack.isEmpty());
-        m_stringBuilder.append("}\n");
+        m_stringBuilder.append("}\n\n");
+
         m_entryPointScaffolding = nullptr;
     } else {
         ASSERT(m_entryPointScaffolding == nullptr);
-        m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(functionDefinition.type()), ' ', iterator->value, '('));
+        m_stringBuilder.append(m_indent, m_typeNamer.mangledNameForType(functionDefinition.type()), ' ', iterator->value, '(');
         for (size_t i = 0; i < functionDefinition.parameters().size(); ++i) {
-            auto& parameter = functionDefinition.parameters()[i];
             if (i)
                 m_stringBuilder.append(", ");
+            auto& parameter = functionDefinition.parameters()[i];
             auto parameterName = generateNextVariableName();
             auto addResult = m_variableMapping.add(&parameter, parameterName);
             ASSERT_UNUSED(addResult, addResult.isNewEntry);
-            m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(*parameter->type()), ' ', parameterName));
+            m_stringBuilder.append(m_typeNamer.mangledNameForType(*parameter->type()), ' ', parameterName);
         }
-        m_stringBuilder.append(") {\n");
+        m_stringBuilder.append(")\n");
+
+        m_stringBuilder.append("{\n");
+
+        defineHoistedVariables();
+
         checkErrorAndVisit(functionDefinition.block());
-        ASSERT(m_stack.isEmpty());
         m_stringBuilder.append("}\n");
+        m_stringBuilder.append('\n');
     }
 }
 
@@ -273,10 +285,13 @@ void FunctionDefinitionWriter::visit(AST::Statement& statement)
 
 void FunctionDefinitionWriter::visit(AST::Block& block)
 {
-    m_stringBuilder.append("{\n");
-    for (auto& statement : block.statements())
-        checkErrorAndVisit(statement);
-    m_stringBuilder.append("}\n");
+    m_stringBuilder.append(m_indent, "{\n");
+    {
+        IndentationScope scope(m_indent);
+        for (auto& statement : block.statements())
+            checkErrorAndVisit(statement);
+    }
+    m_stringBuilder.append(m_indent, "}\n");
 }
 
 void FunctionDefinitionWriter::visit(AST::Break&)
@@ -284,65 +299,86 @@ void FunctionDefinitionWriter::visit(AST::Break&)
     ASSERT(m_currentBreakContext);
     switch (*m_currentBreakContext) {
     case BreakContext::Switch:
-        m_stringBuilder.append("break;\n");
+        m_stringBuilder.append(m_indent, "break;\n");
         break;
     case BreakContext::Loop:
-        ASSERT(m_breakOutOfCurrentLoopEarlyVariable.length());
-        m_stringBuilder.append(makeString(m_breakOutOfCurrentLoopEarlyVariable, " = true;\n"));
-        m_stringBuilder.append("break;\n");
+        ASSERT(m_breakOutOfCurrentLoopEarlyVariable);
+        m_stringBuilder.append(
+            m_indent, *m_breakOutOfCurrentLoopEarlyVariable, " = true;\n",
+            m_indent, "break;\n"
+        );
         break;
     }
 }
 
 void FunctionDefinitionWriter::visit(AST::Continue&)
 {
-    ASSERT(m_breakOutOfCurrentLoopEarlyVariable.length());
-    m_stringBuilder.append("break;\n");
+    ASSERT(m_breakOutOfCurrentLoopEarlyVariable);
+    m_stringBuilder.append(m_indent, "break;\n");
 }
 
 void FunctionDefinitionWriter::visit(AST::EffectfulExpressionStatement& effectfulExpressionStatement)
 {
+    m_stringBuilder.append(m_indent);
     checkErrorAndVisit(effectfulExpressionStatement.effectfulExpression());
-    takeLastValue(); // The statement is already effectful, so we don't need to do anything with the result.
+    m_stringBuilder.append(";\n");
 }
 
 void FunctionDefinitionWriter::visit(AST::Fallthrough&)
 {
-    m_stringBuilder.append("[[clang::fallthrough]];\n"); // FIXME: https://bugs.webkit.org/show_bug.cgi?id=195808 Make sure this is okay. Alternatively, we could do nothing and just return here instead.
+    m_stringBuilder.append(m_indent, "[[clang::fallthrough]];\n"); // FIXME: https://bugs.webkit.org/show_bug.cgi?id=195808 Make sure this is okay. Alternatively, we could do nothing and just return here instead.
 }
 
 void FunctionDefinitionWriter::emitLoop(LoopConditionLocation loopConditionLocation, AST::Expression* conditionExpression, AST::Expression* increment, AST::Statement& body)
 {
-    SetForScope<String> loopVariableScope(m_breakOutOfCurrentLoopEarlyVariable, generateNextVariableName());
+    SetForScope<Optional<MangledVariableName>> loopVariableScope(m_breakOutOfCurrentLoopEarlyVariable, generateNextVariableName());
 
-    m_stringBuilder.append(makeString("bool ", m_breakOutOfCurrentLoopEarlyVariable, " = false;\n"));
+    m_stringBuilder.append(
+        m_indent, "bool ", *m_breakOutOfCurrentLoopEarlyVariable, " = false;\n",
+        m_indent, "while (true) {\n"
+    );
+    {
+        IndentationScope whileScope(m_indent);
 
-    m_stringBuilder.append("while (true) {\n");
+        if (loopConditionLocation == LoopConditionLocation::BeforeBody && conditionExpression) {
+            m_stringBuilder.append(
+                m_indent, "if (!(");
+            checkErrorAndVisit(*conditionExpression);
+            m_stringBuilder.append(
+                "))\n",
+                "    break;\n");
+        }
 
-    if (loopConditionLocation == LoopConditionLocation::BeforeBody && conditionExpression) {
-        checkErrorAndVisit(*conditionExpression);
-        m_stringBuilder.append(makeString("if (!", takeLastValue(), ") break;\n"));
+        m_stringBuilder.append(m_indent, "do {\n");
+        SetForScope<Optional<BreakContext>> breakContext(m_currentBreakContext, BreakContext::Loop);
+
+        {
+            IndentationScope doScope(m_indent);
+            checkErrorAndVisit(body);
+        }
+        m_stringBuilder.append(m_indent, "} while(false); \n");
+
+        m_stringBuilder.append(
+            m_indent, "if (", *m_breakOutOfCurrentLoopEarlyVariable, ")\n",
+            m_indent, "    break;\n");
+
+        if (increment) {
+            m_stringBuilder.append("(");
+            checkErrorAndVisit(*increment);
+            m_stringBuilder.append(");\n");
+        }
+
+        if (loopConditionLocation == LoopConditionLocation::AfterBody && conditionExpression) {
+            m_stringBuilder.append(
+                m_indent, "if (!(");
+            checkErrorAndVisit(*conditionExpression);
+            m_stringBuilder.append(
+                "))\n",
+                "    break;\n");
+        }
     }
 
-    m_stringBuilder.append("do {\n");
-    SetForScope<Optional<BreakContext>> breakContext(m_currentBreakContext, BreakContext::Loop);
-    checkErrorAndVisit(body);
-    m_stringBuilder.append("} while(false); \n");
-    m_stringBuilder.append(makeString("if (", m_breakOutOfCurrentLoopEarlyVariable, ") break;\n"));
-
-    if (increment) {
-        checkErrorAndVisit(*increment);
-        // Expression results get pushed to m_stack. We don't use the result
-        // of increment, so we dispense of that now.
-        takeLastValue();
-    }
-
-    if (loopConditionLocation == LoopConditionLocation::AfterBody && conditionExpression) {
-        checkErrorAndVisit(*conditionExpression);
-        m_stringBuilder.append(makeString("if (!", takeLastValue(), ") break;\n"));
-    }
-
-    m_stringBuilder.append("} \n");
+    m_stringBuilder.append(m_indent, "} \n");
 }
 
 void FunctionDefinitionWriter::visit(AST::DoWhileLoop& doWhileLoop)
@@ -357,70 +393,80 @@ void FunctionDefinitionWriter::visit(AST::WhileLoop& whileLoop)
 
 void FunctionDefinitionWriter::visit(AST::ForLoop& forLoop)
 {
-    m_stringBuilder.append("{\n");
-
-    WTF::visit(WTF::makeVisitor([&](AST::Statement& statement) {
-        checkErrorAndVisit(statement);
-    }, [&](UniqueRef<AST::Expression>& expression) {
-        checkErrorAndVisit(expression);
-        takeLastValue(); // We don't need to do anything with the result.
-    }), forLoop.initialization());
-
-    emitLoop(LoopConditionLocation::BeforeBody, forLoop.condition(), forLoop.increment(), forLoop.body());
-    m_stringBuilder.append("}\n");
+    m_stringBuilder.append(m_indent, "{\n");
+    {
+        IndentationScope scope(m_indent);
+        checkErrorAndVisit(forLoop.initialization());
+        emitLoop(LoopConditionLocation::BeforeBody, forLoop.condition(), forLoop.increment(), forLoop.body());
+    }
+    m_stringBuilder.append(m_indent, "}\n");
 }
 
 void FunctionDefinitionWriter::visit(AST::IfStatement& ifStatement)
 {
+    m_stringBuilder.append(m_indent, "if (");
     checkErrorAndVisit(ifStatement.conditional());
-    m_stringBuilder.append(makeString("if (", takeLastValue(), ") {\n"));
-    checkErrorAndVisit(ifStatement.body());
-    if (ifStatement.elseBody()) {
-        m_stringBuilder.append("} else {\n");
-        checkErrorAndVisit(*ifStatement.elseBody());
+    m_stringBuilder.append(") {\n");
+
+    {
+        IndentationScope ifScope(m_indent);
+        checkErrorAndVisit(ifStatement.body());
     }
-    m_stringBuilder.append("}\n");
+
+    if (ifStatement.elseBody()) {
+        m_stringBuilder.append(m_indent, "} else {\n");
+        {
+            IndentationScope elseScope(m_indent);
+            checkErrorAndVisit(*ifStatement.elseBody());
+        }
+    }
+
+    m_stringBuilder.append(m_indent, "}\n");
 }
 
 void FunctionDefinitionWriter::visit(AST::Return& returnStatement)
 {
     if (returnStatement.value()) {
+        auto tempReturnName = generateNextVariableName(); 
+        m_stringBuilder.append(m_indent, m_typeNamer.mangledNameForType(returnStatement.value()->resolvedType()), ' ', tempReturnName, " = "); 
         checkErrorAndVisit(*returnStatement.value());
+        m_stringBuilder.append(";\n");
+
         if (m_entryPointScaffolding) {
             auto variableName = generateNextVariableName();
-            m_stringBuilder.append(m_entryPointScaffolding->pack(takeLastValue(), variableName));
-            m_stringBuilder.append(makeString("return ", variableName, ";\n"));
+            m_entryPointScaffolding->emitPack(m_stringBuilder, tempReturnName, variableName, m_indent);
+            m_stringBuilder.append(m_indent, "return ", variableName, ";\n");
         } else
-            m_stringBuilder.append(makeString("return ", takeLastValue(), ";\n"));
+            m_stringBuilder.append(m_indent, "return ", tempReturnName, ";\n");
     } else
-        m_stringBuilder.append("return;\n");
+        m_stringBuilder.append(m_indent, "return;\n");
 }
 
 void FunctionDefinitionWriter::visit(AST::SwitchStatement& switchStatement)
 {
+    m_stringBuilder.append(m_indent, "switch (");
     checkErrorAndVisit(switchStatement.value());
+    m_stringBuilder.append(") {");
 
-    m_stringBuilder.append(makeString("switch (", takeLastValue(), ") {"));
-    for (auto& switchCase : switchStatement.switchCases())
-        checkErrorAndVisit(switchCase);
-    m_stringBuilder.append("}\n");
+    {
+        IndentationScope switchScope(m_indent);
+        for (auto& switchCase : switchStatement.switchCases())
+            checkErrorAndVisit(switchCase);
+    }
+    m_stringBuilder.append(m_indent, "}\n");
 }
 
 void FunctionDefinitionWriter::visit(AST::SwitchCase& switchCase)
 {
-    if (switchCase.value())
-        m_stringBuilder.append(makeString("case ", constantExpressionString(*switchCase.value()), ":\n"));
-    else
-        m_stringBuilder.append("default:\n");
+    if (switchCase.value()) {
+        m_stringBuilder.append(m_indent, "case ");
+        emitConstantExpressionString(*switchCase.value());
+        m_stringBuilder.append(":\n");
+    } else
+        m_stringBuilder.append(m_indent, "default:\n");
     SetForScope<Optional<BreakContext>> breakContext(m_currentBreakContext, BreakContext::Switch);
     checkErrorAndVisit(switchCase.block());
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=195812 Figure out whether we need to break or fallthrough.
-}
-
-void FunctionDefinitionWriter::visit(AST::Trap&)
-{
-    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=195811 Implement this
-    notImplemented();
 }
 
 void FunctionDefinitionWriter::visit(AST::VariableDeclarationsStatement& variableDeclarationsStatement)
@@ -430,60 +476,34 @@ void FunctionDefinitionWriter::visit(AST::VariableDeclarationsStatement& variabl
 
 void FunctionDefinitionWriter::visit(AST::IntegerLiteral& integerLiteral)
 {
-    auto variableName = generateNextVariableName();
     auto mangledTypeName = m_typeNamer.mangledNameForType(integerLiteral.resolvedType());
-    m_stringBuilder.append(makeString(mangledTypeName, ' ', variableName, " = static_cast<", mangledTypeName, ">(", integerLiteral.value(), ");\n"));
-    appendRightValue(integerLiteral, variableName);
+    m_stringBuilder.append("static_cast<", mangledTypeName, ">(", integerLiteral.value(), ")");
 }
 
 void FunctionDefinitionWriter::visit(AST::UnsignedIntegerLiteral& unsignedIntegerLiteral)
 {
-    auto variableName = generateNextVariableName();
     auto mangledTypeName = m_typeNamer.mangledNameForType(unsignedIntegerLiteral.resolvedType());
-    m_stringBuilder.append(makeString(mangledTypeName, ' ', variableName, " = static_cast<", mangledTypeName, ">(", unsignedIntegerLiteral.value(), ");\n"));
-    appendRightValue(unsignedIntegerLiteral, variableName);
+    m_stringBuilder.append("static_cast<", mangledTypeName, ">(", unsignedIntegerLiteral.value(), ")");
 }
 
 void FunctionDefinitionWriter::visit(AST::FloatLiteral& floatLiteral)
 {
-    auto variableName = generateNextVariableName();
     auto mangledTypeName = m_typeNamer.mangledNameForType(floatLiteral.resolvedType());
-    m_stringBuilder.append(makeString(mangledTypeName, ' ', variableName, " = static_cast<", mangledTypeName, ">(", floatLiteral.value(), ");\n"));
-    appendRightValue(floatLiteral, variableName);
-}
-
-void FunctionDefinitionWriter::visit(AST::NullLiteral& nullLiteral)
-{
-    auto& unifyNode = nullLiteral.resolvedType().unifyNode();
-    auto& unnamedType = downcast<AST::UnnamedType>(unifyNode);
-    bool isArrayReferenceType = is<AST::ArrayReferenceType>(unnamedType);
-
-    auto variableName = generateNextVariableName();
-    m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(nullLiteral.resolvedType()), ' ', variableName, " = "));
-    if (isArrayReferenceType)
-        m_stringBuilder.append("{ nullptr, 0 }");
-    else
-        m_stringBuilder.append("nullptr");
-    m_stringBuilder.append(";\n");
-    appendRightValue(nullLiteral, variableName);
+    m_stringBuilder.append("static_cast<", mangledTypeName, ">(", floatLiteral.value(), ")");
 }
 
 void FunctionDefinitionWriter::visit(AST::BooleanLiteral& booleanLiteral)
 {
-    auto variableName = generateNextVariableName();
     auto mangledTypeName = m_typeNamer.mangledNameForType(booleanLiteral.resolvedType());
-    m_stringBuilder.append(makeString(mangledTypeName, ' ', variableName, " = static_cast<", mangledTypeName, ">(", booleanLiteral.value() ? "true" : "false", ");\n"));
-    appendRightValue(booleanLiteral, variableName);
+    m_stringBuilder.append("static_cast<", mangledTypeName, ">(", booleanLiteral.value() ? "true" : "false", ")");
 }
 
 void FunctionDefinitionWriter::visit(AST::EnumerationMemberLiteral& enumerationMemberLiteral)
 {
     ASSERT(enumerationMemberLiteral.enumerationDefinition());
     ASSERT(enumerationMemberLiteral.enumerationDefinition());
-    auto variableName = generateNextVariableName();
     auto mangledTypeName = m_typeNamer.mangledNameForType(enumerationMemberLiteral.resolvedType());
-    m_stringBuilder.append(makeString(mangledTypeName, ' ', variableName, " = ", mangledTypeName, '.', m_typeNamer.mangledNameForEnumerationMember(*enumerationMemberLiteral.enumerationMember()), ";\n"));
-    appendRightValue(enumerationMemberLiteral, variableName);
+    m_stringBuilder.append(mangledTypeName, "::", m_typeNamer.mangledNameForEnumerationMember(*enumerationMemberLiteral.enumerationMember()));
 }
 
 void FunctionDefinitionWriter::visit(AST::Expression& expression)
@@ -491,39 +511,91 @@ void FunctionDefinitionWriter::visit(AST::Expression& expression)
     Visitor::visit(expression);
 }
 
-void FunctionDefinitionWriter::visit(AST::DotExpression& dotExpression)
-{
-    // This should be lowered already.
-    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=195788 Replace this with ASSERT_NOT_REACHED().
-    notImplemented();
-    appendRightValue(dotExpression, "dummy");
-}
-
 void FunctionDefinitionWriter::visit(AST::GlobalVariableReference& globalVariableReference)
 {
-    auto valueName = generateNextVariableName();
-    auto pointerName = generateNextVariableName();
-    auto mangledTypeName = m_typeNamer.mangledNameForType(globalVariableReference.resolvedType());
+    MangledStructureElementName mangledFieldName = m_typeNamer.mangledNameForStructureElement(globalVariableReference.structField());
+    m_stringBuilder.append('(');
     checkErrorAndVisit(globalVariableReference.base());
-    m_stringBuilder.append(makeString("thread ", mangledTypeName, "* ", pointerName, " = &", takeLastValue(), "->", m_typeNamer.mangledNameForStructureElement(globalVariableReference.structField()), ";\n"));
-    m_stringBuilder.append(makeString(mangledTypeName, ' ', valueName, " = ", "*", pointerName, ";\n"));
-    appendLeftValue(globalVariableReference, valueName, pointerName);
+    m_stringBuilder.append(")->", mangledFieldName);
+}
+
+void FunctionDefinitionWriter::visit(AST::DotExpression& dotExpression)
+{
+    auto& type = dotExpression.base().resolvedType().unifyNode();
+
+    if (is<AST::StructureDefinition>(type)) {
+        auto& structureDefinition = downcast<AST::StructureDefinition>(type);
+        auto* structureElement = structureDefinition.find(dotExpression.fieldName());
+        ASSERT(structureElement);
+        auto elementName = m_typeNamer.mangledNameForStructureElement(*structureElement);
+
+        m_stringBuilder.append('(');
+        checkErrorAndVisit(dotExpression.base());
+        m_stringBuilder.append(").", elementName);
+    } else {
+        String elementName = dotExpression.fieldName();
+        if (elementName == "length" && (is<AST::ArrayReferenceType>(type) || is<AST::ArrayType>(type) || (is<AST::NativeTypeDeclaration>(type) && downcast<AST::NativeTypeDeclaration>(type).isVector()))) {
+            if (is<AST::ArrayReferenceType>(type)) {
+                m_stringBuilder.append('(');
+                checkErrorAndVisit(dotExpression.base());
+                m_stringBuilder.append(").length");
+            } else if (is<AST::ArrayType>(type)) {
+                m_stringBuilder.append('(');
+                checkErrorAndVisit(dotExpression.base());
+                m_stringBuilder.append(", ", downcast<AST::ArrayType>(type).numElements(), ")");
+            } else {
+                m_stringBuilder.append('(');
+                checkErrorAndVisit(dotExpression.base());
+                m_stringBuilder.append(", ", downcast<AST::NativeTypeDeclaration>(type).vectorSize(), ")");
+            }
+        } else {
+            m_stringBuilder.append('(');
+            checkErrorAndVisit(dotExpression.base());
+            m_stringBuilder.append(").", elementName);
+        }
+    }
 }
 
 void FunctionDefinitionWriter::visit(AST::IndexExpression& indexExpression)
 {
-    // This should be lowered already.
-    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=195788 Replace this with ASSERT_NOT_REACHED().
-    notImplemented();
-    appendRightValue(indexExpression, "dummy");
-}
+    auto& type = indexExpression.base().resolvedType().unifyNode();
+    if (is<AST::ArrayReferenceType>(type)) {
+        m_stringBuilder.append('(');
+        checkErrorAndVisit(indexExpression.base());
+        m_stringBuilder.append(").pointer[(");
+        checkErrorAndVisit(indexExpression.indexExpression());
+        m_stringBuilder.append(") < (");
+        checkErrorAndVisit(indexExpression.base());
+        m_stringBuilder.append(").length ? ");
+        checkErrorAndVisit(indexExpression.indexExpression());
+        m_stringBuilder.append(" : 0]");
+    } else if (is<AST::ArrayType>(type)) {
+        m_stringBuilder.append('(');
+        checkErrorAndVisit(indexExpression.base());
+        m_stringBuilder.append(").data()[(");
+        checkErrorAndVisit(indexExpression.indexExpression());
+        m_stringBuilder.append(") < ", downcast<AST::ArrayType>(type).numElements(), " ? ");
+        checkErrorAndVisit(indexExpression.indexExpression());
+        m_stringBuilder.append(" : 0]");
+    } else if (is<AST::NativeTypeDeclaration>(type)) {
+        auto& nativeType = downcast<AST::NativeTypeDeclaration>(type);
+        unsigned size;
+        if (nativeType.isMatrix())
+            size = nativeType.numberOfMatrixColumns();
+        else if (nativeType.isVector())
+            size = nativeType.vectorSize();
+        else
+            RELEASE_ASSERT_NOT_REACHED();
 
-void FunctionDefinitionWriter::visit(AST::PropertyAccessExpression& propertyAccessExpression)
-{
-    // This should be lowered already.
-    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=195788 Replace this with ASSERT_NOT_REACHED().
-    notImplemented();
-    appendRightValue(propertyAccessExpression, "dummy");
+        m_stringBuilder.append('(');
+        checkErrorAndVisit(indexExpression.base());
+        m_stringBuilder.append(")[(");
+        checkErrorAndVisit(indexExpression.indexExpression());
+        m_stringBuilder.append(" < ", size, ") ? (");
+        checkErrorAndVisit(indexExpression.indexExpression());
+        m_stringBuilder.append(") : 0]");
+    } else
+        RELEASE_ASSERT_NOT_REACHED(); 
 }
 
 void FunctionDefinitionWriter::visit(AST::VariableDeclaration& variableDeclaration)
@@ -534,152 +606,183 @@ void FunctionDefinitionWriter::visit(AST::VariableDeclaration& variableDeclarati
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=198160 Implement qualifiers.
     if (variableDeclaration.initializer()) {
+        m_stringBuilder.append(m_indent, m_typeNamer.mangledNameForType(*variableDeclaration.type()), ' ', variableName, " = ");
         checkErrorAndVisit(*variableDeclaration.initializer());
-        m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(*variableDeclaration.type()), ' ', variableName, " = ", takeLastValue(), ";\n"));
+        m_stringBuilder.append(";\n");
     } else
-        m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(*variableDeclaration.type()), ' ', variableName, ";\n"));
+        m_stringBuilder.append(m_indent, m_typeNamer.mangledNameForType(*variableDeclaration.type()), ' ', variableName, " = { };\n");
 }
 
 void FunctionDefinitionWriter::visit(AST::AssignmentExpression& assignmentExpression)
 {
+    m_stringBuilder.append('(');
     checkErrorAndVisit(assignmentExpression.left());
-    auto pointerName = takeLastLeftValue();
+    m_stringBuilder.append(')');
+    m_stringBuilder.append(" = (");
     checkErrorAndVisit(assignmentExpression.right());
-    auto rightName = takeLastValue();
-    m_stringBuilder.append(makeString("if (", pointerName, ") *", pointerName, " = ", rightName, ";\n"));
-    appendRightValue(assignmentExpression, rightName);
+    m_stringBuilder.append(')');
 }
 
 void FunctionDefinitionWriter::visit(AST::CallExpression& callExpression)
 {
-    Vector<String> argumentNames;
-    for (auto& argument : callExpression.arguments()) {
-        checkErrorAndVisit(argument);
-        argumentNames.append(takeLastValue());
-    }
-    auto iterator = m_functionMapping.find(&callExpression.function());
-    ASSERT(iterator != m_functionMapping.end());
-    auto variableName = generateNextVariableName();
+    auto iter = m_hoistedVariables.find(&callExpression);
+    RELEASE_ASSERT(iter != m_hoistedVariables.end());
+    auto& variables = iter->value;
+    RELEASE_ASSERT(callExpression.arguments().size() <= variables.size());
+    Vector<MangledVariableName> argumentNames;
+
+    MangledVariableName resultName;
     if (!matches(callExpression.resolvedType(), m_intrinsics.voidType()))
-        m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(callExpression.resolvedType()), ' ', variableName, " = "));
-    m_stringBuilder.append(makeString(iterator->value, '('));
-    for (size_t i = 0; i < argumentNames.size(); ++i) {
-        if (i)
-            m_stringBuilder.append(", ");
-        m_stringBuilder.append(argumentNames[i]);
+        resultName = variables.last().name;
+
+    m_stringBuilder.append('(');
+    for (size_t i = 0; i < callExpression.arguments().size(); ++i) {
+        argumentNames.append(variables[i].name);
+        m_stringBuilder.append(variables[i].name, " = (");
+        checkErrorAndVisit(callExpression.arguments()[i]);
+        m_stringBuilder.append("), ");
     }
-    m_stringBuilder.append(");\n");
-    appendRightValue(callExpression, variableName);
+
+    if (is<AST::NativeFunctionDeclaration>(callExpression.function())) {
+        inlineNativeFunction(m_stringBuilder, downcast<AST::NativeFunctionDeclaration>(callExpression.function()), argumentNames, resultName, m_typeNamer);
+    } else {
+        auto iterator = m_functionMapping.find(&callExpression.function());
+        ASSERT(iterator != m_functionMapping.end());
+        m_stringBuilder.append(iterator->value, '(');
+        for (size_t i = 0; i < callExpression.arguments().size(); ++i) {
+            if (i)
+                m_stringBuilder.append(", ");
+            m_stringBuilder.append(variables[i].name);
+        }
+        m_stringBuilder.append(')');
+    }
+
+    m_stringBuilder.append(')');
 }
 
 void FunctionDefinitionWriter::visit(AST::CommaExpression& commaExpression)
 {
-    String result;
+    m_stringBuilder.append('(');
+    bool ranOnce = false;
     for (auto& expression : commaExpression.list()) {
+        if (ranOnce)
+            m_stringBuilder.append(", ");
+        ranOnce = true;
         checkErrorAndVisit(expression);
-        result = takeLastValue();
     }
-    appendRightValue(commaExpression, result);
+    m_stringBuilder.append(')');
 }
 
 void FunctionDefinitionWriter::visit(AST::DereferenceExpression& dereferenceExpression)
 {
+    m_stringBuilder.append("*(");
     checkErrorAndVisit(dereferenceExpression.pointer());
-    auto right = takeLastValue();
-    auto variableName = generateNextVariableName();
-    auto pointerName = generateNextVariableName();
-    m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(dereferenceExpression.pointer().resolvedType()), ' ', pointerName, " = ", right, ";\n"));
-    m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(dereferenceExpression.resolvedType()), ' ', variableName, ";\n"));
-    m_stringBuilder.append(makeString("if (", pointerName, ") ", variableName, " = *", right, ";\n"));
-    m_stringBuilder.append(makeString("else ", memsetZeroFunctionName, '(', variableName, ");\n"));
-    appendLeftValue(dereferenceExpression, variableName, pointerName);
+    m_stringBuilder.append(')');
 }
 
 void FunctionDefinitionWriter::visit(AST::LogicalExpression& logicalExpression)
 {
+    m_stringBuilder.append("((");
     checkErrorAndVisit(logicalExpression.left());
-    auto left = takeLastValue();
-    checkErrorAndVisit(logicalExpression.right());
-    auto right = takeLastValue();
-    auto variableName = generateNextVariableName();
-    m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(logicalExpression.resolvedType()), ' ', variableName, " = ", left));
+    m_stringBuilder.append(')');
+
     switch (logicalExpression.type()) {
     case AST::LogicalExpression::Type::And:
         m_stringBuilder.append(" && ");
         break;
-    default:
-        ASSERT(logicalExpression.type() == AST::LogicalExpression::Type::Or);
+    case AST::LogicalExpression::Type::Or:
         m_stringBuilder.append(" || ");
         break;
     }
-    m_stringBuilder.append(makeString(right, ";\n"));
-    appendRightValue(logicalExpression, variableName);
+
+    m_stringBuilder.append('(');
+    checkErrorAndVisit(logicalExpression.right());
+    m_stringBuilder.append("))");
 }
 
 void FunctionDefinitionWriter::visit(AST::LogicalNotExpression& logicalNotExpression)
 {
+    m_stringBuilder.append("!(");
     checkErrorAndVisit(logicalNotExpression.operand());
-    auto operand = takeLastValue();
-    auto variableName = generateNextVariableName();
-    m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(logicalNotExpression.resolvedType()), ' ', variableName, " = !", operand, ";\n"));
-    appendRightValue(logicalNotExpression, variableName);
+    m_stringBuilder.append(')');
 }
 
 void FunctionDefinitionWriter::visit(AST::MakeArrayReferenceExpression& makeArrayReferenceExpression)
 {
-    checkErrorAndVisit(makeArrayReferenceExpression.leftValue());
     // FIXME: This needs to be made to work. It probably should be using the last leftValue too.
     // https://bugs.webkit.org/show_bug.cgi?id=198838
-    auto variableName = generateNextVariableName();
-
     auto mangledTypeName = m_typeNamer.mangledNameForType(makeArrayReferenceExpression.resolvedType());
     if (is<AST::PointerType>(makeArrayReferenceExpression.leftValue().resolvedType())) {
-        auto ptrValue = takeLastValue();
-        m_stringBuilder.append(makeString(mangledTypeName, ' ', variableName, ";\n"));
-        m_stringBuilder.append(makeString("if (", ptrValue, ") ", variableName, " = { ", ptrValue, ", 1};\n"));
-        m_stringBuilder.append(makeString("else ", variableName, " = { nullptr, 0 };\n"));
+        m_stringBuilder.append(mangledTypeName, "{ ");
+        checkErrorAndVisit(makeArrayReferenceExpression.leftValue());
+        m_stringBuilder.append(", 1 }");
     } else if (is<AST::ArrayType>(makeArrayReferenceExpression.leftValue().resolvedType())) {
-        auto lValue = takeLastLeftValue();
         auto& arrayType = downcast<AST::ArrayType>(makeArrayReferenceExpression.leftValue().resolvedType());
-        m_stringBuilder.append(makeString(mangledTypeName, ' ', variableName, " = { ", lValue, "->data(), ", arrayType.numElements(), " };\n"));
+        m_stringBuilder.append(mangledTypeName, " { ");
+        checkErrorAndVisit(makeArrayReferenceExpression.leftValue());
+        m_stringBuilder.append(".data(), ", arrayType.numElements(), " }");
     } else {
-        auto lValue = takeLastLeftValue();
-        m_stringBuilder.append(makeString(mangledTypeName, ' ', variableName, " = { ", lValue, ", 1 };\n"));
+        m_stringBuilder.append(mangledTypeName, " { &");
+        checkErrorAndVisit(makeArrayReferenceExpression.leftValue());
+        m_stringBuilder.append(", 1 }");
     }
-    appendRightValue(makeArrayReferenceExpression, variableName);
 }
 
 void FunctionDefinitionWriter::visit(AST::MakePointerExpression& makePointerExpression)
 {
+    m_stringBuilder.append("&(");
     checkErrorAndVisit(makePointerExpression.leftValue());
-    auto pointer = takeLastLeftValue();
-    auto variableName = generateNextVariableName();
-    m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(makePointerExpression.resolvedType()), ' ', variableName, " = ", pointer, ";\n"));
-    appendRightValue(makePointerExpression, variableName);
+    m_stringBuilder.append(')');
 }
 
-void FunctionDefinitionWriter::visit(AST::ReadModifyWriteExpression&)
+void FunctionDefinitionWriter::visit(AST::ReadModifyWriteExpression& readModifyWrite)
 {
-    // This should be lowered already.
-    ASSERT_NOT_REACHED();
+    /*
+     *  1. Evaluate m_leftValue
+     *  2. Assign the result to m_oldValue
+     *  3. Evaluate m_newValueExpression
+     *  4. Assign the result to m_newValue
+     *  5. Assign the result to m_leftValue
+     *  6. Evaluate m_resultExpression
+     *  7. Return the result
+     */
+
+    auto iter = m_hoistedVariables.find(&readModifyWrite);
+    RELEASE_ASSERT(iter != m_hoistedVariables.end());
+    auto& variables = iter->value;
+    RELEASE_ASSERT(variables.size() == 2);
+
+    MangledVariableName oldValueVariable = variables[0].name;
+    MangledVariableName newValueVariable = variables[1].name;
+
+    m_variableMapping.add(&readModifyWrite.oldValue(), oldValueVariable);
+    m_variableMapping.add(&readModifyWrite.newValue(), newValueVariable);
+
+    m_stringBuilder.append('(');
+
+    m_stringBuilder.append(oldValueVariable, " = ");
+    checkErrorAndVisit(readModifyWrite.leftValue());
+
+    m_stringBuilder.append(", ", newValueVariable, " = ");
+    checkErrorAndVisit(readModifyWrite.newValueExpression());
+
+    m_stringBuilder.append(", ");
+    checkErrorAndVisit(readModifyWrite.leftValue());
+    m_stringBuilder.append(" = ", newValueVariable, ", ");
+
+    checkErrorAndVisit(readModifyWrite.resultExpression());
+    m_stringBuilder.append(')');
 }
 
 void FunctionDefinitionWriter::visit(AST::TernaryExpression& ternaryExpression)
 {
+    m_stringBuilder.append('(');
     checkErrorAndVisit(ternaryExpression.predicate());
-    auto check = takeLastValue();
-
-    auto variableName = generateNextVariableName();
-    m_stringBuilder.append(makeString(m_typeNamer.mangledNameForType(ternaryExpression.resolvedType()), ' ', variableName, ";\n"));
-
-    m_stringBuilder.append(makeString("if (", check, ") {\n"));
+    m_stringBuilder.append(") ? (");
     checkErrorAndVisit(ternaryExpression.bodyExpression());
-    m_stringBuilder.append(makeString(variableName, " = ", takeLastValue(), ";\n"));
-    m_stringBuilder.append("} else {\n");
+    m_stringBuilder.append(") : (");
     checkErrorAndVisit(ternaryExpression.elseExpression());
-    m_stringBuilder.append(makeString(variableName, " = ", takeLastValue(), ";\n"));
-    m_stringBuilder.append("}\n");
-    appendRightValue(ternaryExpression, variableName);
+    m_stringBuilder.append(')');
 }
 
 void FunctionDefinitionWriter::visit(AST::VariableReference& variableReference)
@@ -687,34 +790,41 @@ void FunctionDefinitionWriter::visit(AST::VariableReference& variableReference)
     ASSERT(variableReference.variable());
     auto iterator = m_variableMapping.find(variableReference.variable());
     ASSERT(iterator != m_variableMapping.end());
-    auto pointerName = generateNextVariableName();
-    m_stringBuilder.append(makeString("thread ", m_typeNamer.mangledNameForType(variableReference.resolvedType()), "* ", pointerName, " = &", iterator->value, ";\n"));
-    appendLeftValue(variableReference, iterator->value, pointerName);
+
+    MangledVariableName variableName = iterator->value;
+    m_stringBuilder.append(variableName);
 }
 
-String FunctionDefinitionWriter::constantExpressionString(AST::ConstantExpression& constantExpression)
+void FunctionDefinitionWriter::emitConstantExpressionString(AST::ConstantExpression& constantExpression)
 {
-    return constantExpression.visit(WTF::makeVisitor([&](AST::IntegerLiteral& integerLiteral) -> String {
-        return makeString("", integerLiteral.value());
-    }, [&](AST::UnsignedIntegerLiteral& unsignedIntegerLiteral) -> String {
-        return makeString("", unsignedIntegerLiteral.value());
-    }, [&](AST::FloatLiteral& floatLiteral) -> String {
-        return makeString("", floatLiteral.value());
-    }, [&](AST::NullLiteral&) -> String {
-        return "nullptr"_str;
-    }, [&](AST::BooleanLiteral& booleanLiteral) -> String {
-        return booleanLiteral.value() ? "true"_str : "false"_str;
-    }, [&](AST::EnumerationMemberLiteral& enumerationMemberLiteral) -> String {
-        ASSERT(enumerationMemberLiteral.enumerationDefinition());
-        ASSERT(enumerationMemberLiteral.enumerationDefinition());
-        return makeString(m_typeNamer.mangledNameForType(*enumerationMemberLiteral.enumerationDefinition()), '.', m_typeNamer.mangledNameForEnumerationMember(*enumerationMemberLiteral.enumerationMember()));
-    }));
+    constantExpression.visit(WTF::makeVisitor(
+        [&](AST::IntegerLiteral& integerLiteral) {
+            m_stringBuilder.append(integerLiteral.value());
+        },
+        [&](AST::UnsignedIntegerLiteral& unsignedIntegerLiteral) {
+            m_stringBuilder.append(unsignedIntegerLiteral.value());
+        },
+        [&](AST::FloatLiteral& floatLiteral) {
+            m_stringBuilder.append(floatLiteral.value());
+        },
+        [&](AST::BooleanLiteral& booleanLiteral) {
+            if (booleanLiteral.value())
+                m_stringBuilder.append("true");
+            else
+                m_stringBuilder.append("false");
+        },
+        [&](AST::EnumerationMemberLiteral& enumerationMemberLiteral) {
+            ASSERT(enumerationMemberLiteral.enumerationDefinition());
+            ASSERT(enumerationMemberLiteral.enumerationDefinition());
+            m_stringBuilder.append(m_typeNamer.mangledNameForType(*enumerationMemberLiteral.enumerationDefinition()), "::", m_typeNamer.mangledNameForEnumerationMember(*enumerationMemberLiteral.enumerationMember()));
+        }
+    ));
 }
 
-class RenderFunctionDefinitionWriter : public FunctionDefinitionWriter {
+class RenderFunctionDefinitionWriter final : public FunctionDefinitionWriter {
 public:
-    RenderFunctionDefinitionWriter(Intrinsics& intrinsics, TypeNamer& typeNamer, HashMap<AST::FunctionDeclaration*, String>& functionMapping, MatchedRenderSemantics&& matchedSemantics, Layout& layout)
-        : FunctionDefinitionWriter(intrinsics, typeNamer, functionMapping, layout)
+    RenderFunctionDefinitionWriter(StringBuilder& stringBuilder, Intrinsics& intrinsics, TypeNamer& typeNamer, HashMap<AST::FunctionDeclaration*, MangledFunctionName>& functionMapping, MatchedRenderSemantics&& matchedSemantics, Layout& layout)
+        : FunctionDefinitionWriter(stringBuilder, intrinsics, typeNamer, functionMapping, layout)
         , m_matchedSemantics(WTFMove(matchedSemantics))
     {
     }
@@ -727,20 +837,20 @@ private:
 
 std::unique_ptr<EntryPointScaffolding> RenderFunctionDefinitionWriter::createEntryPointScaffolding(AST::FunctionDefinition& functionDefinition)
 {
-    auto generateNextVariableName = [this]() -> String {
+    auto generateNextVariableName = [this]() -> MangledVariableName {
         return this->generateNextVariableName();
     };
     if (&functionDefinition == m_matchedSemantics.vertexShader)
-        return std::make_unique<VertexEntryPointScaffolding>(functionDefinition, m_intrinsics, m_typeNamer, m_matchedSemantics.vertexShaderEntryPointItems, m_matchedSemantics.vertexShaderResourceMap, m_layout, WTFMove(generateNextVariableName), m_matchedSemantics.matchedVertexAttributes);
+        return makeUnique<VertexEntryPointScaffolding>(functionDefinition, m_intrinsics, m_typeNamer, m_matchedSemantics.vertexShaderEntryPointItems, m_matchedSemantics.vertexShaderResourceMap, m_layout, WTFMove(generateNextVariableName), m_matchedSemantics.matchedVertexAttributes);
     if (&functionDefinition == m_matchedSemantics.fragmentShader)
-        return std::make_unique<FragmentEntryPointScaffolding>(functionDefinition, m_intrinsics, m_typeNamer, m_matchedSemantics.fragmentShaderEntryPointItems, m_matchedSemantics.fragmentShaderResourceMap, m_layout, WTFMove(generateNextVariableName), m_matchedSemantics.matchedColorAttachments);
+        return makeUnique<FragmentEntryPointScaffolding>(functionDefinition, m_intrinsics, m_typeNamer, m_matchedSemantics.fragmentShaderEntryPointItems, m_matchedSemantics.fragmentShaderResourceMap, m_layout, WTFMove(generateNextVariableName), m_matchedSemantics.matchedColorAttachments);
     return nullptr;
 }
 
-class ComputeFunctionDefinitionWriter : public FunctionDefinitionWriter {
+class ComputeFunctionDefinitionWriter final : public FunctionDefinitionWriter {
 public:
-    ComputeFunctionDefinitionWriter(Intrinsics& intrinsics, TypeNamer& typeNamer, HashMap<AST::FunctionDeclaration*, String>& functionMapping, MatchedComputeSemantics&& matchedSemantics, Layout& layout)
-        : FunctionDefinitionWriter(intrinsics, typeNamer, functionMapping, layout)
+    ComputeFunctionDefinitionWriter(StringBuilder& stringBuilder, Intrinsics& intrinsics, TypeNamer& typeNamer, HashMap<AST::FunctionDeclaration*, MangledFunctionName>& functionMapping, MatchedComputeSemantics&& matchedSemantics, Layout& layout)
+        : FunctionDefinitionWriter(stringBuilder, intrinsics, typeNamer, functionMapping, layout)
         , m_matchedSemantics(WTFMove(matchedSemantics))
     {
     }
@@ -753,56 +863,43 @@ private:
 
 std::unique_ptr<EntryPointScaffolding> ComputeFunctionDefinitionWriter::createEntryPointScaffolding(AST::FunctionDefinition& functionDefinition)
 {
-    auto generateNextVariableName = [this]() -> String {
+    auto generateNextVariableName = [this]() -> MangledVariableName {
         return this->generateNextVariableName();
     };
     if (&functionDefinition == m_matchedSemantics.shader)
-        return std::make_unique<ComputeEntryPointScaffolding>(functionDefinition, m_intrinsics, m_typeNamer, m_matchedSemantics.entryPointItems, m_matchedSemantics.resourceMap, m_layout, WTFMove(generateNextVariableName));
+        return makeUnique<ComputeEntryPointScaffolding>(functionDefinition, m_intrinsics, m_typeNamer, m_matchedSemantics.entryPointItems, m_matchedSemantics.resourceMap, m_layout, WTFMove(generateNextVariableName));
     return nullptr;
 }
 
-struct SharedMetalFunctionsResult {
-    HashMap<AST::FunctionDeclaration*, String> functionMapping;
-    String metalFunctions;
-};
-static SharedMetalFunctionsResult sharedMetalFunctions(Program& program, TypeNamer& typeNamer, const HashSet<AST::FunctionDeclaration*>& reachableFunctions)
+static HashMap<AST::FunctionDeclaration*, MangledFunctionName> generateMetalFunctionsMapping(Program& program)
 {
-    StringBuilder stringBuilder;
-
     unsigned numFunctions = 0;
-    HashMap<AST::FunctionDeclaration*, String> functionMapping;
-    for (auto& nativeFunctionDeclaration : program.nativeFunctionDeclarations()) {
-        auto addResult = functionMapping.add(&nativeFunctionDeclaration, makeString("function", numFunctions++));
-        ASSERT_UNUSED(addResult, addResult.isNewEntry);
-    }
+    HashMap<AST::FunctionDeclaration*, MangledFunctionName> functionMapping;
     for (auto& functionDefinition : program.functionDefinitions()) {
-        auto addResult = functionMapping.add(&functionDefinition, makeString("function", numFunctions++));
+        auto addResult = functionMapping.add(&functionDefinition, MangledFunctionName { numFunctions++ });
         ASSERT_UNUSED(addResult, addResult.isNewEntry);
     }
 
-    {
-        FunctionDeclarationWriter functionDeclarationWriter(typeNamer, functionMapping);
-        for (auto& nativeFunctionDeclaration : program.nativeFunctionDeclarations()) {
-            if (reachableFunctions.contains(&nativeFunctionDeclaration))
-                functionDeclarationWriter.visit(nativeFunctionDeclaration);
-        }
-        for (auto& functionDefinition : program.functionDefinitions()) {
-            if (!functionDefinition->entryPointType() && reachableFunctions.contains(&functionDefinition))
-                functionDeclarationWriter.visit(functionDefinition);
-        }
-        stringBuilder.append(functionDeclarationWriter.toString());
+    return functionMapping;
+}
+
+static void emitSharedMetalFunctions(StringBuilder& stringBuilder, Program& program, TypeNamer& typeNamer, const HashSet<AST::FunctionDeclaration*>& reachableFunctions, HashMap<AST::FunctionDeclaration*, MangledFunctionName>& functionMapping)
+{
+    for (auto& functionDefinition : program.functionDefinitions()) {
+        if (!functionDefinition->entryPointType() && reachableFunctions.contains(&functionDefinition))
+            declareFunction(stringBuilder, functionDefinition, typeNamer, functionMapping);
     }
 
     stringBuilder.append('\n');
-    return { WTFMove(functionMapping), stringBuilder.toString() };
 }
 
-class ReachableFunctionsGatherer : public Visitor {
+class ReachableFunctionsGatherer final : public Visitor {
 public:
     void visit(AST::FunctionDeclaration& functionDeclaration) override
     {
-        Visitor::visit(functionDeclaration);
-        m_reachableFunctions.add(&functionDeclaration);
+        auto result = m_reachableFunctions.add(&functionDeclaration);
+        if (result.isNewEntry)
+            Visitor::visit(functionDeclaration);
     }
 
     void visit(AST::CallExpression& callExpression) override
@@ -820,40 +917,31 @@ private:
     HashSet<AST::FunctionDeclaration*> m_reachableFunctions;
 };
 
-RenderMetalFunctions metalFunctions(Program& program, TypeNamer& typeNamer, MatchedRenderSemantics&& matchedSemantics, Layout& layout)
+RenderMetalFunctionEntryPoints emitMetalFunctions(StringBuilder& stringBuilder, Program& program, TypeNamer& typeNamer, MatchedRenderSemantics&& matchedSemantics, Layout& layout)
 {
     auto& vertexShaderEntryPoint = *matchedSemantics.vertexShader;
-    auto& fragmentShaderEntryPoint = *matchedSemantics.fragmentShader;
+    auto* fragmentShaderEntryPoint = matchedSemantics.fragmentShader;
 
     ReachableFunctionsGatherer reachableFunctionsGatherer;
     reachableFunctionsGatherer.Visitor::visit(vertexShaderEntryPoint);
-    reachableFunctionsGatherer.Visitor::visit(fragmentShaderEntryPoint);
+    if (fragmentShaderEntryPoint)
+        reachableFunctionsGatherer.Visitor::visit(*fragmentShaderEntryPoint);
     auto reachableFunctions = reachableFunctionsGatherer.takeReachableFunctions();
 
-    auto sharedMetalFunctions = Metal::sharedMetalFunctions(program, typeNamer, reachableFunctions);
+    auto functionMapping = generateMetalFunctionsMapping(program);
+    
+    emitSharedMetalFunctions(stringBuilder, program, typeNamer, reachableFunctions, functionMapping);
 
-    StringBuilder stringBuilder;
-    stringBuilder.append(sharedMetalFunctions.metalFunctions);
-
-    RenderFunctionDefinitionWriter functionDefinitionWriter(program.intrinsics(), typeNamer, sharedMetalFunctions.functionMapping, WTFMove(matchedSemantics), layout);
-    for (auto& nativeFunctionDeclaration : program.nativeFunctionDeclarations()) {
-        if (reachableFunctions.contains(&nativeFunctionDeclaration))
-            functionDefinitionWriter.visit(nativeFunctionDeclaration);
-    }
+    RenderFunctionDefinitionWriter functionDefinitionWriter(stringBuilder, program.intrinsics(), typeNamer, functionMapping, WTFMove(matchedSemantics), layout);
     for (auto& functionDefinition : program.functionDefinitions()) {
         if (reachableFunctions.contains(&functionDefinition))
             functionDefinitionWriter.visit(functionDefinition);
     }
-    stringBuilder.append(functionDefinitionWriter.toString());
 
-    RenderMetalFunctions result;
-    result.metalSource = stringBuilder.toString();
-    result.mangledVertexEntryPointName = sharedMetalFunctions.functionMapping.get(&vertexShaderEntryPoint);
-    result.mangledFragmentEntryPointName = sharedMetalFunctions.functionMapping.get(&fragmentShaderEntryPoint);
-    return result;
+    return { functionMapping.get(&vertexShaderEntryPoint), fragmentShaderEntryPoint ? functionMapping.get(fragmentShaderEntryPoint) : MangledFunctionName { 0 } };
 }
 
-ComputeMetalFunctions metalFunctions(Program& program, TypeNamer& typeNamer, MatchedComputeSemantics&& matchedSemantics, Layout& layout)
+ComputeMetalFunctionEntryPoints emitMetalFunctions(StringBuilder& stringBuilder, Program& program, TypeNamer& typeNamer, MatchedComputeSemantics&& matchedSemantics, Layout& layout)
 {
     auto& entryPoint = *matchedSemantics.shader;
 
@@ -861,26 +949,16 @@ ComputeMetalFunctions metalFunctions(Program& program, TypeNamer& typeNamer, Mat
     reachableFunctionsGatherer.Visitor::visit(entryPoint);
     auto reachableFunctions = reachableFunctionsGatherer.takeReachableFunctions();
 
-    auto sharedMetalFunctions = Metal::sharedMetalFunctions(program, typeNamer, reachableFunctions);
+    auto functionMapping = generateMetalFunctionsMapping(program);
+    emitSharedMetalFunctions(stringBuilder, program, typeNamer, reachableFunctions, functionMapping);
 
-    StringBuilder stringBuilder;
-    stringBuilder.append(sharedMetalFunctions.metalFunctions);
-
-    ComputeFunctionDefinitionWriter functionDefinitionWriter(program.intrinsics(), typeNamer, sharedMetalFunctions.functionMapping, WTFMove(matchedSemantics), layout);
-    for (auto& nativeFunctionDeclaration : program.nativeFunctionDeclarations()) {
-        if (reachableFunctions.contains(&nativeFunctionDeclaration))
-            functionDefinitionWriter.visit(nativeFunctionDeclaration);
-    }
+    ComputeFunctionDefinitionWriter functionDefinitionWriter(stringBuilder, program.intrinsics(), typeNamer, functionMapping, WTFMove(matchedSemantics), layout);
     for (auto& functionDefinition : program.functionDefinitions()) {
         if (reachableFunctions.contains(&functionDefinition))
             functionDefinitionWriter.visit(functionDefinition);
     }
-    stringBuilder.append(functionDefinitionWriter.toString());
 
-    ComputeMetalFunctions result;
-    result.metalSource = stringBuilder.toString();
-    result.mangledEntryPointName = sharedMetalFunctions.functionMapping.get(&entryPoint);
-    return result;
+    return { functionMapping.get(&entryPoint) };
 }
 
 } // namespace Metal

@@ -52,13 +52,15 @@ extension Container {
                      deviceName: String = "test device name",
                      serialNumber: String = "456",
                      osVersion: String = "123",
-                     policyVersion: UInt64? = nil,
+                     policyVersion: TPPolicyVersion? = nil,
                      policySecrets: [String: Data]? = nil,
                      signingPrivateKeyPersistentRef: Data? = nil,
                      encryptionPrivateKeyPersistentRef: Data? = nil
-        ) -> (String?, Data?, Data?, Data?, Data?, Error?) {
+        ) -> (String?, Data?, Data?, Data?, Data?, Set<String>?, TPPolicy?, Error?) {
         let expectation = XCTestExpectation(description: "prepare replied")
         var reta: String?, retb: Data?, retc: Data?, retd: Data?, rete: Data?, reterr: Error?
+        var retviews: Set<String>?
+        var retpolicy: TPPolicy?
         self.prepare(epoch: epoch,
                      machineID: machineID,
                      bottleSalt: bottleSalt,
@@ -71,17 +73,19 @@ extension Container {
                      policySecrets: policySecrets,
                      signingPrivateKeyPersistentRef: signingPrivateKeyPersistentRef,
                      encryptionPrivateKeyPersistentRef: encryptionPrivateKeyPersistentRef
-        ) { a, b, c, d, e, err in
+        ) { a, b, c, d, e, f, g, err in
             reta = a
             retb = b
             retc = c
             retd = d
             rete = e
+            retviews = f
+            retpolicy = g
             reterr = err
             expectation.fulfill()
         }
         test.wait(for: [expectation], timeout: 10.0)
-        return (reta, retb, retc, retd, rete, reterr)
+        return (reta, retb, retc, retd, rete, retviews, retpolicy, reterr)
     }
 
     func establishSync(test: XCTestCase,
@@ -126,29 +130,34 @@ extension Container {
         return (reta, retb, reterr)
     }
 
-    func preflightVouchWithBottleSync(test: XCTestCase, bottleID: String) -> (String?, Error?) {
+    func preflightVouchWithBottleSync(test: XCTestCase, bottleID: String) -> (String?, Set<String>?, TPPolicy?, Error?) {
         let expectation = XCTestExpectation(description: "preflightVouchWithBottle replied")
         var reta: String?, reterr: Error?
-        self.preflightVouchWithBottle(bottleID: bottleID) { a, err in
+        var retviews: Set<String>?, retpolicy: TPPolicy?
+        self.preflightVouchWithBottle(bottleID: bottleID) { a, views, policy, err in
             reta = a
+            retviews = views
+            retpolicy = policy
             reterr = err
             expectation.fulfill()
         }
         test.wait(for: [expectation], timeout: 10.0)
-        return (reta, reterr)
+        return (reta, retviews, retpolicy, reterr)
     }
 
-    func vouchWithBottleSync(test: XCTestCase, b: String, entropy: Data, bottleSalt: String, tlkShares: [CKKSTLKShare]) -> (Data?, Data?, Error?) {
+    func vouchWithBottleSync(test: XCTestCase, b: String, entropy: Data, bottleSalt: String, tlkShares: [CKKSTLKShare]) -> (Data?, Data?, Int64, Int64, Error?) {
         let expectation = XCTestExpectation(description: "vouchWithBottle replied")
-        var reta: Data?, retb: Data?, reterr: Error?
-        self.vouchWithBottle(bottleID: b, entropy: entropy, bottleSalt: bottleSalt, tlkShares: tlkShares) { a, b, err in
+        var reta: Data?, retb: Data?, retc: Int64 = 0, retd: Int64 = 0, reterr: Error?
+        self.vouchWithBottle(bottleID: b, entropy: entropy, bottleSalt: bottleSalt, tlkShares: tlkShares) { a, b, c, d, err in
             reta = a
             retb = b
+            retc = c
+            retd = d
             reterr = err
             expectation.fulfill()
         }
         test.wait(for: [expectation], timeout: 10.0)
-        return (reta, retb, reterr)
+        return (reta, retb, retc, retd, reterr)
     }
 
     func joinSync(test: XCTestCase,
@@ -156,41 +165,48 @@ extension Container {
                   voucherSig: Data,
                   ckksKeys: [CKKSKeychainBackedKeySet],
                   tlkShares: [CKKSTLKShare],
-                  preapprovedKeys: [Data]? = nil) -> (String?, [CKRecord]?, Error?) {
+                  preapprovedKeys: [Data]? = nil) -> (String?, [CKRecord]?, Set<String>?, TPPolicy?, Error?) {
         let expectation = XCTestExpectation(description: "join replied")
         var reta: String?, retkhr: [CKRecord]?, reterr: Error?
+        var retviews: Set<String>?, retpolicy: TPPolicy?
         self.join(voucherData: voucherData,
                   voucherSig: voucherSig,
                   ckksKeys: ckksKeys,
                   tlkShares: tlkShares,
-                  preapprovedKeys: preapprovedKeys) { a, khr, err in
+                  preapprovedKeys: preapprovedKeys) { a, khr, views, policy, err in
                     reta = a
                     retkhr = khr
+                    retviews = views
+                    retpolicy = policy
                     reterr = err
                     expectation.fulfill()
         }
         test.wait(for: [expectation], timeout: 10.0)
-        return (reta, retkhr, reterr)
+        return (reta, retkhr, retviews, retpolicy, reterr)
     }
 
     func preapprovedJoinSync(test: XCTestCase,
                              ckksKeys: [CKKSKeychainBackedKeySet],
                              tlkShares: [CKKSTLKShare],
-                             preapprovedKeys: [Data]? = nil) -> (String?, [CKRecord]?, Error?) {
+                             preapprovedKeys: [Data]? = nil) -> (String?, [CKRecord]?, Set<String>?, TPPolicy?, Error?) {
         let expectation = XCTestExpectation(description: "preapprovedjoin replied")
         var reta: String?
         var retkhr: [CKRecord]?
+        var retviews: Set<String>?
+        var retpolicy: TPPolicy?
         var reterr: Error?
         self.preapprovedJoin(ckksKeys: ckksKeys,
                              tlkShares: tlkShares,
-                             preapprovedKeys: preapprovedKeys) { a, khr, err in
+                             preapprovedKeys: preapprovedKeys) { a, khr, views, policy, err in
                                 reta = a
                                 retkhr = khr
+                                retviews = views
+                                retpolicy = policy
                                 reterr = err
                                 expectation.fulfill()
         }
         test.wait(for: [expectation], timeout: 10.0)
-        return (reta, retkhr, reterr)
+        return (reta, retkhr, retviews, retpolicy, reterr)
     }
 
     func updateSync(test: XCTestCase,
@@ -215,10 +231,11 @@ extension Container {
         return (retstate, reterr)
     }
 
-    func setAllowedMachineIDsSync(test: XCTestCase, allowedMachineIDs: Set<String>, listDifference: Bool = true) -> (Error?) {
+    func setAllowedMachineIDsSync(test: XCTestCase, allowedMachineIDs: Set<String>, accountIsDemo: Bool, listDifference: Bool = true) -> (Error?) {
         let expectation = XCTestExpectation(description: "setAllowedMachineIDs replied")
         var reterr: Error?
-        self.setAllowedMachineIDs(allowedMachineIDs) { differences, err in
+        let honorIDMSListChanges = accountIsDemo ? false : true
+        self.setAllowedMachineIDs(allowedMachineIDs, honorIDMSListChanges: honorIDMSListChanges) { differences, err in
             XCTAssertEqual(differences, listDifference, "Reported list difference should match expectation")
             reterr = err
             expectation.fulfill()
@@ -253,7 +270,7 @@ extension Container {
         let expectation = XCTestExpectation(description: "fetchMIDList replied")
         var retlist: Set<String>?
         var reterr: Error?
-        self.fetchAllowedMachineIDs() { list, err in
+        self.fetchAllowedMachineIDs { list, err in
             retlist = list
             reterr = err
             expectation.fulfill()
@@ -352,10 +369,10 @@ extension Container {
     }
 
     func fetchPolicyDocumentsSync(test: XCTestCase,
-                                  keys: [NSNumber: String]) -> ([NSNumber: [String]]?, Error?) {
+                                  versions: Set<TPPolicyVersion>) -> ([TPPolicyVersion: Data]?, Error?) {
         let expectation = XCTestExpectation(description: "fetchPolicyDocuments replied")
-        var reta: [NSNumber: [String]]?, reterr: Error?
-        self.fetchPolicyDocuments(keys: keys) { a, err in
+        var reta: [TPPolicyVersion: Data]?, reterr: Error?
+        self.fetchPolicyDocuments(versions: versions) { a, err in
             reta = a
             reterr = err
             expectation.fulfill()
@@ -383,22 +400,24 @@ extension Container {
         return (retentropy, retbottleID, retspki, reterror)
     }
 
-    func requestHealthCheckSync(requiresEscrowCheck: Bool, test: XCTestCase) -> (Bool, Bool, Bool, Error?) {
+    func requestHealthCheckSync(requiresEscrowCheck: Bool, test: XCTestCase) -> (Bool, Bool, Bool, Bool, Error?) {
         let expectation = XCTestExpectation(description: "requestHealthCheck replied")
         var retrepairaccount: Bool = false
         var retrepairescrow: Bool = false
         var retresetoctagon: Bool = false
+        var retleavetrust: Bool = false
         var reterror: Error?
 
-        self.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck) { repairAccount, repairEscrow, resetOctagon, error in
+        self.requestHealthCheck(requiresEscrowCheck: requiresEscrowCheck) { repairAccount, repairEscrow, resetOctagon, leaveTrust, error in
             retrepairaccount = repairAccount
             retrepairescrow = repairEscrow
             retresetoctagon = resetOctagon
+            retleavetrust = leaveTrust
             reterror = error
 
             expectation.fulfill()
         }
         test.wait(for: [expectation], timeout: 10.0)
-        return (retrepairaccount, retrepairescrow, retresetoctagon, reterror)
+        return (retrepairaccount, retrepairescrow, retresetoctagon, retleavetrust, reterror)
     }
 }

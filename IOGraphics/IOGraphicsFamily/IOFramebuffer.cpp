@@ -6915,6 +6915,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		}
 	}
 
+
 	if ((kIOFBEventReadClamshell & events) 
     && !gIOFBIsMuxSwitching && !(kIOFBWsWait & allState))
 	{

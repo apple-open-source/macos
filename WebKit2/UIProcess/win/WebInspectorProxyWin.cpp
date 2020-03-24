@@ -44,7 +44,10 @@
 #include <WebCore/WebCoreInstanceHandle.h>
 #include <WebCore/WindowMessageBroadcaster.h>
 #include <WebKit/WKPage.h>
+
+#if USE(CF)
 #include <wtf/cf/CFURLExtras.h>
+#endif
 
 namespace WebKit {
 
@@ -265,20 +268,38 @@ void WebInspectorProxy::platformCloseFrontendPageAndWindow()
 
 String WebInspectorProxy::inspectorPageURL()
 {
+#if USE(CF)
     RetainPtr<CFURLRef> htmlURLRef = adoptCF(CFBundleCopyResourceURL(WebCore::webKitBundle(), CFSTR("Main"), CFSTR("html"), CFSTR("WebInspectorUI")));
     return CFURLGetString(htmlURLRef.get());
+#else
+    return { };
+#endif
 }
 
 String WebInspectorProxy::inspectorTestPageURL()
 {
+#if USE(CF)
     RetainPtr<CFURLRef> htmlURLRef = adoptCF(CFBundleCopyResourceURL(WebCore::webKitBundle(), CFSTR("Test"), CFSTR("html"), CFSTR("WebInspectorUI")));
     return CFURLGetString(htmlURLRef.get());
+#else
+    return { };
+#endif
 }
 
 String WebInspectorProxy::inspectorBaseURL()
 {
+#if USE(CF)
     RetainPtr<CFURLRef> baseURLRef = adoptCF(CFBundleCopyResourceURL(WebCore::webKitBundle(), CFSTR("WebInspectorUI"), nullptr, nullptr));
     return CFURLGetString(baseURLRef.get());
+#else
+    return { };
+#endif
+}
+
+DebuggableInfoData WebInspectorProxy::infoForLocalDebuggable()
+{
+    // FIXME <https://webkit.org/b/205537>: this should infer more useful data.
+    return DebuggableInfoData::empty();
 }
 
 unsigned WebInspectorProxy::platformInspectedWindowHeight()

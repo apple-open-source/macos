@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2006-2018 Apple Inc. All rights reserved.
+ *  Copyright (C) 2006-2019 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -29,6 +29,7 @@ enum JSType : uint8_t {
     SymbolType,
     BigIntType,
 
+    GetterSetterType,
     CustomGetterSetterType,
     APIValueWrapperType,
 
@@ -48,7 +49,6 @@ enum JSType : uint8_t {
         
     CodeBlockType,
 
-    JSFixedArrayType,
     JSImmutableButterflyType,
     JSSourceCodeType,
     JSScriptFetcherType,
@@ -88,8 +88,6 @@ enum JSType : uint8_t {
     DataViewType,
     // End JSArrayBufferView types.
 
-    GetterSetterType,
-
     // JSScope <- JSWithScope
     //         <- StrictEvalActivation
     //         <- JSSymbolTableObject  <- JSLexicalEnvironment      <- JSModuleEnvironment
@@ -106,16 +104,24 @@ enum JSType : uint8_t {
     WithScopeType,
     // End JSScope types.
 
+    ModuleNamespaceObjectType,
     RegExpObjectType,
+    JSDateType,
     ProxyObjectType,
+    JSGeneratorType,
+    JSAsyncGeneratorType,
+    JSPromiseType,
     JSMapType,
     JSSetType,
     JSWeakMapType,
     JSWeakSetType,
-    WebAssemblyToJSCalleeType,
+    WebAssemblyModuleType,
+    // Start StringObjectType types.
     StringObjectType,
+    DerivedStringObjectType,
+    // End StringObjectType types.
 
-    LastJSCObjectType = StringObjectType, // This is the last "JSC" Object type. After this, we have embedder's (e.g., WebCore) extended object types.
+    LastJSCObjectType = DerivedStringObjectType, // This is the last "JSC" Object type. After this, we have embedder's (e.g., WebCore) extended object types.
     MaxJSType = 0b11111111,
 };
 

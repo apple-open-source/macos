@@ -35,8 +35,8 @@
 #include "FloatRect.h"
 #include "FloatSize.h"
 #include "NicosiaAnimatedBackingStoreClient.h"
+#include "NicosiaAnimation.h"
 #include "NicosiaSceneIntegration.h"
-#include "TextureMapperAnimation.h"
 #include "TransformationMatrix.h"
 #include <wtf/Function.h>
 #include <wtf/Lock.h>
@@ -112,6 +112,7 @@ public:
                     bool positionChanged : 1;
                     bool anchorPointChanged : 1;
                     bool sizeChanged : 1;
+                    bool boundsOriginChanged : 1;
                     bool transformChanged : 1;
                     bool childrenTransformChanged : 1;
                     bool contentsRectChanged : 1;
@@ -157,6 +158,7 @@ public:
         WebCore::FloatPoint position;
         WebCore::FloatPoint3D anchorPoint;
         WebCore::FloatSize size;
+        WebCore::FloatPoint boundsOrigin;
 
         WebCore::TransformationMatrix transform;
         WebCore::TransformationMatrix childrenTransform;
@@ -171,7 +173,7 @@ public:
         WebCore::FilterOperations filters;
         // FIXME: Despite the name, this implementation is not
         // TextureMapper-specific. Should be renamed when necessary.
-        WebCore::TextureMapperAnimations animations;
+        Animations animations;
 
         Vector<RefPtr<CompositionLayer>> children;
         RefPtr<CompositionLayer> replica;
@@ -215,6 +217,8 @@ public:
             staging.anchorPoint = pending.anchorPoint;
         if (pending.delta.sizeChanged)
             staging.size = pending.size;
+        if (pending.delta.boundsOriginChanged)
+            staging.boundsOrigin = pending.boundsOrigin;
 
         if (pending.delta.transformChanged)
             staging.transform = pending.transform;
@@ -275,6 +279,13 @@ public:
         m_state.staging.delta = { };
 
         functor(m_state.committed);
+    }
+
+    template<typename T>
+    void accessStaging(const T& functor)
+    {
+        LockHolder locker(PlatformLayer::m_state.lock);
+        functor(m_state.staging);
     }
 
     template<typename T>

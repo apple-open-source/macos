@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2019 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2009-2010. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,6 +56,12 @@ typedef struct _GBytes GBytes;
 OBJC_CLASS NSArray;
 OBJC_CLASS NSData;
 #endif
+
+namespace WTF {
+namespace Persistence {
+class Decoder;
+}
+}
 
 namespace WebCore {
 
@@ -138,6 +144,10 @@ public:
 #endif
         static Ref<DataSegment> create(FileSystem::MappedFileData&& data) { return adoptRef(*new DataSegment(WTFMove(data))); }
 
+#if USE(FOUNDATION)
+        RetainPtr<NSData> createNSData() const;
+#endif
+
     private:
         DataSegment(Vector<char>&& data)
             : m_immutableData(WTFMove(data)) { }
@@ -190,6 +200,8 @@ public:
 
     void hintMemoryNotNeededSoon() const;
 
+    WTF::Persistence::Decoder decoder() const;
+
     bool operator==(const SharedBuffer&) const;
     bool operator!=(const SharedBuffer& other) const { return !operator==(other); }
 
@@ -240,6 +252,9 @@ public:
     SharedBufferDataView(Ref<SharedBuffer::DataSegment>&&, size_t);
     size_t size() const;
     const char* data() const;
+#if USE(FOUNDATION)
+    RetainPtr<NSData> createNSData() const;
+#endif
 private:
     size_t m_positionWithinSegment;
     Ref<SharedBuffer::DataSegment> m_segment;

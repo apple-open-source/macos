@@ -1,5 +1,5 @@
 // BUILD_ONLY: MacOSX
-// BUILD:  mkdir -p $BUILD_DIR/alt11 $BUILD_DIR/alt9 $BUILD_DIR/alt12
+
 // BUILD:  $CC foo.c -dynamiclib -DRESULT=9  -current_version 9  -install_name $RUN_DIR/libfoo.dylib -o $BUILD_DIR/alt9/libfoo.dylib
 // BUILD:  $CC foo.c -dynamiclib -DRESULT=10 -current_version 10 -install_name $RUN_DIR/libfoo.dylib -o $BUILD_DIR/libfoo.dylib
 // BUILD:  $CC foo.c -dynamiclib -DRESULT=11 -current_version 11 -install_name $RUN_DIR/libfoo.dylib -o $BUILD_DIR/alt11/libfoo.dylib
@@ -22,7 +22,7 @@
 // BUILD:  $CC main.c            -o $BUILD_DIR/env-DYLD_VERSIONED_LIBRARY_PATH-dlopen.exe -DUSE_DLOPEN -DRUN_DIR="$RUN_DIR" -DDYLIB_NAME="libfoo.dylib"
 // BUILD:  $CC main.c            -o $BUILD_DIR/env-DYLD_VERSIONED_LIBRARY_PATH-missing-dlopen.exe -DUSE_DLOPEN -DRUN_DIR="$RUN_DIR" -DDYLIB_NAME="libfoo2.dylib"
 
-// BUILD:  rm -rf $BUILD_DIR/libfoo2.dylib
+// BUILD:  $SKIP_INSTALL $BUILD_DIR/libfoo2.dylib
 
 // BUILD:  $DYLD_ENV_VARS_ENABLE $BUILD_DIR/env-DYLD_VERSIONED_LIBRARY_PATH.exe
 // BUILD:  $DYLD_ENV_VARS_ENABLE $BUILD_DIR/env-DYLD_VERSIONED_LIBRARY_PATH-11.exe
@@ -46,10 +46,10 @@
 // FIXME: Forcibly disable testing with closures since macOS does not use them and they are currently broken
 // RUN: DYLD_USE_CLOSURES=0 ./env-DYLD_VERSIONED_LIBRARY_PATH-missing.exe 12
 
-// RUN: DYLD_USE_CLOSURES=0 ./env-DYLD_VERSIONED_LIBRARY_PATH-dlopen.exe 10
-// RUN: DYLD_USE_CLOSURES=0 DYLD_VERSIONED_LIBRARY_PATH=$RUN_DIR/alt11 ./env-DYLD_VERSIONED_LIBRARY_PATH-dlopen.exe 11
-// RUN: DYLD_USE_CLOSURES=0 DYLD_VERSIONED_LIBRARY_PATH=$RUN_DIR/alt9 ./env-DYLD_VERSIONED_LIBRARY_PATH-dlopen.exe 10
-// RUN: DYLD_USE_CLOSURES=0 DYLD_VERSIONED_LIBRARY_PATH="/AppleInternal/CoreOS/tests/dyld/env-DYLD_VERSIONED_LIBRARY_PATH/alt12" ./env-DYLD_VERSIONED_LIBRARY_PATH-missing-dlopen.exe 12
+// RUN: ./env-DYLD_VERSIONED_LIBRARY_PATH-dlopen.exe 10
+// RUN: DYLD_VERSIONED_LIBRARY_PATH=$RUN_DIR/alt11 ./env-DYLD_VERSIONED_LIBRARY_PATH-dlopen.exe 11
+// RUN: DYLD_VERSIONED_LIBRARY_PATH=$RUN_DIR/alt9 ./env-DYLD_VERSIONED_LIBRARY_PATH-dlopen.exe 10
+// RUN: DYLD_VERSIONED_LIBRARY_PATH="/AppleInternal/CoreOS/tests/dyld/env-DYLD_VERSIONED_LIBRARY_PATH/alt12" ./env-DYLD_VERSIONED_LIBRARY_PATH-missing-dlopen.exe 12
 
 #include <stdio.h>  // fprintf(), NULL
 #include <stdlib.h> // exit(), EXIT_SUCCESS
@@ -66,7 +66,7 @@ extern int foo();
 
 int main(int argc, const char* argv[])
 {
-    int expectedResult = atoi(argv[1]);
+	int expectedResult = atoi(argv[1]);
 #if USE_DLOPEN
     void * handle = dlopen(RUN_DIR "/" DYLIB_NAME, RTLD_LAZY);
     if (!handle) {
@@ -77,11 +77,12 @@ int main(int argc, const char* argv[])
         FAIL("dlsym(\"foo\") failed with error \"%s\"", dlerror());
     }
 #endif
-    int actualResult = foo();
+	int actualResult = foo();
     if ( actualResult != expectedResult ) {
-        FAIL("Using wrong dylib. foo() returned %d, expected %d", actualResult, expectedResult);
+		FAIL("Using wrong dylib. foo() returned %d, expected %d", actualResult, expectedResult);
     } else {
-        PASS("Success");
+		PASS("Success");
     }
-    return 0;
+	return 0;
 }
+
