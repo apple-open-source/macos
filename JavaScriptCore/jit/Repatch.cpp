@@ -320,7 +320,7 @@ static InlineCacheAction tryCacheGetBy(JSGlobalObject* globalObject, CodeBlock* 
                         prototypeAccessChain = PolyProtoAccessChain::create(globalObject, baseCell, slot);
                         if (!prototypeAccessChain)
                             return GiveUpOnCache;
-                        RELEASE_ASSERT(slot.isCacheableCustom() || prototypeAccessChain->slotBaseStructure(structure)->get(vm, propertyName.uid()) == offset);
+                        RELEASE_ASSERT(slot.isCacheableCustom() || prototypeAccessChain->slotBaseStructure(vm, structure)->get(vm, propertyName.uid()) == offset);
                     } else {
                         // We use ObjectPropertyConditionSet instead for faster accesses.
                         prototypeAccessChain = nullptr;
@@ -689,7 +689,7 @@ static InlineCacheAction tryCachePutByID(JSGlobalObject* globalObject, CodeBlock
                         if (!prototypeAccessChain)
                             return GiveUpOnCache;
                         unsigned attributes;
-                        offset = prototypeAccessChain->slotBaseStructure(baseCell->structure(vm))->get(vm, ident.impl(), attributes);
+                        offset = prototypeAccessChain->slotBaseStructure(vm, baseCell->structure(vm))->get(vm, ident.impl(), attributes);
                         if (!isValidOffset(offset) || !(attributes & PropertyAttribute::Accessor))
                             return RetryCacheLater;
                     } else {
@@ -793,7 +793,7 @@ static InlineCacheAction tryCacheInByID(
                     prototypeAccessChain = PolyProtoAccessChain::create(globalObject, base, slot);
                     if (!prototypeAccessChain)
                         return GiveUpOnCache;
-                    RELEASE_ASSERT(slot.isCacheableCustom() || prototypeAccessChain->slotBaseStructure(structure)->get(vm, ident.impl()) == slot.cachedOffset());
+                    RELEASE_ASSERT(slot.isCacheableCustom() || prototypeAccessChain->slotBaseStructure(vm, structure)->get(vm, ident.impl()) == slot.cachedOffset());
                 } else {
                     prototypeAccessChain = nullptr;
                     conditionSet = generateConditionsForPrototypePropertyHit(

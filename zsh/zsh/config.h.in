@@ -610,11 +610,17 @@
 /* Define to 1 if you have the `setcchar' function. */
 #undef HAVE_SETCCHAR
 
+/* Define to 1 if you have the `setegid' function. */
+#undef HAVE_SETEGID
+
 /* Define to 1 if you have the `setenv' function. */
 #undef HAVE_SETENV
 
 /* Define to 1 if you have the `seteuid' function. */
 #undef HAVE_SETEUID
+
+/* Define to 1 if you have the `setgid' function. */
+#undef HAVE_SETGID
 
 /* Define to 1 if you have the `setlocale' function. */
 #undef HAVE_SETLOCALE
@@ -627,6 +633,12 @@
 
 /* Define to 1 if the system supports `setproctitle' to change process name */
 #undef HAVE_SETPROCTITLE
+
+/* Define to 1 if you have the `setregid' function. */
+#undef HAVE_SETREGID
+
+/* Define to 1 if you have the `setresgid' function. */
+#undef HAVE_SETRESGID
 
 /* Define to 1 if you have the `setresuid' function. */
 #undef HAVE_SETRESUID

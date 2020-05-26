@@ -236,7 +236,7 @@ struct WKAutoCorrectionData {
     RetainPtr<UISwipeGestureRecognizer> _touchActionDownSwipeGestureRecognizer;
 #endif
 
-#if PLATFORM(MACCATALYST)
+#if HAVE(LOOKUP_GESTURE_RECOGNIZER)
     RetainPtr<_UILookupGestureRecognizer> _lookupGestureRecognizer;
 #endif
 
@@ -305,7 +305,7 @@ struct WKAutoCorrectionData {
     BlockPtr<void(::WebEvent *, BOOL)> _keyWebEventHandler;
 
     CGPoint _lastInteractionLocation;
-    WebKit::TransactionID _layerTreeTransactionIdAtLastTouchStart;
+    WebKit::TransactionID _layerTreeTransactionIdAtLastInteractionStart;
 
     WebKit::WKSelectionDrawingInfo _lastSelectionDrawingInfo;
 

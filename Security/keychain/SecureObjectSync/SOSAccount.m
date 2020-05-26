@@ -1135,14 +1135,18 @@ void SOSAccountPurgeIdentity(SOSAccount*  account) {
     }
 }
 
-bool sosAccountLeaveCircleWithAnalytics(SOSAccount* account, SOSCircleRef circle, NSData* parentData, CFErrorRef* error) {
+bool sosAccountLeaveCircle(SOSAccount* account, SOSCircleRef circle, NSData* parentData, CFErrorRef* error) {
     SOSAccountTrustClassic *trust = account.trust;
     SOSFullPeerInfoRef identity = trust.fullPeerInfo;
     NSMutableSet* retirees = trust.retirees;
 
     NSError* localError = nil;
-    SFSignInAnalytics* parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentData error:&localError];
+    SFSignInAnalytics* parent = nil;
     
+    if(parentData) {
+        parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentData error:&localError];
+    }
+
     SOSFullPeerInfoRef fpi = identity;
     if(!fpi) return false;
 
@@ -1150,10 +1154,17 @@ bool sosAccountLeaveCircleWithAnalytics(SOSAccount* account, SOSCircleRef circle
 
     bool retval = false;
 
-    SFSignInAnalytics *promoteToRetiredEvent = [parent newSubTaskForEvent:@"promoteToRetiredEvent"];
+    SFSignInAnalytics *promoteToRetiredEvent = nil;
+    
+    if(parent) {
+        promoteToRetiredEvent = [parent newSubTaskForEvent:@"promoteToRetiredEvent"];
+    }
+    
     SOSPeerInfoRef retire_peer = SOSFullPeerInfoPromoteToRetiredAndCopy(fpi, &retiredError);
     if(retiredError){
-        [promoteToRetiredEvent logRecoverableError:(__bridge NSError*)retiredError];
+        if(promoteToRetiredEvent) {
+            [promoteToRetiredEvent logRecoverableError:(__bridge NSError*)retiredError];
+        }
         secerror("SOSFullPeerInfoPromoteToRetiredAndCopy error: %@", retiredError);
         if(error){
             *error = retiredError;
@@ -1161,7 +1172,9 @@ bool sosAccountLeaveCircleWithAnalytics(SOSAccount* account, SOSCircleRef circle
             CFReleaseNull(retiredError);
         }
     }
-    [promoteToRetiredEvent stopWithAttributes:nil];
+    if(promoteToRetiredEvent) {
+        [promoteToRetiredEvent stopWithAttributes:nil];
+    }
 
     if (!retire_peer) {
         secerror("Create ticket failed for peer %@: %@", fpi, localError);
@@ -1173,11 +1186,17 @@ bool sosAccountLeaveCircleWithAnalytics(SOSAccount* account, SOSCircleRef circle
         } else if (SOSCircleHasPeer(circle, retire_peer, NULL)) {
             if (SOSCircleUpdatePeerInfo(circle, retire_peer)) {
                 CFErrorRef cleanupError = NULL;
-                SFSignInAnalytics *cleanupEvent = [parent newSubTaskForEvent:@"cleanupAfterPeerEvent"];
+                SFSignInAnalytics *cleanupEvent = nil;
+
+                if(parent) {
+                    cleanupEvent = [parent newSubTaskForEvent:@"cleanupAfterPeerEvent"];
+                }
                 if (![account.trust cleanupAfterPeer:account.kvs_message_transport circleTransport:account.circle_transport seconds:RETIREMENT_FINALIZATION_SECONDS circle:circle cleanupPeer:retire_peer err:&cleanupError]) {
                     secerror("Error cleanup up after peer (%@): %@", retire_peer, cleanupError);
                 }
-                [cleanupEvent stopWithAttributes:nil];
+                if(cleanupEvent) {
+                    [cleanupEvent stopWithAttributes:nil];
+                }
                 CFReleaseSafe(cleanupError);
             }
         }
@@ -1189,82 +1208,48 @@ bool sosAccountLeaveCircleWithAnalytics(SOSAccount* account, SOSCircleRef circle
 
         // Write retirement to Transport
         CFErrorRef postError = NULL;
-        SFSignInAnalytics *postRestirementEvent = [parent newSubTaskForEvent:@"postRestirementEvent"];
-        if(![account.circle_transport postRetirement:SOSCircleGetName(circle) peer:retire_peer err:&postError]){
-            [postRestirementEvent logRecoverableError:(__bridge NSError*)postError];
-            secwarning("Couldn't post retirement (%@)", postError);
-        }
-        [postRestirementEvent stopWithAttributes:nil];
-
-        SFSignInAnalytics *flushChangesEvent = [parent newSubTaskForEvent:@"flushChangesEvent"];
-
-        if(![account.circle_transport flushChanges:&postError]){
-            [flushChangesEvent logRecoverableError:(__bridge NSError*)postError];
-            secwarning("Couldn't flush retirement data (%@)", postError);
-        }
-        [flushChangesEvent stopWithAttributes:nil];
-        CFReleaseNull(postError);
-    }
-    SFSignInAnalytics *purgeIdentityEvent = [parent newSubTaskForEvent:@"purgeIdentityEvent"];
-    SOSAccountPurgeIdentity(account);
-    [purgeIdentityEvent stopWithAttributes:nil];
-    retval = true;
-
-    CFReleaseNull(retire_peer);
-    return retval;
-}
-
-bool sosAccountLeaveCircle(SOSAccount* account, SOSCircleRef circle, CFErrorRef* error) {
-    SOSAccountTrustClassic *trust = account.trust;
-    SOSFullPeerInfoRef identity = trust.fullPeerInfo;
-    NSMutableSet* retirees = trust.retirees;
-
-    SOSFullPeerInfoRef fpi = identity;
-    if(!fpi) return false;
-
-	CFErrorRef localError = NULL;
-
-    bool retval = false;
-
-    SOSPeerInfoRef retire_peer = SOSFullPeerInfoPromoteToRetiredAndCopy(fpi, &localError);
-    if (!retire_peer) {
-        secerror("Create ticket failed for peer %@: %@", fpi, localError);
-    } else {
-        // See if we need to repost the circle we could either be an applicant or a peer already in the circle
-        if(SOSCircleHasApplicant(circle, retire_peer, NULL)) {
-            // Remove our application if we have one.
-            SOSCircleWithdrawRequest(circle, retire_peer, NULL);
-        } else if (SOSCircleHasPeer(circle, retire_peer, NULL)) {
-            if (SOSCircleUpdatePeerInfo(circle, retire_peer)) {
-                CFErrorRef cleanupError = NULL;
-                if (![account.trust cleanupAfterPeer:account.kvs_message_transport circleTransport:account.circle_transport seconds:RETIREMENT_FINALIZATION_SECONDS circle:circle cleanupPeer:retire_peer err:&cleanupError]) {
-                    secerror("Error cleanup up after peer (%@): %@", retire_peer, cleanupError);
-                }
-                CFReleaseSafe(cleanupError);
-            }
-        }
-
-        // Store the retirement record locally.
-        CFSetAddValue((__bridge CFMutableSetRef)retirees, retire_peer);
-
-        trust.retirees = retirees;
+        SFSignInAnalytics *postRetirementEvent = nil;
         
-        // Write retirement to Transport
-        CFErrorRef postError = NULL;
+        if(parent) {
+            postRetirementEvent = [parent newSubTaskForEvent:@"postRestirementEvent"];
+        }
+        
         if(![account.circle_transport postRetirement:SOSCircleGetName(circle) peer:retire_peer err:&postError]){
+            if(postRetirementEvent) {
+                [postRetirementEvent logRecoverableError:(__bridge NSError*)postError];
+            }
             secwarning("Couldn't post retirement (%@)", postError);
         }
+        if(postRetirementEvent) {
+            [postRetirementEvent stopWithAttributes:nil];
+        }
+
+        SFSignInAnalytics *flushChangesEvent = nil;
+        if(parent) {
+            flushChangesEvent = [parent newSubTaskForEvent:@"flushChangesEvent"];
+        }
+
         if(![account.circle_transport flushChanges:&postError]){
+            if(flushChangesEvent) {
+                [flushChangesEvent logRecoverableError:(__bridge NSError*)postError];
+            }
             secwarning("Couldn't flush retirement data (%@)", postError);
+        }
+        if(flushChangesEvent) {
+            [flushChangesEvent stopWithAttributes:nil];
         }
         CFReleaseNull(postError);
     }
-
+    SFSignInAnalytics *purgeIdentityEvent = nil;
+    if(parent) {
+        purgeIdentityEvent = [parent newSubTaskForEvent:@"purgeIdentityEvent"];
+    }
     SOSAccountPurgeIdentity(account);
-
+    if(purgeIdentityEvent) {
+        [purgeIdentityEvent stopWithAttributes:nil];
+    }
     retval = true;
 
-    CFReleaseNull(localError);
     CFReleaseNull(retire_peer);
     return retval;
 }
@@ -1451,20 +1436,27 @@ CFDataRef SOSAccountCopyRecoveryPublicKey(SOSAccountTransaction* txn, CFErrorRef
 // MARK: Joining
 //
 
-static bool SOSAccountJoinCircleWithAnalytics(SOSAccountTransaction* aTxn, SecKeyRef user_key,
-                                 bool use_cloud_peer, NSData* parentEvent, CFErrorRef* error) {
+static bool SOSAccountJoinCircle(SOSAccountTransaction* aTxn, SecKeyRef user_key, bool use_cloud_peer, NSData* parentEvent, CFErrorRef* error) {
     SOSAccount* account = aTxn.account;
     SOSAccountTrustClassic *trust = account.trust;
     __block bool result = false;
     __block SOSFullPeerInfoRef cloud_full_peer = NULL;
     SFSignInAnalytics *ensureFullPeerAvailableEvent = nil;
     NSError* localError = nil;
-    SFSignInAnalytics* parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentEvent error:&localError];
+    SFSignInAnalytics* parent = nil;
+    
+    if(parentEvent) {
+        parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentEvent error:&localError];
+    }
 
     require_action_quiet(trust.trustedCircle, fail, SOSCreateErrorWithFormat(kSOSErrorPeerNotFound, NULL, error, NULL, CFSTR("Don't have circle when joining???")));
-    ensureFullPeerAvailableEvent = [parent newSubTaskForEvent:@"ensureFullPeerAvailableEvent"];
+    if(parent) {
+        ensureFullPeerAvailableEvent = [parent newSubTaskForEvent:@"ensureFullPeerAvailableEvent"];
+    }
     require_quiet([account.trust ensureFullPeerAvailable:(__bridge CFDictionaryRef)account.gestalt deviceID:(__bridge CFStringRef)account.deviceID backupKey:(__bridge CFDataRef)account.backup_key err:error], fail);
-    [ensureFullPeerAvailableEvent stopWithAttributes:nil];
+    if(ensureFullPeerAvailableEvent) {
+        [ensureFullPeerAvailableEvent stopWithAttributes:nil];
+    }
     
     SOSFullPeerInfoRef myCirclePeer = trust.fullPeerInfo;
     if (SOSCircleCountPeers(trust.trustedCircle) == 0 || SOSAccountGhostResultsInReset(account)) {
@@ -1472,59 +1464,14 @@ static bool SOSAccountJoinCircleWithAnalytics(SOSAccountTransaction* aTxn, SecKe
         // this also clears initial sync data
         result = [account.trust resetCircleToOffering:aTxn userKey:user_key err:error];
     } else {
-        SOSAccountInitializeInitialSync(account);
-        if (use_cloud_peer) {
-            cloud_full_peer = SOSCircleCopyiCloudFullPeerInfoRef(trust.trustedCircle, NULL);
-        }
-        SFSignInAnalytics *acceptApplicantEvent = [parent newSubTaskForEvent:@"acceptApplicantEvent"];
-        [account.trust modifyCircle:account.circle_transport err:error action:^bool(SOSCircleRef circle) {
-            result = SOSAccountAddEscrowToPeerInfo(account, myCirclePeer, error);
-            result &= SOSCircleRequestAdmission(circle, user_key, myCirclePeer, error);
-            trust.departureCode = kSOSNeverLeftCircle;
-            if(result && cloud_full_peer) {
-                CFErrorRef localError = NULL;
-                CFStringRef cloudid = SOSPeerInfoGetPeerID(SOSFullPeerInfoGetPeerInfo(cloud_full_peer));
-                require_quiet(cloudid, finish);
-                require_quiet(SOSCircleHasActivePeerWithID(circle, cloudid, &localError), finish);
-                require_quiet(SOSCircleAcceptRequest(circle, user_key, cloud_full_peer, SOSFullPeerInfoGetPeerInfo(myCirclePeer), &localError), finish);
-            finish:
-                if (localError){
-                    [acceptApplicantEvent logRecoverableError:(__bridge NSError *)(localError)];
-                    secerror("Failed to join with cloud identity: %@", localError);
-                    CFReleaseNull(localError);
-                }
-            }
-            return result;
-        }];
-        [acceptApplicantEvent stopWithAttributes:nil];
-        if (use_cloud_peer) {
-            SFSignInAnalytics *updateOutOfDateSyncViewsEvent = [acceptApplicantEvent newSubTaskForEvent:@"updateOutOfDateSyncViewsEvent"];
-            SOSAccountUpdateOutOfSyncViews(aTxn, SOSViewsGetAllCurrent());
-            [updateOutOfDateSyncViewsEvent stopWithAttributes:nil];
-        }
-    }
-fail:
-    CFReleaseNull(cloud_full_peer);
-    return result;
-}
+        SFSignInAnalytics *acceptApplicantEvent = nil;
 
-static bool SOSAccountJoinCircle(SOSAccountTransaction* aTxn, SecKeyRef user_key,
-                                 bool use_cloud_peer, CFErrorRef* error) {
-    SOSAccount* account = aTxn.account;
-    SOSAccountTrustClassic *trust = account.trust;
-    __block bool result = false;
-    __block SOSFullPeerInfoRef cloud_full_peer = NULL;
-    require_action_quiet(trust.trustedCircle, fail, SOSCreateErrorWithFormat(kSOSErrorPeerNotFound, NULL, error, NULL, CFSTR("Don't have circle when joining???")));
-    require_quiet([account.trust ensureFullPeerAvailable:(__bridge CFDictionaryRef)account.gestalt deviceID:(__bridge CFStringRef)account.deviceID backupKey:(__bridge CFDataRef)account.backup_key err:error], fail);
-    SOSFullPeerInfoRef myCirclePeer = trust.fullPeerInfo;
-    if (SOSCircleCountPeers(trust.trustedCircle) == 0 || SOSAccountGhostResultsInReset(account)) {
-        secnotice("resetToOffering", "Resetting circle to offering since there are no peers");
-        // this also clears initial sync data
-        result = [account.trust resetCircleToOffering:aTxn userKey:user_key err:error];
-    } else {
         SOSAccountInitializeInitialSync(account);
         if (use_cloud_peer) {
             cloud_full_peer = SOSCircleCopyiCloudFullPeerInfoRef(trust.trustedCircle, NULL);
+        }
+        if(parent) {
+            acceptApplicantEvent = [parent newSubTaskForEvent:@"acceptApplicantEvent"];
         }
         [account.trust modifyCircle:account.circle_transport err:error action:^bool(SOSCircleRef circle) {
             result = SOSAccountAddEscrowToPeerInfo(account, myCirclePeer, error);
@@ -1538,14 +1485,24 @@ static bool SOSAccountJoinCircle(SOSAccountTransaction* aTxn, SecKeyRef user_key
                 require_quiet(SOSCircleAcceptRequest(circle, user_key, cloud_full_peer, SOSFullPeerInfoGetPeerInfo(myCirclePeer), &localError), finish);
             finish:
                 if (localError){
+                    if(acceptApplicantEvent) {
+                        [acceptApplicantEvent logRecoverableError:(__bridge NSError *)(localError)];
+                    }
                     secerror("Failed to join with cloud identity: %@", localError);
                     CFReleaseNull(localError);
                 }
             }
             return result;
         }];
+        if(acceptApplicantEvent) {
+            [acceptApplicantEvent stopWithAttributes:nil];
+        }
         if (use_cloud_peer) {
             SOSAccountUpdateOutOfSyncViews(aTxn, SOSViewsGetAllCurrent());
+            if(acceptApplicantEvent) {
+                SFSignInAnalytics *updateOutOfDateSyncViewsEvent = [acceptApplicantEvent newSubTaskForEvent:@"updateOutOfDateSyncViewsEvent"];
+                [updateOutOfDateSyncViewsEvent stopWithAttributes:nil];
+            }
         }
     }
 fail:
@@ -1553,7 +1510,7 @@ fail:
     return result;
 }
 
-static bool SOSAccountJoinCirclesWithAnalytics_internal(SOSAccountTransaction* aTxn, bool use_cloud_identity, NSData* parentEvent, CFErrorRef* error) {
+static bool SOSAccountJoinCircles_internal(SOSAccountTransaction* aTxn, bool use_cloud_identity, NSData* parentEvent, CFErrorRef* error) {
     SOSAccount* account = aTxn.account;
     SOSAccountTrustClassic *trust = account.trust;
     bool success = false;
@@ -1561,7 +1518,21 @@ static bool SOSAccountJoinCirclesWithAnalytics_internal(SOSAccountTransaction* a
     SecKeyRef user_key = SOSAccountGetPrivateCredential(account, error);
     require_quiet(user_key, done); // Fail if we don't get one.
 
-    require_action_quiet(trust.trustedCircle, done, SOSErrorCreate(kSOSErrorNoCircle, error, NULL, CFSTR("No circle to join")));
+    if(!trust.trustedCircle || SOSCircleCountPeers(trust.trustedCircle) == 0 ) {
+        secnotice("resetToOffering", "Resetting circle to offering because it's empty and we're joining");
+        return [account.trust resetCircleToOffering:aTxn userKey:user_key err:error];
+    }
+    
+    if(SOSCircleHasPeerWithID(trust.trustedCircle, (__bridge CFStringRef)(account.peerID), NULL)) {
+        // We shouldn't be at this point if we're already in circle.
+        secnotice("circleops", "attempt to join a circle we're in - continuing.");
+        return true; // let things above us think we're in circle - because we are.
+    }
+    
+    if(!SOSCircleVerify(trust.trustedCircle, account.accountKey, NULL)) {
+        secnotice("resetToOffering", "Resetting circle to offering since we are new and it doesn't verify with current userKey");
+        return [account.trust resetCircleToOffering:aTxn userKey:user_key err:error];
+    }
 
     if (trust.fullPeerInfo != NULL) {
         SOSPeerInfoRef myPeer = trust.peerInfo;
@@ -1577,7 +1548,7 @@ static bool SOSAccountJoinCirclesWithAnalytics_internal(SOSAccountTransaction* a
         }
     }
 
-    success = SOSAccountJoinCircleWithAnalytics(aTxn, user_key, use_cloud_identity, parentEvent, error);
+    success = SOSAccountJoinCircle(aTxn, user_key, use_cloud_identity, parentEvent, error);
 
     require_quiet(success, done);
 
@@ -1587,126 +1558,25 @@ done:
     return success;
 }
 
-static bool SOSAccountJoinCircles_internal(SOSAccountTransaction* aTxn, bool use_cloud_identity, CFErrorRef* error) {
-    SOSAccount* account = aTxn.account;
-    SOSAccountTrustClassic *trust = account.trust;
-    bool success = false;
-
-    SecKeyRef user_key = SOSAccountGetPrivateCredential(account, error);
-    require_quiet(user_key, done); // Fail if we don't get one.
-
-    require_action_quiet(trust.trustedCircle, done, SOSErrorCreate(kSOSErrorNoCircle, error, NULL, CFSTR("No circle to join")));
-    
-    if (trust.fullPeerInfo != NULL) {
-        SOSPeerInfoRef myPeer = trust.peerInfo;
-        success = SOSCircleHasPeer(trust.trustedCircle, myPeer, NULL);
-        require_quiet(!success, done);
-
-        SOSCircleRemoveRejectedPeer(trust.trustedCircle, myPeer, NULL); // If we were rejected we should remove it now.
-
-        if (!SOSCircleHasApplicant(trust.trustedCircle, myPeer, NULL)) {
-        	secerror("Resetting my peer (ID: %@) for circle '%@' during application", SOSPeerInfoGetPeerID(myPeer), SOSCircleGetName(trust.trustedCircle));
-            
-            trust.fullPeerInfo = NULL;
-        }
-    }
-    
-    success = SOSAccountJoinCircle(aTxn, user_key, use_cloud_identity, error);
-
-    require_quiet(success, done);
-       
-    trust.departureCode = kSOSNeverLeftCircle;
-
-done:
-    return success;
+bool SOSAccountJoinCircles(SOSAccountTransaction* aTxn, NSData* parentEvent, CFErrorRef* error) {
+    secnotice("circleOps", "Normal path circle join (SOSAccountJoinCircles)");
+    return SOSAccountJoinCircles_internal(aTxn, false, parentEvent, error);
 }
 
-bool SOSAccountJoinCirclesWithAnalytics(SOSAccountTransaction* aTxn, NSData* parentEvent, CFErrorRef* error) {
-    secnotice("circleOps", "Normal path circle join (SOSAccountJoinCirclesWithAnalytics)");
-    return SOSAccountJoinCirclesWithAnalytics_internal(aTxn, false, parentEvent, error);
-}
-
-bool SOSAccountJoinCircles(SOSAccountTransaction* aTxn, CFErrorRef* error) {
-	secnotice("circleOps", "Normal path circle join (SOSAccountJoinCircles)");
-    return SOSAccountJoinCircles_internal(aTxn, false, error);
-}
-
-bool SOSAccountJoinCirclesAfterRestore(SOSAccountTransaction* aTxn, CFErrorRef* error) {
-	secnotice("circleOps", "Joining after restore (SOSAccountJoinCirclesAfterRestore)");
-    return SOSAccountJoinCircles_internal(aTxn, true, error);
-}
-
-bool SOSAccountJoinCirclesAfterRestoreWithAnalytics(SOSAccountTransaction* aTxn, NSData* parentEvent, CFErrorRef* error) {
+bool SOSAccountJoinCirclesAfterRestore(SOSAccountTransaction* aTxn, NSData* parentEvent, CFErrorRef* error) {
     secnotice("circleOps", "Joining after restore (SOSAccountJoinCirclesAfterRestore)");
-    return SOSAccountJoinCirclesWithAnalytics_internal(aTxn, true, parentEvent, error);
+    return SOSAccountJoinCircles_internal(aTxn, true, parentEvent, error);
 }
 
-bool SOSAccountRemovePeersFromCircle(SOSAccount*  account, CFArrayRef peers, CFErrorRef* error)
-{
-    bool result = false;
-    CFMutableSetRef peersToRemove = NULL;
-    SecKeyRef user_key = SOSAccountGetPrivateCredential(account, error);
-    if(!user_key){
-        secnotice("circleOps", "Can't remove without userKey");
-        return result;
-    }
-    SOSFullPeerInfoRef me_full = account.fullPeerInfo;
-    SOSPeerInfoRef me = account.peerInfo;
-    if(!(me_full && me))
-    {
-        secnotice("circleOps", "Can't remove without being active peer");
-        SOSErrorCreate(kSOSErrorPeerNotFound, error, NULL, CFSTR("Can't remove without being active peer"));
-        return result;
-    }
-    
-    result = true; // beyond this point failures would be rolled up in AccountModifyCircle.
-
-    peersToRemove = CFSetCreateMutableForSOSPeerInfosByIDWithArray(kCFAllocatorDefault, peers);
-    if(!peersToRemove)
-    {
-        CFReleaseNull(peersToRemove);
-        secnotice("circleOps", "No peerSet to remove");
-        return result;
-    }
-
-    // If we're one of the peers expected to leave - note that and then remove ourselves from the set (different handling).
-    bool leaveCircle = CFSetContainsValue(peersToRemove, me);
-    CFSetRemoveValue(peersToRemove, me);
-
-    result &= [account.trust modifyCircle:account.circle_transport err:error action:^(SOSCircleRef circle) {
-        bool success = false;
-
-        if(CFSetGetCount(peersToRemove) != 0) {
-            require_quiet(SOSCircleRemovePeers(circle, user_key, me_full, peersToRemove, error), done);
-            success = SOSAccountGenerationSignatureUpdate(account, error);
-        } else success = true;
-
-        if (success && leaveCircle) {
-            secnotice("circleOps", "Leaving circle by client request (SOSAccountRemovePeersFromCircle)");
-            success = sosAccountLeaveCircle(account, circle, error);
-        }
-
-    done:
-        return success;
-
-    }];
-    
-    if(result) {
-        CFStringSetPerformWithDescription(peersToRemove, ^(CFStringRef description) {
-            secnotice("circleOps", "Removed Peers from circle %@", description);
-        });
-    }
-
-    CFReleaseNull(peersToRemove);
-    return result;
-}
-
-
-bool SOSAccountRemovePeersFromCircleWithAnalytics(SOSAccount*  account, CFArrayRef peers, NSData* parentEvent, CFErrorRef* error)
+bool SOSAccountRemovePeersFromCircle(SOSAccount*  account, CFArrayRef peers, NSData* parentEvent, CFErrorRef* error)
 {
 
     NSError* localError = nil;
-    SFSignInAnalytics* parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentEvent error:&localError];
+    SFSignInAnalytics* parent = nil;
+    
+    if(parentEvent) {
+        parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentEvent error:&localError];
+    }
 
     bool result = false;
     CFMutableSetRef peersToRemove = NULL;
@@ -1743,18 +1613,27 @@ bool SOSAccountRemovePeersFromCircleWithAnalytics(SOSAccount*  account, CFArrayR
 
         if(CFSetGetCount(peersToRemove) != 0) {
             require_quiet(SOSCircleRemovePeers(circle, user_key, me_full, peersToRemove, error), done);
-            SFSignInAnalytics *generationSignatureUpdateEvent = [parent newSubTaskForEvent:@"generationSignatureUpdateEvent"];
+            
+            SFSignInAnalytics *generationSignatureUpdateEvent = nil;
+            if(parent) {
+                generationSignatureUpdateEvent = [parent newSubTaskForEvent:@"generationSignatureUpdateEvent"];
+            }
+            
             success = SOSAccountGenerationSignatureUpdate(account, error);
             if(error && *error){
                 NSError* signatureUpdateError = (__bridge NSError*)*error;
-                [generationSignatureUpdateEvent logUnrecoverableError:signatureUpdateError];
+                if(generationSignatureUpdateEvent) {
+                    [generationSignatureUpdateEvent logUnrecoverableError:signatureUpdateError];
+                }
             }
-            [generationSignatureUpdateEvent stopWithAttributes:nil];
+            if(generationSignatureUpdateEvent) {
+                [generationSignatureUpdateEvent stopWithAttributes:nil];
+            }
         } else success = true;
 
         if (success && leaveCircle) {
             secnotice("circleOps", "Leaving circle by client request (SOSAccountRemovePeersFromCircle)");
-            success = sosAccountLeaveCircleWithAnalytics(account, circle, parentEvent, error);
+            success = sosAccountLeaveCircle(account, circle, parentEvent, error);
         }
 
     done:
@@ -1782,7 +1661,7 @@ bool SOSAccountBail(SOSAccount*  account, uint64_t limit_in_seconds, CFErrorRef*
     dispatch_group_async(group, queue, ^{
         [trust modifyCircle:account.circle_transport err:error action:^(SOSCircleRef circle) {
             secnotice("circleOps", "Leaving circle by client request (Bail)");
-            return sosAccountLeaveCircle(account, circle, error);
+            return sosAccountLeaveCircle(account, circle, nil, error);
         }];
     });
     dispatch_time_t milestone = dispatch_time(DISPATCH_TIME_NOW, limit_in_seconds * NSEC_PER_SEC);

@@ -1509,8 +1509,13 @@ oakley_validate_auth(phase1_handle_t *iph1)
 								return ISAKMP_NTYPE_AUTHENTICATION_FAILED;
 								break;
 						}						
-					} else
+					} else {
 						hostname = CFStringCreateWithBytes(NULL, (u_int8_t *)id_spec->id->v, id_spec->id->l, kCFStringEncodingUTF8, FALSE);
+					}
+					if (hostname == NULL) {
+						plog(ASL_LEVEL_ERR, "missing hostname for peers identifier.\n");
+						return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+					}
 				}
 				error = crypto_cssm_check_x509cert(oakley_get_peer_cert_from_certchain(iph1), iph1->cert_p, hostname, &publicKeyRef);
 				if (hostname)

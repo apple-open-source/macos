@@ -325,7 +325,7 @@ static void tests(void)
                                                          carol_account.peerInfo,
                                                          NULL);
 
-    ok(SOSAccountRemovePeersFromCircle(bob_account, peers_to_remove_array, NULL));
+    ok(SOSAccountRemovePeersFromCircle(bob_account, peers_to_remove_array, nil, NULL));
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 4, "Remove peers");
 

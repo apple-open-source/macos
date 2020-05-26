@@ -3818,7 +3818,9 @@ private:
         // the typed array storage, since that's as precise of an abstraction as we can have of shared
         // array buffer storage.
         m_heaps.decorateFencedAccess(&m_heaps.typedArrayProperties, atomicValue);
-        
+
+        // We have to keep base alive since that keeps storage alive.
+        ensureStillAliveHere(lowCell(baseEdge));
         setIntTypedArrayLoadResult(result, type);
     }
     
@@ -4286,6 +4288,9 @@ private:
                         isHole, m_out.constInt64(JSValue::encode(jsUndefined())), result);
                 } else
                     speculate(LoadFromHole, noValue(), 0, isHole);
+                // We have to keep base alive to keep content in storage alive.
+                if (m_node->arrayMode().type() == Array::Contiguous)
+                    ensureStillAliveHere(base);
                 setJSValue(result);
                 return;
             }
@@ -4311,6 +4316,9 @@ private:
             m_out.jump(continuation);
             
             m_out.appendTo(continuation, lastNext);
+            // We have to keep base alive to keep content in storage alive.
+            if (m_node->arrayMode().type() == Array::Contiguous)
+                ensureStillAliveHere(base);
             setJSValue(m_out.phi(Int64, fastResult, slowResult));
             return;
         }
@@ -4589,8 +4597,10 @@ private:
             if (m_node->arrayMode().isInBounds()) {
                 LValue result = m_out.load64(baseIndex(heap, storage, index, m_graph.varArgChild(m_node, 1)));
                 speculate(LoadFromHole, noValue(), 0, m_out.isZero64(result));
+                // We have to keep base alive to keep content in storage alive.
+                ensureStillAliveHere(base);
                 setJSValue(result);
-                break;
+                return;
             }
 
             LBasicBlock inBounds = m_out.newBlock();
@@ -4614,6 +4624,8 @@ private:
             m_out.jump(continuation);
 
             m_out.appendTo(continuation, lastNext);
+            // We have to keep base alive to keep content in storage alive.
+            ensureStillAliveHere(base);
             setJSValue(m_out.phi(Int64, fastResult, slowResult));
             return;
         }
@@ -4632,6 +4644,7 @@ private:
         case Array::Uint32Array:
         case Array::Float32Array:
         case Array::Float64Array: {
+            LValue base = lowCell(m_graph.varArgChild(m_node, 0));
             LValue index = lowInt32(m_graph.varArgChild(m_node, 1));
             LValue storage = lowStorage(m_graph.varArgChild(m_node, 2));
             
@@ -4642,6 +4655,8 @@ private:
                 
                 if (isInt(type)) {
                     LValue result = loadFromIntTypedArray(pointer, type);
+                    // We have to keep base alive since that keeps storage alive.
+                    ensureStillAliveHere(base);
                     bool canSpeculate = true;
                     setIntTypedArrayLoadResult(result, type, canSpeculate);
                     return;
@@ -4661,6 +4676,8 @@ private:
                     DFG_CRASH(m_graph, m_node, "Bad typed array type");
                 }
                 
+                // We have to keep base alive since that keeps storage alive.
+                ensureStillAliveHere(base);
                 setDouble(result);
                 return;
             }
@@ -5027,6 +5044,8 @@ private:
                     m_out.appendTo(continuation, lastNext);
                 }
                 
+                // We have to keep base alive since that keeps storage alive.
+                ensureStillAliveHere(base);
                 return;
             }
         }
@@ -5392,7 +5411,7 @@ private:
         }
 
         // Keep the sourceArray alive at least until after anything that can GC.
-        keepAlive(sourceArray);
+        ensureStillAliveHere(sourceArray);
 
         LBasicBlock loop = m_out.newBlock();
         LBasicBlock continuation = m_out.newBlock();
@@ -5424,6 +5443,7 @@ private:
     void compileArrayIndexOf()
     {
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_node->origin.semantic);
+        LValue base = lowCell(m_graph.varArgChild(m_node, 0));
         LValue storage = lowStorage(m_node->numChildren() == 3 ? m_graph.varArgChild(m_node, 2) : m_graph.varArgChild(m_node, 3));
         LValue length = m_out.load32(storage, m_heaps.Butterfly_publicLength);
 
@@ -5526,33 +5546,40 @@ private:
             m_out.jump(continuation);
 
             m_out.appendTo(continuation, lastNext);
+            // We have to keep base alive since that keeps content of storage alive.
+            ensureStillAliveHere(base);
             setInt32(m_out.castToInt32(m_out.phi(pointerType(), notFoundResult, foundResult)));
-            break;
+            return;
         }
 
         case StringUse:
             ASSERT(m_node->arrayMode().type() == Array::Contiguous);
+            // We have to keep base alive since that keeps storage alive.
+            ensureStillAliveHere(base);
             setInt32(vmCall(Int32, operationArrayIndexOfString, weakPointer(globalObject), storage, lowString(searchElementEdge), startIndex));
-            break;
+            return;
 
         case UntypedUse:
             switch (m_node->arrayMode().type()) {
             case Array::Double:
                 setInt32(vmCall(Int32, operationArrayIndexOfValueDouble, weakPointer(globalObject), storage, lowJSValue(searchElementEdge), startIndex));
-                break;
-            case Array::Int32:
+                return;
             case Array::Contiguous:
+                // We have to keep base alive since that keeps content of storage alive.
+                ensureStillAliveHere(base);
+                FALLTHROUGH;
+            case Array::Int32:
                 setInt32(vmCall(Int32, operationArrayIndexOfValueInt32OrContiguous, weakPointer(globalObject), storage, lowJSValue(searchElementEdge), startIndex));
-                break;
+                return;
             default:
                 RELEASE_ASSERT_NOT_REACHED();
-                break;
+                return;
             }
-            break;
+            return;
 
         default:
             RELEASE_ASSERT_NOT_REACHED();
-            break;
+            return;
         }
     }
 
@@ -5586,6 +5613,9 @@ private:
             TypedPointer pointer = m_out.baseIndex(heap, storage, m_out.zeroExtPtr(newLength));
             if (m_node->arrayMode().type() != Array::Double) {
                 LValue result = m_out.load64(pointer);
+                // We have to keep base alive to keep content in storage alive.
+                if (m_node->arrayMode().type() == Array::Contiguous)
+                    ensureStillAliveHere(base);
                 m_out.store64(m_out.int64Zero, pointer);
                 results.append(m_out.anchor(result));
                 m_out.branch(
@@ -5631,6 +5661,8 @@ private:
             m_out.appendTo(popCheckCase, fastCase);
             TypedPointer pointer = m_out.baseIndex(m_heaps.ArrayStorage_vector, storage, m_out.zeroExtPtr(newLength));
             LValue result = m_out.load64(pointer);
+            // We have to keep base alive to keep content in storage alive.
+            ensureStillAliveHere(base);
             m_out.branch(m_out.notZero64(result), usually(fastCase), rarely(slowCase));
 
             m_out.appendTo(fastCase, slowCase);
@@ -7549,6 +7581,8 @@ private:
         m_out.jump(continuation);
             
         m_out.appendTo(continuation, lastNext);
+        // We have to keep base alive since that keeps storage alive.
+        ensureStillAliveHere(base);
         setJSValue(m_out.phi(Int64, results));
     }
     
@@ -7595,6 +7629,8 @@ private:
         
         m_out.appendTo(continuation, lastNext);
         
+        // We have to keep base alive since that keeps storage alive.
+        ensureStillAliveHere(base);
         setInt32(m_out.phi(Int32, char8Bit, char16Bit));
     }
 
@@ -7653,6 +7689,8 @@ private:
         m_out.jump(continuation);
 
         m_out.appendTo(continuation, lastNext);
+        // We have to keep base alive since that keeps storage alive.
+        ensureStillAliveHere(base);
         setInt32(m_out.phi(Int32, char8Bit, char16Bit, charSurrogatePair));
     }
 
@@ -7705,8 +7743,11 @@ private:
     {
         StorageAccessData& data = m_node->storageAccessData();
         
-        setJSValue(loadProperty(
-            lowStorage(m_node->child1()), data.identifierNumber, data.offset));
+        LValue base = lowCell(m_node->child2());
+        LValue value = loadProperty(lowStorage(m_node->child1()), data.identifierNumber, data.offset);
+        // We have to keep base alive since that keeps content of storage alive.
+        ensureStillAliveHere(base);
+        setJSValue(value);
     }
     
     void compileGetGetter()
@@ -7788,6 +7829,8 @@ private:
         m_out.unreachable();
         
         m_out.appendTo(continuation, lastNext);
+        // We have to keep base alive since that keeps storage alive.
+        ensureStillAliveHere(base);
         setJSValue(m_out.phi(Int64, results));
     }
     
@@ -11405,6 +11448,7 @@ private:
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_node->origin.semantic);
         LValue base = lowCell(m_graph.varArgChild(m_node, 0));
         LValue index = lowInt32(m_graph.varArgChild(m_node, 1));
+        ArrayMode mode = m_node->arrayMode();
 
         switch (m_node->arrayMode().type()) {
         case Array::Int32:
@@ -11412,14 +11456,14 @@ private:
             LValue storage = lowStorage(m_graph.varArgChild(m_node, 2));
             LValue internalMethodType = m_out.constInt32(static_cast<int32_t>(m_node->internalMethodType()));
 
-            IndexedAbstractHeap& heap = m_node->arrayMode().type() == Array::Int32 ?
+            IndexedAbstractHeap& heap = mode.type() == Array::Int32 ?
                 m_heaps.indexedInt32Properties : m_heaps.indexedContiguousProperties;
 
             LBasicBlock slowCase = m_out.newBlock();
             LBasicBlock continuation = m_out.newBlock();
             LBasicBlock lastNext = nullptr;
 
-            if (!m_node->arrayMode().isInBounds()) {
+            if (!mode.isInBounds()) {
                 LBasicBlock checkHole = m_out.newBlock();
                 m_out.branch(
                     m_out.aboveOrEqual(
@@ -11432,7 +11476,12 @@ private:
             LValue checkHoleResultValue =
                 m_out.notZero64(m_out.load64(baseIndex(heap, storage, index, m_graph.varArgChild(m_node, 1))));
             ValueFromBlock checkHoleResult = m_out.anchor(checkHoleResultValue);
-            m_out.branch(checkHoleResultValue, usually(continuation), rarely(slowCase));
+            if (mode.isSaneChain())
+                m_out.jump(continuation);
+            else if (!mode.isInBounds())
+                m_out.branch(checkHoleResultValue, usually(continuation), rarely(slowCase));
+            else
+                speculateAndJump(continuation, LoadFromHole, noValue(), nullptr, checkHoleResultValue);
 
             m_out.appendTo(slowCase, continuation);
             ValueFromBlock slowResult = m_out.anchor(
@@ -11466,7 +11515,12 @@ private:
             LValue doubleValue = m_out.loadDouble(baseIndex(heap, storage, index, m_graph.varArgChild(m_node, 1)));
             LValue checkHoleResultValue = m_out.doubleEqual(doubleValue, doubleValue);
             ValueFromBlock checkHoleResult = m_out.anchor(checkHoleResultValue);
-            m_out.branch(checkHoleResultValue, usually(continuation), rarely(slowCase));
+            if (mode.isSaneChain())
+                m_out.jump(continuation);
+            else if (!mode.isInBounds())
+                m_out.branch(checkHoleResultValue, usually(continuation), rarely(slowCase));
+            else
+                speculateAndJump(continuation, LoadFromHole, noValue(), nullptr, checkHoleResultValue);
             
             m_out.appendTo(slowCase, continuation);
             ValueFromBlock slowResult = m_out.anchor(
@@ -11499,7 +11553,12 @@ private:
             LValue checkHoleResultValue =
                 m_out.notZero64(m_out.load64(baseIndex(m_heaps.ArrayStorage_vector, storage, index, m_graph.varArgChild(m_node, 1))));
             ValueFromBlock checkHoleResult = m_out.anchor(checkHoleResultValue);
-            m_out.branch(checkHoleResultValue, usually(continuation), rarely(slowCase));
+            if (mode.isSaneChain())
+                m_out.jump(continuation);
+            else if (!mode.isInBounds())
+                m_out.branch(checkHoleResultValue, usually(continuation), rarely(slowCase));
+            else
+                speculateAndJump(continuation, LoadFromHole, noValue(), nullptr, checkHoleResultValue);
 
             m_out.appendTo(slowCase, continuation);
             ValueFromBlock slowResult = m_out.anchor(
@@ -15881,6 +15940,13 @@ private:
     {
         appendOSRExit(kind, lowValue, profile, failCondition, m_origin);
     }
+
+    template<typename... Args>
+    void speculateAndJump(B3::BasicBlock* target, Args... args)
+    {
+        speculate(args...);
+        m_out.jump(target);
+    }
     
     void terminate(ExitKind kind)
     {
@@ -18103,7 +18169,7 @@ private:
         return true;
     }
 
-    void keepAlive(LValue value)
+    void ensureStillAliveHere(LValue value)
     {
         PatchpointValue* patchpoint = m_out.patchpoint(Void);
         patchpoint->effects = Effects::none();

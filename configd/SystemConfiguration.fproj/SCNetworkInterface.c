@@ -4714,6 +4714,9 @@ __waitForInterfaces()
 		if (dict != NULL) {
 			if (isA_CFDictionary(dict) &&
 			    (CFDictionaryContainsKey(dict, kInterfaceNamerKey_Quiet) ||
+#if	TARGET_OS_IPHONE
+			     CFDictionaryContainsKey(dict, kInterfaceNamerKey_Complete) ||
+ #endif	// TARGET_OS_IPHONE
 			     CFDictionaryContainsKey(dict, kInterfaceNamerKey_Timeout))) {
 				quiet = TRUE;
 			}

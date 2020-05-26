@@ -98,6 +98,8 @@ extern int extended_attributes;
 
 static int deletion_count = 0; /* used to implement --max-delete */
 
+int flist_find_name(struct file_list *flist, const char *fname, int want_dir_match);
+
 /* For calling delete_file() */
 #define DEL_FORCE_RECURSE	(1<<1) /* recurse even w/o --force */
 #define DEL_TERSE		(1<<3)
@@ -794,6 +796,7 @@ static void recv_generator(char *fname, struct file_struct *file, int ndx,
 {
 	static int missing_below = -1, excluded_below = -1;
 	static char *parent_dirname = "";
+	static struct file_struct *prior_dir_file = NULL;
 	static struct file_list *fuzzy_dirlist = NULL;
 	static int need_fuzzy_dirlist = 0;
 	struct file_struct *fuzzy_file = NULL;
@@ -860,6 +863,17 @@ static void recv_generator(char *fname, struct file_struct *file, int ndx,
 	} else {
 		char *dn = file->dirname ? file->dirname : ".";
 		if (parent_dirname != dn && strcmp(parent_dirname, dn) != 0) {
+			/* Each parent dir must be in the file list or the flist data is bad.
+			 * Optimization: most of the time the parent dir will be the last dir
+			 * this function was asked to process in the file list. */
+			if ((*dn != '.' || dn[1]) /* Avoid an issue with --relative and the "." dir. */
+			 && (!prior_dir_file || strcmp(dn, f_name(prior_dir_file, NULL)) != 0)
+			 && flist_find_name(the_file_list, dn, 1) < 0) {
+				rprintf(FERROR,
+					"ABORTING due to invalid path from sender: %s/%s\n",
+					dn, file->basename);
+				exit_cleanup(RERR_PROTOCOL);
+			}
 			if (relative_paths && !implied_dirs
 			 && do_stat(dn, &st) < 0
 			 && create_directory_path(fname) < 0) {
@@ -951,6 +965,7 @@ static void recv_generator(char *fname, struct file_struct *file, int ndx,
 		if (delete_during && f_out != -1 && !phase && dry_run < 2
 		    && (file->flags & FLAG_DEL_HERE))
 			delete_in_dir(the_file_list, fname, file, &st);
+		prior_dir_file = file;
 		return;
 	}
 

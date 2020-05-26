@@ -159,6 +159,9 @@ process_create(const audit_info_s * auditInfo, session_t session)
         goto done;
     }
     
+    status = SecCodeCheckValidity(codeRef, kSecCSDefaultFlags, NULL);
+    require_noerr_action(status, done, os_log_error(AUTHD_LOG, "process: PID %d SecCodeCheckValidity failed with %d", proc->auditInfo.pid, (int)status));
+    
     status = SecCodeCopySigningInformation(codeRef, kSecCSRequirementInformation, &code_info);
     require_noerr_action(status, done, os_log_debug(AUTHD_LOG, "process: PID %d SecCodeCopySigningInformation failed with %d", proc->auditInfo.pid, (int)status));
 

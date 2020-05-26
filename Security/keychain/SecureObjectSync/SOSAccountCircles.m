@@ -11,6 +11,8 @@
 #import "keychain/SecureObjectSync/SOSTransportCircleCK.h"
 #import "keychain/SecureObjectSync/SOSAccountTrust.h"
 #import "keychain/SecureObjectSync/SOSAccountTrustClassic.h"
+#import "keychain/SecureObjectSync/SOSAccountTrustClassic+Expansion.h"
+#import "keychain/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
 
 #include "keychain/SecureObjectSync/SOSPeerInfoCollections.h"
 #include "SOSCloudKeychainClient.h"
@@ -42,3 +44,10 @@ fail:
     return circle;
 }
 
+bool SOSAccountEvaluateKeysAndCircle(SOSAccountTransaction *txn, CFErrorRef *error) {
+    // if the userKey signature on the circle doesn't work with the new userkey
+    if([txn.account.trust isInCircleOnly:nil]) {
+        return SOSAccountGenerationSignatureUpdate(txn.account, error);
+    }
+    return true;
+}

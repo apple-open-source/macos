@@ -3835,9 +3835,15 @@ pcap_inject(pcap_t *p, const void *buf, size_t size)
 void
 pcap_close(pcap_t *p)
 {
+#if __APPLE__
+	p->cleanup_op(p);
+	if (p->opt.device != NULL)
+		free(p->opt.device);
+#else
 	if (p->opt.device != NULL)
 		free(p->opt.device);
 	p->cleanup_op(p);
+#endif /* __APPLE__ */
 	free(p);
 }
 

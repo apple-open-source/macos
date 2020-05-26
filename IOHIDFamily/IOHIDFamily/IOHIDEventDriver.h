@@ -84,6 +84,7 @@ private:
             OSArray *           blessedUsagePairs;
             UInt8               bootMouseData[4];
             bool                appleVendorSupported;
+            IOHIDElement *      keyboardPower;
         } keyboard;
         
         struct {

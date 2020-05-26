@@ -11,7 +11,7 @@
 #import  "IOHIDEventSystemTestController.h"
 #import  "IOHIDUserDeviceTestController.h"
 #import  "IOHIDEventDriverTestCase.h"
-
+static int count = 0;
 #define FINGER_COLLECTION \
     0x09, 0x22,                               /*   Usage (Finger)                                           */\
     0xA1, 0x02,                               /*   Collection (Logical)                                     */\
@@ -102,6 +102,23 @@ uint8_t reports [][kDigitizerReportByteLength] = {
 {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0b, 0xab, 0xe7, 0x51, 0xc9, 0x01, 0x00, 0x00}
 };
 
+   // 1st report : Valid Transducer Index 2 , Touch , Inrange
+   // 2nd report : Valid Transducer Index 2, Touch , Inrange
+   // 3rd report : Valid Transducer Index 2 Touch , Inrange
+   // 4th report : Valid Transducer Index 2 (Untouch, InRange)
+   // 5th report : Valid Transducer Index 2 (Untouch, OutRange) -> Miss
+   // 6th report : Valid Transducer Index  -> Miss
+   // 7th report : Valid Transducer Index 2 (touch, InRange) ,
+   // 8th report : Valid Transducer Index 2 (touch, InRange) ,
+   // 9th report : Valid Transducer Index 2 (untouch, OutRange) ,
+   // 10th report : Valid Transducer Index  -> Miss
+   // 11th report : Valid Transducer Index -> Miss
+   // 12th report : Valid Transducer Index 2 (touch, InRange) ,
+   // 13th report : Valid Transducer Index 2 (Untouch, OutRange) ,
+   // 14th report : Valid Transducer Index 5(Untouch,InRange)
+   // 15th report : Valid Transducer Index -> Miss
+   // 16th report :  -> Miss
+
 
 @interface TestDigitizerCollection : IOHIDEventDriverTestCase
 
@@ -115,7 +132,7 @@ uint8_t reports [][kDigitizerReportByteLength] = {
 
     self.testEventExpectation = [[XCTestExpectation alloc] initWithDescription:@"Expectation: events"];
     
-    self.testEventExpectation.expectedFulfillmentCount = sizeof(reports) / kDigitizerReportByteLength;
+    self.testEventExpectation.expectedFulfillmentCount = 10;
     
     self.hidDeviceDescriptor = [NSData dataWithBytes:descriptor length:sizeof(descriptor)];
 
@@ -189,7 +206,7 @@ uint8_t reports [][kDigitizerReportByteLength] = {
 
 -(void) handleEvent: (IOHIDEventRef) event fromService:(IOHIDServiceClientRef __unused) service
 {
-    NSLog(@"Event:%@", event);
+    NSLog(@"Event (%d):%@", ++count,event);
     
     [super handleEvent:event fromService:service];
     

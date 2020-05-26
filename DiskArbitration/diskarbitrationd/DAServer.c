@@ -2065,6 +2065,11 @@ kern_return_t _DAServerSessionRegisterCallback( mach_port_t            _session,
 
             DALogDebugHeader( "%@ -> %s", session, gDAProcessNameID );
 
+            if ( _kDADiskLastKind < _kind )
+            {
+                goto exit;
+            }
+
             if ( _match )
             {
                 match = _DAUnserializeDiskDescriptionWithBytes( kCFAllocatorDefault, _match, _matchSize );
@@ -2169,6 +2174,7 @@ kern_return_t _DAServerSessionRegisterCallback( mach_port_t            _session,
         }
     }
 
+exit:
     if ( status )
     {
         DALogDebug( "unable to register callback, id = %016llX:%016llX, kind = %s (status code 0x%08X).", _address, _context, _DACallbackKindGetName( _kind ), status );

@@ -982,117 +982,133 @@
 			<string>TestPublicHIDUserDevice</string>
 		</dict>
 		<dict>
-                        <key>TestSpecificLogs</key>
-                        <array>
-                                <string>/var/tmp/hidxctest/TestHIDKeyboardWithTouchPad.m/.+</string>
-                        </array>
-                        <key>AsRoot</key>
-                        <true/>
-                        <key>Command</key>
-                        <array>
-                                <string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
-                                <string>-t &quot;TestHIDKeyboardWithTouchPad&quot;</string>
-                                <string>./IOHIDFamilyUnitTests.xctest</string>
-                        </array>
-                        <key>TestName</key>
-                        <string>TestHIDKeyboardWithTouchPad</string>
-                </dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestHIDKeyboardWithTouchPad.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestHIDKeyboardWithTouchPad&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestHIDKeyboardWithTouchPad</string>
+		</dict>
 		<dict>
-                        <key>TestSpecificLogs</key>
-                        <array>
-                                <string>/var/tmp/hidxctest/TestDigitizerFingerCollection.m/.+</string>
-                        </array>
-                        <key>AsRoot</key>
-                        <true/>
-                        <key>Command</key>
-                        <array>
-                                <string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
-                                <string>-t &quot;TestDigitizerFingerCollection&quot;</string>
-                                <string>./IOHIDFamilyUnitTests.xctest</string>
-                        </array>
-                        <key>TestName</key>
-                        <string>TestDigitizerFingerCollection</string>
-                </dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestDigitizerFingerCollection.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestDigitizerFingerCollection&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestDigitizerFingerCollection</string>
+		</dict>
 		<dict>
-                        <key>TestSpecificLogs</key>
-                        <array>
-                                <string>/var/tmp/hidxctest/TestDigitizerButtonMask.m/.+</string>
-                        </array>
-                        <key>AsRoot</key>
-                        <true/>
-                        <key>Command</key>
-                        <array>
-                                <string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
-                                <string>-t &quot;TestDigitizerButtonMask&quot;</string>
-                                <string>./IOHIDFamilyUnitTests.xctest</string>
-                        </array>
-                        <key>TestName</key>
-                        <string>TestDigitizerButtonMask</string>
-                </dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestDigitizerButtonMask.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestDigitizerButtonMask&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestDigitizerButtonMask</string>
+		</dict>
 		<dict>
-                        <key>TestSpecificLogs</key>
-                        <array>
-                                <string>/var/tmp/hidxctest/TestHIDUserDeviceInvalidReportLength.m/.+</string>
-                        </array>
-                        <key>AsRoot</key>
-                        <true/>
-                        <key>Command</key>
-                        <array>
-                                <string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
-                                <string>-t &quot;TestHIDUserDeviceInvalidReportLength&quot;</string>
-                                <string>./IOHIDFamilyUnitTests.xctest</string>
-                        </array>
-                        <key>TestName</key>
-                        <string>TestHIDUserDeviceInvalidReportLength</string>
-                </dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestHIDUserDeviceInvalidReportLength.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestHIDUserDeviceInvalidReportLength&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestHIDUserDeviceInvalidReportLength</string>
+		</dict>
 		<dict>
-                        <key>TestSpecificLogs</key>
-                        <array>
-                                <string>/var/tmp/hidxctest/TestDigitizerSurfaceSwitch.m/.+</string>
-                        </array>
-                        <key>AsRoot</key>
-                        <true/>
-                        <key>Command</key>
-                        <array>
-                                <string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
-                                <string>-t &quot;TestDigitizerSurfaceSwitch&quot;</string>
-                                <string>./IOHIDFamilyUnitTests.xctest</string>
-                        </array>
-                        <key>TestName</key>
-                        <string>TestDigitizerSurfaceSwitch</string>
-                </dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestDigitizerSurfaceSwitch.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestDigitizerSurfaceSwitch&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestDigitizerSurfaceSwitch</string>
+		</dict>
 		<dict>
-                        <key>TestSpecificLogs</key>
-                        <array>
-                                <string>/var/tmp/hidxctest/TestElementValueSet.m/.+</string>
-                        </array>
-                        <key>AsRoot</key>
-                        <true/>
-                        <key>Command</key>
-                        <array>
-                                <string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
-                                <string>-t &quot;TestElementValueSet&quot;</string>
-                                <string>./IOHIDFamilyUnitTests.xctest</string>
-                        </array>
-                        <key>TestName</key>
-                        <string>TestElementValueSet</string>
-                </dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestElementValueSet.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestElementValueSet&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestElementValueSet</string>
+		</dict>
 		<dict>
-                        <key>TestSpecificLogs</key>
-                        <array>
-                                <string>/var/tmp/hidxctest/TestDigitizerReportRate.m/.+</string>
-                        </array>
-                        <key>AsRoot</key>
-                        <true/>
-                        <key>Command</key>
-                        <array>
-                                <string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
-                                <string>-t &quot;TestDigitizerReportRate&quot;</string>
-                                <string>./IOHIDFamilyUnitTests.xctest</string>
-                        </array>
-                        <key>TestName</key>
-                        <string>TestDigitizerReportRate</string>
-                </dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestDigitizerReportRate.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestDigitizerReportRate&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestDigitizerReportRate</string>
+		</dict>
+		<dict>
+			<key>TestSpecificLogs</key>
+			<array>
+				<string>/var/tmp/hidxctest/TestHIDKeyboardPower.m/.+</string>
+			</array>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/IOHIDFamily/hidxctest</string>
+				<string>-t &quot;TestHIDKeyboardPower&quot;</string>
+				<string>./IOHIDFamilyUnitTests.xctest</string>
+			</array>
+			<key>TestName</key>
+			<string>TestHIDKeyboardPower</string>
+		</dict>
 	</array>
 </dict>
 </plist>

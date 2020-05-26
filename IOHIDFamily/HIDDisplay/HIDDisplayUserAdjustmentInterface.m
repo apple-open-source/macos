@@ -128,6 +128,8 @@ exit:
         [transactionElements addObject:validElement];
     }
     
+    __block NSError *err = nil;
+
     [data enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop __unused) {
         
         HIDElement *element = nil;
@@ -135,125 +137,34 @@ exit:
         if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentDescriptionKey]) {
             
             element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_Description)] : nil;
-    
+                
             if (element && [obj isKindOfClass:[NSString class]]) {
-                element.dataValue = [(NSString*)obj dataUsingEncoding:NSUTF16LittleEndianStringEncoding];
+                NSData *unicodeData = [(NSString*)obj dataUsingEncoding:NSUTF16LittleEndianStringEncoding];
+                if (!unicodeData || unicodeData.length == 0) {
+                    uint16_t tmp = 0;
+                    unicodeData = [[NSData alloc] initWithBytes:&tmp length:sizeof(uint16_t)];
+                    os_log(HIDDisplayLog(), "Invalid Description %@ , Converting it to 2 byte null value", obj);
+                }
+                element.dataValue = unicodeData;
                 [transactionElements addObject:element];
             }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentTimestampKey]) {
+        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentInformationKey]) {
             
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_Timestamp)] : nil;
+            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_Information)] : nil;
             
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentTemperatureKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_Temperature)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentFrontAmblientWhitePointXKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_ALXFront)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentFrontAmblientWhitePointYKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_ALYFront)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentFrontAmblientIlluminanceKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_ALLuminanceFront)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentRearAmblientWhitePointXKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_ALXRear)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentRearAmblientWhitePointYKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_ALYRear)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentRearAmblientIlluminanceKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_ALLuminanceRear)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentMeasuredWhitePointXKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_MWPX)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentMeasuredWhitePointYKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_MWPY)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentMeasuredLuminanceKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_MLuminance)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentExpectedWhitePointXKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_EWPX)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentExpectedWhitePointYKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_EWPY)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
-                [transactionElements addObject:element];
-            }
-        } else if ([key isEqualToString:(__bridge NSString*)kHIDDisplayUserAdjustmentExpectedLuminanceKey]) {
-            
-            element =  _usageElementMap ? [_usageElementMap objectForKey:@(kHIDUsage_AppleVendorDisplayUserAdjustment_ELuminance)] : nil;
-            
-            if (element && [obj isKindOfClass:[NSNumber class]]) {
-                element.integerValue = ((NSNumber*)obj).integerValue;
+            if (element && [obj isKindOfClass:[NSData class]]) {
+                NSData *dataValue = (NSData*)obj;
+                if (dataValue.length == 0) {
+                    // This shouldn't be 0 length here, Since Application is provider for this data we should return them error here
+                    os_log_error(HIDDisplayLog(), "Invalid User Adjsutment Information %@ Cancel Device Transaction", dataValue);
+                    err = [[NSError alloc] initWithDomain:@"Invalid User Adjsutment Information" code:kIOReturnBadArgument userInfo:nil];
+                    return;
+
+                }
+                element.dataValue = dataValue;
                 [transactionElements addObject:element];
             }
         }
-        
     }];
     
     if (transactionElements.count > 0) {
@@ -265,6 +176,10 @@ exit:
         }
     }
     
+    if (error) {
+        *error = err;
+    }
+
     return ret;
     
 }
@@ -276,20 +191,7 @@ exit:
     
     NSInteger usages[] = {
         kHIDUsage_AppleVendorDisplayUserAdjustment_Description,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_Timestamp ,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_Temperature,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_ALXFront,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_ALYFront,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_ALLuminanceFront,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_ALXRear,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_ALYRear,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_ALLuminanceRear,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_MWPX,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_MWPY,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_MLuminance,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_EWPX,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_EWPY,
-        kHIDUsage_AppleVendorDisplayUserAdjustment_ELuminance,
+        kHIDUsage_AppleVendorDisplayUserAdjustment_Information ,
     };
     
     for (NSUInteger i=0; i < sizeof(usages)/sizeof(usages[0]); i++) {
@@ -311,50 +213,25 @@ exit:
         if (!element) continue;
         
         switch (usage) {
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_Description:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentDescriptionKey] = getUnicharStringFromData(element.dataValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_Timestamp:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentTimestampKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_Temperature:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentTemperatureKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_ALXFront:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentFrontAmblientWhitePointXKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_ALYFront:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentFrontAmblientWhitePointYKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_ALLuminanceFront:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentFrontAmblientIlluminanceKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_ALXRear:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentRearAmblientWhitePointXKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_ALYRear:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentRearAmblientWhitePointYKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_ALLuminanceRear:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentRearAmblientIlluminanceKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_MWPX:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentMeasuredWhitePointXKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_MWPY:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentMeasuredWhitePointYKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_MLuminance:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentMeasuredLuminanceKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_EWPX:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentExpectedWhitePointXKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_EWPY:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentExpectedWhitePointYKey] = @(element.integerValue);
-                break;
-            case kHIDUsage_AppleVendorDisplayUserAdjustment_ELuminance:
-                ret[(__bridge NSString*)kHIDDisplayUserAdjustmentExpectedLuminanceKey] = @(element.integerValue);
+            case kHIDUsage_AppleVendorDisplayUserAdjustment_Description: {
+                    NSString *unicodeDescription = getUnicharStringFromData(element.dataValue);
+                    if (unicodeDescription) {
+                        ret[(__bridge NSString*)kHIDDisplayUserAdjustmentDescriptionKey] = unicodeDescription;
+                    } else {
+                        os_log(HIDDisplayLog(), "Invalid / Empty user adjustment description %@", element.dataValue);
+                        ret[(__bridge NSString*)kHIDDisplayUserAdjustmentDescriptionKey] = @"";
+                    }
+                    break;
+                }
+            case kHIDUsage_AppleVendorDisplayUserAdjustment_Information: {
+                    if (element.dataValue) {
+                        ret[(__bridge NSString*)kHIDDisplayUserAdjustmentInformationKey] = element.dataValue;
+                    } else {
+                        os_log(HIDDisplayLog(), "Invalid user adjustment information %@", element.dataValue);
+                    }
+                    break;
+                }
+            default:
                 break;
         }
     }

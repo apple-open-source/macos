@@ -2557,11 +2557,14 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
             else if((status&TPPeerStatusFullyReciprocated) == TPPeerStatusFullyReciprocated){
                 trustStatus = CliqueStatusIn;
             }
-            else if((status&TPPeerStatusUnknown) == TPPeerStatusUnknown){
-                trustStatus = CliqueStatusAbsent;
-            }
             else if ((status&TPPeerStatusSelfTrust) == TPPeerStatusSelfTrust) {
                 trustStatus = CliqueStatusIn;
+            }
+            else if ((status&TPPeerStatusIgnored) == TPPeerStatusIgnored) {
+                trustStatus = CliqueStatusNotIn;
+            }
+            else if((status&TPPeerStatusUnknown) == TPPeerStatusUnknown){
+                trustStatus = CliqueStatusAbsent;
             }
             else {
                 secnotice("octagon", "TPPeerStatus is empty");

@@ -269,8 +269,7 @@ void SOSAccountSetLastDepartureReason(SOSAccount* account, enum DepartureReason 
 void SOSAccountSetUserPublicTrustedForTesting(SOSAccount* account);
 
 void SOSAccountPurgeIdentity(SOSAccount*);
-bool sosAccountLeaveCircle(SOSAccount* account, SOSCircleRef circle, CFErrorRef* error);
-bool sosAccountLeaveCircleWithAnalytics(SOSAccount* account, SOSCircleRef circle, NSData* parentData, CFErrorRef* error);
+bool sosAccountLeaveCircle(SOSAccount* account, SOSCircleRef circle, NSData* parentData, CFErrorRef* error);
 
 bool SOSAccountForEachRing(SOSAccount* account, SOSRingRef (^action)(CFStringRef name, SOSRingRef ring));
 bool SOSAccountUpdateBackUp(SOSAccount* account, CFStringRef viewname, CFErrorRef *error);

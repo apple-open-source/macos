@@ -1550,6 +1550,57 @@ int flist_find(struct file_list *flist, struct file_struct *f)
 	return -1;
 }
 
+/* Search for an identically-named item in the file list.  Differs from
+ * flist_find in that an item that agrees with "f" in directory-ness is
+ * preferred but one that does not is still found. */
+int flist_find_ignore_dirness(struct file_list *flist, struct file_struct *f)
+{
+	mode_t save_mode;
+	int ndx;
+
+	/* First look for an item that agrees in directory-ness. */
+	ndx = flist_find(flist, f);
+	if (ndx >= 0)
+		return ndx;
+
+	/* Temporarily flip f->mode to look for an item of opposite
+	 * directory-ness. */
+	save_mode = f->mode;
+	f->mode = S_ISDIR(f->mode) ? S_IFREG : S_IFDIR;
+	ndx = flist_find(flist, f);
+	f->mode = save_mode;
+	return ndx;
+}
+
+/* Search for a name in the file list.  You must specify want_dir_match as:
+ * 1=match directories, 0=match non-directories, or -1=match either. */
+int flist_find_name(struct file_list *flist, const char *fname, int want_dir_match)
+{
+	/* We have to create a temporary file_struct for the search. */
+	struct file_struct f;
+	char basenamebuf[MAXPATHLEN];
+	char dirnamebuf[MAXPATHLEN];
+	const char *slash = strrchr(fname, '/');
+	const char *basename = slash ? slash+1 : fname;
+
+	memset(&f, 0, file_struct_len);
+
+	strlcpy(basenamebuf, basename, strlen(basename)+1);
+	f.basename = basenamebuf;
+
+	if (slash) {
+		strlcpy(dirnamebuf, fname, slash - fname + 1);
+		f.dirname = dirnamebuf;
+	} else
+		f.dirname = NULL;
+
+	f.mode = want_dir_match > 0 ? S_IFDIR : S_IFREG;
+
+	if (want_dir_match < 0)
+		return flist_find_ignore_dirness(flist, &f);
+	return flist_find(flist, &f);
+}
+
 /*
  * Free up any resources a file_struct has allocated
  * and clear the file.

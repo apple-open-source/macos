@@ -66,7 +66,8 @@ enum
     _kDADiskRenameCallback,
     _kDADiskUnmountCallback,
     _kDADiskUnmountApprovalCallback,
-    _kDAIdleCallback
+    _kDAIdleCallback,
+    _kDADiskLastKind = _kDAIdleCallback
 };
 
 typedef UInt32 _DACallbackKind;

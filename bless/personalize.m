@@ -25,11 +25,8 @@
 #define EX_OTHERPERSONALIZE	131
 
 
-static int HandleSpecialVolume(BLContextPtr context, const char *rootPath, const char *volumeDev, int role);
-static int EnsureSpecialVolumeUUIDPath(BLContextPtr context, const char *volumeDev, int role, char *mountPoint, int mountLen,
-									   bool *didMount);
+static int HandleSpecialVolume(BLContextPtr context, const char *rootPath, const char *volumeDev, int role, bool useGroupUUID);
 static int CopyRootToDir(const char *rootPath, const char *volumePath);
-static int GetRoledVolumeBSDForContainerBSD(const char *containerBSD, char *volumeBSD, int volumeLen, int role);
 
 
 int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char *prFile, bool suppressACPrompt)
@@ -52,6 +49,9 @@ int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char
 	struct statfs               sfs;
 	bool						mustCleanupRoots = false;
 	bool						mustUnmountPreboot = false;
+	struct stat					sb;
+	bool						useGroup = false;
+	bool						isDataVol = false;
 
 	// OSPersonalization is weak-linked, so check to make sure it's present
 	if ([OSPersonalizationController class] == nil) {
@@ -75,9 +75,20 @@ int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char
 		}
 		
 		if (strcmp(sfs.f_fstypename, "apfs") == 0) {
-			ret = EnsureSpecialVolumeUUIDPath(context, sfs.f_mntfromname, APFS_VOL_ROLE_PREBOOT, prebootMount, sizeof prebootMount,
-											  &mustUnmountPreboot);
+			ret = BLEnsureSpecialAPFSVolumeUUIDPath(context, sfs.f_mntfromname,
+                                                    APFS_VOL_ROLE_PREBOOT, false,
+                                                    prebootMount, sizeof prebootMount,
+											        &mustUnmountPreboot);
 			if (ret) goto exit;
+			if (stat(prebootMount, &sb) < 0 || !S_ISDIR(sb.st_mode)) {
+				// Volume UUID didn't work.  Let's try group UUID.
+				ret = BLEnsureSpecialAPFSVolumeUUIDPath(context, sfs.f_mntfromname,
+														APFS_VOL_ROLE_PREBOOT, true,
+														prebootMount, sizeof prebootMount,
+														&mustUnmountPreboot);
+				if (ret) goto exit;
+				useGroup = true;
+			}
 			pURL = [NSURL fileURLWithFileSystemRepresentation:prebootMount isDirectory:YES relativeToURL:nil];
 		}
 		if ([pc volumeHasBeenPersonalized:vURL prebootFolder:pURL]) {
@@ -118,17 +129,23 @@ int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char
 			dispatch_semaphore_wait(wait, DISPATCH_TIME_FOREVER);
 			if (ret) goto exit;
 			mustCleanupRoots = true;
-			ret = CopyRootToDir([[rootsURL URLByAppendingPathComponent:OSPersonalizedManifestRootTypeBoot] fileSystemRepresentation],
-								volumePath);
-			if (ret) goto exit;
+			if (strcmp(sfs.f_fstypename, "apfs") == 0) {
+				ret = BLIsDataRoleForAPFSVolumeDev(context, sfs.f_mntfromname, &isDataVol);
+				if (ret) goto exit;
+			}
+			if (!isDataVol) {
+				ret = CopyRootToDir([[rootsURL URLByAppendingPathComponent:OSPersonalizedManifestRootTypeBoot] fileSystemRepresentation],
+									volumePath);
+				if (ret) goto exit;
+			}
 			if (strcmp(sfs.f_fstypename, "apfs") == 0) {
 				pRoot = [[rootsURL URLByAppendingPathComponent:OSPersonalizedManifestRootTypePreboot] fileSystemRepresentation];
 				if (access(pRoot, R_OK) < 0) goto exit;
-				ret = HandleSpecialVolume(context, pRoot, sfs.f_mntfromname, APFS_VOL_ROLE_PREBOOT);
+				ret = HandleSpecialVolume(context, pRoot, sfs.f_mntfromname, APFS_VOL_ROLE_PREBOOT, useGroup);
 				if (ret) goto exit;
 				pRoot = [[rootsURL URLByAppendingPathComponent:OSPersonalizedManifestRootTypeRecoveryBoot] fileSystemRepresentation];
 				if (access(pRoot, R_OK) < 0) goto exit;
-				ret = HandleSpecialVolume(context, pRoot, sfs.f_mntfromname, APFS_VOL_ROLE_RECOVERY);
+				ret = HandleSpecialVolume(context, pRoot, sfs.f_mntfromname, APFS_VOL_ROLE_RECOVERY, useGroup);
 				if (ret) goto exit;
 			}
 		} else {
@@ -151,13 +168,16 @@ exit:
 
 
 
-static int HandleSpecialVolume(BLContextPtr context, const char *rootPath, const char *volumeDev, int role)
+static int HandleSpecialVolume(BLContextPtr context, const char *rootPath, const char *volumeDev, int role, bool useGroupUUID)
 {
 	int				ret;
 	char			specialMountPointPath[MAXPATHLEN];
 	bool			mustUnmount;
 
-	ret = EnsureSpecialVolumeUUIDPath(context, volumeDev, role, specialMountPointPath, sizeof specialMountPointPath, &mustUnmount);
+	ret = BLEnsureSpecialAPFSVolumeUUIDPath(context, volumeDev,
+                                            role, useGroupUUID,
+                                            specialMountPointPath, sizeof specialMountPointPath,
+                                            &mustUnmount);
 	if (ret) goto exit;
 	
 	ret = CopyRootToDir(rootPath, specialMountPointPath);
@@ -165,65 +185,6 @@ static int HandleSpecialVolume(BLContextPtr context, const char *rootPath, const
 
 exit:
 	if (mustUnmount) BLUnmountContainerVolume(context, specialMountPointPath);
-	return ret;
-}
-
-
-
-
-static int EnsureSpecialVolumeUUIDPath(BLContextPtr context, const char *volumeDev, int role, char *mountPoint, int mountLen,
-									   bool *didMount)
-{
-	int				ret;
-	char			specialDevPath[64];
-	struct statfs	*mnts;
-	int				mntsize;
-	int				i;
-	io_service_t	service = IO_OBJECT_NULL;
-	CFStringRef		uuid = NULL;
-	int				len;
-
-	strlcpy(specialDevPath, _PATH_DEV, sizeof specialDevPath);
-	ret = GetRoledVolumeBSDForContainerBSD(volumeDev, specialDevPath + strlen(_PATH_DEV),
-										   sizeof specialDevPath - strlen(_PATH_DEV), role);
-	if (ret) goto exit;
-	
-	// Check if the given volume is mounted.
-	mntsize = getmntinfo(&mnts, MNT_NOWAIT);
-	if (!mntsize) {
-		ret = 5;
-		goto exit;
-	}
-	for (i = 0; i < mntsize; i++) {
-		if (strcmp(mnts[i].f_mntfromname, specialDevPath) == 0) break;
-	}
-	if (i < mntsize) {
-		strlcpy(mountPoint, mnts[i].f_mntonname, mountLen);
-		*didMount = false;
-	} else {
-		// The preboot volume isn't mounted right now.  We'll have to mount it.
-		ret = BLMountContainerVolume(context, specialDevPath + strlen(_PATH_DEV), mountPoint, mountLen, false);
-		if (ret) goto exit;
-		*didMount = true;
-	}
-	ret = BLGetIOServiceForDeviceName(context, volumeDev + strlen(_PATH_DEV), &service);
-	if (ret) goto exit;
-	uuid = IORegistryEntryCreateCFProperty(service, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
-	if (!uuid) {
-		ret = EINVAL;
-		goto exit;
-	}
-	len = strlen(mountPoint);
-	if (mountLen <= len + 1) {
-		ret = EINVAL;
-		goto exit;
-	}
-	mountPoint[len] = '/';
-	CFStringGetCString(uuid, mountPoint + len + 1, mountLen - len - 1, kCFStringEncodingUTF8);
-
-exit:
-	if (service) IOObjectRelease(service);
-	if (uuid) CFRelease(uuid);
 	return ret;
 }
 
@@ -242,23 +203,3 @@ static int CopyRootToDir(const char *rootPath, const char *volumePath)
 }
 
 
-
-
-static int GetRoledVolumeBSDForContainerBSD(const char *containerBSD, char *volumeBSD, int volumeLen, int role)
-{
-	int                 ret;
-	CFMutableArrayRef   volumes = NULL;
-	CFStringRef         volume;
-	
-	*volumeBSD = '\0';
-	ret = APFSVolumeRoleFind(containerBSD, role, &volumes);
-	if (ret == unix_err(ENOATTR) || !volumes || CFArrayGetCount(volumes) == 0) {
-		ret = 0;
-	} else if (!ret) {
-		volume = CFArrayGetValueAtIndex(volumes, 0);
-		CFStringGetCString(volume, volumeBSD, volumeLen, kCFStringEncodingUTF8);
-		memmove(volumeBSD, volumeBSD + strlen(_PATH_DEV), strlen(volumeBSD) - strlen(_PATH_DEV) + 1);
-	}
-	if (volumes) CFRelease(volumes);
-	return ret;
-}

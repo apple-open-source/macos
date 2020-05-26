@@ -603,6 +603,7 @@
 		22A2CC3021FF14DE00ABE773 /* CommonCollabKeyGen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CommonCollabKeyGen.h; sourceTree = "<group>"; };
 		22A2CC3421FF18CA00ABE773 /* CommonCollabKeyGen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonCollabKeyGen.c; sourceTree = "<group>"; };
 		22B457AC21AEBEDE002DE5F3 /* CommonANSIKDF.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonANSIKDF.c; sourceTree = "<group>"; };
+		22ECA1BF23FD587B00EAEF7F /* CommonRSA_key_8k_vect.inc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.pascal; path = CommonRSA_key_8k_vect.inc; sourceTree = "<group>"; };
 		4825E18A158FD5AB0059CCF8 /* CC_crypto.3cc */ = {isa = PBXFileReference; lastKnownFileType = text; path = CC_crypto.3cc; sourceTree = "<group>"; };
 		4825E18B158FD5AB0059CCF8 /* CC_MD2.3cc */ = {isa = PBXFileReference; lastKnownFileType = text; path = CC_MD2.3cc; sourceTree = "<group>"; };
 		4825E18C158FD5AB0059CCF8 /* CC_MD2_Final.3cc */ = {isa = PBXFileReference; lastKnownFileType = text; path = CC_MD2_Final.3cc; sourceTree = "<group>"; };
@@ -803,7 +804,6 @@
 		F4F0C1511F327DC400B2CEE7 /* CommonRandom.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonRandom.c; sourceTree = "<group>"; };
 		F4F0C1521F327DC400B2CEE7 /* CommonRSA.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CommonRSA.c; sourceTree = "<group>"; };
 		F4F0C1531F327DC400B2CEE7 /* CommonRSA_key_vects.inc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.pascal; path = CommonRSA_key_vects.inc; sourceTree = "<group>"; };
-		F4F0C1541F327DC400B2CEE7 /* CommonRSA_keygen_vects.inc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.pascal; path = CommonRSA_keygen_vects.inc; sourceTree = "<group>"; };
 		F4F0C1551F327DC400B2CEE7 /* CryptorPadFailure.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CryptorPadFailure.c; sourceTree = "<group>"; };
 		F4F0C1571F327DC400B2CEE7 /* capabilities.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = capabilities.h; sourceTree = "<group>"; };
 		F4F0C1581F327DC400B2CEE7 /* testbyteBuffer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testbyteBuffer.c; sourceTree = "<group>"; };
@@ -1170,7 +1170,7 @@
 				F4F0C1511F327DC400B2CEE7 /* CommonRandom.c */,
 				F4F0C1521F327DC400B2CEE7 /* CommonRSA.c */,
 				F4F0C1531F327DC400B2CEE7 /* CommonRSA_key_vects.inc */,
-				F4F0C1541F327DC400B2CEE7 /* CommonRSA_keygen_vects.inc */,
+				22ECA1BF23FD587B00EAEF7F /* CommonRSA_key_8k_vect.inc */,
 				F4F0C1551F327DC400B2CEE7 /* CryptorPadFailure.c */,
 			);
 			path = CommonCrypto;

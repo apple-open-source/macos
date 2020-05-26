@@ -54,7 +54,7 @@ exit:
     
 }
 
--(BOOL) factoryReset:(HIDDisplayFactoryResetType) type securityToken:(uint64_t) securityToken error:(NSError**) error {
+-(BOOL) factoryReset:(uint8_t) type securityToken:(uint64_t) securityToken error:(NSError**) error {
     
     BOOL ret = NO;
     

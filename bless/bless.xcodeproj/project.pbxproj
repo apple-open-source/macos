@@ -68,6 +68,7 @@
 		A0968A3C22A5B8E200F39FBD /* test_bless in CopyFiles */ = {isa = PBXBuildFile; fileRef = A0F8D4B222A1F8CA0018E165 /* test_bless */; };
 		B0063D8C16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c in Sources */ = {isa = PBXBuildFile; fileRef = B0063D8B16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c */; };
 		B074D69316E5ACDA006D723F /* BLElToritoFindUEFI.c in Sources */ = {isa = PBXBuildFile; fileRef = B074D69216E5ACDA006D723F /* BLElToritoFindUEFI.c */; };
+		B0DE188A23DFA98B00722ED9 /* BLIsMountAPFSSSV.c in Sources */ = {isa = PBXBuildFile; fileRef = B0DE188923DFA98B00722ED9 /* BLIsMountAPFSSSV.c */; };
 		BA17434C0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BA17434B0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c */; };
 		BA17434D0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BA17434B0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c */; };
 		BA1C89FC07CBCBA4005CE20C /* modeFirmware.c in Sources */ = {isa = PBXBuildFile; fileRef = BA1C89FB07CBCBA4005CE20C /* modeFirmware.c */; };
@@ -353,6 +354,7 @@
 		A0F8D4B222A1F8CA0018E165 /* test_bless */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_bless; sourceTree = "<group>"; };
 		B0063D8B16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForElToritoEntry.c; sourceTree = "<group>"; };
 		B074D69216E5ACDA006D723F /* BLElToritoFindUEFI.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLElToritoFindUEFI.c; sourceTree = "<group>"; };
+		B0DE188923DFA98B00722ED9 /* BLIsMountAPFSSSV.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLIsMountAPFSSSV.c; sourceTree = "<group>"; };
 		BA10D77D04FADE430070B3E0 /* minibless.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = minibless.c; sourceTree = "<group>"; };
 		BA17434B0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForLegacyDevice.c; sourceTree = "<group>"; };
 		BA1C89FB07CBCBA4005CE20C /* modeFirmware.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = modeFirmware.c; sourceTree = "<group>"; };
@@ -786,6 +788,7 @@
 			isa = PBXGroup;
 			children = (
 				FCA377641D9210F5009EF117 /* BLIsMountAPFS.c */,
+				B0DE188923DFA98B00722ED9 /* BLIsMountAPFSSSV.c */,
 				FCA377661D92FD58009EF117 /* BLHandleAPFSBlessData.c */,
 				FCA377681D930568009EF117 /* BLGetAPFSInodeNum.c */,
 				FC4375F81DFD29E60018A727 /* BLAPFSUtilities.c */,
@@ -980,7 +983,6 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 0730;
 				TargetAttributes = {
 					FC8588A61EEF247C009EDD68 = {
@@ -1178,6 +1180,7 @@
 				C6031BD4099961DE00D04D2E /* BLValidateXMLBootOption.c in Sources */,
 				C6ABCFA0099A7059001ADBA3 /* BLInterpretEFIXMLRepresentationAsLegacyDevice.c in Sources */,
 				C6AB8C17099D38CA003E8E87 /* BLSupportsLegacyMode.c in Sources */,
+				B0DE188A23DFA98B00722ED9 /* BLIsMountAPFSSSV.c in Sources */,
 				C6E5590F09EC7549004B8204 /* BLGetOpenFirmwareBootDeviceForNetworkPath.c in Sources */,
 				FC4375FE1DFD2A570018A727 /* BLGetAPFSInodeNum.c in Sources */,
 				C6B5C7910A221695000530DB /* BLCreateBooterInformationDictionary.c in Sources */,

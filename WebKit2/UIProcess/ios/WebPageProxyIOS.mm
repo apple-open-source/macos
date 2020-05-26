@@ -76,6 +76,8 @@
 #import <wtf/text/WTFString.h>
 #endif
 
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, process().connection())
+
 #define RELEASE_LOG_IF_ALLOWED(channel, fmt, ...) RELEASE_LOG_IF(isAlwaysOnLoggingAllowed(), channel, "%p - [pageProxyID=%llu, webPageID=%llu, PID=%i] WebPageProxy::" fmt, this, m_identifier.toUInt64(), m_webPageID.toUInt64(), m_process->processIdentifier(), ##__VA_ARGS__)
 
 namespace WebKit {
@@ -644,8 +646,15 @@ void WebPageProxy::performActionOnElement(uint32_t action)
 
 void WebPageProxy::saveImageToLibrary(const SharedMemory::Handle& imageHandle, uint64_t imageSize)
 {
+    MESSAGE_CHECK(!imageHandle.isNull());
+    // SharedMemory::Handle::size() is rounded up to the nearest page.
+    MESSAGE_CHECK(imageSize && imageSize <= imageHandle.size());
+
     auto sharedMemoryBuffer = SharedMemory::map(imageHandle, SharedMemory::Protection::ReadOnly);
-    auto buffer = SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryBuffer->data()), imageSize);
+    if (!sharedMemoryBuffer)
+        return;
+
+    auto buffer = SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryBuffer->data()), static_cast<size_t>(imageSize));
     pageClient().saveImageToLibrary(WTFMove(buffer));
 }
 
@@ -1391,6 +1400,10 @@ static bool desktopClassBrowsingRecommendedForRequest(const WebCore::ResourceReq
             return false;
     }
 
+    // FIXME: Remove this quirk when <rdar://problem/59480381> is complete.
+    if (equalLettersIgnoringASCIICase(host, "fidelity.com") || host.endsWithIgnoringASCIICase(".fidelity.com"))
+        return false;
+
     return true;
 }
 
@@ -1499,5 +1512,6 @@ bool WebPageProxy::shouldUseForegroundPriorityForClientNavigation() const
 } // namespace WebKit
 
 #undef RELEASE_LOG_IF_ALLOWED
+#undef MESSAGE_CHECK
 
 #endif // PLATFORM(IOS_FAMILY)

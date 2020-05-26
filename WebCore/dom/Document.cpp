@@ -757,7 +757,7 @@ void Document::removedLastRef()
 #endif
         decrementReferencingNodeCount();
     } else {
-        stopActiveDOMObjects();
+        commonTeardown();
 #ifndef NDEBUG
         m_inRemovedLastRefFunction = false;
         m_deletionHasBegun = true;
@@ -783,6 +783,10 @@ void Document::commonTeardown()
         m_highlightMap->clear();
 
     m_pendingScrollEventTargetList = nullptr;
+
+    while (!m_timelines.computesEmpty())
+        m_timelines.begin()->detachFromDocument();
+    m_timeline = nullptr;
 }
 
 Element* Document::elementForAccessKey(const String& key)
@@ -2577,10 +2581,6 @@ void Document::prepareForDestruction()
 
     detachFromFrame();
 
-    while (!m_timelines.computesEmpty())
-        m_timelines.begin()->detachFromDocument();
-    m_timeline = nullptr;
-
 #if ENABLE(CSS_PAINTING_API)
     for (auto& scope : m_paintWorkletGlobalScopes.values())
         scope->prepareForDestruction();
@@ -3629,11 +3629,6 @@ void Document::processHttpEquiv(const String& equiv, const String& content, bool
     case HTTPHeaderName::ContentSecurityPolicy:
         if (isInDocumentHead)
             contentSecurityPolicy()->didReceiveHeader(content, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::HTTPEquivMeta, referrer(), httpStatusCode);
-        break;
-
-    case HTTPHeaderName::XWebKitCSP:
-        if (isInDocumentHead)
-            contentSecurityPolicy()->didReceiveHeader(content, ContentSecurityPolicyHeaderType::PrefixedEnforce, ContentSecurityPolicy::PolicyFrom::HTTPEquivMeta, referrer(), httpStatusCode);
         break;
 
     default:
@@ -5455,6 +5450,22 @@ void Document::captionPreferencesChanged()
 {
     for (auto* element : m_captionPreferencesChangedElements)
         element->captionPreferencesChanged();
+}
+
+void Document::setMediaElementShowingTextTrack(const HTMLMediaElement& element)
+{
+    m_mediaElementShowingTextTrack = makeWeakPtr(element);
+}
+
+void Document::clearMediaElementShowingTextTrack()
+{
+    m_mediaElementShowingTextTrack = nullptr;
+}
+
+void Document::updateTextTrackRepresentationImageIfNeeded()
+{
+    if (m_mediaElementShowingTextTrack)
+        m_mediaElementShowingTextTrack->updateTextTrackRepresentationImageIfNeeded();
 }
 
 #endif

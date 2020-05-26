@@ -958,10 +958,24 @@ static int process_xauth_need_info(struct service *serv)
 	{
 		int tlv;
 		u_int16_t type;
-		
+
+		if (tlen < sizeof(struct isakmp_data)) {
+			ipsec_log(LOG_ERR, CFSTR("IPSec Controller: invalid length of isakmp data, expected %zu actual %d"),
+					  sizeof(struct isakmp_data), tlen);
+			goto fail;
+		}
+
 		attr = ALIGNED_CAST(struct isakmp_data *)dataptr;
 		type = ntohs(attr->type) & 0x7FFF;
 		tlv = (type ==  ntohs(attr->type));
+
+		if (tlv) {
+			if (tlen < (sizeof(struct isakmp_data) + ntohs(attr->lorv))) {
+				ipsec_log(LOG_ERR, CFSTR("IPSec Controller: invalid length of xauth message, expected %zu actual %d"),
+						  (sizeof(struct isakmp_data) + ntohs(attr->lorv)), tlen);
+				goto fail;
+			}
+		}
 		
 		switch (type)
 		{
@@ -1267,10 +1281,24 @@ static void print_racoon_msg(struct service *serv)
 					int tlv;
 					u_int16_t type;
 					struct isakmp_data attr;
+
+					if (tlen < sizeof(struct isakmp_data)) {
+						ipsec_log(LOG_ERR, CFSTR("IPSec Controller: invalid length of isakmp data, expected %zu actual %d"),
+								  sizeof(struct isakmp_data), tlen);
+						break;
+					}
                     
                     memcpy(&attr, dataptr, sizeof(attr));   // Wcast-align fix - memcpy for unaligned access
 					type = ntohs(attr.type) & 0x7FFF;
 					tlv = (type ==  ntohs(attr.type));
+
+					if (tlv) {
+						if (tlen < (sizeof(struct isakmp_data) + ntohs(attr.lorv))) {
+							ipsec_log(LOG_ERR, CFSTR("IPSec Controller: invalid length of xauth message, expected %zu actual %d"),
+									  (sizeof(struct isakmp_data) + ntohs(attr.lorv)), tlen);
+							break;
+						}
+					}
 
 					ipsec_log(LOG_NOTICE, CFSTR("IPSec Controller:	XAuth Attribute Type = %d (%s)"), type, ipsec_xauthtype_to_str(type));
 					if (tlv) {

@@ -906,7 +906,6 @@ class Container: NSObject {
     func onQueueDetermineLocalTrustStatus(reply: @escaping (TrustedPeersHelperEgoPeerStatus, Error?) -> Void) {
         let viablePeerCountsByModelID = self.model.viablePeerCountsByModelID()
         let peerCountsByMachineID = self.model.peerCountsByMachineID()
-
         if let egoPeerID = self.containerMO.egoPeerID {
             var status = self.model.statusOfPeer(withID: egoPeerID)
             var isExcluded: Bool = (status == .excluded)

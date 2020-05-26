@@ -29,6 +29,7 @@
 #include "SOSTransport.h"
 #import "keychain/SecureObjectSync/SOSAccountTrust.h"
 #import "keychain/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
+#import "keychain/SecureObjectSync/SOSAccountTrustClassic+Expansion.h"
 
 #define kPublicKeyAvailable "com.apple.security.publickeyavailable"
 //

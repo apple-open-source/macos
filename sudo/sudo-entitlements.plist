@@ -6,9 +6,7 @@
 	<array>
 		<string>com.apple.security.sudo</string>
 	</array>
-	<key>com.apple.security.cs.disable-library-validation</key>
-	<true/>
-	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<key>com.apple.private.security.clear-library-validation</key>
 	<true/>
 </dict>
 </plist>

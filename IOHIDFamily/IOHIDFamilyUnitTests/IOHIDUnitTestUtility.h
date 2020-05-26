@@ -19,6 +19,9 @@
 #include <IOKit/hid/AppleHIDUsageTables.h>
 #import <Foundation/Foundation.h>
 
+#define kIOHIDAppleVendorID     1452
+#define kIOHIDAppleProductID    0001
+
 #define _EVAL(x) #x
 #define EVAL(x) _EVAL (x)
 

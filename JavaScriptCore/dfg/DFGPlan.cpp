@@ -558,12 +558,16 @@ bool Plan::isStillValid()
 
 void Plan::reallyAdd(CommonData* commonData)
 {
+    ASSERT(m_vm->heap.isDeferred());
     m_watchpoints.reallyAdd(m_codeBlock, *commonData);
     m_identifiers.reallyAdd(*m_vm, commonData);
     m_weakReferences.reallyAdd(*m_vm, commonData);
     m_transitions.reallyAdd(*m_vm, commonData);
     m_globalProperties.reallyAdd(m_codeBlock, m_identifiers, *commonData);
-    commonData->recordedStatuses = WTFMove(m_recordedStatuses);
+    {
+        ConcurrentJSLocker locker(m_codeBlock->m_lock);
+        commonData->recordedStatuses = WTFMove(m_recordedStatuses);
+    }
 }
 
 void Plan::notifyCompiling()
@@ -617,8 +621,8 @@ CompilationResult Plan::finalizeWithoutNotifyingCallback()
 
             for (WriteBarrier<JSCell>& reference : m_codeBlock->jitCode()->dfgCommon()->weakReferences)
                 trackedReferences.add(reference.get());
-            for (WriteBarrier<Structure>& reference : m_codeBlock->jitCode()->dfgCommon()->weakStructureReferences)
-                trackedReferences.add(reference.get());
+            for (StructureID structureID : m_codeBlock->jitCode()->dfgCommon()->weakStructureReferences)
+                trackedReferences.add(m_vm->getStructure(structureID));
             for (WriteBarrier<Unknown>& constant : m_codeBlock->constants())
                 trackedReferences.add(constant.get());
 

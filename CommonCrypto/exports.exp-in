@@ -156,7 +156,6 @@ _CCKDFParametersDestroy
 _CCKeyDerivationPBKDF
 _CCKeyDerivationHMac
 _CCRSACryptorCreateFromData
-_CCRSACryptorCreatePairFromData
 _CCRSACryptorCrypt
 _CCRSACryptorDecrypt
 _CCRSACryptorEncrypt

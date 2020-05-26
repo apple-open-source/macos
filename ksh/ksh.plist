@@ -15,6 +15,7 @@
 		<array>
 			<string>Change va_arg order for x86_64</string>
 			<string>http://rhn.redhat.com/errata/RHBA-2017-1378.html</string>
+			<string>Patch for CVE-2019-14868 (#59655159)</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>ksh</string>

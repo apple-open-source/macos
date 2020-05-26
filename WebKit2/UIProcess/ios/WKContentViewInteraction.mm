@@ -138,7 +138,7 @@
 #import <WebCore/WebItemProviderPasteboard.h>
 #endif
 
-#if PLATFORM(MACCATALYST)
+#if HAVE(LOOKUP_GESTURE_RECOGNIZER)
 #import <UIKit/_UILookupGestureRecognizer.h>
 #endif
 
@@ -787,7 +787,7 @@ static inline bool hasFocusedElement(WebKit::FocusedElementInformation focusedEl
     [self addGestureRecognizer:_mouseGestureRecognizer.get()];
 #endif
 
-#if PLATFORM(MACCATALYST)    
+#if HAVE(LOOKUP_GESTURE_RECOGNIZER)
     _lookupGestureRecognizer = adoptNS([[_UILookupGestureRecognizer alloc] initWithTarget:self action:@selector(_lookupGestureRecognized:)]);
     [_lookupGestureRecognizer setDelegate:self];
     [self addGestureRecognizer:_lookupGestureRecognizer.get()];
@@ -953,7 +953,7 @@ static inline bool hasFocusedElement(WebKit::FocusedElementInformation focusedEl
     [self removeGestureRecognizer:_mouseGestureRecognizer.get()];
 #endif
 
-#if PLATFORM(MACCATALYST)    
+#if HAVE(LOOKUP_GESTURE_RECOGNIZER)
     [_lookupGestureRecognizer setDelegate:nil];
     [self removeGestureRecognizer:_lookupGestureRecognizer.get()];
 #endif
@@ -998,7 +998,7 @@ static inline bool hasFocusedElement(WebKit::FocusedElementInformation focusedEl
     [self removeGestureRecognizer:_touchActionDownSwipeGestureRecognizer.get()];
 #endif
 
-    _layerTreeTransactionIdAtLastTouchStart = { };
+    _layerTreeTransactionIdAtLastInteractionStart = { };
 
 #if ENABLE(DATA_INTERACTION)
     [existingLocalDragSessionContext(_dragDropInteractionState.dragSession()) cleanUpTemporaryDirectories];
@@ -1076,7 +1076,7 @@ static inline bool hasFocusedElement(WebKit::FocusedElementInformation focusedEl
 #if HAVE(HOVER_GESTURE_RECOGNIZER)
     [self removeGestureRecognizer:_mouseGestureRecognizer.get()];
 #endif
-#if PLATFORM(MACCATALYST)
+#if HAVE(LOOKUP_GESTURE_RECOGNIZER)
     [self removeGestureRecognizer:_lookupGestureRecognizer.get()];
 #endif
 #if ENABLE(POINTER_EVENTS)
@@ -1106,7 +1106,7 @@ static inline bool hasFocusedElement(WebKit::FocusedElementInformation focusedEl
 #if HAVE(HOVER_GESTURE_RECOGNIZER)
     [self addGestureRecognizer:_mouseGestureRecognizer.get()];
 #endif
-#if PLATFORM(MACCATALYST)
+#if HAVE(LOOKUP_GESTURE_RECOGNIZER)
     [self addGestureRecognizer:_lookupGestureRecognizer.get()];
 #endif
 #if ENABLE(POINTER_EVENTS)
@@ -1448,7 +1448,7 @@ inline static UIKeyModifierFlags gestureRecognizerModifierFlags(UIGestureRecogni
     _lastInteractionLocation = lastTouchEvent->locationInDocumentCoordinates;
     if (lastTouchEvent->type == UIWebTouchEventTouchBegin) {
         [self _handleDOMPasteRequestWithResult:WebCore::DOMPasteAccessResponse::DeniedForGesture];
-        _layerTreeTransactionIdAtLastTouchStart = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).lastCommittedLayerTreeTransactionID();
+        _layerTreeTransactionIdAtLastInteractionStart = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).lastCommittedLayerTreeTransactionID();
 
 #if ENABLE(TOUCH_EVENTS)
         _page->resetPotentialTapSecurityOrigin();
@@ -1513,8 +1513,13 @@ inline static UIKeyModifierFlags gestureRecognizerModifierFlags(UIGestureRecogni
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
 {
+#if HAVE(LOOKUP_GESTURE_RECOGNIZER)
+    if (gestureRecognizer == _lookupGestureRecognizer)
+        return YES;
+#endif
+
 #if HAVE(HOVER_GESTURE_RECOGNIZER)
-    if (gestureRecognizer != _lookupGestureRecognizer && (gestureRecognizer != _mouseGestureRecognizer && [_mouseGestureRecognizer mouseTouch] == touch))
+    if (gestureRecognizer != _mouseGestureRecognizer && [_mouseGestureRecognizer mouseTouch] == touch)
         return NO;
 #endif
 
@@ -2607,7 +2612,7 @@ static inline bool isSamePair(UIGestureRecognizer *a, UIGestureRecognizer *b, UI
 
 - (void)_doubleTapRecognizedForDoubleClick:(UITapGestureRecognizer *)gestureRecognizer
 {
-    _page->handleDoubleTapForDoubleClickAtPoint(WebCore::IntPoint(gestureRecognizer.location), WebKit::webEventModifierFlags(gestureRecognizerModifierFlags(gestureRecognizer)), _layerTreeTransactionIdAtLastTouchStart);
+    _page->handleDoubleTapForDoubleClickAtPoint(WebCore::IntPoint(gestureRecognizer.location), WebKit::webEventModifierFlags(gestureRecognizerModifierFlags(gestureRecognizer)), _layerTreeTransactionIdAtLastInteractionStart);
 }
 
 - (void)_twoFingerSingleTapGestureRecognized:(UITapGestureRecognizer *)gestureRecognizer
@@ -2774,7 +2779,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
         m_commitPotentialTapPointerId = pointerId;
     }
 #endif
-    _page->commitPotentialTap(WebKit::webEventModifierFlags(gestureRecognizerModifierFlags(gestureRecognizer)), _layerTreeTransactionIdAtLastTouchStart, pointerId);
+    _page->commitPotentialTap(WebKit::webEventModifierFlags(gestureRecognizerModifierFlags(gestureRecognizer)), _layerTreeTransactionIdAtLastInteractionStart, pointerId);
 
     if (!_isExpectingFastSingleTapCommit)
         [self _finishInteraction];
@@ -2815,7 +2820,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
         [self becomeFirstResponder];
 
     [_inputPeripheral endEditing];
-    _page->handleTap(location, WebKit::webEventModifierFlags(modifierFlags), _layerTreeTransactionIdAtLastTouchStart);
+    _page->handleTap(location, WebKit::webEventModifierFlags(modifierFlags), _layerTreeTransactionIdAtLastInteractionStart);
 }
 
 - (void)setUpTextSelectionAssistant
@@ -7993,7 +7998,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 
 #endif // PLATFORM(WATCHOS)
 
-#if PLATFORM(MACCATALYST)
+#if HAVE(LOOKUP_GESTURE_RECOGNIZER)
 - (void)_lookupGestureRecognized:(UIGestureRecognizer *)gestureRecognizer
 {
     NSPoint locationInViewCoordinates = [gestureRecognizer locationInView:self];
@@ -8007,8 +8012,12 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
     if (!_page->hasRunningProcess())
         return;
 
-    if (auto event = gestureRecognizer.lastMouseEvent)
+    if (auto event = gestureRecognizer.lastMouseEvent) {
+        if (event->type() == WebKit::WebEvent::MouseDown)
+            _layerTreeTransactionIdAtLastInteractionStart = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).lastCommittedLayerTreeTransactionID();
+
         _page->handleMouseEvent(*event);
+    }
 }
 #endif
 

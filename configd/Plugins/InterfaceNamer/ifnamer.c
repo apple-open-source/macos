@@ -391,6 +391,15 @@ writeInterfaceList(CFArrayRef if_list)
 
     SCPreferencesSetValue(ni_prefs, INTERFACES, if_list);
 
+    if (cur_list == NULL) {
+	const int	new_version	= NETWORK_CONFIGURATION_VERSION;
+	CFNumberRef	version;
+
+	version = CFNumberCreate(NULL, kCFNumberIntType, &new_version);
+	SCPreferencesSetValue(ni_prefs, kSCPrefVersion, version);
+	CFRelease(version);
+    }
+
     if (!SCPreferencesCommitChanges(ni_prefs)) {
 	if (SCError() != EROFS) {
 	    SC_log(LOG_NOTICE, "SCPreferencesCommitChanges() failed: %s", SCErrorString(SCError()));
@@ -407,21 +416,15 @@ done:
 static CF_RETURNS_RETAINED CFMutableArrayRef
 readInterfaceList()
 {
+    CFMutableArrayRef 		db_list	= NULL;
     CFArrayRef			if_list;
     SCPreferencesRef		ni_prefs;
     CFStringRef			old_model;
-    static Boolean		once	= FALSE;
-    CFMutableArrayRef 		plist	= NULL;
 
     ni_prefs = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME ":readInterfaceList"), INTERFACES_DEFAULT_CONFIG);
     if (ni_prefs == NULL) {
 	SC_log(LOG_NOTICE, "SCPreferencesCreate() failed: %s", SCErrorString(SCError()));
 	return (NULL);
-    }
-
-    if (!once) {
-	__SCNetworkConfigurationUpgrade(NULL, &ni_prefs, TRUE);
-	once = TRUE;
     }
 
     if_list = SCPreferencesGetValue(ni_prefs, INTERFACES);
@@ -444,7 +447,7 @@ readInterfaceList()
     if (if_list != NULL) {
 	CFIndex	n	= CFArrayGetCount(if_list);
 
-	plist = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	db_list = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	for (CFIndex i = 0; i < n; i++) {
 	    CFDictionaryRef	dict;
 
@@ -453,21 +456,21 @@ readInterfaceList()
 		CFDictionaryContainsKey(dict, CFSTR(kIOInterfaceType)) &&
 		CFDictionaryContainsKey(dict, CFSTR(kIOInterfaceUnit)) &&
 		CFDictionaryContainsKey(dict, CFSTR(kIOMACAddress))) {
-		    CFArrayAppendValue(plist, dict);
+		    CFArrayAppendValue(db_list, dict);
 	    }
 	}
     }
 
-    if (plist != NULL) {
-	CFIndex	n	= CFArrayGetCount(plist);
+    if (db_list != NULL) {
+	CFIndex	n	= CFArrayGetCount(db_list);
 
 	if (n > 1) {
-	    CFArraySortValues(plist, CFRangeMake(0, n), if_unit_compare, NULL);
+	    CFArraySortValues(db_list, CFRangeMake(0, n), if_unit_compare, NULL);
 	}
     }
 
     CFRelease(ni_prefs);
-    return (plist);
+    return (db_list);
 }
 
 static CF_RETURNS_RETAINED CFMutableArrayRef
@@ -3025,6 +3028,52 @@ updateNetworkConfiguration(CFArrayRef if_list)
 #endif	// !TARGET_OS_IPHONE
 
 static void
+upgradeNetworkConfiguration()
+{
+    static dispatch_once_t	once;
+
+    /*
+     * Once, per start of InterfaceNamer, we check/ensure that the
+     * configuration has been upgraded.
+     *
+     * Note: this check should not be performed until we know that
+     *       the __wait_for_IOKit_to_quiesce() conditions have been
+     *       satisfied.
+     */
+
+    dispatch_once(&once, ^{
+	SCPreferencesRef	ni_prefs;
+	Boolean			updated;
+
+	// save the [current] DB with the interfaces that have been named
+	writeInterfaceList(S_dblist);
+
+	// upgrade the configuration
+	ni_prefs = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME ":upgradeNetworkConfiguration"), INTERFACES_DEFAULT_CONFIG);
+	if (ni_prefs == NULL) {
+	    SC_log(LOG_NOTICE, "SCPreferencesCreate() failed: %s", SCErrorString(SCError()));
+	    return;
+	}
+	updated = __SCNetworkConfigurationUpgrade(NULL, &ni_prefs, TRUE);
+	CFRelease(ni_prefs);
+
+	if (updated) {
+	    // re-read list of previously named network interfaces
+	    if (S_dblist != NULL) {
+		CFRelease(S_dblist);
+	    }
+	    S_dblist = readInterfaceList();
+
+	    addTimestamp(S_state, CFSTR("*UPGRADED*"));
+	    SC_log(LOG_INFO, "network configuration upgraded");
+	    updateStore();
+	}
+    });
+
+    return;
+}
+
+static void
 removeInactiveInterfaces(void)
 {
     CFIndex	n;
@@ -3219,7 +3268,7 @@ updateInterfaces(void)
 	     * if we've named all of the interfaces that
 	     * were used during the previous boot.
 	     */
-	    addTimestamp(S_state, CFSTR("*RELEASE*"));
+	    addTimestamp(S_state, kInterfaceNamerKey_Complete);
 	    SC_log(LOG_INFO, "last boot interfaces have been named");
 	    updateStore();
 	    CFRelease(S_prev_active_list);
@@ -3349,6 +3398,7 @@ quietCallback(void		*refcon,
     if (messageType == kIOMessageServiceBusyStateChange) {
 	addTimestamp(S_state, CFSTR("*QUIET&NAMED*"));
 	updateStore();
+	upgradeNetworkConfiguration();
     }
 
     return;
@@ -3495,6 +3545,7 @@ timerCallback(CFRunLoopTimerRef	timer, void *info)
 
     addTimestamp(S_state, CFSTR("*TIMEOUT&NAMED*"));
     updateStore();
+    upgradeNetworkConfiguration();
 
     return;
 }
@@ -3511,14 +3562,6 @@ setup_IOKit(CFBundleRef bundle)
 
     // read DB of previously named network interfaces
     S_dblist = readInterfaceList();
-    if (S_dblist != NULL) {
-	CFIndex	n;
-
-	n = CFArrayGetCount(S_dblist);
-	if (n > 1) {
-	    CFArraySortValues(S_dblist, CFRangeMake(0, n), if_unit_compare, NULL);
-	}
-    }
 
     // get interfaces that were named during the last boot
     S_prev_active_list = previouslyActiveInterfaces();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2019 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2000-2020 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -8257,7 +8257,12 @@ IPMonitorProcessChanges(SCDynamicStoreRef session, CFArrayRef changed_keys,
 	}
 	else if (CFStringHasPrefix(change, S_interface_delegation_prefix) &&
 		 CFStringHasSuffix(change, kSCEntNetInterfaceDelegation)) {
+		// ensure that we update the reachability flags in the NWI
+		// state (including the non-interface-specific flags)
 		reachability_changed = TRUE;
+		// ensure that we update the reachability flags in the DNS
+		// configuration
+		dnsinfo_changed = TRUE;
 	}
 	else if (CFStringHasPrefix(change, S_state_service_prefix)) {
 	    CFStringRef	protocol = NULL;

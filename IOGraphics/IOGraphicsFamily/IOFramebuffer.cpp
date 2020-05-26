@@ -11428,8 +11428,8 @@ IOReturn IOFramebuffer::setDisplayAttributes(OSObject * obj)
         return (kIOReturnSuccess);
     }
 
-    OSSafeReleaseNULL(__private->displayAttributes);
     obj->retain();
+    OSSafeReleaseNULL(__private->displayAttributes);
     __private->displayAttributes = obj;
 
     if (__private->display)

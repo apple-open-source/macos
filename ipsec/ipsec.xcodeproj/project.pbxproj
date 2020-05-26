@@ -156,6 +156,15 @@
 		6912CB741E78D9D800631D9A /* plog.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258FD0988657000D15623 /* plog.c */; };
 		6912CB761E78DD7100631D9A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6912CB751E78DD7100631D9A /* SystemConfiguration.framework */; };
 		6912CB771E78DD8800631D9A /* Preferences.c in Sources */ = {isa = PBXBuildFile; fileRef = BACD8C681496A50C0042DEA1 /* Preferences.c */; };
+		697EFE7324281E030032C70E /* ipsec_doi.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258CF0988657000D15623 /* ipsec_doi.c */; };
+		697EFE742428278D0032C70E /* strnames.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F2591F0988657000D15623 /* strnames.c */; };
+		697EFE75242951900032C70E /* algorithm.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258AE0988657000D15623 /* algorithm.c */; };
+		697EFE77242952370032C70E /* oakley.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258F30988657000D15623 /* oakley.c */; };
+		697EFE78242952560032C70E /* crypto_openssl.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258B90988657000D15623 /* crypto_openssl.c */; };
+		697EFE7A2429CDAF0032C70E /* isakmp_cfg.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258D50988657000D15623 /* isakmp_cfg.c */; };
+		697EFE822429D70C0032C70E /* sockmisc.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F2591A0988657000D15623 /* sockmisc.c */; };
+		697EFE832429E4A00032C70E /* pfkey_racoon.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258F80988657000D15623 /* pfkey_racoon.c */; };
+		697EFE842429E4C80032C70E /* policy.c in Sources */ = {isa = PBXBuildFile; fileRef = 25F258FF0988657000D15623 /* policy.c */; };
 		72265DDC0F818F9300730A7D /* ipsec.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72265DDB0F818F9300730A7D /* ipsec.plist */; };
 		723B6A30162F7BE300895EE5 /* xpc_racoon.c in Sources */ = {isa = PBXBuildFile; fileRef = 723B6A2F162F7BE300895EE5 /* xpc_racoon.c */; };
 		723B6A31162F7BE300895EE5 /* xpc_racoon.c in Sources */ = {isa = PBXBuildFile; fileRef = 723B6A2F162F7BE300895EE5 /* xpc_racoon.c */; };
@@ -1538,6 +1547,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				697EFE842429E4C80032C70E /* policy.c in Sources */,
+				697EFE832429E4A00032C70E /* pfkey_racoon.c in Sources */,
+				697EFE822429D70C0032C70E /* sockmisc.c in Sources */,
+				697EFE7A2429CDAF0032C70E /* isakmp_cfg.c in Sources */,
+				697EFE78242952560032C70E /* crypto_openssl.c in Sources */,
+				697EFE77242952370032C70E /* oakley.c in Sources */,
+				697EFE75242951900032C70E /* algorithm.c in Sources */,
+				697EFE742428278D0032C70E /* strnames.c in Sources */,
+				697EFE7324281E030032C70E /* ipsec_doi.c in Sources */,
 				7253CC651E7B3F4600B2DDF5 /* racoon_test.c in Sources */,
 				6912CB771E78DD8800631D9A /* Preferences.c in Sources */,
 				6912CB741E78D9D800631D9A /* plog.c in Sources */,
@@ -2179,6 +2197,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "-";
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;

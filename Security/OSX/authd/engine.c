@@ -612,6 +612,7 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
     }
 
 done:
+    auth_items_set_flags(context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME, kAuthorizationContextFlagExtractable);
     if ((result == kAuthorizationResultUserCanceled) || (result == kAuthorizationResultAllow)) {
         // only make non-sticky context values available externally
         auth_items_set_flags(context, kAuthorizationEnvironmentPassword, kAuthorizationContextFlagVolatile);

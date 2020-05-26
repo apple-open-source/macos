@@ -21,6 +21,7 @@
 		<string>build fixes: no autotools, no strip, no zshcalsys</string>
 		<string>Src/builtin.c: workaround for 22966068</string>
 		<string>Completion/Base/Utility/_nothing: 24988289</string>
+		<string>Patch for CVE-2019-20044 (#59563926)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Other</string>

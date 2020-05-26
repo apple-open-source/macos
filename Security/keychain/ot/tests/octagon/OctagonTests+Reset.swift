@@ -707,6 +707,94 @@ class OctagonResetTests: OctagonTestsBase {
         assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
     }
+
+    func testCliqueResetProtectedDataHandlingInMultiPeerCircle() throws {
+        OctagonSetSOSFeatureEnabled(false)
+        self.startCKAccountStatusMock()
+
+        var firstCliqueIdentifier: String?
+
+        let clique: OTClique
+        let cliqueContextConfiguration = OTConfigurationContext()
+        cliqueContextConfiguration.context = OTDefaultContext
+        cliqueContextConfiguration.dsid = "13453464"
+        cliqueContextConfiguration.altDSID = self.mockAuthKit.altDSID!
+        cliqueContextConfiguration.authenticationAppleID = "appleID"
+        cliqueContextConfiguration.passwordEquivalentToken = "petpetpetpetpet"
+        cliqueContextConfiguration.otControl = self.otControl
+        cliqueContextConfiguration.ckksControl = self.ckksControl
+        cliqueContextConfiguration.sbd = OTMockSecureBackup(bottleID: nil, entropy: nil)
+        do {
+            clique = try OTClique.newFriends(withContextData: cliqueContextConfiguration, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+            firstCliqueIdentifier = clique.cliqueMemberIdentifier
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+
+        let entropy = try self.loadSecret(label: clique.cliqueMemberIdentifier!)
+        XCTAssertNotNil(entropy, "entropy should not be nil")
+
+        let bottleJoinerContextID = "bottleJoiner"
+        let joinerContext = self.manager.context(forContainerName: OTCKContainerName, contextID: bottleJoinerContextID)
+
+        let bottle = self.fakeCuttlefishServer.state.bottles[0]
+
+        joinerContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+        self.assertEnters(context: joinerContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        // Before you call joinWithBottle, you need to call fetchViableBottles.
+        let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
+        joinerContext.rpcFetchAllViableBottles { viable, _, error in
+            XCTAssertNil(error, "should be no error fetching viable bottles")
+            XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
+            fetchViableExpectation.fulfill()
+        }
+        self.wait(for: [fetchViableExpectation], timeout: 10)
+
+        let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
+        joinerContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.mockAuthKit.altDSID!) { error in
+            XCTAssertNil(error, "error should be nil")
+            joinWithBottleExpectation.fulfill()
+        }
+
+        self.wait(for: [joinWithBottleExpectation], timeout: 10)
+
+        self.assertEnters(context: joinerContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context:joinerContext)
+
+        self.silentZoneDeletesAllowed = true
+
+        let newClique: OTClique
+        do {
+            newClique = try OTClique.resetProtectedData(cliqueContextConfiguration)
+            XCTAssertNotEqual(newClique.cliqueMemberIdentifier, firstCliqueIdentifier, "clique identifiers should be different")
+        } catch {
+            XCTFail("Shouldn't have errored resetting everything: \(error)")
+            throw error
+        }
+        XCTAssertNotNil(newClique, "newClique should not be nil")
+
+        self.sendContainerChangeWaitForFetchForStates(context: joinerContext, states: [OctagonStateUntrusted])
+        self.sendContainerChangeWaitForFetchForStates(context: self.cuttlefishContext, states: [OctagonStateReady])
+        self.assertConsidersSelfTrusted(context:self.cuttlefishContext)
+
+        let statusExpectation = self.expectation(description: "status callback occurs")
+        let configuration = OTOperationConfiguration()
+
+        joinerContext.rpcTrustStatus(configuration) { egoStatus, _, _, _, _ in
+            XCTAssertEqual(.notIn, egoStatus, "cliqueStatus should be 'Not In'")
+            statusExpectation.fulfill()
+        }
+        self.wait(for: [statusExpectation], timeout: 10)
+
+    }
 }
 
 #endif // OCTAGON

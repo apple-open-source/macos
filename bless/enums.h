@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2001-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -80,6 +80,7 @@ enum {
     kverbose,
     kversion,
     ksnapshot,
+    knoapfsdriver,
     klast
 };
 

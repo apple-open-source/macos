@@ -30,6 +30,7 @@
 #include "BackForwardController.h"
 #include "CSSAnimationController.h"
 #include "CacheStorageProvider.h"
+#include "CachedResourceLoader.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "ConstantPropertyMap.h"
@@ -103,6 +104,7 @@
 #include "ResourceUsageOverlay.h"
 #include "RuntimeEnabledFeatures.h"
 #include "SVGDocumentExtensions.h"
+#include "SVGImage.h"
 #include "ScriptController.h"
 #include "ScriptedAnimationController.h"
 #include "ScrollLatchingState.h"
@@ -1295,6 +1297,13 @@ void Page::layoutIfNeeded()
         view->updateLayoutAndStyleIfNeededRecursive();
 }
 
+void Page::scheduleTimedRenderingUpdate()
+{
+    if (chrome().client().scheduleTimedRenderingUpdate())
+        return;
+    renderingUpdateScheduler().scheduleTimedRenderingUpdate();
+}
+
 // https://html.spec.whatwg.org/multipage/webappapis.html#update-the-rendering
 void Page::updateRendering()
 {
@@ -1345,7 +1354,20 @@ void Page::updateRendering()
     });
 #endif
 
+    forEachDocument([] (Document& document) {
+        for (auto& image : document.cachedResourceLoader().allCachedSVGImages()) {
+            if (auto* page = image->internalPage())
+                page->updateRendering();
+        }
+    });
+
     layoutIfNeeded();
+
+#if ENABLE(VIDEO_TRACK)
+    forEachDocument([] (Document& document) {
+        document.updateTextTrackRepresentationImageIfNeeded();
+    });
+#endif
 }
 
 void Page::suspendScriptedAnimations()

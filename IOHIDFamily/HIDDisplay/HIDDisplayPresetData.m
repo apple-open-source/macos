@@ -160,7 +160,8 @@
                 if (unicharString) {
                     ret[(__bridge NSString*)kHIDDisplayPresetFieldNameKey] = unicharString;
                 } else {
-                    os_log(HIDDisplayLog(), "Invalid Name Data %@", element.dataValue);
+                    os_log(HIDDisplayLog(), "Invalid / Empty Name Data %@", element.dataValue);
+                    ret[(__bridge NSString*)kHIDDisplayPresetFieldNameKey] = @"";
                 }
                 break;
             case kHIDUsage_AppleVendorDisplayPresetUnicodeStringDescription:
@@ -168,7 +169,8 @@
                 if (unicharString) {
                     ret[(__bridge NSString*)kHIDDisplayPresetFieldDescriptionKey] = unicharString;
                 } else {
-                    os_log(HIDDisplayLog(), "Invalid Description Data %@", element.dataValue);
+                    os_log(HIDDisplayLog(), "Invalid / Empty Description Data %@", element.dataValue);
+                    ret[(__bridge NSString*)kHIDDisplayPresetFieldDescriptionKey] = @"";
                 }
                 break;
             case kHIDUsage_AppleVendorDisplayPresetWritable:

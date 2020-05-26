@@ -1749,8 +1749,8 @@ exit:
     xpc_release(respMsg);
 }
 
-
 #else
+#define SECONDS_IN_WEEK     (7 * 24 * 60 * 60)
 // Set health & confidence
 void _setBatteryHealthData(
     CFMutableDictionaryRef  outDict,
@@ -1817,23 +1817,19 @@ void _setBatteryHealthData(
         CFRelease(permanentFailures);
     }
 
-    static char* batteryHealth = "";
+    // Battery health is maintained at the lowest level seen
+    static const char *batteryHealth = kIOPSGoodValue;
+    static const char *batteryHealthCond = "";
 
     // Permanent failure -> Poor health
     if (_batteryHas(b, CFSTR(kIOPMPSErrorConditionKey))) {
         if (CFEqual(b->failureDetected, CFSTR(kBatteryPermFailureString))) {
-            CFDictionarySetValue(outDict,
-                    CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSPoorValue));
-            CFDictionarySetValue(outDict,
-                    CFSTR(kIOPSHealthConfidenceKey), CFSTR(kIOPSGoodValue));
+            CFDictionarySetValue(outDict, CFSTR(kIOPSHealthConfidenceKey), CFSTR(kIOPSGoodValue));
             // Specifically log that the battery condition is permanent failure
-            CFDictionarySetValue(outDict,
-                    CFSTR(kIOPSBatteryHealthConditionKey), CFSTR(kIOPSPermanentFailureValue));
+            batteryHealthCond = kIOPSPermanentFailureValue;
 
             if (strncmp(batteryHealth, kIOPSPoorValue, sizeof(kIOPSPoorValue))) {
-                logASLBatteryHealthChanged(kIOPSPoorValue,
-                                           batteryHealth,
-                                           kIOPSPermanentFailureValue);
+                logASLBatteryHealthChanged(kIOPSPoorValue, batteryHealth, kIOPSPermanentFailureValue);
                 batteryHealth = kIOPSPoorValue;
             }
 
@@ -1878,108 +1874,89 @@ void _setBatteryHealthData(
 
     if (capRatio > 1.2) {
         // Poor|Perm Failure = max-capacity is more than 1.2x of the design-capacity.
-        CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSPoorValue));
-        CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthConditionKey),
-                             CFSTR(kIOPSPermanentFailureValue));
+        batteryHealthCond = kIOPSPermanentFailureValue;
 
         if (strncmp(batteryHealth, kIOPSPoorValue, sizeof(kIOPSPoorValue))) {
-            logASLBatteryHealthChanged(kIOPSPoorValue,
-                                       batteryHealth,
-                                       kIOPSPermanentFailureValue);
+            logASLBatteryHealthChanged(kIOPSPoorValue, batteryHealth, kIOPSPermanentFailureValue);
             batteryHealth = kIOPSPoorValue;
         }
-        if (b->hasLowCapRatio == true) {
-            b->hasLowCapRatio = false;
-            _setLowCapRatioTime(b->batterySerialNumber,
-                                false,
-                                0);
+        if (b->hasLowCapRatio == false) {
+            b->hasLowCapRatio = true;
+            _setLowCapRatioTime(b->batterySerialNumber, true, 0);
         }
     } else if (capRatio >= compareRatioTo) {
-        b->markedDeclining = 0;
-        // Good = CapRatio > 80% (plus or minus the 3% hysteresis mentioned above)
-        CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), CFSTR(kIOPSGoodValue));
-
-        if ((batteryHealth[0] != 0) && (strncmp(batteryHealth, kIOPSGoodValue, sizeof(kIOPSGoodValue)))) {
-            logASLBatteryHealthChanged(kIOPSGoodValue,
-                                       batteryHealth,
-                                       "");
-        }
-        batteryHealth = kIOPSGoodValue;
-        if (b->hasLowCapRatio == true) {
-            b->hasLowCapRatio = false;
-            _setLowCapRatioTime(b->batterySerialNumber,
-                                false,
-                                0);
+        // normal cap ratio
+        if (!b->lowCapRatioSinceTime ||
+            (canCompareTime && (currentTime - b->lowCapRatioSinceTime) <= SECONDS_IN_WEEK)) {
+            // normal within observation period
+            if (b->hasLowCapRatio) {
+                // battery reverted back to normal cap ratio within observation period
+                b->markedDeclining = 0;
+                b->hasLowCapRatio = false;
+                _setLowCapRatioTime(b->batterySerialNumber, false, currentTime);
+            }
+        } else if (canCompareTime) {
+            // normal cap ratio after observation period was satisfied before => keep at Fair
+            if (!strncmp(batteryHealth, kIOPSGoodValue, sizeof(kIOPSGoodValue))) {
+                logASLBatteryHealthChanged(kIOPSFairValue, batteryHealth, kIOPSCheckBatteryValue);
+                batteryHealth = kIOPSFairValue;
+            }
         }
     } else {
+        // low cap ratio (capration < compareRatioTo)
         if (b->hasLowCapRatio == false) {
             b->hasLowCapRatio = true;
             b->lowCapRatioSinceTime = currentTime;
-            _setLowCapRatioTime(b->batterySerialNumber,
-                                true,
-                                currentTime);
+            _setLowCapRatioTime(b->batterySerialNumber, true, currentTime);
         }
         // mark as declining to use hysteresis.
         b->markedDeclining = 1;
 
-        // battery health status must be confirmed over a 7-day observation
-        // period [7*86400]
-        if (canCompareTime && (currentTime - b->lowCapRatioSinceTime <= 604800)) {
-            // 7-day observation period is not complete, set the battery to Good
-            CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey),
-                                 CFSTR(kIOPSGoodValue));
-            if (strncmp(batteryHealth, kIOPSGoodValue, sizeof(kIOPSGoodValue))) {
-                logASLBatteryHealthChanged(kIOPSGoodValue,
-                                           batteryHealth,
-                                           "");
-                batteryHealth = kIOPSGoodValue;
-            }
+        // battery health status must be confirmed over a 7-day observation period
+        if (canCompareTime && (currentTime - b->lowCapRatioSinceTime <= SECONDS_IN_WEEK)) {
+            // 7-day observation period is not complete, maintain current health level
         }
-        else {
-            // the 7-day observation period is complete, or the timestamps cannot
-            // be compared now; set the kIOPSBatteryHealthKey to Fair/Poor/Check
-
+        else if (canCompareTime) {
+            // the 7-day observation period is complete: set the kIOPSBatteryHealthKey to Fair/Poor/Check
             if (cyclesExceedStandard) {
                 if (capRatio >= 0.50) {
                     // Fair = ExceedingCycles && CapRatio >= 50% && CapRatio < 80%
-                    CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey),
-                                         CFSTR(kIOPSFairValue));
-                    if (strncmp(batteryHealth, kIOPSFairValue, sizeof(kIOPSFairValue))) {
-                        logASLBatteryHealthChanged(kIOPSFairValue,
-                                                   batteryHealth,
-                                                   kIOPSCheckBatteryValue);
+                    if (!strncmp(batteryHealth, kIOPSGoodValue, sizeof(kIOPSGoodValue))) {
+                        logASLBatteryHealthChanged(kIOPSFairValue, batteryHealth, kIOPSCheckBatteryValue);
                         batteryHealth = kIOPSFairValue;
                     }
                 } else {
                     // Poor = ExceedingCycles && CapRatio < 50%
-                    CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey),
-                                         CFSTR(kIOPSPoorValue));
                     if (strncmp(batteryHealth, kIOPSPoorValue, sizeof(kIOPSPoorValue))) {
-                        logASLBatteryHealthChanged(kIOPSPoorValue,
-                                                   batteryHealth,
-                                                   kIOPSCheckBatteryValue);
+                        logASLBatteryHealthChanged(kIOPSPoorValue, batteryHealth, kIOPSCheckBatteryValue);
                         batteryHealth = kIOPSPoorValue;
                     }
                 }
                 // HealthCondition == CheckBattery to distinguish the Fair & Poor
-                // cases from from permanent failure (above), where
+                // cases from permanent failure (above), where
                 // HealthCondition == PermanentFailure
-                CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthConditionKey),
-                                     CFSTR(kIOPSCheckBatteryValue));
+                batteryHealthCond = kIOPSCheckBatteryValue;
             } else {
                 // Check battery = NOT ExceedingCycles && CapRatio < 80%
-                CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey),
-                                     CFSTR(kIOPSCheckBatteryValue));
-                if (strncmp(batteryHealth, kIOPSCheckBatteryValue,
-                            sizeof(kIOPSCheckBatteryValue))) {
-                    logASLBatteryHealthChanged(kIOPSCheckBatteryValue,
-                                               batteryHealth,
-                                               "");
+                if (strncmp(batteryHealth, kIOPSCheckBatteryValue, sizeof(kIOPSCheckBatteryValue))) {
+                    logASLBatteryHealthChanged(kIOPSCheckBatteryValue, batteryHealth, "");
                     batteryHealth = kIOPSCheckBatteryValue;
                 }
             }
         }
     }
+
+    CFStringRef bh = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, batteryHealth, kCFStringEncodingUTF8, kCFAllocatorNull);
+    if (bh) {
+        CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), bh);
+        CFRelease(bh);
+    }
+    CFStringRef bhc = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, batteryHealthCond, kCFStringEncodingUTF8, kCFAllocatorNull);
+    if (bhc) {
+        CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthConditionKey), bhc);
+        CFRelease(bhc);
+    }
+
     return;
 }
 #endif

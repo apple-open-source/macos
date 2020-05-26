@@ -446,23 +446,6 @@ CCRSACryptorCreateFromData( CCRSAKeyType keyType,
 API_AVAILABLE(macos(10.7), ios(5.0));
 
 
-CCCryptorStatus
-CCRSACryptorCreatePairFromData(uint32_t e,
-    uint8_t *xp1, size_t xp1Length,
-    uint8_t *xp2, size_t xp2Length,
-    uint8_t *xp, size_t xpLength,
-    uint8_t *xq1, size_t xq1Length,
-    uint8_t *xq2, size_t xq2Length,
-    uint8_t *xq, size_t xqLength,
-    CCRSACryptorRef *publicKey,
-    CCRSACryptorRef *privateKey,
-    uint8_t *retp, size_t *retpLength,
-    uint8_t *retq, size_t *retqLength,
-    uint8_t *retm, size_t *retmLength,
-    uint8_t *retd, size_t *retdLength)
-API_AVAILABLE(macos(10.8), ios(6.0));
-
-
 #ifdef __cplusplus
 }
 #endif

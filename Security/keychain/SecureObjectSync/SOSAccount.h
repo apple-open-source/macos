@@ -105,12 +105,9 @@ void SOSTransportEachMessage(SOSAccount*  account, CFDictionaryRef updates, CFEr
 
 CFStringRef SOSAccountGetSOSCCStatusString(SOSCCStatus status);
 SOSCCStatus SOSAccountGetSOSCCStatusFromString(CFStringRef status);
-bool SOSAccountJoinCircles(SOSAccountTransaction* aTxn, CFErrorRef* error);
-bool SOSAccountJoinCirclesWithAnalytics(SOSAccountTransaction* aTxn, NSData* parentEvent, CFErrorRef* error);
-bool SOSAccountJoinCirclesAfterRestore(SOSAccountTransaction* aTxn, CFErrorRef* error);
-bool SOSAccountJoinCirclesAfterRestoreWithAnalytics(SOSAccountTransaction* aTxn, NSData* parentEvent, CFErrorRef* error);
-bool SOSAccountRemovePeersFromCircle(SOSAccount*  account, CFArrayRef peers, CFErrorRef* error);
-bool SOSAccountRemovePeersFromCircleWithAnalytics(SOSAccount*  account, CFArrayRef peers, NSData* parentEvent, CFErrorRef* error);
+bool SOSAccountJoinCircles(SOSAccountTransaction* aTxn, NSData* parentEvent, CFErrorRef* error);
+bool SOSAccountJoinCirclesAfterRestore(SOSAccountTransaction* aTxn, NSData* parentEvent, CFErrorRef* error);
+bool SOSAccountRemovePeersFromCircle(SOSAccount*  account, CFArrayRef peers, NSData* parentEvent, CFErrorRef* error);
 bool SOSAccountBail(SOSAccount*  account, uint64_t limit_in_seconds, CFErrorRef* error);
 bool SOSAccountAcceptApplicants(SOSAccount*  account, CFArrayRef applicants, CFErrorRef* error);
 bool SOSAccountRejectApplicants(SOSAccount*  account, CFArrayRef applicants, CFErrorRef* error);
@@ -285,6 +282,8 @@ void SOSAccountTimerFiredSendNextMessage(SOSAccountTransaction* txn, NSString* p
 
 NSArray<NSDictionary *>* SOSAccountGetAllTLKs(void);
 CF_RETURNS_RETAINED CFMutableArrayRef SOSAccountCopyiCloudIdentities(SOSAccount* account);
+
+bool SOSAccountEvaluateKeysAndCircle(SOSAccountTransaction *txn, CFErrorRef *block_error);
 
 __END_DECLS
 

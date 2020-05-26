@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2018 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2016, 2018, 2020 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -43,7 +43,8 @@
  * Plugin:InterfaceNamer [SCDynamicStore] dictionary content
  */
 
-// IORegistry "quiet" (and timeout)
+// IORegistry "quiet", "complete" (last boot interfaces found), and "timeout"
+#define	kInterfaceNamerKey_Complete			CFSTR("*COMPLETE*")
 #define	kInterfaceNamerKey_Quiet			CFSTR("*QUIET*")
 #define	kInterfaceNamerKey_Timeout			CFSTR("*TIMEOUT*")
 

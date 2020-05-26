@@ -167,6 +167,11 @@ sudo_dso_strerror_v1(void)
 #  define RTLD_GLOBAL	0
 # endif
 
+#ifdef __APPLE_DYNAMIC_LV__
+#include <System/sys/codesign.h>
+#include <unistd.h>
+#endif /* __APPLE_DYNAMIC_LV__ */
+
 void *
 sudo_dso_load_v1(const char *path, int mode)
 {
@@ -190,7 +195,35 @@ sudo_dso_load_v1(const char *path, int mode)
 	flags |= RTLD_GLOBAL;
     if (ISSET(mode, SUDO_DSO_LOCAL))
 	flags |= RTLD_LOCAL;
+	
+#ifdef __APPLE_DYNAMIC_LV__
+    void *dlh = dlopen(path, flags);
+    if (dlh != NULL || access(path, R_OK) != 0)
+        return dlh;
+	
+    /*
+     * The module exists and is readable, but failed to load.
+     * If library validation is enabled, try disabling it and then re-attempt loading again.
+     */
+    int csflags = 0;
+    int rv = 0;
+    pid_t pid = getpid();
+    rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
+    if (rv != 0 || (csflags & CS_REQUIRE_LV) == 0)
+	return NULL;
 
+    rv = csops(pid, CS_OPS_CLEAR_LV, NULL, 0);
+    if (rv != 0)
+	return NULL;
+    
+    dlh = dlopen(path, mode);
+    if (dlh == NULL) {
+	/* Failed to load even with LV disabled: re-enable LV. */
+	csflags = CS_REQUIRE_LV;
+	(void)csops(pid, CS_OPS_SET_STATUS, &csflags, sizeof(csflags));
+    }
+    return dlh;
+#endif /* __APPLE_DYNAMIC_LV__ */
     return dlopen(path, flags);
 }
 

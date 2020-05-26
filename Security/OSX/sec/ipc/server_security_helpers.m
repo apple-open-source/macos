@@ -30,6 +30,8 @@
 #include <Security/SecTaskPriv.h>
 #include "ipc/securityd_client.h"
 #include <Security/SecEntitlements.h>
+#include <utilities/SecInternalReleasePriv.h>
+#include <sys/codesign.h>
 #include <Security/SecItem.h>
 #include "utilities/SecCFRelease.h"
 #include "utilities/SecCFWrappers.h"
@@ -65,6 +67,35 @@ device_is_multiuser(void)
     return result;
 }
 #endif /* HAVE_MOBILE_KEYBAG_SUPPORT && TARGET_OS_IOS */
+
+static bool sanityCheckClientAccessGroups(SecurityClient* client) {
+    if (!client->accessGroups) {
+        return true;
+    }
+
+    CFRange range = { 0, CFArrayGetCount(client->accessGroups) };
+    if (!CFArrayContainsValue(client->accessGroups, range, CFSTR("*"))) {
+        return true;
+    }
+
+    CFMutableArrayRef allowedIdentifiers = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+#if TARGET_OS_OSX
+    CFArrayAppendValue(allowedIdentifiers, CFSTR("com.apple.keychainaccess"));
+    CFArrayAppendValue(allowedIdentifiers, CFSTR("com.apple.KeychainMigrator"));
+#endif
+    if (SecIsInternalRelease()) {
+#if TARGET_OS_OSX
+        CFArrayAppendValue(allowedIdentifiers, CFSTR("com.apple.security2"));
+#else
+        CFArrayAppendValue(allowedIdentifiers, CFSTR("com.apple.security"));
+#endif
+    }
+
+    bool answer = SecTaskIsEligiblePlatformBinary(client->task, allowedIdentifiers);
+    CFReleaseNull(allowedIdentifiers);
+
+    return answer;
+}
 
 bool
 fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t auditToken) {
@@ -141,7 +172,67 @@ fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t aud
             client->allowSyncBubbleKeychain = SecTaskGetBooleanValueForEntitlement(client->task, kSecEntitlementPrivateKeychainSyncBubble);
         }
 #endif
+        if (!sanityCheckClientAccessGroups(client)) {
+            return false;
+        }
     }
     return true;
 }
 
+// Stolen and adapted from securityd_service
+bool SecTaskIsEligiblePlatformBinary(SecTaskRef task, CFArrayRef identifiers) {
+#if (DEBUG || RC_BUILDIT_YES)
+    secnotice("serverxpc", "Accepting client because debug");
+    return true;
+#else
+
+    if (task == NULL) {
+        secerror("serverxpc: Client task is null, cannot verify platformness");
+        return false;
+    }
+
+    uint32_t flags = SecTaskGetCodeSignStatus(task);
+    /* check if valid and platform binary, but not platform path */
+
+    if ((flags & (CS_VALID | CS_PLATFORM_BINARY | CS_PLATFORM_PATH)) != (CS_VALID | CS_PLATFORM_BINARY)) {
+        if (SecIsInternalRelease()) {
+            if ((flags & (CS_DEBUGGED | CS_PLATFORM_BINARY | CS_PLATFORM_PATH)) != (CS_DEBUGGED | CS_PLATFORM_BINARY)) {
+                secerror("serverxpc: client is not a platform binary: 0x%08x", flags);
+                return false;
+            }
+        } else {
+            secerror("serverxpc: client is not a platform binary: 0x%08x", flags);
+            return false;
+        }
+    }
+
+    CFStringRef signingIdentifier = SecTaskCopySigningIdentifier(task, NULL);
+    if (identifiers) {
+        if (signingIdentifier == NULL) {
+            secerror("serverxpc: client has no codesign identifier");
+            return false;
+        }
+
+        __block bool result = false;
+        CFArrayForEach(identifiers, ^(const void *value) {
+            if (CFEqual(value, signingIdentifier)) {
+                result = true;
+            }
+        });
+
+        if (result == true) {
+            secinfo("serverxpc", "client %@ is eligible platform binary", signingIdentifier);
+        } else {
+            secerror("serverxpc: client %@ is not eligible", signingIdentifier);
+        }
+
+        CFReleaseNull(signingIdentifier);
+        return result;
+    }
+
+    secinfo("serverxpc", "Client %@ is valid platform binary", signingIdentifier);
+    CFReleaseNull(signingIdentifier);
+    return true;
+
+#endif
+}

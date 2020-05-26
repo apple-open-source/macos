@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2001-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,6 +61,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	
     int ret;
     int isHFS, isAPFS, shouldBless;
+    bool isAPFSDataRolePreSSVToSSVThusDontWriteToVol;
 	
     uint32_t folderXid = 0;                   // The directory ID specified by folderXpath
     
@@ -80,7 +81,6 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		return 1;
 	}
 	
-    
     if(actargs[kmount].present) {
 		ret = BLGetCommonMountPoint(context, actargs[kmount].argument, "", actargs[kmount].argument);
 		if(ret) {
@@ -217,7 +217,13 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
         blesscontextprintf(context, kBLLogLevelError,  "Could not determine filesystem of %s\n", actargs[kmount].argument );
         return 1;
     }
-	
+    
+    ret = BLIsMountAPFSDataRolePreSSVToSSV(context, actargs[kmount].argument, &isAPFSDataRolePreSSVToSSVThusDontWriteToVol);
+    if (ret) {
+        blesscontextprintf(context, kBLLogLevelError,  "Could not determine SSV status of %s\n", actargs[kmount].argument );
+        return 1;
+    }
+    
 	if (0 != blsustatfs(actargs[kmount].argument, &sb)) {
 		blesscontextprintf(context, kBLLogLevelError,  "Can't statfs %s\n" ,
 						   actargs[kmount].argument);
@@ -302,37 +308,44 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		}
 	}
 
-    if (isAPFS && actargs[ksetboot].present) {
+    if (isAPFS && !isAPFSDataRolePreSSVToSSVThusDontWriteToVol && actargs[ksetboot].present) {
         char        pathBuf[MAXPATHLEN];
         CFDataRef   apfsDriverData;
         char        wholeDiskBSD[1024];
         int         unit;
+        bool        attemptLoad = false;
         
         // We need to embed the APFS driver in the container.
         sscanf(sb.f_mntfromname + 5, "disk%d", &unit);
         snprintf(wholeDiskBSD, sizeof wholeDiskBSD, "disk%d", unit);
         if (!actargs[kapfsdriver].present) {
-            snprintf(pathBuf, sizeof pathBuf, "%s%s", actargs[kmount].argument, kBL_PATH_I386_APFS_EFI);
-            ret = BLLoadFile(context, pathBuf, 0, &apfsDriverData);
+            if (!actargs[knoapfsdriver].present) {
+                snprintf(pathBuf, sizeof pathBuf, "%s%s", actargs[kmount].argument, kBL_PATH_I386_APFS_EFI);
+                attemptLoad = true;
+                ret = BLLoadFile(context, pathBuf, 0, &apfsDriverData);
+            }
         } else {
+            attemptLoad = true;
             ret = BLLoadFile(context, actargs[kapfsdriver].argument, 0, &apfsDriverData);
         }
-        if (ret) {
-            blesscontextprintf(context, kBLLogLevelError,  "Could not load apfs.efi data from %s\n",
-                               pathBuf);
-            return 1;
+        if (attemptLoad) {
+            if (ret) {
+                blesscontextprintf(context, kBLLogLevelError,  "Could not load apfs.efi data from %s\n",
+                                   pathBuf);
+                return 1;
+            }
+            ret = APFSContainerEFIEmbed(wholeDiskBSD, (const char *)CFDataGetBytePtr(apfsDriverData), CFDataGetLength(apfsDriverData));
+            if (ret) {
+                blesscontextprintf(context, kBLLogLevelError, "Could not embed APFS driver in %s - error #%d\n",
+                                   wholeDiskBSD, ret);
+                return 1;
+            }
+            CFRelease(apfsDriverData);
         }
-        ret = APFSContainerEFIEmbed(wholeDiskBSD, (const char *)CFDataGetBytePtr(apfsDriverData), CFDataGetLength(apfsDriverData));
-        if (ret) {
-            blesscontextprintf(context, kBLLogLevelError, "Could not embed APFS driver in %s - error #%d\n",
-                               wholeDiskBSD, ret);
-            return 1;
-        }
-        CFRelease(apfsDriverData);
     }
 	
 	
-	if (actargs[klabel].present||actargs[klabelfile].present) {
+	if (!isAPFSDataRolePreSSVToSSVThusDontWriteToVol && (actargs[klabel].present || actargs[klabelfile].present)) {
 		int isLabel = 0;
 		
 		if(actargs[klabelfile].present) {
@@ -377,7 +390,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	}
 	
 
-    if (shouldBless || isAPFS) {
+    if (shouldBless || (isAPFS && !isAPFSDataRolePreSSVToSSVThusDontWriteToVol)) {
         if (isHFS) {
             uint32_t oldwords[8];
             int useX = 1;

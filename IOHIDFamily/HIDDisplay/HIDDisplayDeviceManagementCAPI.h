@@ -16,12 +16,12 @@ __BEGIN_DECLS
 
 CF_ASSUME_NONNULL_BEGIN
 
-
 typedef enum {
-    kHIDDisplayFactoryResetAll = 1,
-    kHIDDisplayFactoryResetPresets,
-    kHIDDisplayFactoryResetUserAdjustments,
-} HIDDisplayFactoryResetType;
+    kHIDDisplayFactoryResetSystem = 0x01,
+    kHIDDisplayFactoryResetPresets = 0x02,
+    kHIDDisplayFactoryResetUserAdjustments = 0x04,
+    kHIDDisplayFactoryResetAll = 0xFF,
+} HIDDisplayFactoryResetType __attribute__ ((deprecated));
 
 typedef CFTypeRef HIDDisplayDeviceManagementInterfaceRef;
 
@@ -72,7 +72,7 @@ HIDDisplayDeviceManagementInterfaceRef __nullable HIDDisplayCreateDeviceManageme
 * factory reset.
 *
 * @discussion
-* Send factory reset command to device.
+* Send factory reset command to device. This api is deprecated , use HIDDisplayDeviceManagementSetFactoryResetData instead.
 *
 * @param interface
 * interface object returned from create api.
@@ -91,7 +91,35 @@ HIDDisplayDeviceManagementInterfaceRef __nullable HIDDisplayCreateDeviceManageme
 *  which the caller must release.
 *
 */
-bool HIDDisplayDeviceManagementFactoryReset(HIDDisplayDeviceManagementInterfaceRef interface, HIDDisplayFactoryResetType type, uint64_t securityToken, CFErrorRef *error);
+__attribute__ ((deprecated)) bool HIDDisplayDeviceManagementFactoryReset(HIDDisplayDeviceManagementInterfaceRef interface, HIDDisplayFactoryResetType type, uint64_t securityToken, CFErrorRef *error);
+
+/*!
+* HIDDisplayDeviceManagementSetFactoryResetData
+*
+* @abstract
+* factory reset.
+*
+* @discussion
+* Send factory reset command to device.
+*
+* @param interface
+* interface object returned from create api.
+*
+* @param data
+* reset data.
+*
+* @param securityToken
+*  Secure key to uniquely identify display.
+*
+* @param error
+* field which will be filled with  error code on failure.
+*
+* @result
+* Returns true for success. Additionally, if an error occurs and the error parameter is non-NULL, the error parameter will be set to a CFError describing the problem,
+*  which the caller must release.
+*
+*/
+bool HIDDisplayDeviceManagementSetFactoryResetData(HIDDisplayDeviceManagementInterfaceRef interface, uint8_t data, uint64_t securityToken, CFErrorRef *error);
 
 /*!
 * HIDDisplayDeviceManagementGetSecurityToken

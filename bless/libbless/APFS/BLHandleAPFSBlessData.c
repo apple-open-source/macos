@@ -35,6 +35,7 @@
 #include <System/sys/snapshot.h>
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/IOBSD.h>
+#include <APFS/APFS.h>
 
 #include "bless.h"
 #include "bless_private.h"
@@ -180,9 +181,16 @@ CFStringRef BLGetAPFSBlessedVolumeBSDName(BLContextPtr context, const char *moun
 {
     char *slash;
     uuid_t c_uuid;
-    CFStringRef uuid, bsd_name = NULL;
+    CFStringRef inUUID, bsd_name = NULL;
+	CFStringRef testUUID;
     CFMutableDictionaryRef matching = NULL;
     io_service_t service = IO_OBJECT_NULL;
+	io_service_t dataService = IO_OBJECT_NULL;
+	io_iterator_t iter = IO_OBJECT_NULL;
+	CFArrayRef	roleArray;
+	CFStringRef role;
+	kern_return_t kret;
+	bool skipVolUUIDCheck;
 
     if (!vol_uuid) {
         return NULL;
@@ -197,16 +205,72 @@ CFStringRef BLGetAPFSBlessedVolumeBSDName(BLContextPtr context, const char *moun
         return NULL;
     }
 
-    uuid = CFStringCreateWithCString(kCFAllocatorDefault, bless_folder + 1, kCFStringEncodingUTF8);
+    inUUID = CFStringCreateWithCString(kCFAllocatorDefault, bless_folder + 1, kCFStringEncodingUTF8);
     matching = IOServiceMatching("AppleAPFSVolume");
-    CFDictionarySetValue(matching, CFSTR(kIOMediaUUIDKey), uuid);
-    CFRelease(uuid);
-
-    service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
-    if (service) {
-        bsd_name = IORegistryEntryCreateCFProperty(service, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
-        if (bsd_name) strcpy(vol_uuid, bless_folder + 1);
-    }
+	kret = IOServiceGetMatchingServices(kIOMasterPortDefault, matching, &iter);
+	if (kret == KERN_SUCCESS) {
+		while ((service = IOIteratorNext(iter)) != IO_OBJECT_NULL) {
+			skipVolUUIDCheck = false;
+			
+			// Try group UUID and system role
+			testUUID = IORegistryEntryCreateCFProperty(service, CFSTR(kAPFSVolGroupUUIDKey), kCFAllocatorDefault, 0);
+			if (testUUID) {
+				if (CFEqual(testUUID, inUUID)) {
+					roleArray = IORegistryEntryCreateCFProperty(service, CFSTR(kAPFSRoleKey), kCFAllocatorDefault, 0);
+					if (roleArray) {
+						if (CFArrayGetCount(roleArray) > 0) {
+							role = CFArrayGetValueAtIndex(roleArray, 0);
+							if (CFEqual(role, CFSTR("System"))) {
+								CFRelease(testUUID);
+								CFRelease(roleArray);
+								break;
+							} else {
+								// This is the wrong volume in the right group.
+								// We can't check its volume UUID because if it's
+								// the data volume then it will match.
+								// But save it away, in case this is an ARV situation.
+								skipVolUUIDCheck = true;
+								dataService = service;
+								IOObjectRetain(dataService);
+							}
+						}
+						CFRelease(roleArray);
+					}
+				}
+				CFRelease(testUUID);
+			}
+			
+			// No match.  Just try volume UUID
+			if (!skipVolUUIDCheck) {
+				testUUID = IORegistryEntryCreateCFProperty(service, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+				if (testUUID) {
+					if (CFEqual(testUUID, inUUID)) {
+						CFRelease(testUUID);
+						break;
+					}
+					CFRelease(testUUID);
+				}
+			}
+			
+			IOObjectRelease(service);
+		}
+		IOObjectRelease(iter);
+		if (service) {
+			bsd_name = IORegistryEntryCreateCFProperty(service, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+			if (bsd_name) strlcpy(vol_uuid, bless_folder + 1, sizeof(uuid_string_t));
+			IOObjectRelease(service);
+		} else {
+			// We didn't find an appropriate volume, did we find a data volume without a system volume?
+			if (dataService) {
+				// We did!  The system volume must be ARV and we can't see it because our OS is too old.
+				// Use the data volume instead.
+				bsd_name = IORegistryEntryCreateCFProperty(dataService, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+				if (bsd_name) strlcpy(vol_uuid, bless_folder + 1, sizeof(uuid_string_t));
+				IOObjectRelease(dataService);
+			}
+		}
+	}
+    CFRelease(inUUID);
 
     *slash = '/';
 

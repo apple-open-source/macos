@@ -4,9 +4,6 @@ if [ "$ACTION" = installhdrs ]; then exit 0; fi
 if [[ "$PLATFORM_NAME" != "macosx" ]]; then exit 0; fi
 
 UNIFDEF_FLAGS=""
-# #ifndef __OPEN_SOURCE__
-UNIFDEF_FLAGS="-D__OPEN_SOURCE__"
-# #endif __OPEN_SOURCE__
 
 MANPAGES_LIST="${SRCROOT}/man/manpages.lst"
 FILES=$(find -E ${SRCROOT} -regex '.*/[^.]+\.[0-9]' -type f)

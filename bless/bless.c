@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2001-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,6 +86,7 @@ static struct option longopts[] = {
 { "mount",          required_argument,      0,              kmount },
 { "netboot",        no_argument,            0,              knetboot},
 { "nextonly",       no_argument,            0,              knextonly},
+{ "noapfsdriver",   no_argument,            0,              knoapfsdriver},
 { "openfolder",     required_argument,      0,              kopenfolder },
 { "options",        required_argument,      0,              koptions },
 { "payload",        required_argument,      0,              kpayload },

@@ -1,6 +1,6 @@
-2020-02-19  Alan Coon  <alancoon@apple.com>
+2020-02-18  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r256191. rdar://problem/59576820
+        Cherry-pick r256191. rdar://problem/59447003
 
     Disallow setting base URL to a data or JavaScript URL
     https://bugs.webkit.org/show_bug.cgi?id=207136

@@ -32,6 +32,7 @@
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #include "VersionChecks.h"
 #endif
 
@@ -49,7 +50,7 @@ bool defaultPassiveTouchListenersAsDefaultOnDocument()
 bool defaultCSSOMViewScrollingAPIEnabled()
 {
 #if PLATFORM(IOS_FAMILY)
-    if (WebCore::IOSApplication::isIMDb() && WebCore::applicationSDKVersion() < DYLD_IOS_VERSION_13_0)
+    if (WebCore::IOSApplication::isIMDb() && applicationSDKVersion() < DYLD_IOS_VERSION_13_0)
         return false;
 #endif
     return true;

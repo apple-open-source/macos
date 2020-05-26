@@ -786,7 +786,6 @@
 		728463E723D02F290048F6CA /* HIDDisplayUserAdjustmentCAPI.m in Sources */ = {isa = PBXBuildFile; fileRef = 728463E623D02F290048F6CA /* HIDDisplayUserAdjustmentCAPI.m */; };
 		728463E823D02F400048F6CA /* HIDDisplayUserAdjustmentInterface.h in Headers */ = {isa = PBXBuildFile; fileRef = 728463E223D02EDB0048F6CA /* HIDDisplayUserAdjustmentInterface.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		728463E923D02F400048F6CA /* HIDDisplayUserAdjustmentCAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 728463E523D02F130048F6CA /* HIDDisplayUserAdjustmentCAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		72AEC8782374A0A000AE6780 /* TestDigitizerFingerCollection.m in Sources */ = {isa = PBXBuildFile; fileRef = 72AEC8772374A0A000AE6780 /* TestDigitizerFingerCollection.m */; };
 		72B754002199F50F007B0ECA /* log_IOHIDFamily.m in Sources */ = {isa = PBXBuildFile; fileRef = 72B753FF2199F50F007B0ECA /* log_IOHIDFamily.m */; };
 		72B754052199F520007B0ECA /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 014C794B00027ECC11CA2CF6 /* IOKit.framework */; };
 		72B754062199F526007B0ECA /* HID.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6C288FC71FB26BB800245AE7 /* HID.framework */; };
@@ -1211,6 +1210,7 @@
 		D80DEA581C11FCD50044375A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 014C794B00027ECC11CA2CF6 /* IOKit.framework */; };
 		D80DEA591C11FCDC0044375A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B963F4B700BC660708CA29FD /* CoreFoundation.framework */; };
 		D80DEA5B1C12078F0044375A /* USB2ADB.c in Sources */ = {isa = PBXBuildFile; fileRef = D80DEA5A1C12078F0044375A /* USB2ADB.c */; };
+		D8189FC423F39147004BF375 /* TestHIDKeyboardPower.m in Sources */ = {isa = PBXBuildFile; fileRef = D8189FC323F39147004BF375 /* TestHIDKeyboardPower.m */; };
 		D81A990B1DBF0A9700B35A3A /* IOHIDUnitTestUtility.m in Sources */ = {isa = PBXBuildFile; fileRef = D81A99091DBF0A9700B35A3A /* IOHIDUnitTestUtility.m */; };
 		D81A990D1DBFA00F00B35A3A /* TestDigitizerCollection.m in Sources */ = {isa = PBXBuildFile; fileRef = D81A990C1DBFA00F00B35A3A /* TestDigitizerCollection.m */; };
 		D81A99131DC0278300B35A3A /* TestHIDEventSystemClient.m in Sources */ = {isa = PBXBuildFile; fileRef = D81A99121DC0278300B35A3A /* TestHIDEventSystemClient.m */; };
@@ -3173,7 +3173,6 @@
 		728463E323D02EF80048F6CA /* HIDDisplayUserAdjustmentInterface.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayUserAdjustmentInterface.m; sourceTree = "<group>"; };
 		728463E523D02F130048F6CA /* HIDDisplayUserAdjustmentCAPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HIDDisplayUserAdjustmentCAPI.h; sourceTree = "<group>"; };
 		728463E623D02F290048F6CA /* HIDDisplayUserAdjustmentCAPI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HIDDisplayUserAdjustmentCAPI.m; sourceTree = "<group>"; };
-		72AEC8772374A0A000AE6780 /* TestDigitizerFingerCollection.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TestDigitizerFingerCollection.m; sourceTree = "<group>"; };
 		72B753FB2199F50E007B0ECA /* liblog_IOHIDFamily.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = liblog_IOHIDFamily.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		72B753FF2199F50F007B0ECA /* log_IOHIDFamily.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = log_IOHIDFamily.m; sourceTree = "<group>"; };
 		72B754072199F72F007B0ECA /* HIDEvent+HIDEventFields.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "HIDEvent+HIDEventFields.h"; sourceTree = "<group>"; };
@@ -3363,6 +3362,7 @@
 		D80DEA541C11F77D0044375A /* IOHIDKeyboardEventTranslation.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IOHIDKeyboardEventTranslation.c; sourceTree = "<group>"; };
 		D80DEA551C11F77D0044375A /* IOHIDKeyboardEventTranslation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDKeyboardEventTranslation.h; sourceTree = "<group>"; };
 		D80DEA5A1C12078F0044375A /* USB2ADB.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = USB2ADB.c; sourceTree = "<group>"; };
+		D8189FC323F39147004BF375 /* TestHIDKeyboardPower.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestHIDKeyboardPower.m; sourceTree = "<group>"; };
 		D81A99091DBF0A9700B35A3A /* IOHIDUnitTestUtility.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = IOHIDUnitTestUtility.m; sourceTree = "<group>"; };
 		D81A990A1DBF0A9700B35A3A /* IOHIDUnitTestUtility.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOHIDUnitTestUtility.h; sourceTree = "<group>"; };
 		D81A990C1DBFA00F00B35A3A /* TestDigitizerCollection.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TestDigitizerCollection.m; sourceTree = "<group>"; };
@@ -5324,8 +5324,10 @@
 				0F37C03F22A828E90057C599 /* TestPublicHIDUserDevice.m */,
 				72563E992353D2D800F59E6A /* TestHIDUPSElements.m */,
 				726A40EF23610361005807D0 /* TestHIDKeyboardWithTouchPad.m */,
-				72AEC8772374A0A000AE6780 /* TestDigitizerFingerCollection.m */,
-				724D28FB23762498001F56BF /* TestDigitizerButtonMask.m */,
+				D8189FC323F39147004BF375 /* TestHIDKeyboardPower.m */,
+				72588AF1234F7CEC002342D2 /* TestHIDPreferences.m */,
+				72BCCB192371039E004D051A /* TestDigitizerFingerCollection.m */,
+				72DD5F98237620E600B8EB71 /* TestDigitizerButtonMask.m */,
 				721FB326239825DD00F0C8A2 /* TestHIDUserDeviceInvalidReportLength.m */,
 				7212184123A1C969007079A8 /* TestDigitizerSurfaceSwitch.m */,
 				72CF07F423A99DBA0011CF24 /* TestDigitizerReportRate.m */,
@@ -8623,6 +8625,8 @@
 				D8B4EB671E5F698000729F9E /* TestHIDEvents.mm in Sources */,
 				D84478402141F3B10058352F /* TestIOHIDEventDriver_DigitizerFlags.m in Sources */,
 				6C3DBE0C205B3B0000DBC7E7 /* TestHIDActionQueue.m in Sources */,
+				72BCCB1A2371039E004D051A /* TestDigitizerFingerCollection.m in Sources */,
+				D8189FC423F39147004BF375 /* TestHIDKeyboardPower.m in Sources */,
 				D83F893721486E6C00307553 /* TestIOHIDEventDriver_DeviceOrientationAngularSensor.m in Sources */,
 				721FB327239825DD00F0C8A2 /* TestHIDUserDeviceInvalidReportLength.m in Sources */,
 				72F127E32147135C00D6B0E9 /* TestIOHIDNonVirtualUserDevice.m in Sources */,

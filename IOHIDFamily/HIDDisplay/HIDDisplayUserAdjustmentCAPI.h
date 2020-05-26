@@ -29,90 +29,11 @@ CF_ASSUME_NONNULL_BEGIN
 extern CFStringRef kHIDDisplayUserAdjustmentDescriptionKey;
 
 /*!
- @defined kHIDDisplayUserAdjustmentTimestampKey
- @abstract UTC timestamp of when this adjustment was performed.
- @discussion expected value type CFNumberRef.
+ @defined kHIDDisplayUserAdjustmentInformationKey
+ @abstract user adjustment information
+ @discussion expected value type CFDataRef.
  */
-extern CFStringRef kHIDDisplayUserAdjustmentTimestampKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentTemperatureKey
- @abstract Center, front of screen, in degrees C
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentTemperatureKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentFrontAmblientWhitePointXKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentFrontAmblientWhitePointXKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentFrontAmblientWhitePointYKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentFrontAmblientWhitePointYKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentFrontAmblientIlluminanceKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentFrontAmblientIlluminanceKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentRearAmblientWhitePointXKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentRearAmblientWhitePointXKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentRearAmblientWhitePointYKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentRearAmblientWhitePointYKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentRearAmblientIlluminanceKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentRearAmblientIlluminanceKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentMeasuredWhitePointXKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentMeasuredWhitePointXKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentMeasuredWhitePointYKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentMeasuredWhitePointYKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentMeasuredLuminanceYKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentMeasuredLuminanceKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentExpectedWhitePointXKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentExpectedWhitePointXKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentExpectedWhitePointYKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentExpectedWhitePointYKey;
-
-/*!
- @defined kHIDDisplayUserAdjustmentExpectedLuminanceKey
- @discussion expected value type CFNumberRef.
- */
-extern CFStringRef kHIDDisplayUserAdjustmentExpectedLuminanceKey;
+extern CFStringRef kHIDDisplayUserAdjustmentInformationKey;
 
 typedef CFTypeRef HIDDisplayUserAdjustmentInterfaceRef;
 

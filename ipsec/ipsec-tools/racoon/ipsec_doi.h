@@ -220,6 +220,10 @@ struct saproto;
 struct satrns;
 struct prop_pair;
 
+extern int t2isakmpsa(struct isakmp_pl_t *, struct isakmpsa *);
+extern int check_attr_isakmp (struct isakmp_pl_t *);
+extern int check_attr_ipsec (int, struct isakmp_pl_t *);
+extern int check_attr_ipcomp (struct isakmp_pl_t *);
 extern struct isakmpsa *get_ph1approvalx (struct prop_pair *,
 										  struct isakmpsa *, struct isakmpsa *, int);
 extern int ipsecdoi_checkph1proposal (vchar_t *, phase1_handle_t *);

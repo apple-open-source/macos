@@ -14,6 +14,7 @@
 		<string>Support for Apple ACL/EA syncing</string>
 		<string>patch CVE-2007-6199</string>
 		<string>patch CVE-2007-6200</string>
+		<string>CVE-2014-9512 - arbitrary file write in macOS's rsync client (58772406)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>rsync</string>

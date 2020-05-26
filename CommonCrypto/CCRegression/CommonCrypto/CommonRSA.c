@@ -269,88 +269,6 @@ RSAStdGenTest(size_t keysize, uint32_t exponent)
     return status;
 }
 
-typedef struct{
-    int e;
-    char *xp1, *xp2, *xp, *xq1, *xq2, *xq, *p, *q, *m, *d;
-} rsa_components_t;
-
-static int
-RSAX931BuildTest(rsa_components_t *rsa)
-{
-    int verbose = 0;
-    CCRSACryptorRef publicKey, privateKey;
-    byteBuffer xp1 = hexStringToBytes(rsa->xp1);
-    byteBuffer xp2 = hexStringToBytes(rsa->xp2);
-    byteBuffer xp = hexStringToBytes(rsa->xp);
-    byteBuffer xq1 = hexStringToBytes(rsa->xq1);
-    byteBuffer xq2 = hexStringToBytes(rsa->xq2);
-    byteBuffer xq = hexStringToBytes(rsa->xq);
-    byteBuffer p = hexStringToBytes(rsa->p);
-    byteBuffer q = hexStringToBytes(rsa->q);
-    byteBuffer m = hexStringToBytes(rsa->m);
-    byteBuffer d = hexStringToBytes(rsa->d);
-    byteBuffer retP = mallocByteBuffer(MAXKEYSPACE);
-    byteBuffer retQ = mallocByteBuffer(MAXKEYSPACE);
-    byteBuffer retM = mallocByteBuffer(MAXKEYSPACE);
-    byteBuffer retD = mallocByteBuffer(MAXKEYSPACE);
-    int status = -1;
-
-    CCRSACryptorCreatePairFromData(rsa->e,
-                                   xp1->bytes, xp1->len, xp2->bytes, xp2->len, xp->bytes, xp->len, 
-                                   xq1->bytes, xq1->len, xq2->bytes, xq2->len, xq->bytes, xq->len,
-                                   &publicKey, &privateKey,
-                                   retP->bytes, &retP->len, retQ->bytes, &retQ->len, retM->bytes, &retM->len, retD->bytes, &retD->len);
-        
-    if(bytesAreEqual(retP, q) && bytesAreEqual(retQ, p)) {
-        byteBuffer tmp = p;
-        p = q;
-        q = tmp;
-        printf("Swapped P and Q\n");
-    }
-    
-    ok(bytesAreEqual(retP, p), "p is built correctly");
-    ok(bytesAreEqual(retQ, q), "q is built correctly");
-    ok(bytesAreEqual(retD, d), "n is built correctly");
-    ok(bytesAreEqual(retM, m), "d is built correctly");
-    if(!bytesAreEqual(retP, p) || !bytesAreEqual(retQ, q) || !bytesAreEqual(retD, d) || !bytesAreEqual(retM, m))
-        goto errout;
-    
-    if(verbose) {
-        if(!bytesAreEqual(retP, p)) printf("P\nreturned: %s\nexpected: %s\n\n", bytesToHexString(retP), bytesToHexString(p));
-        else printf("P is correct\n");
-        if(!bytesAreEqual(retQ, q)) printf("Q\nreturned: %s\nexpected: %s\n\n", bytesToHexString(retQ), bytesToHexString(q));
-        else printf("Q is correct\n");
-        if(!bytesAreEqual(retD, d)) printf("D\nreturned: %s\nexpected: %s\n\n", bytesToHexString(retD), bytesToHexString(d));
-        else printf("D is correct\n");
-        if(!bytesAreEqual(retM, m)) printf("M\nreturned: %s\nexpected: %s\n\n", bytesToHexString(retM), bytesToHexString(m));
-        else printf("M is correct\n");
-    }
-    ok((status = saneKeySize(publicKey)) == 0, "Keysize is realistic");
-    ok((status = saneKeySize(privateKey)) == 0, "Keysize is realistic");
-    ok((status = roundTripCrypt(publicKey, privateKey)) == 0, "Can perform round-trip encryption");
-    ok((status = wrapUnwrap(publicKey, privateKey, ccPKCS1Padding)) == 0, "Can perform round-trip PKCS1 wrap/unwrap");
-    ok((status = wrapUnwrap(publicKey, privateKey, ccOAEPPadding)) == 0, "Can perform round-trip OAEP wrap/unwrap");
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    ok((status = sign_verify(publicKey, privateKey, ccPKCS1Padding, kCCDigestSHA1)) == 0, "Can perform round-trip ccPKCS1Padding sign/verify");
-#pragma clang diagnostic pop
-    ok((status = export_import(publicKey, privateKey)) == 0, "Can perform round-trip import/export");
-    CCRSAGetCRTComponentsTest(privateKey);
-    
-errout:
-    free(retP); free(retQ); free(retD); free(retM);
-    free(xp1); free(xp2); free(xp); free(xq1); free(xq2); free(xq); free(p); free(q); free(m); free(d);
-    CCRSACryptorRelease(publicKey);
-    CCRSACryptorRelease(privateKey);
-    return status;
-}
-
-static rsa_components_t rsa_components[] = {
-#include "CommonRSA_keygen_vects.inc"
-    , {.e=0}
-};
-
-
 static const uint8_t kAirTunesRSAPublicKey[] =
 {
     0x30, 0x82, 0x01, 0x0A, 0x02, 0x82, 0x01, 0x01, 0x00, 0xE7, 0xD7, 0x44, 0xF2, 0xA2, 0xE2, 0x78,
@@ -372,6 +290,10 @@ static const uint8_t kAirTunesRSAPublicKey[] =
     0x82, 0x11, 0x76, 0x25, 0xCD, 0xBF, 0x98, 0x44, 0x7B, 0x02, 0x03, 0x01, 0x00, 0x01, 0xD4, 0x9D
 };
 
+static const uint8_t k8192RSAPrivateKey[] =
+{
+#include "CommonRSA_key_8k_vect.inc"
+};
 
 // This function simulates CCRSACryptorCreateFromData and performs some test on the side.
 static CCCryptorStatus CCRSACryptorCreateFromData_and_test_keys(CCRSAKeyType keyType,
@@ -487,7 +409,7 @@ struct rsa_key_data {
     char *se;
     char *sp1;
     char *sp2;
-    
+    int result;
 } rsa_key_data[] = {
 #include "CommonRSA_key_vects.inc"
 };
@@ -509,21 +431,21 @@ static int  CCRSACryptorCreateFromData_KATtests()
         p2 = hexStringToBytes(v->sp2);
         pub_exp = hexStringToBytes(v->se);
         m = hexStringToBytes(v->sm);
-        
+
         rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPrivate, NULL, 0, pub_exp->bytes, pub_exp->len, p1->bytes , p1->len, p2->bytes, p2->len, &cryptor);
         if (cryptor != NULL) {
             CCRSACryptorRelease(cryptor);
             cryptor = NULL;
         }
-        ok(rc==kCCSuccess, "create priv key from data");
-        
+        is(rc, v->result, "create priv key from data");
+
         rc=CCRSACryptorCreateFromData_and_test_keys(ccRSAKeyPublic, m->bytes, m->len, pub_exp->bytes, pub_exp->len, NULL , 0, NULL, 0, &cryptor);
         if (cryptor != NULL) {
             CCRSACryptorRelease(cryptor);
             cryptor = NULL;
         }
-        ok(rc==kCCSuccess, "create pub key from data");
-        
+        is(rc, v->result, "create pub key from data");
+
         free(p1);
         free(p2);
         free(pub_exp);
@@ -537,15 +459,13 @@ static int  CCRSACryptorCreateFromData_KATtests()
 
 int CommonRSA (int __unused argc, char *const * __unused argv) {
     int verbose = 1;
-    int build931 = 1;
     int stdgen = 1;
     size_t keystep = 512;
-    
-    
-	plan_tests(894);
+
+    plan_tests(574);
     CCRSACryptorCreateFromData_tests();
     CCRSACryptorCreateFromData_KATtests();
-    
+
     if(stdgen) {
         if(verbose) diag("Starting to generate keys stepping %lu", keystep);
         for(size_t keysize = 1024; keysize < 4097; keysize+=keystep) {
@@ -553,21 +473,14 @@ int CommonRSA (int __unused argc, char *const * __unused argv) {
             ok(RSAStdGenTest(keysize, 65537) == 0, "Generate Standard RSA Key Pair");
         }
     } /* stdgen */
-    
-    if(build931) {
-        for(int i=0; rsa_components[i].e!=0; i++){
-            rsa_components_t *d = rsa_components + i;
-            if(verbose) diag("Build FIPS 186 key pair %d", i+1);
-            ok(RSAX931BuildTest(d) == 0, "Successfully Built RSA KeyPair");
-        }
-    } /* build931 */
-    
 
-    CCRSACryptorRef	key;
-    ok(CCRSACryptorImport( kAirTunesRSAPublicKey, sizeof( kAirTunesRSAPublicKey ), &key ) == kCCSuccess, "Imported Airport Key");
-    CCRSACryptorRelease(key); //it should work without if(key)
-    
-    
+    CCRSACryptorRef key;
+    is(CCRSACryptorImport(kAirTunesRSAPublicKey, sizeof(kAirTunesRSAPublicKey), &key), kCCSuccess, "Imported Airport Key");
+    CCRSACryptorRelease(key);
+
+    is(CCRSACryptorImport(k8192RSAPrivateKey, sizeof(k8192RSAPrivateKey), &key), kCCMemoryFailure, "Failed to import 8k key");
+    CCRSACryptorRelease(key);
+
     return 0;
 }
 

@@ -96,6 +96,8 @@ static void tests(void)
     ok(SOSAccountJoinCircles_wTxn(alice_account, &error), "Join circle: %@", error);
     ok(SOSAccountCheckHasBeenInSync_wTxn(alice_account), "Alice account initial sync done");
 
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, "updates");
+
     ok(SOSAccountAssertUserCredentialsAndUpdate(bob_account, cfaccount, cfpassword, &error), "Credential setting (%@)", error);
     CFReleaseNull(error);
     CFReleaseNull(cfpassword);
@@ -105,7 +107,7 @@ static void tests(void)
     ok(SOSAccountJoinCircles_wTxn(bob_account, &error), "Bob Applies (%@)", error);
     CFReleaseNull(error);
     
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 4, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
     
     {
         CFArrayRef applicants = SOSAccountCopyApplicants(alice_account, &error);

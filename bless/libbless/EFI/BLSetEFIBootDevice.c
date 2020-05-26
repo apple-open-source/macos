@@ -22,9 +22,11 @@
  */
 
 #include <dlfcn.h>
+#include <sys/stat.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOMedia.h>
+#include <APFS/APFS.h>
 
 #include "bless.h"
 #include "bless_private.h"
@@ -81,7 +83,11 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
     
     CFStringRef xmlString = NULL;
     const char *bootString = NULL;
-    
+    struct statfs   *mnts;
+    int             mntsize;
+	int				i;
+	struct stat		st;
+
 	if(bootLegacy) {
         if(legacyHint) {
             ret = BLCreateEFIXMLRepresentationForDevice(context,
@@ -112,7 +118,7 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
         // the given device may be pointing at a RAID
         CFDictionaryRef dict = NULL;
         CFArrayRef      array = NULL;
-        char            newBSDName[MAXPATHLEN];
+        char            newBSDName[64];
         
         CFStringRef firstBooter = NULL;
         CFStringRef firstData = NULL;
@@ -120,8 +126,13 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
         int         uefiDiscPartitionStart = 0;
         int         uefiDiscPartitionSize = 0;
 		CFStringRef firstVolume = NULL;
-		char        prebootBSD[MAXPATHLEN];
-		char        partialPath[MAXPATHLEN];
+		char        prebootBSD[64];
+		char		prebootPath[MAXPATHLEN];
+		char		prebootMountPoint[MAXPATHLEN];
+		char        *partialPath;
+		bool        mustUnmount = false;
+		char		*pathEnd;
+		size_t		pathFreeSpace;
 
         strlcpy(newBSDName, bsdname, sizeof newBSDName);
         
@@ -172,21 +183,64 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
 					firstVolume = CFArrayGetValueAtIndex(array, 0);
 					CFStringGetCString(firstVolume, prebootBSD, sizeof prebootBSD, kCFStringEncodingUTF8);
 					
+					// We need to mount the preboot volume so we know which UUID to use in the path.
+					// Check if the preboot volume is mounted.
+					mntsize = getmntinfo(&mnts, MNT_NOWAIT);
+					if (!mntsize) return 3;
+					for (i = 0; i < mntsize; i++) {
+						if (strcmp(mnts[i].f_mntfromname + 5, prebootBSD) == 0) break;
+					}
+					if (i < mntsize) {
+						strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
+					} else {
+						// The preboot volume isn't mounted right now.  We'll have to mount it.
+						ret = BLMountContainerVolume(context, prebootBSD, prebootMountPoint, sizeof prebootMountPoint, true);
+						if (ret) return 4;
+						mustUnmount = true;
+					}
+					snprintf(prebootPath, sizeof prebootPath, "%s/", prebootMountPoint);
+					pathEnd = prebootPath + strlen(prebootPath);
+					pathFreeSpace = sizeof prebootPath - strlen(prebootPath);
+
 					rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, newBSDName));
 					if (!rootMedia) {
 						CFRelease(dict);
+						if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
 						return 2;
 					}
 					rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
-					IOObjectRelease(rootMedia);
 					if (!rootUUID) {
-						CFRelease(dict);
+						contextprintf(context, kBLLogLevelError, "No valid volume UUID for device %s\n", newBSDName);
+						IOObjectRelease(rootMedia);
+						if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
 						return 2;
 					}
+					CFStringGetCString(rootUUID, pathEnd, pathFreeSpace, kCFStringEncodingUTF8);
+					if (stat(prebootPath, &st) < 0 || !S_ISDIR(st.st_mode)) {
+						CFRelease(rootUUID);
+						rootUUID = NULL;
+					} else {
+						contextprintf(context, kBLLogLevelVerbose, "Found system volume UUID path in preboot for %s\n", newBSDName);
+					}
+					if (!rootUUID) {
+						rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kAPFSVolGroupUUIDKey), kCFAllocatorDefault, 0);
+						if (rootUUID) CFStringGetCString(rootUUID, pathEnd, pathFreeSpace, kCFStringEncodingUTF8);
+						if (!rootUUID || stat(prebootPath, &st) < 0 || !S_ISDIR(st.st_mode)) {
+							contextprintf(context, kBLLogLevelError, "No valid group or volume UUID folder for %s\n", newBSDName);
+							IOObjectRelease(rootMedia);
+							CFRelease(rootUUID);
+							if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
+							return 2;
+						} else {
+							contextprintf(context, kBLLogLevelVerbose, "Found volume group UUID path in preboot for %s\n", newBSDName);
+						}
+					}
+					IOObjectRelease(rootMedia);
+					CFRelease(rootUUID);
+					if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
 					contextprintf(context, kBLLogLevelVerbose, "Substituting preboot volume %s\n", prebootBSD);
-					strlcpy(partialPath, "/", sizeof partialPath);
-					CFStringGetCString(rootUUID, partialPath + strlen(partialPath), sizeof partialPath - strlen(partialPath), kCFStringEncodingUTF8);
-					strlcat(partialPath, "/System/Library/CoreServices/boot.efi", sizeof partialPath);
+					strlcat(prebootPath, "/System/Library/CoreServices/boot.efi", sizeof prebootPath);
+					partialPath = pathEnd - 1;
 				}
 			}
 
@@ -278,14 +332,19 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
     return ret;
 }
 
-int setefifilepath(BLContextPtr context, const char * path, int bootNext,
+int setefifilepath(BLContextPtr context, const char *path, int bootNext,
 				   const char *optionalData, bool shortForm)
 {
     CFStringRef xmlString = NULL;
     const char *bootString = NULL;
     int ret;
     struct statfs sb;
-    if(0 != blsustatfs(path, &sb)) {
+    struct statfs   *mnts;
+    int             mntsize;
+	int				i;
+	struct stat		st;
+
+	if(0 != blsustatfs(path, &sb)) {
         contextprintf(context, kBLLogLevelError,  "Can't statfs %s\n" ,
                            path);
         return 1;           
@@ -301,12 +360,17 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
     CFStringRef firstBooter = NULL;
     CFStringRef firstData = NULL;
     CFStringRef firstVolume = NULL;
-    char        prebootBSD[MAXPATHLEN];
-    char        partialPath[MAXPATHLEN];
+	char        prebootBSD[64];
+	char        *partialPath;
     int         uefiDiscBootEntry = 0;
     int         uefiDiscPartitionStart = 0;
     int         uefiDiscPartitionSize = 0;
-    
+	char		prebootPath[MAXPATHLEN];
+	char		prebootMountPoint[MAXPATHLEN];
+	bool        mustUnmount = false;
+	char		*pathEnd;
+	size_t		pathFreeSpace;
+
     strlcpy(newBSDName, sb.f_mntfromname + 5, sizeof newBSDName);
     
     // first check to see if we are dealing with a disk that has the following properties:
@@ -356,21 +420,64 @@ int setefifilepath(BLContextPtr context, const char * path, int bootNext,
                 firstVolume = CFArrayGetValueAtIndex(array, 0);
                 CFStringGetCString(firstVolume, prebootBSD, sizeof prebootBSD, kCFStringEncodingUTF8);
                 
-                rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, newBSDName));
-                if (!rootMedia) {
-                    CFRelease(dict);
-                    return 2;
-                }
-                rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
-                IOObjectRelease(rootMedia);
-                if (!rootUUID) {
-                    CFRelease(dict);
-                    return 2;
-                }
+				// We need to mount the preboot volume so we know which UUID to use in the path.
+				// Check if the preboot volume is mounted.
+				mntsize = getmntinfo(&mnts, MNT_NOWAIT);
+				if (!mntsize) return 3;
+				for (i = 0; i < mntsize; i++) {
+					if (strcmp(mnts[i].f_mntfromname + 5, prebootBSD) == 0) break;
+				}
+				if (i < mntsize) {
+					strlcpy(prebootMountPoint, mnts[i].f_mntonname, sizeof prebootMountPoint);
+				} else {
+					// The preboot volume isn't mounted right now.  We'll have to mount it.
+					ret = BLMountContainerVolume(context, prebootBSD, prebootMountPoint, sizeof prebootMountPoint, true);
+					if (ret) return 4;
+					mustUnmount = true;
+				}
+				snprintf(prebootPath, sizeof prebootPath, "%s/", prebootMountPoint);
+				pathEnd = prebootPath + strlen(prebootPath);
+				pathFreeSpace = sizeof prebootPath - strlen(prebootPath);
+
+				rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, newBSDName));
+				if (!rootMedia) {
+					CFRelease(dict);
+					if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
+					return 2;
+				}
+				rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+				if (!rootUUID) {
+					contextprintf(context, kBLLogLevelError, "No valid volume UUID for device %s\n", newBSDName);
+					IOObjectRelease(rootMedia);
+					if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
+					return 2;
+				}
+				CFStringGetCString(rootUUID, pathEnd, pathFreeSpace, kCFStringEncodingUTF8);
+				if (stat(prebootPath, &st) < 0 || !S_ISDIR(st.st_mode)) {
+					CFRelease(rootUUID);
+					rootUUID = NULL;
+				} else {
+					contextprintf(context, kBLLogLevelVerbose, "Found system volume UUID path in preboot for %s\n", newBSDName);
+				}
+				if (!rootUUID) {
+					rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kAPFSVolGroupUUIDKey), kCFAllocatorDefault, 0);
+					if (rootUUID) CFStringGetCString(rootUUID, pathEnd, pathFreeSpace, kCFStringEncodingUTF8);
+					if (!rootUUID || stat(prebootPath, &st) < 0 || !S_ISDIR(st.st_mode)) {
+						contextprintf(context, kBLLogLevelError, "No valid group or volume UUID folder for %s\n", newBSDName);
+						IOObjectRelease(rootMedia);
+						CFRelease(rootUUID);
+						if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
+						return 2;
+					} else {
+						contextprintf(context, kBLLogLevelVerbose, "Found volume group UUID path in preboot for %s\n", newBSDName);
+					}
+				}
+				IOObjectRelease(rootMedia);
+				CFRelease(rootUUID);
+				if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
                 contextprintf(context, kBLLogLevelVerbose, "Substituting preboot volume %s\n", prebootBSD);
-                strlcpy(partialPath, "/", sizeof partialPath);
-                CFStringGetCString(rootUUID, partialPath + strlen(partialPath), sizeof partialPath - strlen(partialPath), kCFStringEncodingUTF8);
-                strlcat(partialPath, "/System/Library/CoreServices/boot.efi", sizeof partialPath);
+				strlcat(prebootPath, "/System/Library/CoreServices/boot.efi", sizeof prebootPath);
+				partialPath = pathEnd - 1;
             }
         }
         

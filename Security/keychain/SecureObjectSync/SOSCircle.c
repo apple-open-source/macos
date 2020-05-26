@@ -1320,7 +1320,9 @@ void SOSCircleForEachApplicant(SOSCircleRef circle, void (^action)(SOSPeerInfoRe
 
 bool SOSCircleHasPeerWithID(SOSCircleRef circle, CFStringRef peerid, CFErrorRef *error) {
     SOSCircleAssertStable(circle);
-
+    if(!peerid) {
+        return false;
+    }
     SOSPeerInfoRef found = asSOSPeerInfo(CFSetGetValue(circle->peers, peerid));
     return found && !isHiddenPeer(found);
 }

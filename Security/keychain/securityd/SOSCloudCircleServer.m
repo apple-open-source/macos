@@ -951,47 +951,16 @@ done:
     return result;
 }
 
-static bool SOSCCAssertUserCredentialsAndOptionalDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error) {
-    secnotice("updates", "Setting credentials and dsid (%@) for %@", dsid, user_label);
-
-    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameAssertUserCredentialsAndOptionalDSID);
-
-    bool result = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        if (dsid != NULL && CFStringCompare(dsid, CFSTR(""), 0) != 0) {
-            SOSAccountAssertDSID(txn.account, dsid);
-        }
-        return true;
-    });
-
-    require_quiet(result, done);
-
-    require_quiet(SyncKVSAndWait(error), done); // Make sure we've seen what the server has
-    require_quiet(Flush(error), done);          // And processed it already...before asserting
-
-    result = do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *block_error) {
-        return SOSAccountAssertUserCredentials(txn.account, user_label, user_password, block_error);
-    });
-
-    require_quiet(result, done);
-    require_quiet(Flush(error), done); // Process any incoming information..circles et.al. before fixing our signature
-
-    result = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        return SOSAccountGenerationSignatureUpdate(txn.account, error);
-    });
-
-    secnotice("updates", "Complete credentials and dsid (%@) for %@: %d %@",
-              dsid, user_label, result, error ? *error : NULL);
-done:
-    OctagonSignpostEnd(signPost, SOSSignpostNameAssertUserCredentialsAndOptionalDSID, OctagonSignpostNumber1(SOSSignpostNameAssertUserCredentialsAndOptionalDSID), (int)result);
-    return result;
-}
-
-static bool SOSCCAssertUserCredentialsAndOptionalDSIDWithAnalytics(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, NSData* parentEvent, CFErrorRef *error) {
+static bool SOSCCAssertUserCredentialsAndOptionalDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, NSData* parentEvent, CFErrorRef *error) {
     secnotice("updates", "Setting credentials and dsid (%@) for %@", dsid, user_label);
     OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameAssertUserCredentialsAndOptionalDSID);
 
     NSError* localError = nil;
-    SFSignInAnalytics* parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentEvent error:&localError];
+    SFSignInAnalytics* parent = nil;
+
+    if(parentEvent) {
+        parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentEvent error:&localError];
+    }
 
     SFSignInAnalytics *syncAndWaitEvent = nil;
     SFSignInAnalytics *flushEvent = nil;
@@ -1006,29 +975,46 @@ static bool SOSCCAssertUserCredentialsAndOptionalDSIDWithAnalytics(CFStringRef u
     });
 
     require_quiet(result, done);
-    syncAndWaitEvent = [parent newSubTaskForEvent:@"syncAndWaitEvent"];
-    require_quiet(SyncKVSAndWait(error), done); // Make sure we've seen what the server has
-    [syncAndWaitEvent stopWithAttributes:nil];
 
-    flushEvent = [parent newSubTaskForEvent:@"flushEvent"];
+    if(parent) {
+        syncAndWaitEvent = [parent newSubTaskForEvent:@"syncAndWaitEvent"];
+    }
+    require_quiet(SyncKVSAndWait(error), done); // Make sure we've seen what the server has
+    if(syncAndWaitEvent) {
+        [syncAndWaitEvent stopWithAttributes:nil];
+    }
+
+    if(parent) {
+        flushEvent = [parent newSubTaskForEvent:@"flushEvent"];
+    }
     require_quiet(Flush(error), done);          // And processed it already...before asserting
-    [flushEvent stopWithAttributes:nil];
+    if(flushEvent) {
+        [flushEvent stopWithAttributes:nil];
+    }
 
     result = do_with_account_while_unlocked(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *block_error) {
         return SOSAccountAssertUserCredentials(txn.account, user_label, user_password, block_error);
     });
 
     require_quiet(result, done);
-    secondFlushEvent = [parent newSubTaskForEvent:@"secondFlushEvent"];
+    if(parent) {
+        secondFlushEvent = [parent newSubTaskForEvent:@"secondFlushEvent"];
+    }
     require_quiet(Flush(error), done); // Process any incoming information..circles et.al. before fixing our signature
-    [secondFlushEvent stopWithAttributes:nil];
+    if(secondFlushEvent) {
+        [secondFlushEvent stopWithAttributes:nil];
+    }
 
-    generationSignatureUpdateEvent = [parent newSubTaskForEvent:@"generationSignatureUpdateEvent"];
+    if(parent) {
+        generationSignatureUpdateEvent = [parent newSubTaskForEvent:@"generationSignatureUpdateEvent"];
+    }
     result = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         return SOSAccountGenerationSignatureUpdate(txn.account, error);
     });
-    [generationSignatureUpdateEvent stopWithAttributes:nil];
 
+    if(generationSignatureUpdateEvent) {
+        [generationSignatureUpdateEvent stopWithAttributes:nil];
+    }
 
 done:
     if(syncAndWaitEvent){
@@ -1054,16 +1040,17 @@ done:
 bool SOSCCSetUserCredentialsAndDSID_Server(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error)
 {
     // TODO: Return error if DSID is NULL to insist our callers provide one?
-    return SOSCCAssertUserCredentialsAndOptionalDSID(user_label, user_password, dsid, error);
+    return SOSCCAssertUserCredentialsAndOptionalDSID(user_label, user_password, dsid, nil, error);
 }
 
 bool SOSCCSetUserCredentialsAndDSIDWithAnalytics_Server(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFDataRef parentEvent, CFErrorRef *error)
 {
-    return SOSCCAssertUserCredentialsAndOptionalDSIDWithAnalytics(user_label, user_password, dsid, (__bridge NSData*)parentEvent, error);
+    return SOSCCAssertUserCredentialsAndOptionalDSID(user_label, user_password, dsid, (__bridge NSData*)parentEvent, error);
 }
+
 bool SOSCCSetUserCredentials_Server(CFStringRef user_label, CFDataRef user_password, CFErrorRef *error)
 {
-    return SOSCCAssertUserCredentialsAndOptionalDSID(user_label, user_password, NULL, error);
+    return SOSCCAssertUserCredentialsAndOptionalDSID(user_label, user_password, NULL, nil, error);
 }
 
 bool SOSCCCanAuthenticate_Server(CFErrorRef *error)
@@ -1108,31 +1095,22 @@ SOSCCStatus SOSCCThisDeviceIsInCircle_Server(CFErrorRef *error)
     }) ? status : kSOSCCError;
 }
 
-bool SOSCCRequestToJoinCircle_Server(CFErrorRef* error)
-{
-    __block bool result = true;
-    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRequestToJoinCircle);
-
-    bool joined = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        result = SOSAccountJoinCircles(txn, block_error);
-        return result;
-    });
-
-    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRequestToJoinCircle, OctagonSignpostNumber1(SOSSignpostNameSOSCCRequestToJoinCircle), (int)joined);
-    return joined;
-}
-
 bool SOSCCRequestToJoinCircleWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error)
 {
     __block bool result = true;
     OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRequestToJoinCircle);
 
     bool requested = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        result = SOSAccountJoinCirclesWithAnalytics(txn, (__bridge NSData*)parentEvent, block_error);
+        result = SOSAccountJoinCircles(txn, (__bridge NSData*)parentEvent, block_error);
         return result;
     });
     OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRequestToJoinCircle, OctagonSignpostNumber1(SOSSignpostNameSOSCCRequestToJoinCircle), (int)requested);
     return requested;
+}
+
+bool SOSCCRequestToJoinCircle_Server(CFErrorRef* error)
+{
+    return SOSCCRequestToJoinCircleWithAnalytics_Server(nil, error);
 }
 
 bool SOSCCAccountHasPublicKey_Server(CFErrorRef *error)
@@ -1151,21 +1129,6 @@ bool SOSCCAccountHasPublicKey_Server(CFErrorRef *error)
     return hasPublicKey;
 }
 
-bool SOSCCRequestToJoinCircleAfterRestore_Server(CFErrorRef* error)
-{
-    __block bool result = true;
-    bool returned = false;
-    OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore);
-    returned = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        SOSAccountEnsurePeerRegistration(txn.account, block_error);
-        result = SOSAccountJoinCirclesAfterRestore(txn, block_error);
-        return result;
-    });
-    OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore, OctagonSignpostNumber1(SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore), (int)result);
-    return returned;
-
-}
-
 bool SOSCCRequestToJoinCircleAfterRestoreWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error)
 {
     __block bool result = true;
@@ -1173,24 +1136,38 @@ bool SOSCCRequestToJoinCircleAfterRestoreWithAnalytics_Server(CFDataRef parentEv
     OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore);
     returned = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         NSError* localError = nil;
-        SFSignInAnalytics* parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:(__bridge NSData*)parentEvent error:&localError];
+        SFSignInAnalytics* parent = nil;
+        SFSignInAnalytics *ensurePeerRegistrationEvent = nil;
+        
+        if(parentEvent) {
+            parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:(__bridge NSData*)parentEvent error:&localError];
+            ensurePeerRegistrationEvent = [parent newSubTaskForEvent:@"ensurePeerRegistrationEvent"];
+        }
 
-        SFSignInAnalytics *ensurePeerRegistrationEvent = [parent newSubTaskForEvent:@"ensurePeerRegistrationEvent"];
         SOSAccountEnsurePeerRegistration(txn.account, block_error);
         if(block_error && *block_error){
             NSError* blockError = (__bridge NSError*)*block_error;
             if(blockError){
-                [ensurePeerRegistrationEvent logRecoverableError:blockError];
+                if(ensurePeerRegistrationEvent) {
+                    [ensurePeerRegistrationEvent logRecoverableError:blockError];
+                }
                 secerror("ensure peer registration error: %@", blockError);
             }
         }
-        [ensurePeerRegistrationEvent stopWithAttributes:nil];
-        result = SOSAccountJoinCirclesAfterRestoreWithAnalytics(txn, (__bridge NSData*)parentEvent, block_error);
+        if(ensurePeerRegistrationEvent) {
+            [ensurePeerRegistrationEvent stopWithAttributes:nil];
+        }
+        result = SOSAccountJoinCirclesAfterRestore(txn, (__bridge NSData*)parentEvent, block_error);
         return result;
     });
     OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore, OctagonSignpostNumber1(SOSSignpostNameSOSCCRequestToJoinCircleAfterRestore), (int)result);
     return returned;
 
+}
+
+bool SOSCCRequestToJoinCircleAfterRestore_Server(CFErrorRef* error)
+{
+    return SOSCCRequestToJoinCircleAfterRestoreWithAnalytics_Server(nil, error);
 }
 
 bool SOSCCAccountSetToNew_Server(CFErrorRef *error)
@@ -1283,7 +1260,7 @@ bool SOSCCRemovePeersFromCircle_Server(CFArrayRef peers, CFErrorRef* error)
     OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRemovePeersFromCircle);
 
     bool removeResult =  do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        bool result = SOSAccountRemovePeersFromCircle(txn.account, peers, block_error);
+        bool result = SOSAccountRemovePeersFromCircle(txn.account, peers, nil, block_error);
         return result;
     });
     OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRemovePeersFromCircle, OctagonSignpostNumber1(SOSSignpostNameSOSCCRemovePeersFromCircle), (int)removeResult);
@@ -1295,7 +1272,7 @@ bool SOSCCRemovePeersFromCircleWithAnalytics_Server(CFArrayRef peers, CFDataRef 
     OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCRemovePeersFromCircle);
 
     bool removeResult = do_with_account_while_unlocked(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        bool result = SOSAccountRemovePeersFromCircleWithAnalytics(txn.account, peers, (__bridge NSData*)parentEvent, block_error);
+        bool result = SOSAccountRemovePeersFromCircle(txn.account, peers, (__bridge NSData*)parentEvent, block_error);
         return result;
     });
     OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCRemovePeersFromCircle, OctagonSignpostNumber1(SOSSignpostNameSOSCCRemovePeersFromCircle), (int)removeResult);

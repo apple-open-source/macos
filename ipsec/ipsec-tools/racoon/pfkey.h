@@ -78,4 +78,6 @@ extern u_int32_t pk_getseq (void);
 extern const char *sadbsecas2str
 	(struct sockaddr_storage *, struct sockaddr_storage *, int, u_int32_t, int);
 
+extern int addnewsp (caddr_t *);
+
 #endif /* _PFKEY_H */

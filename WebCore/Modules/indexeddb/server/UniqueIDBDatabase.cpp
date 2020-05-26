@@ -116,7 +116,6 @@ UniqueIDBDatabase::UniqueIDBDatabase(IDBServer& server, const IDBDatabaseIdentif
 {
     ASSERT(!isMainThread());
 
-    m_server.addDatabase(*this);
     LOG(IndexedDB, "UniqueIDBDatabase::UniqueIDBDatabase() (%p) %s", this, m_identifier.loggingString().utf8().data());
 }
 
@@ -132,8 +131,6 @@ UniqueIDBDatabase::~UniqueIDBDatabase()
     ASSERT(!m_versionChangeTransaction);
     ASSERT(!m_versionChangeDatabaseConnection);
     RELEASE_ASSERT(!m_backingStore);
-
-    m_server.removeDatabase(*this);
 }
 
 const IDBDatabaseInfo& UniqueIDBDatabase::info() const
@@ -1147,9 +1144,9 @@ static void errorOpenDBRequestForUserDelete(ServerOpenDBRequest& request)
         request.connection().didDeleteDatabase(result);
 }
 
-void UniqueIDBDatabase::immediateCloseForUserDelete()
+void UniqueIDBDatabase::immediateClose()
 {
-    LOG(IndexedDB, "UniqueIDBDatabase::immediateCloseForUserDelete");
+    LOG(IndexedDB, "UniqueIDBDatabase::immediateClose");
 
     // Error out all transactions.
     // Pending transactions must be cleared before in-progress transactions,

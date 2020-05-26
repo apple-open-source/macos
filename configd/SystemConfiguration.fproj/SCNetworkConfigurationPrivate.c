@@ -822,12 +822,18 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 			if_dict = CFArrayGetValueAtIndex(interfaces, i);
 			bsdName = CFDictionaryGetValue(if_dict, CFSTR(kIOBSDNameKey));
 			if (isThin(interfaces_thin, bsdName)) {
-				// remove this "thinned" interface
-				if ((_sc_log == 1) || _sc_verbose) {
-					SC_log(LOG_INFO, "thinned network interface : %@", bsdName);
-				}
-				updated++;
-				continue;
+				if (CFDictionaryContainsKey(if_dict, CFSTR(kSCNetworkInterfaceActive))) {
+					if ((_sc_log == 1) || _sc_debug) {
+						SC_log(LOG_INFO, "skipping interface : %@ (active)", bsdName);
+					}
+				} else {
+					// remove this "thinned" interface
+					if ((_sc_log == 1) || _sc_debug || _sc_verbose) {
+						SC_log(LOG_INFO, "thinned network interface : %@", bsdName);
+					}
+					updated++;
+					continue;
+  				}
 			}
 
 			CFArrayAppendValue(interfaces_new, if_dict);

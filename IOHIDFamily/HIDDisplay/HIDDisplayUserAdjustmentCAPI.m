@@ -10,21 +10,7 @@
 
 
 CFStringRef kHIDDisplayUserAdjustmentDescriptionKey = CFSTR("UserAdjustmentDescription");
-CFStringRef kHIDDisplayUserAdjustmentTimestampKey = CFSTR("UserAdjustmentTimeStamp");
-CFStringRef kHIDDisplayUserAdjustmentTemperatureKey = CFSTR("UserAdjustmentTemperature");
-CFStringRef kHIDDisplayUserAdjustmentFrontAmblientWhitePointXKey = CFSTR("UserAdjustmentFrontAmblientWhitePointX");
-CFStringRef kHIDDisplayUserAdjustmentFrontAmblientWhitePointYKey = CFSTR("UserAdjustmentFrontAmblientWhitePointY");
-CFStringRef kHIDDisplayUserAdjustmentFrontAmblientIlluminanceKey = CFSTR("UserAdjustmentFrontAmblientIlluminance");
-CFStringRef kHIDDisplayUserAdjustmentRearAmblientWhitePointXKey = CFSTR("UserAdjustmentRearAmblientWhitePointX");
-CFStringRef kHIDDisplayUserAdjustmentRearAmblientWhitePointYKey = CFSTR("UserAdjustmentRearAmblientWhitePointY");
-CFStringRef kHIDDisplayUserAdjustmentRearAmblientIlluminanceKey = CFSTR("UserAdjustmentRearAmblientIlluminance");
-CFStringRef kHIDDisplayUserAdjustmentMeasuredWhitePointXKey = CFSTR("UserAdjustmentMeasuredWhitePointX");
-CFStringRef kHIDDisplayUserAdjustmentMeasuredWhitePointYKey = CFSTR("UserAdjustmentMeasuredWhitePointY");
-CFStringRef kHIDDisplayUserAdjustmentMeasuredLuminanceKey = CFSTR("UserAdjustmentMeasuredLuminance");
-CFStringRef kHIDDisplayUserAdjustmentExpectedWhitePointXKey = CFSTR("UserAdjustmentExpectedWhitePointX");
-CFStringRef kHIDDisplayUserAdjustmentExpectedWhitePointYKey = CFSTR("UserAdjustmentExpectedWhitePointY");
-CFStringRef kHIDDisplayUserAdjustmentExpectedLuminanceKey = CFSTR("UserAdjustmentExpectedLuminance");
-
+CFStringRef kHIDDisplayUserAdjustmentInformationKey = CFSTR("UserAdjustmentInformation");
 
 HIDDisplayUserAdjustmentInterfaceRef __nullable HIDDisplayCreateUserAdjustmentInterfaceWithContainerID(CFStringRef containerID) {
     

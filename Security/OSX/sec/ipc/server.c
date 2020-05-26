@@ -895,11 +895,8 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
             case kSecXPCOpRequestToJoinWithAnalytics:
                 if (EntitlementPresentAndTrue(operation, client.task, kSecEntitlementKeychainCloudCircle, &error)) {
                     CFDataRef parentEvent = NULL;
-                    if(SecXPCDictionaryCopyDataOptional(event, kSecXPCKeySignInAnalytics, &parentEvent, &error)  && parentEvent != NULL){
-                        xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, SOSCCRequestToJoinCircleWithAnalytics_Server(parentEvent, &error));
-                    }else{
-                        xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, SOSCCRequestToJoinCircle_Server(&error));
-                    }
+                    SecXPCDictionaryCopyDataOptional(event, kSecXPCKeySignInAnalytics, &parentEvent, &error);
+                    xpc_dictionary_set_bool(replyMessage, kSecXPCKeyResult, SOSCCRequestToJoinCircleWithAnalytics_Server(parentEvent, &error));
                     CFReleaseNull(parentEvent);
                 }
                 break;

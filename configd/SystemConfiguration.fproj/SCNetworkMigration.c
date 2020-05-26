@@ -320,9 +320,10 @@ _SCNetworkConfigurationMakePathIfNeeded(CFURLRef pathURL)
 static SCPreferencesRef
 __SCNetworkCreateDefaultPref(CFStringRef prefsID)
 {
-	SCPreferencesRef prefs;
-	SCNetworkSetRef currentSet;
-	CFStringRef model;
+	SCNetworkSetRef		currentSet;
+	CFStringRef		model;
+	SCPreferencesRef	prefs;
+	CFNumberRef		version;
 
 	prefs = SCPreferencesCreate(NULL, PLUGIN_ID, prefsID);
 	if (prefs == NULL) {
@@ -342,6 +343,15 @@ __SCNetworkCreateDefaultPref(CFStringRef prefsID)
 		SCPreferencesSetValue(prefs, MODEL, model);
 	}
 
+	version = SCPreferencesGetValue(prefs, MODEL);
+	if (version == NULL) {
+		const int       new_version     = NETWORK_CONFIGURATION_VERSION;
+
+		version = CFNumberCreate(NULL, kCFNumberIntType, &new_version);
+		SCPreferencesSetValue(prefs, kSCPrefVersion, version);
+		CFRelease(version);
+	}
+
 	return prefs;
 }
 
@@ -349,10 +359,11 @@ __private_extern__
 void
 __SCNetworkPopulateDefaultNIPrefs(SCPreferencesRef ni_prefs)
 {
-	CFMutableArrayRef interfaces = NULL;
-	CFStringRef model;
-	CFArrayRef networkInterfaces;
-	CFComparisonResult res;
+	CFMutableArrayRef	interfaces	= NULL;
+	CFStringRef		model;
+	CFArrayRef		networkInterfaces;
+	CFComparisonResult	res;
+	CFNumberRef		version;
 
 	interfaces = (CFMutableArrayRef)SCPreferencesGetValue(ni_prefs, INTERFACES);
 	if (isA_CFArray(interfaces)) {
@@ -414,6 +425,15 @@ __SCNetworkPopulateDefaultNIPrefs(SCPreferencesRef ni_prefs)
 	if (model == NULL) {
 		model = _SC_hw_model(FALSE);
 		SCPreferencesSetValue(ni_prefs, MODEL, model);
+	}
+
+	version = SCPreferencesGetValue(ni_prefs, MODEL);
+	if (version == NULL) {
+		const int	new_version	= NETWORK_CONFIGURATION_VERSION;
+
+		version = CFNumberCreate(NULL, kCFNumberIntType, &new_version);
+		SCPreferencesSetValue(ni_prefs, kSCPrefVersion, version);
+		CFRelease(version);
 	}
 
 	CFRelease(networkInterfaces);

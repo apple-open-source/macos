@@ -1,27 +1,271 @@
-2020-02-19  Alan Coon  <alancoon@apple.com>
+2020-04-16  Alan Coon  <alancoon@apple.com>
 
-        Apply patch. rdar://problem/59576778
+        Cherry-pick r259980. rdar://problem/61888315
 
-    2020-02-19  Yusuke Suzuki  <ysuzuki@apple.com>
+    Follow-up: WTF::Persistence::Coder and WTF::Persistence::Decoder should use WARN_UNUSED_RETURN
+    <https://webkit.org/b/210238>
+    <rdar://problem/61491575>
+    
+    Changes based on feedback from Alex Christensen and Darin Adler:
+    - Remove WARN_UNUSED_RETURN from methods returning Optional<>.
+    - Place WARN_UNUSED_RETURN consistently before the return type.
+    
+    * wtf/persistence/PersistentDecoder.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@259980 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-            [JSC] Introduce UnlinkedCodeBlockGenerator and reduce sizeof(UnlinkedCodeBlock)
-            https://bugs.webkit.org/show_bug.cgi?id=207087
+    2020-04-12  David Kilzer  <ddkilzer@apple.com>
 
-            Reviewed by Tadeu Zagallo.
+            Follow-up: WTF::Persistence::Coder and WTF::Persistence::Decoder should use WARN_UNUSED_RETURN
+            <https://webkit.org/b/210238>
+            <rdar://problem/61491575>
 
-            Add more useful methods for RefCountedArray.
+            Changes based on feedback from Alex Christensen and Darin Adler:
+            - Remove WARN_UNUSED_RETURN from methods returning Optional<>.
+            - Place WARN_UNUSED_RETURN consistently before the return type.
 
-            * wtf/RefCountedArray.h:
-            (WTF::RefCountedArray::operator=):
-            (WTF::RefCountedArray::isEmpty const):
-            (WTF::RefCountedArray::front):
-            (WTF::RefCountedArray::front const):
-            (WTF::RefCountedArray::last):
-            (WTF::RefCountedArray::last const):
+            * wtf/persistence/PersistentDecoder.h:
 
-2020-02-19  Alan Coon  <alancoon@apple.com>
+2020-04-16  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r256191. rdar://problem/59576820
+        Cherry-pick r259814. rdar://problem/61888315
+
+    WTF::Persistence::Coder and WTF::Persistence::Decoder should use WARN_UNUSED_RETURN
+    <https://webkit.org/b/210238>
+    <rdar://problem/61491575>
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebKit:
+    
+    * NetworkProcess/cache/NetworkCacheEntry.cpp:
+    (WebKit::NetworkCache::Entry::decodeStorageRecord):
+    - Add missing return value check for decode.decode().
+    
+    Source/WTF:
+    
+    * wtf/persistence/PersistentCoders.cpp:
+    (WTF::Persistence::decodeStringText):
+    - Add WARN_UNUSED_RETURN.
+    
+    * wtf/persistence/PersistentCoders.h:
+    (WTF::Persistence::Coder<Optional<T>>::decode):
+    (WTF::Persistence::Coder<Seconds>::decode):
+    (WTF::Persistence::Coder<WallTime>::decode):
+    - Add WARN_UNUSED_RETURN.
+    - Add missing return value check for
+      decode.decodeFixedLengthData().
+    
+    * wtf/persistence/PersistentDecoder.h:
+    (WTF::Persistence::Decoder::decode):
+    (WTF::Persistence::Decoder::decodeEnum):
+    (WTF::Persistence::Decoder::bufferIsLargeEnoughToContain const):
+    - Add WARN_UNUSED_RETURN.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@259814 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-09  David Kilzer  <ddkilzer@apple.com>
+
+            WTF::Persistence::Coder and WTF::Persistence::Decoder should use WARN_UNUSED_RETURN
+            <https://webkit.org/b/210238>
+            <rdar://problem/61491575>
+
+            Reviewed by Darin Adler.
+
+            * wtf/persistence/PersistentCoders.cpp:
+            (WTF::Persistence::decodeStringText):
+            - Add WARN_UNUSED_RETURN.
+
+            * wtf/persistence/PersistentCoders.h:
+            (WTF::Persistence::Coder<Optional<T>>::decode):
+            (WTF::Persistence::Coder<Seconds>::decode):
+            (WTF::Persistence::Coder<WallTime>::decode):
+            - Add WARN_UNUSED_RETURN.
+            - Add missing return value check for
+              decode.decodeFixedLengthData().
+
+            * wtf/persistence/PersistentDecoder.h:
+            (WTF::Persistence::Decoder::decode):
+            (WTF::Persistence::Decoder::decodeEnum):
+            (WTF::Persistence::Decoder::bufferIsLargeEnoughToContain const):
+            - Add WARN_UNUSED_RETURN.
+
+2020-04-12  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r259316. rdar://problem/61269751
+
+    IndexedDB: destroy WebIDBServer when session is removed in network process
+    https://bugs.webkit.org/show_bug.cgi?id=209606
+    <rdar://problem/59310081>
+    
+    Reviewed by Geoffrey Garen.
+    
+    Source/WebCore:
+    
+    Rename immediateCloseForUserDelete to immediateClose as we now use it in destructor of IDBServer to make sure
+    everything in database finishes correctly.
+    
+    * Modules/indexeddb/server/IDBServer.cpp:
+    (WebCore::IDBServer::IDBServer::~IDBServer):
+    (WebCore::IDBServer::IDBServer::closeAndDeleteDatabasesModifiedSince):
+    (WebCore::IDBServer::IDBServer::closeAndDeleteDatabasesForOrigins):
+    * Modules/indexeddb/server/UniqueIDBDatabase.cpp:
+    (WebCore::IDBServer::UniqueIDBDatabase::immediateClose):
+    (WebCore::IDBServer::UniqueIDBDatabase::immediateCloseForUserDelete): Deleted.
+    * Modules/indexeddb/server/UniqueIDBDatabase.h:
+    
+    Source/WebKit:
+    
+    Tested manually to verify WebIDBServer is removed and its thread ends when session is removed.
+    
+    * NetworkProcess/IndexedDB/WebIDBServer.cpp:
+    (WebKit::WebIDBServer::~WebIDBServer):
+    (WebKit::WebIDBServer::addConnection):
+    (WebKit::WebIDBServer::removeConnection):
+    (WebKit::WebIDBServer::close):
+    * NetworkProcess/IndexedDB/WebIDBServer.h:
+    * NetworkProcess/NetworkProcess.cpp:
+    (WebKit::NetworkProcess::destroySession):
+    (WebKit::NetworkProcess::connectionToWebProcessClosed):
+    
+    Source/WTF:
+    
+    Add function to kill CrossThreadTaskHandler and make thread finish. Also add a callback to be called before
+    thread finishes.
+    
+    * wtf/CrossThreadTaskHandler.cpp:
+    (WTF::CrossThreadTaskHandler::CrossThreadTaskHandler):
+    (WTF::CrossThreadTaskHandler::setCompletionCallback):
+    (WTF::CrossThreadTaskHandler::kill):
+    * wtf/CrossThreadTaskHandler.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@259316 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-03-31  Sihui Liu  <sihui_liu@apple.com>
+
+            IndexedDB: destroy WebIDBServer when session is removed in network process
+            https://bugs.webkit.org/show_bug.cgi?id=209606
+            <rdar://problem/59310081>
+
+            Reviewed by Geoffrey Garen.
+
+            Add function to kill CrossThreadTaskHandler and make thread finish. Also add a callback to be called before
+            thread finishes.
+
+            * wtf/CrossThreadTaskHandler.cpp:
+            (WTF::CrossThreadTaskHandler::CrossThreadTaskHandler):
+            (WTF::CrossThreadTaskHandler::setCompletionCallback):
+            (WTF::CrossThreadTaskHandler::kill):
+            * wtf/CrossThreadTaskHandler.h:
+
+2020-04-09  Alan Coon  <alancoon@apple.com>
+
+        Revert r259689. rdar://problem/61269751
+
+2020-04-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r259316. rdar://problem/61269751
+
+    IndexedDB: destroy WebIDBServer when session is removed in network process
+    https://bugs.webkit.org/show_bug.cgi?id=209606
+    <rdar://problem/59310081>
+    
+    Reviewed by Geoffrey Garen.
+    
+    Source/WebCore:
+    
+    Rename immediateCloseForUserDelete to immediateClose as we now use it in destructor of IDBServer to make sure
+    everything in database finishes correctly.
+    
+    * Modules/indexeddb/server/IDBServer.cpp:
+    (WebCore::IDBServer::IDBServer::~IDBServer):
+    (WebCore::IDBServer::IDBServer::closeAndDeleteDatabasesModifiedSince):
+    (WebCore::IDBServer::IDBServer::closeAndDeleteDatabasesForOrigins):
+    * Modules/indexeddb/server/UniqueIDBDatabase.cpp:
+    (WebCore::IDBServer::UniqueIDBDatabase::immediateClose):
+    (WebCore::IDBServer::UniqueIDBDatabase::immediateCloseForUserDelete): Deleted.
+    * Modules/indexeddb/server/UniqueIDBDatabase.h:
+    
+    Source/WebKit:
+    
+    Tested manually to verify WebIDBServer is removed and its thread ends when session is removed.
+    
+    * NetworkProcess/IndexedDB/WebIDBServer.cpp:
+    (WebKit::WebIDBServer::~WebIDBServer):
+    (WebKit::WebIDBServer::addConnection):
+    (WebKit::WebIDBServer::removeConnection):
+    (WebKit::WebIDBServer::close):
+    * NetworkProcess/IndexedDB/WebIDBServer.h:
+    * NetworkProcess/NetworkProcess.cpp:
+    (WebKit::NetworkProcess::destroySession):
+    (WebKit::NetworkProcess::connectionToWebProcessClosed):
+    
+    Source/WTF:
+    
+    Add function to kill CrossThreadTaskHandler and make thread finish. Also add a callback to be called before
+    thread finishes.
+    
+    * wtf/CrossThreadTaskHandler.cpp:
+    (WTF::CrossThreadTaskHandler::CrossThreadTaskHandler):
+    (WTF::CrossThreadTaskHandler::setCompletionCallback):
+    (WTF::CrossThreadTaskHandler::kill):
+    * wtf/CrossThreadTaskHandler.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@259316 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-03-31  Sihui Liu  <sihui_liu@apple.com>
+
+            IndexedDB: destroy WebIDBServer when session is removed in network process
+            https://bugs.webkit.org/show_bug.cgi?id=209606
+            <rdar://problem/59310081>
+
+            Reviewed by Geoffrey Garen.
+
+            Add function to kill CrossThreadTaskHandler and make thread finish. Also add a callback to be called before
+            thread finishes.
+
+            * wtf/CrossThreadTaskHandler.cpp:
+            (WTF::CrossThreadTaskHandler::CrossThreadTaskHandler):
+            (WTF::CrossThreadTaskHandler::setCompletionCallback):
+            (WTF::CrossThreadTaskHandler::kill):
+            * wtf/CrossThreadTaskHandler.h:
+
+2020-02-20  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r256806. rdar://problem/59576023
+
+    Add and adopt HAVE(LOOKUP_GESTURE_RECOGNIZER)
+    https://bugs.webkit.org/show_bug.cgi?id=207876
+    
+    Reviewed by Wenson Hsieh.
+    
+    * wtf/Platform.h:
+    
+    * UIProcess/ios/WKContentViewInteraction.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView setupInteraction]):
+    (-[WKContentView cleanupInteraction]):
+    (-[WKContentView _removeDefaultGestureRecognizers]):
+    (-[WKContentView _addDefaultGestureRecognizers]):
+    (-[WKContentView gestureRecognizer:shouldReceiveTouch:]):
+    For symmetry's sake, introduce a HAVE for this gesture.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@256806 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-02-17  Tim Horton  <timothy_horton@apple.com>
+
+            Add and adopt HAVE(LOOKUP_GESTURE_RECOGNIZER)
+            https://bugs.webkit.org/show_bug.cgi?id=207876
+
+            Reviewed by Wenson Hsieh.
+
+            * wtf/Platform.h:
+            For symmetry's sake, introduce a HAVE for this gesture.
+
+2020-02-18  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r256191. rdar://problem/59447003
 
     Disallow setting base URL to a data or JavaScript URL
     https://bugs.webkit.org/show_bug.cgi?id=207136
@@ -140,6 +384,29 @@
             Add some more macro definitions.
 
             * wtf/spi/darwin/dyldSPI.h:
+
+2020-02-17  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/59447004
+
+    Apply content from rdar://problem/59447004
+
+    2020-02-14  Russell Epstein  <repstein@apple.com>
+
+                 Cherry-pick r256629. rdar://problem/59478949
+
+                 [JSC] Introduce UnlinkedCodeBlockGenerator and reduce sizeof(UnlinkedCodeBlock
+                 https://bugs.webkit.org/show_bug.cgi?id=207087
+                 Reviewed by Tadeu Zagallo.
+
+                 Add more useful methods for RefCountedArray.
+                 * wtf/RefCountedArray.h
+                 * (WTF::RefCountedArray::operator):
+                 * (WTF::RefCountedArray::isEmpty const
+                 * (WTF::RefCountedArray::front
+                 * (WTF::RefCountedArray::front const):
+                 * (WTF::RefCountedArray::last
+                 * (WTF::RefCountedArray::last const):
 
 2020-02-14  Russell Epstein  <repstein@apple.com>
 

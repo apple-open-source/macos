@@ -288,6 +288,7 @@ void IOHIDEventDriver::free ()
     OSSafeReleaseNULL(_scroll.elements);
     OSSafeReleaseNULL(_led.elements);
     OSSafeReleaseNULL(_keyboard.elements);
+    OSSafeReleaseNULL(_keyboard.keyboardPower);
     OSSafeReleaseNULL(_keyboard.blessedUsagePairs);
     OSSafeReleaseNULL(_unicode.legacyElements);
     OSSafeReleaseNULL(_unicode.gesturesCandidates);
@@ -1156,6 +1157,7 @@ void IOHIDEventDriver::setKeyboardProperties()
     setProperty("Keyboard", properties);
     
 exit:
+    
     OSSafeReleaseNULL(properties);
 }
 
@@ -1546,8 +1548,15 @@ IOReturn IOHIDEventDriver::setProperties( OSObject * properties )
     
     if (_digitizer.surfaceSwitch && (boolVal = OSDynamicCast(OSBoolean, propertyDict->getObject(kIOHIDDigitizerSurfaceSwitchKey)))) {
         dispatch_workloop_sync ({
-            HIDLog("Set %s value %d",kIOHIDDigitizerSurfaceSwitchKey,boolVal==kOSBooleanTrue ? 1 : 0);
-            _digitizer.surfaceSwitch->setValue(boolVal==kOSBooleanTrue ? 1 : 0);
+            HIDLog("Set %s value %d", kIOHIDDigitizerSurfaceSwitchKey, (boolVal == kOSBooleanTrue) ? 1 : 0);
+            _digitizer.surfaceSwitch->setValue(boolVal == kOSBooleanTrue ? 1 : 0);
+        });
+    }
+
+    if (_keyboard.keyboardPower && (boolVal = OSDynamicCast(OSBoolean, propertyDict->getObject(kIOHIDKeyboardEnabledKey)))) {
+        dispatch_workloop_sync ({
+            HIDLog("Set %s value %d", kIOHIDKeyboardEnabledKey, (boolVal == kOSBooleanTrue) ? 1 : 0);
+            _keyboard.keyboardPower->setValue((boolVal == kOSBooleanTrue) ? 1 : 0);
         });
     }
 
@@ -2160,6 +2169,9 @@ bool IOHIDEventDriver::parseKeyboardElement(IOHIDElement * element)
                 // state can be polled if necessary
 
                 if (element->getType() == kIOHIDElementTypeFeature) {
+                    _keyboard.keyboardPower = element;
+                    _keyboard.keyboardPower->retain();
+                    
                     value = element->getValue(kIOHIDValueOptionsUpdateElementValues);
                     
                     kbEnableEventProps = OSDictionary::withCapacity(3);
@@ -3676,9 +3688,14 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
                 break;
         }        
     }
-  
+    
     require(handled, exit);
     
+    // If device has explicitly specified inRange , we shouldn't override it
+    if (hasInRangeUsage == false && (unTouch || touch == 0)) {
+        inRange = false;
+    }
+      
     require(valid, exit);
     
     // Should modify transducer type based on finger confidence if original
@@ -3686,11 +3703,7 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
     if (transducerType == kDigitizerTransducerTypeFinger || transducerType == kDigitizerTransducerTypeHand) {
        transducerType = isFinger ? kDigitizerTransducerTypeFinger : kDigitizerTransducerTypeHand;
     }
-    // If device has explicitly specified inRange , we shouldn't override it
-    if (hasInRangeUsage == false && (unTouch || touch == 0)) {
-        inRange = false;
-    }
-
+    
     event = IOHIDEvent::digitizerEvent(timeStamp, transducerID, transducerType, inRange, buttonState, X, Y, Z, tipPressure, barrelPressure, twist, eventOptions);
     require(event, exit);
 
@@ -3705,7 +3718,6 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
     if (touch != transducer->touch) {
         eventMask |= kIOHIDDigitizerEventTouch;
     }
-    transducer->touch = touch;
   
     // If both touch and untouch usage are set for event then we should mark it
     // as cancelled event
@@ -3719,17 +3731,26 @@ IOHIDEvent* IOHIDEventDriver::createDigitizerTransducerEventForReport(DigitizerT
         eventMask |= kIOHIDDigitizerEventPosition;
     }
 
+    if (inRange != transducer->inRange)  {
+        eventMask |= kIOHIDDigitizerEventRange;
+    }
+    
+    event->setIntegerValue(kIOHIDEventFieldDigitizerEventMask, eventMask);
+    
+    // If we get multiple untouch event we should discard it
+    // reporting out of range , multiple untouch event can confuse
+    // ui layer application
+    if (transducer->touch == touch && touch == 0 && inRange == false) {
+        event = NULL;
+    }
+    
     if (inRange) {
         transducer->X = X;
         transducer->Y = Y;
     }
 
-    if (inRange != transducer->inRange)  {
-        eventMask |= kIOHIDDigitizerEventRange;
-    }
+    transducer->touch = touch;
     transducer->inRange = inRange;
-
-    event->setIntegerValue(kIOHIDEventFieldDigitizerEventMask, eventMask);
 
     return event;
 
@@ -3866,13 +3887,7 @@ void IOHIDEventDriver::handleKeboardReport(AbsoluteTime timeStamp, UInt32 report
         }
         
         else if (usage == kHIDUsage_KeyboardPower && usagePage == kHIDPage_KeyboardOrKeypad) {
-            if (value == 0) {
-                setProperty(kIOHIDKeyboardEnabledKey, kOSBooleanFalse);
-            }
-            
-            else {
-                setProperty(kIOHIDKeyboardEnabledKey, kOSBooleanTrue);
-            }
+            setProperty(kIOHIDKeyboardEnabledKey, (value == 0) ? kOSBooleanFalse : kOSBooleanTrue);
         }
         
         dispatchKeyboardEvent(timeStamp, usagePage, usage, value);

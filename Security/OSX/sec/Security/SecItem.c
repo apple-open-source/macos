@@ -219,6 +219,9 @@ static OSStatus osstatus_for_ctk_error(CFIndex ctkError) {
             return errSecUserCanceled;
         case kTKErrorCodeCorruptedData:
             return errSecDecode;
+        case kTKErrorCodeTokenNotFound:
+        case kTKErrorCodeObjectNotFound:
+            return errSecItemNotFound;
         default:
             return errSecInternal;
     }
@@ -1130,9 +1133,16 @@ bool SecItemResultProcess(CFDictionaryRef query, CFDictionaryRef auth_params, TK
         *result = CFArrayCreateMutableForCFTypes(NULL);
         for (i = 0; i < count; i++) {
             CFTypeRef ref;
-            require_quiet(SecItemResultCopyPrepared(CFArrayGetValueAtIndex(raw_result, i),
-                                                    token, query, auth_params, &ref, error), out);
-            if (ref != NULL) {
+            CFErrorRef localError = NULL;
+            bool prepared = SecItemResultCopyPrepared(CFArrayGetValueAtIndex(raw_result, i),
+                                                      token, query, auth_params, &ref, &localError);
+            if (!prepared) {
+                // TokenNotFound or TokenObjectNotFound will just not insert failing item into resulting array, other errors abort processing.
+                require_action_quiet(localError != NULL && CFEqual(CFErrorGetDomain(localError), CFSTR(kTKErrorDomain)) &&
+                                     (CFErrorGetCode(localError) == kTKErrorCodeTokenNotFound || CFErrorGetCode(localError) == kTKErrorCodeObjectNotFound), out,
+                                     CFErrorPropagate(localError, error));
+                CFReleaseNull(localError);
+            } else if (ref != NULL) {
                 CFArrayAppendValue((CFMutableArrayRef)*result, ref);
                 CFRelease(ref);
             }
@@ -1471,8 +1481,18 @@ bool SecItemAuthDoQuery(SecCFDictionaryCOW *query, SecCFDictionaryCOW *attribute
         // Prepare connection to target token if it is present.
         CFStringRef token_id = CFDictionaryGetValue(query->dictionary, kSecAttrTokenID);
         require_quiet(token_id == NULL || CFCastWithError(CFString, token_id, error) != NULL, out);
-        if (secItemOperation != SecItemCopyMatching && token_id != NULL) {
-            require_quiet(CFAssignRetained(token, SecTokenCreate(token_id, &auth_params, error)), out);
+        if (secItemOperation != SecItemCopyMatching && token_id != NULL && !cf_bool_value(CFDictionaryGetValue(query->dictionary, kSecUseTokenRawItems))) {
+            CFErrorRef localError = NULL;
+            CFAssignRetained(token, SecTokenCreate(token_id, &auth_params, &localError));
+            if (token == NULL) {
+                require_action_quiet(secItemOperation == SecItemDelete &&
+                                     CFEqual(CFErrorGetDomain(localError), CFSTR(kTKErrorDomain)) &&
+                                     CFErrorGetCode(localError) == kTKErrorCodeTokenNotFound,
+                                     out, CFErrorPropagate(localError, error));
+
+                // In case that token cannot be found and deletion is required, just continue and delete item from keychain only.
+                CFReleaseNull(localError);
+            }
         }
 
         CFDictionaryRef attrs = (attributes != NULL) ? attributes->dictionary : NULL;
@@ -1941,8 +1961,14 @@ OSStatus SecItemDelete(CFDictionaryRef inQuery) {
 
                     // Delete item from the token.
                     CFDataRef object_id = CFDictionaryGetValue(object_data, kSecTokenValueObjectIDKey);
-                    require_action_quiet(TKTokenDeleteObject(token, object_id, error), out,
-                                         SecTokenProcessError(kAKSKeyOpDelete, token, object_id, error));
+                    CFErrorRef localError = NULL;
+                    if (!TKTokenDeleteObject(token, object_id, &localError)) {
+                        // Check whether object was not found; in this case, ignore the error.
+                        require_action_quiet(CFEqual(CFErrorGetDomain(localError), CFSTR(kTKErrorDomain)) &&
+                                             CFErrorGetCode(localError) == kTKErrorCodeObjectNotFound, out,
+                                             (CFErrorPropagate(localError, error), SecTokenProcessError(kAKSKeyOpDelete, token, object_id, error)));
+                        CFReleaseNull(localError);
+                    }
 
                     // Delete the item from the keychain.
                     require_quiet(SECURITYD_XPC(sec_item_delete, dict_client_to_error_request, item_query,

@@ -293,8 +293,9 @@ kern_return_t IOHIDSetParameter( io_connect_t handle, CFStringRef key,
     numberRef = CFNumberCreate(kCFAllocatorDefault, numberType, bytes);
     if( numberRef)
     {
-
-        kr = IOHIDSetHIDParameterToEventSystem (handle, key, numberRef);
+        if (!CFEqual(CFSTR("HIDWaitCursorFrameInterval"), key)) {
+            kr = IOHIDSetHIDParameterToEventSystem (handle, key, numberRef);
+        }
         kr = IOConnectSetCFProperty( handle, key, numberRef );
 
         CFRelease(numberRef);

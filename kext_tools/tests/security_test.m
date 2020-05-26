@@ -15,7 +15,7 @@
 #pragma mark External Function Declarations
 extern Boolean pathIsSecure(NSString *path);
 extern Boolean bundleValidates(NSURL *bundleURL, BOOL isGPUBundle);
-extern Boolean stageBundle(NSURL *sourceURL, NSURL *destinationURL, BOOL isGPUBundle);
+extern Boolean stageBundle(NSURL *sourceURL, NSURL *destinationURL, NSString *validationRoot, BOOL isGPUBundle);
 extern NSData *copyIdentifierFromBundle(NSURL *url);
 typedef BOOL (^BundleURLHandler)(NSURL *, NSURL *);
 extern void forEachInsecureBundleHelper(NSArray *bundles, BundleURLHandler callbackHandler, NSURL *sourceBaseURL, NSURL *targetBaseURL);
@@ -96,7 +96,7 @@ test_staging_function()
                          error:nil];
     sourceURL = targetURL;
     targetURL = [tmpDir URLByAppendingPathComponent:@"SecureCopy.kext"];
-    success = stageBundle(sourceURL, targetURL, YES);
+	success = stageBundle(sourceURL, targetURL, tmpDir.path, YES);
     contents = [fileManager contentsOfDirectoryAtURL:tmpDir includingPropertiesForKeys:nil options:0 error:nil];
 
     TEST_CASE("SETUP: apple kext staging", [fileManager fileExistsAtPath:sourceURL.path]);
@@ -110,7 +110,7 @@ test_staging_function()
     // Try staging a third party kext, which should fail and leave no trace in the output directory.
     sourceURL = [NSURL fileURLWithPath:@"/Library/Extensions/PromiseSTEX.kext"];
     targetURL = [tmpDir URLByAppendingPathComponent:@"DoesntExist.kext"];
-    success = stageBundle(sourceURL, targetURL, YES);
+    success = stageBundle(sourceURL, targetURL, tmpDir.path, YES);
     contents = [fileManager contentsOfDirectoryAtURL:tmpDir includingPropertiesForKeys:nil options:0 error:nil];
 
     TEST_CASE("third party kext fails staging as a bundle", success == false);
@@ -119,7 +119,7 @@ test_staging_function()
     // Try staging a third party kext as a kext, which should succeed.
     sourceURL = [NSURL fileURLWithPath:@"/Library/Extensions/PromiseSTEX.kext"];
     targetURL = [tmpDir URLByAppendingPathComponent:@"PromiseCopy.kext"];
-    success = stageBundle(sourceURL, targetURL, NO);
+    success = stageBundle(sourceURL, targetURL, tmpDir.path, NO);
     contents = [fileManager contentsOfDirectoryAtURL:tmpDir includingPropertiesForKeys:nil options:0 error:nil];
 
     TEST_CASE("third party kext stages", success == true);

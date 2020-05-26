@@ -91,7 +91,7 @@
 int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
                  int bootLegacy, const char *legacyHint, 
 				 const char *optionalData, bool shortForm);
-int setefifilepath(BLContextPtr context, const char * path, int bootNext,
+int setefifilepath(BLContextPtr context, const char *path, int bootNext,
                                    const char *optionalData, bool shortForm);
 int setefinetworkpath(BLContextPtr context, CFStringRef booterXML,
                       CFStringRef kernelXML, CFStringRef mkextXML,

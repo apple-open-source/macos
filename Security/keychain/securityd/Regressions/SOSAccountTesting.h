@@ -62,7 +62,7 @@ static inline bool SOSAccountJoinCirclesAfterRestore_wTxn(SOSAccount* acct, CFEr
 {
     __block bool result = false;
     [acct performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-        result = SOSAccountJoinCirclesAfterRestore(txn, error);
+        result = SOSAccountJoinCirclesAfterRestore(txn, nil, error);
     }];
     return result;
 }
@@ -71,7 +71,7 @@ static inline bool SOSAccountJoinCircles_wTxn(SOSAccount* acct, CFErrorRef* erro
 {
     __block bool result = false;
     [acct performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-        result = SOSAccountJoinCircles(txn, error);
+        result = SOSAccountJoinCircles(txn, nil, error);
     }];
     return result;
 }

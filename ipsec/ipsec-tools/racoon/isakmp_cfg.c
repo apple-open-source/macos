@@ -363,6 +363,12 @@ isakmp_cfg_reply(iph1, attrpl)
 	tlen -= sizeof(*attrpl);
 
 	while (tlen > 0) {
+		if (tlen < sizeof(struct isakmp_data)) {
+			plog(ASL_LEVEL_ERR,
+				 "isakmp_cfg_reply invalid length of isakmp data, expected %zu actual %d\n",
+				 sizeof(struct isakmp_data), tlen);
+			return -1;
+		}
 		type = ntohs(attr->type);
 
 		/* Handle short attributes */
@@ -398,10 +404,10 @@ isakmp_cfg_reply(iph1, attrpl)
 		alen = ntohs(attr->lorv);
 
 		/* Check that the attribute fit in the packet */
-		if (tlen < alen) {
-			plog(ASL_LEVEL_ERR, 
-			     "Short attribute %s\n",
-			     s_isakmp_cfg_type(type));
+		if (tlen < (alen + sizeof(struct isakmp_data))) {
+			plog(ASL_LEVEL_ERR,
+				 "Short attribute %s len %zu\n",
+				 s_isakmp_cfg_type(type), alen);
 			return -1;
 		}
 
@@ -571,6 +577,12 @@ isakmp_cfg_request(iph1, attrpl, msg)
 	memset(payload->v, 0, sizeof(*reply));
 	
 	while (tlen > 0) {
+		if (tlen < sizeof(struct isakmp_data)) {
+			plog(ASL_LEVEL_ERR,
+				 "isakmp_cfg_request invalid length of isakmp data, expected %zu actual %d\n",
+				 sizeof(struct isakmp_data), tlen);
+			goto end;
+		}
 		reply_attr = NULL;
 		type = ntohs(attr->type);
 
@@ -608,10 +620,10 @@ isakmp_cfg_request(iph1, attrpl, msg)
 		alen = ntohs(attr->lorv);
 
 		/* Check that the attribute fit in the packet */
-		if (tlen < alen) {
-			plog(ASL_LEVEL_ERR, 
-			     "Short attribute %s\n",
-			     s_isakmp_cfg_type(type));
+		if (tlen < (sizeof(struct isakmp_data) + alen)) {
+			plog(ASL_LEVEL_ERR,
+				 "Short attribute %s len %zu\n",
+				 s_isakmp_cfg_type(type), alen);
 			goto end;
 		}
 
@@ -726,6 +738,13 @@ isakmp_cfg_set(iph1, attrpl, msg)
 	 * We should send ack for the attributes we accepted 
 	 */
 	while (tlen > 0) {
+		if (tlen < sizeof(struct isakmp_data)) {
+			plog(ASL_LEVEL_ERR,
+				 "isakmp_cfg_set invalid length of isakmp data, expected %zu actual %d\n",
+				 sizeof(struct isakmp_data), tlen);
+			vfree(payload);
+			return error;
+		}
 		reply_attr = NULL;
 		type = ntohs(attr->type);
 
@@ -758,6 +777,13 @@ isakmp_cfg_set(iph1, attrpl, msg)
 			attr++;
 		} else {
 			alen = ntohs(attr->lorv);
+			if (tlen < (sizeof(*attr) + alen)) {
+				plog(ASL_LEVEL_ERR,
+					 "isakmp_cfg_set packet too short for type %d, expected %zu actual %zu\n",
+					 type, alen, tlen - sizeof(*attr));
+				vfree(payload);
+				return error;
+			}
 			tlen -= (sizeof(*attr) + alen);
 			npp = (char *)attr;
 			attr = (struct isakmp_data *)

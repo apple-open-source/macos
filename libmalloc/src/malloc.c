@@ -1009,9 +1009,6 @@ set_flags_from_environment(void)
 	}
 #endif
 
-	// Disable large ASLR sliding until 59078838 introduces the checkfix to fix bincompat issues
-	malloc_debug_flags |= DISABLE_LARGE_ASLR;
-
 	/*
 	 * Given that all environment variables start with "Malloc" we optimize by scanning quickly
 	 * first the environment, therefore avoiding repeated calls to getenv().

@@ -9,6 +9,7 @@
 #import <sys/csr.h>
 #import <rootless.h>
 #import <copyfile.h>
+#import <os/cleanup.h>
 
 #import <IOKit/kext/OSKextPrivate.h>
 
@@ -28,6 +29,7 @@
 #define INSECURE_GRAPHICS_BUNDLE_PATH "/System/Library/Extensions"
 #define SECURE_GRAPHICS_BUNDLE_STAGING_PATH "/Library/GPUBundles"
 #define SECURE_KEXT_STAGING_PATH "/Library/StagedExtensions"
+#define SECURE_KEXT_VALIDATION_ROOT "/private/var/db/KernelExtensionManagement/Staging"
 
 static CFStringRef kCompanionBundlesKey = CFSTR("GPUCompanionBundles");
 static CFStringRef kOptionalCompanionBundlesKey = CFSTR("GPUOptionalCompanionBundles");
@@ -150,13 +152,76 @@ __out:
     return validates;
 }
 
-BOOL bundleValidates(NSURL *bundleURL, BOOL isGPUBundle)
+static void
+ensureValidationAreaInitialized(void)
+{
+    int result = 0;
+    // This mode is 755, which is the same permission the installer places on the root folder.
+    mode_t mode = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
+
+    // This is necessary for a while to allow tests to pass and to allow roots to move around betwee
+    // systems that already have this protected directory and versions that don't yet.
+    // <rdar://problem/60972335> Remove rootless_mkdir_restricted once its been in enough builds
+    result = rootless_mkdir_restricted("/private/var/db/KernelExtensionManagement", mode, "KernelExtensionManagement");
+    if (result == -1 && errno != EEXIST) {
+        OSKextLogCFString(NULL,
+                          kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                          CFSTR("Error creating new protected root: %d"),
+                          errno);
+    }
+
+    result = mkdir(SECURE_KEXT_VALIDATION_ROOT, mode);
+    if (result == -1 && errno != EEXIST) {
+        OSKextLogCFString(NULL,
+                          kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                          CFSTR("Error creating staging directory: %d"),
+                          errno);
+    }
+}
+
+static NSURL *
+makeTemporaryValidationRoot(NSString *validationRoot)
+{
+    int __os_close fd = -1;
+    NSURL *validationURL = nil;
+    const char *newDirectory = NULL;
+    char template[] = "tmp.XXXXXX";
+
+    ensureValidationAreaInitialized();
+
+    fd = open(validationRoot.fileSystemRepresentation, O_RDONLY);
+    if (fd < 0) {
+        OSKextLogCFString(NULL,
+                          kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                          CFSTR("Error opening staging root: %d"),
+                          errno);
+        goto lb_exit;
+    }
+
+    newDirectory = mkdtempat_np(fd, template);
+    if (newDirectory == NULL) {
+        OSKextLogCFString(NULL,
+                          kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                          CFSTR("Error making temporary directory: %d"),
+                          errno);
+        goto lb_exit;
+    }
+
+    validationURL = [NSURL fileURLWithPath:validationRoot];
+    validationURL = [validationURL URLByAppendingPathComponent:@(newDirectory)];
+
+lb_exit:
+    return validationURL;
+}
+
+BOOL
+bundleValidates(NSURL *bundleURL, BOOL isGPUBundle)
 {
     return isGPUBundle ? gpuBundleValidates(bundleURL) : kextBundleValidates(bundleURL);
 }
 
 Boolean
-stageBundle(NSURL *sourceURL, NSURL *destinationURL, BOOL isGPUBundle)
+stageBundle(NSURL *sourceURL, NSURL *destinationURL, NSString *validationRoot, BOOL isGPUBundle)
 {
     Boolean success = false;
     int copyStatus = 0;
@@ -164,6 +229,7 @@ stageBundle(NSURL *sourceURL, NSURL *destinationURL, BOOL isGPUBundle)
     NSFileManager *fileManager = [NSFileManager defaultManager];
     NSUUID *uuid = nil;
     NSURL *temporaryURL = nil;
+    NSURL *temporaryRoot = nil;
     NSString *dirName = nil;
 
     // If the target directory already exists, we need to delete it first.
@@ -200,23 +266,16 @@ stageBundle(NSURL *sourceURL, NSURL *destinationURL, BOOL isGPUBundle)
         goto __out;
     }
 
-    temporaryURL = [destinationURL.URLByDeletingLastPathComponent URLByAppendingPathComponent:dirName];
-    if (!temporaryURL) {
+    temporaryRoot = makeTemporaryValidationRoot(validationRoot);
+    if (!temporaryRoot) {
         OSKextLogMemError();
         success = false;
         goto __out;
     }
 
-    // copyfile relies on the parent directory already existing.
-    success = [fileManager createDirectoryAtPath:destinationURL.URLByDeletingLastPathComponent.path
-                     withIntermediateDirectories:YES
-                                      attributes:nil
-                                           error:&error];
-    if (!success) {
-        OSKextLogCFString(NULL,
-                          kOSKextLogErrorLevel | kOSKextLogLoadFlag,
-                          CFSTR("Error creating directory during staging: %@"),
-                          error);
+    temporaryURL = [temporaryRoot URLByAppendingPathComponent:dirName];
+    if (!temporaryURL) {
+        OSKextLogMemError();
         success = false;
         goto __out;
     }
@@ -234,6 +293,22 @@ stageBundle(NSURL *sourceURL, NSURL *destinationURL, BOOL isGPUBundle)
     // Validate bundle and rename or delete, as appropriate.
     if (bundleValidates(temporaryURL, isGPUBundle)) {
         NSURL *resultURL = nil;
+
+        // Ensure entire set of parent directories exists before we rename the validated bundle into place.
+        success = [fileManager createDirectoryAtPath:destinationURL.URLByDeletingLastPathComponent.path
+                            withIntermediateDirectories:YES
+                                            attributes:nil
+                                                error:&error];
+        if (!success) {
+            OSKextLogCFString(NULL,
+                              kOSKextLogErrorLevel | kOSKextLogLoadFlag,
+                              CFSTR("Error creating directory during staging: %@"),
+                              error);
+            success = false;
+            [fileManager removeItemAtURL:temporaryURL error:nil];
+            goto __out;
+        }
+
         success = [fileManager replaceItemAtURL:destinationURL
                                   withItemAtURL:temporaryURL
                                  backupItemName:nil
@@ -272,6 +347,9 @@ stageBundle(NSURL *sourceURL, NSURL *destinationURL, BOOL isGPUBundle)
     success = true;
 
 __out:
+    if (temporaryRoot) {
+        [fileManager removeItemAtPath:temporaryRoot.path error:nil];
+    }
     return success;
 }
 
@@ -529,7 +607,7 @@ createStagedKext(OSKextRef theKext)
         // Even if the source kext "requires staging", the bundle itself may have already
         // been staged properly (from a previous load, etc) and not need any more work.
         if (bundleNeedsStaging(sourceURL, destinationURL)) {
-            if (!stageBundle(sourceURL, destinationURL, NO)) {
+            if (!stageBundle(sourceURL, destinationURL, @SECURE_KEXT_VALIDATION_ROOT, NO)) {
                 OSKextLog(NULL,
                           kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
                           kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
@@ -625,7 +703,7 @@ stageGPUBundles(OSKextRef theKext)
                           kOSKextLogBasicLevel | kOSKextLogLoadFlag,
                           CFSTR("Staging insecure bundle: %@"),
                           sourceURL.path);
-        if (!stageBundle(sourceURL, targetURL, YES)) {
+        if (!stageBundle(sourceURL, targetURL, @SECURE_KEXT_VALIDATION_ROOT, YES)) {
             OSKextLogCFString(NULL,
                               kOSKextLogBasicLevel | kOSKextLogLoadFlag,
                               CFSTR("Staging failed for bundle: %@"),
@@ -844,9 +922,10 @@ clearStagingDirectoryHelper(NSString *stagingRoot)
 Boolean
 clearStagingDirectory(void)
 {
-    return clearStagingDirectoryHelper(@SECURE_KEXT_STAGING_PATH);
+    // Clear temporary staging AND clear the entire secure staging area.
+    return clearStagingDirectoryHelper(@SECURE_KEXT_VALIDATION_ROOT) &&
+           clearStagingDirectoryHelper(@SECURE_KEXT_STAGING_PATH);
 }
-
 
 CFURLRef
 copyUnstagedKextURL(CFURLRef kextURL)

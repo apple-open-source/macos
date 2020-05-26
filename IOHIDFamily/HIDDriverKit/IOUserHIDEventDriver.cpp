@@ -972,6 +972,7 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
     bool inRange = true;
     bool invert = false;
     bool touch = false;
+    bool hasInRangeUsage = false;
     IOFixed x = 0;
     IOFixed y = 0;
     IOFixed z = 0;
@@ -1054,6 +1055,7 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
                     case kHIDUsage_Dig_InRange:
                         inRange = value != 0;
                         handled |= elementIsCurrent;
+                        hasInRangeUsage = true;
                         break;
                     case kHIDUsage_Dig_BarrelPressure:
                         barrelPressure = element->getScaledFixedValue(kIOHIDValueScaleTypeCalibrated);
@@ -1084,6 +1086,10 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
                 }
                 break;
         }
+    }
+    
+    if (hasInRangeUsage == false && (cancel || touch == 0)) {
+        inRange = false;
     }
     
     require(handled, exit);
@@ -1119,21 +1125,28 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
         eventMask |= kIOHIDDigitizerEventRange;
     }
     
-    // Set the event fields
-    event->setIntegerValue(kIOHIDEventFieldDigitizerEventMask, eventMask);
-    event->setIntegerValue(kIOHIDEventFieldDigitizerRange, inRange);
-    event->setIntegerValue(kIOHIDEventFieldDigitizerTouch, touch);
-    event->setIntegerValue(kIOHIDEventFieldDigitizerIndex, transducerID);
-    event->setIntegerValue(kIOHIDEventFieldDigitizerType, collection->getType());
-    event->setIntegerValue(kIOHIDEventFieldDigitizerButtonMask, buttonState);
-    event->setFixedValue(kIOHIDEventFieldDigitizerX, x);
-    event->setFixedValue(kIOHIDEventFieldDigitizerY, y);
-    event->setFixedValue(kIOHIDEventFieldDigitizerZ, z);
-    event->setFixedValue(kIOHIDEventFieldDigitizerPressure, tipPressure);
-    event->setFixedValue(kIOHIDEventFieldDigitizerAuxiliaryPressure, barrelPressure);
-    event->setFixedValue(kIOHIDEventFieldDigitizerTwist, twist);
-    event->setFixedValue(kIOHIDEventFieldDigitizerTiltX, tiltX);
-    event->setFixedValue(kIOHIDEventFieldDigitizerTiltY, tiltY);
+    // If we get multiple untouch event we should discard it
+    // reporting out of range , multiple untouch event can confuse
+    // ui layer application
+    if (collection->getTouch() == touch && touch == 0 && inRange == false) {
+        event = NULL;
+    } else {
+        // Set the event fields
+        event->setIntegerValue(kIOHIDEventFieldDigitizerEventMask, eventMask);
+        event->setIntegerValue(kIOHIDEventFieldDigitizerRange, inRange);
+        event->setIntegerValue(kIOHIDEventFieldDigitizerTouch, touch);
+        event->setIntegerValue(kIOHIDEventFieldDigitizerIndex, transducerID);
+        event->setIntegerValue(kIOHIDEventFieldDigitizerType, collection->getType());
+        event->setIntegerValue(kIOHIDEventFieldDigitizerButtonMask, buttonState);
+        event->setFixedValue(kIOHIDEventFieldDigitizerX, x);
+        event->setFixedValue(kIOHIDEventFieldDigitizerY, y);
+        event->setFixedValue(kIOHIDEventFieldDigitizerZ, z);
+        event->setFixedValue(kIOHIDEventFieldDigitizerPressure, tipPressure);
+        event->setFixedValue(kIOHIDEventFieldDigitizerAuxiliaryPressure, barrelPressure);
+        event->setFixedValue(kIOHIDEventFieldDigitizerTwist, twist);
+        event->setFixedValue(kIOHIDEventFieldDigitizerTiltX, tiltX);
+        event->setFixedValue(kIOHIDEventFieldDigitizerTiltY, tiltY);
+    }
     
     // Update the collection
     collection->setTouch(touch);

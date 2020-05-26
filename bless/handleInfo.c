@@ -535,7 +535,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
                 blesscontextprintf(context, kBLLogLevelError, "The container for this APFS volume doesn't appear to have a preboot volume\n");
                 return 5;
             }
-        }
+		}
 	}
     
     CFDictionaryApplyFunction(dict, addElements, (void *)allInfo);    

@@ -96,7 +96,6 @@ int verbose_proposal_check = 1;
 
 static vchar_t *get_ph1approval (phase1_handle_t *, struct prop_pair **);
 void print_ph1mismatched (struct prop_pair *, struct isakmpsa *);
-static int t2isakmpsa (struct isakmp_pl_t *, struct isakmpsa *);
 static int cmp_aproppair_i (struct prop_pair *, struct prop_pair *);
 static struct prop_pair *get_ph2approval (phase2_handle_t *,
 	struct prop_pair **);
@@ -133,11 +132,8 @@ static int (*check_transform[]) (int) = {
 	check_trns_ipcomp,	/* IPSECDOI_PROTO_IPCOMP */
 };
 
-static int check_attr_isakmp (struct isakmp_pl_t *);
 static int check_attr_ah (struct isakmp_pl_t *);
 static int check_attr_esp (struct isakmp_pl_t *);
-static int check_attr_ipsec (int, struct isakmp_pl_t *);
-static int check_attr_ipcomp (struct isakmp_pl_t *);
 static int (*check_attributes[]) (struct isakmp_pl_t *) = {
 	0,
 	check_attr_isakmp,	/* IPSECDOI_PROTO_ISAKMP */
@@ -533,7 +529,7 @@ print_ph1mismatched(p, proposal)
 /*
  * get ISAKMP data attributes
  */
-static int
+int
 t2isakmpsa(trns, sa)
 	struct isakmp_pl_t *trns;
 	struct isakmpsa *sa;
@@ -560,6 +556,12 @@ t2isakmpsa(trns, sa)
 		goto err;
 
 	while (tlen > 0) {
+		if (tlen < sizeof(struct isakmp_data)) {
+			plog(ASL_LEVEL_ERR,
+				 "t2isakmpsa invalid length of isakmp data, expected %zu actual %d\n",
+				 sizeof(struct isakmp_data), tlen);
+			goto err;
+		}
 
 		type = ntohs(d->type) & ~ISAKMP_GEN_MASK;
 		flag = ntohs(d->type) & ISAKMP_GEN_MASK;
@@ -583,10 +585,10 @@ t2isakmpsa(trns, sa)
 				p = (u_char *)&d->lorv;
 			} else {	/*TLV*/
 				len = ntohs(d->lorv);
-				if (len > tlen) {
-					plog(ASL_LEVEL_ERR, 
-						 "invalid ISAKMP-SA attr, attr-len %d, overall-len %d\n",
-						 len, tlen);
+				if ((len + sizeof(struct isakmp_data)) > tlen) {
+					plog(ASL_LEVEL_ERR,
+						 "invalid ISAKMP-SA attr(%d), attr-len %d, overall-len %lu\n",
+						 type, len, (tlen - sizeof(struct isakmp_data)));
 					return -1;
 				}
 				p = (u_char *)(d + 1);
@@ -640,6 +642,14 @@ t2isakmpsa(trns, sa)
 				sa->dhgrp->gen1 = 0;
 				if (len > 4)
 					return -1;
+
+				if ((len + sizeof(struct isakmp_data)) > tlen) {
+					plog(ASL_LEVEL_ERR,
+						 "invalid ISAKMP-SA attr - OAKLEY_ATTR_GRP_GEN_ONE, attr-len %d, overall-len %lu\n",
+						 len, (tlen - sizeof(struct isakmp_data)));
+					return -1;
+				}
+
 				memcpy(&sa->dhgrp->gen1, d + 1, len);
 				sa->dhgrp->gen1 = ntohl(sa->dhgrp->gen1);
 			}
@@ -654,6 +664,14 @@ t2isakmpsa(trns, sa)
 				sa->dhgrp->gen2 = 0;
 				if (len > 4)
 					return -1;
+
+				if ((len + sizeof(struct isakmp_data)) > tlen) {
+					plog(ASL_LEVEL_ERR,
+						 "invalid ISAKMP-SA attr - OAKLEY_ATTR_GRP_GEN_TWO, attr-len %d, overall-len %lu\n",
+						 len, (tlen - sizeof(struct isakmp_data)));
+					return -1;
+				}
+
 				memcpy(&sa->dhgrp->gen2, d + 1, len);
 				sa->dhgrp->gen2 = ntohl(sa->dhgrp->gen2);
 			}
@@ -749,6 +767,13 @@ t2isakmpsa(trns, sa)
 			d = (struct isakmp_data *)((char *)d + sizeof(*d));
 		} else {
 			tlen -= (sizeof(*d) + ntohs(d->lorv));
+			if (tlen < 0) {
+				plog(ASL_LEVEL_ERR,
+					 "t2isakmpsa: packet too short - attr length %u for type %d\n",
+					 ntohs(d->lorv), type);
+				return -1;
+			}
+
 			d = (struct isakmp_data *)((char *)d + sizeof(*d) + ntohs(d->lorv));
 		}
 	}
@@ -1250,6 +1275,14 @@ get_proppair(sa, mode)
 			goto bad;
 		}
 
+		if (pa->len < sizeof(struct isakmp_pl_p)) {
+			plog(ASL_LEVEL_ERR,
+				 "get_proppair invalid length of proposal, expected %lu actual %d\n",
+				 sizeof(struct isakmp_pl_p), pa->len);
+			vfree(pbuf);
+			goto bad;
+		}
+
 		prop = (struct isakmp_pl_p *)pa->ptr;
 		proplen = pa->len;
 
@@ -1276,6 +1309,14 @@ get_proppair(sa, mode)
 		/* check SPI length when IKE. */
 		if (check_spi_size(prop->proto_id, prop->spi_size) < 0)
 			continue;
+
+		if (pa->len < (sizeof(struct isakmp_pl_p) + prop->spi_size)) {
+			plog(ASL_LEVEL_ERR,
+				 "get_proppair invalid length of proposal spi size, expected %u actual %zu\n",
+				 prop->spi_size, (pa->len - sizeof(struct isakmp_pl_p)));
+			vfree(pbuf);
+			goto bad;
+		}
 
 		/* get transform */
 		if (get_transform(prop, pair, &num_p) < 0) {
@@ -1392,6 +1433,13 @@ get_transform(prop, pair, num_p)
 		if (pa->type != ISAKMP_NPTYPE_T) {
 			plog(ASL_LEVEL_ERR, 
 				"Invalid payload type=%u\n", pa->type);
+			break;
+		}
+
+		if (pa->len < sizeof(struct isakmp_pl_t)) {
+			plog(ASL_LEVEL_ERR,
+				 "get_transform invalid length of transform, expected %lu actual %d\n",
+				 sizeof(struct isakmp_pl_t), pa->len);
 			break;
 		}
 
@@ -1962,7 +2010,7 @@ check_trns_ipcomp(t_id)
 /*
  * check data attributes in IKE.
  */
-static int
+int
 check_attr_isakmp(trns)
 	struct isakmp_pl_t *trns;
 {
@@ -1975,6 +2023,13 @@ check_attr_isakmp(trns)
 	d = (struct isakmp_data *)((caddr_t)trns + sizeof(struct isakmp_pl_t));
 
 	while (tlen > 0) {
+		if (tlen < sizeof(struct isakmp_data)) {
+			plog(ASL_LEVEL_ERR,
+				 "check_attr_isakmp invalid length of isakmp data, expected %zu actual %d\n",
+				 sizeof(struct isakmp_data), tlen);
+			return -1;
+		}
+
 		type = ntohs(d->type) & ~ISAKMP_GEN_MASK;
 		flag = ntohs(d->type) & ISAKMP_GEN_MASK;
 		lorv = ntohs(d->lorv);
@@ -2153,6 +2208,12 @@ check_attr_isakmp(trns)
 			tlen -= (sizeof(*d) + lorv);
 			d = (struct isakmp_data *)((char *)d
 				+ sizeof(*d) + lorv);
+			if (tlen < 0) {
+				plog(ASL_LEVEL_ERR,
+					 "check_attr_isakmp: packet too short - attr length %u for type %d\n",
+					 lorv, type);
+				return -1;
+			}
 		}
 	}
 
@@ -2176,7 +2237,7 @@ check_attr_esp(trns)
 	return check_attr_ipsec(IPSECDOI_PROTO_IPSEC_ESP, trns);
 }
 
-static int
+int
 check_attr_ipsec(proto_id, trns)
 	int proto_id;
 	struct isakmp_pl_t *trns;
@@ -2192,6 +2253,13 @@ check_attr_ipsec(proto_id, trns)
 	memset(attrseen, 0, sizeof(attrseen));
 
 	while (tlen > 0) {
+		if (tlen < sizeof(struct isakmp_data)) {
+			plog(ASL_LEVEL_ERR,
+				 "check_attr_ipsec invalid length of isakmp data, expected %zu actual %d\n",
+				 sizeof(struct isakmp_data), tlen);
+			return -1;
+		}
+
 		type = ntohs(d->type) & ~ISAKMP_GEN_MASK;
 		flag = ntohs(d->type) & ISAKMP_GEN_MASK;
 		lorv = ntohs(d->lorv);
@@ -2367,6 +2435,12 @@ ahmismatch:
 			tlen -= (sizeof(*d) + lorv);
 			d = (struct isakmp_data *)((caddr_t)d
 				+ sizeof(*d) + lorv);
+			if (tlen < 0) {
+				plog(ASL_LEVEL_ERR,
+					 "check_attr_ipsec: packet too short - attr length %u for type %d\n",
+					 lorv, type);
+				return -1;
+			}
 		}
 	}
 
@@ -2388,7 +2462,7 @@ ahmismatch:
 	return 0;
 }
 
-static int
+int
 check_attr_ipcomp(trns)
 	struct isakmp_pl_t *trns;
 {
@@ -2403,6 +2477,13 @@ check_attr_ipcomp(trns)
 	memset(attrseen, 0, sizeof(attrseen));
 
 	while (tlen > 0) {
+		if (tlen < sizeof(struct isakmp_data)) {
+			plog(ASL_LEVEL_ERR,
+				 "check_attr_ipcomp: invalid length of isakmp data, expected %zu actual %d\n",
+				 sizeof(struct isakmp_data), tlen);
+			return -1;
+		}
+
 		type = ntohs(d->type) & ~ISAKMP_GEN_MASK;
 		flag = ntohs(d->type) & ISAKMP_GEN_MASK;
 		lorv = ntohs(d->lorv);
@@ -2518,6 +2599,12 @@ check_attr_ipcomp(trns)
 			tlen -= (sizeof(*d) + lorv);
 			d = (struct isakmp_data *)((caddr_t)d
 				+ sizeof(*d) + lorv);
+			if (tlen < 0) {
+				plog(ASL_LEVEL_ERR,
+					 "check_attr_ipcomp: packet too short - attr length %u for type %d\n",
+					 lorv, type);
+				return -1;
+			}
 		}
 	}
 
@@ -4596,6 +4683,12 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 	tr->authtype = IPSECDOI_ATTR_AUTH_NONE;
 
 	while (tlen > 0) {
+		if (tlen < sizeof(struct isakmp_data)) {
+			plog(ASL_LEVEL_ERR,
+				 "ipsecdoi_t2satrns invalid length of isakmp data, expected %zu actual %d\n",
+				 sizeof(struct isakmp_data), tlen);
+			return -1;
+		}
 
 		type = ntohs(d->type) & ~ISAKMP_GEN_MASK;
 		flag = ntohs(d->type) & ISAKMP_GEN_MASK;
@@ -4647,6 +4740,12 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 				memcpy(ld_buf->v, &d->lorv, sizeof(d->lorv));
 			} else {
 				int len = ntohs(d->lorv);
+				if ((len + sizeof(struct isakmp_data)) > tlen) {
+					plog(ASL_LEVEL_ERR,
+						 "invalid IPsec attr(%d), attr-len %d, overall-len %lu\n",
+						 type, len, (tlen - sizeof(struct isakmp_data)));
+					return -1;
+				}
 				/* i.e. ISAKMP_GEN_TLV */
 				ld_buf = vmalloc(len);
 				if (ld_buf == NULL) {
@@ -4767,6 +4866,12 @@ ipsecdoi_t2satrns(t, pp, pr, tr)
 		} else {
 			tlen -= (sizeof(*d) + ntohs(d->lorv));
 			d = (struct isakmp_data *)((caddr_t)d + sizeof(*d) + ntohs(d->lorv));
+			if (tlen < 0) {
+				plog(ASL_LEVEL_ERR,
+					 "ipsecdoi_t2satrns: packet too short - attr length %u for type %d\n",
+					 ntohs(d->lorv), type);
+				goto end;
+			}
 		}
 	}
 

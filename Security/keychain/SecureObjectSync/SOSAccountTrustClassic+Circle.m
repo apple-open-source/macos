@@ -402,7 +402,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
             secnotice("account", "Key state: accountKey %@, previousAccountKey %@, old_circle_key %@",
                       account.accountKey, account.previousAccountKey, old_circle_key);
             
-            if (sosAccountLeaveCircle(account, newCircle, error)) {
+            if (sosAccountLeaveCircle(account, newCircle, nil, error)) {
                 secnotice("circleOps", "Leaving circle by newcircle state");
                 circleToPush = newCircle;
             } else {
@@ -701,7 +701,7 @@ fail:
     bool result = true;
     secnotice("circleOps", "leaveCircleWithAccount: Leaving circle by client request");
     result &= [self modifyCircle:account.circle_transport err:error action:^(SOSCircleRef circle) {
-        return sosAccountLeaveCircleWithAnalytics(account, circle, parentEvent, error);
+        return sosAccountLeaveCircle(account, circle, parentEvent, error);
     }];
 
     self.departureCode = kSOSWithdrewMembership;
@@ -714,7 +714,7 @@ fail:
     bool result = true;
     secnotice("circleOps", "Leaving circle by client request");
     result &= [self modifyCircle:account.circle_transport err:error action:^(SOSCircleRef circle) {
-        return sosAccountLeaveCircle(account, circle, error);
+        return sosAccountLeaveCircle(account, circle, nil, error);
     }];
     account.backup_key = nil;
     self.departureCode = kSOSWithdrewMembership;

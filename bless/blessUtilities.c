@@ -9,7 +9,9 @@
 #include <libgen.h>
 #include <unistd.h>
 #include <errno.h>
+#include <paths.h>
 #include <sys/param.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <IOKit/IOKitLib.h>
@@ -55,6 +57,7 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
 	CFDataRef		versionData = NULL;
 	char			*pathEnd;
     char            *pathEnd2;
+	size_t			pathFreeSpace;
     
     // Is this already a preboot or recovery volume?
     if (APFSVolumeRole(rootBSD, &role, NULL)) {
@@ -67,19 +70,14 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
         goto exit;
     }
     
-    // First find the volume UUID
+    // Let's get the IOMedia for this device.  We'll need it for the UUID later.
     rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, rootBSD));
     if (!rootMedia) {
         ret = 1;
         goto exit;
     }
-    rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
-    if (!rootUUID) {
-        ret = 2;
-        goto exit;
-    }
-    
-    // Now let's get the BSD name of the preboot volume.
+
+	// Now let's get the BSD name of the preboot volume.
     ret = BLCreateBooterInformationDictionary(context, rootBSD, &booterDict);
     if (ret) {
         ret = 3;
@@ -116,9 +114,36 @@ int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bo
     }
     
     // Find the appropriate UUID folder
+	// We look for a volume UUID folder first.  If that's present, use it.
+	// If not, look for a group UUID folder.  If that's present, use it.
+	// If not, we fail out.
     snprintf(prebootFolderPath, sizeof prebootFolderPath, "%s/", prebootMountPoint);
-    CFStringGetCString(rootUUID, prebootFolderPath + strlen(prebootFolderPath),
-                       sizeof prebootFolderPath - strlen(prebootFolderPath), kCFStringEncodingUTF8);
+	pathEnd = prebootFolderPath + strlen(prebootFolderPath);
+	pathFreeSpace = sizeof prebootFolderPath - strlen(prebootFolderPath);
+	rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+	if (!rootUUID) {
+		blesscontextprintf(context, kBLLogLevelError, "No valid volume UUID for device %s\n", rootBSD);
+		ret = 2;
+		goto exit;
+	}
+	CFStringGetCString(rootUUID, pathEnd, pathFreeSpace, kCFStringEncodingUTF8);
+	if (stat(prebootFolderPath, &existingStat) < 0 || !S_ISDIR(existingStat.st_mode)) {
+		CFRelease(rootUUID);
+		rootUUID = NULL;
+	} else {
+		blesscontextprintf(context, kBLLogLevelVerbose, "Found system volume UUID path in preboot for %s\n", rootBSD);
+	}
+	if (!rootUUID) {
+		rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kAPFSVolGroupUUIDKey), kCFAllocatorDefault, 0);
+		if (rootUUID) CFStringGetCString(rootUUID, pathEnd, pathFreeSpace, kCFStringEncodingUTF8);
+		if (!rootUUID || stat(prebootFolderPath, &existingStat) < 0 || !S_ISDIR(existingStat.st_mode)) {
+			blesscontextprintf(context, kBLLogLevelError, "No valid group or volume UUID folder for %s\n", rootBSD);
+			ret = 2;
+			goto exit;
+		} else {
+			blesscontextprintf(context, kBLLogLevelVerbose, "Found volume group UUID path in preboot for %s\n", rootBSD);
+		}
+	}
     strlcat(prebootFolderPath, "/System/Library/CoreServices", sizeof prebootFolderPath);
 	
 	// Save away the /S/L/CS path for later use
@@ -278,6 +303,82 @@ exit:
     }
     return ret;
 }
+
+
+
+int GetPrebootBSDForVolumeBSD(BLContextPtr context, const char *volBSD, char *prebootBSD, int prebootBSDLen)
+{
+	int				ret;
+	CFDictionaryRef	booterDict;
+	CFArrayRef		prebootVols;
+	CFStringRef		prebootVol;
+	
+	ret = BLCreateBooterInformationDictionary(context, volBSD, &booterDict);
+	if (ret) {
+		blesscontextprintf(context, kBLLogLevelError, "Could not get boot information for device %s\n", volBSD);
+		goto exit;
+	}
+	prebootVols = CFDictionaryGetValue(booterDict, kBLAPFSPrebootVolumesKey);
+	if (!prebootVols || !CFArrayGetCount(prebootVols)) {
+		blesscontextprintf(context, kBLLogLevelError, "No preboot volume associated with device %s\n", volBSD);
+		ret = EINVAL;
+		goto exit;
+	}
+	prebootVol = CFArrayGetValueAtIndex(prebootVols, 0);
+	if (CFGetTypeID(prebootVol) != CFStringGetTypeID()) {
+		blesscontextprintf(context, kBLLogLevelError, "Badly formed registry entry for preboot volume\n");
+		ret = EILSEQ;
+		goto exit;
+	}
+	CFStringGetCString(prebootVol, prebootBSD, prebootBSDLen, kCFStringEncodingUTF8);
+	
+exit:
+	return ret;
+}
+
+
+int GetVolumeUUIDs(BLContextPtr context, const char *volBSD, CFStringRef *volUUID, CFStringRef *groupUUID)
+{
+	int				ret = 0;
+	io_service_t	mntMedia = IO_OBJECT_NULL;
+	
+    mntMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, volBSD));
+    if (!mntMedia) {
+		blesscontextprintf(context, kBLLogLevelError, "No media object for device %s\n", volBSD);
+		ret = EINVAL;
+        goto exit;
+    }
+	if (volUUID) *volUUID = IORegistryEntryCreateCFProperty(mntMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+	if (groupUUID) *groupUUID = IORegistryEntryCreateCFProperty(mntMedia, CFSTR(kAPFSVolGroupUUIDKey), kCFAllocatorDefault, 0);
+	
+exit:
+	if (mntMedia) IOObjectRelease(mntMedia);
+	return ret;
+}
+
+
+
+int GetMountForBSD(BLContextPtr context, const char *bsd, char *mountPoint, int mountPointLen)
+{
+	struct statfs	*mnts;
+    int             mntsize;
+    int             i;
+
+    mntsize = getmntinfo(&mnts, MNT_NOWAIT);
+    if (!mntsize) {
+		return errno;
+	}
+    for (i = 0; i < mntsize; i++) {
+        if (strcmp(mnts[i].f_mntfromname + strlen(_PATH_DEV), bsd) == 0) break;
+    }
+    if (i < mntsize) {
+        strlcpy(mountPoint, mnts[i].f_mntonname, mountPointLen);
+    } else {
+		*mountPoint = '\0';
+	}
+	return 0;
+}
+
 
 
 

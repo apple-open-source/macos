@@ -1,6 +1,770 @@
-2020-02-27  Alan Coon  <alancoon@apple.com>
+2020-04-18  Alex Christensen  <achristensen@webkit.org>
 
-        Apply patch. rdar://problem/59870336
+        Branch build fix after r260286
+        https://bugs.webkit.org/show_bug.cgi?id=210583
+        <rdar://problem/61943707>
+
+        The branch used ensureStillAliveHere but did not have the rename of that function in r258825,
+        so this effectively merges that revision, too, to make the branch and trunk more similar.
+
+        No change in behavior, just rename to successfully compile.
+
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileGetByVal):
+        (JSC::FTL::DFG::LowerDFGToB3::compileArrayIndexOf):
+        (JSC::FTL::DFG::LowerDFGToB3::compileArrayPop):
+        (JSC::FTL::DFG::LowerDFGToB3::compileStringCharAt):
+        (JSC::FTL::DFG::LowerDFGToB3::compileStringCharCodeAt):
+        (JSC::FTL::DFG::LowerDFGToB3::compileStringCodePointAt):
+        (JSC::FTL::DFG::LowerDFGToB3::compileGetByOffset):
+        (JSC::FTL::DFG::LowerDFGToB3::compileMultiGetByOffset):
+
+2020-04-17  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r260246. rdar://problem/61943700
+
+    offlineasm is generating the wrong load/store for the "orh" instruction.
+    https://bugs.webkit.org/show_bug.cgi?id=210639
+    <rdar://problem/21501876>
+    
+    Reviewed by Robin Morisset.
+    
+    For example, on ARM64E, the "orh" instruction was generating the following:
+    
+        "\tldr w17, [x1, #0]\n"     // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+        "\torr w17, w17, #64\n"     // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+        "\tstr w17, [x1, #0]\n"     // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+    
+    i.e. a 32-bit load, followed by a 32-bit OR, followed by a 32-bit store.
+    
+    Instead, it should be generating the following:
+    
+        "\tldrh w17, [x1, #0]\n"    // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+        "\torr w17, w17, #64\n"     // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+        "\tstrh w17, [x1, #0]\n"    // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+    
+    i.e. a 16-bit load, followed by a 32-bit OR, followed by a 16-bit store.
+    
+    This bug also affects ARM64, ARMv7, and MIPS (basically any backend that uses
+    riscLowerMisplacedAddresses() from rise.rb).  It does not affect x86, x86_64, and
+    C_LOOP (which was written based on x86).
+    
+    * offlineasm/risc.rb:
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@260246 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-17  Mark Lam  <mark.lam@apple.com>
+
+            offlineasm is generating the wrong load/store for the "orh" instruction.
+            https://bugs.webkit.org/show_bug.cgi?id=210639
+            <rdar://problem/21501876>
+
+            Reviewed by Robin Morisset.
+
+            For example, on ARM64E, the "orh" instruction was generating the following:
+
+                "\tldr w17, [x1, #0]\n"     // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+                "\torr w17, w17, #64\n"     // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+                "\tstr w17, [x1, #0]\n"     // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+
+            i.e. a 32-bit load, followed by a 32-bit OR, followed by a 32-bit store.
+
+            Instead, it should be generating the following:
+
+                "\tldrh w17, [x1, #0]\n"    // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+                "\torr w17, w17, #64\n"     // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+                "\tstrh w17, [x1, #0]\n"    // JavaScriptCore/llint/LowLevelInterpreter64.asm:919
+
+            i.e. a 16-bit load, followed by a 32-bit OR, followed by a 16-bit store.
+
+            This bug also affects ARM64, ARMv7, and MIPS (basically any backend that uses
+            riscLowerMisplacedAddresses() from rise.rb).  It does not affect x86, x86_64, and
+            C_LOOP (which was written based on x86).
+
+            * offlineasm/risc.rb:
+
+2020-04-17  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r260180. rdar://problem/61943707
+
+    [JSC] Use ensureStillAliveHere in FTL when content of storage should be kept alive
+    https://bugs.webkit.org/show_bug.cgi?id=210583
+    <rdar://problem/61831515>
+    
+    Reviewed by Mark Lam.
+    
+    The content of Butterfly / ArrayStorage is kept alive only when the owner JSCell is alive.
+    This means that we should keep the owner JSCell alive if we are loading content of storage
+    which includes JSCells. This patch inserts ensureStillAliveHere in FTL to ensure this invariant.
+    
+    * ftl/FTLJITCode.cpp:
+    (JSC::FTL::JITCode::~JITCode): Found that we get crash with `dumpDisassembly` if FTL::JITCode is destroyed while it fails to generate code while testing this.
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetByVal):
+    (JSC::FTL::DFG::LowerDFGToB3::compileArrayIndexOf):
+    (JSC::FTL::DFG::LowerDFGToB3::compileArrayPop):
+    (JSC::FTL::DFG::LowerDFGToB3::compileStringCharAt):
+    (JSC::FTL::DFG::LowerDFGToB3::compileStringCharCodeAt):
+    (JSC::FTL::DFG::LowerDFGToB3::compileStringCodePointAt):
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetByOffset):
+    (JSC::FTL::DFG::LowerDFGToB3::compileMultiGetByOffset):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@260180 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Use ensureStillAliveHere in FTL when content of storage should be kept alive
+            https://bugs.webkit.org/show_bug.cgi?id=210583
+            <rdar://problem/61831515>
+
+            Reviewed by Mark Lam.
+
+            The content of Butterfly / ArrayStorage is kept alive only when the owner JSCell is alive.
+            This means that we should keep the owner JSCell alive if we are loading content of storage
+            which includes JSCells. This patch inserts ensureStillAliveHere in FTL to ensure this invariant.
+
+            * ftl/FTLJITCode.cpp:
+            (JSC::FTL::JITCode::~JITCode): Found that we get crash with `dumpDisassembly` if FTL::JITCode is destroyed while it fails to generate code while testing this.
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileGetByVal):
+            (JSC::FTL::DFG::LowerDFGToB3::compileArrayIndexOf):
+            (JSC::FTL::DFG::LowerDFGToB3::compileArrayPop):
+            (JSC::FTL::DFG::LowerDFGToB3::compileStringCharAt):
+            (JSC::FTL::DFG::LowerDFGToB3::compileStringCharCodeAt):
+            (JSC::FTL::DFG::LowerDFGToB3::compileStringCodePointAt):
+            (JSC::FTL::DFG::LowerDFGToB3::compileGetByOffset):
+            (JSC::FTL::DFG::LowerDFGToB3::compileMultiGetByOffset):
+
+2020-04-17  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r259572. rdar://problem/61943713
+
+    [JSC] Put ensureStillAliveHere for Integer TypedArrays in GetByVal
+    https://bugs.webkit.org/show_bug.cgi?id=210047
+    
+    Reviewed by Mark Lam.
+    
+    While r258381 puts ensureStillAliveHere in FTL to keep base alive for float/double TypedArrays,
+    we need to do the same thing for integer TypedArrays too. This patch places it.
+    
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetByVal):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@259572 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-06  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Put ensureStillAliveHere for Integer TypedArrays in GetByVal
+            https://bugs.webkit.org/show_bug.cgi?id=210047
+
+            Reviewed by Mark Lam.
+
+            While r258381 puts ensureStillAliveHere in FTL to keep base alive for float/double TypedArrays,
+            we need to do the same thing for integer TypedArrays too. This patch places it.
+
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileGetByVal):
+
+2020-04-06  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r259424. rdar://problem/61352472
+
+    [JSC] RecordedStatuses's assignment should be guarded by CodeBlock's lock
+    https://bugs.webkit.org/show_bug.cgi?id=209935
+    <rdar://problem/59443383>
+    
+    Reviewed by Mark Lam.
+    
+    Previously RecordedStatuses are not touched by GC. But now, GC visits RecordedStatuses.
+    This means that modifying RecordedStatuses should be guarded by CodeBlock's lock if
+    it is reachable from CodeBlock.
+    In DFG::Plan::reallyAdd, we already installed DFG::JITCode into the CodeBlock so that
+    RecordedStatuses is reachable from CodeBlock. We should lock CodeBlock's lock while
+    performing `WTFMove(RecordedStatuses)`.
+    
+    We do not need to emit write-barrier here because (1) DFG::Plan::reallyAdd is executed
+    while GC is deferred and (2) we emit write-barrier to CodeBlock before deferred GC is executed.
+    
+    * dfg/DFGPlan.cpp:
+    (JSC::DFG::Plan::reallyAdd):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@259424 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] RecordedStatuses's assignment should be guarded by CodeBlock's lock
+            https://bugs.webkit.org/show_bug.cgi?id=209935
+            <rdar://problem/59443383>
+
+            Reviewed by Mark Lam.
+
+            Previously RecordedStatuses are not touched by GC. But now, GC visits RecordedStatuses.
+            This means that modifying RecordedStatuses should be guarded by CodeBlock's lock if
+            it is reachable from CodeBlock.
+            In DFG::Plan::reallyAdd, we already installed DFG::JITCode into the CodeBlock so that
+            RecordedStatuses is reachable from CodeBlock. We should lock CodeBlock's lock while
+            performing `WTFMove(RecordedStatuses)`.
+
+            We do not need to emit write-barrier here because (1) DFG::Plan::reallyAdd is executed
+            while GC is deferred and (2) we emit write-barrier to CodeBlock before deferred GC is executed.
+
+            * dfg/DFGPlan.cpp:
+            (JSC::DFG::Plan::reallyAdd):
+
+2020-04-06  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r259264. rdar://problem/61352442
+
+    [JSC] DFGArrayMode::alreadyChecked should have NonArray check when ArrayMode is NonArray+SlowPutArrayStorage
+    https://bugs.webkit.org/show_bug.cgi?id=209791
+    
+    Reviewed by Saam Barati.
+    
+    DFGArrayMode::alreadyChecked with NonArray+SlowPutArrayStorage should check NonArray condition.
+    
+    * dfg/DFGArrayMode.cpp:
+    (JSC::DFG::ArrayMode::alreadyChecked const):
+    * dfg/DFGArrayMode.h:
+    (JSC::DFG::ArrayMode::arrayModesWithIndexingShapes const):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@259264 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-03-30  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] DFGArrayMode::alreadyChecked should have NonArray check when ArrayMode is NonArray+SlowPutArrayStorage
+            https://bugs.webkit.org/show_bug.cgi?id=209791
+
+            Reviewed by Saam Barati.
+
+            DFGArrayMode::alreadyChecked with NonArray+SlowPutArrayStorage should check NonArray condition.
+
+            * dfg/DFGArrayMode.cpp:
+            (JSC::DFG::ArrayMode::alreadyChecked const):
+            * dfg/DFGArrayMode.h:
+            (JSC::DFG::ArrayMode::arrayModesWithIndexingShapes const):
+
+2020-04-03  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r259355. rdar://problem/61269744
+
+    Bindings that override getOwnPropertySlotByIndex need to say they MayHaveIndexedAccessors
+    https://bugs.webkit.org/show_bug.cgi?id=209762
+    
+    Reviewed by Darin Adler.
+    
+    Source/JavaScriptCore:
+    
+    Change indexingType to indexingModeIncludingHistory to more
+    clearly indicate the expected range of possible valid values.
+    
+    * runtime/StructureInlines.h:
+    (JSC::Structure::create):
+    
+    Source/WebCore:
+    
+    There may be places where we rely on this for semantic
+    correctness. I couldn't find any right now but we might as
+    well be conservative since this isn't a performance regression.
+    
+    * bindings/js/JSDOMWindowProperties.h:
+    * bindings/scripts/CodeGeneratorJS.pm:
+    (GenerateHeader):
+    * bindings/scripts/test/JS/JSInterfaceName.h:
+    (WebCore::JSInterfaceName::createStructure):
+    * bindings/scripts/test/JS/JSMapLike.h:
+    (WebCore::JSMapLike::createStructure):
+    * bindings/scripts/test/JS/JSReadOnlyMapLike.h:
+    (WebCore::JSReadOnlyMapLike::createStructure):
+    * bindings/scripts/test/JS/JSReadOnlySetLike.h:
+    (WebCore::JSReadOnlySetLike::createStructure):
+    * bindings/scripts/test/JS/JSSetLike.h:
+    (WebCore::JSSetLike::createStructure):
+    * bindings/scripts/test/JS/JSTestActiveDOMObject.h:
+    (WebCore::JSTestActiveDOMObject::createStructure):
+    * bindings/scripts/test/JS/JSTestCEReactions.h:
+    (WebCore::JSTestCEReactions::createStructure):
+    * bindings/scripts/test/JS/JSTestCEReactionsStringifier.h:
+    (WebCore::JSTestCEReactionsStringifier::createStructure):
+    * bindings/scripts/test/JS/JSTestCallTracer.h:
+    (WebCore::JSTestCallTracer::createStructure):
+    * bindings/scripts/test/JS/JSTestClassWithJSBuiltinConstructor.h:
+    (WebCore::JSTestClassWithJSBuiltinConstructor::createStructure):
+    * bindings/scripts/test/JS/JSTestDOMJIT.h:
+    (WebCore::JSTestDOMJIT::createStructure):
+    * bindings/scripts/test/JS/JSTestEnabledBySetting.h:
+    (WebCore::JSTestEnabledBySetting::createStructure):
+    * bindings/scripts/test/JS/JSTestEnabledForContext.h:
+    (WebCore::JSTestEnabledForContext::createStructure):
+    * bindings/scripts/test/JS/JSTestEventConstructor.h:
+    (WebCore::JSTestEventConstructor::createStructure):
+    * bindings/scripts/test/JS/JSTestEventTarget.h:
+    (WebCore::JSTestEventTarget::createStructure):
+    * bindings/scripts/test/JS/JSTestException.h:
+    (WebCore::JSTestException::createStructure):
+    * bindings/scripts/test/JS/JSTestGenerateIsReachable.h:
+    (WebCore::JSTestGenerateIsReachable::createStructure):
+    * bindings/scripts/test/JS/JSTestGlobalObject.h:
+    (WebCore::JSTestGlobalObject::createStructure):
+    * bindings/scripts/test/JS/JSTestIndexedSetterNoIdentifier.h:
+    (WebCore::JSTestIndexedSetterNoIdentifier::createStructure):
+    * bindings/scripts/test/JS/JSTestIndexedSetterThrowingException.h:
+    (WebCore::JSTestIndexedSetterThrowingException::createStructure):
+    * bindings/scripts/test/JS/JSTestIndexedSetterWithIdentifier.h:
+    (WebCore::JSTestIndexedSetterWithIdentifier::createStructure):
+    * bindings/scripts/test/JS/JSTestInterface.h:
+    * bindings/scripts/test/JS/JSTestInterfaceLeadingUnderscore.h:
+    (WebCore::JSTestInterfaceLeadingUnderscore::createStructure):
+    * bindings/scripts/test/JS/JSTestIterable.h:
+    (WebCore::JSTestIterable::createStructure):
+    * bindings/scripts/test/JS/JSTestJSBuiltinConstructor.h:
+    (WebCore::JSTestJSBuiltinConstructor::createStructure):
+    * bindings/scripts/test/JS/JSTestMediaQueryListListener.h:
+    (WebCore::JSTestMediaQueryListListener::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedAndIndexedSetterNoIdentifier.h:
+    (WebCore::JSTestNamedAndIndexedSetterNoIdentifier::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedAndIndexedSetterThrowingException.h:
+    (WebCore::JSTestNamedAndIndexedSetterThrowingException::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedAndIndexedSetterWithIdentifier.h:
+    (WebCore::JSTestNamedAndIndexedSetterWithIdentifier::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedConstructor.h:
+    (WebCore::JSTestNamedConstructor::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedDeleterNoIdentifier.h:
+    (WebCore::JSTestNamedDeleterNoIdentifier::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedDeleterThrowingException.h:
+    (WebCore::JSTestNamedDeleterThrowingException::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedDeleterWithIdentifier.h:
+    (WebCore::JSTestNamedDeleterWithIdentifier::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedDeleterWithIndexedGetter.h:
+    (WebCore::JSTestNamedDeleterWithIndexedGetter::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedGetterCallWith.h:
+    (WebCore::JSTestNamedGetterCallWith::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedGetterNoIdentifier.h:
+    (WebCore::JSTestNamedGetterNoIdentifier::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedGetterWithIdentifier.h:
+    (WebCore::JSTestNamedGetterWithIdentifier::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedSetterNoIdentifier.h:
+    (WebCore::JSTestNamedSetterNoIdentifier::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedSetterThrowingException.h:
+    (WebCore::JSTestNamedSetterThrowingException::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedSetterWithIdentifier.h:
+    (WebCore::JSTestNamedSetterWithIdentifier::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedSetterWithIndexedGetter.h:
+    (WebCore::JSTestNamedSetterWithIndexedGetter::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedSetterWithIndexedGetterAndSetter.h:
+    (WebCore::JSTestNamedSetterWithIndexedGetterAndSetter::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedSetterWithOverrideBuiltins.h:
+    (WebCore::JSTestNamedSetterWithOverrideBuiltins::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedSetterWithUnforgableProperties.h:
+    (WebCore::JSTestNamedSetterWithUnforgableProperties::createStructure):
+    * bindings/scripts/test/JS/JSTestNamedSetterWithUnforgablePropertiesAndOverrideBuiltins.h:
+    (WebCore::JSTestNamedSetterWithUnforgablePropertiesAndOverrideBuiltins::createStructure):
+    * bindings/scripts/test/JS/JSTestNode.h:
+    * bindings/scripts/test/JS/JSTestObj.h:
+    (WebCore::JSTestObj::createStructure):
+    * bindings/scripts/test/JS/JSTestOverloadedConstructors.h:
+    (WebCore::JSTestOverloadedConstructors::createStructure):
+    * bindings/scripts/test/JS/JSTestOverloadedConstructorsWithSequence.h:
+    (WebCore::JSTestOverloadedConstructorsWithSequence::createStructure):
+    * bindings/scripts/test/JS/JSTestOverrideBuiltins.h:
+    (WebCore::JSTestOverrideBuiltins::createStructure):
+    * bindings/scripts/test/JS/JSTestPluginInterface.h:
+    (WebCore::JSTestPluginInterface::createStructure):
+    * bindings/scripts/test/JS/JSTestPromiseRejectionEvent.h:
+    (WebCore::JSTestPromiseRejectionEvent::createStructure):
+    * bindings/scripts/test/JS/JSTestSerialization.h:
+    (WebCore::JSTestSerialization::createStructure):
+    * bindings/scripts/test/JS/JSTestSerializationIndirectInheritance.h:
+    (WebCore::JSTestSerializationIndirectInheritance::createStructure):
+    * bindings/scripts/test/JS/JSTestSerializationInherit.h:
+    (WebCore::JSTestSerializationInherit::createStructure):
+    * bindings/scripts/test/JS/JSTestSerializationInheritFinal.h:
+    (WebCore::JSTestSerializationInheritFinal::createStructure):
+    * bindings/scripts/test/JS/JSTestSerializedScriptValueInterface.h:
+    (WebCore::JSTestSerializedScriptValueInterface::createStructure):
+    * bindings/scripts/test/JS/JSTestStringifier.h:
+    (WebCore::JSTestStringifier::createStructure):
+    * bindings/scripts/test/JS/JSTestStringifierAnonymousOperation.h:
+    (WebCore::JSTestStringifierAnonymousOperation::createStructure):
+    * bindings/scripts/test/JS/JSTestStringifierNamedOperation.h:
+    (WebCore::JSTestStringifierNamedOperation::createStructure):
+    * bindings/scripts/test/JS/JSTestStringifierOperationImplementedAs.h:
+    (WebCore::JSTestStringifierOperationImplementedAs::createStructure):
+    * bindings/scripts/test/JS/JSTestStringifierOperationNamedToString.h:
+    (WebCore::JSTestStringifierOperationNamedToString::createStructure):
+    * bindings/scripts/test/JS/JSTestStringifierReadOnlyAttribute.h:
+    (WebCore::JSTestStringifierReadOnlyAttribute::createStructure):
+    * bindings/scripts/test/JS/JSTestStringifierReadWriteAttribute.h:
+    (WebCore::JSTestStringifierReadWriteAttribute::createStructure):
+    * bindings/scripts/test/JS/JSTestTypedefs.h:
+    (WebCore::JSTestTypedefs::createStructure):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@259355 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-01  Keith Miller  <keith_miller@apple.com>
+
+            Bindings that override getOwnPropertySlotByIndex need to say they MayHaveIndexedAccessors
+            https://bugs.webkit.org/show_bug.cgi?id=209762
+
+            Reviewed by Darin Adler.
+
+            Change indexingType to indexingModeIncludingHistory to more
+            clearly indicate the expected range of possible valid values.
+
+            * runtime/StructureInlines.h:
+            (JSC::Structure::create):
+
+2020-03-30  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r258540. rdar://problem/61064830
+
+    [JSC] JSMapIterator and JSSetIterator are CellType
+    https://bugs.webkit.org/show_bug.cgi?id=209168
+    <rdar://problem/59705631>
+    
+    Reviewed by Saam Barati.
+    
+    They are JSCell, not JSObject since they are not used as a user-observable set/map iterators in JSC.
+    However, their JSType is ObjectType. They should use CellType instead.
+    
+    * runtime/JSMapIterator.h:
+    * runtime/JSSetIterator.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@258540 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-03-16  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] JSMapIterator and JSSetIterator are CellType
+            https://bugs.webkit.org/show_bug.cgi?id=209168
+            <rdar://problem/59705631>
+
+            Reviewed by Saam Barati.
+
+            They are JSCell, not JSObject since they are not used as a user-observable set/map iterators in JSC.
+            However, their JSType is ObjectType. They should use CellType instead.
+
+            * runtime/JSMapIterator.h:
+            * runtime/JSSetIterator.h:
+
+2020-03-30  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r258452. rdar://problem/61064799
+
+    Missing arithMode for ArithAbs and ArithNegate in DFGClobberize
+    https://bugs.webkit.org/show_bug.cgi?id=208685
+    <rdar://problem/60115088>
+    
+    Reviewed by Saam Barati.
+    
+    In the pure case of ArithNegate and ArithAbs in DFGClobberize, their PureValues did not include their
+    respective ArithMode. That means that e.g. a CheckOverflow ArithNegate/Abs could be considered equivalent
+    to an Unchecked version of the same node.
+    
+    Thanks to Samuel Groß of Google Project Zero for identifying this bug.
+    
+    * dfg/DFGClobberize.h:
+    (JSC::DFG::clobberize):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@258452 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-03-13  Tadeu Zagallo  <tzagallo@apple.com>
+
+            Missing arithMode for ArithAbs and ArithNegate in DFGClobberize
+            https://bugs.webkit.org/show_bug.cgi?id=208685
+            <rdar://problem/60115088>
+
+            Reviewed by Saam Barati.
+
+            In the pure case of ArithNegate and ArithAbs in DFGClobberize, their PureValues did not include their
+            respective ArithMode. That means that e.g. a CheckOverflow ArithNegate/Abs could be considered equivalent
+            to an Unchecked version of the same node.
+
+            Thanks to Samuel Groß of Google Project Zero for identifying this bug.
+
+            * dfg/DFGClobberize.h:
+            (JSC::DFG::clobberize):
+
+    b"2020-03-24  Russell Epstein  <repstein@apple.com>\n\n        Cherry-pick r258901. rdar://problem/60827028\n\n    HasIndexedProperty should know about sane chain\n    https://bugs.webkit.org/show_bug.cgi?id=209457\n    \n    Reviewed by Saam Barati.\n    \n    This patch makes it so HasIndexedProperty is aware of\n    sane chain. This is useful because, most of the time we do an\n    indexed in it is on an array. If the array has a sane chain (i.e.\n    no indexed properties on it's prototypes and has the default\n    prototype chain) then we can just test for the index being a hole.\n    \n    Note, we could also just convert OOB indices into false but that\n    should happen in another patch.\n    https://bugs.webkit.org/show_bug.cgi?id=209456\n    \n    I didn't add any tests because it turns out we already have a ton.\n    I know this because I broke most of them repeatedly... >.>\n    \n    * dfg/DFGAbstractInterpreterInlines.h:\n    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):\n    * dfg/DFGClobberize.h:\n    (JSC::DFG::clobberize):\n    * dfg/DFGFixupPhase.cpp:\n    (JSC::DFG::FixupPhase::fixupNode):\n    (JSC::DFG::FixupPhase::setSaneChainIfPossible):\n    (JSC::DFG::FixupPhase::convertToHasIndexedProperty):\n    * dfg/DFGNodeType.h:\n    * dfg/DFGSpeculativeJIT.cpp:\n    (JSC::DFG::SpeculativeJIT::compileHasIndexedProperty):\n    * ftl/FTLLowerDFGToB3.cpp:\n    (JSC::FTL::DFG::LowerDFGToB3::compileHasIndexedProperty):\n    (JSC::FTL::DFG::LowerDFGToB3::speculateAndJump):\n    * jit/AssemblyHelpers.h:\n    (JSC::AssemblyHelpers::isEmpty):\n    \n    \n    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@258901 268f45cc-cd09-0410-ab3c-d52691b4dbfc\n\n    2020-03-23  Keith Miller  <keith_miller@apple.com>\n\n            HasIndexedProperty should know about sane chain\n            https://bugs.webkit.org/show_bug.cgi?id=209457\n\n            Reviewed by Saam Barati.\n\n            This patch makes it so HasIndexedProperty is aware of\n            sane chain. This is useful because, most of the time we do an\n            indexed in it is on an array. If the array has a sane chain (i.e.\n            no indexed properties on it's prototypes and has the default\n            prototype chain) then we can just test for the index being a hole.\n\n            Note, we could also just convert OOB indices into false but that\n            should happen in another patch.\n            https://bugs.webkit.org/show_bug.cgi?id=209456\n\n            I didn't add any tests because it turns out we already have a ton.\n            I know this because I broke most of them repeatedly... >.>\n\n            * dfg/DFGAbstractInterpreterInlines.h:\n            (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):\n            * dfg/DFGClobberize.h:\n            (JSC::DFG::clobberize):\n            * dfg/DFGFixupPhase.cpp:\n            (JSC::DFG::FixupPhase::fixupNode):\n            (JSC::DFG::FixupPhase::setSaneChainIfPossible):\n            (JSC::DFG::FixupPhase::convertToHasIndexedProperty):\n            * dfg/DFGNodeType.h:\n            * dfg/DFGSpeculativeJIT.cpp:\n            (JSC::DFG::SpeculativeJIT::compileHasIndexedProperty):\n            * ftl/FTLLowerDFGToB3.cpp:\n            (JSC::FTL::DFG::LowerDFGToB3::compileHasIndexedProperty):\n            (JSC::FTL::DFG::LowerDFGToB3::speculateAndJump):\n            * jit/AssemblyHelpers.h:\n            (JSC::AssemblyHelpers::isEmpty):\n\n"2020-03-17  Alan Coon  <alancoon@apple.com>
+
+            Apply patch. rdar://problem/60396286
+
+        Cherry-pick r258062. rdar://problem/60396286
+
+            2020-03-06  David Kilzer  <ddkilzer@apple.com>
+
+        REGRESSION (r258038): Build failure on Windows 10 bots
+        <https://bugs.webkit.org/show_bug.cgi?id=208731>
+        <rdar://problem/59222568>
+
+        * assembler/testmasm.cpp:
+        (JSC::testCompareDouble):
+        (JSC::testCompareDoubleSameArg):
+        (JSC::testMoveConditionallyFloatingPoint):
+        (JSC::testMoveConditionallyFloatingPointSameArg):
+        - Add RELEASE_ASSERT_NOT_REACHED() statements to try to fix the
+          bots.
+
+        2020-03-13  David Kilzer  <ddkilzer@apple.com>
+
+                Cherry-pick r258062. rdar://problem/60396286
+
+            2020-03-06  David Kilzer  <ddkilzer@apple.com>
+
+                REGRESSION (r258038): Build failure on Windows 10 bots
+                <https://bugs.webkit.org/show_bug.cgi?id=208731>
+                <rdar://problem/59222568>
+
+                * assembler/testmasm.cpp:
+                (JSC::testCompareDouble):
+                (JSC::testCompareDoubleSameArg):
+                (JSC::testMoveConditionallyFloatingPoint):
+                (JSC::testMoveConditionallyFloatingPointSameArg):
+                - Add RELEASE_ASSERT_NOT_REACHED() statements to try to fix the
+                  bots.
+
+2020-03-17  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/60396286
+
+    Cherry-pick r258038. rdar://problem/60396286
+    
+        2020-03-06  Mark Lam  <mark.lam@apple.com>
+    
+    Fix some issues in the ARM64 moveConditionallyAfterFloatingPointCompare() and moveDoubleConditionallyAfterFloatingPointCompare().
+    https://bugs.webkit.org/show_bug.cgi?id=208731
+    <rdar://problem/59222568>
+    
+    Patch by Mark Lam <mark.lam@apple.com> on 2020-03-06
+    Reviewed by Saam Barati.
+    
+    Both the ARM64 moveConditionallyAfterFloatingPointCompare() and
+    moveDoubleConditionallyAfterFloatingPointCompare() had the following issues:
+    
+    1. For the DoubleNotEqual condition, they fail to set the result register if
+       one or both of the comparison operands is a NaN.
+    
+    2. For the DoubleEqualOrUnordered condition, they can clobber the else case
+       input register if one of the comparison operands is a NaN.
+    
+    This patch fixes both of these, and exhaustive testmasm test cases for affected
+    MacroAssembler instruction emitters using these functions.
+    
+    * assembler/MacroAssemblerARM64.h:
+    (JSC::MacroAssemblerARM64::moveConditionallyAfterFloatingPointCompare):
+    (JSC::MacroAssemblerARM64::moveDoubleConditionallyAfterFloatingPointCompare):
+    * assembler/testmasm.cpp:
+    (JSC::testCompareDouble):
+    (JSC::testCompareDoubleSameArg):
+    (JSC::testMoveConditionallyFloatingPoint):
+    (JSC::testMoveConditionallyDouble2):
+    (JSC::testMoveConditionallyDouble3):
+    (JSC::testMoveConditionallyDouble3DestSameAsThenCase):
+    (JSC::testMoveConditionallyDouble3DestSameAsElseCase):
+    (JSC::testMoveConditionallyFloat2):
+    (JSC::testMoveConditionallyFloat3):
+    (JSC::testMoveConditionallyFloat3DestSameAsThenCase):
+    (JSC::testMoveConditionallyFloat3DestSameAsElseCase):
+    (JSC::testMoveDoubleConditionallyDouble):
+    (JSC::testMoveDoubleConditionallyDoubleDestSameAsThenCase):
+    (JSC::testMoveDoubleConditionallyDoubleDestSameAsElseCase):
+    (JSC::testMoveDoubleConditionallyFloat):
+    (JSC::testMoveDoubleConditionallyFloatDestSameAsThenCase):
+    (JSC::testMoveDoubleConditionallyFloatDestSameAsElseCase):
+    (JSC::testMoveConditionallyFloatingPointSameArg):
+    (JSC::testMoveConditionallyDouble2SameArg):
+    (JSC::testMoveConditionallyDouble3SameArg):
+    (JSC::testMoveConditionallyFloat2SameArg):
+    (JSC::testMoveConditionallyFloat3SameArg):
+    (JSC::testMoveDoubleConditionallyDoubleSameArg):
+    (JSC::testMoveDoubleConditionallyFloatSameArg):
+    (JSC::run):
+
+    2020-03-13  David Kilzer  <ddkilzer@apple.com>
+
+            Cherry-pick r258038. rdar://problem/60396286
+
+        2020-03-06  Mark Lam  <mark.lam@apple.com>
+
+            Fix some issues in the ARM64 moveConditionallyAfterFloatingPointCompare() and moveDoubleConditionallyAfterFloatingPointCompare().
+            https://bugs.webkit.org/show_bug.cgi?id=208731
+            <rdar://problem/59222568>
+
+            Reviewed by Saam Barati.
+
+            Both the ARM64 moveConditionallyAfterFloatingPointCompare() and
+            moveDoubleConditionallyAfterFloatingPointCompare() had the following issues:
+
+            1. For the DoubleNotEqual condition, they fail to set the result register if
+               one or both of the comparison operands is a NaN.
+
+            2. For the DoubleEqualOrUnordered condition, they can clobber the else case
+               input register if one of the comparison operands is a NaN.
+
+            This patch fixes both of these, and exhaustive testmasm test cases for affected
+            MacroAssembler instruction emitters using these functions.
+
+            * assembler/MacroAssemblerARM64.h:
+            (JSC::MacroAssemblerARM64::moveConditionallyAfterFloatingPointCompare):
+            (JSC::MacroAssemblerARM64::moveDoubleConditionallyAfterFloatingPointCompare):
+            * assembler/testmasm.cpp:
+            (JSC::testCompareDouble):
+            (JSC::testCompareDoubleSameArg):
+            (JSC::testMoveConditionallyFloatingPoint):
+            (JSC::testMoveConditionallyDouble2):
+            (JSC::testMoveConditionallyDouble3):
+            (JSC::testMoveConditionallyDouble3DestSameAsThenCase):
+            (JSC::testMoveConditionallyDouble3DestSameAsElseCase):
+            (JSC::testMoveConditionallyFloat2):
+            (JSC::testMoveConditionallyFloat3):
+            (JSC::testMoveConditionallyFloat3DestSameAsThenCase):
+            (JSC::testMoveConditionallyFloat3DestSameAsElseCase):
+            (JSC::testMoveDoubleConditionallyDouble):
+            (JSC::testMoveDoubleConditionallyDoubleDestSameAsThenCase):
+            (JSC::testMoveDoubleConditionallyDoubleDestSameAsElseCase):
+            (JSC::testMoveDoubleConditionallyFloat):
+            (JSC::testMoveDoubleConditionallyFloatDestSameAsThenCase):
+            (JSC::testMoveDoubleConditionallyFloatDestSameAsElseCase):
+            (JSC::testMoveConditionallyFloatingPointSameArg):
+            (JSC::testMoveConditionallyDouble2SameArg):
+            (JSC::testMoveConditionallyDouble3SameArg):
+            (JSC::testMoveConditionallyFloat2SameArg):
+            (JSC::testMoveConditionallyFloat3SameArg):
+            (JSC::testMoveDoubleConditionallyDoubleSameArg):
+            (JSC::testMoveDoubleConditionallyFloatSameArg):
+            (JSC::run):
+
+2020-03-17  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r258381. rdar://problem/60539195
+
+    DFG nodes that take a TypedArray's storage need to keepAlive the TypedArray
+    https://bugs.webkit.org/show_bug.cgi?id=209035
+    
+    Reviewed by Saam Barati.
+    
+    It might be possible to produce a graph where the last reference to a TypedArray
+    is via a GetByVal or PutByVal. Since those nodes don't create any reference to the
+    TypedArray in B3 we may end up not keeping the TypedArray alive until after the
+    storage access.
+    
+    * ftl/FTLLowerDFGToB3.cpp:
+    (JSC::FTL::DFG::LowerDFGToB3::compileAtomicsReadModifyWrite):
+    (JSC::FTL::DFG::LowerDFGToB3::compileGetByVal):
+    (JSC::FTL::DFG::LowerDFGToB3::compilePutByVal):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@258381 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-03-12  Keith Miller  <keith_miller@apple.com>
+
+            DFG nodes that take a TypedArray's storage need to keepAlive the TypedArray
+            https://bugs.webkit.org/show_bug.cgi?id=209035
+
+            Reviewed by Saam Barati.
+
+            It might be possible to produce a graph where the last reference to a TypedArray
+            is via a GetByVal or PutByVal. Since those nodes don't create any reference to the
+            TypedArray in B3 we may end up not keeping the TypedArray alive until after the
+            storage access.
+
+            * ftl/FTLLowerDFGToB3.cpp:
+            (JSC::FTL::DFG::LowerDFGToB3::compileAtomicsReadModifyWrite):
+            (JSC::FTL::DFG::LowerDFGToB3::compileGetByVal):
+            (JSC::FTL::DFG::LowerDFGToB3::compilePutByVal):
+
+2020-03-09  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/60183769
+
+    2020-03-09  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] @hasOwnLengthProperty returns wrong value if "length" is attempted to be modified
+            https://bugs.webkit.org/show_bug.cgi?id=208497
+            <rdar://problem/59913544>
+
+            Reviewed by Mark Lam.
+
+            When "length" of JSFunction is attempted to be modified, we put a flag. And @hasOwnLengthProperty
+            does not correctly use this flag to return a value for the fast path. This affects on "length"
+            property of bound functions. For example,
+
+                function userFunction(a) { }
+                userFunction.length = 20; // This field is read-only. So, it is not changed.
+                userFunction.bind().length; // Should be 1, but it returns 0.
+
+            1. We rename m_hasModifiedLength to m_hasModifiedLengthForNonHostFunction and m_hasModifiedName
+               to m_hasModifiedNameForNonHostFunction since we are not tracking these states for host-functions
+               which can eagerly initialize them.
+            2. We rename areNameAndLengthOriginal to canAssumeNameAndLengthAreOriginal to allow it to return
+               "false" for host functions. If it returns true, we go to the fast path.
+            3. Correctly use canAssumeNameAndLengthAreOriginal information in @hasOwnLengthProperty.
+
+            * runtime/FunctionRareData.cpp:
+            (JSC::FunctionRareData::FunctionRareData):
+            * runtime/FunctionRareData.h:
+            * runtime/JSFunction.cpp:
+            (JSC::JSFunction::put):
+            (JSC::JSFunction::deleteProperty):
+            (JSC::JSFunction::defineOwnProperty):
+            * runtime/JSFunction.h:
+            * runtime/JSFunctionInlines.h:
+            (JSC::JSFunction::canAssumeNameAndLengthAreOriginal):
+            (JSC::JSFunction::areNameAndLengthOriginal): Deleted.
+            * runtime/JSGlobalObject.cpp:
+            (JSC::hasOwnLengthProperty):
+            * tools/JSDollarVM.cpp:
+            (JSC::functionHasOwnLengthProperty):
+
+2020-03-09  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r257605. rdar://problem/59870340
+
+    Poly proto should work with property delete transitions
+    https://bugs.webkit.org/show_bug.cgi?id=208261
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/delete-property-poly-proto.js: Added.
+    (A.prototype.set x):
+    (A):
+    (B):
+    
+    Source/JavaScriptCore:
+    
+    This patch fixes a bug where the combination of inline caching
+    and poly proto cause us to cache a setter call along a prototype chain that
+    is no longer the correct setter to call. This is exposed as a result of
+    https://bugs.webkit.org/show_bug.cgi?id=206430 since DefineOwnProperty used
+    to transition to uncacheable dictionary.
+    
+    The case looks like this:
+    A - setter for x redefines x
+    |
+    B
+    |
+    C
+    
+    We set (new C).x
+    
+    Right now, we first call A's setter, then we try to figure out what the state of things
+    were before it was called in order to cache it. We just assume that A's setter still exists, and we cache it
+    without ever checking, In this patch, we ensure that the property exists and the attributes match in order to prevent crashing.
+    
+    In the code, A = target, C = base.
+    
+    Get is correct because it collects caching information before any calls.
+    
+    The bug https://bugs.webkit.org/show_bug.cgi?id=208337 tracks the remaining semantic bugs around this code.
+    
+    * jit/Repatch.cpp:
+    (JSC::tryCachePutByID):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@257605 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
     2020-02-27  Justin Michaud  <justin_michaud@apple.com>
 
@@ -37,11 +801,137 @@
             * jit/Repatch.cpp:
             (JSC::tryCachePutByID):
 
-2020-02-24  Kocsen Chung  <kocsen_chung@apple.com>
+2020-03-09  Alan Coon  <alancoon@apple.com>
 
-        Apply patch. rdar://problem/59654262
+        Cherry-pick r255542. rdar://problem/59870340
 
-    2020-02-24  Justin Michaud  <justin_michaud@apple.com>
+    [JSC] Hold StructureID instead of Structure* in PolyProtoAccessChain and DFG::CommonData
+    https://bugs.webkit.org/show_bug.cgi?id=207086
+    
+    Reviewed by Mark Lam.
+    
+    PolyProtoAccessChain and DFG::CommonData are kept alive so long as associated AccessCase / DFG/FTL CodeBlock
+    is alive. They hold Vector<Structure*> / Vector<WriteBarrier<Structure*>>, but access frequency is low. And
+    We should hold Vector<StructureID> instead to cut 50% of the size.
+    
+    * bytecode/AccessCase.cpp:
+    (JSC::AccessCase::commit):
+    (JSC::AccessCase::forEachDependentCell const):
+    (JSC::AccessCase::doesCalls const):
+    (JSC::AccessCase::visitWeak const):
+    (JSC::AccessCase::propagateTransitions const):
+    (JSC::AccessCase::generateWithGuard):
+    * bytecode/AccessCase.h:
+    * bytecode/CodeBlock.cpp:
+    (JSC::CodeBlock::propagateTransitions):
+    (JSC::CodeBlock::determineLiveness):
+    (JSC::CodeBlock::stronglyVisitWeakReferences):
+    * bytecode/GetByStatus.cpp:
+    (JSC::GetByStatus::computeForStubInfoWithoutExitSiteFeedback):
+    * bytecode/InByIdStatus.cpp:
+    (JSC::InByIdStatus::computeFor):
+    (JSC::InByIdStatus::computeForStubInfo):
+    (JSC::InByIdStatus::computeForStubInfoWithoutExitSiteFeedback):
+    * bytecode/InByIdStatus.h:
+    * bytecode/InstanceOfStatus.cpp:
+    (JSC::InstanceOfStatus::computeFor):
+    (JSC::InstanceOfStatus::computeForStubInfo):
+    * bytecode/InstanceOfStatus.h:
+    * bytecode/PolyProtoAccessChain.cpp:
+    (JSC::PolyProtoAccessChain::create):
+    (JSC::PolyProtoAccessChain::needImpurePropertyWatchpoint const):
+    (JSC::PolyProtoAccessChain::dump const):
+    * bytecode/PolyProtoAccessChain.h:
+    (JSC::PolyProtoAccessChain::chain const):
+    (JSC::PolyProtoAccessChain::forEach const):
+    (JSC::PolyProtoAccessChain::slotBaseStructure const):
+    (JSC::PolyProtoAccessChain:: const): Deleted.
+    * bytecode/PolymorphicAccess.cpp:
+    (JSC::PolymorphicAccess::regenerate):
+    * bytecode/PutByIdStatus.cpp:
+    (JSC::PutByIdStatus::computeForStubInfo):
+    * bytecode/StructureStubInfo.cpp:
+    (JSC::StructureStubInfo::summary const):
+    (JSC::StructureStubInfo::summary):
+    * bytecode/StructureStubInfo.h:
+    * dfg/DFGCommonData.h:
+    * dfg/DFGDesiredWeakReferences.cpp:
+    (JSC::DFG::DesiredWeakReferences::reallyAdd):
+    * dfg/DFGPlan.cpp:
+    (JSC::DFG::Plan::finalizeWithoutNotifyingCallback):
+    * jit/Repatch.cpp:
+    (JSC::tryCacheGetBy):
+    (JSC::tryCachePutByID):
+    (JSC::tryCacheInByID):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@255542 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-01-31  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Hold StructureID instead of Structure* in PolyProtoAccessChain and DFG::CommonData
+            https://bugs.webkit.org/show_bug.cgi?id=207086
+
+            Reviewed by Mark Lam.
+
+            PolyProtoAccessChain and DFG::CommonData are kept alive so long as associated AccessCase / DFG/FTL CodeBlock
+            is alive. They hold Vector<Structure*> / Vector<WriteBarrier<Structure*>>, but access frequency is low. And
+            We should hold Vector<StructureID> instead to cut 50% of the size.
+
+            * bytecode/AccessCase.cpp:
+            (JSC::AccessCase::commit):
+            (JSC::AccessCase::forEachDependentCell const):
+            (JSC::AccessCase::doesCalls const):
+            (JSC::AccessCase::visitWeak const):
+            (JSC::AccessCase::propagateTransitions const):
+            (JSC::AccessCase::generateWithGuard):
+            * bytecode/AccessCase.h:
+            * bytecode/CodeBlock.cpp:
+            (JSC::CodeBlock::propagateTransitions):
+            (JSC::CodeBlock::determineLiveness):
+            (JSC::CodeBlock::stronglyVisitWeakReferences):
+            * bytecode/GetByStatus.cpp:
+            (JSC::GetByStatus::computeForStubInfoWithoutExitSiteFeedback):
+            * bytecode/InByIdStatus.cpp:
+            (JSC::InByIdStatus::computeFor):
+            (JSC::InByIdStatus::computeForStubInfo):
+            (JSC::InByIdStatus::computeForStubInfoWithoutExitSiteFeedback):
+            * bytecode/InByIdStatus.h:
+            * bytecode/InstanceOfStatus.cpp:
+            (JSC::InstanceOfStatus::computeFor):
+            (JSC::InstanceOfStatus::computeForStubInfo):
+            * bytecode/InstanceOfStatus.h:
+            * bytecode/PolyProtoAccessChain.cpp:
+            (JSC::PolyProtoAccessChain::create):
+            (JSC::PolyProtoAccessChain::needImpurePropertyWatchpoint const):
+            (JSC::PolyProtoAccessChain::dump const):
+            * bytecode/PolyProtoAccessChain.h:
+            (JSC::PolyProtoAccessChain::chain const):
+            (JSC::PolyProtoAccessChain::forEach const):
+            (JSC::PolyProtoAccessChain::slotBaseStructure const):
+            (JSC::PolyProtoAccessChain:: const): Deleted.
+            * bytecode/PolymorphicAccess.cpp:
+            (JSC::PolymorphicAccess::regenerate):
+            * bytecode/PutByIdStatus.cpp:
+            (JSC::PutByIdStatus::computeForStubInfo):
+            * bytecode/StructureStubInfo.cpp:
+            (JSC::StructureStubInfo::summary const):
+            (JSC::StructureStubInfo::summary):
+            * bytecode/StructureStubInfo.h:
+            * dfg/DFGCommonData.h:
+            * dfg/DFGDesiredWeakReferences.cpp:
+            (JSC::DFG::DesiredWeakReferences::reallyAdd):
+            * dfg/DFGPlan.cpp:
+            (JSC::DFG::Plan::finalizeWithoutNotifyingCallback):
+            * jit/Repatch.cpp:
+            (JSC::tryCacheGetBy):
+            (JSC::tryCachePutByID):
+            (JSC::tryCacheInByID):
+
+2020-02-21  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/59654268
+
+    2020-02-21  Justin Michaud  <justin_michaud@apple.com>
 
             Deleting a property should not turn structures into uncacheable dictionaries
             https://bugs.webkit.org/show_bug.cgi?id=206430
@@ -208,39 +1098,9 @@
         (JSC::StructureRareData::StructureRareData):
         * runtime/StructureRareData.h:
 
-2020-02-24  Kocsen Chung  <kocsen_chung@apple.com>
+2020-02-21  Russell Epstein  <repstein@apple.com>
 
-        Apply patch. rdar://problem/59654262
-
-    2020-02-24  Yusuke Suzuki  <ysuzuki@apple.com>
-
-            [JSC] Compact StructureTransitionTable
-            https://bugs.webkit.org/show_bug.cgi?id=207616
-
-            Reviewed by Mark Lam.
-
-            Some of StructureTransitionTable are shown as very large HashMap and we can compact it by encoding key.
-            We leverage 48bit pointers and 8byte alignment of UniquedStringImpl* to encode other parameters into it.
-
-            * runtime/Structure.cpp:
-            (JSC::StructureTransitionTable::contains const):
-            (JSC::StructureTransitionTable::get const):
-            (JSC::StructureTransitionTable::add):
-            * runtime/Structure.h:
-            * runtime/StructureTransitionTable.h:
-            (JSC::StructureTransitionTable::Hash::Key::Key):
-            (JSC::StructureTransitionTable::Hash::Key::isHashTableDeletedValue const):
-            (JSC::StructureTransitionTable::Hash::Key::impl const):
-            (JSC::StructureTransitionTable::Hash::Key::isAddition const):
-            (JSC::StructureTransitionTable::Hash::Key::attributes const):
-            (JSC::StructureTransitionTable::Hash::Key::operator==):
-            (JSC::StructureTransitionTable::Hash::Key::operator!=):
-            (JSC::StructureTransitionTable::Hash::hash):
-            (JSC::StructureTransitionTable::Hash::equal):
-
-2020-02-24  Kocsen Chung  <kocsen_chung@apple.com>
-
-        Cherry-pick r257134. rdar://problem/59676904
+        Cherry-pick r257134. rdar://problem/59676907
 
     Make support for bytecode caching more robust against file corruption.
     https://bugs.webkit.org/show_bug.cgi?id=207972
@@ -332,9 +1192,344 @@
 
 2020-02-19  Alan Coon  <alancoon@apple.com>
 
-        Apply patch. rdar://problem/59576803
+        Apply patch. rdar://problem/59611919
 
     2020-02-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Compact StructureTransitionTable
+            https://bugs.webkit.org/show_bug.cgi?id=207616
+
+            Reviewed by Mark Lam.
+
+            Some of StructureTransitionTable are shown as very large HashMap and we can compact it by encoding key.
+            We leverage 48bit pointers and 8byte alignment of UniquedStringImpl* to encode other parameters into it.
+
+            * runtime/Structure.cpp:
+            (JSC::StructureTransitionTable::contains const):
+            (JSC::StructureTransitionTable::get const):
+            (JSC::StructureTransitionTable::add):
+            * runtime/Structure.h:
+            * runtime/StructureTransitionTable.h:
+            (JSC::StructureTransitionTable::Hash::Key::Key):
+            (JSC::StructureTransitionTable::Hash::Key::isHashTableDeletedValue const):
+            (JSC::StructureTransitionTable::Hash::Key::impl const):
+            (JSC::StructureTransitionTable::Hash::Key::isAddition const):
+            (JSC::StructureTransitionTable::Hash::Key::attributes const):
+            (JSC::StructureTransitionTable::Hash::Key::operator==):
+            (JSC::StructureTransitionTable::Hash::Key::operator!=):
+            (JSC::StructureTransitionTable::Hash::hash):
+            (JSC::StructureTransitionTable::Hash::equal):
+
+2020-02-18  Simon Fraser  <simon.fraser@apple.com>
+
+        Unreviewed build fix.
+
+        * jit/JITThunks.cpp:
+        (JSC::JITThunks::hostFunctionStub):
+
+2020-02-18  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r256779. rdar://problem/59551695
+
+    [JSC] JITThunk should be HashSet<Weak<NativeExecutable>> with appropriate GC weakness handling
+    https://bugs.webkit.org/show_bug.cgi?id=207715
+    
+    Reviewed by Darin Adler.
+    
+    JSTests:
+    
+    * stress/stress-jitthunks.js: Added.
+    (let.set newGlobal):
+    (set catch):
+    
+    Source/JavaScriptCore:
+    
+    This patch refines JITThunks GC-aware Weak hash map for NativeExecutable. Previously, we have
+    HashMap<std::tuple<TaggedNativeFunction, TaggedNativeFunction, String>, Weak<NativeExecutable>> table.
+    But this is not good because the first tuple's information is already in NativeExecutable.
+    But we were using this design since Weak<NativeExecutable> can be nullified because of Weak<>. If this
+    happens, we could have invalid Entry in HashMap which does not have corresponding values. This will
+    cause crash when rehasing requires hash code for this entry.
+    
+    But this HashMap is very bad in terms of memory usage. Each entry has 32 bytes, and this table gets enough
+    large. We identified that this table is consuming much memory in Membuster. So it is worth designing
+    carefully crafted data structure which only holds Weak<NativeExecutable> by leveraging the deep interaction
+    with our GC implementation.
+    
+    This patch implements new design of JITThunks, which uses HashSet<Weak<NativeExecutable>> and carefully crafted
+    HashTraits / KeyTraits to handle Weak<> well.
+    
+    1. Each Weak should have finalizer, and this finalizer should remove dead Weak<NativeExecutable> from HashSet.
+    
+        This is ensuring that all the keys in HashSet is, even if Weak<> is saying it is Dead, it still has an way
+        to access content of NativeExecutable if the content is not a JS objects. For example, we can get function
+        pointer from dead Weak<NativeExecutable> if it is not yet finalized. Since we remove all finalized Weak<>
+        from the table, this finalizer mechanism allows us to access function pointers etc. from Weak<NativeExecutable>
+        so long as it is held in this table.
+    
+    2. Getting NativeExecutable* from JITThunks should have special protocol.
+    
+        When getting NativeExecutable* from JITThunks, we do the following,
+    
+        1. First, we check we have an Entry in JITThunks. If it does not exist, we should insert it anyway.
+            1.1. If it exists, we should check whether this Weak<NativeExecutable> is dead or not. It is possible that
+                 dead one is still in the table because "dead" does not mean that it is "finalized". Until finalizing happens (and
+                 it can be delayed by incremental-sweeper), Weak<NativeExecutable> can be dead but still accessible. So the table
+                 is still holding dead one. If we get dead one, we should insert a new one.
+            1.2. If it is not dead, we return it.
+        2. Second, we create a new NativeExecutable and insert it. In that case, it is possible that the table already has Weak<NativeExecutable>,
+           but it is dead. In that case, we need to explicitly replace it with newly created one since old one is holding old content. If we
+           replaced, finalizer of Weak<> will not be invoked since it immediately deallocates Weak<>. So, it does not happen that this newly
+           inserted NativeExecutable* is removed by the finalizer registered by the old Weak<>.
+    
+    This change makes memory usage of JITThunks table 1/4.
+    
+    * heap/Weak.cpp:
+    (JSC::weakClearSlowCase):
+    * heap/Weak.h:
+    (JSC::Weak::Weak):
+    (JSC::Weak::isHashTableEmptyValue const):
+    (JSC::Weak::unsafeImpl const):
+    (WTF::HashTraits<JSC::Weak<T>>::isEmptyValue):
+    * heap/WeakInlines.h:
+    (JSC::Weak<T>::Weak):
+    * jit/JITThunks.cpp:
+    (JSC::JITThunks::JITThunks):
+    (JSC::JITThunks::WeakNativeExecutableHash::hash):
+    (JSC::JITThunks::WeakNativeExecutableHash::equal):
+    (JSC::JITThunks::HostKeySearcher::hash):
+    (JSC::JITThunks::HostKeySearcher::equal):
+    (JSC::JITThunks::NativeExecutableTranslator::hash):
+    (JSC::JITThunks::NativeExecutableTranslator::equal):
+    (JSC::JITThunks::NativeExecutableTranslator::translate):
+    (JSC::JITThunks::finalize):
+    (JSC::JITThunks::hostFunctionStub):
+    (JSC::JITThunks::clearHostFunctionStubs): Deleted.
+    * jit/JITThunks.h:
+    * runtime/NativeExecutable.h:
+    * tools/JSDollarVM.cpp:
+    (JSC::functionGCSweepAsynchronously):
+    (JSC::functionCreateEmptyFunctionWithName):
+    (JSC::JSDollarVM::finishCreation):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@256779 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-02-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] JITThunk should be HashSet<Weak<NativeExecutable>> with appropriate GC weakness handling
+            https://bugs.webkit.org/show_bug.cgi?id=207715
+
+            Reviewed by Darin Adler.
+
+            This patch refines JITThunks GC-aware Weak hash map for NativeExecutable. Previously, we have
+            HashMap<std::tuple<TaggedNativeFunction, TaggedNativeFunction, String>, Weak<NativeExecutable>> table.
+            But this is not good because the first tuple's information is already in NativeExecutable.
+            But we were using this design since Weak<NativeExecutable> can be nullified because of Weak<>. If this
+            happens, we could have invalid Entry in HashMap which does not have corresponding values. This will
+            cause crash when rehasing requires hash code for this entry.
+
+            But this HashMap is very bad in terms of memory usage. Each entry has 32 bytes, and this table gets enough
+            large. We identified that this table is consuming much memory in Membuster. So it is worth designing
+            carefully crafted data structure which only holds Weak<NativeExecutable> by leveraging the deep interaction
+            with our GC implementation.
+
+            This patch implements new design of JITThunks, which uses HashSet<Weak<NativeExecutable>> and carefully crafted
+            HashTraits / KeyTraits to handle Weak<> well.
+
+            1. Each Weak should have finalizer, and this finalizer should remove dead Weak<NativeExecutable> from HashSet.
+
+                This is ensuring that all the keys in HashSet is, even if Weak<> is saying it is Dead, it still has an way
+                to access content of NativeExecutable if the content is not a JS objects. For example, we can get function
+                pointer from dead Weak<NativeExecutable> if it is not yet finalized. Since we remove all finalized Weak<>
+                from the table, this finalizer mechanism allows us to access function pointers etc. from Weak<NativeExecutable>
+                so long as it is held in this table.
+
+            2. Getting NativeExecutable* from JITThunks should have special protocol.
+
+                When getting NativeExecutable* from JITThunks, we do the following,
+
+                1. First, we check we have an Entry in JITThunks. If it does not exist, we should insert it anyway.
+                    1.1. If it exists, we should check whether this Weak<NativeExecutable> is dead or not. It is possible that
+                         dead one is still in the table because "dead" does not mean that it is "finalized". Until finalizing happens (and
+                         it can be delayed by incremental-sweeper), Weak<NativeExecutable> can be dead but still accessible. So the table
+                         is still holding dead one. If we get dead one, we should insert a new one.
+                    1.2. If it is not dead, we return it.
+                2. Second, we create a new NativeExecutable and insert it. In that case, it is possible that the table already has Weak<NativeExecutable>,
+                   but it is dead. In that case, we need to explicitly replace it with newly created one since old one is holding old content. If we
+                   replaced, finalizer of Weak<> will not be invoked since it immediately deallocates Weak<>. So, it does not happen that this newly
+                   inserted NativeExecutable* is removed by the finalizer registered by the old Weak<>.
+
+            This change makes memory usage of JITThunks table 1/4.
+
+            * heap/Weak.cpp:
+            (JSC::weakClearSlowCase):
+            * heap/Weak.h:
+            (JSC::Weak::Weak):
+            (JSC::Weak::isHashTableEmptyValue const):
+            (JSC::Weak::unsafeImpl const):
+            (WTF::HashTraits<JSC::Weak<T>>::isEmptyValue):
+            * heap/WeakInlines.h:
+            (JSC::Weak<T>::Weak):
+            * jit/JITThunks.cpp:
+            (JSC::JITThunks::JITThunks):
+            (JSC::JITThunks::WeakNativeExecutableHash::hash):
+            (JSC::JITThunks::WeakNativeExecutableHash::equal):
+            (JSC::JITThunks::HostKeySearcher::hash):
+            (JSC::JITThunks::HostKeySearcher::equal):
+            (JSC::JITThunks::NativeExecutableTranslator::hash):
+            (JSC::JITThunks::NativeExecutableTranslator::equal):
+            (JSC::JITThunks::NativeExecutableTranslator::translate):
+            (JSC::JITThunks::finalize):
+            (JSC::JITThunks::hostFunctionStub):
+            (JSC::JITThunks::clearHostFunctionStubs): Deleted.
+            * jit/JITThunks.h:
+            * runtime/NativeExecutable.h:
+            * tools/JSDollarVM.cpp:
+            (JSC::functionGCSweepAsynchronously):
+            (JSC::functionCreateEmptyFunctionWithName):
+            (JSC::JSDollarVM::finishCreation):
+
+2020-02-18  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r256766. rdar://problem/59551706
+
+    [Wasm] REGRESSION(r256665): Wasm->JS call IC needs to save memory size register
+    https://bugs.webkit.org/show_bug.cgi?id=207849
+    
+    Reviewed by Mark Lam.
+    
+    JSTests:
+    
+    * wasm/regress/regress-256665.js: Added.
+    (f):
+    
+    Source/JavaScriptCore:
+    
+    When generating the call IC, we should select the callee saves using BoundsChecking mode in order
+    to obey to the calling conventions described in r256665. Currently, we won't restore the memory size
+    register when calling the Wasm LLInt through the call IC.
+    
+    * wasm/js/WebAssemblyFunction.cpp:
+    (JSC::WebAssemblyFunction::calleeSaves const):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@256766 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-02-17  Tadeu Zagallo  <tzagallo@apple.com>
+
+            [Wasm] REGRESSION(r256665): Wasm->JS call IC needs to save memory size register
+            https://bugs.webkit.org/show_bug.cgi?id=207849
+
+            Reviewed by Mark Lam.
+
+            When generating the call IC, we should select the callee saves using BoundsChecking mode in order
+            to obey to the calling conventions described in r256665. Currently, we won't restore the memory size
+            register when calling the Wasm LLInt through the call IC.
+
+            * wasm/js/WebAssemblyFunction.cpp:
+            (JSC::WebAssemblyFunction::calleeSaves const):
+
+2020-02-18  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r256665. rdar://problem/59551715
+
+    [WASM] Wasm interpreter's calling convention doesn't match Wasm JIT's convention.
+    https://bugs.webkit.org/show_bug.cgi?id=207727
+    
+    JSTests:
+    
+    Reviewed by Mark Lam.
+    
+    * wasm/regress/llint-callee-saves-with-fast-memory.js: Added.
+    * wasm/regress/llint-callee-saves-without-fast-memory.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    Reviewed by Mark Lam.
+    
+    The Wasm JIT has unusual calling conventions, which were further complicated by the addition
+    of the interpreter, and the interpreter did not correctly follow these conventions (by incorrectly
+    saving and restoring the callee save registers used for the memory base and size). Here's a summary
+    of the calling convention:
+    
+    - When entering Wasm from JS, the wrapper must:
+        - Preserve the base and size when entering LLInt regardless of the mode. (Prior to this
+          patch we only preserved the base in Signaling mode)
+        - Preserve the memory base in either mode, and the size for BoundsChecking.
+    - Both tiers must preserve every *other* register they use. e.g. the LLInt must preserve PB
+      and wasmInstance, but must *not* preserve memoryBase and memorySize.
+    - Changes to memoryBase and memorySize are visible to the caller. This means that:
+        - Intra-module calls can assume these registers are up-to-date even if the memory was
+          resized. The only exception here is if the LLInt calls a signaling JIT, in which case
+          the JIT will not update the size register, since it won't be using it.
+        - Inter-module and JS calls require the caller to reload these registers. These calls may
+          result in memory changes (e.g. the callee may call memory.grow).
+        - A Signaling JIT caller must be aware that the LLInt may trash the size register, since
+          it always bounds checks.
+    
+    * llint/WebAssembly.asm:
+    * wasm/WasmAirIRGenerator.cpp:
+    (JSC::Wasm::AirIRGenerator::addCall):
+    * wasm/WasmB3IRGenerator.cpp:
+    (JSC::Wasm::B3IRGenerator::addCall):
+    * wasm/WasmCallee.cpp:
+    (JSC::Wasm::LLIntCallee::calleeSaveRegisters):
+    * wasm/WasmCallingConvention.h:
+    * wasm/WasmLLIntPlan.cpp:
+    (JSC::Wasm::LLIntPlan::didCompleteCompilation):
+    * wasm/WasmMemoryInformation.cpp:
+    (JSC::Wasm::PinnedRegisterInfo::get):
+    (JSC::Wasm::getPinnedRegisters): Deleted.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@256665 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-02-14  Tadeu Zagallo  <tzagallo@apple.com> and Michael Saboff  <msaboff@apple.com>
+
+            [WASM] Wasm interpreter's calling convention doesn't match Wasm JIT's convention.
+            https://bugs.webkit.org/show_bug.cgi?id=207727
+
+            Reviewed by Mark Lam.
+
+            The Wasm JIT has unusual calling conventions, which were further complicated by the addition
+            of the interpreter, and the interpreter did not correctly follow these conventions (by incorrectly
+            saving and restoring the callee save registers used for the memory base and size). Here's a summary
+            of the calling convention:
+
+            - When entering Wasm from JS, the wrapper must:
+                - Preserve the base and size when entering LLInt regardless of the mode. (Prior to this
+                  patch we only preserved the base in Signaling mode)
+                - Preserve the memory base in either mode, and the size for BoundsChecking.
+            - Both tiers must preserve every *other* register they use. e.g. the LLInt must preserve PB
+              and wasmInstance, but must *not* preserve memoryBase and memorySize.
+            - Changes to memoryBase and memorySize are visible to the caller. This means that:
+                - Intra-module calls can assume these registers are up-to-date even if the memory was
+                  resized. The only exception here is if the LLInt calls a signaling JIT, in which case
+                  the JIT will not update the size register, since it won't be using it.
+                - Inter-module and JS calls require the caller to reload these registers. These calls may
+                  result in memory changes (e.g. the callee may call memory.grow).
+                - A Signaling JIT caller must be aware that the LLInt may trash the size register, since
+                  it always bounds checks.
+
+            * llint/WebAssembly.asm:
+            * wasm/WasmAirIRGenerator.cpp:
+            (JSC::Wasm::AirIRGenerator::addCall):
+            * wasm/WasmB3IRGenerator.cpp:
+            (JSC::Wasm::B3IRGenerator::addCall):
+            * wasm/WasmCallee.cpp:
+            (JSC::Wasm::LLIntCallee::calleeSaveRegisters):
+            * wasm/WasmCallingConvention.h:
+            * wasm/WasmLLIntPlan.cpp:
+            (JSC::Wasm::LLIntPlan::didCompleteCompilation):
+            * wasm/WasmMemoryInformation.cpp:
+            (JSC::Wasm::PinnedRegisterInfo::get):
+            (JSC::Wasm::getPinnedRegisters): Deleted.
+
+2020-02-17  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/59446991
+
+    2020-02-17  Yusuke Suzuki  <ysuzuki@apple.com>
 
             [JSC] CodeBlock::shrinkToFit should shrink m_constantRegisters and m_constantsSourceCodeRepresentation in 64bit architectures
             https://bugs.webkit.org/show_bug.cgi?id=207356
@@ -395,11 +1590,13 @@
         (JSC::JITCode::shrinkToFit):
         * jit/JITCode.h:
 
-2020-02-19  Alan Coon  <alancoon@apple.com>
+2020-02-17  Alan Coon  <alancoon@apple.com>
 
-        Apply patch. rdar://problem/59576778
+        Apply patch. rdar://problem/59447004
 
-    2020-02-19  Yusuke Suzuki  <ysuzuki@apple.com>
+    Apply content from rdar://problem/59447004
+
+    2020-02-04  Yusuke Suzuki  <ysuzuki@apple.com>
 
             [JSC] Introduce UnlinkedCodeBlockGenerator and reduce sizeof(UnlinkedCodeBlock)
             https://bugs.webkit.org/show_bug.cgi?id=207087
@@ -663,322 +1860,6 @@
         (JSC::LLInt::initialize):
         * llint/LowLevelInterpreter.cpp:
         (JSC::CLoop::execute):
-
-2020-02-19  Alan Coon  <alancoon@apple.com>
-
-        Cherry-pick r256898. rdar://problem/59576798
-
-    Unreviewed build fix.
-    
-    * jit/JITThunks.cpp:
-    (JSC::JITThunks::hostFunctionStub):
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/branches/safari-609-branch@256898 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2020-02-18  Simon Fraser  <simon.fraser@apple.com>
-
-            Unreviewed build fix.
-
-            * jit/JITThunks.cpp:
-            (JSC::JITThunks::hostFunctionStub):
-
-2020-02-19  Alan Coon  <alancoon@apple.com>
-
-        Cherry-pick r256665. rdar://problem/59576809
-
-    [WASM] Wasm interpreter's calling convention doesn't match Wasm JIT's convention.
-    https://bugs.webkit.org/show_bug.cgi?id=207727
-    
-    JSTests:
-    
-    Reviewed by Mark Lam.
-    
-    * wasm/regress/llint-callee-saves-with-fast-memory.js: Added.
-    * wasm/regress/llint-callee-saves-without-fast-memory.js: Added.
-    
-    Source/JavaScriptCore:
-    
-    Reviewed by Mark Lam.
-    
-    The Wasm JIT has unusual calling conventions, which were further complicated by the addition
-    of the interpreter, and the interpreter did not correctly follow these conventions (by incorrectly
-    saving and restoring the callee save registers used for the memory base and size). Here's a summary
-    of the calling convention:
-    
-    - When entering Wasm from JS, the wrapper must:
-        - Preserve the base and size when entering LLInt regardless of the mode. (Prior to this
-          patch we only preserved the base in Signaling mode)
-        - Preserve the memory base in either mode, and the size for BoundsChecking.
-    - Both tiers must preserve every *other* register they use. e.g. the LLInt must preserve PB
-      and wasmInstance, but must *not* preserve memoryBase and memorySize.
-    - Changes to memoryBase and memorySize are visible to the caller. This means that:
-        - Intra-module calls can assume these registers are up-to-date even if the memory was
-          resized. The only exception here is if the LLInt calls a signaling JIT, in which case
-          the JIT will not update the size register, since it won't be using it.
-        - Inter-module and JS calls require the caller to reload these registers. These calls may
-          result in memory changes (e.g. the callee may call memory.grow).
-        - A Signaling JIT caller must be aware that the LLInt may trash the size register, since
-          it always bounds checks.
-    
-    * llint/WebAssembly.asm:
-    * wasm/WasmAirIRGenerator.cpp:
-    (JSC::Wasm::AirIRGenerator::addCall):
-    * wasm/WasmB3IRGenerator.cpp:
-    (JSC::Wasm::B3IRGenerator::addCall):
-    * wasm/WasmCallee.cpp:
-    (JSC::Wasm::LLIntCallee::calleeSaveRegisters):
-    * wasm/WasmCallingConvention.h:
-    * wasm/WasmLLIntPlan.cpp:
-    (JSC::Wasm::LLIntPlan::didCompleteCompilation):
-    * wasm/WasmMemoryInformation.cpp:
-    (JSC::Wasm::PinnedRegisterInfo::get):
-    (JSC::Wasm::getPinnedRegisters): Deleted.
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@256665 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2020-02-14  Tadeu Zagallo  <tzagallo@apple.com> and Michael Saboff  <msaboff@apple.com>
-
-            [WASM] Wasm interpreter's calling convention doesn't match Wasm JIT's convention.
-            https://bugs.webkit.org/show_bug.cgi?id=207727
-
-            Reviewed by Mark Lam.
-
-            The Wasm JIT has unusual calling conventions, which were further complicated by the addition
-            of the interpreter, and the interpreter did not correctly follow these conventions (by incorrectly
-            saving and restoring the callee save registers used for the memory base and size). Here's a summary
-            of the calling convention:
-
-            - When entering Wasm from JS, the wrapper must:
-                - Preserve the base and size when entering LLInt regardless of the mode. (Prior to this
-                  patch we only preserved the base in Signaling mode)
-                - Preserve the memory base in either mode, and the size for BoundsChecking.
-            - Both tiers must preserve every *other* register they use. e.g. the LLInt must preserve PB
-              and wasmInstance, but must *not* preserve memoryBase and memorySize.
-            - Changes to memoryBase and memorySize are visible to the caller. This means that:
-                - Intra-module calls can assume these registers are up-to-date even if the memory was
-                  resized. The only exception here is if the LLInt calls a signaling JIT, in which case
-                  the JIT will not update the size register, since it won't be using it.
-                - Inter-module and JS calls require the caller to reload these registers. These calls may
-                  result in memory changes (e.g. the callee may call memory.grow).
-                - A Signaling JIT caller must be aware that the LLInt may trash the size register, since
-                  it always bounds checks.
-
-            * llint/WebAssembly.asm:
-            * wasm/WasmAirIRGenerator.cpp:
-            (JSC::Wasm::AirIRGenerator::addCall):
-            * wasm/WasmB3IRGenerator.cpp:
-            (JSC::Wasm::B3IRGenerator::addCall):
-            * wasm/WasmCallee.cpp:
-            (JSC::Wasm::LLIntCallee::calleeSaveRegisters):
-            * wasm/WasmCallingConvention.h:
-            * wasm/WasmLLIntPlan.cpp:
-            (JSC::Wasm::LLIntPlan::didCompleteCompilation):
-            * wasm/WasmMemoryInformation.cpp:
-            (JSC::Wasm::PinnedRegisterInfo::get):
-            (JSC::Wasm::getPinnedRegisters): Deleted.
-
-2020-02-19  Alan Coon  <alancoon@apple.com>
-
-        Cherry-pick r256779. rdar://problem/59576798
-
-    [JSC] JITThunk should be HashSet<Weak<NativeExecutable>> with appropriate GC weakness handling
-    https://bugs.webkit.org/show_bug.cgi?id=207715
-    
-    Reviewed by Darin Adler.
-    
-    JSTests:
-    
-    * stress/stress-jitthunks.js: Added.
-    (let.set newGlobal):
-    (set catch):
-    
-    Source/JavaScriptCore:
-    
-    This patch refines JITThunks GC-aware Weak hash map for NativeExecutable. Previously, we have
-    HashMap<std::tuple<TaggedNativeFunction, TaggedNativeFunction, String>, Weak<NativeExecutable>> table.
-    But this is not good because the first tuple's information is already in NativeExecutable.
-    But we were using this design since Weak<NativeExecutable> can be nullified because of Weak<>. If this
-    happens, we could have invalid Entry in HashMap which does not have corresponding values. This will
-    cause crash when rehasing requires hash code for this entry.
-    
-    But this HashMap is very bad in terms of memory usage. Each entry has 32 bytes, and this table gets enough
-    large. We identified that this table is consuming much memory in Membuster. So it is worth designing
-    carefully crafted data structure which only holds Weak<NativeExecutable> by leveraging the deep interaction
-    with our GC implementation.
-    
-    This patch implements new design of JITThunks, which uses HashSet<Weak<NativeExecutable>> and carefully crafted
-    HashTraits / KeyTraits to handle Weak<> well.
-    
-    1. Each Weak should have finalizer, and this finalizer should remove dead Weak<NativeExecutable> from HashSet.
-    
-        This is ensuring that all the keys in HashSet is, even if Weak<> is saying it is Dead, it still has an way
-        to access content of NativeExecutable if the content is not a JS objects. For example, we can get function
-        pointer from dead Weak<NativeExecutable> if it is not yet finalized. Since we remove all finalized Weak<>
-        from the table, this finalizer mechanism allows us to access function pointers etc. from Weak<NativeExecutable>
-        so long as it is held in this table.
-    
-    2. Getting NativeExecutable* from JITThunks should have special protocol.
-    
-        When getting NativeExecutable* from JITThunks, we do the following,
-    
-        1. First, we check we have an Entry in JITThunks. If it does not exist, we should insert it anyway.
-            1.1. If it exists, we should check whether this Weak<NativeExecutable> is dead or not. It is possible that
-                 dead one is still in the table because "dead" does not mean that it is "finalized". Until finalizing happens (and
-                 it can be delayed by incremental-sweeper), Weak<NativeExecutable> can be dead but still accessible. So the table
-                 is still holding dead one. If we get dead one, we should insert a new one.
-            1.2. If it is not dead, we return it.
-        2. Second, we create a new NativeExecutable and insert it. In that case, it is possible that the table already has Weak<NativeExecutable>,
-           but it is dead. In that case, we need to explicitly replace it with newly created one since old one is holding old content. If we
-           replaced, finalizer of Weak<> will not be invoked since it immediately deallocates Weak<>. So, it does not happen that this newly
-           inserted NativeExecutable* is removed by the finalizer registered by the old Weak<>.
-    
-    This change makes memory usage of JITThunks table 1/4.
-    
-    * heap/Weak.cpp:
-    (JSC::weakClearSlowCase):
-    * heap/Weak.h:
-    (JSC::Weak::Weak):
-    (JSC::Weak::isHashTableEmptyValue const):
-    (JSC::Weak::unsafeImpl const):
-    (WTF::HashTraits<JSC::Weak<T>>::isEmptyValue):
-    * heap/WeakInlines.h:
-    (JSC::Weak<T>::Weak):
-    * jit/JITThunks.cpp:
-    (JSC::JITThunks::JITThunks):
-    (JSC::JITThunks::WeakNativeExecutableHash::hash):
-    (JSC::JITThunks::WeakNativeExecutableHash::equal):
-    (JSC::JITThunks::HostKeySearcher::hash):
-    (JSC::JITThunks::HostKeySearcher::equal):
-    (JSC::JITThunks::NativeExecutableTranslator::hash):
-    (JSC::JITThunks::NativeExecutableTranslator::equal):
-    (JSC::JITThunks::NativeExecutableTranslator::translate):
-    (JSC::JITThunks::finalize):
-    (JSC::JITThunks::hostFunctionStub):
-    (JSC::JITThunks::clearHostFunctionStubs): Deleted.
-    * jit/JITThunks.h:
-    * runtime/NativeExecutable.h:
-    * tools/JSDollarVM.cpp:
-    (JSC::functionGCSweepAsynchronously):
-    (JSC::functionCreateEmptyFunctionWithName):
-    (JSC::JSDollarVM::finishCreation):
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@256779 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2020-02-17  Yusuke Suzuki  <ysuzuki@apple.com>
-
-            [JSC] JITThunk should be HashSet<Weak<NativeExecutable>> with appropriate GC weakness handling
-            https://bugs.webkit.org/show_bug.cgi?id=207715
-
-            Reviewed by Darin Adler.
-
-            This patch refines JITThunks GC-aware Weak hash map for NativeExecutable. Previously, we have
-            HashMap<std::tuple<TaggedNativeFunction, TaggedNativeFunction, String>, Weak<NativeExecutable>> table.
-            But this is not good because the first tuple's information is already in NativeExecutable.
-            But we were using this design since Weak<NativeExecutable> can be nullified because of Weak<>. If this
-            happens, we could have invalid Entry in HashMap which does not have corresponding values. This will
-            cause crash when rehasing requires hash code for this entry.
-
-            But this HashMap is very bad in terms of memory usage. Each entry has 32 bytes, and this table gets enough
-            large. We identified that this table is consuming much memory in Membuster. So it is worth designing
-            carefully crafted data structure which only holds Weak<NativeExecutable> by leveraging the deep interaction
-            with our GC implementation.
-
-            This patch implements new design of JITThunks, which uses HashSet<Weak<NativeExecutable>> and carefully crafted
-            HashTraits / KeyTraits to handle Weak<> well.
-
-            1. Each Weak should have finalizer, and this finalizer should remove dead Weak<NativeExecutable> from HashSet.
-
-                This is ensuring that all the keys in HashSet is, even if Weak<> is saying it is Dead, it still has an way
-                to access content of NativeExecutable if the content is not a JS objects. For example, we can get function
-                pointer from dead Weak<NativeExecutable> if it is not yet finalized. Since we remove all finalized Weak<>
-                from the table, this finalizer mechanism allows us to access function pointers etc. from Weak<NativeExecutable>
-                so long as it is held in this table.
-
-            2. Getting NativeExecutable* from JITThunks should have special protocol.
-
-                When getting NativeExecutable* from JITThunks, we do the following,
-
-                1. First, we check we have an Entry in JITThunks. If it does not exist, we should insert it anyway.
-                    1.1. If it exists, we should check whether this Weak<NativeExecutable> is dead or not. It is possible that
-                         dead one is still in the table because "dead" does not mean that it is "finalized". Until finalizing happens (and
-                         it can be delayed by incremental-sweeper), Weak<NativeExecutable> can be dead but still accessible. So the table
-                         is still holding dead one. If we get dead one, we should insert a new one.
-                    1.2. If it is not dead, we return it.
-                2. Second, we create a new NativeExecutable and insert it. In that case, it is possible that the table already has Weak<NativeExecutable>,
-                   but it is dead. In that case, we need to explicitly replace it with newly created one since old one is holding old content. If we
-                   replaced, finalizer of Weak<> will not be invoked since it immediately deallocates Weak<>. So, it does not happen that this newly
-                   inserted NativeExecutable* is removed by the finalizer registered by the old Weak<>.
-
-            This change makes memory usage of JITThunks table 1/4.
-
-            * heap/Weak.cpp:
-            (JSC::weakClearSlowCase):
-            * heap/Weak.h:
-            (JSC::Weak::Weak):
-            (JSC::Weak::isHashTableEmptyValue const):
-            (JSC::Weak::unsafeImpl const):
-            (WTF::HashTraits<JSC::Weak<T>>::isEmptyValue):
-            * heap/WeakInlines.h:
-            (JSC::Weak<T>::Weak):
-            * jit/JITThunks.cpp:
-            (JSC::JITThunks::JITThunks):
-            (JSC::JITThunks::WeakNativeExecutableHash::hash):
-            (JSC::JITThunks::WeakNativeExecutableHash::equal):
-            (JSC::JITThunks::HostKeySearcher::hash):
-            (JSC::JITThunks::HostKeySearcher::equal):
-            (JSC::JITThunks::NativeExecutableTranslator::hash):
-            (JSC::JITThunks::NativeExecutableTranslator::equal):
-            (JSC::JITThunks::NativeExecutableTranslator::translate):
-            (JSC::JITThunks::finalize):
-            (JSC::JITThunks::hostFunctionStub):
-            (JSC::JITThunks::clearHostFunctionStubs): Deleted.
-            * jit/JITThunks.h:
-            * runtime/NativeExecutable.h:
-            * tools/JSDollarVM.cpp:
-            (JSC::functionGCSweepAsynchronously):
-            (JSC::functionCreateEmptyFunctionWithName):
-            (JSC::JSDollarVM::finishCreation):
-
-2020-02-19  Alan Coon  <alancoon@apple.com>
-
-        Cherry-pick r256766. rdar://problem/59576813
-
-    [Wasm] REGRESSION(r256665): Wasm->JS call IC needs to save memory size register
-    https://bugs.webkit.org/show_bug.cgi?id=207849
-    
-    Reviewed by Mark Lam.
-    
-    JSTests:
-    
-    * wasm/regress/regress-256665.js: Added.
-    (f):
-    
-    Source/JavaScriptCore:
-    
-    When generating the call IC, we should select the callee saves using BoundsChecking mode in order
-    to obey to the calling conventions described in r256665. Currently, we won't restore the memory size
-    register when calling the Wasm LLInt through the call IC.
-    
-    * wasm/js/WebAssemblyFunction.cpp:
-    (JSC::WebAssemblyFunction::calleeSaves const):
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@256766 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2020-02-17  Tadeu Zagallo  <tzagallo@apple.com>
-
-            [Wasm] REGRESSION(r256665): Wasm->JS call IC needs to save memory size register
-            https://bugs.webkit.org/show_bug.cgi?id=207849
-
-            Reviewed by Mark Lam.
-
-            When generating the call IC, we should select the callee saves using BoundsChecking mode in order
-            to obey to the calling conventions described in r256665. Currently, we won't restore the memory size
-            register when calling the Wasm LLInt through the call IC.
-
-            * wasm/js/WebAssemblyFunction.cpp:
-            (JSC::WebAssemblyFunction::calleeSaves const):
 
 2020-02-14  Russell Epstein  <repstein@apple.com>
 
