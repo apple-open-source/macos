@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2013, 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2013, 2015-2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -222,8 +222,9 @@ SCVLANInterfaceCopyAll(SCPreferencesRef prefs)
 	if (__SCPreferencesUsingDefaultPrefs(prefs)) {
 		ni_prefs = NULL;
 	} else {
-		ni_prefs = __SCPreferencesCreateNIPrefsFromPrefs(prefs);
+		ni_prefs = SCPreferencesCreateCompanion(prefs, INTERFACES_DEFAULT_CONFIG);
 	}
+
 	context.vlans = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	context.ni_prefs = ni_prefs;
 	context.prefs = prefs;
@@ -238,6 +239,7 @@ SCVLANInterfaceCopyAll(SCPreferencesRef prefs)
 	if (isA_CFDictionary(dict)) {
 		my_CFDictionaryApplyFunction(dict, add_configured_interface, &context);
 	}
+
 	if (ni_prefs != NULL) {
 		CFRelease(ni_prefs);
 	}

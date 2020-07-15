@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #
-#  Copyright © 2015-2019 Apple Inc.
+#  Copyright © 2015-2020 Apple Inc.
 #
 #  get-network-info
 #
@@ -466,6 +466,18 @@ collect_configuration_files () {
 	fi
 	if [ -e /etc/resolver ]; then
 		tar -c -H /etc/resolver					> etc-resolver.tar		2>/dev/null
+	elif [ -e /Library/Preferences/SystemConfiguration/resolver ]; then
+		tar -c -H /Library/Preferences/SystemConfiguration/resolver > LPS-resolver.tar		2>/dev/null
+	fi
+
+	MIGRATION_FILES=$(/bin/ls -1								\
+		/Library/Preferences/SystemConfiguration/preferences-pre-*.plist		\
+		/Library/Preferences/SystemConfiguration/NetworkInterfaces-pre-*.plist		\
+		2>/dev/null)
+	if [ -n "${MIGRATION_FILES}" ]; then
+		MIGRATION_FILES+=" /Library/Preferences/SystemConfiguration/preferences.plist"
+		MIGRATION_FILES+=" /Library/Preferences/SystemConfiguration/NetworkInterfaces.plist"
+		tar -c -H ${MIGRATION_FILES}				> migration.tar			2>/dev/null
 	fi
 }
 
@@ -705,7 +717,7 @@ stop_pcap () {
 	if [ ${PCAP_STARTED} -ne 0 ]; then
 		trap '' SIGINT
 		/usr/local/bin/netdiagnose stop sysdiagpcap					2>&1	1>/dev/null
-		echo "`date +"%Y-%m-%d %H:%M:%S"`: stop_pcap done"	>> get-network-info.txt
+		echo "`date +"%Y-%m-%d %H:%M:%S"`: stop_pcap"		>> get-network-info.txt
 	fi
 }
 

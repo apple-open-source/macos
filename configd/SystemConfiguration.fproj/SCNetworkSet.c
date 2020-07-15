@@ -828,6 +828,7 @@ SCNetworkSetCopyServices(SCNetworkSetRef set)
 		return NULL;
 	}
 
+
 	path = SCPreferencesPathKeyCreateSetNetworkService(NULL, setPrivate->setID, NULL);
 	dict = SCPreferencesPathGetValue(setPrivate->prefs, path);
 	CFRelease(path);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008, 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2008, 2011-2017, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -490,7 +490,7 @@ int
 main(int argc, char **argv)
 {
 	static Boolean verbose = (argc > 1) ? TRUE : FALSE;
-//	_sc_log     = FALSE;
+	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 	_sc_debug   = TRUE;
 
@@ -506,4 +506,4 @@ main(int argc, char **argv)
 	return 0;
 }
 
-#endif  /* MAIN */
+#endif	/* MAIN */

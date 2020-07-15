@@ -29,11 +29,12 @@
  */
 
 
-#define	USE_SC_LOG_OR_PRINT	1		// use '_sc_log' to control os_log, printf
-
 #include "SCNetworkConfigurationInternal.h"
 #include "SCPreferencesInternal.h"
 #include <IOKit/IOBSD.h>
+
+
+#define	logDetails	(_sc_log == kSCLogDestinationDefault) || _sc_debug
 
 
 static Boolean
@@ -92,28 +93,55 @@ savePreferences(SCPreferencesRef	prefs,
 
 __private_extern__
 Boolean
-__SCNetworkConfigurationBackup(SCPreferencesRef prefs)
+__SCNetworkConfigurationBackup(SCPreferencesRef prefs, CFStringRef suffix, SCPreferencesRef relativeTo)
 {
-	Boolean		ok;
-	CFStringRef	save_prefsID;
-	struct tm	tm_now;
-	struct timeval	tv_now;
+	SCPreferencesRef	backup;
+	CFMutableStringRef	backupPrefsID;
+	Boolean			ok		= FALSE;
+	CFPropertyListRef	plist;
+	CFRange			range;
+	SCPreferencesPrivateRef	sourcePrivate	= (SCPreferencesPrivateRef)prefs;
+	CFStringRef		sourcePrefsID;
 
-	SC_log(LOG_NOTICE, "creating [configuration] backup");
+	SC_log(LOG_NOTICE, "creating [%@] backup", suffix);
 
-	(void)gettimeofday(&tv_now, NULL);
-	(void)localtime_r(&tv_now.tv_sec, &tm_now);
-	save_prefsID = CFStringCreateWithFormat(NULL,
-						 NULL,
-						 CFSTR("preferences-%4d-%02d-%02d-%02d%02d%02d.plist"),
-						 tm_now.tm_year + 1900,
-						 tm_now.tm_mon + 1,
-						 tm_now.tm_mday,
-						 tm_now.tm_hour,
-						 tm_now.tm_min,
-						 tm_now.tm_sec);
-	ok = savePreferences(prefs, save_prefsID, CFSTR(""), FALSE, NULL, NULL);
-	CFRelease(save_prefsID);
+	sourcePrefsID = (sourcePrivate->prefsID != NULL) ? sourcePrivate->prefsID : PREFS_DEFAULT_CONFIG;
+	backupPrefsID = CFStringCreateMutableCopy(NULL, 0, sourcePrefsID);
+	if (CFStringFindWithOptions(backupPrefsID,
+				    CFSTR("/"),
+				    CFRangeMake(0, CFStringGetLength(backupPrefsID)),
+				    kCFCompareBackwards,
+				    &range)) {
+		// if slash, remove path prefix
+		range.length   = range.location + 1;
+		range.location = 0;
+		CFStringReplace(backupPrefsID, range, CFSTR(""));
+	}
+	CFStringInsert(backupPrefsID,
+		       CFStringGetLength(backupPrefsID) - sizeof(".plist") + 1,
+		       CFSTR("-"));
+	CFStringInsert(backupPrefsID,
+		       CFStringGetLength(backupPrefsID) - sizeof(".plist") + 1,
+		       suffix);
+	backup = SCPreferencesCreateCompanion(relativeTo, backupPrefsID);
+	CFRelease(backupPrefsID);
+
+	SC_log(LOG_INFO,
+	       "__SCNetworkConfigurationBackup()"
+	       "\n  relativeTo = %@"
+	       "\n  prefs      = %@"
+	       "\n  backup     = %@",
+	       relativeTo,
+	       prefs,
+	       backup);
+
+	if (backup != NULL) {
+		plist = SCPreferencesPathGetValue(prefs, CFSTR("/"));
+		SCPreferencesPathSetValue(backup, CFSTR("/"), plist);
+		ok = SCPreferencesCommitChanges(backup);
+		CFRelease(backup);
+	}
+
 	return ok;
 }
 
@@ -329,9 +357,9 @@ __SCNetworkConfigurationUpgrade(SCPreferencesRef	*prefs_p,
     done :
 
 	if (prefs_added) {
-//		if (ok && (prefs_p != NULL)) {
-//			*prefs_p = CFRetain(prefs);
-//		}
+		// per the expected usage, even if we on-the-fly create
+		// a [preferences.plist] companion it is not returned to
+		// the caller.  So, just release.
 		CFRelease(prefs);
 	}
 
@@ -550,8 +578,10 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 	CFArrayRef		interfaces;
 	CFMutableArrayRef	interfaces_thin;
 	CFIndex			n;
+#if	TARGET_OS_OSX
 	CFDictionaryRef		nat_config;
 	SCPreferencesRef	nat_prefs;
+#endif	// TARGET_OS_OSX
 	CFArrayRef		services;
 	int			updated		= 0;
 
@@ -574,7 +604,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 
 			if (bsdName == NULL) {
 				// if no interface name
-				if ((_sc_log == 1) || _sc_debug) {
+				if (logDetails) {
 					SC_log(LOG_INFO,
 					       "skipping service : %@ : %@ (no interface)",
 					       SCNetworkServiceGetServiceID(service),
@@ -589,7 +619,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 				thin = "effectively hidden";
 			} else {
 				// if not HiddenConfiguration
-				if ((_sc_log == 1) || _sc_debug) {
+				if (logDetails) {
 					SC_log(LOG_INFO,
 					       "skipping service : %@ : %@ : %@ (not hidden)",
 						SCNetworkServiceGetServiceID(service),
@@ -602,7 +632,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 			conflict = serviceMatchesTemplate(prefs, service);
 			if (conflict != NULL) {
 				// if any part of the service's configuration was changed
-				if ((_sc_log == 1) || _sc_debug) {
+				if (logDetails) {
 					SC_log(LOG_INFO,
 					       "skipping service : %@ : %@ : %@ (%s, non-default, %@)",
 					       SCNetworkServiceGetServiceID(service),
@@ -615,7 +645,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 				continue;
 			}
 
-			if ((_sc_log == 1) || _sc_debug) {
+			if (logDetails) {
 				SC_log(LOG_INFO, "candidate interface : %@ (%s)", bsdName, thin);
 			}
 
@@ -646,7 +676,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 				bsdName = SCNetworkInterfaceGetBSDName(member);
 				if ((bsdName != NULL) &&
 				    thinRemove(interfaces_thin, bsdName)) {
-					if ((_sc_log == 1) || _sc_debug) {
+					if (logDetails) {
 						SC_log(LOG_INFO, "skipping interface : %@ (bond member)", bsdName);
 					}
 				}
@@ -677,7 +707,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 				bsdName = SCNetworkInterfaceGetBSDName(member);
 				if ((bsdName != NULL) &&
 				    thinRemove(interfaces_thin, bsdName)) {
-					if ((_sc_log == 1) || _sc_debug) {
+					if (logDetails) {
 						SC_log(LOG_INFO, "skipping interface : %@ (bridge member)", bsdName);
 					}
 				}
@@ -701,7 +731,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 			bsdName = SCNetworkInterfaceGetBSDName(physicalInterface);
 			if ((bsdName != NULL) &&
 			    thinRemove(interfaces_thin, bsdName)) {
-				if ((_sc_log == 1) || _sc_debug) {
+				if (logDetails) {
 					SC_log(LOG_INFO, "skipping interface : %@ (vlan physical)", bsdName);
 				}
 			}
@@ -712,13 +742,24 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 
 	// remove any "shared" interfaces from the list
 
+#if	TARGET_OS_OSX
 	nat_prefs = SCPreferencesCreateCompanion(prefs, CFSTR("com.apple.nat.plist"));
 	nat_config = SCPreferencesGetValue(nat_prefs, CFSTR("NAT"));
 	if (isA_CFDictionary(nat_config)) {
+		CFBooleanRef	bVal		= NULL;
+		Boolean		enabled		= FALSE;
 		CFStringRef	sharedFrom	= NULL;
 		CFArrayRef	sharedTo	= NULL;
 
 		if (CFDictionaryGetValueIfPresent(nat_config,
+						  CFSTR("Enabled"),
+						  (const void **)&bVal) &&
+		    isA_CFBoolean(bVal)) {
+		    enabled = CFBooleanGetValue(bVal);
+		}
+
+		if (enabled &&
+		    CFDictionaryGetValueIfPresent(nat_config,
 						  CFSTR("PrimaryService"),
 						  (const void **)&sharedFrom) &&
 			isA_CFString(sharedFrom)) {
@@ -732,7 +773,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 				bsdName = SCNetworkInterfaceGetBSDName(interface);
 				if ((bsdName != NULL) &&
 				    thinRemove(interfaces_thin, bsdName)) {
-					if ((_sc_log == 1) || _sc_debug) {
+					if (logDetails) {
 						SC_log(LOG_INFO, "skipping interface : %@ (Share your connection from)", bsdName);
 					}
 				}
@@ -742,23 +783,25 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 			}
 		}
 
-	   if (CFDictionaryGetValueIfPresent(nat_config,
-					     CFSTR("SharingDevices"),
-					     (const void **)&sharedTo) &&
-		   isA_CFArray(sharedTo)) {
-		   // if "To computers using" interfaces configured
-		   n = CFArrayGetCount(sharedTo);
-		   for (CFIndex i = 0; i < n; i++) {
-			   bsdName = CFArrayGetValueAtIndex(sharedTo, i);
-			   if (thinRemove(interfaces_thin, bsdName)) {
-				   if ((_sc_log == 1) || _sc_debug) {
-					   SC_log(LOG_INFO, "skipping interface : %@ (To computers using)", bsdName);
-				   }
-			   }
-		   }
-	   }
+		if (enabled &&
+		    CFDictionaryGetValueIfPresent(nat_config,
+						  CFSTR("SharingDevices"),
+						  (const void **)&sharedTo) &&
+		    isA_CFArray(sharedTo)) {
+			// if "To computers using" interfaces configured
+			n = CFArrayGetCount(sharedTo);
+			for (CFIndex i = 0; i < n; i++) {
+				bsdName = CFArrayGetValueAtIndex(sharedTo, i);
+				if (thinRemove(interfaces_thin, bsdName)) {
+					if (logDetails) {
+						SC_log(LOG_INFO, "skipping interface : %@ (To computers using)", bsdName);
+					}
+				}
+			}
+		}
 	}
 	CFRelease(nat_prefs);
+#endif	// TARGET_OS_OSX
 
 	// thin preferences.plist
 	n = (services != NULL) ? CFArrayGetCount(services) : 0;
@@ -783,7 +826,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 			}
 
 			// remove this service associated with a "thinned" interface
-			if ((_sc_log == 1) || _sc_verbose) {
+			if (logDetails || _sc_verbose) {
 				SC_log(LOG_INFO,
 				       "thinned network service : %@ : %@ : %@",
 				       SCNetworkServiceGetServiceID(service),
@@ -795,7 +838,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 		}
 
 		if (updated > 0) {
-			if ((_sc_log == 1) || _sc_debug) {
+			if (logDetails) {
 				SC_log(LOG_NOTICE,
 				       "Updating \"preferences.plist\" (thinned %d service%s)",
 				       updated,
@@ -823,12 +866,12 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 			bsdName = CFDictionaryGetValue(if_dict, CFSTR(kIOBSDNameKey));
 			if (isThin(interfaces_thin, bsdName)) {
 				if (CFDictionaryContainsKey(if_dict, CFSTR(kSCNetworkInterfaceActive))) {
-					if ((_sc_log == 1) || _sc_debug) {
+					if (logDetails) {
 						SC_log(LOG_INFO, "skipping interface : %@ (active)", bsdName);
 					}
 				} else {
 					// remove this "thinned" interface
-					if ((_sc_log == 1) || _sc_debug || _sc_verbose) {
+					if (logDetails || _sc_verbose) {
 						SC_log(LOG_INFO, "thinned network interface : %@", bsdName);
 					}
 					updated++;
@@ -842,7 +885,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 		CFRelease(interfaces_new);
 
 		if (updated > 0) {
-			if ((_sc_log == 1) || _sc_debug) {
+			if (logDetails) {
 				SC_log(LOG_INFO,
 				       "Updating \"NetworkInterfaces.plist\" (thinned %d interface%s)",
 				       updated,
@@ -1065,7 +1108,7 @@ __SCNetworkConfigurationCleanServiceOrderIssues(SCPreferencesRef prefs)
 			// check if serviceID already known/processed
 			if (CFSetContainsValue(known, serviceID)) {
 				// if duplicate/removed service, remove from serviceOrder
-				if ((_sc_log == 1) || _sc_debug) {
+				if (logDetails) {
 					SC_log(LOG_NOTICE,
 					       "set: %@, removing serviceID %@ (duplicate/removed)",
 					       setID,
@@ -1084,7 +1127,7 @@ __SCNetworkConfigurationCleanServiceOrderIssues(SCPreferencesRef prefs)
 			service = SCNetworkServiceCopy(prefs, serviceID);
 			if (service == NULL) {
 				// if no service, remove from serviceOrder
-				if ((_sc_log == 1) || _sc_debug) {
+				if (logDetails) {
 					SC_log(LOG_NOTICE,
 					       "set: %@, removing serviceID %@ (no service)",
 					       setID,
@@ -1098,7 +1141,7 @@ __SCNetworkConfigurationCleanServiceOrderIssues(SCPreferencesRef prefs)
 
 			if (!__SCNetworkServiceExists(service)) {
 				// if service already removed, remove from serviceOrder
-				if ((_sc_log == 1) || _sc_debug) {
+				if (logDetails) {
 					SC_log(LOG_NOTICE,
 					       "set: %@, removing serviceID %@ (service already removed)",
 					       setID,

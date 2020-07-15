@@ -251,11 +251,13 @@ typedef uint32_t IOHIDQueueOptionsType;
   @constant kIOHIDStandardTypeANSI ANSI.
   @constant kIOHIDStandardTypeISO ISO.
   @constant kIOHIDStandardTypeJIS JIS.
+  @constant kIOHIDStandardTypeUnspecified.
 */
 enum {
-    kIOHIDStandardTypeANSI                = 0,
-    kIOHIDStandardTypeISO                 = 1,
-    kIOHIDStandardTypeJIS                 = 2
+    kIOHIDStandardTypeANSI                = 0x0,
+    kIOHIDStandardTypeISO                 = 0x1,
+    kIOHIDStandardTypeJIS                 = 0x2,
+    kIOHIDStandardTypeUnspecified         = 0xFFFFFFFF,
 };
 typedef uint32_t IOHIDStandardType;
 

@@ -260,7 +260,7 @@ create_sparse_file(const char *path, const struct sparse *s)
 {
 	char buff[1024];
 	int fd;
-	size_t total_size = 0;
+	uint64_t total_size = 0;
 	const struct sparse *cur = s;
 
 	memset(buff, ' ', sizeof(buff));
@@ -525,6 +525,12 @@ DEFINE_TEST(test_sparse_basic)
 		{ HOLE,	 1 }, { DATA, 10240 },
 		{ END,	0 }
 	};
+	const struct sparse sparse_file4[] = {
+		{ DATA, 4096 }, { HOLE, 0xc0000000 },
+		/* This hole overflows the offset if stored in 32 bits. */
+		{ DATA, 4096 }, { HOLE, 0x50000000 },
+		{ END, 0 }
+	};
 
 	/*
 	 * Test for the case that sparse data indicates just the whole file
@@ -559,6 +565,7 @@ DEFINE_TEST(test_sparse_basic)
 	verify_sparse_file(a, "file2", sparse_file2, 20);
 	/* Encoded non sparse; expect a data block but no sparse entries. */
 	verify_sparse_file(a, "file3", sparse_file3, 0);
+	verify_sparse_file(a, "file4", sparse_file4, 2);
 
 	assertEqualInt(ARCHIVE_OK, archive_read_free(a));
 

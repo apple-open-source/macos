@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011, 2013-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011, 2013-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -126,7 +126,7 @@ catcher(int signum)
 		case SIGINT :
 		case SIGTERM :
 			if (termRequested != NULL) {
-				if (_sc_log > 0) {
+				if (_sc_log > kSCLogDestinationFile) {
 					/*
 					 * if we've received a [shutdown] SIGTERM
 					 * and we are syslog'ing than it's likely
@@ -134,7 +134,7 @@ catcher(int signum)
 					 * such, let's also push any remaining log
 					 * messages to stdout/stderr.
 					 */
-					_sc_log = 2;
+					_sc_log = kSCLogDestinationBoth;
 				}
 
 				/*
@@ -404,24 +404,17 @@ main(int argc, char * const argv[])
 	 * setup logging.
 	 */
 	if (!forceForeground || forcePlugin) {
-		int		facility	= LOG_DAEMON;
-		int		logopt		= LOG_CONS|LOG_NDELAY|LOG_PID;
-
 		if (!is_launchd_job && !forcePlugin) {
 			init_fds();
 		}
 
-		if (_configd_verbose) {
-			logopt |= LOG_CONS;
-		}
-
 		if (_SC_isInstallEnvironment()) {
-			facility = LOG_INSTALL;
+			openlog("configd",
+				LOG_CONS|LOG_NDELAY|LOG_PID,	// logopt
+				LOG_INSTALL);			// facility
 		}
-
-		openlog("configd", logopt, facility);
 	} else {
-		_sc_log = FALSE;	/* redirect SCLog() to stdout/stderr */
+		_sc_log = kSCLogDestinationFile;	/* redirect SCLog() to stdout/stderr */
 	}
 
 	/* add signal handler to catch a SIGHUP */

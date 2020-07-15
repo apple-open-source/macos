@@ -101,8 +101,6 @@ int main(int argc, char *argv[])
 
 	// program arguments (preset to defaults)
 	bool debugMode = false;
-	const char *bootstrapName = NULL;
-	const char* messagingName = SharedMemoryCommon::kDefaultSecurityMessagesName;
 	bool doFork = false;
 	bool reExecute = false;
 	int workerTimeout = 0;
@@ -124,7 +122,7 @@ int main(int argc, char *argv[])
 	extern char *optarg;
 	extern int optind;
 	int arg;
-	while ((arg = getopt(argc, argv, "c:dE:imN:s:t:T:uvWX")) != -1) {
+	while ((arg = getopt(argc, argv, "c:dE:ims:t:T:uvWX")) != -1) {
 		switch (arg) {
 		case 'c':
 			tokenCacheDir = optarg;
@@ -141,9 +139,6 @@ int main(int argc, char *argv[])
         case 'm':
             mdsIsInstalled = true;
             break;
-		case 'N':
-			bootstrapName = optarg;
-			break;
 		case 's':
 			smartCardOptions = optarg;
 			break;
@@ -174,30 +169,13 @@ int main(int argc, char *argv[])
 	}
 	
 	// take no non-option arguments
-	if (optind < argc)
+	if (optind < argc) {
 		usage(argv[0]);
-	
-	// figure out the bootstrap name
-    if (!bootstrapName) {
-		bootstrapName = getenv(SECURITYSERVER_BOOTSTRAP_ENV);
-		if (!bootstrapName)
-		{
-			bootstrapName = SECURITYSERVER_BOOTSTRAP_NAME;
-		}
-		else
-		{
-#ifndef __clang_analyzer__
-			messagingName = bootstrapName;
-#endif
-		}
 	}
-	else
-	{
-#ifndef __clang_analyzer__
-		messagingName = bootstrapName;
-#endif
-	}
-	
+
+	const char *bootstrapName = SECURITYSERVER_BOOTSTRAP_NAME;
+	const char* messagingName = SharedMemoryCommon::kDefaultSecurityMessagesName;
+
 	// configure logging first
 	if (debugMode) {
 		Syslog::open(bootstrapName, LOG_AUTHPRIV, LOG_PERROR);
@@ -316,7 +294,6 @@ static void usage(const char *me)
 	fprintf(stderr, "Usage: %s [-dwX]"
 		"\n\t[-c tokencache]                        smartcard token cache directory"
 		"\n\t[-e equivDatabase] 					path to code equivalence database"
-		"\n\t[-N serviceName]                       MACH service name"
 		"\n\t[-s off|on|conservative|aggressive]    smartcard operation level"
 		"\n\t[-t maxthreads] [-T threadTimeout]     server thread control"
 		"\n", me);

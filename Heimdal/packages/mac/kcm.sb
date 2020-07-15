@@ -28,6 +28,8 @@
 
 (allow file-read*
        (literal "/")
+       (literal "/usr/sbin")
+       (literal "/usr/sbin/gssd")
        (literal "/etc/krb5.conf")
        (subpath "/Library/Preferences")
        (literal "/dev/dtracehelper")
@@ -42,7 +44,18 @@
        (literal "/private/var/run/resolv.conf")
        (subpath "/private/var/db/mds")
        (subpath "/Library/KerberosPlugins")
-       (subpath "/Library/Frameworks"))
+       (subpath "/Library/Frameworks")
+       (subpath "/Library/Security"))
+
+;; needed for code signature checks
+(allow file-read-metadata
+       (literal "/private")
+       (literal "/usr/sbin")
+       (literal "/usr/sbin/gssd")
+       (literal "/private/var/db")
+       (subpath "/Library/Security/")
+       (literal "/private/var/root/systemkeychaincheck.done")
+       (literal "/private/var/run/systemkeychaincheck.done"))
 
 (allow file-write* file-read*
        (literal "/private/var/db/kcm-dump.bin")
@@ -66,7 +79,8 @@
 (allow network-outbound
        (literal "/private/var/run/mDNSResponder")
        (remote udp)
-       (remote tcp))
+       (remote tcp)
+       (literal "/private/var/run/systemkeychaincheck.socket"))
 
 (allow sysctl-read)
 

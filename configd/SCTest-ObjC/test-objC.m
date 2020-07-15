@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2015, 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,15 +33,25 @@
  */
 
 #import <TargetConditionals.h>
+
+#if	!defined(USING_PUBLIC_SDK)
 @import Foundation;
 @import SystemConfiguration;
 @import SystemConfiguration_Private;
+#else	// !defined(USING_PUBLIC_SDK)
+#include <Foundation/Foundation.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#endif	// !defined(USING_PUBLIC_SDK)
+
+#if	TARGET_OS_MACCATALYST
+#pragma message "Building for IOS_MAC"
+#endif
 
 #define MY_APP_NAME	CFSTR("SCTestObjC")
 #define TARGET_HOST	"www.apple.com"
 
 
-#if	!TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 static void
 test_SCDynamicStore()
 {
@@ -61,9 +71,9 @@ test_SCDynamicStore()
 	CFRelease(dict);
 	CFRelease(key);
 }
-#endif	// !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 
-#if	!TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 static void
 test_SCNetworkConfiguration()
 {
@@ -86,7 +96,7 @@ test_SCNetworkConfiguration()
 	
 	CFRelease(interfaces);
 }
-#endif	// !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 
 void
 test_SCNetworkReachability()
@@ -102,7 +112,7 @@ test_SCNetworkReachability()
 	CFRelease(target);
 }
 
-#if	!TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 static void
 test_SCPreferences()
 {
@@ -134,30 +144,43 @@ test_SCPreferences()
 	CFRelease(prefs);
 	CFRelease(services);
 }
-#endif	// !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 
 void
 SCTest()
 {
 
-#if	!TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 	test_SCDynamicStore();
-#endif	// !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 
-#if	!TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 	test_SCNetworkConfiguration();
-#endif	// !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 
 	test_SCNetworkReachability();
 
-#if	!TARGET_OS_SIMULATOR
+#if	!TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 	test_SCPreferences();
-#endif	// !TARGET_OS_SIMULATOR
+#endif	// !TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 
 }
 
-int main(int argc, const char * argv[]) {
+int
+main(int argc, const char * argv[]) {
 #pragma unused(argc, argv)
+
+#if	TARGET_OS_MACCATALYST
+#if	!defined(USING_PUBLIC_SDK)
+#include <CoreFoundation/CFPriv.h>
+#else	// !defined(USING_PUBLIC_SDK)
+extern Boolean _CFMZEnabled(void);
+#endif	// !defined(USING_PUBLIC_SDK)
+	if (_CFMZEnabled()) {
+		NSLog(@"*** IOS_MAC ***\n");
+	}
+#endif
+
 	@autoreleasepool {
 		SCTest();
 	}

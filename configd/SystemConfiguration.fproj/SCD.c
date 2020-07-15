@@ -32,10 +32,13 @@
  */
 
 #include <mach/mach.h>
+#include <mach/mach_time.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
 #include <pthread.h>
 #include <sys/time.h>
+
+#define OS_LOG_PACK_SPI
 #include <os/log.h>
 #include <os/log_private.h>
 
@@ -46,12 +49,9 @@
 #define INSTALL_ENVIRONMENT	"__OSINSTALL_ENVIRONMENT"
 
 /* framework variables */
-int	_sc_debug	= FALSE;	/* non-zero if debugging enabled */
-int	_sc_verbose	= FALSE;	/* non-zero if verbose logging enabled */
-int	_sc_log		= 1;		/* 0 if SC messages should be written to stdout/stderr,
-					   1 if SC messages should be logged w/os_log(3),
-					   2 if SC messages should be logged AND written to stdout/stderr
-					   3 if SC messages should be logged AND written to stdout/stderr (w/o timestamp) */
+int			_sc_debug	= FALSE;	/* non-zero if debugging enabled */
+int			_sc_verbose	= FALSE;	/* non-zero if verbose logging enabled */
+_SCLogDestination	_sc_log		= kSCLogDestinationDefault;
 
 
 #pragma mark -
@@ -438,7 +438,7 @@ __SCLog(void *ret_addr, os_log_type_t type, const char *formatString, va_list fo
 
 
 static void
-__SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boolean trace, Boolean addNL)
+__SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boolean addTime, Boolean addNL)
 {
 	char		*line;
 	CFStringRef	str;
@@ -469,7 +469,7 @@ __SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boole
 	}
 
 	pthread_mutex_lock(&lock);
-	if (trace) {
+	if (addTime) {
 		struct tm	tm_now;
 		struct timeval	tv_now;
 
@@ -490,6 +490,12 @@ __SCPrint(FILE *stream, CFStringRef formatString, va_list formatArguments, Boole
 }
 
 
+/*
+ * NOTE: We need to keep this function in place (for a least a while) to ensure
+ *       that any [old] code that was using an earlier version of SC_log() will
+ *       have the needed support code to perform the actual logging.  Newly
+ *       compiled code uses the new/replacement _SC_log_send() function.
+ */
 void
 __SC_Log(int level, CFStringRef format_CF, os_log_t log, os_log_type_t type, const char *format, ...)
 {
@@ -499,20 +505,11 @@ __SC_Log(int level, CFStringRef format_CF, os_log_t log, os_log_type_t type, con
 	va_list		args_log;
 	va_list		args_print;
 
-	/*
-	 * Note: The following are the expected values for _sc_log
-	 *
-	 * 0 if SC messages should be written to stdout/stderr
-	 * 1 if SC messages should be logged w/os_log(3)
-	 * 2 if SC messages should be written to stdout/stderr AND logged
-	 * 3 if SC messages should be logged AND written to stdout/stderr (w/o timestamp)
-	 */
-
-	if (_sc_log > 0) {
+	if (_sc_log > kSCLogDestinationFile) {
 		do_log = TRUE;			// log requested
 		va_start(args_log, format);
 
-		if (_sc_log > 1) {
+		if (_sc_log >= kSCLogDestinationBoth) {
 			do_print = TRUE;	// log AND print requested
 			va_copy(args_print, args_log);
 		}
@@ -534,9 +531,130 @@ __SC_Log(int level, CFStringRef format_CF, os_log_t log, os_log_type_t type, con
 		__SCPrint(stdout,
 			  format_CF,
 			  args_print,
-			  (_sc_log == 2),	// trace
-			  TRUE);		// add newline
+			  (_sc_log == kSCLogDestinationBoth),	// trace
+			  TRUE);				// add newline
 		va_end(args_print);
+	}
+
+	return;
+}
+
+
+Boolean
+__SC_log_enabled(int level, os_log_t log, os_log_type_t type)
+{
+	if (os_log_type_enabled(log, type)) {
+		return TRUE;
+	}
+
+	if (_sc_log != kSCLogDestinationDefault) {
+		// if os_log'ing not enabled and the messages is targeted to stdout/stderr
+		if (level < LOG_INFO) {
+			// if not LOG_INFO/LOG_DEBUG message, print
+			return TRUE;
+		} else if ((level == LOG_INFO) && _sc_verbose) {
+			// if LOG_INFO and _sc_verbose, print
+			return TRUE;
+		} else if (_sc_debug) {
+			// if _sc_debug, print
+			return TRUE;
+		}
+	}
+
+	if (_SC_isInstallEnvironment()) {
+		// if OSInstaller environment
+		if (level < LOG_INFO) {
+			// if not LOG_INFO/LOG_DEBUG message, syslog
+			return TRUE;
+		} else if ((level == LOG_INFO) && _SC_isAppleInternal()) {
+			// if LOG_INFO and internal, syslog
+			return TRUE;
+		} else if (_sc_debug) {
+			// if _sc_debug, syslog
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+
+void
+__SC_log_send(int level, os_log_t log, os_log_type_t type, os_log_pack_t pack)
+{
+	Boolean		addTime		= (_sc_log == kSCLogDestinationBoth);
+	char		buffer[256];
+	const char	*buffer_ptr	= buffer;
+	char		*composed	= NULL;
+	Boolean		do_print	= FALSE;
+	Boolean		do_syslog	= FALSE;
+
+	if (_sc_log > kSCLogDestinationFile) {
+		if (_SC_isInstallEnvironment()) {
+			/*
+			 * os_log(3) messages are not persisted in the
+			 * install environment.  So, we use syslog(3)
+			 * instead.
+			 */
+			do_syslog = TRUE;
+		}
+
+		if (_sc_log >= kSCLogDestinationBoth) {
+			do_print = TRUE;	// log AND print requested
+		}
+	} else {
+		do_print = TRUE;		// print requested
+	}
+
+	if (!do_print && !do_syslog) {
+		// if only os_log requested
+		os_log_pack_send(pack, log, type);
+	} else if (do_print && !do_syslog) {
+		// if os_log and print requested
+		composed = os_log_pack_send_and_compose(pack, log, type, buffer, sizeof(buffer));
+	} else {
+		// if print-only and/or syslog requested
+		mach_get_times(NULL, &pack->olp_continuous_time, &pack->olp_wall_time);
+		composed = os_log_pack_compose(pack, log, type, buffer, sizeof(buffer));
+	}
+
+	if (do_print &&
+	    (
+	     (level < LOG_INFO)				||	// print most messages
+	     ((level == LOG_INFO) && _sc_verbose)	||	// with _sc_verbose, include LOG_INFO
+	     _sc_debug						// with _sc_debug, include LOG_DEBUG
+	    )
+	   ) {
+		// if printing
+		pthread_mutex_lock(&lock);
+		if (addTime) {
+			struct tm	tm_now;
+			struct timeval	tv_now;
+
+			tv_now.tv_sec = (time_t)&pack->olp_wall_time.tv_sec;
+			tv_now.tv_usec = (suseconds_t)((uint64_t)&pack->olp_wall_time.tv_nsec / NSEC_PER_USEC);
+			(void)localtime_r(&tv_now.tv_sec, &tm_now);
+			(void)fprintf(stdout, "%2d:%02d:%02d.%03d ",
+				      tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec, tv_now.tv_usec / 1000);
+		}
+		(void)fprintf(stdout, "%s\n", composed);
+		fflush (stdout);
+		pthread_mutex_unlock(&lock);
+	}
+
+	if (do_syslog &&
+	    (
+	     (level < LOG_INFO) ||
+	     ((level == LOG_INFO) && _SC_isAppleInternal()) ||
+	     _sc_debug
+	    )
+	   ) {
+		// if [install/upgrade] syslog'ing
+		syslog(level | LOG_INSTALL, "%s", composed);
+	}
+
+	if (composed != buffer_ptr) {
+		free(composed);
 	}
 
 	return;
@@ -564,11 +682,11 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 	 * 3 if SC messages should be logged AND written to stdout/stderr (w/o timestamp)
 	 */
 
-	if (_sc_log > 0) {
+	if (_sc_log > kSCLogDestinationFile) {
 		log = TRUE;		// log requested
 		va_start(formatArguments, formatString);
 
-		if (_sc_log > 1) {
+		if (_sc_log >= kSCLogDestinationBoth) {
 			print = TRUE;	// log AND print requested
 			va_copy(formatArguments_print, formatArguments);
 		}
@@ -594,8 +712,8 @@ SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 		__SCPrint((LOG_PRI(level) > LOG_NOTICE) ? stderr : stdout,
 			  formatString,
 			  formatArguments_print,
-			  (_sc_log == 2),	// trace
-			  TRUE);		// add newline
+			  (_sc_log == kSCLogDestinationBoth),	// trace
+			  TRUE);				// add newline
 		va_end(formatArguments_print);
 	}
 

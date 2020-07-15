@@ -86,7 +86,7 @@
 #include <netinet/icmp6.h>
 #include <netinet6/in6_var.h>
 #include <netinet6/nd6.h>
-#include <nw/sa_compare.h>
+#include <nw/private.h>
 #include <arpa/inet.h>
 #include <sys/sysctl.h>
 #include <limits.h>
@@ -9176,7 +9176,7 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 int
 main(int argc, char **argv)
 {
-    _sc_log     = FALSE;
+    _sc_log     = kSCLogDestinationFile;
 
     S_IPMonitor_debug = kDebugFlag1;
     if (argc > 1) {
@@ -9980,7 +9980,7 @@ main(int argc, char **argv)
 {
     IPv4RouteTestRef *	test;
 
-    _sc_log     = FALSE;
+    _sc_log     = kSCLogDestinationFile;
     _sc_verbose = (argc > 1) ? TRUE : FALSE;
     S_IPMonitor_debug = kDebugFlag1 | kDebugFlag2 | kDebugFlag4;
     if (argc > 1) {
@@ -10645,7 +10645,7 @@ main(int argc, char **argv)
 {
     IPv6RouteTestRef *	test;
 
-    _sc_log     = FALSE;
+    _sc_log     = kSCLogDestinationFile;
     _sc_verbose = (argc > 1) ? TRUE : FALSE;
     S_IPMonitor_debug = kDebugFlag1 | kDebugFlag2 | kDebugFlag4;
     if (argc > 1) {
@@ -10902,7 +10902,7 @@ apply_test(DNSOrderTestRef test)
 int
 main(int argc, char **argv)
 {
-    _sc_log     = FALSE;
+    _sc_log     = kSCLogDestinationFile;
     _sc_verbose = (argc > 1) ? TRUE : FALSE;
     S_IPMonitor_debug = kDebugFlag1 | kDebugFlag2 | kDebugFlag4;
     if (argc > 1) {

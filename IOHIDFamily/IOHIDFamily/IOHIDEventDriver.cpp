@@ -1508,7 +1508,7 @@ if (!isInactive() && _commandGate) {         \
 //====================================================================================================
 IOReturn IOHIDEventDriver::setProperties( OSObject * properties )
 {
-    IOReturn        result          = kIOReturnUnsupported;
+    __block IOReturn result         = kIOReturnUnsupported;
     OSDictionary *  propertyDict    = OSDynamicCast(OSDictionary, properties);
     OSBoolean *     boolVal         = NULL;
     OSNumber *      numberVal       = NULL;
@@ -1557,6 +1557,15 @@ IOReturn IOHIDEventDriver::setProperties( OSObject * properties )
         dispatch_workloop_sync ({
             HIDLog("Set %s value %d", kIOHIDKeyboardEnabledKey, (boolVal == kOSBooleanTrue) ? 1 : 0);
             _keyboard.keyboardPower->setValue((boolVal == kOSBooleanTrue) ? 1 : 0);
+
+            setProperty(kIOHIDKeyboardEnabledKey, boolVal);
+            
+            dispatchKeyboardEvent(mach_absolute_time(),
+                                  kHIDPage_KeyboardOrKeypad,
+                                  kHIDUsage_KeyboardPower,
+                                  (boolVal == kOSBooleanTrue) ? 1 : 0);
+            
+            result = kIOReturnSuccess;
         });
     }
 
@@ -3882,11 +3891,10 @@ void IOHIDEventDriver::handleKeboardReport(AbsoluteTime timeStamp, UInt32 report
                     break;
             }
             
-            if ( suppress )
+            if ( suppress ) {
                 continue;
-        }
-        
-        else if (usage == kHIDUsage_KeyboardPower && usagePage == kHIDPage_KeyboardOrKeypad) {
+            }
+        } else if (usage == kHIDUsage_KeyboardPower && usagePage == kHIDPage_KeyboardOrKeypad) {
             setProperty(kIOHIDKeyboardEnabledKey, (value == 0) ? kOSBooleanFalse : kOSBooleanTrue);
         }
         

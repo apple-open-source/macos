@@ -461,13 +461,49 @@ MediaProducer::MediaStateFlags MediaStreamTrack::captureState(Document& document
     return state;
 }
 
+#if PLATFORM(IOS_FAMILY)
+static MediaStreamTrack* findActiveCaptureTrackForDocument(Document& document, RealtimeMediaSource* activeSource, RealtimeMediaSource::Type type)
+{
+    MediaStreamTrack* selectedTrack = nullptr;
+    for (auto* captureTrack : allCaptureTracks()) {
+        if (captureTrack->document() != &document || captureTrack->ended())
+            continue;
+
+        if (activeSource && captureTrack->source().isSameAs(*activeSource))
+            return captureTrack;
+
+        // If the document has a live capture track, which is not the active one, we pick the first one.
+        // FIXME: We should probably store per page active audio/video capture tracks.
+        if (!selectedTrack && captureTrack->privateTrack().type() == type)
+            selectedTrack = captureTrack;
+    }
+    return selectedTrack;
+}
+#endif
+
 void MediaStreamTrack::updateCaptureAccordingToMutedState(Document& document)
 {
+#if PLATFORM(IOS_FAMILY)
+    if (!document.page())
+        return;
+
+    auto* activeAudioSource = RealtimeMediaSourceCenter::singleton().audioCaptureFactory().activeSource();
+    if (auto* audioCaptureTrack = findActiveCaptureTrackForDocument(document, activeAudioSource, RealtimeMediaSource::Type::Audio))
+        audioCaptureTrack->setMuted(document.page()->mutedState());
+
+    auto* activeVideoSource = RealtimeMediaSourceCenter::singleton().videoCaptureFactory().activeSource();
+    if (auto* videoCaptureTrack = findActiveCaptureTrackForDocument(document, activeVideoSource, RealtimeMediaSource::Type::Video)) {
+        videoCaptureTrack->setMuted(document.page()->mutedState());
+        if (activeVideoSource && videoCaptureTrack->source().isSameAs(*activeVideoSource))
+            activeVideoSource->setMuted(document.page()->mutedState() & MediaProducer::AudioAndVideoCaptureIsMuted);
+    }
+#else
     for (auto* captureTrack : allCaptureTracks()) {
         if (captureTrack->document() != &document || captureTrack->ended())
             continue;
         captureTrack->setMuted(document.page()->mutedState());
     }
+#endif
 }
 
 void MediaStreamTrack::endCapture(Document& document)

@@ -1101,10 +1101,31 @@ static int get_end_points(struct libusb_config_descriptor *desc,
 
 /*****************************************************************************
  *
+ *					get_ccid_usb_bus_number
+ *
+ ****************************************************************************/
+uint8_t get_ccid_usb_bus_number(int reader_index)
+{
+	return usbDevice[reader_index].bus_number;
+}
+
+
+/*****************************************************************************
+ *
+ *					get_ccid_usb_device_address
+ *
+ ****************************************************************************/
+uint8_t get_ccid_usb_device_address(int reader_index)
+{
+	return usbDevice[reader_index].device_address;
+}
+
+/*****************************************************************************
+ *
  *					get_ccid_usb_interface
  *
  ****************************************************************************/
-/*@null@*/ EXTERNAL const struct libusb_interface * get_ccid_usb_interface(
+/*@null@*/ const struct libusb_interface * get_ccid_usb_interface(
 	struct libusb_config_descriptor *desc, int *num)
 {
 	const struct libusb_interface *usb_interface = NULL;

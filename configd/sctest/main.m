@@ -50,7 +50,7 @@ int main(int argc, const char * argv[]) {
 		Class testClass;
 		SCTest *testClassObject;
 
-		_sc_log = 0;	// print (stdout)
+		_sc_log = kSCLogDestinationFile;	// print (stdout)
 
 		if (argc == 1) {
 			usage();
@@ -88,7 +88,7 @@ int main(int argc, const char * argv[]) {
 			}
 		}
 
-		_sc_log = 3;	// log AND print (stdout w/o timestamp)
+		_sc_log = kSCLogDestinationBoth_NoTime;	// log AND print (stdout w/o timestamp)
 
 		testClassObject = [(SCTest *)[testClass alloc] initWithOptions:options];
 		if (testClassObject.options[kSCTestGlobalOptionCPU] != nil) {

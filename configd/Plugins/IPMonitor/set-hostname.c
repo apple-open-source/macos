@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -664,7 +664,7 @@ main(int argc, char **argv)
 
 #ifdef	DEBUG
 
-	_sc_log = FALSE;
+	_sc_log = kSCLogDestinationFile;
 	if ((argc > 1) && (strcmp(argv[1], "-d") == 0)) {
 		_sc_verbose = TRUE;
 		argv++;
@@ -746,7 +746,7 @@ main(int argc, char **argv)
 
 #else	/* DEBUG */
 
-	_sc_log     = FALSE;
+	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 
 	load_hostname((argc > 1) ? TRUE : FALSE);

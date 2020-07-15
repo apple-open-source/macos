@@ -96,6 +96,9 @@ int ccid_open_hack_pre(unsigned int reader_index)
 			break;
 
 		case SCM_SCL011:
+		case IDENTIV_uTrust3700F:
+		case IDENTIV_uTrust3701F:
+		case IDENTIV_uTrust4701F:
 			/* The SCM SCL011 reader needs 350 ms to answer */
 			ccid_descriptor->readTimeout = DEFAULT_COM_READ_TIMEOUT * 4;
 			break;
@@ -119,7 +122,7 @@ int ccid_open_hack_pre(unsigned int reader_index)
 
 		DEBUG_COMM("ICCD type A");
 		(void)CmdPowerOff(reader_index);
-		(void)CmdPowerOn(reader_index, &n, tmp, CCID_CLASS_AUTO_VOLTAGE);
+		(void)CmdPowerOn(reader_index, &n, tmp, VOLTAGE_AUTO);
 		(void)CmdPowerOff(reader_index);
 	}
 
@@ -139,7 +142,7 @@ int ccid_open_hack_pre(unsigned int reader_index)
 		}
 
 		(void)CmdPowerOff(reader_index);
-		(void)CmdPowerOn(reader_index, &n, tmp, CCID_CLASS_AUTO_VOLTAGE);
+		(void)CmdPowerOn(reader_index, &n, tmp, VOLTAGE_AUTO);
 		(void)CmdPowerOff(reader_index);
 	}
 
@@ -478,6 +481,7 @@ int ccid_open_hack_post(unsigned int reader_index)
 		case HPSMARTCARDKEYBOARD:
 		case HP_CCIDSMARTCARDKEYBOARD:
 		case FUJITSUSMARTKEYB:
+		case CHICONYHPSKYLABKEYBOARD:
 			/* the Secure Pin Entry is bogus so disable it
 			 * https://web.archive.org/web/20120320001756/http://martinpaljak.net/2011/03/19/insecure-hp-usb-smart-card-keyboard/
 			 *

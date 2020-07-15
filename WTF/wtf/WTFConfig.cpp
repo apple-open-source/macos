@@ -23,29 +23,50 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <Foundation/Foundation.h>
+#include "config.h"
+#include <wtf/WTFConfig.h>
 
-#if USE(APPLE_INTERNAL_SDK)
+#include <wtf/Lock.h>
+#include <wtf/ResourceUsage.h>
+#include <wtf/StdLibExtras.h>
 
-#import <RunningBoardServices/RunningBoardServices.h>
-
-#else
-
-@interface RBSAttribute : NSObject
-@end
-
-@interface RBSDomainAttribute : RBSAttribute
-+ (instancetype)attributeWithDomain:(NSString *)domain name:(NSString *)name;
-@end
-
-@interface RBSTarget : NSObject
-+ (RBSTarget *)targetWithPid:(pid_t)pid;
-@end
-
-@interface RBSAssertion : NSObject
-- (instancetype)initWithExplanation:(NSString *)explanation target:(RBSTarget *)target attributes:(NSArray <RBSAttribute *> *)attributes;
-- (BOOL)acquireWithError:(NSError **)error;
-- (void)invalidate;
-@end
-
+#if OS(DARWIN)
+#include <mach/mach.h>
+#elif OS(LINUX)
+#include <sys/mman.h>
 #endif
+
+namespace WTF {
+
+alignas(ConfigSizeToProtect) WTF_EXPORT_PRIVATE Config g_wtfConfig;
+
+void Config::permanentlyFreeze()
+{
+    static Lock configLock;
+    auto locker = holdLock(configLock);
+
+    RELEASE_ASSERT(roundUpToMultipleOf(pageSize(), ConfigSizeToProtect) == ConfigSizeToProtect);
+
+    if (!g_wtfConfig.isPermanentlyFrozen)
+        g_wtfConfig.isPermanentlyFrozen = true;
+
+    int result = 0;
+#if OS(DARWIN)
+    enum {
+        AllowPermissionChangesAfterThis = false,
+        DisallowPermissionChangesAfterThis = true
+    };
+
+    // There's no going back now!
+    result = vm_protect(mach_task_self(), reinterpret_cast<vm_address_t>(&g_wtfConfig), ConfigSizeToProtect, DisallowPermissionChangesAfterThis, VM_PROT_READ);
+#elif OS(LINUX)
+    result = mprotect(&g_wtfConfig, ConfigSizeToProtect, PROT_READ);
+#elif OS(WINDOWS)
+    // FIXME: Implement equivalent, maybe with VirtualProtect.
+    // Also need to fix WebKitTestRunner.
+#endif
+    RELEASE_ASSERT(!result);
+    RELEASE_ASSERT(g_wtfConfig.isPermanentlyFrozen);
+}
+
+} // namespace WTF

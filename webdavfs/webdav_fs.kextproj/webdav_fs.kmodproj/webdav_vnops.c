@@ -215,7 +215,7 @@ int webdav_sendmsg(int vnop, struct webdavmount *fmp,
 	int *result, void *reply, size_t replysize)
 {
 	int error = 0;
-	socket_t so;
+	socket_t so = NULL;
 	int so_open;
 	struct msghdr msg;
 	struct iovec aiov[3];
@@ -2235,7 +2235,7 @@ static int webdav_rdwr(struct vnop_read_args *ap)
 			int pagecount;
 			off_t pageOffset;
 			off_t xfersize;
-			vm_offset_t addr;
+			vm_offset_t addr = 0;
 			upl_page_info_t *pl;
 			
 			/* Determine the offset into the first page and how much to transfer this time.

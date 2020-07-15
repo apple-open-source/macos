@@ -52,6 +52,8 @@ kcm_service(void *ctx, const heim_idata *req,
     peercred.uid = heim_ipc_cred_get_uid(cred);
     peercred.pid = heim_ipc_cred_get_pid(cred);
     peercred.session = heim_ipc_cred_get_session(cred);
+    peercred.audit_token = heim_ipc_cred_get_audit_token(cred);
+    peercred.iakerb_access = IAKERB_NOT_CHECKED;
     peercred.execpath[0] = '\0';
 
     if (req->length < 4) {

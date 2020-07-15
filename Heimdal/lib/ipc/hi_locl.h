@@ -91,6 +91,9 @@ int
 _heim_ipc_create_cred(uid_t, gid_t, pid_t, pid_t, heim_icred *);
 
 int
+_heim_ipc_create_cred_with_audit_token(uid_t, gid_t, pid_t, pid_t, audit_token_t, heim_icred *);
+
+int
 _heim_ipc_create_network_cred(struct sockaddr *, krb5_socklen_t,
 			      struct sockaddr *, krb5_socklen_t,
 			      heim_icred *);

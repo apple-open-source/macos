@@ -3153,6 +3153,9 @@ IOReturn IOPCI2PCIBridge::checkLink(uint32_t options)
 		fPresenceInt = present;
 		if (!present)
 		{
+			// disable mmio, bus mastering, and I/O space before making changes to the memory ranges
+			uint16_t commandRegister = fBridgeDevice->configRead16(kIOPCIConfigurationOffsetCommand);
+			fBridgeDevice->configWrite16(kIOPCIConfigurationOffsetCommand, commandRegister & ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace | kIOPCICommandBusMaster));
 			fBridgeDevice->configWrite32(kPCI2PCIMemoryRange,         0);
 			fBridgeDevice->configWrite32(kPCI2PCIPrefetchMemoryRange, 0);
 			fBridgeDevice->configWrite32(kPCI2PCIPrefetchUpperBase,   0);

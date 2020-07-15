@@ -31,7 +31,6 @@
 #include "APIPageHandle.h"
 #include "AuthenticationManager.h"
 #include "AuxiliaryProcessMessages.h"
-#include "DependencyProcessAssertion.h"
 #include "DrawingArea.h"
 #include "EventDispatcher.h"
 #include "InjectedBundle.h"
@@ -80,7 +79,6 @@
 #include "WebsiteDataType.h"
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/MemoryStatistics.h>
-#include <JavaScriptCore/WasmFaultSignalHandler.h>
 #include <WebCore/AXObjectCache.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/AuthenticationChallenge.h>
@@ -175,7 +173,6 @@
 
 #define RELEASE_LOG_SESSION_ID (m_sessionID ? m_sessionID->toUInt64() : 0)
 #define RELEASE_LOG_IF_ALLOWED(channel, fmt, ...) RELEASE_LOG_IF(isAlwaysOnLoggingAllowed(), channel, "%p - [sessionID=%" PRIu64 "] WebProcess::" fmt, this, RELEASE_LOG_SESSION_ID, ##__VA_ARGS__)
-#define RELEASE_LOG_ERROR_IF_ALLOWED(channel, fmt, ...) RELEASE_LOG_ERROR_IF(isAlwaysOnLoggingAllowed(), channel, "%p - [sessionID=%" PRIu64 "] WebProcess::" fmt, this, RELEASE_LOG_SESSION_ID, ##__VA_ARGS__)
 
 // This should be less than plugInAutoStartExpirationTimeThreshold in PlugInAutoStartProvider.
 static const Seconds plugInAutoStartExpirationTimeUpdateThreshold { 29 * 24 * 60 * 60 };
@@ -276,14 +273,7 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
     m_eventDispatcher->initializeConnection(connection);
 #if PLATFORM(IOS_FAMILY)
     m_viewUpdateDispatcher->initializeConnection(connection);
-
-    ASSERT(!m_uiProcessDependencyProcessAssertion);
-    if (auto remoteProcessID = connection->remoteProcessID())
-        m_uiProcessDependencyProcessAssertion = makeUnique<DependencyProcessAssertion>(remoteProcessID, "WebContent process dependency on UIProcess"_s);
-    else
-        RELEASE_LOG_ERROR_IF_ALLOWED(ProcessSuspension, "Unable to create a process depending assertion on UIProcess because remoteProcessID is 0");
 #endif // PLATFORM(IOS_FAMILY)
-
     m_webInspectorInterruptDispatcher->initializeConnection(connection);
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -294,6 +284,12 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
         supplement->initializeConnection(connection);
 
     m_webConnection = WebConnectionToUIProcess::create(this);
+
+#if PLATFORM(IOS_FAMILY)
+    // Make sure we have an IPC::Connection before creating the ProcessTaskStateObserver since it may call
+    // WebProcess::processTaskStateDidChange() on a background thread and deference the IPC connection.
+    m_taskStateObserver = ProcessTaskStateObserver::create(*this);
+#endif
 }
 
 void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters, CompletionHandler<void()>&& completionHandler)
@@ -450,10 +446,6 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
 
 #if ENABLE(SERVICE_WORKER)
     ServiceWorkerProvider::setSharedProvider(WebServiceWorkerProvider::singleton());
-#endif
-
-#if ENABLE(WEBASSEMBLY)
-    JSC::Wasm::enableFastMemory();
 #endif
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
@@ -1978,4 +1970,3 @@ bool WebProcess::areAllPagesThrottleable() const
 
 #undef RELEASE_LOG_SESSION_ID
 #undef RELEASE_LOG_IF_ALLOWED
-#undef RELEASE_LOG_ERROR_IF_ALLOWED

@@ -73,16 +73,14 @@ void BaseAudioSharedUnit::startProducingData()
 {
     ASSERT(isMainThread());
 
+    if (m_suspended)
+        resume();
+
     if (++m_producingCount != 1)
         return;
 
     if (isProducingData())
         return;
-
-    if (m_suspended) {
-        RELEASE_LOG_INFO(WebRTC, "BaseAudioSharedUnit::startProducingData - exiting early as suspended");
-        return;
-    }
 
     if (hasAudioUnit()) {
         cleanupAudioUnit();
@@ -160,7 +158,9 @@ void BaseAudioSharedUnit::reconfigure()
 OSStatus BaseAudioSharedUnit::resume()
 {
     ASSERT(isMainThread());
-    ASSERT(m_suspended);
+    if (!m_suspended)
+        return 0;
+
     ASSERT(!isProducingData());
 
     RELEASE_LOG_INFO(WebRTC, "BaseAudioSharedUnit::resume");
@@ -172,16 +172,14 @@ OSStatus BaseAudioSharedUnit::resume()
         reconfigure();
     }
 
-    if (!hasAudioUnit())
-        return 0;
-
+    ASSERT(!m_producingCount);
     if (m_producingCount) {
         if (auto error = startUnit())
             return error;
     }
 
     forEachClient([](auto& client) {
-        client.notifyMutedChange(false);
+        client.setMuted(false);
     });
 
     return 0;
@@ -197,7 +195,7 @@ OSStatus BaseAudioSharedUnit::suspend()
     stopInternal();
 
     forEachClient([](auto& client) {
-        client.notifyMutedChange(true);
+        client.setMuted(true);
     });
 
     return 0;

@@ -1,6 +1,6 @@
 #
 # List of readers supported by the CCID driver
-# Generated: 2019-07-31
+# Generated: 2020-03-31
 #
 # DO NOT EDIT BY HAND
 
@@ -125,6 +125,8 @@
 0x0DB5:0x0138:Access IS ePassport Reader
 0x0DB5:0x0160:Access IS NFC Smart Module
 0x0DB5:0x0164:Access IS NFC Smart Module
+0x0DB5:0x0170:Access IS ATR210
+0x0DB5:0x0180:Access IS ATR220
 
 # ACS
 0x072F:0x1204:ACS ACR101 ICC Reader
@@ -139,6 +141,12 @@
 0x072F:0xB000:ACS ACR3901U ICC Reader
 0x072F:0xB100:ACS ACR39U ICC Reader
 0x072F:0xB106:ACS CryptoMate (T2)
+
+# AF Care
+0x1C34:0xAFC0:AF Care One
+0x1C34:0xAFC1:AF Care One
+0x1C34:0xAFC2:AF Care Two
+0x1C34:0xAFC3:AF Care Two
 
 # AK910
 0x2021:0x0001:AK910 CKey
@@ -279,6 +287,7 @@
 0x046A:0x005B:Cherry GmbH SmartBoard XX1X
 0x046A:0x0070:Cherry GmbH SmartTerminal XX1X
 0x046A:0x0072:Cherry GmbH SmartTerminal ST-1275
+0x046A:0x01A2:Cherry GmbH CHERRY SECURE BOARD 1.0
 
 # Chicony
 0x04F2:0x0967:Chicony USB Smart Card Keyboard
@@ -293,6 +302,12 @@
 # DC.Ltd
 0x257B:0xC305:DC.Ltd DC4 5CCID READER
 
+# Doctolib
+0x1C34:0xAFD0:Doctolib SR
+0x1C34:0xAFD1:Doctolib SR
+0x1C34:0xAFD2:Doctolib SR
+0x1C34:0xAFD3:Doctolib SR
+
 # DUALi
 0x1DB2:0x0801:DUALi DE-620 Combi
 0x1DB2:0x088B:DUALi DRAGON NFC READER
@@ -306,6 +321,9 @@
 
 # ESMART
 0x2CE4:0x7479:ESMART Token GOST
+
+# F-Secure Foundry
+0x1209:0x2702:F-Secure Foundry USB Armory Mk II
 
 # FEITIAN
 0x096E:0x0619:FEITIAN iR301
@@ -351,6 +369,7 @@
 0x08E6:0x3440:GEMALTO CT1100
 
 # Gemalto
+0x0898:0x0101:Gemalto RF CR5400
 0x08E6:0x2202:Gemalto Gem e-Seal Pro USB Token
 0x08E6:0x34C1:Gemalto Ezio Shield Secure Channel
 0x08E6:0x34C2:Gemalto Ezio Shield
@@ -513,6 +532,7 @@
 
 # Ledger
 0x2C97:0x0001:Ledger Nano S
+0x2C97:0x0004:Ledger Nano X
 
 # Lenovo
 0x17EF:0x6007:Lenovo Lenovo USB Smartcard Keyboard
@@ -602,6 +622,9 @@
 # Planeta
 0x21AB:0x0010:Planeta RC700-NFC CCID
 
+# Purism, SPC
+0x316D:0x4C4B:Purism, SPC Librem Key
+
 # Raritan
 0x14DD:0x1006:Raritan D2CIM-DVUSB VM/CCID
 
@@ -661,8 +684,19 @@
 
 # SPECINFOSYSTEMS
 0x316E:0x0001:SPECINFOSYSTEMS DIAMOND token
+0x316E:0x0002:SPECINFOSYSTEMS DIAMOND PRO token
+0x316E:0x0003:SPECINFOSYSTEMS DIAMOND PLUS token
+0x316E:0x0010:SPECINFOSYSTEMS DIAMOND HSM
 
 # SpringCard
+0x1C34:0x6012:SpringCard SpringCore
+0x1C34:0x601A:SpringCard SpringCore
+0x1C34:0x6112:SpringCard E518
+0x1C34:0x611A:SpringCard E518
+0x1C34:0x6122:SpringCard H518
+0x1C34:0x612A:SpringCard H518
+0x1C34:0x6132:SpringCard Puck
+0x1C34:0x613A:SpringCard Puck
 0x1C34:0x7113:SpringCard CrazyWriter
 0x1C34:0x7121:SpringCard CSB6 Basic
 0x1C34:0x7123:SpringCard CSB6 Secure
@@ -682,6 +716,9 @@
 
 # SYNNIX
 0x1206:0x2105:SYNNIX STD200
+
+# Sysking
+0x0E6A:0x5083:Sysking MII136C
 
 # Teridian Semiconductors
 0x1862:0x0000:Teridian Semiconductors TSC12xxFV.09
@@ -906,6 +943,7 @@
 #0x076B:0xA022:XIRING Teo (Teo.txt)
 
 #0x08E6:0x3437:Gemalto PC Twin Reader (GemPCTwin.txt)
+#0x08E6:0x3437:Gemalto PC Twin Reader (serial) (GemPCTwinSerial.txt)
 #0x08E6:0x3437:Gemalto IDBridge CT30 (Gemalto_IDBridge_CT30.txt)
 #0x08E6:0x3437:Gemalto K50 (Gemalto_K50.txt)
 

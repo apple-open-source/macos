@@ -181,6 +181,10 @@ const CFStringRef kTestSystemRootKey = CFSTR("TestSystemRoot");
 {
     NSURL *url = [[NSBundle bundleForClass:[self class]] URLForResource:name withExtension:@".cer"
                                                            subdirectory:dir];
+    if (!url) {
+        url = [[NSBundle bundleForClass:[self class]] URLForResource:name withExtension:@".crt"
+                                                        subdirectory:dir];
+    }
     NSData *certData = [NSData dataWithContentsOfURL:url];
     if (!certData) {
         return nil;

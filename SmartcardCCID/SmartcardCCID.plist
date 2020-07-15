@@ -6,13 +6,13 @@
 		<key>OpenSourceProject</key>
 		<string>ccid</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.31</string>
+		<string>1.4.32</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>https://ccid.apdu.fr</string>
 		<key>OpenSourceURL</key>
-		<string>https://ccid.apdu.fr/files/ccid-1.4.31.tar.bz2</string>
+		<string>https://ccid.apdu.fr/files/ccid-1.4.32.tar.bz2</string>
 		<key>OpenSourceImportDate</key>
-		<string>2019-08-20</string>
+		<string>2020-04-27</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>destDirFix.patch - makefile.in, customized destination directory</string>

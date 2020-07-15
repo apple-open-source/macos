@@ -91,6 +91,9 @@ NetworkProcessProxy::NetworkProcessProxy(WebProcessPool& processPool)
     , m_throttler(*this, processPool.shouldTakeUIBackgroundAssertion())
 {
     connect();
+
+    if (auto* websiteDataStore = m_processPool.websiteDataStore())
+        m_websiteDataStores.set(websiteDataStore->sessionID(), makeRef(*websiteDataStore));
 }
 
 NetworkProcessProxy::~NetworkProcessProxy()
@@ -554,6 +557,11 @@ void NetworkProcessProxy::setLastSeen(PAL::SessionID sessionID, const Registrabl
 void NetworkProcessProxy::mergeStatisticForTesting(PAL::SessionID sessionID, const RegistrableDomain& resourceDomain, const RegistrableDomain& topFrameDomain1, const RegistrableDomain& topFrameDomain2, Seconds lastSeen, bool hadUserInteraction, Seconds mostRecentUserInteraction, bool isGrandfathered, bool isPrevalent, bool isVeryPrevalent, unsigned dataRecordsRemoved, CompletionHandler<void()>&& completionHandler)
 {
     sendWithAsyncReply(Messages::NetworkProcess::MergeStatisticForTesting(sessionID, resourceDomain, topFrameDomain1, topFrameDomain2, lastSeen, hadUserInteraction, mostRecentUserInteraction, isGrandfathered, isPrevalent, isVeryPrevalent, dataRecordsRemoved), WTFMove(completionHandler));
+}
+
+void NetworkProcessProxy::insertExpiredStatisticForTesting(PAL::SessionID sessionID, const RegistrableDomain& resourceDomain, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, CompletionHandler<void()>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::NetworkProcess::InsertExpiredStatisticForTesting(sessionID, resourceDomain, hadUserInteraction, isScheduledForAllButCookieDataRemoval, isPrevalent), WTFMove(completionHandler));
 }
 
 void NetworkProcessProxy::clearPrevalentResource(PAL::SessionID sessionID, const RegistrableDomain& resourceDomain, CompletionHandler<void()>&& completionHandler)
@@ -1167,6 +1175,7 @@ void NetworkProcessProxy::addSession(Ref<WebsiteDataStore>&& store)
 #if ENABLE(INDEXED_DATABASE)
         createSymLinkForFileUpgrade(store->resolvedIndexedDatabaseDirectory());
 #endif
+        m_websiteDataStores.set(sessionID, WTFMove(store));
     }
 }
 
@@ -1174,6 +1183,8 @@ void NetworkProcessProxy::removeSession(PAL::SessionID sessionID)
 {
     if (canSendMessage())
         send(Messages::NetworkProcess::DestroySession { sessionID }, 0);
+    if (!sessionID.isEphemeral())
+        m_websiteDataStores.remove(sessionID);
 }
 
 WebsiteDataStore* NetworkProcessProxy::websiteDataStoreFromSessionID(PAL::SessionID sessionID)

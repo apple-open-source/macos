@@ -1,6 +1,6 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json",
-    "assetVersion": 7,
+    "assetVersion": 8,
     "operators": [
         {
             "email": [
@@ -233,13 +233,9 @@
                     "log_id": "AwGd8/2FppqOvR+sxtqbpz5Gl3T+d/V5/FoIuDKMHWs=",
                     "mmd": 86400,
                     "state": {
-                        "readonly": {
-                            "final_tree_head": {
-                                "sha256_root_hash": "+wpnQSIAXAgRm10MIGYSpVdsrbuzKR5fPsxZUrddtWk=",
-                                "tree_size": 111554066
-                            },
+                        "retired": {
                             "timestamp": "2018-02-28T23:59:59Z",
-                            "version": "47"
+                            "version": "82"
                         }
                     },
                     "url": "https://ctlog-gen2.api.venafi.com/"
@@ -653,9 +649,9 @@
                     "log_id": "/kRhCLHQGreKYsz+q2qysrq/86va2ApNizDfLQAIgww=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2019-03-18T18:10:27Z",
-                            "version": "43"
+                        "retired": {
+                            "timestamp": "2020-05-01T23:59:59Z",
+                            "version": "89"
                         }
                     },
                     "temporal_interval": {
@@ -670,9 +666,9 @@
                     "log_id": "b/FBtWR+QiL37wUs7658If1gjifSr1pun0uKN9ZjPuU=",
                     "mmd": 86400,
                     "state": {
-                        "rejected": {
-                            "timestamp": "2018-10-20T00:33:00Z",
-                            "version": "20"
+                        "retired": {
+                            "timestamp": "2020-05-01T23:59:59Z",
+                            "version": "84"
                         }
                     },
                     "temporal_interval": {
@@ -743,9 +739,9 @@
                     "log_id": "h3W/51l8+IxDmV+9827/Vo1HVjb/SrVgwbTq/16ggw8=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2017-09-19T18:24:24Z",
-                            "version": "7"
+                        "retired": {
+                            "timestamp": "2020-05-04T00:00:40Z",
+                            "version": "87"
                         }
                     },
                     "url": "https://ct2.digicert-ct.com/log/"
@@ -756,9 +752,9 @@
                     "log_id": "4mlLribo6UAJ6IYbtjuD1D7n/nSI+6SPKJMBnd3x2/4=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2018-05-18T19:25:41Z",
-                            "version": "17"
+                        "retired": {
+                            "timestamp": "2020-05-01T23:59:59Z",
+                            "version": "88"
                         }
                     },
                     "temporal_interval": {
@@ -773,9 +769,9 @@
                     "log_id": "wRZK4Kdy0tQ5LcgKwQdw1PDEm96ZGkhAwfoHUWT2M2A=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2018-05-18T19:25:41Z",
-                            "version": "17"
+                        "retired": {
+                            "timestamp": "2020-05-01T23:59:59Z",
+                            "version": "83"
                         }
                     },
                     "temporal_interval": {
@@ -1025,10 +1021,27 @@
                         "start_inclusive": "2022-01-01T00:00:00Z"
                     },
                     "url": "https://oak.ct.letsencrypt.org/2022/"
+                },
+                {
+                    "description": "Let's Encrypt 'Oak2023' log",
+                    "key": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEsz0OeL7jrVxEXJu+o4QWQYLKyokXHiPOOKVUL3/TNFFquVzDSer7kZ3gijxzBp98ZTgRgMSaWgCmZ8OD74mFUQ==",
+                    "log_id": "tz77JN+cTbp18jnFulj0bF38Qs96nzXEnh0JgSXttJk=",
+                    "mmd": 86400,
+                    "state": {
+                        "pending": {
+                            "timestamp": "2020-02-28T19:44:05Z",
+                            "version": "81"
+                        }
+                    },
+                    "temporal_interval": {
+                        "end_exclusive": "2024-01-01T00:00:00Z",
+                        "start_inclusive": "2023-01-01T00:00:00Z"
+                    },
+                    "url": "https://oak.ct.letsencrypt.org/2023/"
                 }
             ],
             "name": "Let's Encrypt"
         }
     ],
-    "version": "80"
+    "version": "89"
 }

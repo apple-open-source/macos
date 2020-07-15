@@ -441,14 +441,14 @@ main(int argc, char * const argv[])
 		switch(opt) {
 		case 'd':
 			_sc_debug = TRUE;
-			_sc_log   = FALSE;	/* enable framework logging */
+			_sc_log   = kSCLogDestinationFile;	/* enable framework logging */
 			break;
 		case 'D':
 			doDispatch = TRUE;
 			break;
 		case 'v':
 			_sc_verbose = TRUE;
-			_sc_log     = FALSE;	/* enable framework logging */
+			_sc_log     = kSCLogDestinationFile;	/* enable framework logging */
 			break;
 		case 'p':
 			enablePrivateAPI = TRUE;

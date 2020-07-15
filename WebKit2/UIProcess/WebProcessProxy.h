@@ -326,6 +326,10 @@ public:
     void unblockAccessibilityServerIfNeeded();
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+    void processWasResumed(CompletionHandler<void()>&&);
+#endif
+
     void webPageMediaStateDidChange(WebPageProxy&);
 
     void ref() final { ThreadSafeRefCounted::ref(); }
@@ -500,6 +504,7 @@ private:
 
 #if PLATFORM(IOS_FAMILY)
     bool m_hasSentMessageToUnblockAccessibilityServer { false };
+    std::unique_ptr<WebCore::DeferrableOneShotTimer> m_unexpectedActivityTimer;
 #endif
 
     HashMap<String, uint64_t> m_pageURLRetainCountMap;

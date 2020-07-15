@@ -2945,7 +2945,6 @@ bool SecPVCParentCertificateChecks(SecPVCRef pvc, CFIndex ix) {
     CFAbsoluteTime verifyTime = SecPVCGetVerifyTime(pvc);
     SecCertificateRef cert = SecPVCGetCertificateAtIndex(pvc, ix);
     CFIndex anchor_ix = SecPVCGetCertificateCount(pvc) - 1;
-    bool is_anchor = (ix == anchor_ix && SecPathBuilderIsAnchored(pvc->builder));
 
     if (!SecCertificateIsValid(cert, verifyTime)) {
         /* Certificate has expired. */
@@ -2968,51 +2967,44 @@ bool SecPVCParentCertificateChecks(SecPVCRef pvc, CFIndex ix) {
         }
     }
 
-    if (is_anchor) {
-        /* Perform anchor specific checks. */
-        /* Don't think we have any of these. */
-    } else {
-        /* Perform intermediate specific checks. */
-
-        /* (k) Basic constraints only relevant for v3 and later. */
-        if (SecCertificateVersion(cert) >= 3) {
-            const SecCEBasicConstraints *bc =
-                SecCertificateGetBasicConstraints(cert);
-            if (!bc) {
-                /* Basic constraints not present, illegal. */
-                if (!SecPVCSetResultForced(pvc, kSecPolicyCheckBasicConstraints,
-                            ix, kCFBooleanFalse, true)) {
-                    goto errOut;
-                }
-            } else if (!bc->isCA) {
-                /* Basic constraints not marked as isCA, illegal. */
-                if (!SecPVCSetResultForced(pvc, kSecPolicyCheckBasicConstraintsCA,
-                                           ix, kCFBooleanFalse, true)) {
-                    goto errOut;
-                }
-            }
-        }
-        /* For a v1 or v2 certificate in an intermediate slot (not a leaf and
-           not an anchor), we additionally require that the certificate chain
-           does not end in a v3 or later anchor. [rdar://32204517] */
-        else if (ix > 0 && ix < anchor_ix) {
-            SecCertificateRef anchor = SecPVCGetCertificateAtIndex(pvc, anchor_ix);
-            if (SecCertificateVersion(anchor) >= 3) {
-                if (!SecPVCSetResultForced(pvc, kSecPolicyCheckBasicConstraints,
-                            ix, kCFBooleanFalse, true)) {
-                    goto errOut;
-                }
-            }
-        }
-        /* (l) max_path_length is checked elsewhere. */
-
-        /* (n) If a key usage extension is present, verify that the keyCertSign bit is set. */
-        SecKeyUsage keyUsage = SecCertificateGetKeyUsage(cert);
-        if (keyUsage && !(keyUsage & kSecKeyUsageKeyCertSign)) {
-            if (!SecPVCSetResultForced(pvc, kSecPolicyCheckKeyUsage,
-                ix, kCFBooleanFalse, true)) {
+    /* (k) Basic constraints only relevant for v3 and later. */
+    if (SecCertificateVersion(cert) >= 3) {
+        const SecCEBasicConstraints *bc =
+        SecCertificateGetBasicConstraints(cert);
+        if (!bc) {
+            /* Basic constraints not present, illegal. */
+            if (!SecPVCSetResultForced(pvc, kSecPolicyCheckBasicConstraints,
+                                       ix, kCFBooleanFalse, true)) {
                 goto errOut;
             }
+        } else if (!bc->isCA) {
+            /* Basic constraints not marked as isCA, illegal. */
+            if (!SecPVCSetResultForced(pvc, kSecPolicyCheckBasicConstraintsCA,
+                                       ix, kCFBooleanFalse, true)) {
+                goto errOut;
+            }
+        }
+    }
+    /* For a v1 or v2 certificate in an intermediate slot (not a leaf and
+     not an anchor), we additionally require that the certificate chain
+     does not end in a v3 or later anchor. [rdar://32204517] */
+    else if (ix > 0 && ix < anchor_ix) {
+        SecCertificateRef anchor = SecPVCGetCertificateAtIndex(pvc, anchor_ix);
+        if (SecCertificateVersion(anchor) >= 3) {
+            if (!SecPVCSetResultForced(pvc, kSecPolicyCheckBasicConstraints,
+                                       ix, kCFBooleanFalse, true)) {
+                goto errOut;
+            }
+        }
+    }
+    /* (l) max_path_length is checked elsewhere. */
+
+    /* (n) If a key usage extension is present, verify that the keyCertSign bit is set. */
+    SecKeyUsage keyUsage = SecCertificateGetKeyUsage(cert);
+    if (keyUsage && !(keyUsage & kSecKeyUsageKeyCertSign)) {
+        if (!SecPVCSetResultForced(pvc, kSecPolicyCheckKeyUsage,
+                                   ix, kCFBooleanFalse, true)) {
+            goto errOut;
         }
     }
 

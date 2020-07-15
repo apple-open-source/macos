@@ -38,7 +38,6 @@
 #include <histedit.h>
 
 #define SC_LOG_HANDLE		_SC_LOG_DEFAULT
-#define USE_SC_LOG_OR_PRINT	1
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>

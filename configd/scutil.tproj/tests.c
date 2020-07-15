@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -682,7 +682,7 @@ do_printDNSConfiguration(int argc, char **argv, dns_config_t *dns_config)
 	}
 
 	_sc_log_save = _sc_log;
-	_sc_log = FALSE;
+	_sc_log = kSCLogDestinationFile;
 	_dns_configuration_log(dns_config, _sc_debug, NULL);
 	_sc_log = _sc_log_save;
 

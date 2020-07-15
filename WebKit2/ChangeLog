@@ -1,3 +1,1181 @@
+2020-06-12  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r262508. rdar://problem/62977672
+
+    [iOS] Hide the PiP button in fullscreen mode if PiP is disabled in preferences
+    https://bugs.webkit.org/show_bug.cgi?id=212699
+    <rdar://problem/60391437>
+    
+    Reviewed by Eric Carlson.
+    
+    In r260474, we hid the PiP button in fullscreen when PiP was unsupported on the
+    current device; we must also hide the PiP button when clients have disabled PiP
+    via preferences.
+    
+    * UIProcess/ios/fullscreen/WKFullScreenViewController.mm:
+    (-[WKFullScreenViewController videoControlsManagerDidChange]):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@262508 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-06-03  Jer Noble  <jer.noble@apple.com>
+
+            [iOS] Hide the PiP button in fullscreen mode if PiP is disabled in preferences
+            https://bugs.webkit.org/show_bug.cgi?id=212699
+            <rdar://problem/60391437>
+
+            Reviewed by Eric Carlson.
+
+            In r260474, we hid the PiP button in fullscreen when PiP was unsupported on the
+            current device; we must also hide the PiP button when clients have disabled PiP
+            via preferences.
+
+            * UIProcess/ios/fullscreen/WKFullScreenViewController.mm:
+            (-[WKFullScreenViewController videoControlsManagerDidChange]):
+
+2020-06-10  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r262850. rdar://problem/64226899
+
+    [iOS] Add entitlement for PAC exceptions
+    https://bugs.webkit.org/show_bug.cgi?id=213027
+    <rdar://problem/63985737>
+    
+    Reviewed by Brent Fulgham.
+    
+    On iOS, add entitlement for PAC exceptions.
+    
+    * Scripts/process-entitlements.sh:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@262850 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-06-10  Per Arne Vollan  <pvollan@apple.com>
+
+            [iOS] Add entitlement for PAC exceptions
+            https://bugs.webkit.org/show_bug.cgi?id=213027
+            <rdar://problem/63985737>
+
+            Reviewed by Brent Fulgham.
+
+            On iOS, add entitlement for PAC exceptions.
+
+            * Scripts/process-entitlements.sh:
+
+2020-06-09  Dean Jackson  <dino@apple.com>
+
+        REGRESSION: [Safari Mojave for High Sierra] Accessing some of the featured pages on apple.com causes the webpage to crash
+        https://bugs.webkit.org/show_bug.cgi?id=212940
+
+        Reviewed by Tim Horton.
+
+        The code to use the singleton for a SwitchingGPUClient was assuming it
+        has always been set, which was not the case when
+        ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING) was not true.
+
+        * WebProcess/cocoa/WebProcessCocoa.mm: Set the singleton unconditionally.
+        (WebKit::WebProcess::platformInitializeProcess):
+
+2020-06-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r262196. rdar://problem/63951363
+
+    Crash under WebNotificationManager::removeNotificationFromContextMap()
+    https://bugs.webkit.org/show_bug.cgi?id=212410
+    <rdar://63496726>
+    
+    Reviewed by Alex Christensen.
+    
+    Source/WebKit:
+    
+    Protect the notification object in WebNotificationManager::didDestroyNotification() since
+    removing it from m_notificationIDMap will deref it and may end up destroying the notification
+    object otherwise.
+    
+    Test: http/tests/notifications/crash-on-navigation.html
+    
+    * WebProcess/Notifications/WebNotificationManager.cpp:
+    (WebKit::WebNotificationManager::didDestroyNotification):
+    
+    LayoutTests:
+    
+    Add layout test coverage.
+    
+    * http/tests/notifications/crash-on-navigation-expected.txt: Added.
+    * http/tests/notifications/crash-on-navigation.html: Added.
+    * http/tests/notifications/resources/crash-on-navigation-iframe.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@262196 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-05-27  Chris Dumez  <cdumez@apple.com>
+
+            Crash under WebNotificationManager::removeNotificationFromContextMap()
+            https://bugs.webkit.org/show_bug.cgi?id=212410
+            <rdar://63496726>
+
+            Reviewed by Alex Christensen.
+
+            Protect the notification object in WebNotificationManager::didDestroyNotification() since
+            removing it from m_notificationIDMap will deref it and may end up destroying the notification
+            object otherwise.
+
+            Test: http/tests/notifications/crash-on-navigation.html
+
+            * WebProcess/Notifications/WebNotificationManager.cpp:
+            (WebKit::WebNotificationManager::didDestroyNotification):
+
+2020-06-04  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r261246. rdar://problem/63951358
+
+    pointermove event sometimes has incorrect pointerType of 'mouse' on touch interactions
+    https://bugs.webkit.org/show_bug.cgi?id=210716
+    <rdar://problem/62084817>
+    
+    Patch by Antoine Quint <graouts@apple.com> on 2020-05-06
+    Reviewed by Darin Adler.
+    
+    Source/WebKit:
+    
+    Set the SyntheticClickType to OneFingerTap when creating a synthetic "mousemove" event for a synthetic "click" event as part of a tap.
+    On top of being more indicative of the actual action that triggered the synthetic event, it also has the added quality that it will
+    not yield a "pointermove" event.
+    
+    Test: pointerevents/ios/click-no-pointermove.html
+    
+    * WebProcess/WebPage/ios/WebPageIOS.mm:
+    (WebKit::dispatchSyntheticMouseMove):
+    
+    LayoutTests:
+    
+    Add a new test that checks that with content observation enabled a tap on a <button> element
+    dispatches synthetic mousemove and click events but no pointermove event.
+    
+    * pointerevents/ios/click-no-pointermove-expected.txt: Added.
+    * pointerevents/ios/click-no-pointermove.html: Added.
+    * pointerevents/utils.js:
+    (target_test):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@261246 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-05-06  Antoine Quint  <graouts@apple.com>
+
+            pointermove event sometimes has incorrect pointerType of 'mouse' on touch interactions
+            https://bugs.webkit.org/show_bug.cgi?id=210716
+            <rdar://problem/62084817>
+
+            Reviewed by Darin Adler.
+
+            Set the SyntheticClickType to OneFingerTap when creating a synthetic "mousemove" event for a synthetic "click" event as part of a tap.
+            On top of being more indicative of the actual action that triggered the synthetic event, it also has the added quality that it will
+            not yield a "pointermove" event.
+
+            Test: pointerevents/ios/click-no-pointermove.html
+
+            * WebProcess/WebPage/ios/WebPageIOS.mm:
+            (WebKit::dispatchSyntheticMouseMove):
+
+2020-06-04  Alan Coon  <alancoon@apple.com>
+
+        Revert r258924. rdar://problem/63902456
+
+2020-05-19  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/63156096
+
+    2020-05-19  Youenn Fablet  <youenn@apple.com>
+
+            Sending WebRTC network packets should not go through the main thread
+            https://bugs.webkit.org/show_bug.cgi?id=211291
+
+            Reviewed by Eric Carlson.
+
+            Following on receiving RTC packets from a background thread, we also send RTC packets from a background thread.
+            Creation of the sockets also happens in a background thread.
+            LibWebRTCNetwork is getting the connection whenever a new connection to network process is created.
+            It will then hop to the RTC network thread to set the IPC connection to the libwebrtc socket factory.
+
+            At creation of the socket, we get the IPC connection to the network process and keep a ref in the RTC socket.
+            In case network process crashed and the IPC connection of the RTC network is null, we hop to the main thread to create a new IPC connection.
+            This will fail the creation of the socket (as well as new ones as well) as long as the IPC connection to network process is not valid again.
+
+            Covered by existing tests.
+
+            * WebProcess/Network/webrtc/LibWebRTCNetwork.cpp:
+            (WebKit::LibWebRTCNetwork::setAsActive):
+            (WebKit::LibWebRTCNetwork::setConnection):
+            (WebKit::LibWebRTCNetwork::dispatchToThread):
+            * WebProcess/Network/webrtc/LibWebRTCNetwork.h:
+            (WebKit::LibWebRTCNetwork::connection):
+            (WebKit::LibWebRTCNetwork::isActive const):
+            * WebProcess/Network/webrtc/LibWebRTCProvider.cpp:
+            (WebKit::LibWebRTCProvider::startedNetworkThread):
+            * WebProcess/Network/webrtc/LibWebRTCProvider.h:
+            * WebProcess/Network/webrtc/LibWebRTCSocket.cpp:
+            (WebKit::LibWebRTCSocket::SendTo):
+            (WebKit::LibWebRTCSocket::Close):
+            (WebKit::LibWebRTCSocket::SetOption):
+            (WebKit::LibWebRTCSocket::suspend):
+            * WebProcess/Network/webrtc/LibWebRTCSocket.h:
+            * WebProcess/Network/webrtc/LibWebRTCSocketFactory.cpp:
+            (WebKit::LibWebRTCSocketFactory::setConnection):
+            (WebKit::LibWebRTCSocketFactory::connection):
+            (WebKit::LibWebRTCSocketFactory::createServerTcpSocket):
+            (WebKit::LibWebRTCSocketFactory::createUdpSocket):
+            (WebKit::LibWebRTCSocketFactory::createClientTcpSocket):
+            (WebKit::LibWebRTCSocketFactory::createNewConnectionSocket):
+            (WebKit::LibWebRTCSocketFactory::addSocket):
+            (WebKit::LibWebRTCSocketFactory::removeSocket):
+            (WebKit::LibWebRTCSocketFactory::forSocketInGroup):
+            * WebProcess/Network/webrtc/LibWebRTCSocketFactory.h:
+
+2020-05-19  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r261719. rdar://problem/63156066
+
+    Regression(r261163) Causes crashes on builds without libwebrtc.dylib
+    https://bugs.webkit.org/show_bug.cgi?id=211924
+    <rdar://problem/63206792>
+    
+    Reviewed by Jer Noble.
+    
+    * WebProcess/Network/NetworkProcessConnection.cpp:
+    (WebKit::NetworkProcessConnection::NetworkProcessConnection):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@261719 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-05-14  Chris Dumez  <cdumez@apple.com>
+
+            Regression(r261163) Causes crashes on builds without libwebrtc.dylib
+            https://bugs.webkit.org/show_bug.cgi?id=211924
+            <rdar://problem/63206792>
+
+            Reviewed by Jer Noble.
+
+            * WebProcess/Network/NetworkProcessConnection.cpp:
+            (WebKit::NetworkProcessConnection::NetworkProcessConnection):
+
+2020-05-19  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/63156066
+
+    2020-05-19  Youenn Fablet  <youenn@apple.com>
+
+            Receiving WebRTC network packets should not go through the main thread
+            https://bugs.webkit.org/show_bug.cgi?id=211290
+
+            Reviewed by Alex Christensen.
+
+            Instead of going to main thread before going to rtc network thread, we register a message receiver and dispatch directly to rtc network thread.
+            This ensures rtc packets are not blocked if main thread is busy.
+
+            * DerivedSources-input.xcfilelist:
+            * DerivedSources-output.xcfilelist:
+            * DerivedSources.make:
+            * NetworkProcess/webrtc/LibWebRTCSocketClient.cpp:
+            (WebKit::LibWebRTCSocketClient::signalReadPacket):
+            (WebKit::LibWebRTCSocketClient::signalSentPacket):
+            (WebKit::LibWebRTCSocketClient::signalAddressReady):
+            (WebKit::LibWebRTCSocketClient::signalConnect):
+            (WebKit::LibWebRTCSocketClient::signalClose):
+            * NetworkProcess/webrtc/NetworkRTCProvider.cpp:
+            (WebKit::NetworkRTCProvider::createSocket):
+            (WebKit::NetworkRTCProvider::createServerTCPSocket):
+            (WebKit::NetworkRTCProvider::createClientTCPSocket):
+            (WebKit::NetworkRTCProvider::newConnection):
+            (WebKit::NetworkRTCProvider::closeListeningSockets):
+            * Sources.txt:
+            * WebKit.xcodeproj/project.pbxproj:
+            * WebProcess/Network/NetworkProcessConnection.cpp:
+            (WebKit::NetworkProcessConnection::NetworkProcessConnection):
+            (WebKit::NetworkProcessConnection::didReceiveMessage):
+            * WebProcess/Network/webrtc/LibWebRTCNetwork.cpp: Added
+            * WebProcess/Network/webrtc/LibWebRTCNetwork.h:
+            (WebKit::LibWebRTCNetwork::connection):
+            (WebKit::LibWebRTCNetwork::~LibWebRTCNetwork):
+            (WebKit::LibWebRTCNetwork::networkProcessCrashed):
+            (WebKit::LibWebRTCNetwork::setConnection):
+            (WebKit::LibWebRTCNetwork::dispatchToThread):
+            (WebKit::LibWebRTCNetwork::signalAddressReady):
+            (WebKit::LibWebRTCNetwork::signalReadPacket):
+            (WebKit::LibWebRTCNetwork::signalSentPacket):
+            (WebKit::LibWebRTCNetwork::signalConnect):
+            (WebKit::LibWebRTCNetwork::signalClose):
+            (WebKit::LibWebRTCNetwork::signalNewConnection):
+            * WebProcess/Network/webrtc/LibWebRTCNetwork.messages.in: Added.
+            * WebProcess/Network/webrtc/LibWebRTCSocket.h:
+            * WebProcess/Network/webrtc/LibWebRTCSocketFactory.cpp:
+            * WebProcess/Network/webrtc/WebRTCSocket.cpp: Removed.
+            * WebProcess/Network/webrtc/WebRTCSocket.h: Removed.
+
+2020-05-13  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r260982. rdar://problem/62978869
+
+    Unreviewed, fix the Mac Catalyst build after r260979
+    
+    The presence of `_contextMenuInteraction` is conditional not only on `USE(UICONTEXTMENU)`, but also
+    `HAVE(LINK_PREVIEW)`. Guard logic in `-deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:` with the
+    latter as well.
+    
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@260982 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-30  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Unreviewed, fix the Mac Catalyst build after r260979
+
+            The presence of `_contextMenuInteraction` is conditional not only on `USE(UICONTEXTMENU)`, but also
+            `HAVE(LINK_PREVIEW)`. Guard logic in `-deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:` with the
+            latter as well.
+
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+
+2020-05-13  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r259892. rdar://problem/63189085
+
+    [iOS] Unable to select text by tap-hold or double tap-hold when allowsLinkPreview property is set to NO
+    https://bugs.webkit.org/show_bug.cgi?id=210191
+    <rdar://problem/60454016>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebKit:
+    
+    In iOS 13.4, UIWKTextInteractionAssistant no longer uses the (misleadingly-named) "force press" gesture to drive
+    text selection when performing a long press. Instead, it now uses the UIVariableDelayLoupeGestureRecognizer,
+    i.e. the text interaction assistant's loupe gesture recognizer.
+    
+    The highlight long press gesture, which is only enabled when `allowsLinkPreview` is set to `NO`, is currently
+    allowed to recognize alongside the force press gesture but not the loupe gesture. This means that when link
+    previews are disabled, we'll end up allowing the highlight long press gesture to prevent text selection. A
+    similar issue already exists for the tap-and-half gesture as well.
+    
+    To fix this, we allow the highlight long press gesture to recognize alongside both gestures.
+    
+    Test: editing/selection/ios/select-text-with-link-preview-disabled.html
+    
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (tapAndAHalfRecognizerClass):
+    
+    While UITapAndAHalfRecognizer is declared in a UIKit private header, it is (perhaps unintentionally) not
+    exported, so attempting to call +[UITapAndAHalfRecognizer class] leads to a linker error. Work around this by
+    dynamically grabbing the `Class` from the class name.
+    
+    The tap and half gesture recognizer is private in UIKit and only used for text interaction gestures, so we
+    always want the highlight long press gesture to be able to recognize alongside it.
+    
+    (-[WKContentView gestureRecognizer:shouldRecognizeSimultaneouslyWithGestureRecognizer:]):
+    
+    Also clean up some existing code by replacing `.get().`s with Objective-C bracket operators.
+    
+    LayoutTests:
+    
+    Add a test to verify that text can be selected by long pressing when link previews are disabled.
+    
+    * editing/selection/ios/select-text-with-link-preview-disabled-expected.txt: Added.
+    * editing/selection/ios/select-text-with-link-preview-disabled.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@259892 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-10  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            [iOS] Unable to select text by tap-hold or double tap-hold when allowsLinkPreview property is set to NO
+            https://bugs.webkit.org/show_bug.cgi?id=210191
+            <rdar://problem/60454016>
+
+            Reviewed by Tim Horton.
+
+            In iOS 13.4, UIWKTextInteractionAssistant no longer uses the (misleadingly-named) "force press" gesture to drive
+            text selection when performing a long press. Instead, it now uses the UIVariableDelayLoupeGestureRecognizer,
+            i.e. the text interaction assistant's loupe gesture recognizer.
+
+            The highlight long press gesture, which is only enabled when `allowsLinkPreview` is set to `NO`, is currently
+            allowed to recognize alongside the force press gesture but not the loupe gesture. This means that when link
+            previews are disabled, we'll end up allowing the highlight long press gesture to prevent text selection. A
+            similar issue already exists for the tap-and-half gesture as well.
+
+            To fix this, we allow the highlight long press gesture to recognize alongside both gestures.
+
+            Test: editing/selection/ios/select-text-with-link-preview-disabled.html
+
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (tapAndAHalfRecognizerClass):
+
+            While UITapAndAHalfRecognizer is declared in a UIKit private header, it is (perhaps unintentionally) not
+            exported, so attempting to call +[UITapAndAHalfRecognizer class] leads to a linker error. Work around this by
+            dynamically grabbing the `Class` from the class name.
+
+            The tap and half gesture recognizer is private in UIKit and only used for text interaction gestures, so we
+            always want the highlight long press gesture to be able to recognize alongside it.
+
+            (-[WKContentView gestureRecognizer:shouldRecognizeSimultaneouslyWithGestureRecognizer:]):
+
+            Also clean up some existing code by replacing `.get().`s with Objective-C bracket operators.
+
+2020-05-12  Mark Lam  <mark.lam@apple.com>
+
+        Cherry-pick r261549. rdar://problem/63156073
+
+    2020-05-12  Mark Lam  <mark.lam@apple.com>
+
+            Wasm::enableFastMemory() was called too late.
+            https://bugs.webkit.org/show_bug.cgi?id=211773
+
+            Reviewed by Yusuke Suzuki.
+
+            Previously, we were calling Wasm::enableFastMemory() in WebProcess::initializeWebProcess().
+            By then, it is too late because the JSC::Config and WTF::Config have already been
+            frozen.  There is nothing special about Wasm::enableFastMemory() that it needs to
+            be called this late.  This patch moves it into JSC::initializeThreading() where
+            it belongs.
+
+            This change also make the initialization of Wasm fast memory consistent with how
+            we have always done it for the jsc shell i.e. it is initialized at the end of
+            JSC::initializeThreading().
+
+            * WebProcess/WebProcess.cpp:
+            (WebKit::WebProcess::initializeWebProcess):
+
+2020-05-12  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r261480. rdar://problem/63151931
+
+    REGRESSION (r253267): issues on touchstart/touchend/touchmove (pointerdown/pointerup/pointermove) events
+    https://bugs.webkit.org/show_bug.cgi?id=211521
+    <rdar://problem/62942374>
+    
+    Reviewed by Darin Adler.
+    
+    Source/WebKit:
+    
+    As a brief refresher, deferring gesture recognizers allow us to handle otherwise blocking touch events
+    asynchronously by having all preventable native gesture recognizers require the deferring gesture recognizer to
+    fail; we only fail the deferring gesture recognizer once the web process has handled the touch event, and did
+    not call `preventDefault()`.
+    
+    These additional failure requirements can cause preventable gestures to be linked together in the same gesture
+    dependency subgraph; since each subgraph is reset only once all gestures in the subgraph have failed or ended,
+    this might cause some gestures to be reset after a delay (rather than being reset immediately). To mitigate
+    this, we divide the set of preventable gestures into multiple (currently, 2) subgraphs: one for gestures that
+    are reset after a delay, and another for gestures that are immediately resettable. This way, immediately
+    resettable gestures are able to reset and recognize again, without having to wait for other slower preventable
+    gesture recognizers to reset.
+    
+    When fast-clicking is disabled (e.g. when loading a desktop web page on a mobile form factor, or when the
+    viewport has been zoomed in), the blocking synthetic double tap gesture recognizer (that is, `WKContentView`'s
+    `_doubleTapGestureRecognizer`) is enabled, and adds itself as a dynamic failure requirement to the content
+    view's synthetic single tap gesture recognizer (`_singleTapGestureRecognizer`). In terms of the gesture
+    dependency graph, this causes the single tap gesture to form an edge with the double tap gesture, which ends up
+    uniting both deferring gesture recognizers under the same subgraph. This means UIWebTouchEventsGestureRecognizer,
+    which should be one of the gestures in the immediately resettable subgraph, is now connected to the rest of the
+    delayed resettable gestures, meaning that it cannot recognize until "slowly resettable" gestures such as the
+    tap-and-half text selection gesture have also been reset. This delay causes touch events to be dropped, as is
+    the case in this bug.
+    
+    To fix this, simply quarantine the single tap and double tap gestures inside their own subgraph by introducing a
+    separate deferring gesture recognizer for them. When fast-clicking is enabled, this does not hinder the ability
+    for the single tap gesture to fire in rapid succession, since the double tap gesture is disabled (and thus, not
+    a part of the graph at all). when fast-clicking is disabled, then the double tap gesture will prevent the single
+    tap gesture from being immediately reset anyways, due to the direct failure requirement between the double and
+    single tap gesture.
+    
+    Doing this ensures that no other immediately resettable gesture (`UIWebTouchEventsGestureRecognizer` included)
+    is accidentally blocked from immediately resetting due to being linked to the delayed resettable gestures by way
+    of the synthetic single and double tap gestures.
+    
+    Test: fast/events/touch/ios/tap-and-half-when-viewport-is-not-responsive.html
+    
+    * UIProcess/ios/WKContentViewInteraction.h:
+    
+    Add a dedicated deferring gesture recognizer for the synthetic single tap and double tap gesture recognizers.
+    
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView setUpInteraction]):
+    (-[WKContentView cleanUpInteraction]):
+    
+    Use -_deferringGestureRecognizers instead of hard-coding logic for each deferring gesture.
+    
+    (-[WKContentView _removeDefaultGestureRecognizers]): Ditto.
+    (-[WKContentView _addDefaultGestureRecognizers]): Ditto.
+    (-[WKContentView _deferringGestureRecognizers]):
+    
+    We now have 3 distinct deferring gestures; instead of handling the three deferring gestures individually in
+    various places in this file, group them all behind a getter that returns an array of deferring gestures, and use
+    this instead.
+    
+    (-[WKContentView _doneDeferringNativeGestures:]): Ditto.
+    (-[WKContentView gestureRecognizer:shouldRecognizeSimultaneouslyWithGestureRecognizer:]): Ditto.
+    (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+    
+    Partition the synthetic single tap and double tap gestures into their own subgraph.
+    
+    LayoutTests:
+    
+    Add a layout test that synthesizes a tap-and-half gesture over an element with active touch event listeners, and
+    verifies that the second half of the gesture (i.e. the pan gesture) dispatches touchstart, touchmove, and
+    touchend events.
+    
+    * fast/events/touch/ios/tap-and-half-when-viewport-is-not-responsive-expected.txt: Added.
+    * fast/events/touch/ios/tap-and-half-when-viewport-is-not-responsive.html: Added.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@261480 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-05-11  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            REGRESSION (r253267): issues on touchstart/touchend/touchmove (pointerdown/pointerup/pointermove) events
+            https://bugs.webkit.org/show_bug.cgi?id=211521
+            <rdar://problem/62942374>
+
+            Reviewed by Darin Adler.
+
+            As a brief refresher, deferring gesture recognizers allow us to handle otherwise blocking touch events
+            asynchronously by having all preventable native gesture recognizers require the deferring gesture recognizer to
+            fail; we only fail the deferring gesture recognizer once the web process has handled the touch event, and did
+            not call `preventDefault()`.
+
+            These additional failure requirements can cause preventable gestures to be linked together in the same gesture
+            dependency subgraph; since each subgraph is reset only once all gestures in the subgraph have failed or ended,
+            this might cause some gestures to be reset after a delay (rather than being reset immediately). To mitigate
+            this, we divide the set of preventable gestures into multiple (currently, 2) subgraphs: one for gestures that
+            are reset after a delay, and another for gestures that are immediately resettable. This way, immediately
+            resettable gestures are able to reset and recognize again, without having to wait for other slower preventable
+            gesture recognizers to reset.
+
+            When fast-clicking is disabled (e.g. when loading a desktop web page on a mobile form factor, or when the
+            viewport has been zoomed in), the blocking synthetic double tap gesture recognizer (that is, `WKContentView`'s
+            `_doubleTapGestureRecognizer`) is enabled, and adds itself as a dynamic failure requirement to the content
+            view's synthetic single tap gesture recognizer (`_singleTapGestureRecognizer`). In terms of the gesture
+            dependency graph, this causes the single tap gesture to form an edge with the double tap gesture, which ends up
+            uniting both deferring gesture recognizers under the same subgraph. This means UIWebTouchEventsGestureRecognizer,
+            which should be one of the gestures in the immediately resettable subgraph, is now connected to the rest of the
+            delayed resettable gestures, meaning that it cannot recognize until "slowly resettable" gestures such as the
+            tap-and-half text selection gesture have also been reset. This delay causes touch events to be dropped, as is
+            the case in this bug.
+
+            To fix this, simply quarantine the single tap and double tap gestures inside their own subgraph by introducing a
+            separate deferring gesture recognizer for them. When fast-clicking is enabled, this does not hinder the ability
+            for the single tap gesture to fire in rapid succession, since the double tap gesture is disabled (and thus, not
+            a part of the graph at all). when fast-clicking is disabled, then the double tap gesture will prevent the single
+            tap gesture from being immediately reset anyways, due to the direct failure requirement between the double and
+            single tap gesture.
+
+            Doing this ensures that no other immediately resettable gesture (`UIWebTouchEventsGestureRecognizer` included)
+            is accidentally blocked from immediately resetting due to being linked to the delayed resettable gestures by way
+            of the synthetic single and double tap gestures.
+
+            Test: fast/events/touch/ios/tap-and-half-when-viewport-is-not-responsive.html
+
+            * UIProcess/ios/WKContentViewInteraction.h:
+
+            Add a dedicated deferring gesture recognizer for the synthetic single tap and double tap gesture recognizers.
+
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView setUpInteraction]):
+            (-[WKContentView cleanUpInteraction]):
+
+            Use -_deferringGestureRecognizers instead of hard-coding logic for each deferring gesture.
+
+            (-[WKContentView _removeDefaultGestureRecognizers]): Ditto.
+            (-[WKContentView _addDefaultGestureRecognizers]): Ditto.
+            (-[WKContentView _deferringGestureRecognizers]):
+
+            We now have 3 distinct deferring gestures; instead of handling the three deferring gestures individually in
+            various places in this file, group them all behind a getter that returns an array of deferring gestures, and use
+            this instead.
+
+            (-[WKContentView _doneDeferringNativeGestures:]): Ditto.
+            (-[WKContentView gestureRecognizer:shouldRecognizeSimultaneouslyWithGestureRecognizer:]): Ditto.
+            (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+
+            Partition the synthetic single tap and double tap gestures into their own subgraph.
+
+2020-05-11  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/62978118
+
+    2020-05-11  youenn fablet  <youenn@apple.com>
+
+            Starting a service worker process may enter an infinite loop.
+            rdar://problem/62467974
+
+            * UIProcess/WebProcessPool.cpp:
+            Make sure that, if we have an entry in m_serviceWorkerProcesses, it is not null before completing the handler.
+            If we have a null entry, behave as if there was no entry.
+            This ensures the UIProcess will not answer to NetworkProcess too early to say that it has a service worker connection.
+
+2020-05-11  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r260979. rdar://problem/62978869
+
+    REGRESSION: Double tap dispatches one click event on iOS 13.4 when it would dispatch two on iOS 13.3
+    https://bugs.webkit.org/show_bug.cgi?id=211179
+    <rdar://problem/62594779>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebKit:
+    
+    https://trac.webkit.org/r253267 introduced deferring gesture recognizers as a way to handle preventable (non-
+    passive) touchstart events without blocking the UI process. These deferring gesture recognizers work by having
+    other gesture recognizers at or below WKWebView (with few exceptions) require the failure of these deferring
+    gestures. These gestures transition to possible state when beginning a touch inside a non-passive touch event
+    handling region, and transition to either failed or ended state (depending on whether `preventDefault()` was
+    called) after the web content process finished handling the touch event.
+    
+    However, this means that the resulting dependency graph now has an edge between each gesture under WKWebView and
+    one of the deferring gesture recognizers, due to these new failure requirements. Since gestures that have been
+    recognized or have failed don't get reset until all other gestures in the same dependency subgraph have also
+    recognized or failed, some gestures (such as the synthetic single tap gesture recognizer in this bug) might not
+    be resetting as soon after ending as they did before, since they may be connected to other gesture recognizers
+    that are still in possible state by way of the failure requirements added by the new deferring gestures.
+    
+    I was already aware of this problem in r253267, and attempted to solve this by bisecting the gesture dependency
+    graph into two subgraphs: one containing all the one-finger multi-tap gestures that are reset after a lengthy
+    delay, and another containing everything else. To do this, I added two different deferring gesture recognizers:
+    one for immediately resettable gestures (meant for gestures in the latter subgraph), and another for gestures
+    that are reset after a delay (meant for gestures in the former subgraph).
+    
+    Unfortunately, unrelated changes around text interactions in UIKit in iOS 13.4 caused the tap-and-a-half
+    gesture for selecting a range of text to now have a delayed reset; this means that gestures in the "immediately
+    resettable" gesture subgraph are all forced to wait on the tap-and-a-half text interaction gesture before
+    resetting, which causes the bug here, since the synthetic single tap gesture is in this "immediately resettable"
+    gesture subgraph.
+    
+    To mitigate this, this patch pushes the tap-and-a-half text selection gesture, along with the loupe gesture,
+    context menu relationship gesture, and drag lift gestures (i.e. the other gestures that are connected to the
+    tap-and-a-half gesture via failure requirements) out of the "immediately resettable" subgraph, and into the
+    "delayed" subgraph.
+    
+    Test: fast/events/touch/ios/two-click-events-after-double-tap-with-touch-handler.html
+    
+    * Platform/spi/ios/UIKitSPI.h:
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+    
+    LayoutTests:
+    
+    Add a new layout test to verify that double tapping a button with fast-clicking enabled (i.e. in a device-width
+    viewport) fires two click events.
+    
+    * fast/events/touch/ios/two-click-events-after-double-tap-with-touch-handler-expected.txt: Added.
+    * fast/events/touch/ios/two-click-events-after-double-tap-with-touch-handler.html: Added.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@260979 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-30  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            REGRESSION: Double tap dispatches one click event on iOS 13.4 when it would dispatch two on iOS 13.3
+            https://bugs.webkit.org/show_bug.cgi?id=211179
+            <rdar://problem/62594779>
+
+            Reviewed by Tim Horton.
+
+            https://trac.webkit.org/r253267 introduced deferring gesture recognizers as a way to handle preventable (non-
+            passive) touchstart events without blocking the UI process. These deferring gesture recognizers work by having
+            other gesture recognizers at or below WKWebView (with few exceptions) require the failure of these deferring
+            gestures. These gestures transition to possible state when beginning a touch inside a non-passive touch event
+            handling region, and transition to either failed or ended state (depending on whether `preventDefault()` was
+            called) after the web content process finished handling the touch event.
+
+            However, this means that the resulting dependency graph now has an edge between each gesture under WKWebView and
+            one of the deferring gesture recognizers, due to these new failure requirements. Since gestures that have been
+            recognized or have failed don't get reset until all other gestures in the same dependency subgraph have also
+            recognized or failed, some gestures (such as the synthetic single tap gesture recognizer in this bug) might not
+            be resetting as soon after ending as they did before, since they may be connected to other gesture recognizers
+            that are still in possible state by way of the failure requirements added by the new deferring gestures.
+
+            I was already aware of this problem in r253267, and attempted to solve this by bisecting the gesture dependency
+            graph into two subgraphs: one containing all the one-finger multi-tap gestures that are reset after a lengthy
+            delay, and another containing everything else. To do this, I added two different deferring gesture recognizers:
+            one for immediately resettable gestures (meant for gestures in the latter subgraph), and another for gestures
+            that are reset after a delay (meant for gestures in the former subgraph).
+
+            Unfortunately, unrelated changes around text interactions in UIKit in iOS 13.4 caused the tap-and-a-half
+            gesture for selecting a range of text to now have a delayed reset; this means that gestures in the "immediately
+            resettable" gesture subgraph are all forced to wait on the tap-and-a-half text interaction gesture before
+            resetting, which causes the bug here, since the synthetic single tap gesture is in this "immediately resettable"
+            gesture subgraph.
+
+            To mitigate this, this patch pushes the tap-and-a-half text selection gesture, along with the loupe gesture,
+            context menu relationship gesture, and drag lift gestures (i.e. the other gestures that are connected to the
+            tap-and-a-half gesture via failure requirements) out of the "immediately resettable" subgraph, and into the
+            "delayed" subgraph.
+
+            Test: fast/events/touch/ios/two-click-events-after-double-tap-with-touch-handler.html
+
+            * Platform/spi/ios/UIKitSPI.h:
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+
+2020-05-11  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r259669. rdar://problem/63111225
+
+    Preventing touch events should not prevent gestures installed above WKWebView from recognizing
+    https://bugs.webkit.org/show_bug.cgi?id=210080
+    <rdar://problem/61365814>
+    
+    Reviewed by Tim Horton.
+    
+    Source/WebKit:
+    
+    Makes a small adjustment to native gesture deferral logic, so that gestures installed above WKWebView (in the
+    view hierarchy) are not prevented from recognizing by WKDeferringGestureRecognizer. This makes it possible for
+    WebKit clients to install custom gestures outside of WKWebView that cannot be prevented by web content, without
+    having to create a separate window and pass touches through to the WKWebView.
+    
+    Test: fast/events/touch/ios/prevent-default-with-window-tap-gesture.html
+    
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+    
+    Tools:
+    
+    Add a UIScriptController helper method that allows a test to install a tap gesture recognizer on the UIWindow
+    containing the web view. This method additionally takes a JavaScript callback, which is invoked when the tap
+    gesture is recognized.
+    
+    * TestRunnerShared/UIScriptContext/Bindings/UIScriptController.idl:
+    * TestRunnerShared/UIScriptContext/UIScriptContext.h:
+    * TestRunnerShared/UIScriptContext/UIScriptController.h:
+    (WTR::UIScriptController::installTapGestureOnWindow):
+    * WebKitTestRunner/cocoa/TestRunnerWKWebView.h:
+    * WebKitTestRunner/cocoa/TestRunnerWKWebView.mm:
+    (-[TestRunnerWKWebView resetInteractionCallbacks]):
+    (-[TestRunnerWKWebView didRecognizeTapOnWindow]):
+    (-[TestRunnerWKWebView windowTapRecognizedCallback]):
+    (-[TestRunnerWKWebView setWindowTapRecognizedCallback:]):
+    (-[TestRunnerWKWebView willMoveToWindow:]):
+    (-[TestRunnerWKWebView didMoveToWindow]):
+    (-[TestRunnerWKWebView gestureRecognizer:shouldRecognizeSimultaneouslyWithGestureRecognizer:]):
+    * WebKitTestRunner/ios/UIScriptControllerIOS.h:
+    * WebKitTestRunner/ios/UIScriptControllerIOS.mm:
+    (WTR::UIScriptControllerIOS::installTapGestureOnWindow):
+    
+    LayoutTests:
+    
+    Add a new layout test to verify that calling preventDefault() on touchstart doesn't prevent gesture recognizers
+    installed above the WKWebView from recognizing. To do this, we use the new UIScriptController method to add a
+    gesture recognizer to the window containing the web view, and then simulate a tap over an element that prevents
+    the touchstart event.
+    
+    * fast/events/touch/ios/prevent-default-with-window-tap-gesture-expected.txt: Added.
+    * fast/events/touch/ios/prevent-default-with-window-tap-gesture.html: Added.
+    * resources/ui-helper.js:
+    (window.UIHelper.async activateElementAfterInstallingTapGestureOnWindow.return.new.Promise.):
+    (window.UIHelper.async activateElementAfterInstallingTapGestureOnWindow.return.new.Promise):
+    (window.UIHelper.async activateElementAfterInstallingTapGestureOnWindow):
+    (window.UIHelper):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@259669 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-07  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+            Preventing touch events should not prevent gestures installed above WKWebView from recognizing
+            https://bugs.webkit.org/show_bug.cgi?id=210080
+            <rdar://problem/61365814>
+
+            Reviewed by Tim Horton.
+
+            Makes a small adjustment to native gesture deferral logic, so that gestures installed above WKWebView (in the
+            view hierarchy) are not prevented from recognizing by WKDeferringGestureRecognizer. This makes it possible for
+            WebKit clients to install custom gestures outside of WKWebView that cannot be prevented by web content, without
+            having to create a separate window and pass touches through to the WKWebView.
+
+            Test: fast/events/touch/ios/prevent-default-with-window-tap-gesture.html
+
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+
+2020-05-11  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r255456. rdar://problem/63112259
+
+    REGRESSION (r253267): Swipe from edge on Twitter images no longer goes back
+    https://bugs.webkit.org/show_bug.cgi?id=207011
+    <rdar://problem/58966044>
+    
+    Reviewed by Wenson Hsieh.
+    
+    * UIProcess/ios/WKContentViewInteraction.mm:
+    (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+    The new touch-event async deferring gesture recognizer was erroneously deferring
+    edge swipes, which are not allowed to be blocked by touch events.
+    Opt them out of the new gesture gate mechanism.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@255456 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-01-30  Tim Horton  <timothy_horton@apple.com>
+
+            REGRESSION (r253267): Swipe from edge on Twitter images no longer goes back
+            https://bugs.webkit.org/show_bug.cgi?id=207011
+            <rdar://problem/58966044>
+
+            Reviewed by Wenson Hsieh.
+
+            * UIProcess/ios/WKContentViewInteraction.mm:
+            (-[WKContentView deferringGestureRecognizer:shouldDeferOtherGestureRecognizer:]):
+            The new touch-event async deferring gesture recognizer was erroneously deferring
+            edge swipes, which are not allowed to be blocked by touch events.
+            Opt them out of the new gesture gate mechanism.
+
+2020-05-11  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r258675. rdar://problem/62978870
+
+    WebCoreArgumentCoders should check bufferIsLargeEnoughToContain before allocating buffers
+    https://bugs.webkit.org/show_bug.cgi?id=209219
+    
+    Reviewed by Darin Adler.
+    
+    * Shared/WebCoreArgumentCoders.cpp:
+    (IPC::decodeSharedBuffer): Added checking of bufferIsLargeEnoughToContain.
+    (IPC::decodeTypesAndData): Don't allocate a buffer with the
+    decoded size. bufferIsLargeEnoughToContain can't be used in this
+    case because SharedBuffer is encoded as variable length data.
+    Instead, append items one-by-one.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@258675 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-03-18  Fujii Hironori  <Hironori.Fujii@sony.com>
+
+            WebCoreArgumentCoders should check bufferIsLargeEnoughToContain before allocating buffers
+            https://bugs.webkit.org/show_bug.cgi?id=209219
+
+            Reviewed by Darin Adler.
+
+            * Shared/WebCoreArgumentCoders.cpp:
+            (IPC::decodeSharedBuffer): Added checking of bufferIsLargeEnoughToContain.
+            (IPC::decodeTypesAndData): Don't allocate a buffer with the
+            decoded size. bufferIsLargeEnoughToContain can't be used in this
+            case because SharedBuffer is encoded as variable length data.
+            Instead, append items one-by-one.
+
+2020-05-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r261024. rdar://problem/62978260
+
+    [IPC hardening] createMessageDecoder() needs a validity check
+    <https://webkit.org/b/211260>
+    <rdar://problem/61914087>
+    
+    Reviewed by Darin Adler.
+    
+    * Platform/IPC/cocoa/ConnectionCocoa.mm:
+    (IPC::createMessageDecoder):
+    - Add validity check and early return for
+      `numDescriptors`.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@261024 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-05-01  David Kilzer  <ddkilzer@apple.com>
+
+            [IPC hardening] createMessageDecoder() needs a validity check
+            <https://webkit.org/b/211260>
+            <rdar://problem/61914087>
+
+            Reviewed by Darin Adler.
+
+            * Platform/IPC/cocoa/ConnectionCocoa.mm:
+            (IPC::createMessageDecoder):
+            - Add validity check and early return for
+              `numDescriptors`.
+
+2020-05-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r260832. rdar://problem/62978877
+
+    [Mac] Adopt kMTSupportNotification_ShouldPlayHDRVideoChanged notification
+    https://bugs.webkit.org/show_bug.cgi?id=211028
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore/PAL:
+    
+    Make MediaToolboxSoftLink fully exported from PAL.
+    
+    * pal/cf/CoreMediaSoftLink.cpp:
+    * pal/cocoa/MediaToolboxSoftLink.cpp:
+    * pal/cocoa/MediaToolboxSoftLink.h:
+    
+    Source/WebKit:
+    
+    Adopt a new notification which signals that the receiver should re-query for HDR support.
+    
+    * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+    (WebKit::webProcessPoolHighDynamicRangeDidChangeCallback):
+    (WebKit::WebProcessPool::registerHighDynamicRangeChangeCallback):
+    * UIProcess/WebProcessPool.cpp:
+    (WebKit::WebProcessPool::registerHighDynamicRangeChangeCallback):
+    (WebKit::WebProcessPool::initializeNewWebProcess):
+    * UIProcess/WebProcessPool.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@260832 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-28  Jer Noble  <jer.noble@apple.com>
+
+            [Mac] Adopt kMTSupportNotification_ShouldPlayHDRVideoChanged notification
+            https://bugs.webkit.org/show_bug.cgi?id=211028
+
+            Reviewed by Eric Carlson.
+
+            Adopt a new notification which signals that the receiver should re-query for HDR support.
+
+            * UIProcess/Cocoa/WebProcessPoolCocoa.mm:
+            (WebKit::webProcessPoolHighDynamicRangeDidChangeCallback):
+            (WebKit::WebProcessPool::registerHighDynamicRangeChangeCallback):
+            * UIProcess/WebProcessPool.cpp:
+            (WebKit::WebProcessPool::registerHighDynamicRangeChangeCallback):
+            (WebKit::WebProcessPool::initializeNewWebProcess):
+            * UIProcess/WebProcessPool.h:
+
+2020-05-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r260666. rdar://problem/62978264
+
+    IPC::Decoder should use create() pattern
+    <https://webkit.org/b/210949>
+    <rdar://problem/62144409>
+    
+    Reviewed by Geoffrey Garen.
+    
+    * Platform/IPC/Decoder.cpp:
+    (IPC::Decoder::create): Add implementation. Returns nullptr if
+    Decoder constructor returns an invalid object.
+    (IPC::Decoder::Decoder): Mark invalid if m_buffer is not 64-bit
+    aligned.
+    (IPC::Decoder::unwrapForTesting): Switch to Decoder::create().
+    * Platform/IPC/Decoder.h:
+    (IPC::Decoder::create): Add declaration.
+    (IPC::Decoder::Decoder): Make explicit.  (Can't be made private
+    since we use std::unique_ptr<Decoder>.)
+    * Platform/IPC/cocoa/ConnectionCocoa.mm:
+    (IPC::createMessageDecoder): Switch to Decoder::create().
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@260666 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-24  David Kilzer  <ddkilzer@apple.com>
+
+            IPC::Decoder should use create() pattern
+            <https://webkit.org/b/210949>
+            <rdar://problem/62144409>
+
+            Reviewed by Geoffrey Garen.
+
+            * Platform/IPC/Decoder.cpp:
+            (IPC::Decoder::create): Add implementation. Returns nullptr if
+            Decoder constructor returns an invalid object.
+            (IPC::Decoder::Decoder): Mark invalid if m_buffer is not 64-bit
+            aligned.
+            (IPC::Decoder::unwrapForTesting): Switch to Decoder::create().
+            * Platform/IPC/Decoder.h:
+            (IPC::Decoder::create): Add declaration.
+            (IPC::Decoder::Decoder): Make explicit.  (Can't be made private
+            since we use std::unique_ptr<Decoder>.)
+            * Platform/IPC/cocoa/ConnectionCocoa.mm:
+            (IPC::createMessageDecoder): Switch to Decoder::create().
+
+2020-05-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r260229. rdar://problem/62978244
+
+    Re-land: [IPC Hardening] MachMessage::create() should use checked arithmetic
+    <https://webkit.org/b/210572>
+    <rdar://problem/61729947>
+    
+    Reviewed by Chris Dumez.
+    
+    * Platform/IPC/cocoa/ConnectionCocoa.mm:
+    (IPC::Connection::sendOutgoingMessage):
+    - Add nullptr check since MachMessage::create() can return an
+      empty std::unique_ptr<> now.
+    * Platform/IPC/cocoa/MachMessage.cpp:
+    (IPC::MachMessage::create):
+    - Use CheckedSize to compute the buffer size.
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@260229 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-16  David Kilzer  <ddkilzer@apple.com>
+
+            Re-land: [IPC Hardening] MachMessage::create() should use checked arithmetic
+            <https://webkit.org/b/210572>
+            <rdar://problem/61729947>
+
+            Reviewed by Chris Dumez.
+
+            * Platform/IPC/cocoa/ConnectionCocoa.mm:
+            (IPC::Connection::sendOutgoingMessage):
+            - Add nullptr check since MachMessage::create() can return an
+              empty std::unique_ptr<> now.
+            * Platform/IPC/cocoa/MachMessage.cpp:
+            (IPC::MachMessage::create):
+            - Use CheckedSize to compute the buffer size.
+
+2020-05-07  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/62977667
+
+    2020-05-07  Alex Christensen  <achristensen@webkit.org>
+
+            NetworkSessionCocoa should request client certificate only once per host/port
+            https://bugs.webkit.org/show_bug.cgi?id=210626
+            <rdar://problem/60340449>
+
+            Reviewed by Geoffrey Garen.
+
+            NSURLSession creates more than one TCP connection to a server when using HTTP 1.1.
+            Each TCP connection with TLS generates a didReceiveChallenge to do the server trust evaluation of the certificate chain.
+            If the server requests a client certificate in the TLS handshake, it also generates a didReceiveChallenge to request client
+            certificates as well.  This is an implementation detail of our networking.  We should not actually ask the WKNavigationDelegate
+            for client certificates more than once per host/port.  We should remember the credential and give it to NSURLSession immediately
+            if we have used this credential in the past for a task that has received bytes (either a response or a redirect).  If the TLS
+            handshake fails, we should not reuse that same certificate automatically.
+
+            * NetworkProcess/cocoa/NetworkSessionCocoa.h:
+            * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
+            (-[WKNetworkSessionDelegate URLSession:task:willPerformHTTPRedirection:newRequest:completionHandler:]):
+            (-[WKNetworkSessionDelegate URLSession:task:didReceiveChallenge:completionHandler:]):
+            (-[WKNetworkSessionDelegate URLSession:task:didCompleteWithError:]):
+            (-[WKNetworkSessionDelegate URLSession:dataTask:didReceiveResponse:completionHandler:]):
+            (WebKit::NetworkSessionCocoa::clientCertificateSuggestedForHost):
+            (WebKit::NetworkSessionCocoa::taskReceivedBytes):
+            (WebKit::NetworkSessionCocoa::taskFailed):
+            (WebKit::NetworkSessionCocoa::successfulClientCertificateForHost const):
+
+2020-05-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r260474. rdar://problem/62977672
+
+    PiP buttons shows up in element fullscreen when PiP is disabled in WKWebViewConfiguration
+    https://bugs.webkit.org/show_bug.cgi?id=210813
+    
+    Reviewed by Eric Carlson.
+    
+    Not currently testable; entering fullscreen never completes in the iOS TestWebKitAPI app
+    because that process is not a UI Application.
+    
+    * UIProcess/ios/fullscreen/WKFullScreenViewController.mm:
+    (-[WKFullScreenViewController videoControlsManagerDidChange]):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@260474 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2020-04-21  Jer Noble  <jer.noble@apple.com>
+
+            PiP buttons shows up in element fullscreen when PiP is disabled in WKWebViewConfiguration
+            https://bugs.webkit.org/show_bug.cgi?id=210813
+
+            Reviewed by Eric Carlson.
+
+            Not currently testable; entering fullscreen never completes in the iOS TestWebKitAPI app
+            because that process is not a UI Application.
+
+            * UIProcess/ios/fullscreen/WKFullScreenViewController.mm:
+            (-[WKFullScreenViewController videoControlsManagerDidChange]):
+
+2020-05-07  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/62977657
+
+    2020-05-07  Alex Christensen  <achristensen@webkit.org>
+
+            Revert most of r260370 and all of r260795
+            <rdar://problem/62623152>
+
+            r260370 not only fixed client certificate authentication when using non-persistent WKWebsiteDataStores,
+            but it also removed a strong reference to the WebsiteDataStores, which changed their lifetime and caused their destructor
+            to be called more often in SafariViewController, which caused hangs because of a deadlock in the destruction code I tried to
+            fix in r260795, which introduced suspension hangs.  This keeps only the part of r260370 that is necessary to fix client certificate authentication
+            (as verified by the Challenge.ClientCertificateNonPersistentDataStore unit test from r260370 that continues to pass) but reverts the part of that
+            change that changed the lifetime of the WebsiteDataStore, restoring behavior to how the safari-609-branch was without hangs in SafariViewController
+            or in suspension, but with client certificate authentication working in non-persistent WKWebsiteDataStores.
+
+            This patch applies to the safari-609.2.9.0-branch.
+
+            * NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp:
+            (WebKit::WebResourceLoadStatisticsStore::WebResourceLoadStatisticsStore):
+            (WebKit::WebResourceLoadStatisticsStore::didDestroyNetworkSession):
+            (WebKit::WebResourceLoadStatisticsStore::flushAndDestroyPersistentStore):
+            (WebKit::WebResourceLoadStatisticsStore::applicationWillTerminate):
+            (WebKit::sharedStatisticsQueue): Deleted.
+            * NetworkProcess/Classifier/WebResourceLoadStatisticsStore.h:
+            * NetworkProcess/NetworkProcess.cpp:
+            (WebKit::NetworkProcess::didClose):
+            * NetworkProcess/NetworkSession.cpp:
+            (WebKit::NetworkSession::~NetworkSession):
+            (WebKit::NetworkSession::destroyResourceLoadStatistics):
+            (WebKit::NetworkSession::setResourceLoadStatisticsEnabled):
+            (WebKit::NetworkSession::recreateResourceLoadStatisticStore):
+            * NetworkProcess/NetworkSession.h:
+            * UIProcess/Network/NetworkProcessProxy.cpp:
+            (WebKit::NetworkProcessProxy::NetworkProcessProxy):
+            (WebKit::NetworkProcessProxy::addSession):
+            (WebKit::NetworkProcessProxy::removeSession):
+            * UIProcess/Network/NetworkProcessProxy.h:
+
+2020-05-07  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/62977647
+
+    2020-05-07  Alex Christensen  <achristensen@webkit.org>
+
+            Stop waiting for a BinarySemaphore on the main thread in the NetworkProcess
+            https://bugs.webkit.org/show_bug.cgi?id=211080
+            <rdar://problem/62377357>
+
+            Reviewed by Darin Adler and Chris Dumez.
+
+            There was an out-of-date comment suggesting we needed to use a semaphore, but we've since added these in the destructor:
+            RELEASE_ASSERT(!m_statisticsStore);
+            RELEASE_ASSERT(!m_persistentStorage);
+            This indicates that flushAndDestroyPersistentStore is called before the destructor, at which time it is safe to add a reference to keep it alive.
+            WebResourceLoadStatisticsStore is also marked as WTF::DestructionThread::Main so this should do everything we need.
+            We also flush these databases to disk before closing like we did cookies.
+
+            In order to keep tests working as they are, I needed to make recreateResourceLoadStatisticStore have a CompletionHandler and have all
+            WebResourceLoadStatisticsStores share the same queue to serialize background tasks between WebResourceLoadStatisticsStores with and without database stores
+            sequentially to avoid opening a SQLiteDatabase before the previous WebResourceLoadStatisticsStore had closed it.
+
+            * NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp:
+            (WebKit::sharedStatisticsQueue):
+            (WebKit::WebResourceLoadStatisticsStore::WebResourceLoadStatisticsStore):
+            (WebKit::WebResourceLoadStatisticsStore::didDestroyNetworkSession):
+            (WebKit::WebResourceLoadStatisticsStore::flushAndDestroyPersistentStore):
+            (WebKit::WebResourceLoadStatisticsStore::applicationWillTerminate): Deleted.
+            * NetworkProcess/Classifier/WebResourceLoadStatisticsStore.h:
+            * NetworkProcess/NetworkProcess.cpp:
+            (WebKit::NetworkProcess::didClose):
+            * NetworkProcess/NetworkSession.cpp:
+            (WebKit::NetworkSession::~NetworkSession):
+            (WebKit::NetworkSession::destroyResourceLoadStatistics):
+            (WebKit::NetworkSession::setResourceLoadStatisticsEnabled):
+            (WebKit::NetworkSession::recreateResourceLoadStatisticStore):
+            * NetworkProcess/NetworkSession.h:
+
+2020-05-07  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/62272254
+
+    2020-05-07  Per Arne Vollan  <pvollan@apple.com>
+
+            Only hearing audio with black screen when playing video
+            <rdar://problem/59464464> [contentsScale = 0] PUBLIC SEED ☂: Only hearing audio with black screen when playing video
+
+            Add mach-lookup access to MobileGestalt service.
+
+            * Resources/SandboxProfiles/ios/com.apple.WebKit.WebContent.sb:
+
 2020-04-20  Alan Coon  <alancoon@apple.com>
 
         Apply patch. rdar://problem/61950472

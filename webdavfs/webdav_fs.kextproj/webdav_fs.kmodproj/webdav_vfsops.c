@@ -47,8 +47,11 @@
 #include <sys/socket.h>
 #include <libkern/libkern.h>
 
+#include <kern/task.h>
+
 #include "webdav.h"
 #include "webdav_utils.h"
+#include "webdav_iokit.h"
 
 /*****************************************************************************/
 
@@ -819,6 +822,18 @@ static int webdav_vfs_getattr(struct mount *mp, struct vfs_attr *sbp, vfs_contex
 
 /*****************************************************************************/
 
+#define	WEBDEV_AGENT_ENTITLEMENT	\
+	"com.apple.private.vfs.webdavfs.agent"
+
+static int
+webdav_check_agent_entitlement(vfs_context_t context __unused)
+{
+	task_t const task = current_task();
+	if (webdav_task_has_entitlement(task, WEBDEV_AGENT_ENTITLEMENT))
+		return 0;
+	return EPERM;
+}
+
 /*
  * webdav_sysctl handles the VFS_CTL_QUERY request which tells interested
  * parties if the connection with the remote server is up or down.
@@ -847,7 +862,12 @@ static int webdav_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *old
 				int fd;
 				struct open_associatecachefile *associatecachefile;
 				vnode_t vp;
-				
+
+				error = webdav_check_agent_entitlement(context);
+				if (error) {
+					break;
+				}
+
 				if ( namelen > 3 )
 				{
 					error = ENOTDIR;	/* overloaded */
@@ -904,7 +924,12 @@ static int webdav_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *old
 		case WEBDAV_NOTIFY_RECONNECTED_SYSCTL:
 			{
 				fsid_t fsid_num;
-			
+
+				error = webdav_check_agent_entitlement(context);
+				if (error) {
+					break;
+				}
+
 				/*
 			     * name[1] is fsid byte 0
 			     * name[2] is fsid byte 1

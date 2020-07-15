@@ -170,6 +170,7 @@ sudo_dso_strerror_v1(void)
 #ifdef __APPLE_DYNAMIC_LV__
 #include <System/sys/codesign.h>
 #include <unistd.h>
+#include <fcntl.h>
 #endif /* __APPLE_DYNAMIC_LV__ */
 
 void *
@@ -198,7 +199,7 @@ sudo_dso_load_v1(const char *path, int mode)
 	
 #ifdef __APPLE_DYNAMIC_LV__
     void *dlh = dlopen(path, flags);
-    if (dlh != NULL || access(path, R_OK) != 0)
+    if (dlh != NULL || faccessat(AT_FDCWD, path, R_OK, AT_EACCESS) != 0)
         return dlh;
 	
     /*
@@ -209,14 +210,14 @@ sudo_dso_load_v1(const char *path, int mode)
     int rv = 0;
     pid_t pid = getpid();
     rv = csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
-    if (rv != 0 || (csflags & CS_REQUIRE_LV) == 0)
+    if (rv != 0 || (csflags & (CS_FORCED_LV | CS_REQUIRE_LV)) == 0)
 	return NULL;
 
     rv = csops(pid, CS_OPS_CLEAR_LV, NULL, 0);
     if (rv != 0)
 	return NULL;
     
-    dlh = dlopen(path, mode);
+    dlh = dlopen(path, flags);
     if (dlh == NULL) {
 	/* Failed to load even with LV disabled: re-enable LV. */
 	csflags = CS_REQUIRE_LV;

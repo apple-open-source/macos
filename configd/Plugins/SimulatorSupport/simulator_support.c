@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -311,7 +311,7 @@ load_SimulatorSupport(CFBundleRef bundle, Boolean bundleVerbose)
 int
 main(int argc, char **argv)
 {
-	_sc_log     = FALSE;
+	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 
 	load_SimulatorSupport(CFBundleGetMainBundle(), (argc > 1) ? TRUE : FALSE);

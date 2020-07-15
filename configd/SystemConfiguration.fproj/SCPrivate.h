@@ -30,6 +30,7 @@
 #include <sys/syslog.h>
 #include <mach/message.h>
 #include <os/log.h>
+#include <os/log_private.h>
 #include <os/variant_private.h>
 #include <sys/sysctl.h>
 
@@ -101,13 +102,17 @@
 #endif
 
 
-/* framework variables */
-extern int	_sc_debug;	/* non-zero if debugging enabled */
-extern int	_sc_verbose;	/* non-zero if verbose logging enabled */
-extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
-				   1 if SC messages should be logged w/os_log(3),
-				   2 if SC messages should be logged AND written to stdout/stderr
-				   3 if SC messages should be logged AND written to stdout/stderr (w/o timestamp) */
+/* framework debugging/logging variables */
+typedef CF_ENUM(int, _SCLogDestination) {
+	kSCLogDestinationFile		= 0,	// if SC messages should be written to stdout/stderr
+	kSCLogDestinationDefault	= 1,	// if SC messages should be logged w/os_log(3)
+	kSCLogDestinationBoth		= 2,	// if SC messages should be logged AND written to stdout/stderr
+	kSCLogDestinationBoth_NoTime	= 3,	// if SC messages should be logged AND written to stdout/stderr (w/o timestamp)
+};
+
+extern int			_sc_debug;	/* non-zero if debugging enabled */
+extern _SCLogDestination	_sc_log;
+extern int			_sc_verbose;	/* non-zero if verbose logging enabled */
 
 
 /* notify(3) keys */
@@ -474,10 +479,6 @@ void		SCLog				(Boolean		condition,
 		of an os_log_t global (or a function that returns an os_log_t)
 		*BEFORE* this header is #include'd. In that case, the noted
 		log handle will be used.
-
-		Also, by #define'ing SC_LOG_OR_PRINT, we will check the "_sc_log"
-		global to see if the messages should [also] be directed to stdout/stderr.
-
 	@param level The syslog(3 logging priority.
 	@param __string The format string
 	@result The specified message will be written to the unified logging system.
@@ -490,57 +491,55 @@ void		SCLog				(Boolean		condition,
     SC_LOG_HANDLE_TYPE	os_log_t	SC_LOG_HANDLE(void);
   #else	// SC_LOG_HANDLE
     #define	SC_LOG_HANDLE	_SC_LOG_DEFAULT		// use [SC] default os_log handle
-    #ifndef	SC_LOG_OR_PRINT
-      #define	USE_SC_LOG_OR_PRINT	1		// and use '_sc_log' to control os_log, printf
-    #endif	// !SC_LOG_OR_PRINT
   #endif	// !SC_LOG_HANDLE
 
-  #if	USE_SC_LOG_OR_PRINT
-    #define	SC_log(__level, __format, ...)						\
-	do {										\
-		os_log_t	__handle = SC_LOG_HANDLE();				\
-		os_log_type_t	__type   = _SC_syslog_os_log_mapping(__level);		\
-											\
-		if (((_sc_log != 1) && ((__level > LOG_DEBUG) || _sc_debug)) ||		\
-		    os_log_type_enabled(__handle, __type)) {				\
-			__SC_Log(__level,						\
-				 CFSTR( __format ),					\
-				 __handle,						\
-				 __type,						\
-				 __format,						\
-				 ## __VA_ARGS__);					\
-		}									\
-	} while (0)
-  #else	// USE_SC_LOG_OR_PRINT
-    #define	SC_log(__level, __format, ...)						\
-	do {										\
-		os_log_t	__handle = SC_LOG_HANDLE();				\
-		os_log_type_t	__type = _SC_syslog_os_log_mapping(__level);		\
-											\
-		os_log_with_type(__handle, __type, __format, ## __VA_ARGS__);		\
-	} while (0)
-  #endif	// USE_SC_LOG_OR_PRINT
-#endif	// !SC_log
 
+  #define	SC_log(__level, __format, ...)							\
+    do {											\
+	os_log_t	__handle	= SC_LOG_HANDLE();					\
+	os_log_type_t	__type  	= _SC_syslog_os_log_mapping(__level);			\
+												\
+	if (__SC_log_enabled(__level, __handle, __type)) {					\
+		size_t	__pack_size	= os_log_pack_size(__format, ##__VA_ARGS__);		\
+												\
+		_Pragma("clang diagnostic push")						\
+		_Pragma("clang diagnostic ignored \"-Wvla\"")					\
+		_Pragma("clang diagnostic ignored \"-Wgnu-statement-expression\"")		\
+		os_log_pack_decl(__pack, __pack_size);						\
+		os_log_pack_fill(__pack, __pack_size, errno, __format, ##__VA_ARGS__);		\
+		_Pragma("clang diagnostic pop")							\
+												\
+		__SC_log_send(__level, __handle, __type, __pack);				\
+	}											\
+    } while (0)
 
 /*!
-	@function __SC_Log
-	@discussion Issue a log message w/os_log(3) or printf(3).
+	@function __SC_log_enabled
+	@discussion Checks to see whether a log message will be issued
+	@param level A syslog(3) logging priority. If less than 0, log message is multi-line
+	@param log The os_log_t handle (for logging)
+	@param type The os_log_type_t type (for logging)
+ */
+Boolean		__SC_log_enabled		(int			level,
+						 os_log_t		log,
+						 os_log_type_t		type);
+
+/*!
+	@function __SC_log_send
+	@discussion Issue an os_log_pack message w/os_log(3), syslog(3), or printf(3).
 		The specified message will be written to the system message
 		logger.
 	@param level A syslog(3) logging priority. If less than 0, log message is multi-line
-	@param format_CF The format string (as a CFString for stdout/stderr)
 	@param log The os_log_t handle (for logging)
 	@param type The os_log_type_t type (for logging)
-	@param format The format string (for logging)
- stream.
+	@param pack The os_log_pack_t message
  */
-void		__SC_Log			(int		level,
-						 CFStringRef	format_CF,
-						 os_log_t	log,
-						 os_log_type_t	type,
-						 const char	*format,
-						 ...)	CF_FORMAT_FUNCTION(2, 6) __attribute__((format(os_log, 5, 6)));
+void		__SC_log_send			(int			level,
+						 os_log_t		log,
+						 os_log_type_t		type,
+						 os_log_pack_t		pack);
+
+#endif	// !SC_log
 
 
 /*!

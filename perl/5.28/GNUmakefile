@@ -226,8 +226,10 @@ $(OBJROOT)/$(PROJECT)::
 	    -e 's/@VERSION_DEFAULT@/$(ENV_PERL_BASE_VERSION)/g' \
 	    -e 's/@VERSION_ALT@/$(ENV_VERSION_ALT)/g' \
 	    fix/README.macosx.ed | ed - $(PROJECT)/README.macosx && \
-	ed - $(PROJECT)/cpan/ExtUtils-MakeMaker/lib/ExtUtils/MM_Unix.pm < fix/ExtUtils_MM_Unix.pm.ed
-
+	ed - $(PROJECT)/cpan/ExtUtils-MakeMaker/lib/ExtUtils/MM_Unix.pm < fix/ExtUtils_MM_Unix.pm.ed && \
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/v528-0001-CVE-2020-10543.patch) && \
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/v528-0002-CVE-2020-10878.patch) && \
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/v528-0003-CVE-2020-12723.patch)
 
 ifneq "$(RC_XBS)" "YES"
 clean:

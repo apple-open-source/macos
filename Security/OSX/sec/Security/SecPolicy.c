@@ -44,6 +44,7 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/array_size.h>
 #include <ipc/securityd_client.h>
+#include <os/variant_private.h>
 
 #include <utilities/SecInternalReleasePriv.h>
 
@@ -2693,11 +2694,18 @@ SecPolicyRef SecPolicyCreateConfigurationProfileSigner(void)
 
 SecPolicyRef SecPolicyCreateQAConfigurationProfileSigner(void)
 {
-    if (SecIsInternalRelease()) {
+#if RC_SEED_BUILD
+    // Seed builds permit the QA signer
+    return CreateConfigurationProfileSigner(true);
+#else // !RC_SEED_BUILD
+    if (os_variant_has_internal_diagnostics("com.apple.security")) {
+        // Internal builds permit the QA signer
         return CreateConfigurationProfileSigner(true);
     } else {
+        // GM builds do not trust the QA signer
         return CreateConfigurationProfileSigner(false);
     }
+#endif // !RC_SEED_BUILD
 }
 
 SecPolicyRef SecPolicyCreateOSXProvisioningProfileSigning(void)
@@ -4170,6 +4178,58 @@ SecPolicyRef SecPolicyCreateMeasuredBootPolicySigning(void) {
 
     require(result = SecPolicyCreate(kSecPolicyAppleMeasuredBootPolicySigning,
                                      kSecPolicyNameMeasuredBootPolicySigning, options), errOut);
+
+errOut:
+    CFReleaseSafe(options);
+    return result;
+}
+
+CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreateEscrowServiceIdKeySigning(void)
+{
+    SecPolicyRef result = NULL;
+    CFMutableDictionaryRef options = NULL;
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    // X509, ignoring date validity
+    SecPolicyAddBasicCertOptions(options);
+
+    add_ku(options, kSecKeyUsageDigitalSignature);
+
+    CFDictionaryAddValue(options, kSecPolicyCheckSubjectCommonName,
+                         CFSTR("Escrow Service ID Key"));
+
+    /* Exactly 2 certs in the chain */
+    require(SecPolicyAddChainLengthOptions(options, 2), errOut);
+
+    require(result = SecPolicyCreate(kSecPolicyAppleEscrowServiceIdKeySigning,
+                                     kSecPolicyNameEscrowServiceIdKeySigning, options), errOut);
+
+errOut:
+    CFReleaseSafe(options);
+    return result;
+}
+
+CF_RETURNS_RETAINED SecPolicyRef SecPolicyCreatePCSEscrowServiceIdKeySigning(void)
+{
+    SecPolicyRef result = NULL;
+    CFMutableDictionaryRef options = NULL;
+    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                                &kCFTypeDictionaryKeyCallBacks,
+                                                &kCFTypeDictionaryValueCallBacks), errOut);
+
+    SecPolicyAddBasicX509Options(options);
+    add_ku(options, kSecKeyUsageDigitalSignature);
+
+    CFDictionaryAddValue(options, kSecPolicyCheckSubjectCommonName,
+                         CFSTR("Effaceable Service ID Key"));
+
+    /* Exactly 2 certs in the chain */
+    require(SecPolicyAddChainLengthOptions(options, 2), errOut);
+
+    require(result = SecPolicyCreate(kSecPolicyApplePCSEscrowServiceIdKeySigning,
+                                     kSecPolicyNamePCSEscrowServiceIdKeySigning, options), errOut);
 
 errOut:
     CFReleaseSafe(options);

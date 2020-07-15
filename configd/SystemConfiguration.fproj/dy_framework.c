@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008, 2010-2015, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010-2015, 2017, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -610,7 +610,10 @@ __private_extern__ OSStatus
 _SecTrustedApplicationCreateFromPath(const char *path, SecTrustedApplicationRef *app)
 {
 	#undef SecTrustedApplicationCreateFromPath
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 	static typeof (SecTrustedApplicationCreateFromPath) *dyfunc = NULL;
+#pragma GCC diagnostic pop
 	if (!dyfunc) {
 		void *image = __loadSecurity();
 		if (image) dyfunc = dlsym(image, "SecTrustedApplicationCreateFromPath");

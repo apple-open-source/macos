@@ -600,7 +600,7 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 								0,
 								&kCFTypeDictionaryKeyCallBacks,
 								&kCFTypeDictionaryValueCallBacks);
-		prefsPrivate->changed = TRUE;
+		prefsPrivate->changed = FALSE;
 	}
 
 	SC_log(LOG_DEBUG, "SCPreferences() access: %s, size=%lld",
@@ -712,25 +712,26 @@ SCPreferencesCreateWithOptions(CFAllocatorRef	allocator,
 
 	prefsPrivate = __SCPreferencesCreate(allocator, name, prefsID, authorizationData, options);
 	if (prefsPrivate != NULL) {
-		const char	*astr	= "";
-		const char	*ostr	= "";
+		const char	*opt_none	= "";
+		const char	*opt_1		= opt_none;
+		const char	*opt_2		= opt_none;
 
 		if (options != NULL) {
-			ostr = "options";
+			opt_2 = "options";
 		}
 
 		if (authorization != NULL) {
 			if (authorization == kSCPreferencesUseEntitlementAuthorization) {
-				astr = "entitlement";
+				opt_1 = "entitlement";
 			} else {
-				astr = "authorization";
+				opt_1 = "authorization";
 			}
 		}
 
 		SC_log(LOG_DEBUG, "create w/%s%s%s %@",
-		       ostr,
-		       ((ostr != "") && (astr != "")) ? " + " : "",
-		       astr,
+		       opt_2,
+		       ((opt_2 != opt_none) && (opt_1 != opt_none)) ? " + " : "",
+		       opt_1,
 		       prefsPrivate);
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,43 +25,36 @@
 
 #pragma once
 
-#if USE(LIBWEBRTC)
-
-#include "RTCNetwork.h"
-#include <WebCore/LibWebRTCSocketIdentifier.h>
+#include <wtf/Forward.h>
 #include <wtf/Function.h>
+#include <wtf/Ref.h>
+#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/WorkQueue.h>
 
-namespace IPC {
-class Connection;
-class DataReference;
-class Decoder;
-}
+namespace WebCore {
 
-namespace WebKit {
+struct FileChooserFileInfo;
+class FileList;
 
-class LibWebRTCSocket;
-class LibWebRTCSocketFactory;
-
-class WebRTCSocket {
+class DirectoryFileListCreator : public ThreadSafeRefCounted<DirectoryFileListCreator> {
 public:
-    WebRTCSocket(LibWebRTCSocketFactory&, WebCore::LibWebRTCSocketIdentifier);
+    using CompletionHandler = Function<void(Ref<FileList>&&)>;
 
-    void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
+    static Ref<DirectoryFileListCreator> create(CompletionHandler&& completionHandler)
+    {
+        return adoptRef(*new DirectoryFileListCreator(WTFMove(completionHandler)));
+    }
 
-    static void signalOnNetworkThread(LibWebRTCSocketFactory&, WebCore::LibWebRTCSocketIdentifier, Function<void(LibWebRTCSocket&)>&&);
+    ~DirectoryFileListCreator();
+
+    void start(const Vector<FileChooserFileInfo>&);
+    void cancel();
 
 private:
-    void signalReadPacket(const IPC::DataReference&, const RTCNetwork::IPAddress&, uint16_t port, int64_t);
-    void signalSentPacket(int, int64_t);
-    void signalAddressReady(const RTCNetwork::SocketAddress&);
-    void signalConnect();
-    void signalClose(int);
-    void signalNewConnection(WebCore::LibWebRTCSocketIdentifier newSocketIdentifier, const WebKit::RTCNetwork::SocketAddress&);
+    explicit DirectoryFileListCreator(CompletionHandler&&);
 
-    LibWebRTCSocketFactory& m_factory;
-    WebCore::LibWebRTCSocketIdentifier m_identifier;
+    RefPtr<WorkQueue> m_workQueue;
+    CompletionHandler m_completionHandler;
 };
 
-} // namespace WebKit
-
-#endif // USE(LIBWEBRTC)
+}

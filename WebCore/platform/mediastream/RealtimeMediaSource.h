@@ -110,6 +110,7 @@ public:
     void start();
     void stop();
     virtual void requestToEnd(Observer& callingObserver);
+    bool isEnded() const { return m_isEnded; }
 
     bool muted() const { return m_muted; }
     void setMuted(bool);
@@ -179,6 +180,7 @@ public:
     virtual void monitorOrientation(OrientationNotifier&) { }
 
     virtual void captureFailed();
+    virtual bool isSameAs(RealtimeMediaSource& source) const { return this == &source; }
 
     virtual bool isIncomingAudioSource() const { return false; }
     virtual bool isIncomingVideoSource() const { return false; }
@@ -194,7 +196,7 @@ public:
 
     // Testing only
     virtual void delaySamples(Seconds) { };
-    void setInterruptedForTesting(bool);
+    virtual void setInterruptedForTesting(bool);
 
 protected:
     RealtimeMediaSource(Type, String&& name, String&& deviceID = { }, String&& hashSalt = { });

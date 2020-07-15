@@ -410,7 +410,7 @@ __SCNetworkReachabilityCreatePrivate(CFAllocatorRef	allocator)
 
 	/* initialize non-zero/NULL members */
 	MUTEX_INIT(&targetPrivate->lock);
-	if (_sc_log > 0) {
+	if (_sc_log > kSCLogDestinationFile) {
 		snprintf(targetPrivate->log_prefix,
 			 sizeof(targetPrivate->log_prefix),
 			 "[%p] ",

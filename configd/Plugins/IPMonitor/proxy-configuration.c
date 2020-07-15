@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2017, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -893,7 +893,7 @@ main(int argc, char **argv)
 	CFDictionaryRef		state_global_ipv4;
 	SCDynamicStoreRef	store;
 
-	_sc_log     = FALSE;
+	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("TEST"), NULL, NULL);

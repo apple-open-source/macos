@@ -61,11 +61,9 @@ using MachPlusPlus::ReceivePort;
 
 
 //
-// The default Mach bootstrap registration name for SecurityServer,
-// and the environment variable to override it
+// The Mach bootstrap registration name for SecurityServer
 //
 #define SECURITYSERVER_BOOTSTRAP_NAME	"com.apple.SecurityServer"
-#define SECURITYSERVER_BOOTSTRAP_ENV	"SECURITYSERVER"
 
 //
 // Types of ACL bearers

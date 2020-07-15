@@ -1645,6 +1645,117 @@ builtinCount(CFArrayRef if_list, CFIndex last, CFNumberRef if_type)
 
 
 #pragma mark -
+#pragma mark Internet Sharing configuration support
+
+
+#if	TARGET_OS_OSX
+
+static SCPreferencesRef	nat_configuration	= NULL;		// com.apple.nat.plist
+static SCPreferencesRef	nat_preferences		= NULL;		// preferences.plist
+
+
+static void
+sharingConfigurationClose(void)
+{
+    if (nat_configuration != NULL) {
+	CFRelease(nat_configuration);
+	nat_configuration = NULL;
+    }
+
+    if (nat_preferences != NULL) {
+	CFRelease(nat_preferences);
+	nat_preferences = NULL;
+    }
+
+    return;
+}
+
+
+static Boolean
+sharingConfigurationUsesInterface(CFStringRef bsdName, Boolean keepOpen)
+{
+    CFDictionaryRef	config;
+    Boolean		isShared	= FALSE;
+
+    if (nat_configuration == NULL) {
+	nat_configuration = SCPreferencesCreate(NULL, CFSTR(MY_PLUGIN_NAME ":sharingConfigurationUsesInterface"), CFSTR("com.apple.nat.plist"));
+	if (nat_configuration == NULL) {
+	    return FALSE;
+	}
+    }
+
+    config = SCPreferencesGetValue(nat_configuration, CFSTR("NAT"));
+    if (isA_CFDictionary(config)) {
+	CFBooleanRef	bVal			= NULL;
+	Boolean		enabled			= FALSE;
+	CFStringRef	sharedFromServiceID	= NULL;
+	CFArrayRef	sharedToInterfaces	= NULL;
+
+	if (CFDictionaryGetValueIfPresent(config,
+					  CFSTR("Enabled"),
+					  (const void **)&bVal) &&
+	    isA_CFBoolean(bVal)) {
+	    enabled = CFBooleanGetValue(bVal);
+	}
+
+	if (enabled &&
+	    CFDictionaryGetValueIfPresent(config,
+					  CFSTR("SharingDevices"),
+					  (const void **)&sharedToInterfaces) &&
+	    isA_CFArray(sharedToInterfaces)) {
+	    CFIndex	n;
+
+	    // if "To computers using" interfaces configured
+	    n = CFArrayGetCount(sharedToInterfaces);
+	    for (CFIndex i = 0; i < n; i++) {
+		CFStringRef	sharedToInterface_bsdName;
+
+		sharedToInterface_bsdName = CFArrayGetValueAtIndex(sharedToInterfaces, i);
+		if (_SC_CFEqual(bsdName, sharedToInterface_bsdName)) {
+		    isShared = TRUE;
+		    break;
+		}
+	    }
+	}
+
+	if (enabled &&
+	    !isShared &&
+	    CFDictionaryGetValueIfPresent(config,
+					  CFSTR("PrimaryService"),
+					  (const void **)&sharedFromServiceID) &&
+	    isA_CFString(sharedFromServiceID)) {
+	    if (nat_preferences == NULL) {
+		nat_preferences = SCPreferencesCreateCompanion(nat_configuration, NULL);
+	    }
+	    if (nat_preferences != NULL) {
+		SCNetworkServiceRef	sharedFromService;
+
+		// if "Share your connection from" service configured
+		sharedFromService = SCNetworkServiceCopy(nat_preferences, sharedFromServiceID);
+		if (sharedFromService != NULL) {
+		    CFStringRef			sharedFromService_bsdName;
+		    SCNetworkInterfaceRef	sharedFromService_interface;
+
+		    sharedFromService_interface = SCNetworkServiceGetInterface(sharedFromService);
+		    sharedFromService_bsdName = SCNetworkInterfaceGetBSDName(sharedFromService_interface);
+		    isShared = _SC_CFEqual(bsdName, sharedFromService_bsdName);
+		    CFRelease(sharedFromService);
+		}
+	    }
+	}
+    }
+
+    if (!keepOpen) {
+	sharingConfigurationClose();
+    }
+
+    return isShared;
+}
+
+#endif	// TARGET_OS_OSX
+
+
+#pragma mark -
 #pragma mark Interface monitoring (e.g. watch for "detach")
 
 
@@ -1673,18 +1784,34 @@ updateWatchedInterface(void *refCon, io_service_t service, natural_t messageType
 #pragma unused(messageArgument)
     switch (messageType) {
 	case kIOMessageServiceIsTerminated : {		// if [watched] interface yanked
-	    SCNetworkInterfaceRef	remove		= NULL;
+	    SCNetworkInterfaceRef	remove;
 	    CFDataRef			watched		= (CFDataRef)refCon;
 	    WatchedInfo			*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
 
 	    remove = watchedInfo->interface;
-	    if (!_SCNetworkInterfaceIsBuiltin(remove) &&
-		_SCNetworkInterfaceIsApplePreconfigured(remove)) {
-		// if not built-in *and* pre-configured, retain for cleanup
-		CFRetain(remove);
-	    } else {
+	    if (_SCNetworkInterfaceIsBuiltin(remove)) {
+		// if built-in, keep
 		remove = NULL;
+	    } else if (!_SCNetworkInterfaceIsApplePreconfigured(remove)) {
+		// if not pre-configured, keep
+		remove = NULL;
+	    } else {
+		// if not built-in *and* pre-configured
+		CFRetain(remove);
 	    }
+
+#if	TARGET_OS_OSX
+	    if (remove != NULL) {
+		CFStringRef	bsdName;
+
+		bsdName = SCNetworkInterfaceGetBSDName(remove);
+		if ((bsdName != NULL) && sharingConfigurationUsesInterface(bsdName, FALSE)) {
+		    // if referenced in the Internet Sharing configuration, keep
+		    CFRelease(remove);
+		    remove = NULL;
+		}
+	    }
+#endif	// TARGET_OS_OSX
 
 	    CFRetain(watched);
 	    watchedInfo->callback(watched, messageType, messageArgument);
@@ -1692,7 +1819,6 @@ updateWatchedInterface(void *refCon, io_service_t service, natural_t messageType
 	    CFRelease(watched);
 
 	    if (remove != NULL) {
-		// if interface is not built-in *and* pre-configured
 		SC_log(LOG_INFO, "Interface released unit %@ (from database)",
 		       _SCNetworkInterfaceGetIOInterfaceUnit(remove));
 		removeInterface(S_dblist, remove, NULL);
@@ -3129,6 +3255,14 @@ removeInactiveInterfaces(void)
 		CFNumberGetValue(vidNum, kCFNumberIntType, &vid) &&
 		(vid == kIOUSBAppleVendorID)) {
 		// if [hidden] Apple interface
+
+#if	TARGET_OS_OSX
+		if (sharingConfigurationUsesInterface(name, TRUE)) {
+		    // do not remove interfaces referenced in the sharing configuration
+		    continue;
+		}
+#endif	// TARGET_OS_OSX
+
 		goto remove;
 	    }
 	}
@@ -3146,6 +3280,10 @@ removeInactiveInterfaces(void)
 	    CFArrayRemoveValueAtIndex(S_prev_active_list, i);
 	}
     }
+
+#if	TARGET_OS_OSX
+    sharingConfigurationClose();
+#endif	// TARGET_OS_OSX
 
     return;
 }
@@ -3858,7 +3996,7 @@ main(int argc, char ** argv)
     CFArrayRef		interfaces_all;
     CFIndex		n;
 
-    _sc_log     = FALSE;
+    _sc_log     = kSCLogDestinationFile;
     _sc_verbose = (argc > 1) ? TRUE : FALSE;
 
     bundle = CFBundleGetMainBundle();
@@ -3908,7 +4046,7 @@ main(int argc, char ** argv)
 int
 main(int argc, char ** argv)
 {
-    _sc_log     = FALSE;
+    _sc_log     = kSCLogDestinationFile;
     _sc_verbose = (argc > 1) ? TRUE : FALSE;
 
     captureBusy();

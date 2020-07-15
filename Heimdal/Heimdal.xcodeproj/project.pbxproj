@@ -530,6 +530,7 @@
 		77EC95322008041C00DD3C2F /* krb5cf-protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 77EC94FE2007FFF000DD3C2F /* krb5cf-protos.h */; };
 		77F2C5E920228A0600209463 /* krb5cf-protos.h in Copy public generated files */ = {isa = PBXBuildFile; fileRef = 77F2C5E8202289E300209463 /* krb5cf-protos.h */; };
 		77FADD351FFC40870046BF01 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 77FADD341FFC407B0046BF01 /* CoreFoundation.framework */; };
+		8C280E6C2464B4BF00B3715C /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB04E8570F3476B2009A5B13 /* Security.framework */; };
 		EB00129F1A2D07D6005B4B09 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB82E91F0F8A680100EE4F4A /* SystemConfiguration.framework */; };
 		EB0012A11A2D0A50005B4B09 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB6B1FB013AC1992001CB8AD /* CoreFoundation.framework */; };
 		EB00F0E2103CC6CA00399574 /* ct.c in Sources */ = {isa = PBXBuildFile; fileRef = EB00F0E1103CC6CA00399574 /* ct.c */; };
@@ -10726,6 +10727,7 @@
 				EB3CC8EB14DE1540008E9787 /* Heimdal.framework in Frameworks */,
 				EBF5DA811372254C00AC16F9 /* IOKit.framework in Frameworks */,
 				EBEBB50C100075AD00CD647B /* libipc-server.a in Frameworks */,
+				8C280E6C2464B4BF00B3715C /* Security.framework in Frameworks */,
 				EBEBB50D100075CA00CD647B /* libbsm.dylib in Frameworks */,
 				EB75B808100079F20009B251 /* libroken-application.a in Frameworks */,
 				EB75B809100079F20009B251 /* libroken.a in Frameworks */,

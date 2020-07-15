@@ -187,6 +187,8 @@
 		8FBFB5420F868C80000B3B9B /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0352AA4E0043263F11CA2A40 /* SystemConfiguration.framework */; };
 		8FBFB54C0F868E4F000B3B9B /* libwebdavlib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8FBFB53C0F868C36000B3B9B /* libwebdavlib.a */; };
 		E23E050C1475FF4C00FA999A /* webdav_agent.sb in Add Sandbox */ = {isa = PBXBuildFile; fileRef = E23E05091475FEF600FA999A /* webdav_agent.sb */; };
+		F93E65BF24644F98007AC6D9 /* webdav_iokit.h in Headers */ = {isa = PBXBuildFile; fileRef = F93E65BD24644F98007AC6D9 /* webdav_iokit.h */; };
+		F93E65C024644F98007AC6D9 /* webdav_iokit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F93E65BE24644F98007AC6D9 /* webdav_iokit.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -409,6 +411,8 @@
 		DD6612FA09C88572009325F2 /* LogMessage.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = LogMessage.c; path = mount.tproj/LogMessage.c; sourceTree = "<group>"; };
 		DD6612FC09C8857E009325F2 /* LogMessage.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = LogMessage.h; path = mount.tproj/LogMessage.h; sourceTree = "<group>"; };
 		E23E05091475FEF600FA999A /* webdav_agent.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = webdav_agent.sb; path = mount.tproj/webdav_agent.sb; sourceTree = "<group>"; };
+		F93E65BD24644F98007AC6D9 /* webdav_iokit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = webdav_iokit.h; sourceTree = "<group>"; };
+		F93E65BE24644F98007AC6D9 /* webdav_iokit.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = webdav_iokit.cpp; sourceTree = "<group>"; };
 		F991F3CB207830EE00FF1521 /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -549,6 +553,7 @@
 			children = (
 				0352AA2E0043263F11CA2A40 /* webdav.h */,
 				5B399C6D0ABB9D3F00AC3F5B /* webdav_utils.h */,
+				F93E65BD24644F98007AC6D9 /* webdav_iokit.h */,
 			);
 			name = Headers;
 			path = webdav_fs.kmodproj;
@@ -561,6 +566,7 @@
 				0352AA300043263F11CA2A40 /* webdav_nodehash.c */,
 				0352AA310043263F11CA2A40 /* webdav_vfsops.c */,
 				0352AA320043263F11CA2A40 /* webdav_vnops.c */,
+				F93E65BE24644F98007AC6D9 /* webdav_iokit.cpp */,
 			);
 			name = Sources;
 			path = webdav_fs.kmodproj;
@@ -737,6 +743,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F93E65BF24644F98007AC6D9 /* webdav_iokit.h in Headers */,
 				72B01E700BC48C5500C182DA /* webdav.h in Headers */,
 				72B01E710BC48C5500C182DA /* webdav_utils.h in Headers */,
 			);
@@ -999,6 +1006,7 @@
 				72B01E740BC48C5500C182DA /* webdav_nodehash.c in Sources */,
 				72B01E750BC48C5500C182DA /* webdav_vfsops.c in Sources */,
 				72B01E760BC48C5500C182DA /* webdav_vnops.c in Sources */,
+				F93E65C024644F98007AC6D9 /* webdav_iokit.cpp in Sources */,
 				72B01E770BC48C5500C182DA /* webdav_utils.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1516,7 +1524,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INFOPLIST_FILE = webdav_cert_ui.tproj/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems/webdav.fs/Contents/Resources";
-				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = (
 					"-framework",
 					Foundation,
@@ -1552,7 +1559,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INFOPLIST_FILE = webdav_cert_ui.tproj/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems/webdav.fs/Contents/Resources";
-				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = (
 					"-framework",
 					Foundation,
@@ -1579,6 +1585,8 @@
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = mount.tproj/webdav_agent.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG = 1;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1633,6 +1641,8 @@
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = mount.tproj/webdav_agent.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1829,12 +1839,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = (
-					"-no-cpp-precomp",
-					"-fprofile-instr-generate",
-					"-fcoverage-mapping",
-					"-fprofile-generate=/Users/Shared/codecoverage/webdavfs/mount_webdav.%p",
-				);
 				OTHER_LDFLAGS = (
 					"-bind_at_load",
 					"-fprofile-instr-generate",
@@ -1953,11 +1957,6 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INFOPLIST_FILE = webdav_cert_ui.tproj/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems/webdav.fs/Contents/Resources";
-				OTHER_CFLAGS = (
-					"-fprofile-instr-generate",
-					"-fcoverage-mapping",
-					"-fprofile-generate=/Users/Shared/codecoverage/webdavfs/webdav_cert_ui.%p",
-				);
 				OTHER_LDFLAGS = (
 					"-framework",
 					Foundation,
@@ -1985,6 +1984,8 @@
 			baseConfigurationReference = 8F096241118A5C2F00C03286 /* webdavfs.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = mount.tproj/webdav_agent.entitlements;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -2005,13 +2006,6 @@
 					"$(SDKROOT)/usr/include/libxml2",
 				);
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/webdav_fs.kext/Contents/Resources";
-				OTHER_CFLAGS = (
-					"-no-cpp-precomp",
-					"-fconstant-cfstrings",
-					"-fprofile-instr-generate",
-					"-fcoverage-mapping",
-					"-fprofile-generate=/Users/Shared/codecoverage/webdavfs/webdavfs_agent.%p",
-				);
 				OTHER_LDFLAGS = (
 					"-bind_at_load",
 					"-lutil",

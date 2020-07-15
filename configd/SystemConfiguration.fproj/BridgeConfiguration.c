@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -249,8 +249,9 @@ SCBridgeInterfaceCopyAll(SCPreferencesRef prefs)
 	if (__SCPreferencesUsingDefaultPrefs(prefs)) {
 		ni_prefs = NULL;
 	} else {
-		ni_prefs = __SCPreferencesCreateNIPrefsFromPrefs(prefs);
+		ni_prefs = SCPreferencesCreateCompanion(prefs, INTERFACES_DEFAULT_CONFIG);
 	}
+
 	context.bridges = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	context.prefs = prefs;
 	context.ni_prefs = ni_prefs;
@@ -261,10 +262,11 @@ SCBridgeInterfaceCopyAll(SCPreferencesRef prefs)
 					kSCPrefVirtualNetworkInterfaces,
 					kSCNetworkInterfaceTypeBridge);
 	dict = SCPreferencesPathGetValue(prefs, path);
+	CFRelease(path);
 	if (isA_CFDictionary(dict)) {
 		my_CFDictionaryApplyFunction(dict, add_configured_interface, &context);
 	}
-	CFRelease(path);
+
 	if (ni_prefs != NULL) {
 		CFRelease(ni_prefs);
 	}

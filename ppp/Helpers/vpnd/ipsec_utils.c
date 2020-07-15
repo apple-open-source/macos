@@ -3705,13 +3705,31 @@ int
 find_injection(CFStringRef str, CFStringRef invalidStr, CFIndex strLen)
 {
     CFRange theRange, searchRange;
+
+	theRange = CFStringFind(str, CFSTR("\""), 0);
+	if (theRange.length != 0) {
+		SCLog(TRUE, LOG_ERR, CFSTR("injection: string contains \" "));
+		return TRUE;
+	}
     
+    theRange = CFStringFind(str, CFSTR(";"), 0);
+    if (theRange.length != 0) {
+        searchRange.location = theRange.location + theRange.length; // start after the string
+        searchRange.length = strLen - searchRange.location;
+		if (CFStringFindWithOptions(str, invalidStr, searchRange, 0, NULL)) {
+			SCLog(TRUE, LOG_ERR, CFSTR("injection: string contains %@"), invalidStr);
+            return TRUE;
+		}
+    }
+
     theRange = CFStringFind(str, invalidStr, 0);
     if (theRange.length != 0) {
         searchRange.location = theRange.location + theRange.length; // start after the string
         searchRange.length = strLen - searchRange.location;
-        if (CFStringFindWithOptions(str, CFSTR(";"), searchRange, 0, NULL))
+		if (CFStringFindWithOptions(str, CFSTR(";"), searchRange, 0, NULL)) {
+			SCLog(TRUE, LOG_ERR, CFSTR("injection: string contains %@"), invalidStr);
             return TRUE;
+		}
     }
     return FALSE;
 }
@@ -3724,7 +3742,7 @@ racoon_validate_cfg_str (char *str_buf)
     
     CFStringRef theString = NULL;
     CFIndex theLength;
-    
+
     theString = CFStringCreateWithCString(NULL, str_buf, kCFStringEncodingUTF8);
     if (theString == NULL)
         goto failed;

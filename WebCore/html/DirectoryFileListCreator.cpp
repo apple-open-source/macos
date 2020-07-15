@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "FileListCreator.h"
+#include "DirectoryFileListCreator.h"
 
 #include "FileChooser.h"
 #include "FileList.h"
@@ -34,9 +34,9 @@
 
 namespace WebCore {
 
-FileListCreator::~FileListCreator()
+DirectoryFileListCreator::~DirectoryFileListCreator()
 {
-    ASSERT(!m_completionHander);
+    ASSERT(!m_completionHandler);
 }
 
 static void appendDirectoryFiles(const String& directory, const String& relativePath, Vector<Ref<File>>& fileObjects)
@@ -57,30 +57,11 @@ static void appendDirectoryFiles(const String& directory, const String& relative
     }
 }
 
-FileListCreator::FileListCreator(const Vector<FileChooserFileInfo>& paths, ShouldResolveDirectories shouldResolveDirectories, CompletionHandler&& completionHandler)
-{
-    if (shouldResolveDirectories == ShouldResolveDirectories::No)
-        completionHandler(createFileList<ShouldResolveDirectories::No>(paths));
-    else {
-        // Resolve directories on a background thread to avoid blocking the main thread.
-        m_completionHander = WTFMove(completionHandler);
-        m_workQueue = WorkQueue::create("FileListCreator Work Queue");
-        m_workQueue->dispatch([this, protectedThis = makeRef(*this), paths = crossThreadCopy(paths)]() mutable {
-            auto fileList = createFileList<ShouldResolveDirectories::Yes>(paths);
-            callOnMainThread([this, protectedThis = WTFMove(protectedThis), fileList = WTFMove(fileList)]() mutable {
-                if (auto completionHander = WTFMove(m_completionHander))
-                    completionHander(WTFMove(fileList));
-            });
-        });
-    }
-}
-
-template<FileListCreator::ShouldResolveDirectories shouldResolveDirectories>
-Ref<FileList> FileListCreator::createFileList(const Vector<FileChooserFileInfo>& paths)
+static Ref<FileList> createFileList(const Vector<FileChooserFileInfo>& paths)
 {
     Vector<Ref<File>> fileObjects;
     for (auto& info : paths) {
-        if (shouldResolveDirectories == ShouldResolveDirectories::Yes && FileSystem::fileIsDirectory(info.path, FileSystem::ShouldFollowSymbolicLinks::No))
+        if (FileSystem::fileIsDirectory(info.path, FileSystem::ShouldFollowSymbolicLinks::No))
             appendDirectoryFiles(info.path, FileSystem::pathGetFileName(info.path), fileObjects);
         else
             fileObjects.append(File::create(info.path, info.displayName));
@@ -88,9 +69,26 @@ Ref<FileList> FileListCreator::createFileList(const Vector<FileChooserFileInfo>&
     return FileList::create(WTFMove(fileObjects));
 }
 
-void FileListCreator::cancel()
+DirectoryFileListCreator::DirectoryFileListCreator(CompletionHandler&& completionHandler)
+    : m_workQueue(WorkQueue::create("DirectoryFileListCreator Work Queue"))
+    , m_completionHandler(WTFMove(completionHandler))
 {
-    m_completionHander = nullptr;
+}
+
+void DirectoryFileListCreator::start(const Vector<FileChooserFileInfo>& paths)
+{
+    // Resolve directories on a background thread to avoid blocking the main thread.
+    m_workQueue->dispatch([this, protectedThis = makeRef(*this), paths = crossThreadCopy(paths)]() mutable {
+        callOnMainThread([this, protectedThis = WTFMove(protectedThis), fileList = createFileList(paths)]() mutable {
+            if (auto completionHandler = std::exchange(m_completionHandler, nullptr))
+                completionHandler(WTFMove(fileList));
+        });
+    });
+}
+
+void DirectoryFileListCreator::cancel()
+{
+    m_completionHandler = nullptr;
     m_workQueue = nullptr;
 }
 

@@ -280,6 +280,7 @@
 		150BEC1A14CA252200237116 /* dnsinfo_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 15B73F0D05FD1B670096477F /* dnsinfo_server.c */; };
 		150D7E1E0D16DC6C00AF4BED /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1520A3DE0846B2DC0010B584 /* Security.framework */; };
 		150EC0FF21016BFD0047F4BF /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1547072E0D1F70C80075C28D /* SystemConfiguration.framework */; };
+		1514055A23EC9F3F0007B23F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1559C4440D349A4E0098FD59 /* SystemConfiguration.framework */; };
 		151D060E1EC14C8600E02E48 /* liblog_SystemConfiguration.m in Sources */ = {isa = PBXBuildFile; fileRef = 151D060D1EC14C6700E02E48 /* liblog_SystemConfiguration.m */; };
 		1520A3870846829A0010B584 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		1520A3DF0846B2DD0010B584 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1520A3DE0846B2DC0010B584 /* Security.framework */; };
@@ -376,6 +377,7 @@
 		1565D85018B847590097062B /* SCNetworkMigration.c in Sources */ = {isa = PBXBuildFile; fileRef = 55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */; };
 		1565D85118B847F20097062B /* SCNetworkMigration.c in Sources */ = {isa = PBXBuildFile; fileRef = 55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */; };
 		156BD6BC07E0DFA9008698FF /* SCPreferencesSetSpecificPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 156BD6BB07E0DFA9008698FF /* SCPreferencesSetSpecificPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		15703B2922320A940018D2EE /* test-objC.m in Sources */ = {isa = PBXBuildFile; fileRef = 72D3E66B1AE6EAF600DB4C69 /* test-objC.m */; };
 		1572AA8D1D8235940021E093 /* plugin_shared.h in Headers */ = {isa = PBXBuildFile; fileRef = 1572AA8B1D8234500021E093 /* plugin_shared.h */; };
 		1572AA8E1D8235A40021E093 /* plugin_shared.h in Headers */ = {isa = PBXBuildFile; fileRef = 1572AA8B1D8234500021E093 /* plugin_shared.h */; };
 		1572AA8F1D82375A0021E093 /* plugin_shared.h in Headers */ = {isa = PBXBuildFile; fileRef = 1572AA8B1D8234500021E093 /* plugin_shared.h */; };
@@ -1902,42 +1904,6 @@
 			name = "Copy Files";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		15E91DBA21893E83001155DC /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		15E91DD221893EE1001155DC /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		15EF89AD21894636003B2C5C /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		15EF89B821894665003B2C5C /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		15FF5C380CDF778F00EEC8AA /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -1968,24 +1934,6 @@
 				7271EA2D1D76600B0055B1AA /* npt_configd.plist in npt_configd.plist */,
 			);
 			name = npt_configd.plist;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		72D3E65C1AE6EA3900DB4C69 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		72D3E6671AE6EAF600DB4C69 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
-			files = (
-			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		F963400F20FE8E4100F1E1F1 /* CopyFiles */ = {
@@ -2736,6 +2684,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				C4666C72206ED01800247AB6 /* EventFactory.framework in Frameworks */,
+				1514055A23EC9F3F0007B23F /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4604,6 +4553,22 @@
 			productReference = 155F49A21C864F5400E47D08 /* QoSMarking.bundle */;
 			productType = "com.apple.product-type.bundle";
 		};
+		15703B2422320A940018D2EE /* SCTest-ObjC-iOSMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 15703B2D22320A940018D2EE /* Build configuration list for PBXNativeTarget "SCTest-ObjC-iOSMac" */;
+			buildPhases = (
+				15703B2722320A940018D2EE /* Flush Module Cache */,
+				15703B2822320A940018D2EE /* Sources */,
+				15703B2A22320A940018D2EE /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "SCTest-ObjC-iOSMac";
+			productName = "SCTest-ObjC";
+			productType = "com.apple.product-type.tool";
+		};
 		1572C4A60CFB55B400E2776E /* SystemConfiguration.framework-Embedded */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1572C5290CFB55B400E2776E /* Build configuration list for PBXNativeTarget "SystemConfiguration.framework-Embedded" */;
@@ -5197,7 +5162,6 @@
 				15E91DB521893E83001155DC /* Flush Module Cache */,
 				15E91DB621893E83001155DC /* Sources */,
 				15E91DB821893E83001155DC /* Frameworks */,
-				15E91DBA21893E83001155DC /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -5213,9 +5177,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 15E91DD321893EE1001155DC /* Build configuration list for PBXNativeTarget "SCTest-Swift-Embedded" */;
 			buildPhases = (
+				15EB93A7243D4AFA0088A86B /* Flush Module Cache */,
 				15E91DCF21893EE1001155DC /* Sources */,
 				15E91DD121893EE1001155DC /* Frameworks */,
-				15E91DD221893EE1001155DC /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -5234,7 +5198,6 @@
 				15EF89A821894636003B2C5C /* Flush Module Cache */,
 				15EF89A921894636003B2C5C /* Sources */,
 				15EF89AB21894636003B2C5C /* Frameworks */,
-				15EF89AD21894636003B2C5C /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -5252,7 +5215,6 @@
 			buildPhases = (
 				15EF89B521894665003B2C5C /* Sources */,
 				15EF89B721894665003B2C5C /* Frameworks */,
-				15EF89B821894665003B2C5C /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -5407,9 +5369,9 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 72D3E6621AE6EA3A00DB4C69 /* Build configuration list for PBXNativeTarget "SCTest-Swift" */;
 			buildPhases = (
+				15EB93A8243D51390088A86B /* Flush Module Cache */,
 				72D3E65A1AE6EA3900DB4C69 /* Sources */,
 				72D3E65B1AE6EA3900DB4C69 /* Frameworks */,
-				72D3E65C1AE6EA3900DB4C69 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -5428,7 +5390,6 @@
 				150EC0FE21016BAA0047F4BF /* Flush Module Cache */,
 				72D3E6651AE6EAF600DB4C69 /* Sources */,
 				72D3E6661AE6EAF600DB4C69 /* Frameworks */,
-				72D3E6671AE6EAF600DB4C69 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -5444,6 +5405,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C4666C77206ED01800247AB6 /* Build configuration list for PBXNativeTarget "SystemConfigurationEventFactory" */;
 			buildPhases = (
+				1553688B24397CC6004735C3 /* Flush Module Cache */,
 				C4666C6D206ED01800247AB6 /* Sources */,
 				C4666C6E206ED01800247AB6 /* Frameworks */,
 			);
@@ -5462,7 +5424,7 @@
 		15CB6A7705C0722B0099E85F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1100;
+				LastUpgradeCheck = 1200;
 				TargetAttributes = {
 					15401C1C21991506006326B7 = {
 						CreatedOnToolsVersion = 11.0;
@@ -5473,6 +5435,7 @@
 					};
 					72D3E65D1AE6EA3900DB4C69 = {
 						CreatedOnToolsVersion = 7.0;
+						LastSwiftMigration = 1140;
 					};
 					72D3E6681AE6EAF600DB4C69 = {
 						CreatedOnToolsVersion = 7.0;
@@ -5569,6 +5532,7 @@
 				72D3E6681AE6EAF600DB4C69 /* SCTest-ObjC */,
 				15E91DB221893E83001155DC /* SCTest-ObjC-Embedded */,
 				15EF89A521894636003B2C5C /* SCTest-ObjC-EmbeddedSimulator */,
+				15703B2422320A940018D2EE /* SCTest-ObjC-iOSMac */,
 				72D3E65D1AE6EA3900DB4C69 /* SCTest-Swift */,
 				15E91DCC21893EE1001155DC /* SCTest-Swift-Embedded */,
 				15EF89B221894665003B2C5C /* SCTest-Swift-EmbeddedSimulator */,
@@ -6099,6 +6063,44 @@
 			shellScript = "${SRCROOT}/update-sanitizer-dylib-references";
 			showEnvVarsInLog = 0;
 		};
+		1553688B24397CC6004735C3 /* Flush Module Cache */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Flush Module Cache";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "rm -rf \"${CLANG_MODULE_CACHE_PATH}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		15703B2722320A940018D2EE /* Flush Module Cache */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Flush Module Cache";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "rm -rf \"${CLANG_MODULE_CACHE_PATH}\"\n";
+			showEnvVarsInLog = 0;
+		};
 		1572C5270CFB55B400E2776E /* get-mobility-info */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -6223,6 +6225,44 @@
 			showEnvVarsInLog = 0;
 		};
 		15E91DB521893E83001155DC /* Flush Module Cache */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Flush Module Cache";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "rm -rf \"${CLANG_MODULE_CACHE_PATH}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		15EB93A7243D4AFA0088A86B /* Flush Module Cache */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Flush Module Cache";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "rm -rf \"${CLANG_MODULE_CACHE_PATH}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		15EB93A8243D51390088A86B /* Flush Module Cache */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -6408,6 +6448,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				155F49A71C86500100E47D08 /* qos-marking.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		15703B2822320A940018D2EE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				15703B2922320A940018D2EE /* test-objC.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -7610,7 +7658,6 @@
 		151F5D9C0CCE98E60093AC3B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
@@ -7626,7 +7673,6 @@
 		151F5D9D0CCE98E60093AC3B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
@@ -7886,21 +7932,9 @@
 					"-lxpc",
 				);
 				"OTHER_LDFLAGS_asan[arch=i386]" = "";
-				"OTHER_LDFLAGS_asan[sdk=iphoneos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_ios_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_iossim_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_osx_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_tvos_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvossimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_tvosossim_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=watchos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_watchos_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=watchsimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_watchossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_osx_dynamic";
 				"OTHER_LDFLAGS_tsan[arch=i386]" = "";
-				"OTHER_LDFLAGS_tsan[sdk=iphoneos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_ios_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_iossim_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=macosx*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_osx_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_tvos_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvossimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_tvosossim_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=watchos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_watchos_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=watchsimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_watchossim_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_osx_dynamic";
 				OTHER_TAPI_FLAGS = "$(inherited) -umbrella System --extra-private-header=$(PROJECT_DIR)/libSystemConfiguration/libSystemConfiguration_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_information_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_config_agent_info_priv.h";
 				PRODUCT_NAME = libsystem_configuration;
 				STRIP_INSTALLED_PRODUCT_asan = NO;
@@ -7945,21 +7979,9 @@
 					"-lxpc",
 				);
 				"OTHER_LDFLAGS_asan[arch=i386]" = "";
-				"OTHER_LDFLAGS_asan[sdk=iphoneos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_ios_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_iossim_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_osx_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_tvos_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvossimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_tvosossim_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=watchos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_watchos_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=watchsimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_watchossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_osx_dynamic";
 				"OTHER_LDFLAGS_tsan[arch=i386]" = "";
-				"OTHER_LDFLAGS_tsan[sdk=iphoneos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_ios_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_iossim_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=macosx*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_osx_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_tvos_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvossimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_tvosossim_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=watchos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_watchos_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=watchsimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_watchossim_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_osx_dynamic";
 				OTHER_TAPI_FLAGS = "$(inherited) -umbrella System --extra-private-header=$(PROJECT_DIR)/libSystemConfiguration/libSystemConfiguration_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_information_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_config_agent_info_priv.h";
 				PRODUCT_NAME = libsystem_configuration;
 				STRIP_INSTALLED_PRODUCT_asan = NO;
@@ -7992,10 +8014,6 @@
 				);
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.modulemap;
 				MODULEMAP_PRIVATE_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.private.modulemap;
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-DSC_LOG_OR_PRINT",
-				);
 				OTHER_CFLAGS_debug = "-O0";
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS -I$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h --verify-api-skip-external-headers";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
@@ -8026,10 +8044,6 @@
 				);
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.modulemap;
 				MODULEMAP_PRIVATE_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.private.modulemap;
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-DSC_LOG_OR_PRINT",
-				);
 				OTHER_CFLAGS_debug = "-O0";
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS -I$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h --verify-api-skip-external-headers";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
@@ -8542,7 +8556,7 @@
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
 				SUPPORTS_TEXT_BASED_API = YES;
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 				TAPI_VERIFY_MODE = Pedantic;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\")))";
@@ -8630,7 +8644,7 @@
 				SUPPORTED_PLATFORMS = macosx;
 				SUPPORTS_TEXT_BASED_API = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 				TAPI_VERIFY_MODE = Pedantic;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\")))";
@@ -8643,6 +8657,44 @@
 					"-Wcast-align",
 					"-Wshorten-64-to-32",
 				);
+			};
+			name = Release;
+		};
+		15703B2E22320A940018D2EE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_MODULES_DISABLE_PRIVATE_WARNING = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-Wnon-modular-include-in-module",
+					"-DUSING_PUBLIC_SDK",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				"SDK_VARIANT[sdk=macosx*]" = iosmac;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+				SUPPORTS_IOSMAC = YES;
+			};
+			name = Debug;
+		};
+		15703B2F22320A940018D2EE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_MODULES_DISABLE_PRIVATE_WARNING = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-Wnon-modular-include-in-module",
+					"-DUSING_PUBLIC_SDK",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
+				"SDK_VARIANT[sdk=macosx*]" = iosmac;
+				SUPPORTED_PLATFORMS = "macosx iphoneos";
+				SUPPORTS_IOSMAC = YES;
 			};
 			name = Release;
 		};
@@ -8665,10 +8717,6 @@
 				);
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.modulemap;
 				MODULEMAP_PRIVATE_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.private.modulemap;
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-DSC_LOG_OR_PRINT",
-				);
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h -DNO_TAPI_WARNINGS";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
@@ -8701,10 +8749,6 @@
 				);
 				MODULEMAP_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.modulemap;
 				MODULEMAP_PRIVATE_FILE = SystemConfiguration.fproj/Modules/SystemConfiguration.private.modulemap;
-				OTHER_CFLAGS = (
-					"$(inherited)",
-					"-DSC_LOG_OR_PRINT",
-				);
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h -DNO_TAPI_WARNINGS";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
@@ -8961,21 +9005,23 @@
 					"-Wl,-upward-lSystem",
 				);
 				"OTHER_LDFLAGS_asan[arch=i386]" = "";
-				"OTHER_LDFLAGS_asan[sdk=iphoneos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_ios_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_iossim_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_osx_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_tvos_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvossimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_tvosossim_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=watchos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_watchos_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=watchsimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_watchossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=bridgeos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_bridgeos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=iphoneos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_ios_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_iossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_osx_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=tvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=tvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=watchos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_watchos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=watchsimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_watchossim_dynamic";
 				"OTHER_LDFLAGS_tsan[arch=i386]" = "";
-				"OTHER_LDFLAGS_tsan[sdk=iphoneos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_ios_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_iossim_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=macosx*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_osx_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_tvos_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvossimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_tvosossim_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=watchos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_watchos_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=watchsimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_watchossim_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=bridgeos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_bridgeos_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=iphoneos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_ios_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_iossim_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_osx_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=tvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvos_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=tvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvossim_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=watchos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_watchos_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=watchsimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_watchossim_dynamic";
 				OTHER_TAPI_FLAGS = "$(inherited) -umbrella System --extra-private-header=$(PROJECT_DIR)/libSystemConfiguration/libSystemConfiguration_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_information_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_config_agent_info_priv.h";
 				PRODUCT_NAME = libsystem_configuration;
 				SDKROOT = iphoneos.internal;
@@ -9015,21 +9061,23 @@
 					"-Wl,-upward-lSystem",
 				);
 				"OTHER_LDFLAGS_asan[arch=i386]" = "";
-				"OTHER_LDFLAGS_asan[sdk=iphoneos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_ios_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_iossim_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_osx_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_tvos_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvossimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_tvosossim_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=watchos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_watchos_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=watchsimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.asan_watchossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=bridgeos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_bridgeos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=iphoneos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_ios_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_iossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_osx_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=tvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=tvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvossim_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=watchos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_watchos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=watchsimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_watchossim_dynamic";
 				"OTHER_LDFLAGS_tsan[arch=i386]" = "";
-				"OTHER_LDFLAGS_tsan[sdk=iphoneos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_ios_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_iossim_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=macosx*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_osx_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_tvos_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvossimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_tvosossim_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=watchos*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_watchos_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=watchsimulator*]" = "$(inherited) -L/usr/local/lib/sanitizers -lclang_rt.tsan_watchossim_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=bridgeos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_bridgeos_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=iphoneos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_ios_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_iossim_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_osx_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=tvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvos_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=tvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvossim_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=watchos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_watchos_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=watchsimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_watchossim_dynamic";
 				OTHER_TAPI_FLAGS = "$(inherited) -umbrella System --extra-private-header=$(PROJECT_DIR)/libSystemConfiguration/libSystemConfiguration_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_information_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_config_agent_info_priv.h";
 				PRODUCT_NAME = libsystem_configuration;
 				SDKROOT = iphoneos.internal;
@@ -9270,7 +9318,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "configd.tproj/entitlements-ios.plist";
-				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -9299,7 +9346,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "configd.tproj/entitlements-ios.plist";
-				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -9494,7 +9540,6 @@
 					"$(inherited)",
 					"-idirafter",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
-					"-DSC_LOG_OR_PRINT",
 				);
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h -DNO_TAPI_WARNINGS";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
@@ -9533,7 +9578,6 @@
 					"$(inherited)",
 					"-idirafter",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
-					"-DSC_LOG_OR_PRINT",
 				);
 				OTHER_TAPI_FLAGS = "$(inherited) -DEXCLUDE_VPN_TUNNEL_PLUGIN_FUNCTIONS --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SystemConfigurationInternal.h --extra-private-header=$(PROJECT_DIR)/SystemConfiguration.fproj/SCDynamicStoreInternal.h -DNO_TAPI_WARNINGS";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
@@ -9929,7 +9973,6 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = "sctest/sctest-entitlements.plist";
-				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/bin;
@@ -9943,7 +9986,6 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = "sctest/sctest-entitlements.plist";
-				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/bin;
@@ -9957,7 +9999,6 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = "sctest/sctest-entitlements.plist";
-				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/bin;
@@ -9973,7 +10014,6 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_ENTITLEMENTS = "sctest/sctest-entitlements.plist";
-				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				HEADER_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
 				INSTALL_PATH = /usr/local/bin;
@@ -10007,6 +10047,7 @@
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-Wnon-modular-include-in-module",
+					"-fmodules-cache-path=$(CLANG_MODULE_CACHE_PATH)",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -10021,6 +10062,7 @@
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-Wnon-modular-include-in-module",
+					"-fmodules-cache-path=$(CLANG_MODULE_CACHE_PATH)",
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -10031,8 +10073,6 @@
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
@@ -10040,7 +10080,6 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DWARF_DSYM_FILE_SHOULD_ACCOMPANY_PRODUCT = YES;
@@ -10048,13 +10087,11 @@
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
 				);
-				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = EventFactory/Info.plist;
 				INSTALL_PATH = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks/EventFactory.framework/PlugIns";
 				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../../../../../";
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.$(TARGET_NAME)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -10067,8 +10104,6 @@
 			buildSettings = {
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
@@ -10076,7 +10111,6 @@
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DWARF_DSYM_FILE_SHOULD_ACCOMPANY_PRODUCT = "";
@@ -10085,13 +10119,11 @@
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 					"$(SDKROOT)$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks",
 				);
-				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				INFOPLIST_FILE = EventFactory/Info.plist;
 				INSTALL_PATH = "$(APPLE_INTERNAL_LIBRARY_DIR)/Frameworks/EventFactory.framework/PlugIns";
 				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../../../../../";
-				MACOSX_DEPLOYMENT_TARGET = 10.14;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.apple.$(TARGET_NAME)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
@@ -10403,6 +10435,15 @@
 			buildConfigurations = (
 				156EB63F0905594A00EEF749 /* Debug */,
 				156EB6400905594A00EEF749 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		15703B2D22320A940018D2EE /* Build configuration list for PBXNativeTarget "SCTest-ObjC-iOSMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				15703B2E22320A940018D2EE /* Debug */,
+				15703B2F22320A940018D2EE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

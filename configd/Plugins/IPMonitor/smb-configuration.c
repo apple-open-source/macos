@@ -888,7 +888,7 @@ main(int argc, char **argv)
 	CFStringRef		serviceID;
 	SCDynamicStoreRef	store;
 
-	_sc_log = FALSE;
+	_sc_log = kSCLogDestinationFile;
 	if ((argc > 1) && (strcmp(argv[1], "-d") == 0)) {
 		_sc_verbose = TRUE;
 		argv++;
@@ -952,7 +952,7 @@ main(int argc, char **argv)
 
 #else	/* DEBUG */
 
-	_sc_log     = FALSE;
+	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 
 	load_smb_configuration((argc > 1) ? TRUE : FALSE);

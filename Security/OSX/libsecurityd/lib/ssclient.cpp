@@ -166,9 +166,7 @@ Port ClientSession::findSecurityd()
 {
 	if (!mContactName)
 	{
-		mContactName = getenv(SECURITYSERVER_BOOTSTRAP_ENV);
-		if (!mContactName)
-			mContactName = SECURITYSERVER_BOOTSTRAP_NAME;
+		mContactName = SECURITYSERVER_BOOTSTRAP_NAME;
 	}
 
     secinfo("SSclnt", "Locating %s", mContactName);

@@ -1756,6 +1756,7 @@ void _setBatteryHealthData(
     CFMutableDictionaryRef  outDict,
     IOPMBattery             *b)
 {
+    CFStringRef             bh, bhc;
     CFMutableArrayRef       permanentFailures = NULL;
 
     // no battery present? no health & confidence then!
@@ -1833,7 +1834,7 @@ void _setBatteryHealthData(
                 batteryHealth = kIOPSPoorValue;
             }
 
-            return;
+            goto exit;
         }
     }
 
@@ -1946,12 +1947,13 @@ void _setBatteryHealthData(
         }
     }
 
-    CFStringRef bh = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, batteryHealth, kCFStringEncodingUTF8, kCFAllocatorNull);
+exit:
+    bh = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, batteryHealth, kCFStringEncodingUTF8, kCFAllocatorNull);
     if (bh) {
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthKey), bh);
         CFRelease(bh);
     }
-    CFStringRef bhc = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, batteryHealthCond, kCFStringEncodingUTF8, kCFAllocatorNull);
+    bhc = CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, batteryHealthCond, kCFStringEncodingUTF8, kCFAllocatorNull);
     if (bhc) {
         CFDictionarySetValue(outDict, CFSTR(kIOPSBatteryHealthConditionKey), bhc);
         CFRelease(bhc);

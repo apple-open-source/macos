@@ -45,6 +45,7 @@ struct heim_icred {
     gid_t gid;
     pid_t pid;
     pid_t session;
+    audit_token_t audit_token;
     /* socket based auth */
     struct sockaddr *client;
     struct sockaddr_storage __clientss;
@@ -85,6 +86,12 @@ heim_ipc_cred_get_session(heim_icred cred)
     return cred->session;
 }
 
+audit_token_t
+heim_ipc_cred_get_audit_token(heim_icred cred)
+{
+    return cred->audit_token;
+}
+
 struct sockaddr *
 heim_ipc_cred_get_client_address(heim_icred cred, krb5_socklen_t *sa_size)
 {
@@ -109,6 +116,16 @@ _heim_ipc_create_cred(uid_t uid, gid_t gid, pid_t pid, pid_t session, heim_icred
     (*cred)->gid = gid;
     (*cred)->pid = pid;
     (*cred)->session = session;
+    return 0;
+}
+
+int
+_heim_ipc_create_cred_with_audit_token(uid_t uid, gid_t gid, pid_t pid, pid_t session, audit_token_t audit_token, heim_icred *cred)
+{
+    int res = _heim_ipc_create_cred(uid, gid, pid, session, cred);
+    if (res == 0) {
+	(*cred)->audit_token = audit_token;
+    }
     return 0;
 }
 

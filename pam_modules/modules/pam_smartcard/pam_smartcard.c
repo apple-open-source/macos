@@ -340,6 +340,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 	retval = (interactive && !no_ignore) ? PAM_IGNORE : PAM_AUTH_ERR;
 	if (keychain_unlocked == FALSE) {
 		for(int i = 0; i < (interactive ? MAX_PIN_RETRY : 1); ++i) {
+            CFReleaseNull(cf_pin);
 			cf_pin = copy_pin(pamh, prompt, &pin); // gets pre-stored password for Authorization / asks user during interactive session
 			if (cf_pin) {
 				if (keychain) {
@@ -349,7 +350,6 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 					// modern smartcard check
 					status = TKPerformLogin(agent_uid, token_id, pub_key_hash, cf_pin, kerberos_principal, &error);
 				}
-				CFRelease(cf_pin);
 				openpam_log(PAM_LOG_DEBUG, "%s - Smartcard verification result %d", PM_DISPLAY_NAME, (int)status);
 				if (status == errSecSuccess) {
 					CFReleaseSafe(error);
@@ -435,6 +435,7 @@ cleanup:
 	CFReleaseSafe(pub_key_hash);
 	CFReleaseSafe(pub_key_hash_wrap);
 	CFReleaseSafe(cf_user);
+    CFReleaseSafe(cf_pin);
 // legacy support block start
 	CFReleaseSafe(keychain);
 	CFReleaseSafe(identity);

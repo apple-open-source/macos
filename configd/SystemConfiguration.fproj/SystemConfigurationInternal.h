@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,6 +44,14 @@ __BEGIN_DECLS
 
 void
 _SCDPluginExecInit		(void);
+
+void
+__SC_Log			(int		level,
+				 CFStringRef	format_CF,
+				 os_log_t	log,
+				 os_log_type_t	type,
+				 const char	*format,
+				 ...)	CF_FORMAT_FUNCTION(2, 6) __attribute__((format(os_log, 5, 6)));
 
 __END_DECLS
 

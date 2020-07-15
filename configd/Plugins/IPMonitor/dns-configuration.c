@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -42,7 +42,7 @@
 #include <arpa/nameser.h>
 #include <resolv.h>
 #include <notify.h>
-extern uint32_t notify_monitor_file(int token, const char *name, int flags);
+#include <notify_private.h>
 #include <CommonCrypto/CommonDigest.h>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -1841,7 +1841,10 @@ dns_configuration_monitor(SCDynamicStoreRef store, SCDynamicStoreCallBack callou
 		return;
 	}
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated"
 	status = notify_monitor_file(notify_token, resolver_directory_path, 0);
+#pragma GCC diagnostic pop
 	if (status != NOTIFY_STATUS_OK) {
 		my_log(LOG_ERR, "notify_monitor_file() failed");
 		(void)notify_cancel(notify_token);
@@ -1997,7 +2000,7 @@ main(int argc, char **argv)
 	SCDynamicStoreRef	store;
 
 	_sc_debug   = TRUE;
-	_sc_log     = FALSE;
+	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("TEST"), NULL, NULL);

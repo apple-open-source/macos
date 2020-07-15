@@ -19,6 +19,14 @@ kcm_access (
 	kcm_operation /*opcode*/,
 	kcm_ccache /*ccache*/);
 
+krb5_error_code
+kcm_principal_access(
+	krb5_context /*context*/,
+	kcm_client */*client*/,
+	krb5_principal server /*server*/,
+	kcm_operation /*opcode*/,
+	kcm_ccache /*ccache*/);
+
 void
 kcm_cache_remove_session (pid_t /*session*/);
 
@@ -56,6 +64,12 @@ kcm_ccache_first_name (kcm_client */*client*/);
 
 const char *
 kcm_client_get_execpath(kcm_client *client);
+
+krb5_boolean
+krb5_has_entitlement(audit_token_t token, CFStringRef entitlement);
+
+krb5_boolean
+krb5_applesigned(krb5_context context, audit_token_t auditToken, const char *identifierToVerify);
 
 krb5_error_code
 kcm_ccache_get_uuids (

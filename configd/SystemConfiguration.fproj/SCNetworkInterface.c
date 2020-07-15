@@ -3455,7 +3455,7 @@ _SCNetworkInterfaceCopyPrefixFromBSDName(CFStringRef bsdName)
 	CFIndex length = 0;
 
 	if (!isA_CFString(bsdName)) {
-		SC_log(LOG_DEBUG, "no BSD name");
+		SC_log(LOG_DEBUG, "No BSD name");
 		goto done;
 	}
 
@@ -3819,7 +3819,7 @@ __SCNetworkInterfaceCreateWithStorageEntity(CFDictionaryRef interface_entity)
 	}
 	bsdName = CFDictionaryGetValue(interface_entity, CFSTR(kSCNetworkInterfaceBSDName));
 	if (!isA_CFString(bsdName)) {
-		SC_log(LOG_INFO, "No BSD name");
+		SC_log(LOG_DEBUG, "No BSD name");
 		goto done;
 	}
 	hidden = CFDictionaryGetValue(interface_entity, kSCNetworkInterfaceHiddenConfigurationKey);
@@ -8451,6 +8451,7 @@ __SCNetworkInterfaceCreateMappingUsingBSDName(CFArrayRef interfaces)
 		SC_log(LOG_INFO, "No interfaces");
 		return NULL;
 	}
+
 	mappingBSDToInterface = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
 	for (CFIndex idx = 0; idx < count; idx++) {
@@ -8458,11 +8459,12 @@ __SCNetworkInterfaceCreateMappingUsingBSDName(CFArrayRef interfaces)
 
 		bsdName = SCNetworkInterfaceGetBSDName(interface);
 		if (!isA_CFString(bsdName)) {
-			SC_log(LOG_INFO, "No BSD name");
+			SC_log(LOG_DEBUG, "No BSD name");
 			continue;
 		}
 		CFDictionaryAddValue(mappingBSDToInterface, bsdName, interface);
 	}
+
 	if (CFDictionaryGetCount(mappingBSDToInterface) == 0) {
 		CFRelease(mappingBSDToInterface);
 		mappingBSDToInterface = NULL;

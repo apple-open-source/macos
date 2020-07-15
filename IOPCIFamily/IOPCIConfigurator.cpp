@@ -1484,6 +1484,9 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 		{
 			if (kPCIHotPlugTunnel == (kPCIHPTypeMask & bridge->supportsHotPlug))
 			{
+				// disable mmio, bus mastering, and I/O space before making changes to the memory ranges
+				uint16_t commandRegister = configRead16(bridge, kIOPCIConfigurationOffsetCommand);
+				configWrite16(bridge, kIOPCIConfigurationOffsetCommand, commandRegister & ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace | kIOPCICommandBusMaster));
 				configWrite32(bridge, kPCI2PCIMemoryRange,         0);
 				configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, 0);
 				configWrite32(bridge, kPCI2PCIPrefetchUpperBase,   0);

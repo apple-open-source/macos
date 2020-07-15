@@ -1607,14 +1607,17 @@ krb5_kcm_get_principal_list(krb5_context context)
 	if (principalStr) {
 	    ret = krb5_ret_int32(response, &asid);
 	    if (ret == HEIM_ERR_EOF) {
+		CFRelease(principalStr);
 		ret = 0;
 		break;
 	    } if (ret) {
+		CFRelease(principalStr);
 		break;
 	    }
 
 	    ret = krb5_ret_int32(response, &endtime);
 	    if (ret) {
+		CFRelease(principalStr);
 		break;
 	    }
 

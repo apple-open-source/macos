@@ -22,6 +22,7 @@
 		<string>27852967: Implement UPLUS operator (awkgram.y, maketab.c, run.c)</string>
 		<string>27852967: Upstream fix for -0 (tran.c)</string>
 		<string>27852967: Modify isclvar to accept var== (lib.c)</string>
+		<string>62615119: Lucent awk tran.c getfval() / get_str_val() Function OFMT/CONVFMT Conversion Buffer Overflow</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Other</string>

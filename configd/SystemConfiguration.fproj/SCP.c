@@ -143,6 +143,24 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 
 
 __private_extern__
+Boolean
+__SCPreferencesIsEmpty(SCPreferencesRef	prefs)
+{
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+
+	assert(prefs != NULL);
+	__SCPreferencesAccess(prefs);
+
+	if ((prefsPrivate->prefs == NULL) ||
+	    (CFDictionaryGetCount(prefsPrivate->prefs) == 0)) {
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+
+__private_extern__
 off_t
 __SCPreferencesPrefsSize(SCPreferencesRef prefs)
 {
@@ -183,21 +201,6 @@ __SCPreferencesUsingDefaultPrefs(SCPreferencesRef prefs)
 		}
 	}
 	return isDefault;
-}
-
-__private_extern__
-SCPreferencesRef
-__SCPreferencesCreateNIPrefsFromPrefs(SCPreferencesRef prefs)
-{
-	SCPreferencesRef	ni_prefs;
-
-	// open [companion] NetworkInterfaces.plist
-	ni_prefs = SCPreferencesCreateCompanion(prefs, INTERFACES_DEFAULT_CONFIG);
-
-	// if needed, populate
-	__SCNetworkPopulateDefaultNIPrefs(ni_prefs);
-
-	return ni_prefs;
 }
 
 CFDataRef

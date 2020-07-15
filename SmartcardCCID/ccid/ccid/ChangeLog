@@ -1,4 +1,689 @@
-commit 743e9a9daf4dd27128eb6be8b13562f0ea695fd5 (HEAD -> master, tag: ccid-1.4.31)
+commit 8f33a2ff60919f579ee17012e91f927491ef70be (HEAD -> master, tag: ccid-1.4.32, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 22 11:14:30 2020 +0200
+
+    ylwrap: updated version
+    
+    Only the Copyright date changed.
+
+ ylwrap | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 6d5c45d826219ded210e0dcf0038ccb632b036a9 (zotac/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 22 11:12:28 2020 +0200
+
+    Release 1.4.32
+
+ README.md    | 41 +++++++++++++++++++++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 42 insertions(+), 1 deletion(-)
+
+commit aa13542bf4c83c8bc08e10db49bbe6549ec2b59d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Apr 20 18:49:54 2020 +0200
+
+    SCARDGETATTRIB.txt: document SCARD_ATTR_CHANNEL_ID
+
+ SCARDGETATTRIB.txt | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+commit ecc9c0d322a66dcaded69b683f23ee1eec06e9b1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 19 16:43:03 2020 +0200
+
+    macOS: fix compiler warning
+    
+    scardcontrol.c:688:40: warning: format specifies type 'long' but the argument
+          has type 'DWORD' (aka 'unsigned int') [-Wformat]
+            printf(" card response [%ld bytes]:", length);
+                                    ~~~           ^~~~~~
+                                    %u
+
+ examples/scardcontrol.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 47746f0bc00c3cdedb1f40ece3996a9a4dde9d2b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 19 16:40:04 2020 +0200
+
+    Fix compiler warning
+    
+    scardcontrol.c:234:8: warning: variable ‘ccid_esc_command’ set but not used [-Wunused-but-set-variable]
+      234 |  DWORD ccid_esc_command = 0;
+          |        ^~~~~~~~~~~~~~~~
+
+ examples/scardcontrol.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+commit b53791685c71ff65919c8dee65fa5a4be3e48172
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 19 16:38:02 2020 +0200
+
+    Fix compiler warning
+    
+    scardcontrol.c:686:27: warning: format ‘%d’ expects argument of type ‘int’, but argument 2 has type ‘DWORD’ {aka ‘long unsigned int’} [-Wformat=]
+      686 |  printf(" card response [%d bytes]:", length);
+          |                          ~^           ~~~~~~
+          |                           |           |
+          |                           int         DWORD {aka long unsigned int}
+          |                          %ld
+
+ examples/scardcontrol.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit ce899b991d5ee7857eb337ef4947ab30f280d3eb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Apr 16 13:52:05 2020 +0200
+
+    Revert back to .device_address instead of .port_number
+    
+    The port number is hard to use. For example when you use a USB hub you
+    can have 2 devices on port 1.
+    The real solution with port is to use libusb_get_port_numbers() to get a
+    list of ports. But we can only return one byte with SCARD_ATTR_CHANNEL_ID.
+    
+    The device address is easy to use. If you know the bus number and
+    device address you can uniquely identify a USB device on GNU/Linux.
+    
+    Example:
+    With SCardGetAttrib.py I get:
+    0x20110 [8, 1, 32, 0] 08 01 20 00 .. .
+     USB: bus: 1, addr: 8
+    
+    $ lsusb -s 1:8
+    Bus 001 Device 008: ID 08e6:3437 Gemalto (was Gemplus) GemPC Twin SmartCard Reader
+
+ src/ccid_usb.c   | 8 +++-----
+ src/ccid_usb.h   | 2 +-
+ src/ifdhandler.c | 2 +-
+ 3 files changed, 5 insertions(+), 7 deletions(-)
+
+commit 9a8eb8bab47d4f96ac679964aa0903b0140cbfd1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 15 11:43:01 2020 +0200
+
+    ccid_usb: No need to make 3 function EXTERNAL
+    
+    EXTERNAL is only for symbols exported and used by pcscd.
+
+ src/ccid_usb.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 0c61799570cf0da69b332a89068b935fd361dee8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 15 11:38:18 2020 +0200
+
+    Minor code reformat
+
+ src/ccid_usb.c | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+commit 5f3c37f63715480b7bba04a81f810b5fc40f43bb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 15 11:35:45 2020 +0200
+
+    Rename get_ccid_usb_device_address() in get_ccid_usb_port_number()
+    
+    What we get is the USB port number so use a correct name for the
+    function.
+
+ src/ccid_usb.c   | 2 +-
+ src/ccid_usb.h   | 2 +-
+ src/ifdhandler.c | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+commit 810b5502b81320132423fa861577c8c9f44bd4b6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 15 11:21:15 2020 +0200
+
+    SCARD_ATTR_CHANNEL_ID: use port number instead of device address
+    
+    The device address field is a number that is increasing after each USB
+    device plug-in. It is NOT related to a physical USB port.
+    
+    It is the Device: number returned by lsusb(1):
+    Bus 001 Device 021: ID 08e6:3437 Gemalto (was Gemplus) GemPC Twin SmartCard Reader
+    
+    The port number is related to a USB physical port and is stable if you
+    unplug and replug a USB device on the same port.
+    
+    According to libusb_get_port_number() API documentation:
+      Get the number of the port that a device is connected to. Unless the
+      OS does something funky, or you are hot-plugging USB extension cards,
+      the port number returned by this call is usually guaranteed to be
+      uniquely tied to a physical port, meaning that different devices
+      plugged on the same physical port should return the same port number.
+    
+      But outside of this, there is no guarantee that the port number
+      returned by this call will remain the same, or even match the order in
+      which ports have been numbered by the HUB/HCD manufacturer.
+
+ src/ccid_usb.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+commit 4c8c809751211d35f4d417e1b086a554a79fd6e6 (github/master, usb)
+Author: Stephan Guilloux (home) <stephan.guilloux@crisalid.com>
+Date:   Tue Apr 14 13:19:45 2020 +0200
+
+    Add #ifdef for TWINSERIAL
+    
+    Newly introduced functions get_ccid_usb_XXX() are not available with
+      ./configure --enable-twinserial.
+
+ src/ifdhandler.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+commit 1b4c6ac5b2bed4e48fb59d4abaa96a1a76fa8161
+Author: Stephan Guilloux (home) <stephan.guilloux@crisalid.com>
+Date:   Mon Apr 13 19:01:30 2020 +0200
+
+    Add SCARD_ATTR_CHANNEL_ID for USB devices.
+
+ src/ccid_usb.c   |  8 ++++++++
+ src/ccid_usb.h   |  3 +++
+ src/ifdhandler.c | 11 +++++++++++
+ 3 files changed, 22 insertions(+)
+
+commit da1673383e7b6c809c7abebdefb6caed0069d314
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Mar 31 14:53:13 2020 +0200
+
+    Add F-Secure Foundry USB Armory Mk II
+
+ readers/F-Secure_Foundry_USB_Armory_Mk_II.txt | 56 +++++++++++++++++++++++++++
+ readers/supported_readers.txt                 |  5 ++-
+ 2 files changed, 60 insertions(+), 1 deletion(-)
+
+commit 745c4efe214c1d3024b9cc62d52a653548c79818
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Mar 24 17:51:18 2020 +0100
+
+    Add Doctolib SR with idProduct: 0xAFD3
+
+ readers/Doctolib-SR-0xAFD3.txt | 57 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 27c89b2136e726b2df7cacd5ab659dcc3b9d28b3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Mar 24 17:50:18 2020 +0100
+
+    Add Doctolib SR with idProduct: 0xAFD2
+
+ readers/Doctolib-SR-0xAFD2.txt | 57 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit a76837fa78a4a1a8bcaed3a181c314e572b9f527
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Mar 24 17:49:09 2020 +0100
+
+    Add Doctolib SR with idProduct: 0xAFD1
+
+ readers/Doctolib-SR-0xAFD1.txt | 57 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 27d9a847f33297125fdac28863818c8a36c4161a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Mar 24 17:47:49 2020 +0100
+
+    Add Doctolib SR with idProduct: 0xAFD0
+
+ readers/Doctolib-SR-0xAFD0.txt | 57 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  5 +++-
+ 2 files changed, 61 insertions(+), 1 deletion(-)
+
+commit 84c1bca67b0cbffe014175a0bcc0cb7dfcc547ac
+Author: Erki Aring <erki@example.ee>
+Date:   Tue Feb 18 22:10:11 2020 +0200
+
+    Disable pinpad for Chicony HP Skylab USB Smartcard Keyboard
+    
+    Chicony HP Skylab Smartcard Keyboard have symptoms similar to other HP
+    keyboards - USB descriptor advertises pinpad support but no pinpad is
+    actually available, causing PIN entry to fail.
+    Disabling pinpad fixes the problem.
+
+ src/ccid.c | 1 +
+ src/ccid.h | 1 +
+ 2 files changed, 2 insertions(+)
+
+commit 36313631b3bb15e7df295c8a73c881916973cce9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 14:08:34 2020 +0100
+
+    Add AF Care Two (idProduct: 0xAFC3)
+
+ readers/AF_Care_Two_AFC3.txt  | 57 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 804df009969a5aa16874ab8346a216b229108a07
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 14:07:38 2020 +0100
+
+    Add AF Care Two (idProduct: 0xAFC2)
+
+ readers/AF_Care_Two_AFC2.txt  | 57 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 7e9f0776f6611100a84d31f466e27b18f9491c36
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 14:06:16 2020 +0100
+
+    Add AF Care One (idProduct: 0xAFC1)
+
+ readers/AF_Care_One_AFC1.txt  | 57 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 0041acca620fbd2a232921dbc87696b79125de72
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 14:05:13 2020 +0100
+
+    Add AF Care One (idProduct: 0xAFC0)
+
+ readers/AF_Care_One_AFC0.txt  | 57 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 +++
+ 2 files changed, 60 insertions(+)
+
+commit 884f806888e012c6c75cbb180328cfcbbb92d6e4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 13:58:56 2020 +0100
+
+    Add SpringCard H518 (idProduct: 0x6122)
+
+ readers/SpringCard_H518_6122.txt | 57 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 11bd5287fbba084f4c91b17e9bfe212d16ccfd61
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 13:57:28 2020 +0100
+
+    Add SpringCard E518 (idProduct: 0x6112)
+
+ readers/SpringCard_E518_6112.txt | 57 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit a02f861f6966963b8e2ba421a55418209565fafa
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 13:56:03 2020 +0100
+
+    Add SpringCard SpringCore (idProduct: 0x6012)
+
+ readers/SpringCard_SpringCore_6012.txt | 57 ++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt          |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit be892726d5f79d22d4ffa50f50464e406ecf90f5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 13:54:31 2020 +0100
+
+    Add SpringCard Puck (dProduct: 0x613A)
+
+ readers/SpringCard_Puck_613A.txt | 57 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 70d62b408e11453ead38dde40b261906102a9b4b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 13:52:02 2020 +0100
+
+    Add SpringCard H518 (idProduct: 0x612A)
+
+ readers/SpringCard_H518_612A.txt | 57 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 9745ce7f73c39022970bace06db1596cf423c964
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 13:43:00 2020 +0100
+
+    Add SpringCard E518 (idProduct: 0x611A)
+
+ readers/SpringCard_E518_611A.txt | 57 ++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt    |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit d49e1a3440da7def1343355e4c1e62b588c741fb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 13:39:08 2020 +0100
+
+    Add SpringCard SpringCore (idProduct: 0x601A)
+
+ readers/SpringCard_SpringCore_601A.txt | 57 ++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt          |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit ebd991f05c1ea2ba55bc431f624c7682c14ca623
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 13:25:43 2020 +0100
+
+    Add Purism, SPC Librem Key
+
+ readers/Purism_Librem_Key.txt | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 +++
+ 2 files changed, 54 insertions(+)
+
+commit 022381bc5c36e8fd2637656fcac131f247fe4745
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Feb 8 13:11:54 2020 +0100
+
+    Add Gemalto RF CR5400
+
+ readers/Gemalto_RF_CR5400.txt | 57 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 ++-
+ 2 files changed, 59 insertions(+), 1 deletion(-)
+
+commit 27607e5e458fe4c6c04aa22bcdc70c5e4ffad55a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 5 15:53:49 2020 +0100
+
+    Add SpringCard Puck
+
+ readers/SpringCard_Puck.txt   | 57 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 58 insertions(+)
+
+commit 302560bc95f227f9e0110663fbffbef10607bf52
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 5 15:52:35 2020 +0100
+
+    Gemalto PC Twin Reader (serial) has its own .txt file
+    
+    So it generates a duplicate with the USB version.
+
+ readers/supported_readers.txt | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit eca4ce4031f716a07256a740694045b317088493
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jan 5 23:45:46 2020 +0100
+
+    Duplicate GemPCTwin.txt as GemPCTwinSerial.txt
+    
+    We can't have the same key in double in an .ini file.
+    So we duplicate the reader with a different name.
+
+ readers/GemPCTwinSerial.txt | 90 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 90 insertions(+)
+
+commit 1ef5c4f3e4380f2b99213ff5ac1d4c2ad640593b
+Merge: 6d11a64 c806579
+Author: Ludovic Rousseau <rousseau@debian.org>
+Date:   Tue Dec 17 15:12:28 2019 +0000
+
+    Merge branch 'master' into 'master'
+    
+    Add Ledger Nano X support
+    
+    See merge request rousseau/CCID!2
+
+commit 6d11a643cc782ffeafc4cf77d6ac3aa26f74ec82
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Dec 17 15:46:41 2019 +0100
+
+    Add support of min & max PIN size for the Omnikey 3821
+    
+    PCSCv2_PART10_PROPERTY_bMinPINSize is 1
+    PCSCv2_PART10_PROPERTY_bMaxPINSize is 31
+    
+    Thanks to Zoltan Kelemen for the patch.
+
+ src/ccid.h       |  1 +
+ src/ifdhandler.c | 14 ++++++++++++++
+ 2 files changed, 15 insertions(+)
+
+commit c80657924666948a8ec3bab11375c8075b4654a3
+Author: Aitor Pazos <mail@aitorpazos.es>
+Date:   Sun Dec 15 23:33:19 2019 +0000
+
+    Add Ledger Nano X support
+
+ readers/Ledger_Nano_X.txt     | 55 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 56 insertions(+)
+
+commit e69d383748b0e9190c53dc761771680bde51ecb9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Dec 14 15:08:18 2019 +0100
+
+    scardcontrol: reverse the byte order of wLangId field
+    
+    The value for "United States" is 0x0409 according to
+    https://docs.microsoft.com/en-us/windows/win32/intl/language-identifier-constants-and-strings
+    and http://www.baiheee.com/Documents/090518/090518112619/USB_LANGIDs.pdf
+    
+    Thanks to Zoltan Kelemen for the bug report.
+
+ examples/scardcontrol.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 0d98b3016f1526a410a68284e9bf49e1a2051ae6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Dec 12 21:39:17 2019 +0100
+
+    Fix a bNumberMessage issue with Cherry KC 1000 SC
+    
+    The reader does not accept the value bNumberMessage = 0x00 and returns
+    an error. The value 0xFF (default CCID message(s)) is accepted so we use
+    it instead.
+    
+    bNumberMessage = 0x00 is used by OpenSC for example because the device
+    is a keyboard and has no screen so no message to display.
+    
+    Thanks to Zoltan Kelemen for the patch.
+
+ src/commands.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+commit 5d2b7ea3c7604c89c6b9e9edee2f62b8f13faab6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Dec 11 15:26:27 2019 +0100
+
+    scardcontrol: add colors for SPE status (green/red)
+    
+    If the PIN verification or modification fails then the error is
+    displayed in red instead of green.
+
+ examples/scardcontrol.c | 31 ++++++++++++++++++++++++-------
+ 1 file changed, 24 insertions(+), 7 deletions(-)
+
+commit 97853ccf4c25cece1e9b135ca5ccf8b571bceff5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Dec 3 21:42:35 2019 +0100
+
+    Add support of min & max PIN size for the Cherry KC 1000 SC
+    
+    PCSCv2_PART10_PROPERTY_bMinPINSize is 0
+    PCSCv2_PART10_PROPERTY_bMaxPINSize is 32
+    
+    Thanks to Zoltan Kelemen for the patch.
+
+ src/ifdhandler.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+commit 437dd1780f2440b75bded71cf1e0c81c424af15a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 27 13:20:45 2019 +0100
+
+    Add Sysking MII136C
+
+ readers/Sysking_MII136C.txt   | 48 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++++-
+ 2 files changed, 52 insertions(+), 1 deletion(-)
+
+commit d5125704189c837a28dfe102c0f28e992ca62596
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Nov 18 18:21:49 2019 +0100
+
+    Add Access IS ATR220
+
+ readers/Access_IS_ATR220.txt  | 53 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  1 +
+ 2 files changed, 54 insertions(+)
+
+commit ce7a6068b062337e2a516bedf2af352b341cf4ec
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Nov 18 18:19:59 2019 +0100
+
+    Add Access IS ATR210
+
+ readers/Access_IS_ATR210.txt  | 53 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  3 ++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit 53289605dfb71e06f888264356c4e383d49f5f8f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Nov 9 17:15:53 2019 +0100
+
+    configure.ac: fix autoreconf(1)
+    
+    Add "foreign" to AM_INIT_AUTOMAKE()
+    It is now possible to use autoreconf(1) without error.
+    
+    The problem was:
+    $ autoreconf
+    Makefile.am: error: required file './README' not found
+    autoreconf: automake failed with exit status: 1
+    
+    Thanks to Zheng Ruoqin for the bug report and Harald Welte for the fix.
+    [Pcsclite-muscle] Bug fix for ccid-1.4.31
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2019-November/001200.html
+
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit eeb97c03bce6852afb9e123ff85eab10d138cca5
+Author: Achmad Yusri Afandi <linuxer08@gmail.com>
+Date:   Tue Oct 8 08:35:33 2019 +0800
+
+    README.md: Update CCID and ICCD specification URLs
+
+ README.md | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit f258ec912661decd536c2ff953898ff05d6f0325
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 7 18:32:48 2019 +0200
+
+    Add SPECINFOSYSTEMS DIAMOND PRO token
+
+ readers/SPECINFOSYSTEMS_DIAMOND_PRO_token.txt | 52 +++++++++++++++++++++++++++
+ readers/supported_readers.txt                 |  1 +
+ 2 files changed, 53 insertions(+)
+
+commit 465812c0de183f2af649185ec89cdca97b4c541d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 7 18:31:22 2019 +0200
+
+    Add SPECINFOSYSTEMS DIAMOND PLUS token
+
+ readers/SPECINFOSYSTEMS_DIAMOND_PLUS_token.txt | 56 ++++++++++++++++++++++++++
+ readers/supported_readers.txt                  |  1 +
+ 2 files changed, 57 insertions(+)
+
+commit b4c08f84c5fc8d8ead0e6c586869d1baba598dfc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 7 18:30:09 2019 +0200
+
+    Add SPECINFOSYSTEMS DIAMOND HSM
+
+ readers/SPECINFOSYSTEMS_DIAMOND_HSM.txt | 54 +++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt           |  3 +-
+ 2 files changed, 56 insertions(+), 1 deletion(-)
+
+commit f4938cd15771c830eaa6c865a10cf84b28652713
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 28 13:42:58 2019 +0200
+
+    Fix "Bus Error" on SPARC64 CPU and Solaris C compiler
+    
+    SPARC64 CPU can't access non-aligned words and generates a Bus Error.
+    The GCC C compiler detect this situation and uses bytes access instead.
+    The Solaris C compiler is not smart enough.
+    
+    The problem is with the PIN_VERIFY_STRUCTURE, PIN_MODIFY_STRUCTURE and
+    PCSC_TLV_STRUCTURE structures.
+    These structures use "#pragma pack(1)" to remove any padding so some
+    fields are NOT aligned.
+    
+    Thanks to Kenjiro Tsuji fro the bug report and initial patch
+    https://salsa.debian.org/rousseau/CCID/issues/7#note_111153
+    "ccid may perform integer access to unaligned address"
+
+ src/commands.c   | 31 ++++++++++++++---------------
+ src/ifdhandler.c | 20 ++++++++++++-------
+ src/utils.c      | 60 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/utils.h      |  6 ++++++
+ 4 files changed, 94 insertions(+), 23 deletions(-)
+
+commit 114af8b5102e34e1b027a813d92ba6a79fac32ca
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 28 13:41:39 2019 +0200
+
+    scardcontrol: remove extra spaces in output
+
+ examples/scardcontrol.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+commit e8445ba124870d912efd54b801a822ab1e33c9ef
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Sep 26 19:02:29 2019 +0200
+
+    Add Cherry GmbH CHERRY SECURE BOARD 1.0
+
+ readers/Cherry_CHERRY_SECURE_BOARD_1.0.txt | 56 ++++++++++++++++++++++++++++++
+ readers/supported_readers.txt              |  3 +-
+ 2 files changed, 58 insertions(+), 1 deletion(-)
+
+commit 46b10d6ac1dbc47fefdc7c3fba7cf845b4b48c26
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Sep 17 18:08:54 2019 +0200
+
+    readers/AU9540.txt: update
+    
+    bcdCCID: changed from 1.00 to 1.10
+
+ readers/AU9540.txt | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 4c11649291616077c9083a035a8b3c7450f12536
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Sep 1 13:04:31 2019 +0200
+
+    ccid_open_hack_pre(): fix bug for ICCD type A & B devices
+    
+    The CmdPowerOn() used a wrong value for voltage selection.
+    
+    Thanks to Coverity:
+    CID 1453380 (#2 of 2): Out-of-bounds access (OVERRUN)
+    6. overrun-call: Overrunning callee's array of size 4 by passing
+    argument 8 in call to CmdPowerOn.
+
+ src/ccid.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit d8eec80534b8f849430b6f4363ae39a67c17642b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 28 14:11:15 2019 +0200
+
+    Identiv uTrust 3700/3701 F and uTrust 4701 are bogus
+    
+    Increase the timeout used to detect the reader.
+    The same patch was already used for the SCM SCL 011 reader from the same
+    manufacturer.
+
+ src/ccid.c | 3 +++
+ src/ccid.h | 3 +++
+ 2 files changed, 6 insertions(+)
+
+commit 743e9a9daf4dd27128eb6be8b13562f0ea695fd5 (tag: ccid-1.4.31)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Aug 10 11:49:32 2019 +0200
 
@@ -9,7 +694,7 @@ Date:   Sat Aug 10 11:49:32 2019 +0200
  Makefile.am | 1 +
  1 file changed, 1 insertion(+)
 
-commit 680d7479c6b9eb02fabc657a727888c35e6fd31d (origin/master, origin/HEAD)
+commit 680d7479c6b9eb02fabc657a727888c35e6fd31d
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Aug 10 11:43:21 2019 +0200
 
@@ -41,7 +726,7 @@ Date:   Sat Aug 10 11:37:36 2019 +0200
  README => README.md | 0
  1 file changed, 0 insertions(+), 0 deletions(-)
 
-commit d66f0fad276cf1210536c7534a2edd56e4f8350c (zotac/master)
+commit d66f0fad276cf1210536c7534a2edd56e4f8350c
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jul 31 17:08:12 2019 +0200
 
@@ -567,7 +1252,7 @@ Date:   Mon Jul 16 20:06:00 2018 +0200
  readers/Fujitsu_Smartcard_Reader_D323.txt | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-commit 6021465a8330021bf4399ee2bd65e4d0bcd6f476 (github/master)
+commit 6021465a8330021bf4399ee2bd65e4d0bcd6f476
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Jul 9 15:53:41 2018 +0200
 

@@ -165,6 +165,9 @@ __SCPreferencesAddSessionKeys		(SCPreferencesRef       prefs);
 Boolean
 __SCPreferencesAddSession		(SCPreferencesRef       prefs);
 
+Boolean
+__SCPreferencesIsEmpty			(SCPreferencesRef	prefs);
+
 void
 __SCPreferencesRemoveSession		(SCPreferencesRef       prefs);
 
@@ -201,9 +204,6 @@ __SCPreferencesSetNetworkConfigurationFlags
 
 Boolean
 __SCPreferencesUsingDefaultPrefs	(SCPreferencesRef	prefs);
-
-SCPreferencesRef
-__SCPreferencesCreateNIPrefsFromPrefs	(SCPreferencesRef prefs);
 
 __END_DECLS
 

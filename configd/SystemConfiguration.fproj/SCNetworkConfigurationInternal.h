@@ -207,8 +207,12 @@ __BEGIN_DECLS
 #pragma mark SCNetworkConfiguration (internal)
 
 
+
 Boolean
-__SCNetworkConfigurationBackup				(SCPreferencesRef		prefs)		SPI_AVAILABLE(macos(10.15.4), ios(13.4), tvos(13.4), watchos(6.2), bridgeos(4.0));
+__SCNetworkConfigurationBackup			(SCPreferencesRef	prefs,
+						 CFStringRef		suffix,
+						 SCPreferencesRef	relativeTo);
+
 
 
 #pragma mark -

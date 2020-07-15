@@ -235,7 +235,7 @@ mheim_do_call(mach_port_t server_port,
 
     audit_token_to_au32(client_creds, NULL, &uid, &gid, NULL, NULL, &pid, &session, NULL);
 
-    kr = _heim_ipc_create_cred(uid, gid, pid, session, &s->cred);
+    kr = _heim_ipc_create_cred_with_audit_token(uid, gid, pid, session, client_creds, &s->cred);
     if (kr) {
 	free(s);
 	return kr;
@@ -286,7 +286,7 @@ mheim_do_call_request(mach_port_t server_port,
 
     audit_token_to_au32(client_creds, NULL, &uid, &gid, NULL, NULL, &pid, &session, NULL);
 
-    kr = _heim_ipc_create_cred(uid, gid, pid, session, &s->cred);
+    kr = _heim_ipc_create_cred_with_audit_token(uid, gid, pid, session, client_creds, &s->cred);
     if (kr) {
 	free(s);
 	return kr;

@@ -49,4 +49,108 @@
     CFReleaseSafe(basicPolicy);
 }
 
+- (void)testNoBasicConstraintsAnchor_UserTrusted {
+    SecCertificateRef leaf = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"InvalidMissingbasicConstraintsTest1EE"
+                                                                                   subdirectory:@"nist-certs"];
+    SecCertificateRef ca = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"MissingbasicConstraintsCACert"
+                                                                                 subdirectory:@"nist-certs"];
+    SecTrustRef trust = NULL;
+    NSArray *certs = @[(__bridge id)leaf, (__bridge id)ca];
+
+    XCTAssertEqual(errSecSuccess, SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, NULL, &trust));
+    NSDate *testDate = CFBridgingRelease(CFDateCreateForGregorianZuluDay(NULL, 2011, 9, 1));
+    XCTAssertEqual(errSecSuccess, SecTrustSetVerifyDate(trust, (__bridge CFDateRef)testDate));
+
+    id persistentRef = [self addTrustSettingsForCert:ca];
+    CFErrorRef error = nil;
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, &error));
+    XCTAssertNotEqual(error, NULL);
+    if (error) {
+        XCTAssertEqual(CFErrorGetCode(error), errSecNoBasicConstraints);
+    }
+
+    [self removeTrustSettingsForCert:ca persistentRef:persistentRef];
+    CFReleaseNull(leaf);
+    CFReleaseNull(ca);
+    CFReleaseNull(error);
+}
+
+- (void)testNoBasicConstraintsAnchor_AppTrusted {
+    SecCertificateRef leaf = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"InvalidMissingbasicConstraintsTest1EE"
+                                                                                   subdirectory:@"nist-certs"];
+    SecCertificateRef ca = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"MissingbasicConstraintsCACert"
+                                                                                 subdirectory:@"nist-certs"];
+    SecTrustRef trust = NULL;
+    NSArray *certs = @[(__bridge id)leaf, (__bridge id)ca];
+    NSArray *anchor = @[(__bridge id)ca];
+
+    XCTAssertEqual(errSecSuccess, SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, NULL, &trust));
+    NSDate *testDate = CFBridgingRelease(CFDateCreateForGregorianZuluDay(NULL, 2011, 9, 1));
+    XCTAssertEqual(errSecSuccess, SecTrustSetVerifyDate(trust, (__bridge CFDateRef)testDate));
+    XCTAssertEqual(errSecSuccess, SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchor));
+
+    CFErrorRef error = nil;
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, &error));
+    XCTAssertNotEqual(error, NULL);
+    if (error) {
+        XCTAssertEqual(CFErrorGetCode(error), errSecNoBasicConstraints);
+    }
+
+    CFReleaseNull(leaf);
+    CFReleaseNull(ca);
+    CFReleaseNull(error);
+}
+
+- (void)testNotCABasicConstraintsAnchor_UserTrusted {
+    SecCertificateRef leaf = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"InvalidcAFalseTest2EE"
+                                                                                   subdirectory:@"nist-certs"];
+    SecCertificateRef ca = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"basicConstraintsCriticalcAFalseCACert"
+                                                                                 subdirectory:@"nist-certs"];
+    SecTrustRef trust = NULL;
+    NSArray *certs = @[(__bridge id)leaf, (__bridge id)ca];
+
+    XCTAssertEqual(errSecSuccess, SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, NULL, &trust));
+    NSDate *testDate = CFBridgingRelease(CFDateCreateForGregorianZuluDay(NULL, 2011, 9, 1));
+    XCTAssertEqual(errSecSuccess, SecTrustSetVerifyDate(trust, (__bridge CFDateRef)testDate));
+
+    id persistentRef = [self addTrustSettingsForCert:ca];
+    CFErrorRef error = nil;
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, &error));
+    XCTAssertNotEqual(error, NULL);
+    if (error) {
+        XCTAssertEqual(CFErrorGetCode(error), errSecNoBasicConstraintsCA);
+    }
+
+    [self removeTrustSettingsForCert:ca persistentRef:persistentRef];
+    CFReleaseNull(leaf);
+    CFReleaseNull(ca);
+    CFReleaseNull(error);
+}
+
+- (void)testNotCABasicConstraintsAnchor_AppTrusted {
+    SecCertificateRef leaf = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"InvalidcAFalseTest2EE"
+                                                                                   subdirectory:@"nist-certs"];
+    SecCertificateRef ca = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"basicConstraintsCriticalcAFalseCACert"
+                                                                                 subdirectory:@"nist-certs"];
+    SecTrustRef trust = NULL;
+    NSArray *certs = @[(__bridge id)leaf, (__bridge id)ca];
+    NSArray *anchor = @[(__bridge id)ca];
+
+    XCTAssertEqual(errSecSuccess, SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, NULL, &trust));
+    NSDate *testDate = CFBridgingRelease(CFDateCreateForGregorianZuluDay(NULL, 2011, 9, 1));
+    XCTAssertEqual(errSecSuccess, SecTrustSetVerifyDate(trust, (__bridge CFDateRef)testDate));
+    XCTAssertEqual(errSecSuccess, SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchor));
+
+    CFErrorRef error = nil;
+    XCTAssertFalse(SecTrustEvaluateWithError(trust, &error));
+    XCTAssertNotEqual(error, NULL);
+    if (error) {
+        XCTAssertEqual(CFErrorGetCode(error), errSecNoBasicConstraintsCA);
+    }
+
+    CFReleaseNull(leaf);
+    CFReleaseNull(ca);
+    CFReleaseNull(error);
+}
+
 @end

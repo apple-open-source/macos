@@ -227,7 +227,8 @@ $(OBJROOT)/$(PROJECT)::
 	sed -e 's/@VERSION@/$(VERSION)/g' \
 	    -e 's/@VERSION_DEFAULT@/$(ENV_PERL_BASE_VERSION)/g' \
 	    -e 's/@VERSION_ALT@/$(ENV_VERSION_ALT)/g' \
-	    fix/README.macosx.ed | ed - $(PROJECT)/README.macosx
+	    fix/README.macosx.ed | ed - $(PROJECT)/README.macosx && \
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/CVE-2020-10543-CVE-2020-12723-CVE-2020-10878.patch)
 
 ifneq "$(RC_XBS)" "YES"
 clean:

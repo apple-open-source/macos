@@ -67,6 +67,64 @@ kcm_access(krb5_context context,
 }
 
 krb5_error_code
+kcm_principal_access(krb5_context context,
+	   kcm_client *client,
+	   krb5_principal server,
+	   kcm_operation opcode,
+	   kcm_ccache ccache)
+{
+    KCM_ASSERT_VALID(ccache);
+    
+    if (!(server->name.name_string.len == 2 &&
+	strcmp(server->name.name_string.val[0], "krb5_ccache_conf_data") == 0 &&
+	strcmp(server->name.name_string.val[1], "password") == 0))
+    {
+	// we arent concerned with it, exit and allow access
+	return 0;
+    }
+    
+    //default to no access
+    krb5_error_code ret = KRB5_FCC_PERM;
+    
+    switch (client->iakerb_access) {
+	case IAKERB_NOT_CHECKED:
+	{
+	    const char* callingApp = kcm_client_get_execpath(client);
+	    kcm_log(1, "kcm_principal_access: calling app: %s", callingApp);
+	    
+	    // we check for either the presence of the entitlement or the approved apps.  The file path is the first filter to avoid the expensive code signature check until needed.
+	    if (krb5_has_entitlement(client->audit_token, CFSTR("com.apple.private.gssapi.iakerb-data-access"))) {
+		kcm_log(1, "kcm_principal_access: has entitlement");
+		client->iakerb_access = IAKERB_ACCESS_GRANTED;
+	    } else if (strcmp(callingApp, "/System/Library/CoreServices/NetAuthAgent.app/Contents/MacOS/NetAuthSysAgent") == 0 &&
+		       krb5_applesigned(context, client->audit_token, "com.apple.NetAuthSysAgent")) {
+		client->iakerb_access = IAKERB_ACCESS_GRANTED;
+	    } else if (strcmp(callingApp, "/usr/sbin/gssd") == 0 &&
+		       krb5_applesigned(context, client->audit_token, "com.apple.gssd")) {
+		client->iakerb_access = IAKERB_ACCESS_GRANTED;
+	    } else {
+		client->iakerb_access = IAKERB_ACCESS_DENIED;
+	    }
+	    
+	    if (client->iakerb_access == IAKERB_ACCESS_GRANTED) {
+		ret = 0;
+	    }
+	    break;
+	}
+	case IAKERB_ACCESS_GRANTED:
+	    ret = 0;
+	    break;
+	    
+	default:
+	    ret = KRB5_FCC_PERM;
+	    break;
+    }
+    
+    kcm_log(1, (ret == 0 ? "kcm_principal_access: access allowed" : "kcm_principal_access: access denied"));
+    return ret;
+}
+
+krb5_error_code
 kcm_chmod(krb5_context context,
 	  kcm_client *client,
 	  kcm_ccache ccache,

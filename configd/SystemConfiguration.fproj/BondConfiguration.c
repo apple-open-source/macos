@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -263,7 +263,7 @@ SCBondInterfaceCopyAll(SCPreferencesRef prefs)
 	if (__SCPreferencesUsingDefaultPrefs(prefs)) {
 		ni_prefs = NULL;
 	} else {
-		ni_prefs = __SCPreferencesCreateNIPrefsFromPrefs(prefs);
+		ni_prefs = SCPreferencesCreateCompanion(prefs, INTERFACES_DEFAULT_CONFIG);
 	}
 
 	context.bonds = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);

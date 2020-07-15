@@ -1389,7 +1389,7 @@ main(int argc, char **argv)
 {
 	MyType *newOne = (MyType *)malloc(sizeof(MyType));
 
-	_sc_log     = FALSE;
+	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 
 	memset(newOne, 0, sizeof(*newOne));

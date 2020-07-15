@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007, 2011, 2013, 2015-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011, 2013, 2015-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -823,7 +823,7 @@ main(int argc, char **argv)
 {
 	SCPreferencesRef	prefs;
 
-	_sc_log     = FALSE;
+	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 
 	prefs = SCPreferencesCreate(NULL, CFSTR("linkconfig"), NULL);

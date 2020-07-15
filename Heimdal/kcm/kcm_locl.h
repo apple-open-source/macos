@@ -118,10 +118,18 @@ typedef struct kcm_ccache_data *kcm_ccache;
 /* Request format is  LENGTH | MAJOR | MINOR | OPERATION | request */
 /* Response format is LENGTH | STATUS | response */
 
+typedef enum {
+    IAKERB_NOT_CHECKED = 0,
+    IAKERB_ACCESS_DENIED = 1,
+    IAKERB_ACCESS_GRANTED = 2
+} iakerb_access_status;
+
 typedef struct kcm_client {
     pid_t pid;
     uid_t uid;
     pid_t session;
+    iakerb_access_status iakerb_access;
+    audit_token_t audit_token;
     char execpath[MAXPATHLEN];
 } kcm_client;
 
@@ -160,6 +168,13 @@ extern const krb5_cc_ops krb5_kcmss_ops;
 #endif
 
 #include <kcm-protos.h>
+
+#if __APPLE__
+#include <sys/codesign.h>
+#include <Security/Security.h>
+#endif
+
+#define CFRELEASE_NULL(x) do { if (x) { CFRelease(x); x = NULL; } } while(0)
 
 #endif /* __KCM_LOCL_H__ */
 

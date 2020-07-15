@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011, 2012, 2014, 2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011, 2012, 2014, 2015, 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -104,7 +104,7 @@ main(int argc, char **argv)
 		switch(opt) {
 			case 'd':
 				_sc_debug = TRUE;
-				_sc_log   = FALSE;	/* enable framework logging */
+				_sc_log   = kSCLogDestinationFile;	/* enable framework logging */
 				break;
 			case 'v':
 				_sc_verbose = TRUE;

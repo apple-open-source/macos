@@ -4918,6 +4918,11 @@ void Internals::setMediaStreamTrackMuted(MediaStreamTrack& track, bool muted)
     track.source().setMuted(muted);
 }
 
+void Internals::removeMediaStreamTrackAndNotify(MediaStream& stream, MediaStreamTrack& track)
+{
+    stream.privateStream().removeTrack(track.privateTrack());
+}
+
 void Internals::removeMediaStreamTrack(MediaStream& stream, MediaStreamTrack& track)
 {
     stream.internalRemoveTrack(track.id(), MediaStream::StreamModifier::Platform);
@@ -4936,6 +4941,16 @@ void Internals::setMediaStreamTrackIdentifier(MediaStreamTrack& track, String&& 
 void Internals::setMediaStreamSourceInterrupted(MediaStreamTrack& track, bool interrupted)
 {
     track.source().setInterruptedForTesting(interrupted);
+}
+
+bool Internals::isMediaStreamSourceInterrupted(MediaStreamTrack& track) const
+{
+    return track.source().interrupted();
+}
+
+bool Internals::isMediaStreamSourceEnded(MediaStreamTrack& track) const
+{
+    return track.source().isEnded();
 }
 
 bool Internals::isMockRealtimeMediaSourceCenterEnabled()

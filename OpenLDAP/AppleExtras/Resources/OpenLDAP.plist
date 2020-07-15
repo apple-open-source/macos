@@ -16,6 +16,7 @@
 			<string>added kqueue</string>
 			<string>added rb tree for responses</string>
 			<string>added SecureTransport</string>
+			<string>backport CVE-2020-12243 (ITS#9202)</string>
 			<string>backport CVE-2019-13565 (ITS#9052)</string>
 			<string>backport CVE-2019-13057 (ITS#9038)</string>
 			<string>backport CVE-2015-1545 (ITS#8027)</string>

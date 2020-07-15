@@ -1221,7 +1221,7 @@ load_QoSMarking(CFBundleRef bundle, Boolean bundleVerbose)
 int
 main(int argc, char **argv)
 {
-	_sc_log     = FALSE;
+	_sc_log     = kSCLogDestinationFile;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
 
 	load_QoSMarking(CFBundleGetMainBundle(), (argc > 1) ? TRUE : FALSE);

@@ -170,4 +170,89 @@ kcm_client_get_execpath(kcm_client *client)
     return client->execpath;
 }
 
+krb5_boolean
+krb5_has_entitlement(audit_token_t token, CFStringRef entitlement)
+{
+    
+    SecTaskRef task = SecTaskCreateWithAuditToken(NULL, token);
+    if (task) {
+        CFErrorRef error = NULL;
+	CFTypeRef hasEntitlement = SecTaskCopyValueForEntitlement(task, entitlement, &error);
+	CFRELEASE_NULL(task);
+	if (hasEntitlement == NULL) {
+	    if (error) {
+		CFStringRef errorDescription = CFErrorCopyFailureReason(error);
+		kcm_log(1, "error retrieving entitlement: %ld, %s", (long)CFErrorGetCode(error), CFStringGetCStringPtr(errorDescription, kCFStringEncodingUTF8));
+		CFRELEASE_NULL(errorDescription);
+		CFRELEASE_NULL(error);
+	    }
+	    return false;
+	}
+	if (CFGetTypeID(hasEntitlement) == CFBooleanGetTypeID() && CFBooleanGetValue(hasEntitlement)) {
+	    CFRELEASE_NULL(hasEntitlement);
+	    return true;
+	} else {
+	    CFRELEASE_NULL(hasEntitlement);
+	    return false;
+	}
 
+    } else {
+	kcm_log(1, "unable to create task for audit token");
+    }
+    return false;
+}
+
+krb5_boolean
+krb5_applesigned(krb5_context context, audit_token_t auditToken, const char *identifierToVerify)
+{
+    bool applesigned = false;
+    OSStatus result = noErr;
+    CFDictionaryRef attributes = NULL;
+    SecCodeRef codeRef = NULL;
+    SecRequirementRef secRequirementRef = NULL;
+    CFStringRef requirement = NULL;
+    
+    requirement = CFStringCreateWithFormat(NULL, NULL, CFSTR("identifier \"%s\" and anchor apple"), identifierToVerify);
+    kcm_log(1, "requirement: %s", CFStringGetCStringPtr(requirement, kCFStringEncodingUTF8));
+    result = SecRequirementCreateWithString(requirement, kSecCSDefaultFlags, &secRequirementRef);
+    if (result || !secRequirementRef) {
+	kcm_log(1, "Error creating requirement %d ", result);
+	applesigned = false;
+	goto cleanup;
+    }
+        
+    const void *keys[] = {
+	kSecGuestAttributeAudit,
+    };
+    const void *values[] = {
+	CFDataCreate(NULL, (const UInt8*)&auditToken, sizeof(auditToken)),
+    };
+    
+    attributes = CFDictionaryCreate(NULL, keys, values, 1,
+						    &kCFTypeDictionaryKeyCallBacks, & kCFTypeDictionaryValueCallBacks);
+    
+    result = SecCodeCopyGuestWithAttributes(NULL, attributes, kSecCSDefaultFlags, &codeRef);
+    if (result || !codeRef) {
+	kcm_log(1, "Error creating code ref: %d ", result);
+	applesigned = false;
+	goto cleanup;
+    }
+    
+    result = SecCodeCheckValidity(codeRef, kSecCSDefaultFlags, secRequirementRef);
+    if (result) {
+	kcm_log(1, "Error checking requirement: %d ", result);
+	applesigned = false;
+	goto cleanup;
+    }
+    
+    applesigned = true;
+    
+cleanup:
+    
+    CFRELEASE_NULL(requirement);
+    CFRELEASE_NULL(secRequirementRef);
+    CFRELEASE_NULL(attributes);
+    CFRELEASE_NULL(codeRef);
+    
+    return applesigned;
+}

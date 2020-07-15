@@ -353,6 +353,12 @@ kcm_op_retrieve(krb5_context context,
 	goto out;
     }
 
+    ret = kcm_principal_access(context, client, mcreds.server, opcode, ccache);
+    if (ret) {
+	krb5_free_cred_contents(context, &mcreds);
+	kcm_release_ccache(context, ccache);
+	goto out;
+    }
     ret = kcm_ccache_retrieve_cred(context, ccache, flags,
 				   &mcreds, &credp);
     if (ret == 0)
@@ -441,6 +447,12 @@ kcm_op_get_cred_uuid_list(krb5_context context,
 	return ret;
 
     for (creds = ccache->creds ; creds ; creds = creds->next) {
+	
+	krb5_error_code accessRet = kcm_principal_access(context, client, creds->cred.server, opcode, ccache);
+	if (accessRet) {
+	    continue;
+	}
+	
 	ssize_t sret;
 	sret = krb5_storage_write(response, &creds->uuid, sizeof(creds->uuid));
 	if (sret != sizeof(creds->uuid)) {
@@ -501,6 +513,12 @@ kcm_op_get_cred_by_uuid(krb5_context context,
 	return KRB5_CC_END;
     }
 
+    ret = kcm_principal_access(context, client, c->cred.server, opcode, ccache);
+    if (ret) {
+	kcm_release_ccache(context, ccache);
+	return KRB5_CC_END;
+    }
+    
     HEIMDAL_MUTEX_lock(&ccache->mutex);
     ret = krb5_store_creds(response, &c->cred);
     HEIMDAL_MUTEX_unlock(&ccache->mutex);

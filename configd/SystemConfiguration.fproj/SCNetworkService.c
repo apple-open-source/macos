@@ -2442,7 +2442,7 @@ __SCNetworkServiceMigrateNew(SCPreferencesRef		prefs,
 			if (targetDeviceName != NULL) {
 				// update mapping
 				CFDictionarySetValue(interfaceEntityMutable, kSCPropNetInterfaceDeviceName, targetDeviceName);
-				ni_prefs = __SCPreferencesCreateNIPrefsFromPrefs(prefs);
+				ni_prefs = SCPreferencesCreateCompanion(prefs, INTERFACES_DEFAULT_CONFIG);
 				ni_interface = __SCNetworkInterfaceCreateWithNIPreferencesUsingBSDName(NULL, ni_prefs, targetDeviceName);
 				if (ni_interface != NULL) {
 					userDefinedNameInterface = __SCNetworkInterfaceGetUserDefinedName(ni_interface);

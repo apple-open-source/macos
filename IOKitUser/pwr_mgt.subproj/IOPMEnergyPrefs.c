@@ -65,7 +65,7 @@ typedef struct {
 
 PMSettingDescriptorStruct defaultSettings[] =
 {   /* Setting Name                                 AC - Battery - UPS */
-    {kIOPMAutoPowerOffDelayKey,                     28800,   0,  0},
+    {kIOPMAutoPowerOffDelayKey,                    259200,   0,  0},
     {kIOPMAutoPowerOffEnabledKey,                       0,   0,  0},
     {kIOPMDarkWakeBackgroundTaskKey,                    1,   0,  0},
     {kIOPMDeepSleepEnabledKey,                          0,   0,  0},

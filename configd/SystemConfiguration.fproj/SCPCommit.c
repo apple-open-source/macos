@@ -177,7 +177,7 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 	/*
 	 * check if the preferences should be removed
 	 */
-	if (CFDictionaryGetCount(prefsPrivate->prefs) == 0) {
+	if (__SCPreferencesIsEmpty(prefs)) {
 		CFBooleanRef	val;
 
 		/* if empty */

@@ -42,14 +42,7 @@ typedef std::list<EventPointer> EventListenerList;
 
 static const char* GetNotificationName ()
 {
-	// the name we give the client depends on the value of the environment variable "SECURITYSERVER"
-	const char* name = getenv (SECURITYSERVER_BOOTSTRAP_ENV);
-	if (name == NULL)
-	{
-		name = SharedMemoryCommon::kDefaultSecurityMessagesName;
-	}
-	
-	return name;
+	return SharedMemoryCommon::kDefaultSecurityMessagesName;
 }
 
 

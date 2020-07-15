@@ -38,6 +38,7 @@
 
 #include <krb5-types.h>
 #include <asn1-common.h>
+#include <bsm/libbsm.h>
 
 typedef struct heim_ipc *heim_ipc;
 typedef struct heim_sipc *heim_sipc;
@@ -62,6 +63,9 @@ heim_ipc_cred_get_pid(heim_icred);
 
 pid_t
 heim_ipc_cred_get_session(heim_icred);
+
+audit_token_t
+heim_ipc_cred_get_audit_token(heim_icred);
 
 struct sockaddr *
 heim_ipc_cred_get_client_address(heim_icred cred, krb5_socklen_t *sa_size);

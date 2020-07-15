@@ -28,6 +28,7 @@
 		<string>CVE-2018-6913 37828808</string>
 		<string>util.c: CVE-2018-18311 45830462</string>
 		<string>CVE-2018-12015 45830482</string>
+		<string>CVE-2020-10543 CVE-2020-10878 CVE-2020-12723 63368635</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Artistic</string>
